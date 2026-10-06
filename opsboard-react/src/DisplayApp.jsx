@@ -20,6 +20,7 @@ import VoiceReadout from './components/VoiceReadout';
 
 import { WALL_FONT, applyWallFont } from './theme/wallFont';
 import { WallDisplayProvider } from './theme/WallDisplayContext';
+import { windowCheckLine } from './services/windowCheck';
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
 // screen's real rendering environment without devtools. The same values are
 // reported to /api/display/env either way (visible on console Settings).
@@ -101,6 +102,8 @@ export default function DisplayApp() {
   const [windowStartUtc, setWindowStartUtc] = useState('');
   const [windowEndUtc, setWindowEndUtc] = useState('');
   const [error, setError] = useState('');
+  // Flight-count check line (bug report 7 follow-up item 2): shown only when it is a warning or an error.
+  const [countLine, setCountLine] = useState(null);
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [limitations, setLimitations] = useState([]);
   const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
@@ -154,6 +157,7 @@ export default function DisplayApp() {
       setWindowStartUtc(result.windowStartUtc || '');
       setWindowEndUtc(result.windowEndUtc || '');
       setLimitations(result.limitations || []);
+      setCountLine(windowCheckLine(result.windowCheck, { received: result.receivedFlights, drawn: result.drawnFlights }));
       setError('');
       setDataUpdatedAt(Date.now());
     } catch (err) {
@@ -343,6 +347,9 @@ export default function DisplayApp() {
       {debugViewport && <ViewportDebug />}
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}
+      {countLine && countLine.level !== 'ok' && (
+        <div data-count-line={countLine.level} style={{ ...s.countLine, ...(countLine.level === 'error' ? s.countLineError : s.countLineWarn) }}>{countLine.text}</div>
+      )}
     </div>
     ) : (
     <ResponsiveWall
@@ -390,4 +397,20 @@ const s = {
     maxWidth: 420,
   },
   noticeError: { color: '#ef9a9a', borderColor: 'rgba(239,106,106,.35)' },
+  // Read from across the room: larger than the corner notices, bottom-left so it never covers the now-line labels.
+  countLine: {
+    position: 'fixed',
+    left: 12,
+    bottom: 10,
+    zIndex: 210,
+    maxWidth: '62vw',
+    fontSize: 16,
+    fontWeight: 700,
+    lineHeight: 1.3,
+    borderRadius: 6,
+    padding: '6px 12px',
+    border: '2px solid',
+  },
+  countLineError: { color: '#fff', background: 'rgba(150,28,28,.94)', borderColor: '#ef6a6a' },
+  countLineWarn: { color: '#1a1300', background: 'rgba(240,180,40,.95)', borderColor: '#ffd36a' },
 };

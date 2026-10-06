@@ -295,6 +295,10 @@ export async function fetchTimelineAircraft({ refresh = true } = {}) {
 
   const aircraft = (payload.aircraft || []).map(mapAircraft).filter(Boolean);
   return {
+    // Flight-count check (bug report 7 follow-up item 2): what the server counted, and what reached the wall.
+    windowCheck: payload.windowCheck ?? null,
+    receivedFlights: Number.isFinite(payload.totalFlights) ? payload.totalFlights : null,
+    drawnFlights: aircraft.reduce((n, a) => n + a.flights.length, 0),
     source: payload.source || 'unknown',
     totalAircraft: aircraft.length,
     aircraft,

@@ -9,7 +9,8 @@
 //   - the bar's start/end instants and label text per flight (EET cases), and the unconfirmed ring per flight.
 //
 //   node tools/wall-verify.mjs --base http://localhost:5190 --set r7|busy|default [--settings '{"chipCaa":false}']
-//        [--viewport 1920x1080] [--dpr 1] [--out dir] [--name shot]
+//        [--viewport 1920x1080] [--dpr 1] [--out dir] [--name shot] [--payload '{"windowCheck":{…}}']
+// --payload merges into the /api/timeline/flights response (e.g. a flight-count disagreement for the status line).
 // Prints one JSON line of results; writes <out>/<name>.png and <out>/<name>.json.
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -25,10 +26,12 @@ const [VW, VH] = arg("viewport", "1920x1080").split("x").map(Number);
 const DPR = Number(arg("dpr", "1"));
 const OUT = path.resolve(arg("out", "verify-out"));
 const NAME = arg("name", `${SET}`);
+const PAYLOAD = JSON.parse(arg("payload", "{}"));
 
 mkdirSync(OUT, { recursive: true });
 const fixtures = SET === "default" ? (() => { const f = buildFixtures(); f["/api/display/settings"].settings = { ...f["/api/display/settings"].settings, ...SETTINGS }; return f; })()
   : buildR7Fixtures({ busy: SET === "busy", settings: SETTINGS });
+fixtures["/api/timeline/flights"] = { ...fixtures["/api/timeline/flights"], ...PAYLOAD };
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: DPR, reducedMotion: "reduce" });
 await ctx.route("**://fonts.googleapis.com/**", (r) => r.abort());
@@ -81,7 +84,9 @@ const result = await page.evaluate((dpr) => {
     timeLabel = { text: tl.textContent.trim(), fontFamily: cs.fontFamily.split(",")[0], fontSizeCss: parseFloat(cs.fontSize), fontSizeDevice: Math.round(parseFloat(cs.fontSize) * dpr * 100) / 100, lineBoxDevice: Math.round(rr.height * dpr * 100) / 100, glyphRunHeightDevice: Math.round(gr.height * dpr * 100) / 100 };
   }
   const hfit = document.querySelector("[data-hfit]")?.dataset.hfit;
-  return { pxPerHour, ticks: ticks.length, pills, fullyVisibleCount: pills.filter((p) => p.fullyVisible).length, totalPills: pills.length, maxAbsDeltaPx: Math.max(0, ...pills.filter((p) => p.deltaPx != null).map((p) => Math.abs(p.deltaPx))), timeLabel, hfit: hfit ? JSON.parse(hfit) : null, devicePixelRatio: window.devicePixelRatio, inner: [innerWidth, innerHeight] };
+  const countEl = document.querySelector("[data-count-line]");
+  const countLine = countEl ? { level: countEl.dataset.countLine, text: countEl.textContent, fontSizeCss: parseFloat(getComputedStyle(countEl).fontSize) } : null;
+  return { pxPerHour, ticks: ticks.length, pills, fullyVisibleCount: pills.filter((p) => p.fullyVisible).length, totalPills: pills.length, maxAbsDeltaPx: Math.max(0, ...pills.filter((p) => p.deltaPx != null).map((p) => Math.abs(p.deltaPx))), timeLabel, countLine, hfit: hfit ? JSON.parse(hfit) : null, devicePixelRatio: window.devicePixelRatio, inner: [innerWidth, innerHeight] };
 }, DPR);
 await page.screenshot({ path: path.join(OUT, `${NAME}.png`) });
 writeFileSync(path.join(OUT, `${NAME}.json`), JSON.stringify(result, null, 1));

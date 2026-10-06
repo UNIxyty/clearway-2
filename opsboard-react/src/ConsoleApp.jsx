@@ -31,6 +31,7 @@ import {
   fetchTimelineRaw,
 } from './services/timelineApi';
 import { subscribeWallStream } from './services/wallStream';
+import { windowCheckLine, windowRepairLine } from './services/windowCheck';
 
 // Brand assets — dropped into opsboard-react/public/assets/ (SVG, crisp on
 // retina). Until the files exist, the components fall back to text.
@@ -372,6 +373,10 @@ export default function ConsoleApp({ page, navigate }) {
   }, [overlay.open, wallFlight]);
 
   const healthy = sync ? sync.healthy !== false : null;
+  // Second dot + line: the flight-count check (bug report 7 follow-up item 2).
+  const countLine = windowCheckLine(sync?.windowCheck ?? null);
+  const repairLine = windowRepairLine(sync?.windowCheck ?? null);
+  const countDot = !countLine ? t.border : countLine.level === 'error' ? t.red : countLine.level === 'warn' ? (t.amber ?? t.red) : t.green;
 
   // What the rail actually renders at: tablet landscape overrides the
   // persisted preference (default collapsed), ≥1280 is exactly the pref —
@@ -679,7 +684,7 @@ export default function ConsoleApp({ page, navigate }) {
                     Sync status
                     <span style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: healthy === null ? t.border : healthy ? t.green : t.red }} />
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.border }} />
+                      <span title="Flight count check (Leon vs wall)" style={{ width: 8, height: 8, borderRadius: '50%', background: countDot }} />
                     </span>
                   </div>
                   <div style={{ fontSize: 11.5, lineHeight: 1.45, color: t.faint }}>
@@ -689,6 +694,8 @@ export default function ConsoleApp({ page, navigate }) {
                         : `Sync error · ${sync.lastError || 'see Operators page'}`
                       : 'Checking sync status…'}
                   </div>
+                  {countLine && <div style={{ fontSize: 11.5, lineHeight: 1.45, marginTop: 4, color: countLine.level === 'error' ? t.red : countLine.level === 'warn' ? t.amber ?? t.red : t.faint, fontWeight: countLine.level === 'ok' ? 400 : 700 }}>{countLine.text}</div>}
+                  {repairLine && <div style={{ fontSize: 11, lineHeight: 1.4, marginTop: 3, color: t.faint }}>{repairLine}</div>}
                 </div>
                 {/* User badge pinned at the bottom — exactly the desktop badge. */}
                 <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 10, flex: 'none' }}>
@@ -883,7 +890,7 @@ export default function ConsoleApp({ page, navigate }) {
                   Sync status
                   <span style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: healthy === null ? t.border : healthy ? t.green : t.red }} />
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.border }} />
+                    <span title="Flight count check (Leon vs wall)" style={{ width: 8, height: 8, borderRadius: '50%', background: countDot }} />
                   </span>
                 </div>
                 <div style={{ fontSize: 11.5, lineHeight: 1.45, color: t.faint }}>
@@ -893,6 +900,8 @@ export default function ConsoleApp({ page, navigate }) {
                       : `Sync error · ${sync.lastError || 'see Operators page'}`
                     : 'Checking sync status…'}
                 </div>
+                {countLine && <div style={{ fontSize: 11.5, lineHeight: 1.45, marginTop: 4, color: countLine.level === 'error' ? t.red : countLine.level === 'warn' ? t.amber ?? t.red : t.faint, fontWeight: countLine.level === 'ok' ? 400 : 700 }}>{countLine.text}</div>}
+                {repairLine && <div style={{ fontSize: 11, lineHeight: 1.4, marginTop: 3, color: t.faint }}>{repairLine}</div>}
               </div>
             )}
             {agent.available && <AgentNavRow collapsed={collapsed} open={agent.open} onClick={agent.toggle} keycap={agent.keycap} />}

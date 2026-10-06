@@ -617,8 +617,13 @@ function VerticalSizingCard() {
 function HorizontalSizingCard() {
   const { deviceId } = useContext(DeviceCtx);
   const DEFAULTS = { callsignScale: 1, routeScale: 1, chipSpacing: 1, minPillMinutes: 45, pillPadding: 1, laneGap: 1 };
+  const FLOOR_DEFAULTS = { floorTextPx: 10, floorGapPx: 3 };
   const [values, setValues] = useState(DEFAULTS);
   const [autoFit, setAutoFit] = useState(false);
+  // Minimums (bug report 7 follow-up item 3): real panel pixels, provisional until checked at the wall.
+  const [floors, setFloors] = useState(FLOOR_DEFAULTS);
+  const [check, setCheck] = useState({ floorsDistanceM: null, floorsCheckedAt: null });
+  const [distance, setDistance] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const timerRef = useRef(null);
@@ -633,6 +638,12 @@ function HorizontalSizingCard() {
           return next;
         });
         setAutoFit(payload.settings?.autoFitHorizontal === true);
+        setFloors({
+          floorTextPx: Number.isFinite(payload.settings?.floorTextPx) ? payload.settings.floorTextPx : FLOOR_DEFAULTS.floorTextPx,
+          floorGapPx: Number.isFinite(payload.settings?.floorGapPx) ? payload.settings.floorGapPx : FLOOR_DEFAULTS.floorGapPx,
+        });
+        setCheck({ floorsDistanceM: payload.settings?.floorsDistanceM ?? null, floorsCheckedAt: payload.settings?.floorsCheckedAt ?? null });
+        if (payload.settings?.floorsDistanceM) setDistance(String(payload.settings.floorsDistanceM));
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoaded(true));
@@ -652,13 +663,35 @@ function HorizontalSizingCard() {
   }
 
   const rows = [
-    { key: 'callsignScale', label: 'Callsign size', hint: 'the flight number in front of the pill (floor 7 px)', min: 0.5, max: 1.5, step: 0.05, unit: '×' },
-    { key: 'routeScale', label: 'Route & time size', hint: 'the route/times line under the pill (floor 7 px)', min: 0.5, max: 1.5, step: 0.05, unit: '×' },
-    { key: 'chipSpacing', label: 'Chip spacing', hint: 'gap between chips, and from the pill (floor 1 px); chip size is Marker size', min: 0.25, max: 2, step: 0.05, unit: '×' },
-    { key: 'minPillMinutes', label: 'Minimum pill length', hint: 'space a short flight reserves on its lane (floor: the pill’s own height)', min: 5, max: 45, step: 5, unit: 'min' },
-    { key: 'pillPadding', label: 'Pill padding', hint: 'space inside the pill around the airport codes (floor 2 px)', min: 0.2, max: 2, step: 0.05, unit: '×' },
-    { key: 'laneGap', label: 'Gap to next flight', hint: 'from a pill’s end to the next callsign in its lane (floor 2 px)', min: 0.15, max: 2, step: 0.05, unit: '×' },
+    { key: 'callsignScale', label: 'Callsign size', hint: 'the flight number in front of the pill (stops at the text minimum)', min: 0.5, max: 1.5, step: 0.05, unit: '×' },
+    { key: 'routeScale', label: 'Route & time size', hint: 'the route/times line under the pill (stops at the text minimum)', min: 0.5, max: 1.5, step: 0.05, unit: '×' },
+    { key: 'chipSpacing', label: 'Chip spacing', hint: 'gap between chips, and from the pill (stops at the spacing minimum); chip size is Marker size', min: 0.25, max: 2, step: 0.05, unit: '×' },
+    { key: 'minPillMinutes', label: 'Minimum pill length', hint: 'space a short flight reserves on its lane (never shorter than the pill is tall)', min: 5, max: 45, step: 5, unit: 'min' },
+    { key: 'pillPadding', label: 'Pill padding', hint: 'space inside the pill around the airport codes (stops at the spacing minimum)', min: 0.2, max: 2, step: 0.05, unit: '×' },
+    { key: 'laneGap', label: 'Gap to next flight', hint: 'from a pill’s end to the next callsign in its lane (stops at the spacing minimum)', min: 0.15, max: 2, step: 0.05, unit: '×' },
   ];
+
+  function onFloor(key, label, next) {
+    setFloors((prev) => ({ ...prev, [key]: next }));
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        await saveDisplaySettings({ [key]: next }, deviceId);
+        flash(`${label} ${next} px — wall updates in seconds`);
+      } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    }, 500);
+  }
+  async function recordCheck() {
+    const metres = Number(String(distance).replace(',', '.'));
+    if (!Number.isFinite(metres) || metres < 0.5 || metres > 40) { setError('Enter the viewing distance in metres (0.5 – 40).'); return; }
+    const at = new Date().toISOString();
+    try {
+      await saveDisplaySettings({ floorsDistanceM: metres, floorsCheckedAt: at, ...floors }, deviceId);
+      setCheck({ floorsDistanceM: metres, floorsCheckedAt: at });
+      setError('');
+      flash(`Minimums recorded: text ${floors.floorTextPx} px, spacing ${floors.floorGapPx} px, read from ${metres} m`);
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+  }
 
   return (
     <Card style={{ marginBottom: 22 }}>
@@ -711,6 +744,26 @@ function HorizontalSizingCard() {
           onChange={(next) => onChange(row.key, row.label, next, row.unit)}
         />
       ))}
+      <div style={{ marginTop: 8, paddingTop: 14, borderTop: `1px solid ${t.borderInner}` }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Minimums</div>
+        <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5, margin: '2px 0 10px' }}>
+          How small the sliders above (and Auto-fit) may make text and gaps, in real panel pixels — the same on a wall at
+          90 % or 100 % browser zoom. They only stop shrinking; they never enlarge what the wall shows at 1×.
+        </div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 12, padding: '8px 12px', borderRadius: 9, background: check.floorsCheckedAt ? t.greenTint : t.amberTint, color: check.floorsCheckedAt ? t.greenDeep : t.amber }}>
+          {check.floorsCheckedAt
+            ? `Checked at the wall on ${String(check.floorsCheckedAt).slice(0, 10)}, read from ${check.floorsDistanceM} m.`
+            : 'Provisional — not yet checked at the wall. To set them: stand where ops normally read the wall, drag every slider above to its left end, and read one callsign, one route and one time aloud. If any is hard to read, raise the minimum here until all three are easy. Then enter the distance and press Record.'}
+        </div>
+        <WindowRow label="Text minimum" hint="callsign and route / time text" min={6} max={24} step={0.5} unit=" px" value={floors.floorTextPx} defaultValue={FLOOR_DEFAULTS.floorTextPx} loaded={loaded} onChange={(next) => onFloor('floorTextPx', 'Text minimum', next)} />
+        <WindowRow label="Spacing minimum" hint="chip gaps, pill padding, gap to the next flight" min={1} max={12} step={0.5} unit=" px" value={floors.floorGapPx} defaultValue={FLOOR_DEFAULTS.floorGapPx} loaded={loaded} onChange={(next) => onFloor('floorGapPx', 'Spacing minimum', next)} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 13.5, fontWeight: 600 }} htmlFor="floors-distance">Viewing distance</label>
+          <input id="floors-distance" type="text" inputMode="decimal" value={distance} disabled={!loaded} onChange={(e) => setDistance(e.target.value)} placeholder="e.g. 4.5" style={{ width: 80, height: 34, padding: '0 10px', borderRadius: 8, border: `1px solid ${t.border}`, fontSize: 14 }} />
+          <span style={{ fontSize: 13, color: t.faint }}>m</span>
+          <Button size="sm" variant="primary" disabled={!loaded || !distance} onClick={recordCheck}>Record wall check</Button>
+        </div>
+      </div>
     </Card>
   );
 }

@@ -118,9 +118,13 @@ export function pillVerticalMetrics(scale, rowZoom = 1, opts = {}) {
   const routeScale = Number.isFinite(opts.routeScale) ? opts.routeScale : 1;
   const sz = (v) => Math.round(v * scale);
   const vz = (v, floor) => Math.max(floor, Math.round(v * scale * rowZoom));
-  const id = Math.max(7, Math.round(12.5 * scale * labelScale * callsignScale));
+  // The horizontal text knobs shrink only down to the wall's text minimum (device px, see wallFloorsCss); a text
+  // already below it at knob 1 is left as it is — the knobs never ENLARGE text below 1.
+  const { textCss } = wallFloorsCss(opts);
+  const shrink = (base, k) => (k >= 1 ? Math.round(base * k) : Math.max(Math.round(base * k), Math.min(Math.round(base), textCss)));
+  const id = Math.max(7, shrink(12.5 * scale * labelScale, callsignScale));
   const icao = Math.max(7, Math.round(12 * scale * labelScale));
-  const times = Math.max(7, Math.round(11 * scale * labelScale * routeScale));
+  const times = Math.max(7, shrink(11 * scale * labelScale, routeScale));
   const markerH = Math.max(10, Math.round(16 * scale * markerScale));
   const body = Math.max(icao + sz(4), Math.round(30 * scale * rowZoom * pillHeight));
   // Old-DigitalWall layout: the callsign (+ LIM circles) sits IN FRONT of
@@ -135,25 +139,50 @@ export function pillVerticalMetrics(scale, rowZoom = 1, opts = {}) {
 }
 
 /**
+ * The wall's minimums for the horizontal knobs (bug report 7 follow-up item 3), stored per account in REAL PANEL
+ * pixels — floorTextPx for the callsign and route/time text, floorGapPx for every gap and padding — and turned into
+ * CSS px with the screen's devicePixelRatio, so a wall at 90 % browser zoom gets the same panel pixels as one at
+ * 100 %. Shipped values (10 / 3) are PROVISIONAL until someone checks them at the wall's viewing distance (Settings
+ * → Horizontal sizing → Minimums): 10 device px is the ops wall's time label at 100 % zoom; below it every zero's
+ * hole is under 2.7 px wide (measured on the served fonts).
+ */
+export const DEFAULT_WALL_FLOORS = { floorTextPx: 10, floorGapPx: 3 };
+export function wallFloorsCss(h = {}) {
+  const dpr = typeof window !== 'undefined' && Number(window.devicePixelRatio) > 0 ? Number(window.devicePixelRatio) : 1;
+  const num = (v, d) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : d);
+  return {
+    textCss: num(h?.floorTextPx, DEFAULT_WALL_FLOORS.floorTextPx) / dpr,
+    gapCss: num(h?.floorGapPx, DEFAULT_WALL_FLOORS.floorGapPx) / dpr,
+  };
+}
+
+/**
  * Horizontal metrics (bug report 7 item 3), shared by the Board's lane packer and the pill so packing and
  * drawing can never disagree. NOTHING here touches the time axis: a flight's start x is always
  * (start − windowStart) × pxPerHour; these size only what sits BESIDE a pill on its lane. Every value at the
- * default knobs equals the constant the wall used before. Pixel floors: chip gap/lead/padding 1 px, pill inner
- * padding 2 px, every gap 2 px; minimum pill length never below the pill's own height (and never under 6 px).
+ * default knobs equals the constant the wall used before. A knob below 1 shrinks a gap only down to the wall's
+ * spacing minimum (wallFloorsCss); one already below it at knob 1 stays as shipped. Minimum pill length never
+ * below the pill's own height (and never under 6 px).
  */
 export function horizontalMetrics(scale = 1, h = {}, markerScale = 1) {
   const k = (name, d) => (Number.isFinite(Number(h?.[name])) ? Number(h[name]) : d);
   const chip = k('chipSpacing', 1), pad = k('pillPadding', 1), gap = k('laneGap', 1);
-  const sz = (v) => v * scale;
+  const { gapCss } = wallFloorsCss(h);
+  // base = the shipped value (knob 1); the knob shrinks it to the minimum at most.
+  const fit = (base, knob, hardFloor) => {
+    const shipped = Math.max(hardFloor, Math.round(base));
+    const v = Math.max(hardFloor, Math.round(base * knob));
+    return knob >= 1 ? v : Math.max(v, Math.min(shipped, Math.round(gapCss)));
+  };
   return {
-    chipGap: Math.max(1, Math.round(4 * chip)),
-    chipLead: Math.max(1, Math.round(sz(6) * chip)),
-    chipPadX: Math.max(1, Math.round(4 * scale * markerScale * chip)),
-    pillPadX: Math.max(2, Math.round(sz(9) * pad)),
-    callsignGap: Math.max(2, Math.round(sz(6) * gap)),
-    frontSlack: Math.max(2, Math.round(sz(12) * gap)),
-    laneGapPx: Math.max(2, Math.round(14 * gap)),
-    neighbourSafety: Math.max(2, Math.round(sz(10) * gap)),
+    chipGap: fit(4, chip, 1),
+    chipLead: fit(6 * scale, chip, 1),
+    chipPadX: fit(4 * scale * markerScale, chip, 1),
+    pillPadX: fit(9 * scale, pad, 2),
+    callsignGap: fit(6 * scale, gap, 2),
+    frontSlack: fit(12 * scale, gap, 2),
+    laneGapPx: fit(14, gap, 2),
+    neighbourSafety: fit(10 * scale, gap, 2),
     minPillMs: Math.max(1, k('minPillMinutes', 45)) * 60_000,
   };
 }
@@ -591,7 +620,7 @@ export default function FlightPill({
   const display = useWallDisplay();
   const hz = horizontal ?? display.horizontal;
   const H = horizontalMetrics(scale, hz, markerScale);
-  const V = pillVerticalMetrics(scale, rowZoom, { pillHeight, markerScale, labelScale, callsignScale: hz.callsignScale, routeScale: hz.routeScale });
+  const V = pillVerticalMetrics(scale, rowZoom, { pillHeight, markerScale, labelScale, callsignScale: hz.callsignScale, routeScale: hz.routeScale, floorTextPx: hz.floorTextPx });
   const F = {
     id: V.fonts.id,
     times: V.fonts.times,

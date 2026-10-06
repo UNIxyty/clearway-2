@@ -227,10 +227,14 @@ const DEFAULT_DISPLAY_SETTINGS = { scale: 1.3, timeZoom: 1, rowZoom: 1, pillHeig
   chipImp: true, chipCaa: true, chipNtm: true, chipWx: true,
   // Bug report 7 item 3: HORIZONTAL sizing. None of these touches the time axis (px per hour): they size the
   // things that sit beside a pill on its lane. Every default (1 / 45 min) reproduces today's wall exactly.
-  callsignScale: 1, routeScale: 1, chipSpacing: 1, minPillMinutes: 45, pillPadding: 1, laneGap: 1, autoFitHorizontal: false };
-// Horizontal knob ranges [min, max]. The absolute pixel floors live in the wall (horizontalMetrics in FlightPill):
-// callsign and route text never below 7 px, chip gap 1 px, pill inner padding 2 px, lane gap 2 px.
+  callsignScale: 1, routeScale: 1, chipSpacing: 1, minPillMinutes: 45, pillPadding: 1, laneGap: 1, autoFitHorizontal: false,
+  // Bug report 7 follow-up item 3: the knobs' MINIMUMS, in real panel pixels (the wall divides by its
+  // devicePixelRatio). Provisional until a person checks them at the wall's viewing distance and records it here.
+  floorTextPx: 10, floorGapPx: 3, floorsDistanceM: null, floorsCheckedAt: null };
+// Horizontal knob ranges [min, max]. The minimums the knobs can reach are floorTextPx (callsign, route/time text)
+// and floorGapPx (every gap and padding) — see wallFloorsCss / horizontalMetrics in FlightPill.
 const HORIZONTAL_RANGES = { callsignScale: [0.5, 1.5], routeScale: [0.5, 1.5], chipSpacing: [0.25, 2], minPillMinutes: [5, 45], pillPadding: [0.2, 2], laneGap: [0.15, 2] };
+const FLOOR_RANGES = { floorTextPx: [6, 40], floorGapPx: [1, 20] };
 const displaySettingsStore = new JsonFileStore("display-settings.json", DEFAULT_DISPLAY_SETTINGS);
 
 // Per-ACCOUNT settings profiles (bug report item 3). File shape v3:
@@ -423,6 +427,17 @@ function sanitizeDisplaySettings(input = {}) {
     horizontal[k] = k === "minPillMinutes" ? Math.round(v) : Math.round(v * 100) / 100;
   }
   const autoFitHorizontal = input.autoFitHorizontal === true;
+  const floors = {};
+  for (const [k, [lo, hi]] of Object.entries(FLOOR_RANGES)) {
+    const v = input[k] === undefined || input[k] === null ? DEFAULT_DISPLAY_SETTINGS[k] : Number(input[k]);
+    if (!Number.isFinite(v) || v < lo || v > hi) throw new Error(`${k} must be a number of pixels between ${lo} and ${hi}.`);
+    floors[k] = Math.round(v * 2) / 2;
+  }
+  // The wall check that set them: viewing distance (metres) and when. Both null = provisional.
+  const floorsDistanceM = input.floorsDistanceM === undefined || input.floorsDistanceM === null || input.floorsDistanceM === "" ? null : Number(input.floorsDistanceM);
+  if (floorsDistanceM !== null && (!Number.isFinite(floorsDistanceM) || floorsDistanceM < 0.5 || floorsDistanceM > 40)) throw new Error("floorsDistanceM must be a distance in metres between 0.5 and 40.");
+  const floorsCheckedAt = input.floorsCheckedAt === undefined || input.floorsCheckedAt === null || input.floorsCheckedAt === "" ? null : String(input.floorsCheckedAt);
+  if (floorsCheckedAt !== null && !Number.isFinite(Date.parse(floorsCheckedAt))) throw new Error("floorsCheckedAt must be a date.");
   // Item 9: time-window visibility thresholds (hours).
   const upcomingHorizonHours = input.upcomingHorizonHours === undefined
     ? DEFAULT_DISPLAY_SETTINGS.upcomingHorizonHours
@@ -462,6 +477,9 @@ function sanitizeDisplaySettings(input = {}) {
     ...chips,
     ...horizontal,
     autoFitHorizontal,
+    ...floors,
+    floorsDistanceM: floorsDistanceM === null ? null : Math.round(floorsDistanceM * 10) / 10,
+    floorsCheckedAt: floorsCheckedAt === null ? null : new Date(floorsCheckedAt).toISOString(),
     upcomingHorizonHours: Math.round(upcomingHorizonHours * 10) / 10,
     postLandingHours: Math.round(postLandingHours * 10) / 10,
   };

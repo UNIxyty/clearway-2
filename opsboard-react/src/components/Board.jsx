@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { p2, clamp } from '../data';
-import FlightPill, { pillVerticalMetrics, horizontalMetrics } from './FlightPill';
+import FlightPill, { pillVerticalMetrics, horizontalMetrics, wallFloorsCss } from './FlightPill';
 import { useWallDisplay } from '../theme/WallDisplayContext';
 import FlightInfoTab from './FlightInfoTab';
 import { useWallColors } from '../theme/WallColorsContext';
@@ -96,7 +96,7 @@ function belowPadPx(fl, V, H) {
 }
 /** Lanes per aircraft row for a given set of sizes — what both auto-fits measure. */
 function laneCountsFor(aircraft, { windowStartMs, windowDurationMs, timelinePx, scale, labelScale, markerScale, horizontal }) {
-  const V = pillVerticalMetrics(scale, 1, { labelScale, markerScale, callsignScale: horizontal.callsignScale, routeScale: horizontal.routeScale });
+  const V = pillVerticalMetrics(scale, 1, { labelScale, markerScale, callsignScale: horizontal.callsignScale, routeScale: horizontal.routeScale, floorTextPx: horizontal.floorTextPx });
   const H = horizontalMetrics(scale, horizontal, markerScale);
   return aircraft.map((ac) => {
     try {
@@ -281,10 +281,14 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   const hFit = useMemo(() => {
     if (!hBase.autoFitHorizontal || aircraft.length === 0) return { active: false, knobs: hBase };
     const clampTo = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    // Text never shrinks below the wall's text minimum — or below the size the manual slider gives, if that is
+    // smaller (auto-fit only ever shrinks). Same base sizes as pillVerticalMetrics.
+    const { textCss } = wallFloorsCss(hBase);
+    const textKnob = (manual, base, f) => Math.max(Math.min(manual, textCss / base), clampTo(manual * f, 0.5, 1.5));
     const knobsFor = (f) => ({
       ...hBase,
-      callsignScale: clampTo(hBase.callsignScale * f, 0.5, 1.5),
-      routeScale: clampTo(hBase.routeScale * f, 0.5, 1.5),
+      callsignScale: textKnob(hBase.callsignScale, 12.5 * scale * labelScale, f),
+      routeScale: textKnob(hBase.routeScale, 11 * scale * labelScale, f),
       chipSpacing: clampTo(hBase.chipSpacing * f, 0.25, 2),
       pillPadding: clampTo(hBase.pillPadding * f, 0.2, 2),
       laneGap: clampTo(hBase.laneGap * f, 0.15, 2),
@@ -385,7 +389,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // rowZoom (vertical size slider) thins lane/pill HEIGHTS only — text stays
   // on the display scale. Metrics come from the pill so lane maths and the
   // rendered pill can never drift apart.
-  const pillV = pillVerticalMetrics(scale, effRowZoom, { pillHeight: effPillHeight, markerScale: effMarkerScale, labelScale: effLabelScale, callsignScale: effHorizontal.callsignScale, routeScale: effHorizontal.routeScale });
+  const pillV = pillVerticalMetrics(scale, effRowZoom, { pillHeight: effPillHeight, markerScale: effMarkerScale, labelScale: effLabelScale, callsignScale: effHorizontal.callsignScale, routeScale: effHorizontal.routeScale, floorTextPx: effHorizontal.floorTextPx });
   const FLIGHT_PILL_HEIGHT = pillV.total;
   const FLIGHT_LANE_GAP = Math.max(2, Math.round(12 * scale * effRowZoom));
   const FLIGHT_LANE_STEP = FLIGHT_PILL_HEIGHT + FLIGHT_LANE_GAP;

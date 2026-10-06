@@ -123,9 +123,9 @@ const LEGACY_FLIGHTWATCH_FIELDS = ["atd", "ata", "toIso", "ldgIso"];
 // v4: takeOffUTC/landingUTC/ctotUTC on the mapped flight (2026-08-10).
 // v5: isFerry in the selection (IMP/CAA load matching, 2026-08-10).
 // v6: checklistAdepColor/checklistAdesColor (Upcoming Flight Table, 2026-08-23).
-// (Bug report 7 added eet/eetIso to the selection WITHOUT a bump: the horizon top-up runs on the first cycle after
-// a restart and re-reads everything the wall can show, and the movement refresh covers −24 h … +6 h, so cached
-// flights gain eetMin within one cycle — no full −7/+30-day re-sync of every operator at deploy.)
+// (Bug report 7 added eet/eetIso, and its follow-up isConfirmed + trip.tripStatus, WITHOUT a bump: the rolling
+// horizon pull runs on the first cycle after a restart and re-reads the next 30 days, and the window check re-reads
+// the wall's window every cycle — no full −7/+30-day re-sync of every operator at deploy.)
 const FLIGHT_CACHE_VERSION = 6;
 
 // Flight-kind fields (Item 7): mark Cancelled / Crew-positioning /
@@ -142,19 +142,25 @@ const FLIGHT_CACHE_VERSION = 6;
 // introspection 2026-07-20. NOT the 4-char model designator (acftType.icao).
 const WANTED_FLIGHT_KIND_FIELDS = ["isCnl", "isActive", "iconType", "isSimulator", "flightType", "isCommercial", "icaoType", "isFerry"];
 
-// Movement refresh cadence: every 2nd poll cycle (~4 min at the 120s poll)
-// each operator gets one narrow flightList re-pull so flight-watch data —
-// which Leon never delivers through the modified-list — reaches the wall.
-const MOVEMENT_REFRESH_EVERY_N_CYCLES = 2;
+// Window check (bug report 7 follow-up, item 2). EVERY cycle each operator gets one full flightList pull over the
+// wall's window — [now − max(24 h, post-landing + 6 h), now + upcoming horizon + 12 h] — through the normal
+// map/filter/upsert pipeline, and the result is COUNTED against what the wall shows. It replaces the old movement
+// refresh (−24 h … +6 h every 2nd cycle) and the horizon top-up: flight-watch data, pax and crew counts (none of
+// which mark a flight modified in Leon) and flights that never appear in the modified-list all reach the wall
+// within one cycle. Measured 2026-10-06: the pull takes 0.4–0.9 s per operator, 4.8 s for all nine.
+// The count pair (Leon vs wall) is recorded every cycle (data/window-check.jsonl); a disagreement that the same
+// cycle could not repair is shown on the wall's status line and the console.
+const WINDOW_CHECK_LOG = "window-check.jsonl";
+const WINDOW_CHECK_LOG_KEEP_LINES = 10_000; // ~14 days at the 120 s poll
+const WINDOW_CHECK_STALE_MS = 10 * 60 * 1000; // no completed check for this long = "not verified"
 
-// Horizon top-up (found with bug report 7): the full sync runs ONCE (−7 to +30 days from whenever the cache was
-// built); afterwards a flight only arrives when Leon marks it modified, or when the movement refresh's narrow
-// window (−24 h … +6 h) reaches it. A long-standing schedule nobody edits (KlasJet's LY51xx legs, created in
-// January) therefore appeared on the wall ~6 h ahead instead of the configured horizon. Every
-// HORIZON_TOPUP_EVERY_N_CYCLES-th cycle (~30 min at the 120 s poll, and on the first cycle) each operator gets
-// one flightList pull over [now, now + horizon + 12 h], UPSERT ONLY: it adds and refreshes, it never evicts
-// (eviction stays with the modified-list and the guarded movement refresh).
-const HORIZON_TOPUP_EVERY_N_CYCLES = 15;
+// Rolling horizon (same follow-up). The full −7 … +30-day sync used to run ONCE per cache; after that a flight
+// only arrived when Leon marked it modified. A schedule nobody edits (KlasJet's LY51xx legs, created 13 Jan 2026)
+// fell off the end: 30 days after the first sync every untouched flight beyond the edge was missing (276 klj +
+// 4 cwy-cwy on 2026-10-06). Every ROLLING_HORIZON_EVERY_N_CYCLES-th cycle (~6 h, and on the first cycle after a
+// start) each operator re-pulls [now, now + 30 d], UPSERT ONLY, so the 30-day horizon rolls with the clock.
+const ROLLING_HORIZON_DAYS = 30;
+const ROLLING_HORIZON_EVERY_N_CYCLES = 180;
 
 // Hard cap for one whole sync cycle (all operators). 9 operators with
 // stagger and a few requests each finish in well under 2 minutes; 5 min
@@ -170,11 +176,12 @@ const WANTED_FLIGHTWATCH_FIELDS = [
   "offBlock", "bloffIso", "blonIso",
 ];
 
-function buildFlightSelection({ flightWatchFields, includeChecklist, checklistItemHasDefinition = true, flightKindFields = [] }) {
+function buildFlightSelection({ flightWatchFields, includeChecklist, checklistItemHasDefinition = true, flightKindFields = [], confirmationFields = [] }) {
   return `
   flightNid
   flightNo
   status
+  ${confirmationFields.join("\n  ")}
   ${flightKindFields.join("\n  ")}
   startTimeUTC
   endTimeUTC
@@ -227,6 +234,12 @@ function overlapsRange(flight, fromIso, toIso) {
     return false;
   }
   return true;
+}
+
+/** Two mapped records of the same flight carry the same data (a changed field = a real update to persist). */
+function sameFlightRecord(a, b) {
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function flightDedupKey(flight, registration) {
@@ -539,7 +552,16 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
     isAirborne,
     ctot,
     tripStatus,
-    isConfirmed: tripStatus == null ? true : String(tripStatus).toUpperCase() === "CONFIRMED",
+    // Not confirmed = ANY of Leon's three signals says so (bug report 7 follow-up item 1): Flight.status (enum
+    // CONFIRMED | OPTION | OPPORTUNITY) is not CONFIRMED, Flight.isConfirmed is false, or the trip's free-text
+    // tripStatus is present and is not "confirmed". On 11,083 flights (2026-06 … 2027-06) the three always agreed;
+    // the OR keeps a state Leon adds later, or one signal moving without the others, from going unringed.
+    isConfirmed: tripStatus == null
+      ? true
+      : String(tripStatus).toUpperCase() === "CONFIRMED"
+        && rawFlight.isConfirmed !== false
+        && (rawFlight.trip?.tripStatus == null || String(rawFlight.trip.tripStatus).trim().toLowerCase() === "confirmed"),
+    tripStatusText: rawFlight.trip?.tripStatus ?? null,
     checklistColor: aggregateChecklistColor(rawFlight.checklist, checklistDefs),
     ...(() => {
       const c = aggregateAirportChecklistColors(rawFlight.checklist, checklistDefs);
@@ -779,7 +801,9 @@ export class LeonTimelineService {
     this.checklistDefsByOperator = new Map(); // oprId -> Map(cdNid -> {order[], colorByStatus{}})
     this.aircraftFetchedAtByOperator = new Map(); // oprId -> ms of last roster fetch
     this.operatorBackoff = new Map(); // oprId -> { untilMs, level }
-    this.syncCycleCount = 0; // gates the periodic movement refresh
+    this.syncCycleCount = 0; // gates the rolling-horizon pull
+    this.windowCheckByOperator = new Map(); // oprId -> last window-check record (bug report 7 follow-up item 2)
+    this.windowCheckSummary = null; // fleet-wide summary of the latest records (getStatus / wall status line)
     this.globalBackoff = null; // { untilMs, level } — fleet-wide silence
     this.syncCycleInFlight = null; // dedup: concurrent refresh=true callers share one cycle
     this.syncStateByOperator = new Map();
@@ -1302,20 +1326,18 @@ export class LeonTimelineService {
           for (const [kind, count] of Object.entries(stats.excluded ?? {})) {
             cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
           }
-          // Flight-watch writes never reach the modified-list, so every
-          // second cycle re-pull the active window (see movementRefresh).
-          // Skipped right after an initial sync — that already covered it.
-          if (hadCheckpoint && (this.syncCycleCount === 1 || this.syncCycleCount % HORIZON_TOPUP_EVERY_N_CYCLES === 0)) {
-            const topUp = await this.horizonTopUp(operator.oprId);
-            cycleStats.updated += topUp.updated ?? 0;
+          // Window check, EVERY cycle (also right after an initial sync — the count is the point): flight
+          // watch, pax, crew and never-modified flights reach the wall; Leon vs wall is counted and recorded.
+          const checked = await this.windowCheck(operator.oprId);
+          cycleStats.updated += checked.stats.updated ?? 0;
+          cycleStats.deleted += checked.stats.deleted ?? 0;
+          for (const [kind, count] of Object.entries(checked.stats.excluded ?? {})) {
+            cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
           }
-          if (hadCheckpoint && this.syncCycleCount % MOVEMENT_REFRESH_EVERY_N_CYCLES === 0) {
-            const movementStats = await this.movementRefresh(operator.oprId);
-            cycleStats.updated += movementStats.updated ?? 0;
-            cycleStats.deleted += movementStats.deleted ?? 0;
-            for (const [kind, count] of Object.entries(movementStats.excluded ?? {})) {
-              cycleStats.excluded[kind] = (cycleStats.excluded[kind] ?? 0) + count;
-            }
+          this.windowCheckByOperator.set(operator.oprId, checked.record);
+          if (hadCheckpoint && (this.syncCycleCount === 1 || this.syncCycleCount % ROLLING_HORIZON_EVERY_N_CYCLES === 0)) {
+            const rolled = await this.rollingHorizonPull(operator.oprId);
+            cycleStats.updated += rolled.updated ?? 0;
           }
           succeeded += 1;
           this.operatorBackoff.delete(operator.oprId);
@@ -1328,6 +1350,8 @@ export class LeonTimelineService {
           await this.operatorsStore?.recordSyncOutcome?.(operator.oprId, { status: "error", error: message });
         }
       }
+
+      await this.recordWindowCheck(operators.map((operator) => operator.oprId));
 
       // Every ATTEMPTED operator rate-limited (and none succeeded) => the
       // block is server-wide: escalate to the global silence window and
@@ -1501,6 +1525,11 @@ export class LeonTimelineService {
         // (the OPS defs map still guards those).
         checklistItemHasDefinition: checklistItemFields.has("definition"),
         flightKindFields: WANTED_FLIGHT_KIND_FIELDS.filter((name) => flightFields.has(name)),
+        // Bug report 7 follow-up item 1: the two other confirmation signals Leon carries, beside Flight.status.
+        confirmationFields: [
+          ...(flightFields.has("isConfirmed") ? ["isConfirmed"] : []),
+          ...(flightFields.has("trip") ? ["trip { tripStatus }"] : []),
+        ],
       });
     } catch {
       selection = buildFlightSelection({
@@ -1679,47 +1708,39 @@ export class LeonTimelineService {
   }
 
   /**
-   * Movement refresh — the poll-side fix for flight-watch staleness.
-   * Leon does NOT mark a flight modified when flight watch (ATD/ATA/TO/LDG)
-   * is written (proven live: cwy-cwy had 14 flights land in 24h with full
-   * movement data while the modified-list re-delivered only 2 — the rest
-   * were schedule edits). Operators whose staff never edit legs after
-   * creation (Clearway's subcharter aggregation) therefore stay white
-   * forever on the wall. Webhooks (flightWatchChanged) are the instant
-   * path when registered; this narrow re-pull is the guaranteed fallback:
-   * one flightList request over [now−24h, now+6h] through the exact same
-   * map/filter/upsert pipeline, every MOVEMENT_REFRESH_EVERY_N_CYCLES-th
-   * cycle (~1 extra request per operator per 4 min at the 120s poll).
+   * Window pull — the poll-side fix for everything Leon's modified-list does not carry.
+   * Leon does NOT mark a flight modified when flight watch (ATD/ATA/TO/LDG/EET) is written (proven live: cwy-cwy
+   * had 14 flights land in 24h with full movement data while the modified-list re-delivered only 2), nor when the
+   * pax list or the crew changes (passengerListLastModificationTime / crewLastModificationTime move on their own;
+   * 2 pax + 5 crew differences found 2026-10-06), and a flight nobody touches never appears in it at all. One
+   * flightList request over [from, to] through the exact same map/filter/upsert pipeline repairs all of that.
+   * Returns { stats, mapped } where mapped holds this pull's valid flights (key -> { flight, registration }).
    */
-  async movementRefresh(oprId) {
-    const now = Date.now();
-    const from = new Date(now - 24 * 3600_000);
-    const to = new Date(now + 6 * 3600_000);
+  async windowPull(oprId, from, to) {
     const rawFlights = await this.fetchFlightsForOperatorRange(oprId, from, to);
     const checklistDefs = await this.ensureChecklistDefs(oprId);
     const stats = { updated: 0, skipped: 0, deleted: 0, excluded: {} };
+    const mapped = new Map();
     for (const rawFlight of rawFlights) {
-      const mapped = mapLeonFlight(rawFlight, checklistDefs);
-      const nid = this.flightCacheKey(oprId, mapped.flightNid);
-      if (!hasValidTripStatus(mapped)) {
+      const flight = mapLeonFlight(rawFlight, checklistDefs);
+      const nid = this.flightCacheKey(oprId, flight.flightNid);
+      if (!hasValidTripStatus(flight)) {
         if (this.flightsByNid.delete(nid)) this.aircraftByFlightNid.delete(nid);
         stats.skipped += 1;
         continue;
       }
-      const excludedKind = isExcludedFlightKind(mapped);
+      const excludedKind = isExcludedFlightKind(flight);
       if (excludedKind) {
         if (this.flightsByNid.delete(nid)) this.aircraftByFlightNid.delete(nid);
         stats.excluded[excludedKind] = (stats.excluded[excludedKind] ?? 0) + 1;
         continue;
       }
-      mapped.oprId = oprId;
-      this.flightsByNid.set(nid, mapped);
-      stats.updated += 1;
-      this.aircraftByFlightNid.set(nid, {
-        oprId,
-        aircraftNid: rawFlight.acft?.aircraftNid ?? null,
-        registration: rawFlight.acft?.registration ?? "UNKNOWN",
-      });
+      flight.oprId = oprId;
+      const registration = rawFlight.acft?.registration ?? "UNKNOWN";
+      if (!sameFlightRecord(this.flightsByNid.get(nid), flight)) stats.updated += 1;
+      this.flightsByNid.set(nid, flight);
+      this.aircraftByFlightNid.set(nid, { oprId, aircraftNid: rawFlight.acft?.aircraftNid ?? null, registration });
+      mapped.set(nid, { flight, registration });
     }
 
     // The window pull is AUTHORITATIVE — but only a COMPLETED, PLAUSIBLE
@@ -1754,35 +1775,114 @@ export class LeonTimelineService {
         const isAirborne = Boolean(flight.atd && !flight.ata) || flight.movementState === "airborne";
         if (isAirborne) {
           airborneSpared += 1;
-          console.warn(`[leon-sync] movement refresh ${oprId}: pull did NOT return AIRBORNE ${flight.flightNo} (nid ${flight.flightNid}, dep ${flight.startTimeUTC}) — keeping it (airborne flights are never absence-evicted)`);
+          console.warn(`[leon-sync] window pull ${oprId}: pull did NOT return AIRBORNE ${flight.flightNo} (nid ${flight.flightNid}, dep ${flight.startTimeUTC}) — keeping it (airborne flights are never absence-evicted)`);
           continue;
         }
         candidates.push({ key, flight });
       }
       const maxPlausible = Math.max(3, Math.ceil(inWindow * 0.3));
       if (candidates.length > maxPlausible || (airborneSpared > 0 && candidates.length > 0 && candidates.length >= inWindow * 0.2)) {
-        console.error(`[leon-sync] movement refresh ${oprId}: REFUSING eviction — pull would remove ${candidates.length}/${inWindow} in-window flight(s) (limit ${maxPlausible}, airborne missing: ${airborneSpared}). Response treated as partial; cache left intact.`);
+        console.error(`[leon-sync] window pull ${oprId}: REFUSING eviction — pull would remove ${candidates.length}/${inWindow} in-window flight(s) (limit ${maxPlausible}, airborne missing: ${airborneSpared}). Response treated as partial; cache left intact.`);
       } else {
         for (const { key, flight } of candidates) {
           this.flightsByNid.delete(key);
           this.aircraftByFlightNid.delete(key);
           stats.deleted += 1;
-          console.log(`[leon-sync] movement refresh ${oprId}: evicted ${flight.flightNo} (nid ${flight.flightNid}, ${flight.startTimeUTC} -> ${flight.endTimeUTC}) — absent from a complete window pull (deleted/replaced/cancelled/moved)`);
+          console.log(`[leon-sync] window pull ${oprId}: evicted ${flight.flightNo} (nid ${flight.flightNid}, ${flight.startTimeUTC} -> ${flight.endTimeUTC}) — absent from a complete window pull (deleted/replaced/cancelled/moved)`);
         }
         if (stats.deleted > 0) {
-          console.log(`[leon-sync] movement refresh ${oprId}: evicted ${stats.deleted}/${inWindow} in-window flight(s)`);
+          console.log(`[leon-sync] window pull ${oprId}: evicted ${stats.deleted}/${inWindow} in-window flight(s)`);
         }
       }
     }
-    return stats;
+    return { stats, mapped };
   }
 
-  /** Upsert-only pull of the coming horizon (see HORIZON_TOPUP_EVERY_N_CYCLES). Never evicts. */
-  async horizonTopUp(oprId) {
+  /** The wall's window for the count check: the global visibility settings (one wall reality, see server.mjs). */
+  async wallWindowSettings() {
     const vis = await (this.getVisibilitySettings?.() ?? Promise.resolve(null)).catch(() => null);
-    const horizonH = Number.isFinite(Number(vis?.upcomingHorizonHours)) ? Number(vis.upcomingHorizonHours) : 24;
+    const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+    return { upcomingHorizonHours: num(vis?.upcomingHorizonHours, 24), postLandingHours: num(vis?.postLandingHours, 2.5) };
+  }
+
+  /** Keys of this operator's cached flights the wall shows right now (same tests as getFlights). */
+  wallKeysFor(oprId, vis, hiddenKeys, nowMs) {
+    const keys = new Set();
+    const prefix = `${oprId}:`;
+    for (const [key, flight] of this.flightsByNid.entries()) {
+      if (!key.startsWith(prefix)) continue;
+      const registration = this.aircraftByFlightNid.get(key)?.registration ?? flight.aircraftRegistration ?? "UNKNOWN";
+      if (hiddenKeys.has(this.aircraftHideKey(oprId, registration))) continue;
+      if (!flightVisibleInWindow(flight, nowMs, vis)) continue;
+      keys.add(key);
+    }
+    return keys;
+  }
+
+  /**
+   * Window check (bug report 7 follow-up item 2): pull the wall's window from Leon, COUNT Leon's flights in it
+   * against the wall's, repair, count again. Returns the record for this operator:
+   *   { oprId, at, leon, wall, before: { wall, missing, extra, stale }, missing: [flightNo…], extra: [flightNo…] }
+   * "missing" = in Leon's window but not on the wall; "extra" = on the wall but not in Leon's window.
+   * Extras left after the pull (e.g. eviction refused as implausible) are re-read one by one (≤ 10).
+   */
+  async windowCheck(oprId) {
+    const nowMs = Date.now();
+    const vis = await this.wallWindowSettings();
+    const hiddenKeys = await this.listHiddenAircraftKeys();
+    const from = new Date(nowMs - Math.max(24, vis.postLandingHours + 6) * 3600_000);
+    const to = new Date(nowMs + (vis.upcomingHorizonHours + 12) * 3600_000);
+    const before = this.wallKeysFor(oprId, vis, hiddenKeys, nowMs);
+    const snapshot = new Map([...before].map((key) => [key, this.flightsByNid.get(key)]));
+    const { stats, mapped } = await this.windowPull(oprId, from, to);
+    const leonKeys = new Set();
+    let hiddenInWindow = 0; // in Leon's window but on an aircraft hidden from the wall: not counted on either side
+    for (const [key, { flight, registration }] of mapped) {
+      if (!flightVisibleInWindow(flight, nowMs, vis)) continue;
+      if (hiddenKeys.has(this.aircraftHideKey(oprId, registration))) hiddenInWindow += 1;
+      else leonKeys.add(key);
+    }
+    const missingBefore = [...leonKeys].filter((key) => !before.has(key));
+    const extraBefore = [...before].filter((key) => !leonKeys.has(key));
+    const staleBefore = [...leonKeys].filter((key) => before.has(key) && !sameFlightRecord(snapshot.get(key), mapped.get(key).flight));
+    let after = this.wallKeysFor(oprId, vis, hiddenKeys, nowMs);
+    let extra = [...after].filter((key) => !leonKeys.has(key));
+    if (extra.length > 0) {
+      for (const key of extra.slice(0, 10)) {
+        try {
+          await this.resyncFlightByNid(oprId, key.slice(oprId.length + 1), { persist: false });
+        } catch (error) {
+          console.warn(`[leon-sync] window check ${oprId}: re-read of ${key} failed: ${error instanceof Error ? error.message : error}`);
+        }
+      }
+      after = this.wallKeysFor(oprId, vis, hiddenKeys, nowMs);
+      extra = [...after].filter((key) => !leonKeys.has(key));
+      stats.updated += 1; // re-reads may have changed or evicted flights: persist + repaint
+    }
+    const missing = [...leonKeys].filter((key) => !after.has(key));
+    const label = (key) => (this.flightsByNid.get(key) ?? mapped.get(key)?.flight ?? snapshot.get(key))?.flightNo ?? key;
+    const record = {
+      oprId,
+      at: new Date(nowMs).toISOString(),
+      leon: leonKeys.size,
+      wall: after.size,
+      hidden: hiddenInWindow,
+      before: { wall: before.size, missing: missingBefore.length, extra: extraBefore.length, stale: staleBefore.length },
+      missing: missing.slice(0, 12).map(label),
+      extra: extra.slice(0, 12).map(label),
+      missingBefore: missingBefore.slice(0, 12).map(label),
+      extraBefore: extraBefore.slice(0, 12).map(label),
+    };
+    if (missingBefore.length || extraBefore.length) {
+      console.warn(`[leon-sync] window check ${oprId}: Leon ${leonKeys.size} · wall ${before.size} BEFORE repair — ${missingBefore.length} missing (${record.missingBefore.join(", ")}), ${extraBefore.length} extra (${record.extraBefore.join(", ")}); after repair wall ${after.size}${missing.length || extra.length ? ` — STILL ${missing.length} missing, ${extra.length} extra` : " — agree"}`);
+    }
+    return { record, stats };
+  }
+
+  /** Rolling horizon: upsert-only pull of [now, now + 30 d] (see ROLLING_HORIZON_EVERY_N_CYCLES). Never evicts. */
+  async rollingHorizonPull(oprId) {
     const from = new Date();
-    const to = new Date(Date.now() + (horizonH + 12) * 3600_000);
+    const to = addDays(from, ROLLING_HORIZON_DAYS);
     const rawFlights = await this.fetchFlightsForOperatorRange(oprId, from, to);
     const checklistDefs = await this.ensureChecklistDefs(oprId);
     const stats = { updated: 0, added: 0 };
@@ -1791,12 +1891,13 @@ export class LeonTimelineService {
       if (!hasValidTripStatus(mapped) || isExcludedFlightKind(mapped)) continue;
       mapped.oprId = oprId;
       const nid = this.flightCacheKey(oprId, mapped.flightNid);
-      if (!this.flightsByNid.has(nid)) stats.added += 1;
+      const previous = this.flightsByNid.get(nid);
+      if (!previous) stats.added += 1;
+      if (!sameFlightRecord(previous, mapped)) stats.updated += 1;
       this.flightsByNid.set(nid, mapped);
       this.aircraftByFlightNid.set(nid, { oprId, aircraftNid: rawFlight.acft?.aircraftNid ?? null, registration: rawFlight.acft?.registration ?? "UNKNOWN" });
-      stats.updated += 1;
     }
-    if (stats.added) console.log(`[leon-sync] horizon top-up ${oprId}: ${stats.added} flight(s) within the next ${horizonH + 12} h were missing from the cache and are now on the wall`);
+    console.log(`[leon-sync] rolling horizon ${oprId}: ${rawFlights.length} flight(s) over the next ${ROLLING_HORIZON_DAYS} d; ${stats.added} were missing from the cache, ${stats.updated} added or changed`);
     return stats;
   }
 
@@ -1884,7 +1985,7 @@ export class LeonTimelineService {
    * verified live. Returns { outcome } for health reporting:
    *   updated | evicted:<reason> | not-found-evicted
    */
-  async resyncFlightByNid(oprId, flightNid) {
+  async resyncFlightByNid(oprId, flightNid, { persist = true } = {}) {
     const nid = Number(flightNid);
     if (!Number.isFinite(nid)) throw new Error(`Invalid flightNid: ${flightNid}`);
     const selection = await this.resolveFlightSelection(oprId);
@@ -1901,19 +2002,19 @@ export class LeonTimelineService {
     const raw = data.flight;
     if (!raw) {
       evict();
-      await this.persistLocalCache();
+      if (persist) await this.persistLocalCache();
       return { outcome: "not-found-evicted" };
     }
     const mapped = mapLeonFlight(raw, checklistDefs);
     if (!hasValidTripStatus(mapped)) {
       evict();
-      await this.persistLocalCache();
+      if (persist) await this.persistLocalCache();
       return { outcome: "evicted:no-trip-status" };
     }
     const excludedKind = isExcludedFlightKind(mapped);
     if (excludedKind) {
       evict();
-      await this.persistLocalCache();
+      if (persist) await this.persistLocalCache();
       return { outcome: `evicted:${excludedKind}` };
     }
     mapped.oprId = oprId;
@@ -1923,7 +2024,7 @@ export class LeonTimelineService {
       aircraftNid: raw.acft?.aircraftNid ?? null,
       registration: raw.acft?.registration ?? "UNKNOWN",
     });
-    await this.persistLocalCache();
+    if (persist) await this.persistLocalCache();
     return { outcome: "updated" };
   }
 
@@ -2015,6 +2116,7 @@ export class LeonTimelineService {
         aircraft: grouped,
         oprId: useAllOperators ? null : targetOprId,
         operators: operators.map((operator) => operator.oprId),
+        windowCheck: this.getWindowCheck(),
       };
     }
 
@@ -2055,6 +2157,7 @@ export class LeonTimelineService {
       aircraft: grouped,
       oprId: this.operatorId,
       operators: [...new Set(records.map((row) => row.oprId).filter(Boolean))],
+      windowCheck: this.getWindowCheck(),
     };
   }
 
@@ -2314,6 +2417,69 @@ export class LeonTimelineService {
     };
   }
 
+  /**
+   * Fleet-wide window-check summary from the latest per-operator records, appended to data/window-check.jsonl
+   * (one line per cycle) so the Leon-vs-wall pair is on record. `agree` is false while any operator's latest
+   * check still disagrees AFTER its repair; `stale` lists operators with no completed check for 10 min.
+   */
+  async recordWindowCheck(configuredOprIds) {
+    const nowMs = Date.now();
+    const records = configuredOprIds.map((oprId) => this.windowCheckByOperator.get(oprId)).filter(Boolean);
+    const disagreeing = records.filter((r) => r.leon !== r.wall || r.missing.length || r.extra.length);
+    const repaired = records.filter((r) => r.before.missing || r.before.extra);
+    const stale = configuredOprIds.filter((oprId) => {
+      const r = this.windowCheckByOperator.get(oprId);
+      return !r || nowMs - Date.parse(r.at) > WINDOW_CHECK_STALE_MS;
+    });
+    const previous = this.windowCheckSummary;
+    const summary = {
+      at: new Date(nowMs).toISOString(),
+      leon: records.reduce((n, r) => n + r.leon, 0),
+      wall: records.reduce((n, r) => n + r.wall, 0),
+      agree: disagreeing.length === 0,
+      disagreeing: disagreeing.map((r) => ({ oprId: r.oprId, leon: r.leon, wall: r.wall, missing: r.missing, extra: r.extra, at: r.at })),
+      disagreeSince: disagreeing.length === 0 ? null : previous?.disagreeSince ?? new Date(nowMs).toISOString(),
+      stale,
+      // The last cycle that FOUND a difference (and what it repaired) — kept for the console even after repair.
+      lastRepair: repaired.length
+        ? { at: new Date(nowMs).toISOString(), operators: repaired.map((r) => ({ oprId: r.oprId, missing: r.before.missing, extra: r.before.extra, stale: r.before.stale, examples: r.missingBefore.slice(0, 5) })) }
+        : previous?.lastRepair ?? null,
+    };
+    this.windowCheckSummary = summary;
+    const line = {
+      at: summary.at,
+      leon: summary.leon,
+      wall: summary.wall,
+      agree: summary.agree,
+      // per operator: [Leon, wall, missing before repair, extra before repair, stale before repair, hidden-aircraft flights]
+      ops: Object.fromEntries(records.map((r) => [r.oprId, [r.leon, r.wall, r.before.missing, r.before.extra, r.before.stale, r.hidden]])),
+      ...(stale.length ? { stale } : {}),
+    };
+    try {
+      const file = path.join(path.dirname(this.cacheFilePath), WINDOW_CHECK_LOG);
+      await fs.appendFile(file, `${JSON.stringify(line)}\n`, "utf-8");
+      if (this.syncCycleCount % 360 === 1) {
+        const lines = (await fs.readFile(file, "utf-8")).split("\n").filter(Boolean);
+        if (lines.length > WINDOW_CHECK_LOG_KEEP_LINES) await fs.writeFile(file, `${lines.slice(-WINDOW_CHECK_LOG_KEEP_LINES).join("\n")}\n`, "utf-8");
+      }
+    } catch (error) {
+      console.warn(`[leon-sync] window check log not written: ${error instanceof Error ? error.message : error}`);
+    }
+    if (!summary.agree) {
+      console.error(`[leon-sync] window check: Leon ${summary.leon} · wall ${summary.wall} — DISAGREE after repair: ${summary.disagreeing.map((d) => `${d.oprId} ${d.leon}/${d.wall}${d.missing.length ? ` missing ${d.missing.join(",")}` : ""}${d.extra.length ? ` extra ${d.extra.join(",")}` : ""}`).join("; ")}`);
+    } else if (this.syncCycleCount % 30 === 1 || previous?.agree === false) {
+      console.log(`[leon-sync] window check: Leon ${summary.leon} · wall ${summary.wall} — agree${stale.length ? ` (not checked: ${stale.join(", ")})` : ""}`);
+    }
+    return summary;
+  }
+
+  /** What the wall's status line and the console read. null until the first cycle has run. */
+  getWindowCheck() {
+    const s = this.windowCheckSummary;
+    if (!s) return null;
+    return { ...s, ageMs: Date.now() - Date.parse(s.at) };
+  }
+
   getStatus() {
     return {
       ...this.state,
@@ -2323,6 +2489,7 @@ export class LeonTimelineService {
       operatorsSynced: this.syncStateByOperator.size,
       storage: this.operatorsStore?.storageMode?.() ?? "unknown",
       cacheStats: this.state.cacheStats ?? { updated: 0, skipped: 0, deleted: 0 },
+      windowCheck: this.getWindowCheck(),
     };
   }
 

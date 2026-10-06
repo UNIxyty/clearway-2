@@ -1755,3 +1755,68 @@ elements, which are by-design vertical stacks, not collisions.
    delay > STA. EET beats STA when they disagree; the label is always the
    bar end, with its signed difference from STA. The Upcoming table uses
    the same end.
+
+## Bug report 7 follow-up (Oct 2026) — circled flight, flight-count guard, honest minimums, zoom, clocks, font names
+
+1. **The circled flight** is UPAV001 UP-AV001 (artlw) UWGG → UATG, 3 Oct
+   20:00–22:00Z, Leon flight 75266327: CONFIRMED since 25 Sep 23:54:58Z
+   (14 s after creation), flight.isConfirmed true, trip "confirmed", times
+   not TBC, OPS checklist complete. Ops read a confirmed flight as
+   unconfirmed; the wall drew it correctly. **The rule:** Leon's FlightStatus
+   enum is CONFIRMED | OPTION | OPPORTUNITY; Trip.tripStatus is free text.
+   Census of 11,083 flights (all operators, −120 … +240 d, cancelled
+   included): only CONFIRMED/true/"confirmed" and OPTION/false/"option"
+   occur. The wall now rings a flight when ANY of status ≠ CONFIRMED,
+   flight.isConfirmed = false, tripStatus ≠ "confirmed" (selection gains
+   `isConfirmed` and `trip { tripStatus }`; under the 1600 cap on all nine
+   operators). isTimesToBeConfirmed is about times, not the trip: not ringed.
+2. **Flight-count guard.** Correction to the report-7 footnote: the gap was
+   not "created after the first sync". The −7/+30-day sync ran once (~7 Sep);
+   a flight nobody edits never enters Leon's modified-list, so everything
+   untouched beyond ~6 Oct 21:00Z was missing from the cache: 276 klj
+   (created 13 Jan) and 4 cwy-cwy (KLJ6794/6795 LY-CHF 10 Oct, ORO2151/2152
+   EC-OMU 17 Oct). All 12 klj tails are hidden on the wall (their flights
+   come through cwy-cwy), so no flight was yet missing FROM THE WALL; the
+   first would have been KLJ6794 from 9 Oct 05:00Z. Pax and crew changes do
+   not mark a flight modified either (2 pax + 5 crew differences found).
+   Now: `windowCheck` every cycle — one full pull of [now − max(24 h,
+   post-landing + 6 h), now + horizon + 12 h], upserted, evicting only under
+   the old movement-refresh guards, counted Leon vs wall (same visibility and
+   hidden-aircraft tests as getFlights) before and after the repair; leftover
+   extras re-read one by one. One line per cycle in data/window-check.jsonl
+   (`ops: {opr: [leon, wall, missing, extra, stale, hidden]}`). A
+   disagreement the cycle could not repair, or no completed check for 10 min,
+   shows on the wall (bottom-left, 16 px) and in the console's Sync status
+   card; repairs are listed in the console and the log. `rollingHorizonPull`
+   re-pulls now … +30 d every 180 cycles (~6 h) and on the first cycle. Leon
+   load: 2 requests per operator per cycle (was 1.5); the pull takes 0.4–1.9 s.
+   Tests: scripts/test-window-check.mjs (stub Leon); read-only production
+   check: scripts/check-window-count.mjs.
+3. **Minimums.** The horizontal knobs now stop at `floorTextPx` (text, 10)
+   and `floorGapPx` (gaps and padding, 3), in REAL PANEL pixels
+   (÷ devicePixelRatio), per account, PROVISIONAL until someone checks them
+   at the wall (Settings → Horizontal sizing → Minimums: drag to the left end,
+   read a callsign / route / time aloud, raise until easy, record the
+   distance). Knobs never enlarge text below 1×; auto-fit never shrinks text
+   below the text minimum. Busy fixture day, ops chain (90 %): today 59 fully
+   visible; auto-fit 63 (was 78); everything at the minimum 63 (was 83 with
+   7 px / 1 px floors). Pill start x identical (0.000 px) at every setting.
+4. **Zoom and the zero.** At 100 % the time label is 10 device px: every
+   zero's hole is 1.9–2.8 px wide (Nunito dotted 2.66 × 5.15, dot gap 0.37).
+   Hole ≥ 4 px needs a 15 px label for Nunito (Inter 15.3, Public Sans 15.9,
+   Atkinson 14.5, Roboto 20.1, CW P 18.9, CW S 20.8). On the ops profile
+   Route & time size 1.5× gives exactly 15 px; set Text minimum 15 px so
+   auto-fit keeps it. Cost on the busy day at 100 %: 48 → 36 fully visible
+   (100 % without changes: 48; horizontal knobs at honest minimums: 49).
+   Dotted zero at 15 px still has only 0.56 px between dot and ring.
+5. **Stale `home` flag.** Only the clocks GET reads display-clocks.json and it
+   ignores legacy `home` until Set local is pressed: after deploy Riga is
+   local, UTC keeps its own colour; nobody has to re-pick. The flag stays in
+   the file until the next clock save rewrites it.
+6. **Font names.** IBM Plex ("Plex") and Source Sans ('Source') reserve
+   their names; our builds are modified (instanced, subset, zero frozen), so
+   file, family and MENU all read "CW Slashed Sans P" / "CW Slashed Sans S"
+   (ids cw-sans-p / cw-sans-s). Their latin-ext halves were Google's
+   original files under our family — now rebuilt and renamed too
+   (slashed-zero.py --latin-ext). No visible name record carries a reserved
+   name; copyright/trademark notices are kept as the OFL requires.

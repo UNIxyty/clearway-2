@@ -94,7 +94,7 @@ export default function FontCard({ deviceId }) {
           <div style={{ fontSize: 12.5, color: t.muted, marginTop: 3, maxWidth: 620, lineHeight: 1.5 }}>
             The text font of the wall display, per profile like the colours. The wall changes within seconds, no reload.
             The first seven are served from our own server with a zero that cannot be read as O — dotted (Nunito, Roboto, Public
-            Sans) or the font’s own slash (Atkinson Hyperlegible Next, Inter, IBM Plex Sans, Source Sans 3). The last four have a
+            Sans) or the font’s own slash (Atkinson Hyperlegible Next, Inter, CW Slashed Sans P, CW Slashed Sans S). The last four have a
             plain zero: the old wall’s Nunito, and the commercial or system fonts the display machine has to supply — the notes
             under each say what this machine would actually render.
           </div>

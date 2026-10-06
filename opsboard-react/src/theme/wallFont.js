@@ -34,8 +34,10 @@ export const WALL_FONTS = [
   // Slashed — each font's own designed zero (bug report 7 item 4c; tools/slashed-zero.py freezes it in):
   { id: 'atkinson', label: 'Atkinson Hyperlegible Next (slashed zero)', stack: "'Atkinson Hyperlegible Next', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Braille Institute: designed so 0/O and 1/l/I cannot be confused at low acuity.' },
   { id: 'inter', label: 'Inter (slashed zero)', stack: "'Inter Slashed', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Built for screens; its own slashed zero.' },
-  { id: 'plex-sans', label: 'IBM Plex Sans (slashed zero)', stack: "'CW Slashed Sans P', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Modified build, served as “CW Slashed Sans P” (OFL reserved name).' },
-  { id: 'source-sans', label: 'Source Sans 3 (slashed zero)', stack: "'CW Slashed Sans S', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Holds up at small sizes. Modified build, served as “CW Slashed Sans S” (OFL reserved name).' },
+  // Modified (instanced, subset, zero frozen) builds of IBM's and Adobe's OFL sans. Their licences reserve the
+  // original names for UNMODIFIED copies, so file, font family and this label all carry the CW name (OFL §3).
+  { id: 'cw-sans-p', label: 'CW Slashed Sans P', stack: "'CW Slashed Sans P', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Clearway build of IBM’s open-licence sans, slashed zero frozen in. Renamed because the licence reserves the original name for unmodified copies.' },
+  { id: 'cw-sans-s', label: 'CW Slashed Sans S', stack: "'CW Slashed Sans S', sans-serif", hosted: true, dottedZero: true, zero: 'slashed', local: [], note: 'Clearway build of Adobe’s open-licence sans; holds up at small sizes. Renamed for the same licence reason.' },
   // Plain zero:
   { id: 'old-wall', label: 'Old Digital Wall', stack: "'Nunito Original', Roboto, Avenir, Helvetica, Arial, sans-serif", hosted: true, dottedZero: false, zero: 'plain', local: [], note: 'The previous wall’s exact chain — Nunito, Roboto, Avenir, Helvetica, Arial, sans-serif — with the plain Nunito 400 it loaded (its bold was synthesised).' },
   // Licensed or machine-supplied: we cannot touch their glyphs, so their zero is plain.

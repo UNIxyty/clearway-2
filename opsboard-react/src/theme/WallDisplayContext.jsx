@@ -6,7 +6,9 @@ import { createContext, useContext, useMemo } from 'react';
 // components (console lists, previews) outside the provider render exactly as before.
 
 export const DEFAULT_CHIPS = { IMP: true, CAA: true, NTM: true, WX: true };
-export const DEFAULT_HORIZONTAL = { callsignScale: 1, routeScale: 1, chipSpacing: 1, minPillMinutes: 45, pillPadding: 1, laneGap: 1, autoFitHorizontal: false };
+// floorTextPx / floorGapPx: the knobs' minimums in real panel pixels (bug report 7 follow-up item 3; FlightPill
+// wallFloorsCss). Provisional until checked at the wall.
+export const DEFAULT_HORIZONTAL = { callsignScale: 1, routeScale: 1, chipSpacing: 1, minPillMinutes: 45, pillPadding: 1, laneGap: 1, autoFitHorizontal: false, floorTextPx: 10, floorGapPx: 3 };
 
 /** Settings payload → { chips, horizontal }. Missing keys keep the shipped value. */
 export function resolveWallDisplay(settings = {}) {

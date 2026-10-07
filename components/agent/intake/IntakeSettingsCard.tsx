@@ -105,7 +105,7 @@ function RetentionEditor({ days, source, updated, saving, onSave }: { days: numb
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0,260px) minmax(0,1fr)", gap: 16, paddingTop: 14, borderTop: `1px solid ${C.dividerRow}` }}>
       <div>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink }}>Keep intake mail</div>
-        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.muted, marginTop: 3 }}>Raw emails, attachments and extracted personal data are deleted after this many days. Flights, times and Leon ids stay.</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.muted, marginTop: 3 }}>Raw emails, attachments and extracted personal data are deleted this many days after the email arrived or after the request&apos;s last flight, whichever is later. Flights, times and Leon ids stay.</div>
         <div style={{ fontSize: 11.5, color: C.faint, marginTop: 6 }}>{sourceLine(source, updated)}</div>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>

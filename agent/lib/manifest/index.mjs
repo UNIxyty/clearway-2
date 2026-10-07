@@ -1,12 +1,12 @@
 // Passenger Manifest generator — the ONE boundary the agent command (and any script) calls.
 //
-//   generatePassengerManifest({ flightId, leon?, lookup?, progress?, now? })
+//   generatePassengerManifest({ flightId, leon?, lookup?, intake?, progress?, now? })
 //     → { pdf: Buffer, filename, title, result, paxNote }
 //   generateBlankManifest({ now? }) → same shape, the empty hand-fill form (no page number)
 //
 // result = { flight: { flightId, callsign, date, route }, operator: { name, source }, pageCount, passengerCount,
 //            crewCount, personsOnBoard, warnings: [{ code, message, row? }], missing: [{ row, where, fields }],
-//            hasPaxNote, blank }
+//            hasPaxNote, blank, passengerSource: { kind: "leon" | "intake" | "none", reference? }, crewSource }
 // paxNote = the operator's free-text passenger note, verbatim, or null. It is personal data and is kept OUT of
 // `result` (which is audited and shown to the model): the caller stores it beside the file for the chat to fetch.
 //
@@ -18,6 +18,8 @@ import { renderManifest } from "./render.mjs";
 import { buildManifestModel, FIELD_LABELS, where } from "./model.mjs";
 import { parseFlightId, readManifestFlight, ManifestFlightError } from "./leon.mjs";
 import { leonForOperator, OperatorUnavailable } from "../leon-operators.mjs";
+import { intakeRecordFor } from "./intake-source.mjs";
+import { passengerTextFor } from "../intake/leon-people.mjs";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -29,15 +31,22 @@ export function manifestFilename(flightNumber, startTimeUTC) {
   return `PAX-Manifest_${fn}_${date}.pdf`;
 }
 
-export async function generatePassengerManifest({ flightId, leon = null, lookup = undefined, progress = null, now = new Date() }) {
+export async function generatePassengerManifest({ flightId, leon = null, lookup = undefined, intake = intakeRecordFor, progress = null, now = new Date() }) {
   const { oprId, nid } = parseFlightId(flightId);
   progress?.("Connecting to the operator's Leon");
   const client = leon ?? await leonForOperator(oprId);
   const { flight, unmasked, operatorName, operatorNote, operatorSource } = await readManifestFlight(client, nid, { progress, ...(lookup ? { lookup } : {}) });
   if (flight.isCnl) throw new ManifestFlightError("cancelled", "This flight is cancelled in Leon.");
 
+  // Our own record, for a flight our flight intake created (used only when Leon has no passenger records).
+  progress?.("Checking the flight intake record");
+  let record = null, intakeProblem = null;
+  try { record = intake ? await intake(oprId, nid) : null; } catch (e) { intakeProblem = String(e?.message ?? e).slice(0, 160); }
+  const intakeText = record && !record.purged && record.passengers.length ? passengerTextFor(record.passengers, { reference: record.reference, paxNumber: flight?.passengerList?.count }).text : null;
+
   progress?.("Filling the form");
-  const built = buildManifestModel(flight, { unmasked, operatorName, operatorNote, operatorSource });
+  const built = buildManifestModel(flight, { unmasked, operatorName, operatorNote, operatorSource, intake: record, intakeText });
+  if (intakeProblem) built.warnings.push({ code: "intake-unavailable", message: `The flight intake record could not be checked (${intakeProblem}); passengers come from Leon only.` });
   const callsign = built.model.flight.flightNumber;
   const title = `Passenger Manifest ${callsign} ${built.model.flight.flightDate}`.trim();
   progress?.(`Laying out ${Math.max(1, Math.ceil(built.counts.passengers / 14))} page${built.counts.passengers > 14 ? "s" : ""}`);
@@ -49,7 +58,7 @@ export async function generatePassengerManifest({ flightId, leon = null, lookup 
       ? { code: "truncated", row: t.row, message: `Passenger ${where(t.row)}: the ${FIELD_LABELS[t.field]} is too long for its cell and was cut short with "…". Check it against the document before sending.` }
       : { code: "truncated", message: `The ${FIELD_LABELS[t.field]} is too long for its line and was cut short with "…".` });
   }
-  if (built.counts.passengers === 0 && !warnings.some((w) => w.code === "pax-note" || w.code === "pax-count-only")) {
+  if (built.counts.passengers === 0 && !warnings.some((w) => w.code === "pax-note" || w.code === "pax-count-only" || w.code === "intake-purged")) {
     warnings.unshift({ code: "no-passengers", message: "Leon lists no passengers on this flight, so the manifest has no passenger rows (crew and Persons on Board are filled)." });
   }
   return {
@@ -66,6 +75,8 @@ export async function generatePassengerManifest({ flightId, leon = null, lookup 
       warnings,
       missing: built.missing,
       hasPaxNote: Boolean(built.paxNote),
+      passengerSource: built.passengerSource,
+      crewSource: built.crewSource,
       blank: false,
     },
     paxNote: built.paxNote,

@@ -15,8 +15,8 @@ import { COLHEAD, EYEBROW, HATCH, fieldOf, legNo } from "./intake-shared";
 
 export type RevealState = { phase: "off" } | { phase: "ask"; section: string } | { phase: "loading"; section: string } | { phase: "on"; data: People } | { phase: "error"; section: string; message: string };
 type Col = { key: keyof Person; label: string; pii: boolean };
-const CREW_COLS: Col[] = [{ key: "role", label: "Role", pii: false }, { key: "name", label: "Name", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }, { key: "expiry", label: "Expiry", pii: true }];
-const PAX_COLS: Col[] = [{ key: "role", label: "Type", pii: false }, { key: "name", label: "Name", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }];
+const CREW_COLS: Col[] = [{ key: "role", label: "Role", pii: false }, { key: "name", label: "Name", pii: false }, { key: "sex", label: "Sex", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }, { key: "expiry", label: "Expiry", pii: true }];
+const PAX_COLS: Col[] = [{ key: "role", label: "Type", pii: false }, { key: "name", label: "Name", pii: false }, { key: "sex", label: "Sex", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }, { key: "expiry", label: "Expiry", pii: true }];
 const MASK = "••••••••";
 
 export function PeopleSection({ leg, people, peopleError, reveal, setReveal, doReveal, purged, retentionDays, editPeople = null }: {
@@ -46,7 +46,7 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
   const sources = [...new Set(rows.map((r) => r.source).filter(Boolean))].map((s) => (s === "body" ? "Email body" : s)).join(", ");
   const copied = rows.some((r) => r.copied);
   const revealed = reveal.phase === "on" ? reveal.data.legs.find((l) => l.leg === leg.index)?.[kind] ?? null : null;
-  const grid = [...cols.map(() => "minmax(0,1fr)"), ...(editPeople ? ["28px"] : [])].join(" ");
+  const grid = [...cols.map((c) => (c.key === "sex" ? "44px" : c.key === "name" ? "minmax(0,1.6fr)" : "minmax(0,1fr)")), ...(editPeople ? ["28px"] : [])].join(" ");
 
   let count: string; let body: ReactNode;
   const said = f?.said ? `"${f.said}"` : null;
@@ -91,10 +91,10 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
     );
   } else if (purged) {
     count = f?.value || "—";
-    body = <Box big="—" heading="Removed by retention" text={`Personal data is deleted ${retentionDays} days after the request. Counts stay.`} border={`1px dashed ${C.disabledFill}`} bg={C.page} color={C.muted} />;
+    body = <Box big="—" heading="Removed by retention" text={`Personal data is deleted ${retentionDays} days after the request or its last flight, whichever is later. Counts stay.`} border={`1px dashed ${C.disabledFill}`} bg={C.page} color={C.muted} />;
   } else if (f?.state === "unknown") {
     count = "TBA";
-    body = <Box big="TBA" heading={`${word}: TBA in the request`} text={`The request says ${said ?? "TBA"}. This is not zero and not empty: nobody is known yet. Leon gets TBA.`} border={`1px dashed ${INTAKE.unknownDash}`} bg={HATCH} color={INTAKE.unknownInk} />;
+    body = <Box big="TBA" heading={`${word}: TBA in the request`} text={`The request says ${said ?? "TBA"}. This is not zero and not empty: nobody is known yet. No count goes to Leon for it.`} border={`1px dashed ${INTAKE.unknownDash}`} bg={HATCH} color={INTAKE.unknownInk} />;
   } else if (f && (f.state === "zero" || f.value === "0")) {
     count = "0";
     body = <Box big="0" heading={`0 ${kind === "crew" ? "crew" : "passengers"}, stated`} text={`The request says ${said ?? "0"}. This is a real zero, not missing data.`} border={`1px solid ${C.border}`} bg={C.sidebar} color={C.body} />;
@@ -159,16 +159,17 @@ function Box({ big, heading, text, border, bg, color }: { big: string; heading: 
 
 
 /** Hand entry of one crew member or passenger. Plain text fields only (no native date pickers). */
-function AddPerson({ kind, legNo: n, onCancel, onSave }: { kind: "crew" | "pax"; legNo: number; onCancel: () => void; onSave: (p: Partial<Record<"role" | "name" | "dob" | "nationality" | "passport" | "expiry", string>>) => Promise<void> }) {
-  const [v, setV] = useState({ role: "", name: "", dob: "", nationality: "", passport: "", expiry: "" });
+function AddPerson({ kind, legNo: n, onCancel, onSave }: { kind: "crew" | "pax"; legNo: number; onCancel: () => void; onSave: (p: Partial<Record<"role" | "name" | "sex" | "dob" | "nationality" | "passport" | "expiry", string>>) => Promise<void> }) {
+  const [v, setV] = useState({ role: "", name: "", sex: "", dob: "", nationality: "", passport: "", expiry: "" });
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const fields: { key: keyof typeof v; label: string; placeholder: string; pii?: boolean; mono?: boolean }[] = [
     { key: "role", label: kind === "crew" ? "Role" : "Type", placeholder: kind === "crew" ? "PIC, SIC, Cabin" : "Adult, Child, Infant" },
     { key: "name", label: "Name", placeholder: "First Last" },
+    { key: "sex", label: "Sex", placeholder: "M / F" },
     { key: "dob", label: "Date of birth", placeholder: "DD Mon YYYY", pii: true, mono: true },
     { key: "nationality", label: "Nationality", placeholder: "Country" },
     { key: "passport", label: "Passport no.", placeholder: "Number", pii: true, mono: true },
-    ...(kind === "crew" ? [{ key: "expiry" as const, label: "Expiry", placeholder: "DD Mon YYYY", pii: true, mono: true }] : []),
+    { key: "expiry", label: "Expiry", placeholder: "DD Mon YYYY", pii: true, mono: true },
   ];
   const save = async () => {
     if (!v.name.trim()) { setError("A name, please."); return; }

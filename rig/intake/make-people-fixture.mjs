@@ -17,8 +17,8 @@ const GIV = ["ALICE", "BRUNO", "CARLA", "DMITRI", "ELENA", "FELIX", "GRETA", "HU
 const NAT = ["FRANCE", "LATVIA", "GERMANY", "GREECE", "MALTA", "AUSTRIA"];
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const d = (i, y) => `${String(1 + ((i * 7) % 28)).padStart(2, "0")}${MON[(i * 5) % 12]}${y + ((i * 3) % 20)}`;
-const pax = Array.from({ length: 16 }, (_, i) => ({ name: `${SUR[i]} ${GIV[i]}`, dob: d(i, 1961), nat: NAT[i % NAT.length], pp: `TEST${String(i + 1).padStart(5, "0")}`, exp: d(i + 2, 2030) }));
-const crew = [["CPT", "CREWMAN ARTHUR"], ["FO", "CREWLY BEATRICE"], ["CC", "CABINSON CLARA"], ["CC", "STEWARDE DANIEL"]].map(([role, name], i) => ({ role, name, dob: d(i + 20, 1975), nat: NAT[(i + 2) % NAT.length], pp: `TESTC${String(i + 1).padStart(4, "0")}`, exp: d(i + 30, 2031) }));
+const pax = Array.from({ length: 16 }, (_, i) => ({ sal: i % 3 === 1 ? "Mrs." : i % 3 === 2 ? "Ms." : "Mr.", sex: i % 3 === 0 ? "M" : "F", name: `${GIV[i]} ${SUR[i]}`, dob: d(i, 1961), nat: NAT[i % NAT.length], pp: `TEST${String(i + 1).padStart(5, "0")}`, exp: d(i + 2, 2030) }));
+const crew = [["CPT", "ARTHUR CREWMAN", "Mr.", "M"], ["FO", "BEATRICE CREWLY", "Ms.", "F"], ["CC", "CLARA CABINSON", "Mrs.", "F"], ["CC", "DANIEL STEWARDE", "Mr.", "M"]].map(([role, name, sal, sex], i) => ({ role, name, sal, sex, dob: d(i + 20, 1975), nat: NAT[(i + 2) % NAT.length], pp: `TESTC${String(i + 1).padStart(4, "0")}`, exp: d(i + 30, 2031) }));
 
 const lines = [
   `HANDLING REQUEST  ${REF}`, "", `OPERATOR: SAMPLE CHARTER (RIG FIXTURE)   AIRCRAFT: GLEX  REG OE-LCA   FLIGHT # ${CALL}`, "",
@@ -26,16 +26,16 @@ const lines = [
   `LEG 1  ${day(0).d}  LFPB 1320Z  ->  EVRA 1600Z   CREW 4  PAX 16`,
   `LEG 2  ${day(1).d}  EVRA 0840Z  ->  LGAV 1150Z   CREW 4  PAX 16`, "",
   "SERVICES REQUESTED: HANDLING, FUEL, CATERING FOR 16 PAX", "",
-  "CREW (BOTH LEGS)", "NO  ROLE  NAME                    DOB         NATIONALITY  PASSPORT    EXPIRY",
-  ...crew.map((c, i) => `${i + 1}   ${c.role.padEnd(4)}  ${c.name.padEnd(22)}  ${c.dob}   ${c.nat.padEnd(11)}  ${c.pp}   ${c.exp}`), "",
-  "PASSENGERS (BOTH LEGS)", "NO  NAME                    DOB         NATIONALITY  PASSPORT    EXPIRY",
-  ...pax.map((p, i) => `${String(i + 1).padEnd(3)} ${p.name.padEnd(22)}  ${p.dob}   ${p.nat.padEnd(11)}  ${p.pp}   ${p.exp}`),
+  "CREW (BOTH LEGS)", "#   ROLE  SALUTATION  FIRST, MIDDLE, LAST NAME  GENDER  DATE OF BIRTH  NATIONALITY  PASSPORT    EXPIRATION DATE",
+  ...crew.map((c, i) => `${i + 1}   ${c.role.padEnd(4)}  ${c.sal.padEnd(10)}  ${c.name.padEnd(24)}  ${c.sex.padEnd(6)}  ${c.dob.padEnd(13)}  ${c.nat.padEnd(11)}  ${c.pp}   ${c.exp}`), "",
+  "PASSENGERS (BOTH LEGS)", "#   SALUTATION  FIRST, MIDDLE, LAST NAME  GENDER  DATE OF BIRTH  NATIONALITY  PASSPORT    EXPIRATION DATE",
+  ...pax.map((p, i) => `${String(i + 1).padEnd(3)} ${p.sal.padEnd(10)}  ${p.name.padEnd(24)}  ${p.sex.padEnd(6)}  ${p.dob.padEnd(13)}  ${p.nat.padEnd(11)}  ${p.pp}   ${p.exp}`),
 ];
 
 const pdf = await PDFDocument.create(); pdf.setTitle(`Handling request ${REF}`); pdf.setProducer("rig"); pdf.setCreator("rig");
 const font = await pdf.embedFont(StandardFonts.Courier);
 let page = pdf.addPage([842, 595]); let y = 560;
-for (const l of lines) { if (y < 30) { page = pdf.addPage([842, 595]); y = 560; } page.drawText(l, { x: 30, y, size: 9.5, font }); y -= 14; }
+for (const l of lines) { if (y < 30) { page = pdf.addPage([842, 595]); y = 560; } page.drawText(l, { x: 24, y, size: 8.5, font }); y -= 13; }
 const pdfB64 = Buffer.from(await pdf.save()).toString("base64").replace(/.{76}/g, "$&\r\n");
 const body = `Dear Clearway,\r\n\r\nPlease arrange handling for our flights ${CALL} (OE-LCA) LFPB-EVRA-LGAV on ${day(0).words} and ${day(1).words}.\r\nSchedule, crew and passenger list attached.\r\n\r\nBest regards,\r\nRig Dispatch (synthetic test request)\r\n`;
 const B = "rigpax16-boundary";

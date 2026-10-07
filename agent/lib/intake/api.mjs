@@ -15,7 +15,7 @@ import { aircraftByRegistration, airport, checklistDefinitions } from "./leon-lo
 import { leonConfigured } from "./leon-client.mjs";
 import { maskForReader, MASK } from "./personal.mjs";
 import { sanitizeEmailHtml } from "./sanitize.mjs";
-import { retentionDays } from "./retention.mjs";
+import { retentionDays, deleteAtFor } from "./retention.mjs";
 import { notifyTo } from "./notify.mjs";
 import { intakeSettings, setIntakeSettings } from "./settings.mjs";
 import { agentFrom } from "../email/send.mjs";
@@ -239,7 +239,7 @@ async function peopleFor(id, reveal) {
   const legs = (r.review?.legs ?? []).map((l) => ({ leg: l.index, crew: [], pax: [] }));
   for (const p of people) {
     const targets = p.leg == null ? legs : legs.filter((l) => l.leg === p.leg);
-    const row = { id: p.id ?? null, added: p.added ? { by: p.added.by, at: p.added.at } : null, role: p.role ?? p.type ?? null, name: p.name, dob: p.dob ? (reveal ? p.dob : MASK) : null, nationality: p.nationality ?? null, passport: p.passport ? (reveal ? p.passport : MASK) : null, expiry: p.expiry ? (reveal ? p.expiry : MASK) : null, source: p.source ?? null, copied: p.leg == null && !p.added };
+    const row = { id: p.id ?? null, added: p.added ? { by: p.added.by, at: p.added.at } : null, role: p.role ?? p.type ?? null, salutation: p.salutation ?? null, sex: p.sex ?? null, name: p.name, dob: p.dob ? (reveal ? p.dob : MASK) : null, nationality: p.nationality ?? null, passport: p.passport ? (reveal ? p.passport : MASK) : null, expiry: p.expiry ? (reveal ? p.expiry : MASK) : null, source: p.source ?? null, copied: p.leg == null && !p.added };
     for (const t of targets) t[p.list].push(row);
   }
   return { legs, purged: !ex?.personal && !!r.current_extraction_id, masked: !reveal };
@@ -261,7 +261,7 @@ async function editPeople(id, user, body) {
     const leg = Number(body.leg); if (!(r.review?.legs ?? []).some((l) => l.index === leg)) throw err(404, "No such leg.");
     if (!["crew", "pax"].includes(body.list)) throw err(400, "Choose crew or passenger.");
     const p = body.person ?? {}; const name = clip(p.name, 120); if (!name) throw err(400, "A name, please.");
-    people.push({ id: randomUUID(), leg, list: body.list, role: clip(p.role, 40), type: body.list === "pax" ? clip(p.role, 40) : null, name, dob: clip(p.dob, 24), nationality: clip(p.nationality, 40), passport: clip(p.passport, 24), expiry: clip(p.expiry, 24), source: `Added by ${me.name}`, added: { by: me.name, at: me.at } });
+    people.push({ id: randomUUID(), leg, list: body.list, role: clip(p.role, 40), type: body.list === "pax" ? clip(p.role, 40) : null, salutation: clip(p.salutation, 12), sex: clip(p.sex, 12), name, dob: clip(p.dob, 24), nationality: clip(p.nationality, 40), passport: clip(p.passport, 24), expiry: clip(p.expiry, 24), source: `Added by ${me.name}`, added: { by: me.name, at: me.at } });
   } else if (body.op === "remove") {
     const i = people.findIndex((p) => p.id && p.id === body.personId);
     if (i < 0) throw err(404, "No such person.");
@@ -338,8 +338,8 @@ async function readerPayload(id, user) {
   const req0 = m.request_id ? (await rest(`intake_requests?select=id,reference,status,status_reason,first_std,closed_reason,current_extraction_id,request_type,message_id&id=eq.${m.request_id}`))?.[0] : null;
   const req = req0 && req0.status !== "not_recognised" ? req0 : null; // nothing to open for a message that was not recognised
   const days = await retentionDays();
-  const deleteAt = new Date(Date.parse(m.received_at) + days * 86400000);
-  const base = { id: m.id, direction: m.direction, subject: m.subject, from: m.from_addr, to: m.to_addrs, cc: m.cc_addrs, at: m.received_at, status: m.status, statusReason: m.status_reason, understood: m.understood, history: m.history ?? [], request: req ? { id: req.id, reference: req.reference, state: uiStatus(req).label } : null, hasPersonal: m.has_personal_data, purged: !!m.purged_at, retention: m.purged_at ? `Removed by retention on ${fmtDate(m.purged_at)}` : `Kept ${days} days · ${m.has_personal_data ? "personal data and attachments " : ""}deleted ${fmtDate(deleteAt.toISOString())}`, ignored: m.ignored_by ? { by: m.ignored_by, reason: m.ignored_reason, note: m.ignored_note } : null, auth: m.auth ?? null, rfcMessageId: m.rfc_message_id };
+  const deleteAt = deleteAtFor(m.received_at, req0 ? (await rest(`intake_requests?select=review&id=eq.${req0.id}`).catch(() => []))?.[0]?.review : null, days);
+  const base = { id: m.id, direction: m.direction, subject: m.subject, from: m.from_addr, to: m.to_addrs, cc: m.cc_addrs, at: m.received_at, status: m.status, statusReason: m.status_reason, understood: m.understood, history: m.history ?? [], request: req ? { id: req.id, reference: req.reference, state: uiStatus(req).label } : null, hasPersonal: m.has_personal_data, purged: !!m.purged_at, retention: m.purged_at ? `Removed by retention on ${fmtDate(m.purged_at)}` : `Kept ${days} days after arrival or the last flight · ${m.has_personal_data ? "personal data and attachments " : ""}deleted ${fmtDate(deleteAt.toISOString())}`, ignored: m.ignored_by ? { by: m.ignored_by, reason: m.ignored_reason, note: m.ignored_note } : null, auth: m.auth ?? null, rfcMessageId: m.rfc_message_id };
   // Thread: this request's inbound message + every email we sent for it.
   let thread = [];
   if (req) {

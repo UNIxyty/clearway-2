@@ -253,6 +253,7 @@ export function ManifestNotice({ manifest: m, panel = false, notePath = null }: 
         <span style={mono({ fontSize: 14, fontWeight: 600 })}>{head}</span>
         <span style={{ ...mono({ fontSize: 12 }), color: C.muted }}>{counts}</span>
       </div>
+      {!m.blank && m.passengerSource && <span style={{ fontSize: 12.5, color: C.muted }}>Passenger rows: <b style={{ color: C.ink }}>{m.passengerSource.kind === "leon" ? "Leon's passenger records" : m.passengerSource.kind === "intake" ? `the flight intake record ${m.passengerSource.reference ?? ""}`.trim() : "none — Leon holds no passenger records"}</b>{m.passengerSource.kind === "intake" ? " (Leon has none; the passengers a person confirmed on the intake review)." : "."}</span>}
       {m.operator?.name && m.operator.source && <span style={{ fontSize: 12.5, color: C.muted }}>Owner or Operator: <b style={{ color: C.ink }}>{m.operator.name}</b> — from {m.operator.source}.</span>}
       {items.length > 0 && (
         <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -265,8 +266,8 @@ export function ManifestNotice({ manifest: m, panel = false, notePath = null }: 
         </ul>
       )}
       {m.hasPaxNote && (
-        <div aria-label="The operator's own passenger note in Leon" style={{ border: `1px dashed ${C.warnBorder}`, borderRadius: 9, background: C.surface, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: C.warn }}>THE OPERATOR&apos;S OWN NOTE IN LEON · VERBATIM · NOT CHECKED, NOT PARSED INTO ROWS</span>
+        <div aria-label={m.passengerSource?.kind === "intake" ? "Leon's text passenger list" : "The operator's own passenger note in Leon"} style={{ border: `1px dashed ${C.warnBorder}`, borderRadius: 9, background: C.surface, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: C.warn }}>{m.passengerSource?.kind === "intake" ? "LEON'S TEXT PASSENGER LIST · VERBATIM · COMPARE IT WITH THE ROWS — NOT MERGED" : "THE OPERATOR'S OWN NOTE IN LEON · VERBATIM · NOT CHECKED, NOT PARSED INTO ROWS"}</span>
           <pre data-pax-note="" style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", ...mono({ fontSize: 12.5 }), color: C.ink }}>{note ?? "Loading the note…"}</pre>
         </div>
       )}

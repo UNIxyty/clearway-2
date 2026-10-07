@@ -27,14 +27,17 @@ for (const [ref, file, expect] of [["RIGPAX16", "people-loaded", "loaded"], ["RI
   await pipe.scrollIntoViewIfNeeded(); await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/${file}-pipeline.png`, fullPage: false });
   if (expect === "loaded") {
+    const banner = await page.locator("body").innerText();
+    ok(/Passengers are in Leon's passenger list as text\. Crew are a note in the OPS notes, not assigned in Leon\./.test(banner), `${ref}: the Loaded banner says what reached Leon: passengers as text, crew as a note, not assigned`);
     ok((text.match(/16 passengers written to the flight's passenger list in Leon/g) ?? []).length === 2, `${ref}: each leg says its 16 passengers are in Leon's passenger list`);
-    ok((text.match(/4 crew recorded in the flight's OPS notes as the operator's crew\. NOT assigned in Leon/g) ?? []).length === 2, `${ref}: each leg says its crew were recorded as a note, NOT assigned`);
+    ok((text.match(/4 crew written into the flight's OPS notes with the flight, as the operator's crew\. NOT assigned in Leon/g) ?? []).length === 2, `${ref}: each leg says its crew were recorded as a note, NOT assigned`);
   } else {
     ok((text.match(/Passengers NOT in Leon\. Leon: Passenger list is locked by another user/g) ?? []).length === 2, `${ref}: the refused passenger write is shown per leg, with Leon's reason`);
     const red = await sent.locator('[role="alert"]').count();
     ok(red >= 2, `${ref}: shown as an alert (red)`, `${red} alerts`);
     const banner = await page.locator("body").innerText();
     ok(/passengers NOT in Leon for leg 1, 2/.test(banner), `${ref}: the request's status says so`);
+    ok(/Both flights are in Leon\. Passengers of leg 1, 2 are NOT in Leon\./.test(banner) && !/Loaded\. Both legs are in Leon/.test(banner), `${ref}: the banner says the passengers are NOT in Leon (not "Loaded")`);
   }
   // Names are readable in "What the agent read" by design (documents and dates of birth masked there); the Leon
   // outcome carries none, and no document number appears anywhere on the page.

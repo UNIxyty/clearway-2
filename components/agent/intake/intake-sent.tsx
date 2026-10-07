@@ -75,7 +75,7 @@ export function SentSection({ detail, rawOpen, setRawOpen, resolveLeg }: { detai
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
             <span style={EYEBROW}>The request in Leon · OPS notes of each flight</span>
-            <span style={{ fontSize: 12.5, color: C.muted }}>Word for word, marked NOT ACTIONED. No checklist status was set: every item is at Leon&apos;s default (?).{(detail.sent.people ?? []).some((p) => p.kind === "crew" && p.state === "in_leon") ? " In Leon the operator's crew follow below this, as a separate block (names not shown here)." : ""}</span>
+            <span style={{ fontSize: 12.5, color: C.muted }}>Word for word, marked NOT ACTIONED. No checklist status was set: every item is at Leon&apos;s default (?).{(detail.sent.people ?? []).some((p) => p.kind === "crew" && p.state === "in_leon") ? " The operator's crew block below went to Leon in these notes with the flight; its names are not kept here." : ""}</span>
           </div>
           {writes.filter((w) => w.state === "in_leon" && typeof w.payload?.opsNotes === "string").map((w) => (
             <pre key={w.leg} style={{ margin: 0, ...mono({ fontSize: 12 }), lineHeight: 1.5, color: C.body, background: C.page, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>LEG {w.leg + 1}{"\n"}{String(w.payload!.opsNotes)}</pre>
@@ -133,7 +133,7 @@ function PeopleLines({ leg, detail }: { leg: number; detail: RequestDetail }) {
     const p = latest.get(kind); const n = p?.people ?? 0;
     const noun = kind === "pax" ? (n === 1 ? "passenger" : "passengers") : "crew";
     if (!p) { if (inRequest[kind]) lines.push({ key: kind, tone: "warn", text: `${kind === "pax" ? "Passengers" : "Crew"}: NOT in Leon. No ${kind === "pax" ? "passenger" : "crew"} write is recorded for this leg (${inRequest[kind]} in the request).` }); continue; }
-    if (p.state === "in_leon") lines.push({ key: kind, tone: kind === "pax" ? "ok" : "warn", text: kind === "pax" ? `${n} ${noun} written to the flight's passenger list in Leon (Leon's text list, as the request gave them).` : `${n ? `${n} crew` : "The crew count"} recorded in the flight's OPS notes as the operator's crew. NOT assigned in Leon: Leon assigns crew only from its own crew records.` });
+    if (p.state === "in_leon") lines.push({ key: kind, tone: kind === "pax" ? "ok" : "warn", text: kind === "pax" ? `${n} ${noun} written to the flight's passenger list in Leon (Leon's text list, as the request gave them).` : `${n ? `${n} crew` : "The crew count"} written into the flight's OPS notes with the flight, as the operator's crew. NOT assigned in Leon: Leon assigns crew only from its own crew records.` });
     else if (p.state === "not_in_leon") lines.push({ key: kind, tone: "bad", text: `${kind === "pax" ? "Passengers" : "Crew"} NOT in Leon. ${p.error ?? "Leon refused it."}` });
     else lines.push({ key: kind, tone: "bad", text: `${kind === "pax" ? "Passengers" : "Crew"}: ${p.state === "sending" ? "waiting for Leon." : `${p.error ?? "Leon did not answer."} Check the flight in Leon.`}` });
   }

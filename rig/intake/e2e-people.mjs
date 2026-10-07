@@ -9,7 +9,12 @@ import { execSync } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { generatePassengerManifest } from "../../agent/lib/manifest/index.mjs";
+import { buildManifestModel } from "../../agent/lib/manifest/model.mjs";
+import { renderManifest } from "../../agent/lib/manifest/render.mjs";
+import { intakeRecordFor } from "../../agent/lib/manifest/intake-source.mjs";
+import { passengerTextFor } from "../../agent/lib/intake/leon-people.mjs";
 import { stubLeon } from "../manifest/fixtures.mjs";
 if (!/127\.0\.0\.1|localhost/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "") || !/127\.0\.0\.1/.test(process.env.LEON_API_BASE ?? "")) { console.error("rig only (local DB and the mock Leon)"); process.exit(78); }
 const AGENT = process.env.RIG_AGENT_URL || "http://127.0.0.1:5175";
@@ -72,7 +77,9 @@ const m1 = await deliver("rig/fixtures/intake/rigpax16-oelca.eml");
 let d = await detail(m1.request_id);
 console.log(`  ${d.request.reference} · ${d.request.route} · ${d.request.ui.label} · blockers ${JSON.stringify(d.blockers)}`);
 ok(d.review.legs.length === 2 && [0, 1].every((i) => peopleOn(d, i).pax === 16 && peopleOn(d, i).crew === 4), "the request's people, read: 16 passengers and 4 crew on each leg", [0, 1].map((i) => `leg ${i + 1}: ${peopleOn(d, i).pax} pax, ${peopleOn(d, i).crew} crew`).join(" · "));
+faults({ dispatcherEditAfterCreate: ["OELCA"] }); // a dispatcher types into the OPS notes as soon as each flight exists
 const s1 = await send(m1.request_id);
+faults({});
 ok(s1.prepared.status === 200, "prepare issues a confirmation", s1.prepared.status === 200 ? "" : JSON.stringify(s1.prepared.json?.blockers ?? s1.prepared.json));
 if (s1.prepared.status !== 200) { console.log(`\n${failures} FAILED (cannot continue)`); process.exit(1); }
 ok(s1.prepared.json.legs.every((l) => l.people?.pax?.people === 16 && l.people?.pax?.count === 16 && l.people?.crew?.people === 4), "the confirmation shows, per leg: 16 passengers to Leon's passenger list, 4 crew to OPS notes (counts only)", JSON.stringify(s1.prepared.json.legs.map((l) => l.people)));
@@ -86,8 +93,8 @@ const fl = (await mockFlights()).filter((f) => r1.legs.some((l) => String(l.flig
 for (const f of fl) {
   const t = f.passengerList.passengerText;
   const rows = t.split("\n").filter((x) => /^\d+\. /.test(x));
-  const full = rows.filter((x) => /DOB \S+/.test(x) && /Passport TEST\d{5}/.test(x) && /Expires \S+/.test(x) && / · [A-Z]+ · Passport/.test(x));
-  console.log(`  flight ${f.flightNid} ${f.flightNo} ${f.startAirport.code.icao}→${f.endAirport.code.icao}: passengerList count ${f.passengerList.count}, realCount ${f.passengerList.realCount}, ${rows.length} passengers listed, ${full.length} with DOB + nationality + passport + expiry`);
+  const full = rows.filter((x) => / · [MF] · DOB \S+/.test(x) && /Passport TEST\d{5}/.test(x) && /Expires \S+/.test(x) && / · [A-Z]+ · Passport/.test(x));
+  console.log(`  flight ${f.flightNid} ${f.flightNo} ${f.startAirport.code.icao}→${f.endAirport.code.icao}: passengerList count ${f.passengerList.count}, realCount ${f.passengerList.realCount}, ${rows.length} passengers listed, ${full.length} with sex + DOB + nationality + passport + expiry`);
   ok(f.passengerList.count === 16 && rows.length === 16 && full.length === 16 && PAX_DOCS.every((p) => t.includes(`Passport ${p}`)), `  flight ${f.flightNid}: all 16 passengers with their passport details, in the request's order`, `first line: ${t.split("\n")[0].slice(0, 90)}`);
   const ops = f.notes.ops;
   const crewAt = ops.indexOf("OPERATOR'S CREW per the handling request");
@@ -95,7 +102,12 @@ for (const f of fl) {
   const block = ops.slice(crewAt);
   ok(/NOT assigned in Leon/.test(block) && /Crew count per the request: 4/.test(block) && CREW_DOCS.every((c) => block.includes(`Passport ${c}`)) && /^1\. CPT · /m.test(block), `  flight ${f.flightNid}: the 4 crew in OPS notes, labelled the operator's crew per the request, NOT assigned, count 4`);
   ok((f.crewMemberList ?? []).length === 0, `  flight ${f.flightNid}: no crew assignment and no crew record created`);
+  ok(ops.includes("DISPATCHER EDIT: typed in Leon right after the flight was created") && crewAt > 0, `  flight ${f.flightNid}: the dispatcher's edit made after creation is still there, with the crew block (nothing wrote the notes back)`);
 }
+const mutations = readFileSync(MOCKLOG, "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((e) => /mutation/.test(e.q));
+ok(!mutations.some((e) => /flightListUpdate|flightUpdate|opsNotes/i.test(e.q)), "no notes write after creation: the crew block went in the create; Leon's notes are never read and written back", `${mutations.length} mutations: ${[...new Set(mutations.map((e) => (/createTrip|flightCreate|savePassengerText|flightListUpdate/.exec(e.q) ?? ["other"])[0]))].join(", ")}`);
+const log1 = await db(`intake_leon_writes?select=payload&request_id=eq.${m1.request_id}`);
+ok(log1.every((w) => /OPERATOR'S CREW per the handling request/.test(w.payload.opsNotes) && /4 crew · count 4 · sent to Leon in these notes; names and documents are not kept in the send log/.test(w.payload.opsNotes) && !CREW_DOCS.some((c) => JSON.stringify(w.payload).includes(c))), "the send log keeps the crew block's heading and a count line, not the names");
 ok(!readFileSync(MOCKLOG, "utf8").includes("savePassengerText") || !PII.some((w) => readFileSync(MOCKLOG, "utf8").includes(w)), "mock Leon's own request log holds a hash and a length for the texts, not the people");
 
 d = await detail(m1.request_id);
@@ -107,14 +119,41 @@ const e1 = (await db(`intake_messages?select=subject,sent_kind,delivery_detail&r
 ok(/^Loaded:/.test(e1.subject) && /PASSENGERS AND CREW:/.test(e1.delivery_detail.text) && /16 passengers written/.test(e1.delivery_detail.text) && /Crew were recorded as a note[^.]*\. They are NOT assigned in Leon/.test(e1.delivery_detail.text), "completion email: says the passengers are in Leon and the crew are a note, NOT assigned", e1.subject);
 console.log(`  email PASSENGERS AND CREW section:\n    ${e1.delivery_detail.text.split("PASSENGERS AND CREW:")[1].split("\n\n")[0].trim().split("\n").join("\n    ")}`);
 
-console.log("\n=== 2. The manifest of leg 1, from what Leon now holds ===");
-{ const f = fl.find((x) => x.startAirport.code.icao === "LFPB");
-  const leonFlight = { ...f, isCnl: false, operator: { name: "SAMPLE CHARTER (RIG)", planMode: "pro", isGuest: false }, flightWatch: { paxCount: null }, journeyLog: { paxCount: null } };
-  const g = await generatePassengerManifest({ flightId: `cwy-cwy:${f.flightNid}`, leon: stubLeon(leonFlight), lookup: async () => ({ holders: [], unchecked: [] }) });
-  console.log(`  manifest: ${g.result.pageCount} page(s), ${g.result.passengerCount} passenger rows, crew ${g.result.crewCount}, POB ${g.result.personsOnBoard}, operator's text list shown beside it: ${g.result.hasPaxNote}`);
-  console.log(`  warnings: ${g.result.warnings.map((w) => w.code).join(", ")}`);
-  ok(g.result.hasPaxNote && g.paxNote === f.passengerList.passengerText, "the manifest shows Leon's passenger list verbatim beside the file (text list: never parsed into rows)");
-  console.log(`  NOT MET: ${g.result.passengerCount} manifest rows. Leon holds these passengers as its text list; manifest rows need Leon's structured passenger records, which need address-book contacts (a decision, not taken here).`); }
+console.log("\n=== 2. The manifest of leg 1: rows from our own intake record ===");
+{ const PY = path.resolve("rig/.scratch/fontenv/bin/python");
+  const OUTD = path.join(SCR, "manifest-intake"); mkdirSync(OUTD, { recursive: true });
+  const spans = (file) => JSON.parse(execFileSync(PY, ["-c", "import json,sys,pymupdf as f\nprint(json.dumps([{'page':i+1,'text':s['text']} for i,p in enumerate(f.open(sys.argv[1])) for b in p.get_text('dict')['blocks'] for l in b.get('lines',[]) for s in l['spans']]))", file]).toString());
+  const leonFlightOf = async (nid) => { const f = (await mockFlights()).find((x) => x.flightNid === nid); return { ...f, isCnl: false, operator: { name: "SAMPLE CHARTER (RIG)", planMode: "pro", isGuest: false }, flightWatch: { paxCount: null }, journeyLog: { paxCount: null } }; };
+  const f = fl.find((x) => x.startAirport.code.icao === "LFPB");
+  const genFor = async () => generatePassengerManifest({ flightId: `cwy-cwy:${f.flightNid}`, leon: stubLeon(await leonFlightOf(f.flightNid)), lookup: async () => ({ holders: [], unchecked: [] }) });
+  const g = await genFor();
+  const file = path.join(OUTD, g.filename); writeFileSync(file, g.pdf);
+  const sp = spans(file);
+  const isName = (t) => SUR.some((sname) => t.endsWith(` ${sname}`)) && GIV.some((gname) => t.startsWith(gname));
+  const p1 = sp.filter((x) => x.page === 1 && isName(x.text)).length, p2 = sp.filter((x) => x.page === 2 && isName(x.text)).length;
+  console.log(`  manifest: ${g.result.pageCount} pages, ${g.result.passengerCount} passenger rows (${p1} on page 1, ${p2} on page 2), crew ${g.result.crewCount} (${g.result.crewSource}), POB ${g.result.personsOnBoard}, source ${JSON.stringify(g.result.passengerSource)}`);
+  console.log(`  warnings: ${g.result.warnings.map((w) => w.code).join(", ") || "none"}`);
+  ok(g.result.passengerSource.kind === "intake" && g.result.passengerSource.reference === "RIGPAX16", "Leon holds no passenger records → the rows come from the intake record RIGPAX16, and the result says so");
+  ok(g.result.pageCount === 2 && p1 === 14 && p2 === 2, "16 passengers across both pages: 14 + 2 rows");
+  const sexes = sp.filter((x) => x.text === "M" || x.text === "F");
+  ok(sexes.filter((x) => x.text === "M").length === 6 && sexes.filter((x) => x.text === "F").length === 10 && !g.result.missing.some((m) => m.fields.includes("sex")), "SEX filled on every row from the request's Gender column (6 M, 10 F, as the request says)");
+  ok(sp.filter((x) => /^\d{2}-[A-Z][a-z]{2}-\d{4}$/.test(x.text)).length >= 32 && PAX_DOCS.every((d) => sp.some((x) => x.text === d)), "dates of birth and expiries as DD-Mon-YYYY, every passport number as given");
+  ok(!g.result.warnings.some((w) => w.code === "intake-differs-from-leon") && g.paxNote === f.passengerList.passengerText, "Leon's text list is what the intake wrote → no staleness warning; Leon's list is still shown beside the file");
+  // Masked copy for the report: the same model, every passenger value replaced by bullets of the same length.
+  const rec = await intakeRecordFor("cwy-cwy", f.flightNid);
+  const built = buildManifestModel(await leonFlightOf(f.flightNid), { operatorName: "SAMPLE CHARTER (RIG)", intake: rec, intakeText: passengerTextFor(rec.passengers, { reference: rec.reference, paxNumber: 16 }).text });
+  const mask = (v) => String(v ?? "").replace(/[A-Za-z0-9]/g, "•");
+  built.model.passengers = built.model.passengers.map((p) => ({ ...p, name: mask(p.name), dateOfBirth: mask(p.dateOfBirth), placeOfBirth: mask(p.placeOfBirth), documentNumber: mask(p.documentNumber), documentExpiry: mask(p.documentExpiry), nationality: mask(p.nationality) }));
+  const masked = await renderManifest(built.model, { title: g.title, creationDate: new Date() });
+  const maskedFile = path.join(OUTD, g.filename.replace(/\.pdf$/, "_MASKED.pdf")); writeFileSync(maskedFile, Buffer.from(masked.bytes));
+  execFileSync(PY, ["-c", "import sys,pymupdf as f\nd=f.open(sys.argv[1])\nfor i,p in enumerate(d): p.get_pixmap(dpi=110).save(sys.argv[1].replace('.pdf',f'_p{i+1}.png'))", maskedFile]);
+  console.log(`  files: ${file}\n         ${maskedFile} (+ _p1.png, _p2.png)`);
+  // Somebody edits the passengers in Leon after we loaded them: a warning, never a merge.
+  await fetch(`${process.env.LEON_API_BASE}/_rig/edit-passenger-text`, { method: "POST", body: JSON.stringify({ flightNid: f.flightNid, text: `${f.passengerList.passengerText}\n17. LATE ADDITION (typed in Leon)` }) });
+  const g2 = await genFor();
+  const sp2 = spans((() => { const x = path.join(OUTD, "edited.pdf"); writeFileSync(x, g2.pdf); return x; })());
+  ok(g2.result.warnings.some((w) => w.code === "intake-differs-from-leon") && g2.result.passengerCount === 16 && !sp2.some((x) => /LATE ADDITION/.test(x.text)), "Leon's list edited after loading → 'differs' warning; rows stay the intake record's 16, nothing merged", g2.result.warnings.find((w) => w.code === "intake-differs-from-leon")?.message.slice(0, 110));
+  rmSync(path.join(OUTD, "edited.pdf"), { force: true }); }
 
 console.log("\n=== 3. A refused passenger write is visible ===");
 faults({ refusePassengerText: ["OELCB"] });

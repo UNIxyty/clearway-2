@@ -63,6 +63,8 @@ const SERVICE = { type: "object", additionalProperties: false, required: ["name"
 const PERSON = { type: "object", additionalProperties: false, required: ["leg", "list", "name"], properties: {
   leg: { type: ["integer", "null"] },        // 0-based leg index; null = all legs
   list: { enum: ["crew", "pax"] }, role: { type: ["string", "null"] }, type: { type: ["string", "null"] },
+  salutation: { type: ["string", "null"] },  // "Mr." / "Mrs." / "Ms." as written; never used to infer sex
+  sex: { type: ["string", "null"] },         // the request's Gender / Sex column as written ("M", "F"); never inferred
   name: { type: ["string", "null"] }, dob: { type: ["string", "null"] }, nationality: { type: ["string", "null"] },
   passport: { type: ["string", "null"] }, expiry: { type: ["string", "null"] }, source: { type: ["string", "null"] },
 } };

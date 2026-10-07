@@ -20,7 +20,7 @@ const BLANK_STEPS = ["Laying out the blank form", "Saving the file"];
 defineTool({
   name: "make_passenger_manifest",
   description:
-    "Generate the Passenger Manifest PDF (Clearway's border-authority form) for ONE flight, filled from that flight's operator's Leon — or the blank hand-fill form with blank=true. " +
+    "Generate the Passenger Manifest PDF (Clearway's border-authority form) for ONE flight, filled from that flight's operator's Leon — or the blank hand-fill form with blank=true. Passenger rows come from Leon's passenger records; when Leon has none and the flight was created by our flight intake, from the intake record a person confirmed (the result says which). " +
     "Pass flight_id exactly as \"<oprId>:<flightNid>\" (the key from the manifest picker or search_manifest_flights); never guess one. " +
     "Before calling, say in one short sentence which flight you are building it for. After it returns, name the flight and the number of passengers, say plainly when there are none, and leave the warnings to the card the chat shows above the file. " +
     "If it fails, say what the error message says and nothing more — do not guess at causes. " +

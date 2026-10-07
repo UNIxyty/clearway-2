@@ -267,9 +267,15 @@ export function bannerFor(detail: RequestDetail, now: number, closed: boolean): 
     const missing = items.filter((c) => !c.filled).length;
     const ids = inL.map((l) => l.leon?.flightNid).filter(Boolean) as string[];
     const at = inL.map((l) => l.leon?.at).filter(Boolean).sort()[0];
+    // Passengers or crew Leon did not take: the flights stand, but the banner must not read "Loaded".
+    const pplBad = (detail.sent.people ?? []).filter((p) => p.state !== "in_leon" && !(detail.sent.people ?? []).some((q) => q.leg === p.leg && q.kind === p.kind && q.state === "in_leon" && Date.parse(q.updatedAt ?? q.at) > Date.parse(p.updatedAt ?? p.at)));
+    if (pplBad.length) {
+      const what = [...new Set(pplBad.map((p) => (p.kind === "pax" ? "Passengers" : "Crew")))].join(" and "); const ls = [...new Set(pplBad.map((p) => p.leg + 1))];
+      return { tone: "red", icon: "circle-alert", title: `${both} in Leon. ${what} of leg ${ls.join(", ")} are NOT in Leon.`, body: `${pplBad.map((p) => `Leg ${p.leg + 1}: ${p.error ?? (p.state === "unknown" ? "Leon did not answer." : "not written.")}`).join(" ")} Add them to the flight in Leon by hand; the request below has their details.` };
+    }
     if (missing) return { tone: "red", icon: "circle-alert", title: `${both} in Leon. The checklist is incomplete: ${missing} of ${items.length} items were not filled.`, body: "An older request: the agent used to set checklist statuses. It no longer does; finish the checklist in Leon." };
     return { tone: "green", icon: "circle-check", title: `Loaded. ${N === 2 ? "Both legs are" : N === 1 ? "The leg is" : `All ${N} legs are`} in Leon.`,
-      body: `Created${at ? ` at ${hmZ(at)}` : ""} as flight${ids.length === 1 ? "" : "s"} ${listWords(ids)}. The client's request is in each flight's OPS notes, unactioned; no checklist status was set.` };
+      body: `Created${at ? ` at ${hmZ(at)}` : ""} as flight${ids.length === 1 ? "" : "s"} ${listWords(ids)}. The client's request is in each flight's OPS notes, unactioned; no checklist status was set.${(detail.sent.people ?? []).some((p) => p.kind === "pax" && p.state === "in_leon") ? " Passengers are in Leon's passenger list as text." : ""}${(detail.sent.people ?? []).some((p) => p.kind === "crew" && p.state === "in_leon") ? " Crew are a note in the OPS notes, not assigned in Leon." : ""}` };
   }
   // Nothing in Leon.
   if (closed) return { tone: "slate", icon: "circle-minus", title: `${r.ui.label}. Nothing was sent to Leon.`, body: r.statusReason };

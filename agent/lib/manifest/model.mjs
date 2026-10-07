@@ -12,12 +12,23 @@
 import { PERSONS_ON_BOARD_INCLUDES_CREW, NATIONALITY_FORMAT, DOCUMENT_LEG } from "./config.mjs";
 import { PASSENGERS_PER_PAGE } from "./layout.mjs";
 import { loadManifestFonts, unprintable } from "./fonts.mjs";
+import { paxContentHash } from "../intake/leon-people.mjs";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** "2026-09-29" or an ISO timestamp → "29-Sep-2026" (UTC). Anything unparseable → "" (blank, and reported). */
+/**
+ * "2026-09-29", an ISO timestamp, or a day–month-name–year date as handling requests write it ("05 Mar 1981",
+ * "05MAR1981", "05-Mar-1981") → "05-Mar-1981" (UTC). Anything else → "" (blank, and reported): a two-digit year or an
+ * all-number day/month order is never guessed.
+ */
 export function formatDate(value) {
   const s = String(value ?? "").trim();
+  const named = /^(\d{1,2})[\s-]?([A-Za-z]{3})[\s-]?(\d{4})$/.exec(s);
+  if (named) {
+    const mo = MONTHS.findIndex((x) => x.toLowerCase() === named[2].toLowerCase()), d = Number(named[1]), y = Number(named[3]);
+    if (mo < 0 || d < 1 || d > new Date(Date.UTC(y, mo + 1, 0)).getUTCDate()) return "";
+    return `${String(d).padStart(2, "0")}-${MONTHS[mo]}-${y}`;
+  }
   const m = /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(s);
   if (!m) return "";
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
@@ -35,6 +46,9 @@ const asIs = (v) => (v == null ? "" : String(v));
 const isBlank = (v) => !String(v ?? "").trim();
 const joinNonBlank = (parts) => parts.map(asIs).filter((x) => !isBlank(x)).join(" ");
 const SEX = { MALE: "M", FEMALE: "F" };
+// A request's Gender column as written: M / F, or the words. Anything else is left blank and reported, never guessed.
+const REQUEST_SEX = { m: "M", f: "F", male: "M", female: "F" };
+const norm = (t) => String(t ?? "").replace(/\r\n?/g, "\n").split("\n").map((l) => l.replace(/\s+$/, "")).join("\n").trim();
 
 export const FIELD_LABELS = {
   name: "name", sex: "sex", dateOfBirth: "date of birth", placeOfBirth: "place of birth",
@@ -68,7 +82,7 @@ function documentOf(pc, leg, unmasked) {
  *   options.unmasked: { [passengerContactNid]: { departure: {number,…}, arrival: {…} } } from the second, permission-
  *   checked read; options.operatorName / operatorNote / operatorSource come from leon.mjs resolveOperator.
  */
-export function buildManifestModel(flight, { unmasked = {}, operatorName, operatorNote = null, operatorSource = null } = {}) {
+export function buildManifestModel(flight, { unmasked = {}, operatorName, operatorNote = null, operatorSource = null, intake = null, intakeText = null } = {}) {
   const warnings = [];
   const missing = []; // [{ row, where, fields: [label…] }]
   const fieldWarn = (code, message, extra = {}) => warnings.push({ code, message, ...extra });
@@ -103,7 +117,22 @@ export function buildManifestModel(flight, { unmasked = {}, operatorName, operat
   const contacts = Array.isArray(list?.passengerContactList) ? list.passengerContactList : [];
   const freeText = !isBlank(list?.passengerText) ? asIs(list.passengerText) : !isBlank(list?.passengerListAsText) ? asIs(list.passengerListAsText) : "";
   let paxNote = null;
-  if (contacts.length === 0 && freeText) {
+  // Source precedence: (1) Leon's structured records — someone entered them deliberately; (2) for a flight our flight
+  // intake created, the intake record a person confirmed (intake-source.mjs); (3) blank rows with the warnings below.
+  const intakePax = !contacts.length && intake && !intake.purged ? intake.passengers ?? [] : [];
+  const passengerSource = contacts.length ? { kind: "leon" } : intakePax.length ? { kind: "intake", reference: intake.reference } : { kind: "none" };
+  if (contacts.length && intake?.passengers?.length) fieldWarn("intake-not-used", `Leon holds passenger records for this flight, so they are printed. The flight intake record ${intake.reference} (${intake.passengers.length} passenger${intake.passengers.length === 1 ? "" : "s"}) was not used.`);
+  if (intake?.purged && !contacts.length) fieldWarn("intake-purged", `This flight was created by the flight intake (${intake.reference}), but the request's passenger details have been deleted by retention.`);
+  if (intakePax.length) {
+    paxNote = freeText || null; // Leon's own list, shown beside the file to compare — never merged into the rows
+    // Stale? Leon's list is what the intake wrote when its (text, count) hash matches the recorded write, or when its
+    // text is the same as this record's (whitespace aside). Otherwise someone changed one of them: say so, merge nothing.
+    const leonText = asIs(list?.passengerText);
+    const same = (intake.written && paxContentHash(leonText, list?.count) === intake.written.sha) || (intakeText && norm(leonText) === norm(intakeText));
+    if (!same) fieldWarn("intake-differs-from-leon", leonText.trim()
+      ? `Leon's passenger list for this flight is not what the flight intake wrote from ${intake.reference}: it has been changed in Leon since, or the request's record was. The rows come from the intake record as a person confirmed it. Compare them with Leon's list, shown beside the file, before sending — nothing was merged.`
+      : `Leon has no passenger list for this flight, though the flight intake record ${intake.reference} has ${intakePax.length}. The rows come from the intake record as a person confirmed it — check Leon before sending.`);
+  } else if (contacts.length === 0 && freeText) {
     paxNote = freeText;
     const lines = freeText.split(/\r?\n/).filter((l) => l.trim()).length;
     fieldWarn("pax-note", `Leon holds this flight's passengers only as the operator's free-text note (${lines} line${lines === 1 ? "" : "s"}), not as passenger records. The rows are left blank — the note is shown below, verbatim, to fill them by hand.`);
@@ -115,7 +144,28 @@ export function buildManifestModel(flight, { unmasked = {}, operatorName, operat
   if (files > 0) fieldWarn("pax-files", `Leon has ${files} file${files === 1 ? "" : "s"} attached to this flight's passenger list. They are not read into the form — open them in Leon to check the passengers.`);
 
   const other = DOCUMENT_LEG === "departure" ? "arrival" : "departure";
-  const passengers = contacts.map((pc, i) => {
+  // Rows from the intake record: every value as the request gave it and a person confirmed it. The name is the
+  // request's own (one SURNAME AND NAMES cell, not split); salutation is not printed and never used for sex; the
+  // request has no place of birth.
+  const fromIntake = intakePax.map((x, i) => {
+    const row = i + 1;
+    const p = {
+      name: asIs(x.name).trim() === "" ? "" : asIs(x.name),
+      sex: REQUEST_SEX[String(x.sex ?? "").trim().toLowerCase()] ?? "",
+      dateOfBirth: formatDate(x.dob),
+      placeOfBirth: asIs(x.placeOfBirth),
+      documentNumber: asIs(x.passport),
+      documentExpiry: formatDate(x.expiry),
+      nationality: asIs(x.nationality),
+    };
+    for (const k of Object.keys(p)) p[k] = printable(p[k], FIELD_LABELS[k], row);
+    const gaps = Object.entries(p).filter(([, v]) => isBlank(v)).map(([k]) => FIELD_LABELS[k]);
+    if (gaps.length) missing.push({ row, where: where(row), fields: gaps });
+    if (!isBlank(x.sex) && !p.sex) fieldWarn("sex-unknown", `Passenger ${where(row)}: the request's sex value is not M or F; left blank.`, { row });
+    for (const [k, v] of [["dateOfBirth", x.dob], ["documentExpiry", x.expiry]]) if (!isBlank(v) && !p[k]) fieldWarn("date-unreadable", `Passenger ${where(row)}: the ${FIELD_LABELS[k]} is not written as a full date (day, month name, four-digit year); left blank — copy it from the document.`, { row });
+    return p;
+  });
+  const passengers = intakePax.length ? fromIntake : contacts.map((pc, i) => {
     const row = i + 1;
     const c = pc?.contact ?? {};
     const masked = c?.maskingStatus?.isProfileDataMasked ? unmasked?.[pc?.passengerContactNid]?.profile ?? null : null;
@@ -152,8 +202,14 @@ export function buildManifestModel(flight, { unmasked = {}, operatorName, operat
     return p;
   });
 
-  const crewCount = Array.isArray(flight?.crewMemberList) ? flight.crewMemberList.length : null;
-  if (crewCount === 0) fieldWarn("no-crew", "No crew is assigned to this flight in Leon; Number of Crew reads 0.");
+  // Crew: Leon's assignments first; for an intake-created flight with none (the intake records crew as a note, never an
+  // assignment), the crew count of the intake record.
+  const assigned = Array.isArray(flight?.crewMemberList) ? flight.crewMemberList.length : null;
+  const intakeCrew = !assigned && intake && Number.isInteger(intake.crewCount) ? intake.crewCount : null;
+  const crewCount = intakeCrew ?? assigned;
+  const crewSource = assigned ? "leon" : intakeCrew != null ? "intake" : null;
+  if (intakeCrew != null) fieldWarn("crew-from-intake", `No crew is assigned in Leon; Number of Crew (${intakeCrew}) is the crew count of the flight intake record ${intake.reference} — check it against the crew actually flying.`);
+  else if (crewCount === 0) fieldWarn("no-crew", "No crew is assigned to this flight in Leon; Number of Crew reads 0.");
   const personsOnBoard = passengers.length + (PERSONS_ON_BOARD_INCLUDES_CREW ? crewCount ?? 0 : 0);
 
   // Leon's own figures (it has no Persons-on-Board field): the passenger-list count and the flight-watch / journey-log
@@ -166,7 +222,7 @@ export function buildManifestModel(flight, { unmasked = {}, operatorName, operat
   for (const [label, v] of leonCounts) {
     if (v !== passengers.length) {
       const leonPob = v + (PERSONS_ON_BOARD_INCLUDES_CREW ? crewCount ?? 0 : 0);
-      fieldWarn("pob-disagrees", `Persons on Board: ${label} is ${v}, but ${passengers.length} passenger row${passengers.length === 1 ? "" : "s"} came from Leon (printed ${personsOnBoard}; Leon's figure would make it ${leonPob}).`);
+      fieldWarn("pob-disagrees", `Persons on Board: ${label} is ${v}, but ${passengers.length} passenger row${passengers.length === 1 ? "" : "s"} came from ${passengerSource.kind === "intake" ? `the intake record ${intake.reference}` : "Leon"} (printed ${personsOnBoard}; Leon's figure would make it ${leonPob}).`);
     }
   }
 
@@ -176,6 +232,8 @@ export function buildManifestModel(flight, { unmasked = {}, operatorName, operat
     missing,
     counts: { passengers: passengers.length, crew: crewCount, personsOnBoard },
     operatorSource,
+    passengerSource,
+    crewSource,
     paxNote, // verbatim operator note (personal data) — NOT part of the result; stored and shown separately
   };
 }

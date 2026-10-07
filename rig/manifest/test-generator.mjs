@@ -104,6 +104,37 @@ const trunc = await gen(flight({ pax: 1, mutate: (c) => { c[0].contact.surname =
 ok(trunc.result.warnings.some((x) => x.code === "truncated" && x.row === 1), "a name that must be cut → a truncation warning naming the row");
 ok(!JSON.stringify(trunc.result).includes("XXXX") && !JSON.stringify(big.result).match(/TEST\d{5}|Example |Testville/), "the result object carries no passenger field");
 
+// ── Rows from our own flight intake record (a flight the intake created; Leon holds only its text list) ──
+{ const { passengerTextFor, paxContentHash } = await import("../../agent/lib/intake/leon-people.mjs");
+  const people = Array.from({ length: 16 }, (_, i) => ({ list: "pax", leg: null, salutation: i % 2 ? "Mrs." : "Mr.", sex: i % 2 ? "F" : "M", name: `INTAKE${String.fromCharCode(65 + i)} Person`, dob: "05 Mar 1981", nationality: "LATVIA", passport: `TEST${String(i + 1).padStart(5, "0")}`, expiry: "17MAR2031" }));
+  const text = passengerTextFor(people, { reference: "RIGREF", paxNumber: 16 }).text;
+  const record = (over = {}) => async () => ({ reference: "RIGREF", legIndex: 0, purged: false, passengers: people, crewCount: 4, written: { sha: paxContentHash(text, 16), at: "2026-10-07T00:00:00Z" }, ...over });
+  const textFlight = (t = text) => { const f = flight({ pax: 0, crew: 0 }); f.passengerList = { count: 16, realCount: 16, isDataSourceText: true, isDataSourceContact: false, passengerText: t, passengerListAsText: t, passengerContactList: null, fileList: [] }; return f; };
+  const genI = (f, intake) => generatePassengerManifest({ flightId: "rig:101", leon: stubLeon(f), lookup: noFleet, intake });
+  const g = await genI(textFlight(), record());
+  const sp = spans(g.pdf);
+  const rows = (pg) => sp.filter((x) => x.page === pg && /^INTAKE[A-P] Person$/.test(x.text)).length;
+  ok(g.result.passengerSource.kind === "intake" && g.result.passengerSource.reference === "RIGREF", "Leon has no passenger records → rows from the intake record; the result names it as the source");
+  ok(g.result.pageCount === 2 && rows(1) === 14 && rows(2) === 2, "16 intake passengers → 14 rows on page 1, 2 on page 2", `${rows(1)} + ${rows(2)}`);
+  ok(sp.filter((x) => x.text === "M").length >= 8 && sp.filter((x) => x.text === "F").length >= 8, "SEX filled from the request's Gender column (M / F)");
+  ok(sp.some((x) => x.text === "05-Mar-1981") && sp.some((x) => x.text === "17-Mar-2031"), "request dates (\"05 Mar 1981\", \"17MAR2031\") → DD-Mon-YYYY; no other value changed");
+  ok(!sp.some((x) => /^Mrs?\.$/.test(x.text)), "salutation not printed (and never used for sex)");
+  ok(!g.result.warnings.some((w) => w.code === "intake-differs-from-leon") && g.paxNote === text, "Leon's list is what the intake wrote → no staleness warning; Leon's list still shown beside the file");
+  ok(g.result.crewCount === 4 && g.result.crewSource === "intake" && g.result.personsOnBoard === 20, "no crew assigned in Leon → Number of Crew from the intake record (4), POB 20, with a warning");
+  const edited = text.replace("INTAKEC Person", "INTAKEC Person-Renamed");
+  const st = await genI(textFlight(edited), record());
+  const stRows = spans(st.pdf).filter((x) => /^INTAKE/.test(x.text)).map((x) => x.text);
+  ok(st.result.warnings.some((w) => w.code === "intake-differs-from-leon") && stRows.includes("INTAKEC Person") && !stRows.some((t) => /Renamed/.test(t)), "Leon's list edited after loading → a warning; the rows stay the intake record's (nothing merged)");
+  const lf = flight({ pax: 3 });
+  const pr = await genI(lf, record());
+  ok(pr.result.passengerSource.kind === "leon" && pr.result.passengerCount === 3 && pr.result.warnings.some((w) => w.code === "intake-not-used"), "Leon holds structured records → they win over the intake record (which is named as not used)");
+  const none = await genI(textFlight(), async () => null);
+  ok(none.result.passengerSource.kind === "none" && none.result.passengerCount === 0 && none.result.warnings.some((w) => w.code === "pax-note"), "no Leon records, no intake record → blank rows and the existing warning");
+  const purged = await genI(textFlight(), record({ purged: true, passengers: [] }));
+  ok(purged.result.passengerCount === 0 && purged.result.warnings.some((w) => w.code === "intake-purged"), "intake record deleted by retention → blank rows, said so");
+  ok(!JSON.stringify([g.result, st.result, pr.result]).match(/TEST\d{5}|INTAKE[A-P]|05-Mar-1981|LATVIA/), "the result object still carries no passenger field");
+}
+
 // The generator asks the user for nothing: its only input is the flight id (operator credentials come from the registry).
 ok(generatePassengerManifest.length === 1 && !/user|token|credential/i.test(String(generatePassengerManifest).split(")")[0]), "generatePassengerManifest takes the flight id only — no user, token or credential parameter");
 

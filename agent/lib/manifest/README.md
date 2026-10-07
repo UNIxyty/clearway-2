@@ -90,7 +90,8 @@ never N/A or a dash.
 
 | Place | Read? |
 |---|---|
-| Structured records: `passengerList.passengerContactList` (data source "contact") — contact + passports / travel documents per leg | **Yes — the only source of rows** |
+| Structured records: `passengerList.passengerContactList` (data source "contact") — contact + passports / travel documents per leg | **Yes — first source of rows** |
+| Our flight intake record (`intake-source.mjs`), for a flight our intake created: the passengers a person confirmed on the review screen | **Second source**, used only when Leon has no structured records. Name as the request wrote it (one cell, never split), sex from the request's Gender column (M / F), dates → DD-Mon-YYYY, everything else verbatim. Leon's text list is compared with what the intake wrote: a difference is a warning, never a merge. Number of Crew comes from the record when Leon has no crew assigned. `result.passengerSource` / `crewSource` say which. |
 | `passengerContactListRaw`, `limitedPassengerContactList` | Checked in the survey: always the same records as the above (2026-10-07) |
 | The operator's free-text list: `passengerText` / `passengerListAsText` (data source "text") — also where the flight intake writes a request's passengers (`intake/leon-people.mjs`) | **Never parsed into rows.** Returned separately, verbatim, and shown in the chat beside the file (owner-only route) — never in the result, the audit log, the conversation store or the model |
 | Files attached to the passenger list: `passengerList.fileList` | Counted; a warning says they exist (not read) |

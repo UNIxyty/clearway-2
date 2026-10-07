@@ -13,9 +13,10 @@
 //                 client's requested services go, in the requester's own words with the review decisions, into
 //                 the flight's OPS NOTES (`opsNotes` in FlightCreate: the field Leon shows on the flight, the
 //                 same one that carries our marker), as part of the create itself. Nothing in it reads as done.
-//  people       — after a leg's flight exists: its passengers to Leon's passenger list (text) and its crew to the
-//                 flight's OPS notes as the operator's crew, not assigned (leon-people.mjs says why). Bound to the
-//                 confirmation like the payload; recorded before each call like every Leon write; counts only.
+//  people       — a leg's crew go IN its FlightCreate, as a block in the OPS notes (the operator's crew, not assigned:
+//                 no read-back of the notes ever, so no dispatcher edit can be overwritten); its passengers go to
+//                 Leon's passenger list (text) right after Leon confirms the flight. leon-people.mjs says why. Bound
+//                 to the confirmation like the payload; recorded before each call; the send log keeps no names.
 //  recoverOnStart — a row still 'sending' after a restart becomes 'unknown': a person checks Leon.
 import { createHash } from "node:crypto";
 import { rest } from "../knowledge/retrieval.mjs";
@@ -27,7 +28,8 @@ import { aircraftByRegistration, flightsBetween } from "./leon-lookup.mjs";
 import { blockersFor, builderLeg } from "./review.mjs";
 import { findDuplicates, setStage } from "./pipeline.mjs";
 import { composeOutcome, sendIntakeEmail } from "./notify.mjs";
-import { peoplePlan, peopleHash, writeLegPeople, recoverPeopleOnStart, outcomeWords } from "./leon-people.mjs";
+import { peoplePlan, peopleHash, writeLegPeople, recoverPeopleOnStart, outcomeWords, peopleForLeg, crewNoteFor, payloadForLog, recordCrewAttempt, settleCrew, settleCrewForLeg } from "./leon-people.mjs";
+import { personalTokens, scrubString } from "./personal.mjs";
 
 export const TOOL = "intake.leon_send";
 export const PEOPLE_STAGE = "Passengers and crew";
@@ -43,6 +45,9 @@ async function loadRequest(id) { const r = (await rest(`intake_requests?select=*
 /** The request's people (names and documents) — read only to send them to Leon; never logged or returned. */
 async function peopleOf(req) { return req.current_extraction_id ? (await rest(`intake_extractions?select=personal&id=eq.${req.current_extraction_id}`))?.[0]?.personal?.people ?? [] : []; }
 const crewCountOf = (leg) => { const f = leg.fields.find((x) => x.key === "crewCount"); return f && f.value !== "" && f.value != null ? String(f.value) : null; };
+/** The leg's crew block (or null) and the OPS notes it is created with: marker, services note, then the crew. */
+function crewOf(people, leg, req) { return crewNoteFor(peopleForLeg(people, leg.index).crew, { marker: markerFor(req.id, leg.index), crewCount: crewCountOf(leg) }); }
+const notesWithCrew = (base, crew) => (crew ? `${base}\n\n${crew.text}` : base);
 function legPeoplePlan(people, leg, req, payload) {
   return peoplePlan(people, leg, { reference: req.reference, marker: markerFor(req.id, leg.index), paxNumber: payload.paxNumber, crewCount: crewCountOf(leg) });
 }
@@ -104,10 +109,11 @@ export async function prepareSend(requestId, user) {
   const legs = [];
   for (const leg of review.legs.filter((l) => !l.removed && !l.inLeon)) {
     const note = servicesNote(leg, noteCtx);
-    const built = buildFlightCreate(builderLeg(leg), lookups, opsNotesFor(markerFor(requestId, leg.index), note.text));
+    const crew = crewOf(people, leg, req);
+    const built = buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), note.text), crew));
     if (!built.ok) return { ok: false, blockers: built.reasons.map((r) => `Leg ${leg.index + 1}: ${r}.`), warnings };
     const plan = legPeoplePlan(people, leg, req, built.payload);
-    legs.push({ index: leg.index, payload: built.payload, payloadSha256: payloadHash(built.payload), peopleSha256: peopleHash(plan), people: { pax: plan.pax && { people: plan.pax.people, count: plan.pax.count }, crew: plan.crew && { people: plan.crew.people, count: plan.crew.count } }, note: note.text, checklist: [], skipped: [] });
+    legs.push({ index: leg.index, payload: payloadForLog(built.payload, crew), payloadSha256: payloadHash(built.payload), peopleSha256: peopleHash(plan), people: { pax: plan.pax && { people: plan.pax.people, count: plan.pax.count }, crew: plan.crew && { people: plan.crew.people, count: plan.crew.count } }, note: note.text, checklist: [], skipped: [] });
   }
   const resend = Object.values(writes).some((w) => w.state === "in_leon" || w.state === "not_in_leon");
   const input = { requestId, legs: legs.map((l) => ({ index: l.index, payloadSha256: l.payloadSha256, peopleSha256: l.peopleSha256, checklist: argsHash([]) })) };
@@ -118,8 +124,8 @@ export async function prepareSend(requestId, user) {
 }
 
 /** Leon's refusal, in plain words, and which review field it points at. */
-function refusal(errors) {
-  const e = errors?.[0] ?? {}; const msg = String(e.message ?? "Leon refused the request.");
+function refusal(errors, tokens = []) {
+  const e = errors?.[0] ?? {}; const msg = scrubString(String(e.message ?? "Leon refused the request."), tokens);
   const reason = /with reason '([^']+)'/.exec(msg)?.[1] ?? msg;
   const path = /at "[^"]*?\.(\w+)"/.exec(msg)?.[1] ?? /Argument '(\w+)'/.exec(msg)?.[1] ?? null;
   const value = /got invalid value "([^"]*)"/.exec(msg)?.[1] ?? null;
@@ -191,10 +197,11 @@ async function run(entry, user) {
   const legs = [];
   for (const b of entry.input.legs) {
     const leg = review.legs.find((l) => l.index === b.index);
-    const built = leg && buildFlightCreate(builderLeg(leg), lookups, opsNotesFor(markerFor(requestId, leg.index), servicesNote(leg, noteCtx).text));
+    const crew = leg && crewOf(people, leg, req);
+    const built = leg && buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), servicesNote(leg, noteCtx).text), crew));
     if (!built?.ok || payloadHash(built.payload) !== b.payloadSha256) throw Object.assign(new Error(`Leg ${b.index + 1} changed after the confirmation was shown. Nothing was sent. Review it and confirm again.`), { status: 409 });
     if (peopleHash(legPeoplePlan(people, leg, req, built.payload)) !== b.peopleSha256) throw Object.assign(new Error(`Leg ${b.index + 1}'s crew or passengers changed after the confirmation was shown. Nothing was sent. Review it and confirm again.`), { status: 409 });
-    legs.push({ leg, payload: built.payload, sha: b.payloadSha256 });
+    legs.push({ leg, payload: built.payload, sha: b.payloadSha256, crew });
   }
   // A last duplicate check right before writing (unless a person already said "not a duplicate").
   if (!req.duplicate_resolution) {
@@ -211,15 +218,19 @@ async function run(entry, user) {
 
   let tripNid = Object.values(before).find((w) => w.leon_trip_nid)?.leon_trip_nid ?? null;
   const outcome = []; let stopped = false;
-  for (const { leg, payload, sha } of legs) {
+  const tokens = personalTokens(people);
+  for (const { leg, payload, sha, crew } of legs) {
     if (stopped) { outcome.push({ index: leg.index, state: "not_sent", error: "Not sent: an earlier leg's result is unknown." }); continue; }
     // 1. The attempt, written BEFORE the call.
-    const { row, fresh } = await insertAttempt({ request_id: requestId, leg_index: leg.index, payload_sha256: sha, payload, marker: markerFor(requestId, leg.index), state: "sending", confirmation_token: entry.token, sent_by: user.userId, sent_by_email: user.email, leon_trip_nid: tripNid });
+    const { row, fresh } = await insertAttempt({ request_id: requestId, leg_index: leg.index, payload_sha256: sha, payload: payloadForLog(payload, crew), marker: markerFor(requestId, leg.index), state: "sending", confirmation_token: entry.token, sent_by: user.userId, sent_by_email: user.email, leon_trip_nid: tripNid });
     if (!fresh) {
       if (row?.state === "in_leon") { outcome.push({ index: leg.index, state: "in_leon", flightNid: row.leon_flight_nid, already: true }); continue; }
       outcome.push({ index: leg.index, state: "unknown", error: "Another send of this exact leg is in progress or its result is unknown. Nothing was sent again." }); stopped = true; continue;
     }
     await audit({ kind: "intake.leon_attempt", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: TOOL, toolArgs: { requestId, leg: leg.index, payloadSha256: sha }, success: true, confirmationStatus: "confirmed", detail: { writeId: row.id, marker: row.marker } }).catch(() => {});
+    // The crew block travels in this create: its own attempt row too, before the call.
+    const crewRow = crew ? await recordCrewAttempt({ requestId, leg, crew, user }).catch(() => null) : null;
+    const crewOutcome = (state, error = null) => (crew ? { kind: "crew", state, people: crew.people, count: crew.count, ...(error ? { error } : {}) } : { kind: "crew", state: "none", people: 0 });
     // 2. The call.
     let res, thrown = null; const t0 = Date.now();
     try {
@@ -234,15 +245,18 @@ async function run(entry, user) {
       tripNid = String(flight.tripNid ?? res?.data?.createTrip?.tripNid ?? tripNid);
       await rest(`intake_leon_writes?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify({ state: "in_leon", leon_flight_nid: String(flight.flightNid), leon_trip_nid: tripNid, http_status: res.httpStatus, answered_ms: ms, updated_at: new Date().toISOString() }) });
       await audit({ kind: "intake.leon_created", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: TOOL, toolArgs: { requestId, leg: leg.index }, toolResult: { flightNid: flight.flightNid, tripNid }, success: true, confirmationStatus: "confirmed", latencyMs: ms }).catch(() => {});
-      // Its passengers and crew, now that the flight exists. A failure here is shown and emailed; the flight stands.
-      const ppl = await writeLegPeople({ requestId, leg, flightNid: flight.flightNid, people, reference: req.reference, marker: markerFor(requestId, leg.index), paxNumber: payload.paxNumber, crewCount: crewCountOf(leg), user });
-      outcome.push({ index: leg.index, state: "in_leon", flightNid: String(flight.flightNid), tripNid, ms, people: ppl });
+      await settleCrew(crewRow, { state: "in_leon", flightNid: flight.flightNid, httpStatus: res.httpStatus, ms });
+      // Its passengers, now that the flight exists. A failure here is shown and emailed; the flight stands.
+      const ppl = await writeLegPeople({ requestId, leg, flightNid: flight.flightNid, people, reference: req.reference, paxNumber: payload.paxNumber, user });
+      outcome.push({ index: leg.index, state: "in_leon", flightNid: String(flight.flightNid), tripNid, ms, people: [...ppl, crewOutcome("in_leon")] });
     } else if (!thrown && res && res.httpStatus < 500 && res.errors?.length) {
-      const r = refusal(res.errors);
+      const r = refusal(res.errors, tokens);
+      await settleCrew(crewRow, { state: "not_in_leon", error: "Leon refused the flight, so its crew block was not written.", httpStatus: res.httpStatus, ms });
       await rest(`intake_leon_writes?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify({ state: "not_in_leon", leon_error: r.words, http_status: res.httpStatus, answered_ms: ms, updated_at: new Date().toISOString() }) });
       await audit({ kind: "intake.leon_refused", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: TOOL, toolArgs: { requestId, leg: leg.index }, toolResult: { refused: r.words, category: r.category }, success: false, error: r.words, confirmationStatus: "confirmed", latencyMs: ms }).catch(() => {});
       outcome.push({ index: leg.index, state: "not_in_leon", error: r.words, field: r.field, ms });
     } else {
+      await settleCrew(crewRow, { state: "unknown", error: "Leon did not answer for the flight; whether its crew block exists is unknown.", httpStatus: res?.httpStatus ?? null, ms });
       const why = thrown ? `Leon did not answer (${thrown.name === "TimeoutError" || /abort|timeout/i.test(String(thrown.message)) ? "timed out" : String(thrown.message).slice(0, 120)})` : `Leon answered HTTP ${res?.httpStatus} without a flight`;
       await rest(`intake_leon_writes?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify({ state: "unknown", leon_error: why, http_status: res?.httpStatus ?? null, answered_ms: ms, updated_at: new Date().toISOString() }) });
       await audit({ kind: "intake.leon_unknown", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: TOOL, toolArgs: { requestId, leg: leg.index }, success: false, error: why, confirmationStatus: "confirmed", latencyMs: ms }).catch(() => {});
@@ -316,9 +330,11 @@ export async function resolveUnknown(requestId, legIndex, user, action) {
     await audit({ kind: "intake.leon_checked", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId, leg: legIndex, found: found?.nid ?? null } }).catch(() => {});
     if (!found) return { found: false, message: `Not found in Leon at ${new Date().toISOString().slice(11, 16)}Z (looked for ${w.marker} on that day). If you have checked Leon yourself and it is not there, mark it as not in Leon.` };
     await rest(`intake_leon_writes?id=eq.${w.id}`, { method: "PATCH", body: JSON.stringify({ state: "in_leon", leon_flight_nid: String(found.nid), leon_trip_nid: String(found.tripNid ?? ""), resolved_by: user.email, resolved_note: "Found in Leon by marker", updated_at: new Date().toISOString() }) });
+    await settleCrewForLeg(requestId, legIndex, "in_leon", found.nid);
     return { found: true, flightNid: String(found.nid) };
   }
   if (action === "not_in_leon") {
+    await settleCrewForLeg(requestId, legIndex, "not_in_leon");
     await rest(`intake_leon_writes?id=eq.${w.id}`, { method: "PATCH", body: JSON.stringify({ state: "not_in_leon", leon_error: `Marked not in Leon by ${user.name || user.email} after checking Leon.`, resolved_by: user.email, updated_at: new Date().toISOString() }) });
     await audit({ kind: "intake.leon_marked_absent", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId, leg: legIndex } }).catch(() => {});
     return { ok: true };

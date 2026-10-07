@@ -117,6 +117,8 @@ export type ManifestInfo = {
   flight: { flightId: string; callsign: string; date: string; route: string } | null;
   operator?: { name: string | null; source: string | null } | null;
   hasPaxNote?: boolean;
+  /** Where the rows came from: Leon's passenger records, our flight intake record (by request reference), or nowhere. */
+  passengerSource?: { kind: "leon" | "intake" | "none"; reference: string | null } | null; crewSource?: "leon" | "intake" | null;
   blank: boolean; pageCount: number | null; passengerCount: number; crewCount: number | null; personsOnBoard: number | null;
   warnings: { code: string; message: string; row: number | null }[];
   missing: { row: number; where: string; fields: string[] }[];

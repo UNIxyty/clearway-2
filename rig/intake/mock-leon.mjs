@@ -4,7 +4,9 @@
 // "argumentValidation". Faults for tests come from rig/.scratch/leon-mock-faults.json:
 //   { "refuseFlightNo": ["YULSA"], "refuseLegOnAdes": ["LIPZ"], "hangFlightNo": ["AMQ5V"], "hangMs": 60000,
 //     "refuseChecklistDef": [1231], "refusePassengerText": ["9HGVL"], "refuseCrewNotes": ["9HGVL"],
-//     "hangPassengerText": ["9HGVL"] }
+//     "hangPassengerText": ["9HGVL"], "dispatcherEditAfterCreate": ["9HGVL"] }
+// dispatcherEditAfterCreate: a dispatcher types into the flight's OPS notes the moment it exists (before the agent's
+// passenger write), so a test can show the agent never writes the notes back over that edit.
 // Passengers (passengerList.savePassengerText) and the crew's OPS-notes update (flights.flightListUpdate) are held per
 // flight and read back by flight(flightNid); their text is never written to the mock's log (a hash and a length only).
 // Every mutation is appended to rig/.scratch/leon-mock-log.jsonl (the evidence for "one flight, not two").
@@ -35,17 +37,19 @@ function validate(fl, where) {
 function create(fl, tripNid) {
   const f = { flightNid: nextFlight++, tripNid, payload: fl, isCnl: false, at: new Date().toISOString().replace(/\.\d+Z$/, "Z"), checklist: new Map() };
   for (const d of defs.filter((x) => x.isAutoAddToLeg && x.enableForUse)) f.checklist.set(d.nid, { csId: d.defaultStatus?.checklistStatusId ?? "QSM", comment: null });
+  if ((faults().dispatcherEditAfterCreate ?? []).includes(fl.flightNo)) f.opsNotes = `${fl.opsNotes ?? ""}\n\nDISPATCHER EDIT: typed in Leon right after the flight was created`;
   created.push(f); return f;
 }
 const reply = (res, status, body) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
 http.createServer(async (req, res) => {
   let b = ""; for await (const c of req) b += c;
   if (req.url.startsWith("/access_token/refresh")) { res.writeHead(200, { "content-type": "text/plain" }); return res.end("rig-mock-leon-access-token-" + "x".repeat(40)); }
-  if (req.url === "/_rig/flights") return reply(res, 200, created.map(toFlight));   // tests: what the mock holds, checklist included
+  if (req.url === "/_rig/flights") return reply(res, 200, created.map(toFlight));
+  if (req.url === "/_rig/edit-passenger-text") { const { flightNid, text } = JSON.parse(b || "{}"); const f = created.find((x) => x.flightNid === Number(flightNid)); if (f) f.passengerText = text; return reply(res, f ? 200 : 404, { ok: !!f }); } // tests: someone edits the list in Leon   // tests: what the mock holds, checklist included
   if (!req.url.startsWith("/api/graphql")) return reply(res, 404, { errors: [{ message: "not in the mock" }] });
   const { query = "", variables = {} } = JSON.parse(b || "{}");
   const q = query.replace(/\s+/g, " ");
-  const textless = (v) => JSON.parse(JSON.stringify(v ?? {}, (k, x) => (typeof x === "string" && (k === "text" || k === "opsNotes") && /savePassengerText|flightListUpdate/.test(q) ? { sha256: createHash("sha256").update(x).digest("hex").slice(0, 16), length: x.length } : x)));
+  const textless = (v) => JSON.parse(JSON.stringify(v ?? {}, (k, x) => (typeof x === "string" && (k === "text" || k === "opsNotes") ? { sha256: createHash("sha256").update(x).digest("hex").slice(0, 16), length: x.length } : x)));
   if (/mutation/.test(q)) log({ q: q.slice(0, 80), variables: textless(variables) });
   try {
     if (q.includes("savePassengerText(")) {

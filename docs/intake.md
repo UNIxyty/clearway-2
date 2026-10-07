@@ -174,19 +174,33 @@ like a passport number or a date of birth returns the "not searchable" state.
     {count, text})`, one numbered line per passenger (name · DOB · nationality · passport · expiry, whatever the request
     gave), count = the reviewed passenger total. Leon's *structured* list (`savePassengerList` / `addPassengersToList`)
     takes only references to contacts that already exist in the operator's address book (`contactNid`); the agent
-    creates no contacts (an open decision for ops). Consequence: the Passenger Manifest shows this list verbatim beside
-    the file (never parsed into rows) and has no rows until passengers are structured records.
-  - Crew → a block appended to the flight's **OPS notes**, headed `OPERATOR'S CREW per the handling request · <marker>`:
-    the crew count and each crew member as the request gave them, stated as NOT assigned. Leon assigns crew only by its
+    creates **no contacts** (decided 2026-10-07: a permanent address-book entry with a passport record in a customer's
+    system, for a one-off charter, is the wrong cost). The Passenger Manifest fills its rows for such a flight from our
+    own intake record instead (below).
+  - Crew → a block in the flight's **OPS notes**, headed `OPERATOR'S CREW per the handling request · <marker>`: the
+    crew count and each crew member as the request gave them, stated as NOT assigned. Leon assigns crew only by its
     own crew-member id (`crewPanel.crew.assign`), a crew member is a full Leon user (`crewMember.create`), and no crew
     count is writable (`FlightCreate`/`FlightUpdate` have none; `crewProperty` is derived from assignments). The agent
-    creates no crew records. The block is added by reading the notes Leon holds and writing them back with the block
-    below (`flights.flightListUpdate`), never twice.
+    creates no crew records. The block is part of the **`FlightCreate` itself** (after the services note): Leon's only
+    notes write is a full replace (`FlightUpdate.opsNotes`; no append, no other ops-notes field), so adding it later
+    would mean reading the notes and writing them back, and a dispatcher's edit made in between would be destroyed.
+    The agent never writes a flight's notes after creating it. The send log stores the payload with the crew block
+    replaced by its heading and a count line (no names).
+  - Each person's salutation and sex are extracted from the request's Salutation / Gender columns as written (schema
+    `salutation`, `sex`); sex is never inferred from a salutation or a name.
   - Each write is recorded BEFORE the call in `intake_leon_people_writes` (hash + count, never a value), then the
     outcome; restart → `unknown`; never retried automatically. Leon's reason is stored with personal values removed.
     A refusal or no answer keeps the flight, turns the stage "Passengers and crew" red/partial, makes the request
     Needs you ("passengers NOT in Leon for leg N") and the completion email Needs you. Bound to the confirmation like
     the payload: people changed after the dialog opened → nothing is sent.
+- **Passenger Manifest for an intake-created flight** (`agent/lib/manifest/intake-source.mjs`): rows come from (1) Leon's
+  structured passenger records if any exist, else (2) this intake record (the leg's passengers a person confirmed),
+  else (3) blank rows with the existing warning; the result names the source. Leon's text list is still shown beside
+  the file. Staleness: Leon's list is compared with what the intake wrote (hash of text + count, or the same text);
+  a difference is a warning, never a merge. Number of Crew: Leon's assignments, else the intake record's crew count.
+- **Retention** of raw mail, attachments and extracted personal data: the setting's days (default 90) counted from the
+  LATER of the email's arrival and the request's last flight (`retention.mjs` `deleteAtFor`), so a request for a
+  flight months out still has its passengers for the manifest on the day.
 - Duplicate check before review and again just before sending: same registration or flight number, same route (or
   one shared airport when both match), STD within ±3 h, not cancelled; or our own earlier request with the same
   reference that has legs in Leon. A match stops the pipeline; "Not a duplicate" is recorded with who and when.

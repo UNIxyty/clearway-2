@@ -36,6 +36,9 @@ export type Duplicate = { error?: string; matches: { leg: number; why: string; l
 export type ChecklistItem = { defNid: number; label: string; decision: "provide" | "to_confirm" | "note"; statusId: string; statusCaption: string; note: string | null; services?: string[]; serviceId?: string };
 export type ChecklistResult = ChecklistItem & { leg: number; filled: boolean; reason: string | null; wasOnFlight?: boolean };
 export type Write = { leg: number; state: LeonLegState["state"]; flightNid: string | null; tripNid: string | null; error: string | null; httpStatus: number | null; ms: number | null; at: string; updatedAt: string; by: string | null; resolvedBy: string | null; checklist: ChecklistResult[] | null; payload: Record<string, unknown> | null };
+// A leg's passengers (Leon's text passenger list) or crew (the flight's OPS notes, never an assignment): counts only.
+export type PeopleWrite = { leg: number; kind: "pax" | "crew"; state: "sending" | "in_leon" | "not_in_leon" | "unknown"; people: number | null; flightNid: string | null; error: string | null; httpStatus: number | null; at: string; updatedAt: string; by: string | null };
+export type PeopleOutcome = { kind: "pax" | "crew"; state: "in_leon" | "not_in_leon" | "unknown" | "none" | "not_sent"; people: number; count?: number | string | null; error?: string; already?: boolean };
 export type UiStatusKey = "needs_you" | "needs_review" | "waiting" | "stuck" | "in_progress" | "loaded" | "skipped" | "cancelled" | "handled";
 export type Notification = { provider: string; providerName: string; reference: string | null; route: string[]; date: string | null; etd: { time: string; airport: string }[]; pax: string | null; paxPerLeg?: number[] | null; legs?: number | null; paxLegsAgree?: boolean | null; client: string | null; crewNamed: number; calendar: { method: string | null; uid: string | null; sequence: number | null; status: string | null } | null };
 export type RequestDetail = {
@@ -51,7 +54,7 @@ export type RequestDetail = {
     updates?: { at: string; sequence: number | null; changes: string[]; matchedBy: string }[]; copies?: number; cancelled?: { at: string; matchedBy: string } } | null;
   blockers: string[]; warnings: string[];
   attachments: AttachmentRole[]; requestSource: { attachment: string | null; attachmentId: string | null; why: string; by?: string | null } | null;
-  sent: { writes: Write[]; firstAt: string | null; lastMs: number | null };
+  sent: { writes: Write[]; firstAt: string | null; lastMs: number | null; people?: PeopleWrite[] };
   checklistPlan: { leg: number; plan: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[]; note: { text: string; lines: unknown[]; remarks: unknown[]; parties: unknown[] } }[];
   extractions: { id: string; version: number; model: string; at: string; by: string; tokens: number }[];
   emails: { id: string; kind: string; subject: string; at: string; to: string[]; delivery: string | null }[];
@@ -62,8 +65,8 @@ export type ListRow = { id: string; type: "handling" | "scheduled"; statusKey: U
 export type Person = { id?: string | null; added?: { by: string; at: string } | null; role: string | null; name: string | null; dob: string | null; nationality: string | null; passport: string | null; expiry: string | null; source: string | null; copied: boolean };
 export type People = { legs: { leg: number; crew: Person[]; pax: Person[] }[]; purged: boolean; masked: boolean; revealedBy?: string; at?: string };
 export type Confirmation = { token: string; status: string; expiresAt: string; summary: string };
-export type Prepared = { ok: true; runsAs?: string; confirmation: Confirmation; resend: boolean; warnings: string[]; legs: { index: number; payload: Record<string, unknown>; note?: string; checklist: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[]; edited: { leg: number; label: string; value: string }[]; notChecked: { leg: number; label: string; value: string }[]; tripStatus: string };
-export type SendResult = { legs: { index: number; state: "in_leon" | "not_in_leon" | "unknown" | "not_sent"; flightNid?: string; tripNid?: string; error?: string; field?: string | null; ms?: number; already?: boolean }[]; checklist: { items: ChecklistResult[]; filled: number; total: number; statusesLeftToOps?: boolean }; by: string; at: string; status: string; email: { kind: string; ok: boolean; mode: string; error: string | null } };
+export type Prepared = { ok: true; runsAs?: string; confirmation: Confirmation; resend: boolean; warnings: string[]; legs: { index: number; payload: Record<string, unknown>; people?: { pax: { people: number; count: number } | null; crew: { people: number; count: string | null } | null }; note?: string; checklist: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[]; edited: { leg: number; label: string; value: string }[]; notChecked: { leg: number; label: string; value: string }[]; tripStatus: string };
+export type SendResult = { legs: { index: number; state: "in_leon" | "not_in_leon" | "unknown" | "not_sent"; flightNid?: string; tripNid?: string; error?: string; field?: string | null; ms?: number; already?: boolean; people?: PeopleOutcome[] }[]; checklist: { items: ChecklistResult[]; filled: number; total: number; statusesLeftToOps?: boolean }; by: string; at: string; status: string; email: { kind: string; ok: boolean; mode: string; error: string | null } };
 
 // Mailbox
 export type MailStatus = "waiting" | "processed" | "not_recognised" | "failed" | "reply" | "ignored" | "sent";

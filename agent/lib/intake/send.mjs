@@ -13,6 +13,9 @@
 //                 client's requested services go, in the requester's own words with the review decisions, into
 //                 the flight's OPS NOTES (`opsNotes` in FlightCreate: the field Leon shows on the flight, the
 //                 same one that carries our marker), as part of the create itself. Nothing in it reads as done.
+//  people       — after a leg's flight exists: its passengers to Leon's passenger list (text) and its crew to the
+//                 flight's OPS notes as the operator's crew, not assigned (leon-people.mjs says why). Bound to the
+//                 confirmation like the payload; recorded before each call like every Leon write; counts only.
 //  recoverOnStart — a row still 'sending' after a restart becomes 'unknown': a person checks Leon.
 import { createHash } from "node:crypto";
 import { rest } from "../knowledge/retrieval.mjs";
@@ -24,8 +27,10 @@ import { aircraftByRegistration, flightsBetween } from "./leon-lookup.mjs";
 import { blockersFor, builderLeg } from "./review.mjs";
 import { findDuplicates, setStage } from "./pipeline.mjs";
 import { composeOutcome, sendIntakeEmail } from "./notify.mjs";
+import { peoplePlan, peopleHash, writeLegPeople, recoverPeopleOnStart, outcomeWords } from "./leon-people.mjs";
 
 export const TOOL = "intake.leon_send";
+export const PEOPLE_STAGE = "Passengers and crew";
 const canonical = (v) => Array.isArray(v) ? `[${v.map(canonical).join(",")}]` : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(",")}}` : JSON.stringify(v ?? null);
 export const payloadHash = (p) => createHash("sha256").update(canonical(p)).digest("hex");
 export const markerFor = (requestId, legIndex) => `CWY-INTAKE ${requestId}/${legIndex}`;
@@ -35,6 +40,12 @@ const tripStatus = () => (["CONFIRMED", "OPTION", "OPPORTUNITY"].includes(String
 
 
 async function loadRequest(id) { const r = (await rest(`intake_requests?select=*&id=eq.${id}`))?.[0]; if (!r) throw Object.assign(new Error("No such request."), { status: 404 }); return r; }
+/** The request's people (names and documents) — read only to send them to Leon; never logged or returned. */
+async function peopleOf(req) { return req.current_extraction_id ? (await rest(`intake_extractions?select=personal&id=eq.${req.current_extraction_id}`))?.[0]?.personal?.people ?? [] : []; }
+const crewCountOf = (leg) => { const f = leg.fields.find((x) => x.key === "crewCount"); return f && f.value !== "" && f.value != null ? String(f.value) : null; };
+function legPeoplePlan(people, leg, req, payload) {
+  return peoplePlan(people, leg, { reference: req.reference, marker: markerFor(req.id, leg.index), paxNumber: payload.paxNumber, crewCount: crewCountOf(leg) });
+}
 async function writesOf(id) { return (await rest(`intake_leon_writes?select=*&request_id=eq.${id}&order=created_at.asc`)) ?? []; }
 /** Current Leon state per leg from the send log: the latest row for that leg decides. */
 export function legStates(writes) {
@@ -89,19 +100,21 @@ export async function prepareSend(requestId, user) {
   const { blockers, warnings } = blockersFor(review, req, { lookups });
   if (blockers.length) return { ok: false, blockers, warnings };
   const noteCtx = { reference: req.reference, receivedAt: req.created_at, requester: req.sender_name ?? null };
+  const people = await peopleOf(req);
   const legs = [];
   for (const leg of review.legs.filter((l) => !l.removed && !l.inLeon)) {
     const note = servicesNote(leg, noteCtx);
     const built = buildFlightCreate(builderLeg(leg), lookups, opsNotesFor(markerFor(requestId, leg.index), note.text));
     if (!built.ok) return { ok: false, blockers: built.reasons.map((r) => `Leg ${leg.index + 1}: ${r}.`), warnings };
-    legs.push({ index: leg.index, payload: built.payload, payloadSha256: payloadHash(built.payload), note: note.text, checklist: [], skipped: [] });
+    const plan = legPeoplePlan(people, leg, req, built.payload);
+    legs.push({ index: leg.index, payload: built.payload, payloadSha256: payloadHash(built.payload), peopleSha256: peopleHash(plan), people: { pax: plan.pax && { people: plan.pax.people, count: plan.pax.count }, crew: plan.crew && { people: plan.crew.people, count: plan.crew.count } }, note: note.text, checklist: [], skipped: [] });
   }
   const resend = Object.values(writes).some((w) => w.state === "in_leon" || w.state === "not_in_leon");
-  const input = { requestId, legs: legs.map((l) => ({ index: l.index, payloadSha256: l.payloadSha256, checklist: argsHash([]) })) };
+  const input = { requestId, legs: legs.map((l) => ({ index: l.index, payloadSha256: l.payloadSha256, peopleSha256: l.peopleSha256, checklist: argsHash([]) })) };
   const conf = issueConfirmation({ user, toolName: TOOL, input, level: "write", summary: `${resend ? "Resend" : "Create"} ${legs.length} flight${legs.length === 1 ? "" : "s"} in Leon for ${req.reference}`, targetId: requestId, targetLabel: req.reference });
   const edited = review.legs.flatMap((l) => l.fields.filter((f) => f.edited && !l.removed).map((f) => ({ leg: l.index, label: f.label, value: f.value || (f.state === "unknown" ? "Unknown (TBA)" : "not given") })));
   const notChecked = review.legs.flatMap((l) => l.fields.filter((f) => f.state === "low_confidence" && !l.removed).map((f) => ({ leg: l.index, label: f.label, value: f.value })));
-  return { ok: true, runsAs: user.name || user.email, confirmation: conf, resend, warnings, legs: legs.map((l) => ({ index: l.index, payload: l.payload, note: l.note, checklist: l.checklist, skipped: l.skipped })), edited, notChecked, tripStatus: tripStatus() };
+  return { ok: true, runsAs: user.name || user.email, confirmation: conf, resend, warnings, legs: legs.map((l) => ({ index: l.index, payload: l.payload, people: l.people, note: l.note, checklist: l.checklist, skipped: l.skipped })), edited, notChecked, tripStatus: tripStatus() };
 }
 
 /** Leon's refusal, in plain words, and which review field it points at. */
@@ -174,11 +187,13 @@ async function run(entry, user) {
   const before = legStates(await writesOf(requestId));
   // Rebuild from the CURRENT review and compare with what the token was bound to: if a value changed after
   // the dialog opened, nothing is sent.
+  const people = await peopleOf(req);
   const legs = [];
   for (const b of entry.input.legs) {
     const leg = review.legs.find((l) => l.index === b.index);
     const built = leg && buildFlightCreate(builderLeg(leg), lookups, opsNotesFor(markerFor(requestId, leg.index), servicesNote(leg, noteCtx).text));
     if (!built?.ok || payloadHash(built.payload) !== b.payloadSha256) throw Object.assign(new Error(`Leg ${b.index + 1} changed after the confirmation was shown. Nothing was sent. Review it and confirm again.`), { status: 409 });
+    if (peopleHash(legPeoplePlan(people, leg, req, built.payload)) !== b.peopleSha256) throw Object.assign(new Error(`Leg ${b.index + 1}'s crew or passengers changed after the confirmation was shown. Nothing was sent. Review it and confirm again.`), { status: 409 });
     legs.push({ leg, payload: built.payload, sha: b.payloadSha256 });
   }
   // A last duplicate check right before writing (unless a person already said "not a duplicate").
@@ -219,7 +234,9 @@ async function run(entry, user) {
       tripNid = String(flight.tripNid ?? res?.data?.createTrip?.tripNid ?? tripNid);
       await rest(`intake_leon_writes?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify({ state: "in_leon", leon_flight_nid: String(flight.flightNid), leon_trip_nid: tripNid, http_status: res.httpStatus, answered_ms: ms, updated_at: new Date().toISOString() }) });
       await audit({ kind: "intake.leon_created", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: TOOL, toolArgs: { requestId, leg: leg.index }, toolResult: { flightNid: flight.flightNid, tripNid }, success: true, confirmationStatus: "confirmed", latencyMs: ms }).catch(() => {});
-      outcome.push({ index: leg.index, state: "in_leon", flightNid: String(flight.flightNid), tripNid, ms });
+      // Its passengers and crew, now that the flight exists. A failure here is shown and emailed; the flight stands.
+      const ppl = await writeLegPeople({ requestId, leg, flightNid: flight.flightNid, people, reference: req.reference, marker: markerFor(requestId, leg.index), paxNumber: payload.paxNumber, crewCount: crewCountOf(leg), user });
+      outcome.push({ index: leg.index, state: "in_leon", flightNid: String(flight.flightNid), tripNid, ms, people: ppl });
     } else if (!thrown && res && res.httpStatus < 500 && res.errors?.length) {
       const r = refusal(res.errors);
       await rest(`intake_leon_writes?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify({ state: "not_in_leon", leon_error: r.words, http_status: res.httpStatus, answered_ms: ms, updated_at: new Date().toISOString() }) });
@@ -245,6 +262,14 @@ async function run(entry, user) {
   const anyUnknown = outcome.some((o) => o.state === "unknown");
   setStage(stages, "Sent to Leon", inN === allLegs ? "done" : inN ? "part" : "fail", `${inN} of ${allLegs} created${outcome.filter((o) => o.state === "not_in_leon").length ? ` · ${outcome.filter((o) => o.state === "not_in_leon").map((o) => `leg ${o.index + 1} refused`).join(", ")}` : ""}${anyUnknown ? " · a leg's result is unknown" : ""}`);
 
+  // Passengers and crew: what Leon took, per created leg. Older requests' stage lists gain the stage here.
+  if (!stages.some((x) => x.name === PEOPLE_STAGE)) { const i = stages.findIndex((x) => x.name === "Sent to Leon"); stages.splice(i + 1, 0, { name: PEOPLE_STAGE, state: "none", at: null, ms: null, note: null }); }
+  const pplAll = outcome.filter((o) => o.state === "in_leon" && o.people).flatMap((o) => o.people.map((p) => ({ ...p, leg: o.index })));
+  const pplFailed = pplAll.filter((p) => p.state !== "in_leon" && p.state !== "none");
+  if (!inN) setStage(stages, PEOPLE_STAGE, "skip", "No leg is in Leon.");
+  else if (!pplAll.some((p) => p.state !== "none")) setStage(stages, PEOPLE_STAGE, "skip", "The request names no passengers and no crew.");
+  else setStage(stages, PEOPLE_STAGE, pplFailed.length ? (pplAll.some((p) => p.state === "in_leon") ? "part" : "fail") : "done", pplAll.filter((p) => p.state !== "none").map((p) => `Leg ${p.leg + 1}: ${outcomeWords(p)}`).join(" · "));
+
   // Services: already in each created flight's OPS notes (part of the create). Checklist statuses: deliberately
   // not set, ever. Both stages say so; the second exists so the next person does not go looking for the write.
   const items = [];
@@ -254,8 +279,9 @@ async function run(entry, user) {
   } else { setStage(stages, "Services noted", "skip", "No leg is in Leon."); setStage(stages, "Checklist left to ops", "skip", null); }
 
   const allIn = rv.legs.filter((l) => !l.removed).every((l) => l.inLeon);
-  const status = allIn ? "loaded" : inN ? "partly_loaded" : "needs_you";
-  const reason = allIn ? "Loaded" : anyUnknown ? "Sent to Leon · a leg's result is unknown" : inN ? `Sent to Leon · ${allLegs - inN} of ${allLegs} legs NOT in Leon` : "Sent to Leon · nothing created";
+  const pplWords = pplFailed.length ? `${[...new Set(pplFailed.map((p) => (p.kind === "pax" ? "passengers" : "crew")))].join(" and ")} NOT in Leon for leg ${[...new Set(pplFailed.map((p) => p.leg + 1))].join(", ")}` : null;
+  const status = allIn && !pplFailed.length ? "loaded" : inN ? "partly_loaded" : "needs_you";
+  const reason = allIn ? (pplWords ? `Loaded · ${pplWords}` : "Loaded") : anyUnknown ? "Sent to Leon · a leg's result is unknown" : inN ? `Sent to Leon · ${allLegs - inN} of ${allLegs} legs NOT in Leon${pplWords ? ` · ${pplWords}` : ""}` : "Sent to Leon · nothing created";
   const result = { legs: outcome, checklist: { items, filled: 0, total: 0, statusesLeftToOps: true }, by: who, at };
   const mail = composeOutcome({ ...fresh, reference: fresh.reference }, rv, result);
   const sent = await sendIntakeEmail(fresh, mail).catch((e) => ({ ok: false, error: e.message }));
@@ -267,6 +293,7 @@ async function run(entry, user) {
 
 /** On start: an attempt that never recorded an outcome is unknown. A person checks Leon; nothing retries. */
 export async function recoverOnStart() {
+  await recoverPeopleOnStart();
   const rows = await rest(`intake_leon_writes?state=eq.sending`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ state: "unknown", leon_error: "The service stopped during the send; the result was never recorded.", updated_at: new Date().toISOString() }) }).catch(() => []);
   for (const w of rows ?? []) {
     await rest(`intake_requests?id=eq.${w.request_id}`, { method: "PATCH", body: JSON.stringify({ status: "needs_you", status_reason: `Leon did not answer · leg ${w.leg_index + 1} unknown · check Leon`, updated_at: new Date().toISOString() }) }).catch(() => {});

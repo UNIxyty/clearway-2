@@ -1,7 +1,7 @@
 // The intake pipeline for type 2 (handling requests), from a stored message to "Awaiting review".
 //
 //   Request received → Reading request → Data extracted → Awaiting review → Reviewed and confirmed →
-//   Building Leon request → Leon request built → Sent to Leon → Services noted → Checklist left to ops → Notification sent
+//   Building Leon request → Leon request built → Sent to Leon → Passengers and crew → Services noted → Checklist left to ops → Notification sent
 //
 // WHAT A MESSAGE IS is decided by its content (classify.mjs), never by its sender, and never by default:
 //   a provider's flight notification → type 1 (notification.mjs: link by calendar UID, look the reference up,
@@ -30,8 +30,8 @@ import { classifyAutomatic, calendarsFrom, notificationSignals, decideType, isMa
 import { handleNotification, handleApprovalReply } from "./notification.mjs";
 
 export const STAGES = {
-  handling: ["Request received", "Reading request", "Data extracted", "Awaiting review", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Services noted", "Checklist left to ops", "Notification sent"],
-  scheduled: ["Request received", "Confirmation sent", "Confirmation received", "Collecting data", "Data collected", "Review requested", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Notification sent"],
+  handling: ["Request received", "Reading request", "Data extracted", "Awaiting review", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Passengers and crew", "Services noted", "Checklist left to ops", "Notification sent"],
+  scheduled: ["Request received", "Confirmation sent", "Confirmation received", "Collecting data", "Data collected", "Review requested", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Passengers and crew", "Notification sent"],
 };
 export const freshStages = (type) => STAGES[type].map((name) => ({ name, state: "none", at: null, ms: null, note: null }));
 export function setStage(stages, name, state, note = null, at = new Date().toISOString()) {
@@ -344,7 +344,7 @@ export async function processMessage(messageId, opts = {}) {
   // Notification: review (E2), or needs-you variants. Recorded on the stage note; the last stage is post-send.
   const reqRow = { ...req, reference, sender_name: sender };
   const mail = duplicate && !duplicate.error
-    ? composeStopped(reqRow, { title: "Needs you: possible duplicate", subject: "possible duplicate, nothing created in Leon", what: `The aircraft, route and times match ${duplicate.leonIds.length ? `Leon flight${duplicate.leonIds.length === 1 ? "" : "s"} ${duplicate.leonIds.join(", ")}` : `earlier request ${duplicate.ours.map((o) => o.reference).join(", ")}`}. The agent cannot change flights already in Leon. If this is a revision, update those flights in Leon by hand.`, stage: "Awaiting review, stage 4 of 11. Stopped before building the Leon request." })
+    ? composeStopped(reqRow, { title: "Needs you: possible duplicate", subject: "possible duplicate, nothing created in Leon", what: `The aircraft, route and times match ${duplicate.leonIds.length ? `Leon flight${duplicate.leonIds.length === 1 ? "" : "s"} ${duplicate.leonIds.join(", ")}` : `earlier request ${duplicate.ours.map((o) => o.reference).join(", ")}`}. The agent cannot change flights already in Leon. If this is a revision, update those flights in Leon by hand.`, stage: "Awaiting review, stage 4 of 12. Stopped before building the Leon request." })
     : composeReview(reqRow, review, { peopleLine: peopleLine(people, review), receivedAt: message.received_at });
   const sent = await sendIntakeEmail(reqRow, mail).catch((e) => ({ ok: false, error: e.message }));
   const aw = stages.find((s) => s.name === "Awaiting review"); aw.note = `${aw.note ?? ""} ${sent.ok ? `${mail.kind.split(" · ")[0]} email ${sent.mode === "capture" ? "captured (not sent)" : "sent"} to ${sent.to?.join(", ")}.` : `Email not sent: ${sent.error}`}`.trim();

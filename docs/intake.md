@@ -168,6 +168,25 @@ like a passport number or a date of birth returns the "not searchable" state.
   marker `CWY-INTAKE <request>/<leg>` in ops notes) or states "it is not in Leon".
 - First leg: `createTrip`; later legs: `flightCreate(tripNid)`, so a partial success is natural and resend sends only
   legs not in Leon. Trip status: `INTAKE_LEON_TRIP_STATUS` (default CONFIRMED).
+- **Passengers and crew** (`leon-people.mjs`, 2026-10-07), written per leg right after Leon confirms its flight, from
+  the request's own values (`intake_extractions.personal`), nothing added or reformatted:
+  - Passengers → the flight's **passenger list as Leon's text list**: `passengerList.savePassengerText(flightNid,
+    {count, text})`, one numbered line per passenger (name · DOB · nationality · passport · expiry, whatever the request
+    gave), count = the reviewed passenger total. Leon's *structured* list (`savePassengerList` / `addPassengersToList`)
+    takes only references to contacts that already exist in the operator's address book (`contactNid`); the agent
+    creates no contacts (an open decision for ops). Consequence: the Passenger Manifest shows this list verbatim beside
+    the file (never parsed into rows) and has no rows until passengers are structured records.
+  - Crew → a block appended to the flight's **OPS notes**, headed `OPERATOR'S CREW per the handling request · <marker>`:
+    the crew count and each crew member as the request gave them, stated as NOT assigned. Leon assigns crew only by its
+    own crew-member id (`crewPanel.crew.assign`), a crew member is a full Leon user (`crewMember.create`), and no crew
+    count is writable (`FlightCreate`/`FlightUpdate` have none; `crewProperty` is derived from assignments). The agent
+    creates no crew records. The block is added by reading the notes Leon holds and writing them back with the block
+    below (`flights.flightListUpdate`), never twice.
+  - Each write is recorded BEFORE the call in `intake_leon_people_writes` (hash + count, never a value), then the
+    outcome; restart → `unknown`; never retried automatically. Leon's reason is stored with personal values removed.
+    A refusal or no answer keeps the flight, turns the stage "Passengers and crew" red/partial, makes the request
+    Needs you ("passengers NOT in Leon for leg N") and the completion email Needs you. Bound to the confirmation like
+    the payload: people changed after the dialog opened → nothing is sent.
 - Duplicate check before review and again just before sending: same registration or flight number, same route (or
   one shared airport when both match), STD within ±3 h, not cancelled; or our own earlier request with the same
   reference that has legs in Leon. A match stops the pipeline; "Not a duplicate" is recorded with who and when.
@@ -235,5 +254,7 @@ Genero protocol from `rig/fixtures/cnair/portal-structure.json` and the redacted
 `rig/.scratch/cnair-mock-log.jsonl`; faults through `<log>.break` = `columns | total | down | login`, a record hidden
 for N list reads through `<log>.hide`) replace Resend, Leon and CNAIR. The rig never reaches the live portal: the
 agent runs under `env -i` with `.env.rig` only, so the production `CNAIR_*` credentials are not in its environment.
-`rig/intake/e2e.mjs` and `e2e-scheduled.mjs` run the scenarios. Real Leon from the rig needs a person to type the phrase in
+`rig/intake/e2e.mjs` and `e2e-scheduled.mjs` run the scenarios; `e2e-people.mjs` (16 invented passengers and 4 crew,
+`make-people-fixture.mjs`: read back from Leon, refusal, restart mid-write, personal-data sweep) and `browser-people.mjs`
+(the screen) cover passengers and crew. Real Leon from the rig needs a person to type the phrase in
 `rig/make-env.mjs --intake-only`.

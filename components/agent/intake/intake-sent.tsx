@@ -9,7 +9,7 @@ import { useState } from "react";
 import { C, TONE, mono } from "../ui/tokens";
 import { Icon, dayTimeZ, hmsZ } from "../ui/primitives";
 import { Tag } from "./controls";
-import type { Leg, RequestDetail, Write } from "./api";
+import type { Leg, PeopleWrite, RequestDetail, Write } from "./api";
 import { CARD, EYEBROW, LeonPill, fmtDur, legRoute, plural, writeKey } from "./intake-shared";
 import { SmallButton } from "./intake-fields";
 
@@ -64,6 +64,7 @@ export function SentSection({ detail, rawOpen, setRawOpen, resolveLeg }: { detai
                     : w.state === "sending" ? "Waiting for Leon." : w.state === "unknown" ? "Leon did not answer." : "Not sent."}
                 </span>
               </div>
+              {w.state === "in_leon" && <PeopleLines leg={w.leg} detail={detail} />}
               {w.state === "unknown" && l && <UnknownStrip leg={l} resolveLeg={resolveLeg} />}
             </div>
           );
@@ -74,7 +75,7 @@ export function SentSection({ detail, rawOpen, setRawOpen, resolveLeg }: { detai
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
             <span style={EYEBROW}>The request in Leon · OPS notes of each flight</span>
-            <span style={{ fontSize: 12.5, color: C.muted }}>Word for word, marked NOT ACTIONED. No checklist status was set: every item is at Leon&apos;s default (?).</span>
+            <span style={{ fontSize: 12.5, color: C.muted }}>Word for word, marked NOT ACTIONED. No checklist status was set: every item is at Leon&apos;s default (?).{(detail.sent.people ?? []).some((p) => p.kind === "crew" && p.state === "in_leon") ? " In Leon the operator's crew follow below this, as a separate block (names not shown here)." : ""}</span>
           </div>
           {writes.filter((w) => w.state === "in_leon" && typeof w.payload?.opsNotes === "string").map((w) => (
             <pre key={w.leg} style={{ margin: 0, ...mono({ fontSize: 12 }), lineHeight: 1.5, color: C.body, background: C.page, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>LEG {w.leg + 1}{"\n"}{String(w.payload!.opsNotes)}</pre>
@@ -118,6 +119,34 @@ export function SentSection({ detail, rawOpen, setRawOpen, resolveLeg }: { detai
         )}
       </div>
     </section>
+  );
+}
+
+/** What Leon took of a created leg's passengers and crew. Counts only; a failure is red with Leon's words. */
+function PeopleLines({ leg, detail }: { leg: number; detail: RequestDetail }) {
+  const latest = new Map<string, PeopleWrite>();
+  for (const p of detail.sent.people ?? []) if (p.leg === leg) { const q = latest.get(p.kind); if (!q || Date.parse(p.updatedAt ?? p.at) >= Date.parse(q.updatedAt ?? q.at)) latest.set(p.kind, p); }
+  const counts = detail.people?.legs?.[String(leg)] ?? { crew: 0, pax: 0 }, all = detail.people?.legs?.all ?? { crew: 0, pax: 0 };
+  const inRequest = { pax: counts.pax + all.pax, crew: counts.crew + all.crew };
+  const lines: { key: string; tone: "ok" | "bad" | "warn" | "muted"; text: string }[] = [];
+  for (const kind of ["pax", "crew"] as const) {
+    const p = latest.get(kind); const n = p?.people ?? 0;
+    const noun = kind === "pax" ? (n === 1 ? "passenger" : "passengers") : "crew";
+    if (!p) { if (inRequest[kind]) lines.push({ key: kind, tone: "warn", text: `${kind === "pax" ? "Passengers" : "Crew"}: NOT in Leon. No ${kind === "pax" ? "passenger" : "crew"} write is recorded for this leg (${inRequest[kind]} in the request).` }); continue; }
+    if (p.state === "in_leon") lines.push({ key: kind, tone: kind === "pax" ? "ok" : "warn", text: kind === "pax" ? `${n} ${noun} written to the flight's passenger list in Leon (Leon's text list, as the request gave them).` : `${n ? `${n} crew` : "The crew count"} recorded in the flight's OPS notes as the operator's crew. NOT assigned in Leon: Leon assigns crew only from its own crew records.` });
+    else if (p.state === "not_in_leon") lines.push({ key: kind, tone: "bad", text: `${kind === "pax" ? "Passengers" : "Crew"} NOT in Leon. ${p.error ?? "Leon refused it."}` });
+    else lines.push({ key: kind, tone: "bad", text: `${kind === "pax" ? "Passengers" : "Crew"}: ${p.state === "sending" ? "waiting for Leon." : `${p.error ?? "Leon did not answer."} Check the flight in Leon.`}` });
+  }
+  if (!lines.length) return null;
+  const color = { ok: C.ok, bad: C.danger, warn: TONE.amber.fg, muted: C.muted };
+  return (
+    <div style={{ margin: "0 14px 10px 90px", display: "flex", flexDirection: "column", gap: 4 }}>
+      {lines.map((x) => (
+        <span key={x.key} role={x.tone === "bad" ? "alert" : undefined} style={{ display: "flex", gap: 6, alignItems: "baseline", fontSize: 12.5, lineHeight: 1.45, color: color[x.tone], fontWeight: x.tone === "bad" ? 600 : 400 }}>
+          <Icon name={x.tone === "ok" ? "circle-check" : x.tone === "bad" ? "circle-x" : "circle-alert"} size={12} color={color[x.tone]} />{x.text}
+        </span>
+      ))}
+    </div>
   );
 }
 

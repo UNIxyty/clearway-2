@@ -14,6 +14,7 @@ import { sendEmail as deliver } from "../../../digital-wall/lib/mailer.mjs";
 import { rest } from "../knowledge/retrieval.mjs";
 import { fmtDate } from "./review.mjs";
 import { intakeSettings } from "./settings.mjs";
+import { outcomeWords } from "./leon-people.mjs";
 
 /** Who gets intake emails: Agent settings → Flight intake (falls back to INTAKE_NOTIFY_TO until saved there). */
 export const notifyTo = async () => (await intakeSettings()).notifyTo;
@@ -112,20 +113,39 @@ export function composeOutcome(req, review, outcome) {
   const inLeon = outcome.legs.filter((o) => o.state === "in_leon");
   const notIn = outcome.legs.filter((o) => o.state !== "in_leon");
   const unfilled = [];   // checklist statuses are never set by the agent (2026-10-03), so nothing can be "not filled"
+  // Passengers and crew of each created leg: always stated, counts only. Crew are a note, never an assignment.
+  const ppl = inLeon.flatMap((o) => (o.people ?? []).map((p) => ({ ...p, leg: o.index })));
+  const pplFailed = ppl.filter((p) => p.state !== "in_leon" && p.state !== "none");
+  const pplLegs = [...new Set(pplFailed.map((p) => p.leg + 1))];
+  const pplWhat = [...new Set(pplFailed.map((p) => (p.kind === "pax" ? "passengers" : "crew")))].join(" and ");
+  const pplBlock = ppl.length ? [{ type: "section", title: "PASSENGERS AND CREW", text: [...inLeon.map((o) => `Leg ${o.index + 1}: ${(o.people ?? []).map(outcomeWords).join(" ")}`),
+    ppl.some((p) => p.kind === "crew" && p.state === "in_leon") ? "Crew were recorded as a note in each flight's OPS notes, as the operator's crew per the request. They are NOT assigned in Leon: Leon assigns crew only from its own crew records, and the agent creates none." : null].filter(Boolean).join("\n") }] : [];
   const who = `${outcome.by} confirmed this request at ${hm(outcome.at)}Z.`;
   const legsBlock = { type: "legs", title: "EVERY LEG · TIMES IN UTC", rows: legRows(review, states) };
   const cta = { type: "cta", text: "Open the request", url: `${consoleBase()}/agent/intake?r=${req.id}` };
   // A scheduled flight was imported once: the completion email says so, as the request page does.
   const oneShot = scheduledOf(req) ? [{ type: "section", title: "AFTER IMPORT", text: NOT_DETECTED }] : [];
-  if (!notIn.length && !unfilled.length) {
+  if (!notIn.length && !unfilled.length && !pplFailed.length) {
     // Services are NOT claimed as requested or arranged: they sit in the flight's OPS notes, unactioned, for ops.
     return { kind: "E3 · Loaded", subject: `Loaded: ${req.reference} · ${inLeon.length} flight${inLeon.length === 1 ? "" : "s"} in Leon · checklist left to ops`, context: `. ${who}`, blocks: [
       { type: "heading", text: `Loaded into Leon: ${inLeon.length} flight${inLeon.length === 1 ? "" : "s"}` }, { type: "mono", text: `${req.reference} · ${req.sender_name ?? ""}`.trim() },
       { type: "callout", tone: "green", title: `${inLeon.length === 1 ? "The leg is" : inLeon.length === 2 ? "Both legs are" : `All ${inLeon.length} legs are`} in Leon.`, text: `Created at ${hm(outcome.at)}Z. Check them against the list below.` },
       legsBlock,
+      ...pplBlock,
       { type: "section", title: "SERVICES AND CHECKLIST", text: "The client's request is recorded in each flight's OPS notes in Leon, in the requester's own words with the review decisions, marked NOT ACTIONED: nothing has been arranged, ordered or confirmed. No checklist status was set; every item is at Leon's default (?) for ops to work through." },
       ...oneShot,
       cta,
+    ] };
+  }
+  if (!notIn.length) {
+    // Every flight is in Leon; some passengers or crew are not. The subject says both.
+    return { kind: "E4 · Needs you", subject: `Needs you: ${req.reference} · ${inLeon.length} flight${inLeon.length === 1 ? "" : "s"} in Leon · ${pplWhat} NOT in Leon for leg ${pplLegs.join(", ")}`, context: `. ${who}`, blocks: [
+      { type: "heading", text: `Needs you: ${pplWhat} not in Leon` }, { type: "mono", text: req.reference },
+      { type: "callout", tone: "red", title: `The ${pplWhat} of leg ${pplLegs.join(", ")} are NOT in Leon.`, text: `${inLeon.length === 1 ? "The flight is" : `All ${inLeon.length} flights are`} in Leon.` },
+      legsBlock, ...pplBlock,
+      { type: "section", title: "WHAT WENT WRONG", text: pplFailed.map((p) => `Leg ${p.leg + 1}: ${outcomeWords(p)}`).join(" ") },
+      { type: "section", title: "HOW FAR IT GOT", text: "Passengers and crew, stage 9 of 12. The flights were created." },
+      { type: "section", title: "WHAT TO DO", text: "Open the request to see what Leon said. Add the missing passengers or crew to the flight in Leon by hand; the request has their details." }, ...oneShot, cta,
     ] };
   }
   const nothing = !inLeon.length;
@@ -133,9 +153,9 @@ export function composeOutcome(req, review, outcome) {
   return { kind: "E4 · Needs you", subject: nothing ? `Needs you: ${req.reference} · nothing created in Leon` : `Needs you: ${req.reference} · ${inLeon.length} of ${outcome.legs.length} legs in Leon, ${notIn.length === 1 ? `leg ${notIn[0].index + 1} is not` : `legs ${notIn.map((o) => o.index + 1).join(", ")} are not`}`, context: `. ${who}`, blocks: [
     { type: "heading", text: nothing ? "Needs you: nothing loaded" : `Needs you: ${inLeon.length} of ${outcome.legs.length} legs loaded` }, { type: "mono", text: req.reference },
     { type: "callout", tone: "red", title: nothing ? "Nothing was created in Leon." : `${notIn.length === 1 ? `Leg ${notIn[0].index + 1} is` : `Legs ${notIn.map((o) => o.index + 1).join(", ")} are`} NOT in Leon.`, text: nothing ? "No leg below is in Leon." : `${inLeon.map((o) => `Leg ${o.index + 1}`).join(", ")} ${inLeon.length === 1 ? "is" : "are"} in Leon.` },
-    legsBlock,
-    { type: "section", title: "WHAT WENT WRONG", text: wrong },
-    { type: "section", title: "HOW FAR IT GOT", text: "Sent to Leon, stage 8 of 11." },
+    legsBlock, ...pplBlock,
+    { type: "section", title: "WHAT WENT WRONG", text: [wrong, ...pplFailed.map((p) => `Leg ${p.leg + 1}: ${outcomeWords(p)}`)].join(" ") },
+    { type: "section", title: "HOW FAR IT GOT", text: "Sent to Leon, stage 8 of 12." },
     { type: "section", title: "WHAT TO DO", text: "Open the request. You can correct the leg and resend it, or create it in Leon yourself and mark it handled." }, ...oneShot, cta,
   ] };
 }

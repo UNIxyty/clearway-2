@@ -3,11 +3,15 @@
 // captured from real Leon on 2026-09-30 (disposable test flight): HTTP 400, errors[].extensions.category
 // "argumentValidation". Faults for tests come from rig/.scratch/leon-mock-faults.json:
 //   { "refuseFlightNo": ["YULSA"], "refuseLegOnAdes": ["LIPZ"], "hangFlightNo": ["AMQ5V"], "hangMs": 60000,
-//     "refuseChecklistDef": [1231] }
+//     "refuseChecklistDef": [1231], "refusePassengerText": ["9HGVL"], "refuseCrewNotes": ["9HGVL"],
+//     "hangPassengerText": ["9HGVL"] }
+// Passengers (passengerList.savePassengerText) and the crew's OPS-notes update (flights.flightListUpdate) are held per
+// flight and read back by flight(flightNid); their text is never written to the mock's log (a hash and a length only).
 // Every mutation is appended to rig/.scratch/leon-mock-log.jsonl (the evidence for "one flight, not two").
 import http from "node:http";
 import { readFileSync, appendFileSync, existsSync } from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 const PORT = Number(process.env.PORT || 3995);
 const SCR = path.resolve(process.env.RIG_SCRATCH || "../.scratch");
 const snap = JSON.parse(readFileSync(path.join(SCR, "leon-snapshot.json"), "utf8"));
@@ -20,7 +24,7 @@ const airportByCode = (c) => { const k = String(c).toUpperCase(); const hit = sn
 let nextFlight = 90000001, nextTrip = 9000001;
 const created = []; // { flightNid, tripNid, payload, isCnl, checklist: Map }
 const defs = snap.definitions;
-function toFlight(f) { return { flightNid: f.flightNid, tripNid: f.tripNid, flightNo: f.payload.flightNo, startTimeUTC: f.payload.startTimeUTC.replace(/Z?$/, "Z"), endTimeUTC: f.payload.endTimeUTC.replace(/Z?$/, "Z"), isCnl: f.isCnl, creationDateTime: f.at, acft: f.payload.aircraftNid ? { registration: snap.aircraft.find((a) => a.acftNid === f.payload.aircraftNid)?.registration ?? null } : null, startAirport: { code: { icao: airportByCode(f.payload.adepCode)?.code.icao } }, endAirport: { code: { icao: airportByCode(f.payload.adesCode)?.code.icao } }, notes: { ops: f.payload.opsNotes ?? "" }, trip: { tripNumber: `RIG/${f.tripNid}` }, checklist: { allItems: [...f.checklist.entries()].map(([cdNid, v]) => ({ cdNid, csId: v.csId, comment: v.comment ?? null })) } }; }
+function toFlight(f) { return { flightNid: f.flightNid, tripNid: f.tripNid, flightNo: f.payload.flightNo, startTimeUTC: f.payload.startTimeUTC.replace(/Z?$/, "Z"), endTimeUTC: f.payload.endTimeUTC.replace(/Z?$/, "Z"), isCnl: f.isCnl, creationDateTime: f.at, acft: f.payload.aircraftNid ? { registration: snap.aircraft.find((a) => a.acftNid === f.payload.aircraftNid)?.registration ?? null } : null, startAirport: { code: { icao: airportByCode(f.payload.adepCode)?.code.icao } }, endAirport: { code: { icao: airportByCode(f.payload.adesCode)?.code.icao } }, notes: { ops: f.opsNotes ?? f.payload.opsNotes ?? "" }, passengerList: f.passengerText != null ? { count: f.paxCount, realCount: f.paxCount, isDataSourceText: true, isDataSourceContact: false, passengerText: f.passengerText, passengerListAsText: f.passengerText, passengerContactList: null, fileList: [] } : { count: f.payload.paxNumber ?? 0, realCount: f.payload.paxNumber ?? 0, isDataSourceText: true, isDataSourceContact: false, passengerText: "", passengerListAsText: "", passengerContactList: null, fileList: [] }, crewMemberList: [], trip: { tripNumber: `RIG/${f.tripNid}` }, checklist: { allItems: [...f.checklist.entries()].map(([cdNid, v]) => ({ cdNid, csId: v.csId, comment: v.comment ?? null })) } }; }
 function validate(fl, where) {
   for (const k of ["adepCode", "adesCode"]) if (!airportByCode(fl[k])) return { status: 400, errors: [{ message: `Variable "$${where.v}" got invalid value "${fl[k]}" at "${where.path}.${k}"; Argument '${fl[k]}' validation failed with reason 'Its not an airport code'`, locations: [{ line: 1, column: 10 }], extensions: { category: "argumentValidation" } }] };
   if (Date.parse(fl.startTimeUTC) >= Date.parse(fl.endTimeUTC)) return { status: 400, errors: [{ message: "Argument 'startTimeUTC' validation failed with reason 'Start time cannot be later or equal then end time'", locations: [{ line: 1, column: 41 }], path: [where.op], extensions: { category: "argumentValidation" } }] };
@@ -41,8 +45,27 @@ http.createServer(async (req, res) => {
   if (!req.url.startsWith("/api/graphql")) return reply(res, 404, { errors: [{ message: "not in the mock" }] });
   const { query = "", variables = {} } = JSON.parse(b || "{}");
   const q = query.replace(/\s+/g, " ");
-  if (/mutation/.test(q)) log({ q: q.slice(0, 80), variables });
+  const textless = (v) => JSON.parse(JSON.stringify(v ?? {}, (k, x) => (typeof x === "string" && (k === "text" || k === "opsNotes") && /savePassengerText|flightListUpdate/.test(q) ? { sha256: createHash("sha256").update(x).digest("hex").slice(0, 16), length: x.length } : x)));
+  if (/mutation/.test(q)) log({ q: q.slice(0, 80), variables: textless(variables) });
   try {
+    if (q.includes("savePassengerText(")) {
+      const f = created.find((x) => x.flightNid === Number(variables.f));
+      if (!f) return reply(res, 200, { data: null, errors: [{ message: "Flight not found", extensions: { category: "businessLogic" } }] });
+      if ((faults().refusePassengerText ?? []).includes(f.payload.flightNo)) return reply(res, 400, { data: null, errors: [{ message: `Variable "$t" got invalid value "${variables.t.text}" at "t.text"; Argument 'text' validation failed with reason 'Passenger list is locked by another user'`, extensions: { category: "argumentValidation" } }] });
+      if ((faults().hangPassengerText ?? []).includes(f.payload.flightNo)) await new Promise((r) => setTimeout(r, faults().hangMs ?? 60000));
+      f.passengerText = variables.t.text; f.paxCount = variables.t.count;
+      return reply(res, 200, { data: { passengerList: { savePassengerText: { count: f.paxCount } } } });
+    }
+    if (q.includes("flightListUpdate(")) {
+      const out = [];
+      for (const u of variables.l) {
+        const f = created.find((x) => x.flightNid === Number(u.flightNid));
+        if (!f) return reply(res, 200, { data: null, errors: [{ message: "Flight not found", extensions: { category: "businessLogic" } }] });
+        if ((faults().refuseCrewNotes ?? []).includes(f.payload.flightNo)) return reply(res, 200, { data: null, errors: [{ message: "Flight is locked by another user", extensions: { category: "businessLogic" } }] });
+        if (u.opsNotes !== undefined) f.opsNotes = u.opsNotes; out.push({ flightNid: f.flightNid });
+      }
+      return reply(res, 200, { data: { flights: { flightListUpdate: out } } });
+    }
     if (q.includes("airportByCode")) { const a = airportByCode(variables.c); return reply(res, 200, { data: { airportByCode: a } }); }
     if (q.includes("aircraftList")) return reply(res, 200, { data: { aircraftList: snap.aircraft } });
     if (q.includes("getAvailableDefinitions")) return reply(res, 200, { data: { checklist: { getAvailableDefinitions: defs } } });

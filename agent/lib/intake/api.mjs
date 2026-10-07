@@ -108,6 +108,8 @@ async function requestDetail(id) {
   const m = (await rest(`intake_messages?select=id,from_addr,to_addrs,subject,received_at,purged_at,has_personal_data&id=eq.${r.message_id}`))?.[0];
   const allWrites = (await rest(`intake_leon_writes?select=id,leg_index,state,leon_flight_nid,leon_trip_nid,leon_error,checklist,http_status,answered_ms,payload,created_at,updated_at,sent_by_email,resolved_by,resolved_note&request_id=eq.${id}&order=created_at.asc`)) ?? [];
   const ws = legStates(allWrites);
+  // Passenger / crew writes: counts, states and Leon's (scrubbed) words only. A missing table (SQL not yet run) reads as none.
+  const peopleWrites = (await rest(`intake_leon_people_writes?select=leg_index,kind,state,people_count,leon_flight_nid,leon_error,http_status,created_at,updated_at,sent_by_email&request_id=eq.${id}&order=created_at.asc`).catch(() => null)) ?? [];
   const review = r.review ? structuredClone(r.review) : null;
   if (review) for (const l of review.legs) { const w = ws[l.index]; l.leon = w ? { state: w.state, flightNid: w.leon_flight_nid, error: w.leon_error, at: w.updated_at } : { state: "not_sent" }; l.inLeon = w?.state === "in_leon"; if (l.fields.some((f) => f.state === "tz_unknown") || l.tzChoice) l.tz = tzOptions(l); }
   const { blockers, warnings } = review ? blockersFor(review, r, { lookups: { aircraftNidByRegistration: new Map(review.legs.flatMap((l) => l.fields.filter((f) => f.key === "registration" && f.aircraft?.nid).map((f) => [String(f.value).toUpperCase().replace(/[^A-Z0-9]/g, ""), f.aircraft.nid]))) } }) : { blockers: [], warnings: [] };
@@ -122,7 +124,8 @@ async function requestDetail(id) {
     review, blockers, warnings,
     attachments: (r.attachment_roles ?? []).map((a) => ({ ...a, url: a.id ? `/agent/api/intake/attachments/${a.id}` : null })),
     requestSource: review?.requestSource ?? null,
-    sent: { writes: allWrites.map((w) => ({ leg: w.leg_index, state: w.state, flightNid: w.leon_flight_nid, tripNid: w.leon_trip_nid, error: w.leon_error, httpStatus: w.http_status, ms: w.answered_ms, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email, resolvedBy: w.resolved_by, checklist: w.checklist, payload: w.payload })), firstAt: firstSend?.created_at ?? null, lastMs: lastAnswer?.answered_ms ?? null },
+    sent: { writes: allWrites.map((w) => ({ leg: w.leg_index, state: w.state, flightNid: w.leon_flight_nid, tripNid: w.leon_trip_nid, error: w.leon_error, httpStatus: w.http_status, ms: w.answered_ms, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email, resolvedBy: w.resolved_by, checklist: w.checklist, payload: w.payload })), firstAt: firstSend?.created_at ?? null, lastMs: lastAnswer?.answered_ms ?? null,
+      people: peopleWrites.map((w) => ({ leg: w.leg_index, kind: w.kind, state: w.state, people: w.people_count, flightNid: w.leon_flight_nid, error: w.leon_error, httpStatus: w.http_status, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email })) },
     checklistPlan: plans,
     extractions: extractions.map((e) => ({ id: e.id, version: e.version, model: e.model_id, at: e.created_at, by: e.created_by, tokens: (e.input_tokens ?? 0) + (e.output_tokens ?? 0) })),
     emails: sent.map((s) => ({ id: s.id, kind: s.sent_kind, subject: s.subject, at: s.received_at, to: s.to_addrs, delivery: s.delivery_status })),

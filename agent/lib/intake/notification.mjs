@@ -340,7 +340,7 @@ export async function collect(requestId, { manual = false, actor = null } = {}) 
       else if (duplicate?.error) { duplicate = null; }
       await patchRequest(r.id, { status, status_reason: reason, stages, review: rv, current_extraction_id: ex?.id ?? null, duplicate, duplicate_resolution: null, route, registration: res.record.registration ?? null, first_std: firstStd, legs_count: legsN });
       // Step 5: ops are told to come and confirm.
-      const mail = status === "needs_you" ? composeStopped(r, { title: "A scheduled flight may already be in Leon", subject: "possible duplicate, nothing created", what: stages.find((s) => s.name === "Review requested")?.note ?? "", stage: "Stopped before review (stage 6 of 11)." }) : composeReview({ ...r, request_type: "scheduled" }, rv, { receivedAt: r.created_at });
+      const mail = status === "needs_you" ? composeStopped(r, { title: "A scheduled flight may already be in Leon", subject: "possible duplicate, nothing created", what: stages.find((s) => s.name === "Review requested")?.note ?? "", stage: "Stopped before review (stage 6 of 12)." }) : composeReview({ ...r, request_type: "scheduled" }, rv, { receivedAt: r.created_at });
       const sent = await sendIntakeEmail(r, mail).catch((e) => ({ ok: false, error: e.message }));
       const s2 = (await loadRequest(r.id)).stages;
       setStage(s2, "Review requested", sent.ok ? "done" : "fail", sent.ok ? `${mail.kind.split(" · ")[0]} email ${sent.mode === "capture" ? "captured (not sent)" : "sent"} to ${sent.to.length} address${sent.to.length === 1 ? "" : "es"}: open Flight intake and confirm` : `Email not sent: ${sent.error}`);
@@ -357,13 +357,13 @@ export async function collect(requestId, { manual = false, actor = null } = {}) 
       lookup.nextAt = new Date(first + nextOffset * 60000).toISOString();
       setStage(stages, "Collecting data", "prog", `${res.state === "not_found" ? `${r.reference} is not in the ${provider} portal yet` : `The portal could not be read (${res.why})`}. Try ${attempt} of ${sched.length}; next at ${hm(lookup.nextAt)}.`);
       patch = { status: "collecting", status_reason: res.state === "not_found" ? "Approved · reference not in the portal yet, will look again" : "Approved · provider portal not readable, will try again" };
-      if (res.structural) alert = { title: "The provider's portal is not what the agent expects", subject: "portal screen changed, nothing read", what: res.why, stage: `Collecting data (stage 4 of 11), try ${attempt} of ${sched.length}. The import was refused: nothing is read from a screen the agent does not recognise.` };
+      if (res.structural) alert = { title: "The provider's portal is not what the agent expects", subject: "portal screen changed, nothing read", what: res.why, stage: `Collecting data (stage 4 of 12), try ${attempt} of ${sched.length}. The import was refused: nothing is read from a screen the agent does not recognise.` };
     } else {
       lookup.nextAt = null;
       const over = span(sched[Math.min(attempt, sched.length) - 1] ?? 0);
       setStage(stages, "Collecting data", "fail", res.state === "not_found" ? `${r.reference} was not found in the ${provider} portal after ${attempt} ${attempt === 1 ? "try" : `tries over ${over}`}. A person decides: it may appear later, or the reference may be wrong.` : `The ${provider} portal could not be read after ${attempt} ${attempt === 1 ? "try" : "tries"}: ${res.why}`);
       patch = { status: "needs_you", status_reason: res.state === "not_found" ? "Reference not found in the provider's portal" : "Provider portal could not be read" };
-      alert = { title: res.state === "not_found" ? "A scheduled flight could not be found in the portal" : "The provider's portal could not be read", subject: res.state === "not_found" ? "reference not found, nothing created" : "portal not readable, nothing created", what: stages.find((s) => s.name === "Collecting data")?.note ?? "", stage: `Collecting data (stage 4 of 11), ${attempt} ${attempt === 1 ? "try" : "tries"}.` };
+      alert = { title: res.state === "not_found" ? "A scheduled flight could not be found in the portal" : "The provider's portal could not be read", subject: res.state === "not_found" ? "reference not found, nothing created" : "portal not readable, nothing created", what: stages.find((s) => s.name === "Collecting data")?.note ?? "", stage: `Collecting data (stage 4 of 12), ${attempt} ${attempt === 1 ? "try" : "tries"}.` };
     }
     review.lookup = lookup;
     await patchRequest(r.id, { ...patch, stages, review });

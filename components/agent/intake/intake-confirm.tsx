@@ -62,7 +62,7 @@ export function ConfirmDialog({ prepared, detail, runsAs, onFinished }: { prepar
     { k: "Request", lines: [detail.request.reference], mono: true },
     { k: "Legs", lines: legs.map(legLine), mono: true },
     { k: "Services", lines: services }, { k: "In Leon", lines: checklist },
-    { k: "People", lines: ["Crew and passenger details go to Leon. Not shown here."] },
+    { k: "People", lines: legs.map((l) => { const p = l.people; const pax = p?.pax ? `${plural(p.pax.people, "passenger")} → the flight's passenger list in Leon (Leon's text list)` : "no passenger names"; const crew = p?.crew ? `${p.crew.people ? `${p.crew.people} crew` : `crew count ${p.crew.count}`} → OPS notes as the operator's crew, NOT assigned in Leon` : "no crew"; return `Leg ${l.index + 1}: ${pax} · ${crew}`; }).concat(legs.some((l) => l.people?.pax || l.people?.crew) ? ["Names and documents are not shown here. Leon assigns crew only from its own crew records; the agent creates none."] : []) },
     ...(prepared.edited.length ? [{ k: "Changed", lines: prepared.edited.map((e) => `Leg ${e.leg + 1} · ${e.label} → ${e.value}`), bg: C.primaryTint3, color: C.primaryHover }] : []),
     ...(prepared.notChecked.length ? [{ k: "Not checked", lines: prepared.notChecked.map((e) => `Leg ${e.leg + 1} · ${e.label} · ${e.value}`), bg: TONE.amber.bg, color: TONE.amber.fg }] : []),
   ];
@@ -137,6 +137,7 @@ function Answer({ result }: { result: SendResult }) {
             {l.already && <span style={{ fontSize: 12, color: C.muted }}>was already in Leon</span>}
             {bad && l.error && <span style={{ fontSize: 12.5, color: C.danger }}>Leon: {l.error}</span>}
             {l.state === "unknown" && <span style={{ fontSize: 12.5, color: TONE.amber.fg }}>Leon did not answer. The agent is checking whether it exists.</span>}
+            {ok && (l.people ?? []).filter((p) => p.state !== "none").map((p) => <span key={p.kind} style={{ flexBasis: "100%", fontSize: 12.5, color: p.state === "in_leon" ? C.body : C.danger, fontWeight: p.state === "in_leon" ? 400 : 600 }}>{p.kind === "pax" ? (p.state === "in_leon" ? `${plural(p.people, "passenger")} in Leon's passenger list.` : `Passengers NOT in Leon. ${p.error ?? ""}`) : p.state === "in_leon" ? `Crew in OPS notes, not assigned.` : `Crew NOT in Leon. ${p.error ?? ""}`}</span>)}
           </div>
         );
       })}

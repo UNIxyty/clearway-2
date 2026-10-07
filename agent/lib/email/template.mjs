@@ -70,7 +70,7 @@ function note(text, by) {
 
 function section(title, text) {
   return `<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;color:${TH.faint};margin-bottom:6px;">${esc(title)}</div>` +
-    `<p style="font-size:15px;line-height:1.6;color:${TH.body};margin:0;">${esc(text)}</p>`;
+    `<p style="font-size:15px;line-height:1.6;color:${TH.body};margin:0;white-space:pre-line;">${esc(text)}</p>`;
 }
 
 function table(rows) {

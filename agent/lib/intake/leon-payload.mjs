@@ -8,7 +8,8 @@
 //             adepCode: AirportCodeScalar!  adesCode: AirportCodeScalar!  isEmptyLeg: Boolean!
 //   optional used here: aircraftNid (Leon's own id — resolved from the registration by lookup, never guessed),
 //             paxNumber: Int (ONE total — Leon has no adult/child/infant split), opsNotes: String
-//   not on FlightCreate: crew (assigned separately in Leon) — the crew count is shown for review, not sent.
+//   not on FlightCreate: passengers and crew. They are written after the flight exists, by leon-people.mjs:
+//   passengers to Leon's text passenger list, crew (names and count) to the OPS notes, never as an assignment.
 //
 // A leg builds only when every value Leon needs is a real value. `unknown` (TBA / -----), `not_given`,
 // `tz_unknown`, `invalid`, `conflict` and `leon_refused` all refuse to build — they never become 0, "" or a

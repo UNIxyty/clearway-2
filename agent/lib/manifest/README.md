@@ -92,7 +92,7 @@ never N/A or a dash.
 |---|---|
 | Structured records: `passengerList.passengerContactList` (data source "contact") — contact + passports / travel documents per leg | **Yes — the only source of rows** |
 | `passengerContactListRaw`, `limitedPassengerContactList` | Checked in the survey: always the same records as the above (2026-10-07) |
-| The operator's free-text list: `passengerText` / `passengerListAsText` (data source "text") | **Never parsed into rows.** Returned separately, verbatim, and shown in the chat beside the file (owner-only route) — never in the result, the audit log, the conversation store or the model |
+| The operator's free-text list: `passengerText` / `passengerListAsText` (data source "text") — also where the flight intake writes a request's passengers (`intake/leon-people.mjs`) | **Never parsed into rows.** Returned separately, verbatim, and shown in the chat beside the file (owner-only route) — never in the result, the audit log, the conversation store or the model |
 | Files attached to the passenger list: `passengerList.fileList` | Counted; a warning says they exist (not read) |
 | Counts: `passengerList.count` (declared seats) vs `realCount` (records), flight-watch / journey-log `paxCount` | Compared with the rows; a difference is a warning |
 

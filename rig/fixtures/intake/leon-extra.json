@@ -1,6 +1,8 @@
 {
   "_comment": "RIG ONLY. Airports and aircraft the mock Leon adds to its snapshot so the CNAIR fixtures (rig/fixtures/cnair) can be reviewed and sent. Public airport data; the aircraft are the fixtures' registrations (EC-ZZL is fictional).",
   "airports": {
+    "LFPB": { "name": "Paris-Le Bourget", "city": "Paris", "code": { "icao": "LFPB", "iata": "LBG" }, "timezone": { "name": "Paris", "nativeTimezoneName": "Europe/Paris" } },
+    "LGAV": { "name": "Athens International Eleftherios Venizelos", "city": "Athens", "code": { "icao": "LGAV", "iata": "ATH" }, "timezone": { "name": "Athens", "nativeTimezoneName": "Europe/Athens" } },
     "LEBL": { "name": "Josep Tarradellas Barcelona-El Prat", "city": "Barcelona", "code": { "icao": "LEBL", "iata": "BCN" }, "timezone": { "name": "Madrid", "nativeTimezoneName": "Europe/Madrid" } },
     "LEGE": { "name": "Girona-Costa Brava", "city": "Girona", "code": { "icao": "LEGE", "iata": "GRO" }, "timezone": { "name": "Madrid", "nativeTimezoneName": "Europe/Madrid" } },
     "LEIB": { "name": "Ibiza", "city": "Ibiza", "code": { "icao": "LEIB", "iata": "IBZ" }, "timezone": { "name": "Madrid", "nativeTimezoneName": "Europe/Madrid" } },

@@ -232,6 +232,14 @@ like a passport number or a date of birth returns the "not searchable" state.
     A refusal or no answer keeps the flight, turns the stage "Passengers and crew" red/partial, makes the request
     Needs you ("passengers NOT in Leon for leg N") and the completion email Needs you. Bound to the confirmation like
     the payload: people changed after the dialog opened → nothing is sent.
+- **Passengers into Leon's passenger DATABASE (in progress, 2026-10-08).** Decided: contacts are created in cwy-cwy (Clearway's
+  own Leon). Leon's import (`passengerList.importPaxFromExcel` / `phonebook.importPaxFromExcel`) takes a file already
+  uploaded into Leon in Leon's own Excel template (`FileInput.pathGwt`), not rows — not used. The route is
+  `phonebook.personCreate` (the contact with its passport in one call, `documents.passportList`) then
+  `passengerList.addPassengersToList`. Field forms from Leon's own data: countries ISO-3 (`Country.code`), dates
+  `YYYY-MM-DD`, gender `MALE` / `FEMALE` / `UNKNOWN`. First step: `agent/scripts/leon-pax-probe.mjs` writes ONE passenger
+  to one test flight (a person types the phrase) and prints what was sent and what Leon stored, masked; ops confirm the
+  DATABASE tab before the full write is built.
 - **Passenger Manifest for an intake-created flight** (`agent/lib/manifest/intake-source.mjs`): rows come from (1) Leon's
   structured passenger records if any exist, else (2) this intake record (the leg's passengers a person confirmed),
   else (3) blank rows with the existing warning; the result names the source. Leon's text list is still shown beside

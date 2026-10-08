@@ -16,7 +16,8 @@ import { COLHEAD, EYEBROW, HATCH, fieldOf, legNo } from "./intake-shared";
 export type RevealState = { phase: "off" } | { phase: "ask"; section: string } | { phase: "loading"; section: string } | { phase: "on"; data: People } | { phase: "error"; section: string; message: string };
 type Col = { key: keyof Person; label: string; pii: boolean };
 const CREW_COLS: Col[] = [{ key: "role", label: "Role", pii: false }, { key: "name", label: "Name", pii: false }, { key: "sex", label: "Sex", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }, { key: "expiry", label: "Expiry", pii: true }];
-const PAX_COLS: Col[] = [{ key: "role", label: "Type", pii: false }, { key: "name", label: "Name", pii: false }, { key: "sex", label: "Sex", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }, { key: "expiry", label: "Expiry", pii: true }];
+// Passengers go to Leon's passenger database as contacts: the name is shown as Leon gets it, surname and given names.
+const PAX_COLS: Col[] = [{ key: "role", label: "Type", pii: false }, { key: "surname", label: "Surname", pii: false }, { key: "given", label: "Given names", pii: false }, { key: "sex", label: "Sex", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }, { key: "expiry", label: "Expiry", pii: true }];
 const MASK = "••••••••";
 
 export function PeopleSection({ leg, people, peopleError, reveal, setReveal, doReveal, purged, retentionDays, editPeople = null }: {
@@ -26,13 +27,30 @@ export function PeopleSection({ leg, people, peopleError, reveal, setReveal, doR
   return (
     <>
       <Group editPeople={editPeople} kind="crew" leg={leg} rows={pl?.crew ?? []} loaded={!!people} error={peopleError} reveal={reveal} setReveal={setReveal} doReveal={doReveal} purged={purged || !!people?.purged} retentionDays={retentionDays} />
-      <Group editPeople={editPeople} kind="pax" leg={leg} rows={pl?.pax ?? []} loaded={!!people} error={peopleError} reveal={reveal} setReveal={setReveal} doReveal={doReveal} purged={purged || !!people?.purged} retentionDays={retentionDays} />
+      <Group editPeople={editPeople} nameOrder={people?.nameOrder ?? null} kind="pax" leg={leg} rows={pl?.pax ?? []} loaded={!!people} error={peopleError} reveal={reveal} setReveal={setReveal} doReveal={doReveal} purged={purged || !!people?.purged} retentionDays={retentionDays} />
     </>
   );
 }
 
-function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, purged, retentionDays, editPeople }: {
-  kind: "crew" | "pax"; leg: Leg; rows: Person[]; loaded: boolean; error: string | null; reveal: RevealState; setReveal: (r: RevealState) => void; doReveal: (section: string) => void; purged: boolean; retentionDays: number; editPeople: EditPeople;
+/** A person corrects how a passenger's name is split for Leon. Kept on the request, marked with who and when. */
+function SplitEditor({ row, n, onCancel, onSave }: { row: Person; n: number; onCancel: () => void; onSave: (surname: string, given: string) => Promise<void> }) {
+  const [surname, setSurname] = useState(row.surname ?? ""); const [given, setGiven] = useState(row.given ?? "");
+  const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
+  const save = async () => { if (!surname.trim() || !given.trim()) { setError("Leon needs both a surname and a given name."); return; } setBusy(true); setError(null); try { await onSave(surname.trim(), given.trim()); } catch (e) { setError(errText(e)); setBusy(false); } };
+  return (
+    <div role="group" aria-label={`Name split, passenger ${n}`} style={{ gridColumn: "1 / -1", display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap", padding: "8px 0 2px" }}>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 180 }}><span style={COLHEAD}>Surname</span><TextInput value={surname} ariaLabel="Surname" monoText={false} onCommit={setSurname} onKeyDown={(e) => { if (e.key === "Enter") setSurname((e.target as HTMLInputElement).value); }} /></label>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 220 }}><span style={COLHEAD}>Given names</span><TextInput value={given} ariaLabel="Given names" monoText={false} onCommit={setGiven} onKeyDown={(e) => { if (e.key === "Enter") setGiven((e.target as HTMLInputElement).value); }} /></label>
+      <span style={{ fontSize: 12, color: C.muted, flex: 1, minWidth: 200 }}>As written in the request: {row.name ?? "—"}</span>
+      <Button size="xs" variant="secondary" onClick={onCancel} disabled={busy}>Cancel</Button>
+      <Button size="xs" variant="primary" onClick={() => void save()} disabled={busy}>{busy ? "Saving…" : "Save split"}</Button>
+      {error && <span role="alert" style={{ fontSize: 12.5, color: C.danger, flexBasis: "100%" }}>{error}</span>}
+    </div>
+  );
+}
+
+function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, purged, retentionDays, editPeople, nameOrder = null }: {
+  kind: "crew" | "pax"; leg: Leg; rows: Person[]; loaded: boolean; error: string | null; reveal: RevealState; setReveal: (r: RevealState) => void; doReveal: (section: string) => void; purged: boolean; retentionDays: number; editPeople: EditPeople; nameOrder?: People["nameOrder"];
 }) {
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -46,7 +64,10 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
   const sources = [...new Set(rows.map((r) => r.source).filter(Boolean))].map((s) => (s === "body" ? "Email body" : s)).join(", ");
   const copied = rows.some((r) => r.copied);
   const revealed = reveal.phase === "on" ? reveal.data.legs.find((l) => l.leg === leg.index)?.[kind] ?? null : null;
-  const grid = [...cols.map((c) => (c.key === "sex" ? "44px" : c.key === "name" ? "minmax(0,1.6fr)" : "minmax(0,1fr)")), ...(editPeople ? ["28px"] : [])].join(" ");
+  const grid = [...cols.map((c) => (c.key === "sex" ? "44px" : c.key === "name" || c.key === "given" ? "minmax(0,1.3fr)" : c.key === "surname" ? "minmax(0,1.9fr)" : "minmax(0,1fr)")), ...(editPeople ? ["52px"] : [])].join(" ");
+  const [splitting, setSplitting] = useState<number | null>(null);
+  const order = nameOrder?.order ? `Names split for Leon by the request's declared order${nameOrder.said ? ` “${nameOrder.said}”` : ""}.` : "The request does not declare the order of its names: each is split with the last word as the surname.";
+  const unsure = kind === "pax" ? rows.filter((r) => r.splitHow === "undeclared" || r.splitHow === "single").length : 0;
 
   let count: string; let body: ReactNode;
   const said = f?.said ? `"${f.said}"` : null;
@@ -55,6 +76,7 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
     body = (
       <>
         {copied && <div style={{ margin: "0 18px 8px", display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, color: TONE.amber.fg, background: TONE.amber.bg, borderRadius: 8, padding: "7px 10px" }}><span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", background: C.surface, borderRadius: 4, padding: "2px 6px" }}>LOW CONFIDENCE</span>Copied from another leg: the request says the list is the same.</div>}
+        {kind === "pax" && <div style={{ margin: "0 18px 8px", fontSize: 12.5, color: unsure ? TONE.amber.fg : C.muted, background: unsure ? TONE.amber.bg : "transparent", borderRadius: 8, padding: unsure ? "7px 10px" : 0 }}>{order} Check each surname (a double surname, a name written surname-first) and correct it with ✎ before sending: Leon gets the surname and given names exactly as shown.</div>}
         <div role="table" aria-label={`${word}, leg ${n}`} style={{ margin: "0 18px 12px", border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
           <div role="row" style={{ display: "grid", gridTemplateColumns: grid, gap: 10, padding: "7px 12px", background: C.page, ...COLHEAD }}>
             {cols.map((c) => <span role="columnheader" key={c.key} style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>{c.label}{c.pii && <Icon name="lock" size={10} color={C.faint} />}{c.pii && <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>, personal data</span>}</span>)}
@@ -71,10 +93,15 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
                     </span>
                   );
                 }
+                if (c.key === "surname") return <span role="cell" key={c.key} style={{ fontSize: 12.5, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={undefined}>{v ? String(v) : "—"}{r.splitHow === "edited" ? <span style={{ fontWeight: 400, color: C.primaryHover }}> · edited{r.splitBy ? ` by ${r.splitBy}` : ""}</span> : r.splitHow === "undeclared" || r.splitHow === "single" ? <span style={{ fontWeight: 400, color: TONE.amber.fg }}> · check</span> : null}</span>;
                 return <span role="cell" key={c.key} style={{ fontSize: 12.5, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v == null || v === "" ? "—" : String(v)}</span>;
               })}
               {editPeople && (
-                <span role="cell" style={{ justifySelf: "end" }}>
+                <span role="cell" style={{ justifySelf: "end", display: "inline-flex", gap: 2 }}>
+                  {kind === "pax" && r.idx != null && (
+                    <button type="button" className="ag-focus" aria-label={`Correct the surname and given names of passenger ${i + 1}`} onClick={() => setSplitting(splitting === r.idx ? null : r.idx ?? null)}
+                      style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: splitting === r.idx ? C.primaryTint3 : "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: C.muted }}>✎</button>
+                  )}
                   {r.added && r.id ? (
                     <button type="button" className="ag-focus" aria-label={`Remove ${r.name ?? "this person"}, added by ${r.added.by}`} disabled={removing === r.id}
                       onClick={async () => { setRemoving(r.id ?? null); setRemoveError(null); try { await editPeople({ op: "remove", personId: r.id as string }); } catch (e) { setRemoveError(errText(e)); } finally { setRemoving(null); } }}
@@ -84,6 +111,7 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
                   ) : null}
                 </span>
               )}
+              {splitting === r.idx && r.idx != null && editPeople && <SplitEditor row={r} n={i + 1} onCancel={() => setSplitting(null)} onSave={async (surname, given) => { await editPeople({ op: "split", idx: r.idx as number, surname, given }); setSplitting(null); }} />}
             </div>
           ))}
         </div>

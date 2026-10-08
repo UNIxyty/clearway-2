@@ -10,15 +10,18 @@ import { createRequire } from "node:module";
 const rootRequire = createRequire(path.resolve("package.json"));
 const { PDFDocument, StandardFonts } = rootRequire("pdf-lib");
 
-const [REF = "RIGPAX16", CALL = "OELCA", SHIFT = "0", OUT = "rig/fixtures/intake/rigpax16-oelca.eml"] = process.argv.slice(2);
+// SEED: 0 = the committed fixture's people; another seed = the same names with other passports and dates of birth (other
+// people, as far as Leon is concerned); the same seed again = the same 16 travellers on another request.
+const [REF = "RIGPAX16", CALL = "OELCA", SHIFT = "0", OUT = "rig/fixtures/intake/rigpax16-oelca.eml", SEED = "0"] = process.argv.slice(2);
+const SD = Number(SEED);
 const day = (n) => { const t = new Date(Date.UTC(2028, 2, 14 + n + Number(SHIFT))); return { d: `${String(t.getUTCDate()).padStart(2, "0")}${["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"][t.getUTCMonth()]}${t.getUTCFullYear()}`, words: `${t.getUTCDate()} ${t.toLocaleString("en", { month: "long", timeZone: "UTC" })} ${t.getUTCFullYear()}` }; };
 const SUR = ["EXAMPLE", "SAMPLE", "SPECIMEN", "TESTER", "DUMMY", "PLACEHOLDER", "FICTIVE", "NOTREAL", "DEMOSON", "MOCKLEY", "FAKEWELL", "TESTWOOD", "SAMPLETON", "PROTO", "MOCKFORD", "DEMOVA"];
 const GIV = ["ALICE", "BRUNO", "CARLA", "DMITRI", "ELENA", "FELIX", "GRETA", "HUGO", "INES", "JONAS", "KIRA", "LUKAS", "MILA", "NILS", "OLGA", "PAVEL"];
 const NAT = ["FRANCE", "LATVIA", "GERMANY", "GREECE", "MALTA", "AUSTRIA"];
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const d = (i, y) => `${String(1 + ((i * 7) % 28)).padStart(2, "0")}${MON[(i * 5) % 12]}${y + ((i * 3) % 20)}`;
-const pax = Array.from({ length: 16 }, (_, i) => ({ sal: i % 3 === 1 ? "Mrs." : i % 3 === 2 ? "Ms." : "Mr.", sex: i % 3 === 0 ? "M" : "F", name: `${GIV[i]} ${SUR[i]}`, dob: d(i, 1961), nat: NAT[i % NAT.length], pp: `TEST${String(i + 1).padStart(5, "0")}`, exp: d(i + 2, 2030) }));
-const crew = [["CPT", "ARTHUR CREWMAN", "Mr.", "M"], ["FO", "BEATRICE CREWLY", "Ms.", "F"], ["CC", "CLARA CABINSON", "Mrs.", "F"], ["CC", "DANIEL STEWARDE", "Mr.", "M"]].map(([role, name, sal, sex], i) => ({ role, name, sal, sex, dob: d(i + 20, 1975), nat: NAT[(i + 2) % NAT.length], pp: `TESTC${String(i + 1).padStart(4, "0")}`, exp: d(i + 30, 2031) }));
+const pax = Array.from({ length: 16 }, (_, i) => ({ sal: i % 3 === 1 ? "Mrs." : i % 3 === 2 ? "Ms." : "Mr.", sex: i % 3 === 0 ? "M" : "F", name: `${GIV[i]} ${SUR[i]}`, dob: d(i, 1961 + SD), nat: NAT[i % NAT.length], pp: `TEST${String(SD * 100 + i + 1).padStart(5, "0")}`, exp: d(i + 2, 2030) }));
+const crew = [["CPT", "ARTHUR CREWMAN", "Mr.", "M"], ["FO", "BEATRICE CREWLY", "Ms.", "F"], ["CC", "CLARA CABINSON", "Mrs.", "F"], ["CC", "DANIEL STEWARDE", "Mr.", "M"]].map(([role, name, sal, sex], i) => ({ role, name, sal, sex, dob: d(i + 20, 1975), nat: NAT[(i + 2) % NAT.length], pp: `TESTC${String(SD * 100 + i + 1).padStart(4, "0")}`, exp: d(i + 30, 2031) }));
 
 const lines = [
   `HANDLING REQUEST  ${REF}`, "", `OPERATOR: SAMPLE CHARTER (RIG FIXTURE)   AIRCRAFT: GLEX  REG OE-LCA   FLIGHT # ${CALL}`, "",

@@ -37,7 +37,8 @@ export type ChecklistItem = { defNid: number; label: string; decision: "provide"
 export type ChecklistResult = ChecklistItem & { leg: number; filled: boolean; reason: string | null; wasOnFlight?: boolean };
 export type Write = { leg: number; state: LeonLegState["state"]; flightNid: string | null; tripNid: string | null; error: string | null; httpStatus: number | null; ms: number | null; at: string; updatedAt: string; by: string | null; resolvedBy: string | null; checklist: ChecklistResult[] | null; payload: Record<string, unknown> | null };
 // A leg's passengers (Leon's text passenger list) or crew (the flight's OPS notes, never an assignment): counts only.
-export type PeopleWrite = { leg: number; kind: "pax" | "crew"; state: "sending" | "in_leon" | "not_in_leon" | "unknown"; people: number | null; flightNid: string | null; error: string | null; httpStatus: number | null; at: string; updatedAt: string; by: string | null };
+export type PaxDetail = { people: number; created: number; reused: number; differs: { row: number; fields: string[] }[]; notes: { row: number; notes: string[] }[]; failed: { row: number; reason: string }[] };
+export type PeopleWrite = { leg: number; kind: "pax" | "crew"; state: "sending" | "in_leon" | "not_in_leon" | "unknown"; people: number | null; detail?: PaxDetail | null; flightNid: string | null; error: string | null; httpStatus: number | null; at: string; updatedAt: string; by: string | null };
 export type PeopleOutcome = { kind: "pax" | "crew"; state: "in_leon" | "not_in_leon" | "unknown" | "none" | "not_sent"; people: number; count?: number | string | null; error?: string; already?: boolean };
 export type UiStatusKey = "needs_you" | "needs_review" | "waiting" | "stuck" | "in_progress" | "loaded" | "skipped" | "cancelled" | "handled";
 export type Notification = { provider: string; providerName: string; reference: string | null; route: string[]; date: string | null; etd: { time: string; airport: string }[]; pax: string | null; paxPerLeg?: number[] | null; legs?: number | null; paxLegsAgree?: boolean | null; client: string | null; crewNamed: number; calendar: { method: string | null; uid: string | null; sequence: number | null; status: string | null } | null };
@@ -67,10 +68,10 @@ export type RequestDetail = {
   retention: { days: number };
 };
 export type ListRow = { id: string; type: "handling" | "scheduled"; statusKey: UiStatusKey; statusLabel: string; from: string; reference: string; referenceBuilt: boolean; route: string; firstStd: string | null; legs: { removed: boolean; state: "in" | "not" | "unknown" | "none" | "removed" }[]; stage: string; updatedAt: string; needsAttention: boolean };
-export type Person = { id?: string | null; added?: { by: string; at: string } | null; role: string | null; salutation?: string | null; sex?: string | null; name: string | null; dob: string | null; nationality: string | null; passport: string | null; expiry: string | null; source: string | null; copied: boolean };
-export type People = { legs: { leg: number; crew: Person[]; pax: Person[] }[]; purged: boolean; masked: boolean; revealedBy?: string; at?: string };
+export type Person = { idx?: number; surname?: string; given?: string; splitHow?: "edited" | "comma" | "declared" | "undeclared" | "single"; splitBy?: string | null; splitSaid?: string | null; id?: string | null; added?: { by: string; at: string } | null; role: string | null; salutation?: string | null; sex?: string | null; name: string | null; dob: string | null; nationality: string | null; passport: string | null; expiry: string | null; source: string | null; copied: boolean };
+export type People = { legs: { leg: number; crew: Person[]; pax: Person[] }[]; purged: boolean; masked: boolean; nameOrder?: { said: string | null; order: "given_first" | "surname_first" | null } | null; revealedBy?: string; at?: string };
 export type Confirmation = { token: string; status: string; expiresAt: string; summary: string };
-export type Prepared = { ok: true; runsAs?: string; confirmation: Confirmation; resend: boolean; warnings: string[]; legs: { index: number; payload: Record<string, unknown>; people?: { pax: { people: number; count: number } | null; crew: { people: number; count: string | null } | null }; note?: string; checklist: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[]; edited: { leg: number; label: string; value: string }[]; notChecked: { leg: number; label: string; value: string }[]; tripStatus: string };
+export type Prepared = { ok: true; runsAs?: string; confirmation: Confirmation; resend: boolean; warnings: string[]; legs: { index: number; payload: Record<string, unknown>; people?: { pax: { people: number; count: number; undeclaredSplits?: number } | null; crew: { people: number; count: string | null } | null }; note?: string; checklist: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[] }[]; edited: { leg: number; label: string; value: string }[]; notChecked: { leg: number; label: string; value: string }[]; tripStatus: string };
 export type SendResult = { legs: { index: number; state: "in_leon" | "not_in_leon" | "unknown" | "not_sent"; flightNid?: string; tripNid?: string; error?: string; field?: string | null; ms?: number; already?: boolean; people?: PeopleOutcome[] }[]; checklist: { items: ChecklistResult[]; filled: number; total: number; statusesLeftToOps?: boolean }; by: string; at: string; status: string; email: { kind: string; ok: boolean; mode: string; error: string | null } };
 
 // Mailbox
@@ -104,12 +105,14 @@ export const intakeApi = {
   lookup: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/lookup`, { json: {} }),
   approve: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/approve`, { json: {} }),
   decline: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/decline`, { json: {} }),
+  peoplePrepare: (id: string, leg: number) => call<{ confirmation: Confirmation; people: number; undeclaredSplits: number; lastState: string | null; flightNid: string }>(`/api/intake/requests/${id}/legs/${leg}/people/prepare`, { json: {} }),
+  peopleConfirm: (token: string) => call<{ accepted: boolean; outcome?: unknown }>(`/api/intake/people/${token}/confirm`, { json: {} }),
   cancelAnswer: (id: string, yes: boolean) => call<RequestDetail>(`/api/intake/requests/${id}/cancel-${yes ? "approve" : "decline"}`, { json: {} }),
   edit: (id: string, body: Record<string, unknown>) => call<RequestDetail>(`/api/intake/requests/${id}/edit`, { json: body }),
   reprocess: (id: string, attachmentId?: string | null) => call<RequestDetail>(`/api/intake/requests/${id}/reprocess`, { json: { attachmentId: attachmentId ?? null } }),
   people: (id: string) => call<People>(`/api/intake/requests/${id}/people`),
   reveal: (id: string) => call<People>(`/api/intake/requests/${id}/people/reveal`, { json: {} }),
-  editPeople: (id: string, body: { op: "add"; leg: number; list: "crew" | "pax"; person: Partial<Record<"role" | "name" | "dob" | "nationality" | "passport" | "expiry", string>> } | { op: "remove"; personId: string }) => call<People>(`/api/intake/requests/${id}/people/edit`, { json: body }),
+  editPeople: (id: string, body: { op: "add"; leg: number; list: "crew" | "pax"; person: Partial<Record<"role" | "name" | "dob" | "nationality" | "passport" | "expiry", string>> } | { op: "remove"; personId: string } | { op: "split"; idx: number; surname: string; given: string }) => call<People>(`/api/intake/requests/${id}/people/edit`, { json: body }),
   prepare: (id: string) => call<Prepared>(`/api/intake/requests/${id}/prepare`, { json: {} }),
   confirm: (token: string) => call<{ accepted: true; requestId: string; already?: boolean }>(`/api/intake/send/${token}/confirm`, { json: {} }),
   sendStatus: (token: string) => call<{ status: string; result: SendResult | null }>(`/api/intake/send/${token}`),

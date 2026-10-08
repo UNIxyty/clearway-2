@@ -120,7 +120,9 @@ export const EXTRACTION_SCHEMA = {
       field: { type: "string" }, leg: { type: ["integer", "null"] }, body: { type: ["string", "null"] }, attachment: { type: ["string", "null"] }, attachmentName: { type: ["string", "null"] },
     } } },
     // Identities (names, document numbers, dates of birth): stored apart, masked by the API, purged by retention.
-    personal: { type: "object", additionalProperties: false, required: ["people"], properties: { people: { type: "array", items: PERSON } } },
+    personal: { type: "object", additionalProperties: false, required: ["people"], properties: { people: { type: "array", items: PERSON },
+      // The order the request DECLARES for its name column, when it does ("First, Middle, Last Name" → given_first).
+      nameOrder: { type: ["object", "null"], additionalProperties: false, required: ["said", "order"], properties: { said: { type: ["string", "null"] }, order: { enum: ["given_first", "surname_first", null] } } } } },
   },
 };
 

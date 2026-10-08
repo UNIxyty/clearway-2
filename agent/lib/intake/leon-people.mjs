@@ -1,12 +1,10 @@
-// Passengers and crew to Leon, after a leg's flight exists. Every value is the request's own, as the review holds it
-// (intake_extractions.personal.people); nothing is invented, reformatted or completed.
+// Passengers and crew to Leon. Every value is the request's own, as the review holds it (intake_extractions.personal);
+// nothing is invented, reformatted or completed.
 //
-// What Leon's API takes (live schema, cwy-cwy, 2026-10-07):
-//   Passengers — the structured list (passengerList.savePassengerList / addPassengersToList) takes ONLY references to
-//     contacts that already exist in the operator's Leon address book (PassengerContactInput.contactNid: Int!). An
-//     ad-hoc passenger exists only as Leon's free-text passenger list: passengerList.savePassengerText(flightNid,
-//     { count, text }) — the flight's own passenger list in Leon, data source "text". That is what is written here.
-//     Creating address-book contacts for one-off charter passengers is NOT done: it is a decision for ops, not code.
+// What Leon's API takes (live schema, cwy-cwy):
+//   Passengers — into Leon's passenger DATABASE as contacts with passports (leon-pax.mjs, decided 2026-10-08). The
+//     request's own list, as it gave it, is recorded in the flight's OPS notes (passengerBlockFor, part of the create):
+//     Leon's TEXT tab and DATABASE tab cannot both hold data (contacts clear the text), so the provenance lives there.
 //   Crew — Leon assigns crew to a flight only by its own crew-member id (crewPanel.crew.assign: loginNid), and a crew
 //     member exists only as a full Leon user record (crewMember.create). The agent creates none. There is no crew-count
 //     field on FlightCreate / FlightUpdate (Flight.crewProperty counts are derived from assignments). So the operator's
@@ -24,6 +22,7 @@ import { rest } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
 import { leonGraphql } from "./leon-client.mjs";
 import { personalTokens, scrubString } from "./personal.mjs";
+import { contactPlan, paxPlanHash, writeLegPax } from "./leon-pax.mjs";
 
 export const KINDS = ["pax", "crew"];
 const sha = (s) => createHash("sha256").update(String(s)).digest("hex");
@@ -52,7 +51,15 @@ function personLine(p, n, { role = false } = {}) {
   return `${n}. ${parts.filter(Boolean).join(" · ")}`;
 }
 
-/** The passenger list as Leon's own text list. count = the reviewed passenger total (what paxNumber carries), else the names listed. */
+export const paxHeading = (marker) => `PASSENGERS per the handling request · ${marker}`;
+/** The request's passenger list for the flight's OPS notes: the client's own words, as the agent recorded them. */
+export function passengerBlockFor(pax, { marker, reference } = {}) {
+  if (!pax.length) return null;
+  const lines = [paxHeading(marker), `The client's passenger list as the request${reference ? ` ${reference}` : ""} gave it, recorded by the Clearway Ops Agent (not checked against documents). The passengers are in the flight's passenger database (PAX → DATABASE).`,
+    ...pax.map((p, i) => personLine(p, i + 1))];
+  return { text: lines.join("\n"), people: pax.length };
+}
+/** The request's list as text, for comparing with a text list in Leon (the manifest's intake fallback). count = the reviewed passenger total (what paxNumber carries), else the names listed. */
 export function passengerTextFor(pax, { reference, paxNumber } = {}) {
   if (!pax.length) return null;
   const text = [`Passengers as given in handling request ${reference ?? ""}`.trim() + " — recorded by the Clearway Ops Agent from the request, not checked against documents.", "",
@@ -73,11 +80,11 @@ export function crewNoteFor(crew, { marker, crewCount } = {}) {
   return { text: lines.join("\n"), count: count || null, people: crew.length };
 }
 
-/** What will happen to a leg's people, for the confirm dialog and the page: counts only. */
-export function peoplePlan(people, leg, { reference, marker, paxNumber, crewCount }) {
+/** What will happen to a leg's people, for the confirm dialog and the page: counts only; hashes bind a confirmation. */
+export function peoplePlan(people, leg, { marker, crewCount, nameOrder = null }) {
   const { pax, crew } = peopleForLeg(people, leg.index);
-  const p = passengerTextFor(pax, { reference, paxNumber }), c = crewNoteFor(crew, { marker, crewCount });
-  return { pax: p ? { people: p.people, count: p.count, sha: paxContentHash(p.text, p.count) } : null, crew: c ? { people: c.people, count: c.count, sha: sha(c.text) } : null };
+  const plans = pax.map((p) => contactPlan(p, nameOrder)); const c = crewNoteFor(crew, { marker, crewCount });
+  return { pax: pax.length ? { people: pax.length, count: pax.length, undeclaredSplits: plans.filter((x) => x.splitHow === "undeclared" || x.splitHow === "single").length, sha: paxPlanHash(plans) } : null, crew: c ? { people: c.people, count: c.count, sha: sha(c.text) } : null };
 }
 /** One hash per leg for everything about its people, so a confirmation is bound to them as to the flight payload. */
 export const peopleHash = (plan) => sha(`${plan.pax?.sha ?? "-"}|${plan.crew?.sha ?? "-"}`);
@@ -100,12 +107,6 @@ async function insertAttempt(row) {
   return { row: prior, fresh: false };
 }
 
-const PAX_MUTATION = `mutation($f:FlightNid!,$t:PassengerTextInput!){ passengerList{ savePassengerText(flightNid:$f, passengerText:$t){ count } } }`;
-async function callPax(flightNid, plan) {
-  const res = await leonGraphql(PAX_MUTATION, { f: Number(flightNid), t: { count: plan.count, text: plan.text } }, timeout());
-  return { ok: !!res.data?.passengerList?.savePassengerText && !res.errors?.length, res };
-}
-
 /** The crew block is sent inside the leg's FlightCreate: its attempt row is written before that call, settled after. */
 export async function recordCrewAttempt({ requestId, leg, crew, user }) {
   const { row, fresh } = await insertAttempt({ request_id: requestId, leg_index: leg.index, kind: "crew", leon_flight_nid: "(with the flight)", content_sha256: sha(crew.text), people_count: crew.people, state: "sending", sent_by_email: user.email });
@@ -119,51 +120,26 @@ export async function settleCrew(rowId, { state, flightNid = null, error = null,
 export async function settleCrewForLeg(requestId, legIndex, state, flightNid = null) {
   await rest(`intake_leon_people_writes?request_id=eq.${requestId}&leg_index=eq.${legIndex}&kind=eq.crew&state=eq.unknown`, { method: "PATCH", body: JSON.stringify({ state, ...(flightNid ? { leon_flight_nid: String(flightNid) } : {}), updated_at: new Date().toISOString() }) }).catch(() => {});
 }
-/** The stored copy of a payload: the crew block replaced by a line that says what it was (no names in the send log). */
-export function payloadForLog(payload, crew) {
-  if (!crew?.text || typeof payload?.opsNotes !== "string" || !payload.opsNotes.includes(crew.text)) return payload;
-  return { ...payload, opsNotes: payload.opsNotes.replace(crew.text, `${crew.text.split("\n")[0]}\n[${crew.people ? `${crew.people} crew` : "crew count"}${crew.count ? ` · count ${crew.count}` : ""} · sent to Leon in these notes; names and documents are not kept in the send log]`) };
+/** The stored copy of a payload: the crew and passenger blocks replaced by a line that says what each was (no names in
+ *  the send log). */
+export function payloadForLog(payload, crew, paxBlock = null) {
+  if (typeof payload?.opsNotes !== "string") return payload;
+  let notes = payload.opsNotes;
+  if (crew?.text && notes.includes(crew.text)) notes = notes.replace(crew.text, `${crew.text.split("\n")[0]}\n[${crew.people ? `${crew.people} crew` : "crew count"}${crew.count ? ` · count ${crew.count}` : ""} · sent to Leon in these notes; names and documents are not kept in the send log]`);
+  if (paxBlock?.text && notes.includes(paxBlock.text)) notes = notes.replace(paxBlock.text, `${paxBlock.text.split("\n")[0]}\n[${paxBlock.people} passengers as the request gave them · sent to Leon in these notes; names and documents are not kept in the send log]`);
+  return notes === payload.opsNotes ? payload : { ...payload, opsNotes: notes };
 }
 
-/**
- * Writes one created leg's passengers (its crew went with the create). Never throws for a Leon answer: every outcome is returned and
- * recorded. → [{ kind, state: 'in_leon'|'not_in_leon'|'unknown'|'none', people, count, error?, already? }]
- */
-export async function writeLegPeople({ requestId, leg, flightNid, people, reference, paxNumber, user }) {
-  const { pax } = peopleForLeg(people, leg.index);
-  const tokens = personalTokens(people);
-  const plans = { pax: passengerTextFor(pax, { reference, paxNumber }) };
-  const out = [];
-  for (const kind of ["pax"]) {
-    const plan = plans[kind];
-    if (!plan) { out.push({ kind, state: "none", people: 0 }); continue; }
-    const contentSha = paxContentHash(plan.text, plan.count);
-    let row, fresh;
-    try { ({ row, fresh } = await insertAttempt({ request_id: requestId, leg_index: leg.index, kind, leon_flight_nid: String(flightNid), content_sha256: contentSha, people_count: plan.people, state: "sending", sent_by_email: user.email })); }
-    catch (e) {
-      // No record of the attempt → no call: a write that cannot be recorded is not made.
-      out.push({ kind, state: "not_sent", people: plan.people, count: plan.count, error: `Not sent: the attempt could not be recorded first (${String(e.message).slice(0, 120)}).` }); continue;
-    }
-    if (!fresh) { out.push(row?.state === "in_leon" ? { kind, state: "in_leon", people: plan.people, count: plan.count, already: true } : { kind, state: "unknown", people: plan.people, count: plan.count, error: "An earlier write of exactly this is unfinished or its result is unknown. Nothing was sent again; check Leon." }); continue; }
-    const t0 = Date.now(); let r = null, thrown = null;
-    try { r = await callPax(flightNid, plan); } catch (e) { thrown = e; }
-    const ms = Date.now() - t0;
-    let o;
-    if (r?.ok) o = { kind, state: "in_leon", people: plan.people, count: plan.count, already: !!r.already };
-    else if (!thrown && r?.res && r.res.httpStatus < 500 && r.res.errors?.length) { const w = refusalWords(r.res.errors, tokens); o = { kind, state: "not_in_leon", people: plan.people, count: plan.count, error: w.words, category: w.category }; }
-    else o = { kind, state: "unknown", people: plan.people, count: plan.count, error: thrown ? `Leon did not answer (${thrown.name === "TimeoutError" || /abort|timeout/i.test(String(thrown.message)) ? "timed out" : scrubString(String(thrown.message), tokens).slice(0, 120)})` : `Leon answered HTTP ${r?.res?.httpStatus} without confirming` };
-    await rest(`intake_leon_people_writes?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify({ state: o.state, leon_error: o.error ?? null, http_status: r?.res?.httpStatus ?? null, answered_ms: ms, updated_at: new Date().toISOString() }) }).catch(() => {});
-    await audit({ kind: `intake.leon_${kind}_${o.state === "in_leon" ? "written" : o.state === "not_in_leon" ? "refused" : "unknown"}`, userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: "intake.leon_send", toolArgs: { requestId, leg: leg.index, kind }, toolResult: { flightNid: String(flightNid), people: plan.people, count: plan.count, already: o.already ?? false }, success: o.state === "in_leon", error: o.error ?? null, confirmationStatus: "confirmed", latencyMs: ms }).catch(() => {});
-    out.push(o);
-  }
-  return out;
+/** One created leg's passengers into Leon's passenger database (leon-pax.mjs); its crew went with the create. */
+export async function writeLegPeople({ requestId, leg, flightNid, people, nameOrder = null, user }) {
+  return [await writeLegPax({ requestId, leg, flightNid, pax: peopleForLeg(people, leg.index).pax, nameOrder, user, people })];
 }
 
 /** On start: a passenger/crew write that never recorded its outcome is unknown. Nothing retries. */
 export async function recoverPeopleOnStart() {
   const rows = await rest(`intake_leon_people_writes?state=eq.sending`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ state: "unknown", leon_error: "The service stopped during the write; the result was never recorded. Check Leon.", updated_at: new Date().toISOString() }) }).catch(() => []);
   for (const w of rows ?? []) {
-    await rest(`intake_requests?id=eq.${w.request_id}`, { method: "PATCH", body: JSON.stringify({ status: "needs_you", status_reason: `Leon did not answer · leg ${w.leg_index + 1} ${w.kind === "pax" ? "passengers" : "crew"} unknown · check Leon`, updated_at: new Date().toISOString() }) }).catch(() => {});
+    await rest(`intake_requests?id=eq.${w.request_id}`, { method: "PATCH", body: JSON.stringify({ status: "needs_you", status_reason: `Leon did not answer · leg ${w.leg_index + 1} ${w.kind === "crew" ? "crew" : w.kind === "contact" ? "a passenger's contact" : "passengers"} unknown · check Leon`, updated_at: new Date().toISOString() }) }).catch(() => {});
     await audit({ kind: `intake.leon_${w.kind}_unknown`, success: false, error: "service restarted during a write", confirmationStatus: "not_required", detail: { requestId: w.request_id, leg: w.leg_index, writeId: w.id } }).catch(() => {});
   }
   return (rows ?? []).length;
@@ -173,9 +149,9 @@ export async function recoverPeopleOnStart() {
 export function outcomeWords(o) {
   const n = (k, c) => `${c} ${k === "pax" ? (c === 1 ? "passenger" : "passengers") : "crew"}`;
   if (o.kind === "pax") {
-    if (o.state === "none") return "No passenger names in the request: nothing written to Leon's passenger list.";
-    if (o.state === "in_leon") return `${n("pax", o.people)} written to the flight's passenger list in Leon (Leon's text list, as the request gave them${o.count !== o.people ? `; count ${o.count}` : ""})${o.already ? ", already there" : ""}.`;
-    return `Passengers NOT written to Leon: ${o.error ?? "no answer"}`;
+    if (o.state === "none") return "No passenger names in the request: nothing written to Leon's passenger database.";
+    if (o.state === "in_leon") return `${n("pax", o.people)} in the flight's passenger database in Leon (PAX → DATABASE): ${o.created ?? 0} new contact${o.created === 1 ? "" : "s"}, ${o.reused ?? 0} existing contact${o.reused === 1 ? "" : "s"} reused${o.differs?.length ? `; ${o.differs.length} reused contact${o.differs.length === 1 ? " differs" : "s differ"} from the request (${o.differs.map((d) => `passenger ${d.row}: ${d.fields.join(", ")}`).join("; ")}) — the contacts were not changed, a person decides` : ""}${o.notes?.length ? `; left out where the request gave nothing usable (${o.notes.map((x) => `passenger ${x.row}: ${x.notes.join(", ")}`).join("; ")})` : ""}${o.already ? " (already there)" : ""}.`;
+    return `Passengers NOT in Leon's passenger database: ${o.error ?? "no answer"}`;
   }
   if (o.state === "none") return "No crew in the request.";
   if (o.state === "in_leon") return `${o.people ? n("crew", o.people) : "The crew count"} written into the flight's OPS notes with the flight, as the operator's crew — NOT assigned in Leon.`;

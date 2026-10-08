@@ -28,7 +28,7 @@ import { aircraftByRegistration, flightsBetween } from "./leon-lookup.mjs";
 import { blockersFor, builderLeg } from "./review.mjs";
 import { findDuplicates, setStage } from "./pipeline.mjs";
 import { composeOutcome, sendIntakeEmail } from "./notify.mjs";
-import { peoplePlan, peopleHash, writeLegPeople, recoverPeopleOnStart, outcomeWords, peopleForLeg, crewNoteFor, payloadForLog, recordCrewAttempt, settleCrew, settleCrewForLeg } from "./leon-people.mjs";
+import { peoplePlan, peopleHash, writeLegPeople, recoverPeopleOnStart, outcomeWords, peopleForLeg, crewNoteFor, passengerBlockFor, payloadForLog, recordCrewAttempt, settleCrew, settleCrewForLeg } from "./leon-people.mjs";
 import { personalTokens, scrubString } from "./personal.mjs";
 import { recoverCancelsOnStart } from "./cancel.mjs";
 
@@ -44,13 +44,15 @@ const tripStatus = () => (["CONFIRMED", "OPTION", "OPPORTUNITY"].includes(String
 
 async function loadRequest(id) { const r = (await rest(`intake_requests?select=*&id=eq.${id}`))?.[0]; if (!r) throw Object.assign(new Error("No such request."), { status: 404 }); return r; }
 /** The request's people (names and documents) — read only to send them to Leon; never logged or returned. */
-async function peopleOf(req) { return req.current_extraction_id ? (await rest(`intake_extractions?select=personal&id=eq.${req.current_extraction_id}`))?.[0]?.personal?.people ?? [] : []; }
+async function personalOf(req) { return req.current_extraction_id ? (await rest(`intake_extractions?select=personal&id=eq.${req.current_extraction_id}`))?.[0]?.personal ?? {} : {}; }
 const crewCountOf = (leg) => { const f = leg.fields.find((x) => x.key === "crewCount"); return f && f.value !== "" && f.value != null ? String(f.value) : null; };
 /** The leg's crew block (or null) and the OPS notes it is created with: marker, services note, then the crew. */
 function crewOf(people, leg, req) { return crewNoteFor(peopleForLeg(people, leg.index).crew, { marker: markerFor(req.id, leg.index), crewCount: crewCountOf(leg) }); }
-const notesWithCrew = (base, crew) => (crew ? `${base}\n\n${crew.text}` : base);
-function legPeoplePlan(people, leg, req, payload) {
-  return peoplePlan(people, leg, { reference: req.reference, marker: markerFor(req.id, leg.index), paxNumber: payload.paxNumber, crewCount: crewCountOf(leg) });
+// The request's own passenger list, as provenance in the OPS notes (the passengers themselves go to Leon's database).
+function paxBlockOf(people, leg, req) { return passengerBlockFor(peopleForLeg(people, leg.index).pax, { marker: markerFor(req.id, leg.index), reference: req.reference }); }
+const notesWithCrew = (base, crew, paxBlock = null) => [base, crew?.text, paxBlock?.text].filter(Boolean).join("\n\n");
+function legPeoplePlan(people, leg, req, payload, nameOrder = null) {
+  return peoplePlan(people, leg, { marker: markerFor(req.id, leg.index), crewCount: crewCountOf(leg), nameOrder });
 }
 // The send log also holds cancel attempts (action 'cancel', cancel.mjs); a leg's Leon state is its CREATE rows.
 async function writesOf(id) { return (await rest(`intake_leon_writes?select=*&request_id=eq.${id}&action=eq.create&order=created_at.asc`)) ?? []; }
@@ -115,15 +117,15 @@ export async function prepareSend(requestId, user) {
   const { blockers, warnings } = blockersFor(review, req, { lookups });
   if (blockers.length) return { ok: false, blockers, warnings };
   const noteCtx = { reference: req.reference, receivedAt: req.created_at, requester: req.sender_name ?? null };
-  const people = await peopleOf(req);
+  const personal = await personalOf(req); const people = personal.people ?? [], nameOrder = personal.nameOrder ?? null;
   const legs = [];
   for (const leg of review.legs.filter((l) => !l.removed && !l.inLeon)) {
     const noteText = legNoteText(leg, req, noteCtx);
-    const crew = crewOf(people, leg, req);
-    const built = buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), noteText), crew));
+    const crew = crewOf(people, leg, req); const paxBlock = paxBlockOf(people, leg, req);
+    const built = buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), noteText), crew, paxBlock));
     if (!built.ok) return { ok: false, blockers: built.reasons.map((r) => `Leg ${leg.index + 1}: ${r}.`), warnings };
-    const plan = legPeoplePlan(people, leg, req, built.payload);
-    legs.push({ index: leg.index, payload: payloadForLog(built.payload, crew), payloadSha256: payloadHash(built.payload), peopleSha256: peopleHash(plan), people: { pax: plan.pax && { people: plan.pax.people, count: plan.pax.count }, crew: plan.crew && { people: plan.crew.people, count: plan.crew.count } }, note: noteText ?? "", checklist: [], skipped: [] });
+    const plan = legPeoplePlan(people, leg, req, built.payload, nameOrder);
+    legs.push({ index: leg.index, payload: payloadForLog(built.payload, crew, paxBlock), payloadSha256: payloadHash(built.payload), peopleSha256: peopleHash(plan), people: { pax: plan.pax && { people: plan.pax.people, count: plan.pax.count, undeclaredSplits: plan.pax.undeclaredSplits }, crew: plan.crew && { people: plan.crew.people, count: plan.crew.count } }, note: noteText ?? "", checklist: [], skipped: [] });
   }
   const resend = Object.values(writes).some((w) => w.state === "in_leon" || w.state === "not_in_leon");
   const input = { requestId, legs: legs.map((l) => ({ index: l.index, payloadSha256: l.payloadSha256, peopleSha256: l.peopleSha256, checklist: argsHash([]) })) };
@@ -203,15 +205,15 @@ async function run(entry, user) {
   const before = legStates(await writesOf(requestId));
   // Rebuild from the CURRENT review and compare with what the token was bound to: if a value changed after
   // the dialog opened, nothing is sent.
-  const people = await peopleOf(req);
+  const personal = await personalOf(req); const people = personal.people ?? [], nameOrder = personal.nameOrder ?? null;
   const legs = [];
   for (const b of entry.input.legs) {
     const leg = review.legs.find((l) => l.index === b.index);
-    const crew = leg && crewOf(people, leg, req);
-    const built = leg && buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), legNoteText(leg, req, noteCtx)), crew));
+    const crew = leg && crewOf(people, leg, req); const paxBlock = leg && paxBlockOf(people, leg, req);
+    const built = leg && buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), legNoteText(leg, req, noteCtx)), crew, paxBlock));
     if (!built?.ok || payloadHash(built.payload) !== b.payloadSha256) throw Object.assign(new Error(`Leg ${b.index + 1} changed after the confirmation was shown. Nothing was sent. Review it and confirm again.`), { status: 409 });
-    if (peopleHash(legPeoplePlan(people, leg, req, built.payload)) !== b.peopleSha256) throw Object.assign(new Error(`Leg ${b.index + 1}'s crew or passengers changed after the confirmation was shown. Nothing was sent. Review it and confirm again.`), { status: 409 });
-    legs.push({ leg, payload: built.payload, sha: b.payloadSha256, crew });
+    if (peopleHash(legPeoplePlan(people, leg, req, built.payload, nameOrder)) !== b.peopleSha256) throw Object.assign(new Error(`Leg ${b.index + 1}'s crew or passengers changed after the confirmation was shown. Nothing was sent. Review it and confirm again.`), { status: 409 });
+    legs.push({ leg, payload: built.payload, sha: b.payloadSha256, crew, paxBlock });
   }
   // A last duplicate check right before writing (unless a person already said "not a duplicate").
   if (!req.duplicate_resolution) {
@@ -229,10 +231,10 @@ async function run(entry, user) {
   let tripNid = Object.values(before).find((w) => w.leon_trip_nid)?.leon_trip_nid ?? null;
   const outcome = []; let stopped = false;
   const tokens = personalTokens(people);
-  for (const { leg, payload, sha, crew } of legs) {
+  for (const { leg, payload, sha, crew, paxBlock } of legs) {
     if (stopped) { outcome.push({ index: leg.index, state: "not_sent", error: "Not sent: an earlier leg's result is unknown." }); continue; }
     // 1. The attempt, written BEFORE the call.
-    const { row, fresh } = await insertAttempt({ request_id: requestId, leg_index: leg.index, payload_sha256: sha, payload: payloadForLog(payload, crew), marker: markerFor(requestId, leg.index), state: "sending", confirmation_token: entry.token, sent_by: user.userId, sent_by_email: user.email, leon_trip_nid: tripNid });
+    const { row, fresh } = await insertAttempt({ request_id: requestId, leg_index: leg.index, payload_sha256: sha, payload: payloadForLog(payload, crew, paxBlock), marker: markerFor(requestId, leg.index), state: "sending", confirmation_token: entry.token, sent_by: user.userId, sent_by_email: user.email, leon_trip_nid: tripNid });
     if (!fresh) {
       if (row?.state === "in_leon") { outcome.push({ index: leg.index, state: "in_leon", flightNid: row.leon_flight_nid, already: true }); continue; }
       outcome.push({ index: leg.index, state: "unknown", error: "Another send of this exact leg is in progress or its result is unknown. Nothing was sent again." }); stopped = true; continue;
@@ -257,7 +259,7 @@ async function run(entry, user) {
       await audit({ kind: "intake.leon_created", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, toolName: TOOL, toolArgs: { requestId, leg: leg.index }, toolResult: { flightNid: flight.flightNid, tripNid }, success: true, confirmationStatus: "confirmed", latencyMs: ms }).catch(() => {});
       await settleCrew(crewRow, { state: "in_leon", flightNid: flight.flightNid, httpStatus: res.httpStatus, ms });
       // Its passengers, now that the flight exists. A failure here is shown and emailed; the flight stands.
-      const ppl = await writeLegPeople({ requestId, leg, flightNid: flight.flightNid, people, reference: req.reference, paxNumber: payload.paxNumber, user });
+      const ppl = await writeLegPeople({ requestId, leg, flightNid: flight.flightNid, people, nameOrder, user });
       outcome.push({ index: leg.index, state: "in_leon", flightNid: String(flight.flightNid), tripNid, ms, people: [...ppl, crewOutcome("in_leon")] });
     } else if (!thrown && res && res.httpStatus < 500 && res.errors?.length) {
       const r = refusal(res.errors, tokens);
@@ -351,4 +353,50 @@ export async function resolveUnknown(requestId, legIndex, user, action) {
     return { ok: true };
   }
   throw Object.assign(new Error("Unknown action."), { status: 400 });
+}
+
+// ── Passengers of a leg already in Leon: sent (again) by a person ────────────────────────────────────────────────────
+// For a leg whose passengers did not reach Leon's database (a refused contact, an unknown result after a restart, or a
+// flight created before passengers were sent). The same one-time confirmation as every Leon write; the contacts already
+// created are reused through the mapping, so nothing is created twice; the list call replaces the flight's list whole.
+export const PEOPLE_TOOL = "intake.leon_people";
+async function paxLegContext(requestId, legIndex) {
+  const req = await loadRequest(requestId);
+  const leg = req.review?.legs?.find((l) => l.index === legIndex && !l.removed);
+  if (!leg) throw Object.assign(new Error("No such leg."), { status: 404 });
+  const w = legStates(await writesOf(requestId))[legIndex];
+  if (w?.state !== "in_leon" || !w.leon_flight_nid) throw Object.assign(new Error("This leg is not in Leon, so its passengers cannot be sent."), { status: 409 });
+  const personal = await personalOf(req); const people = personal.people ?? [], nameOrder = personal.nameOrder ?? null;
+  const pax = peopleForLeg(people, legIndex).pax;
+  if (!pax.length) throw Object.assign(new Error("The request names no passengers for this leg."), { status: 409 });
+  return { req, leg, flightNid: w.leon_flight_nid, people, nameOrder, pax, plan: peoplePlan(people, leg, { marker: markerFor(requestId, legIndex), crewCount: crewCountOf(leg), nameOrder }) };
+}
+export async function preparePeopleSend(requestId, legIndex, user) {
+  const c = await paxLegContext(requestId, legIndex);
+  const last = (await rest(`intake_leon_people_writes?select=state&request_id=eq.${requestId}&leg_index=eq.${legIndex}&kind=eq.pax&order=updated_at.desc&limit=1`).catch(() => []))?.[0];
+  if (last?.state === "sending") throw Object.assign(new Error("A passenger write for this leg is in progress."), { status: 409 });
+  const conf = issueConfirmation({ user, toolName: PEOPLE_TOOL, input: { requestId, leg: legIndex, sha: c.plan.pax.sha }, level: "write", summary: `Send ${c.pax.length} passengers to Leon for ${c.req.reference} leg ${legIndex + 1}`, targetId: requestId, targetLabel: c.req.reference });
+  return { ok: true, confirmation: conf, leg: legIndex, flightNid: c.flightNid, people: c.pax.length, undeclaredSplits: c.plan.pax.undeclaredSplits, lastState: last?.state ?? null };
+}
+export async function confirmPeopleSend(token, user) {
+  const pending = getConfirmation(token, user);
+  if (!pending || pending.toolName !== PEOPLE_TOOL) throw Object.assign(new Error("No such confirmation for you. It may have expired."), { status: 404 });
+  const begun = beginConfirmation({ token, user, toolName: PEOPLE_TOOL, input: pending.input });
+  if (begun.error) throw Object.assign(new Error("This confirmation is no longer valid. Nothing was sent."), { status: 409 });
+  if (begun.replay || begun.inFlight) return { accepted: true, already: true };
+  const { requestId, leg: legIndex, sha } = pending.input;
+  try {
+    const c = await paxLegContext(requestId, legIndex);
+    if (c.plan.pax.sha !== sha) throw Object.assign(new Error("The passengers changed after the confirmation was shown. Nothing was sent; review and confirm again."), { status: 409 });
+    const o = await writeLegPeople({ requestId, leg: c.leg, flightNid: c.flightNid, people: c.people, nameOrder: c.nameOrder, user });
+    const r = await loadRequest(requestId); const stages = (r.stages ?? []).map((s) => ({ ...s }));
+    if (!stages.some((x) => x.name === PEOPLE_STAGE)) { const i = stages.findIndex((x) => x.name === "Sent to Leon"); stages.splice(i + 1, 0, { name: PEOPLE_STAGE, state: "none", at: null, ms: null, note: null }); }
+    // The request's passenger state over every leg: the latest list write per leg decides.
+    const latest = new Map(); for (const w of (await rest(`intake_leon_people_writes?select=leg_index,state,updated_at&request_id=eq.${requestId}&kind=eq.pax&order=updated_at.asc`)) ?? []) latest.set(w.leg_index, w.state);
+    const bad = [...latest].filter(([, s]) => s !== "in_leon").map(([l]) => l + 1);
+    setStage(stages, PEOPLE_STAGE, bad.length ? "part" : "done", `Leg ${legIndex + 1}, sent again by ${user.name || user.email}: ${outcomeWords(o[0])}${bad.length ? ` · passengers NOT in Leon for leg ${bad.join(", ")}` : ""}`);
+    await rest(`intake_requests?id=eq.${requestId}`, { method: "PATCH", body: JSON.stringify({ stages, status: bad.length ? "needs_you" : r.status === "needs_you" && /passengers NOT in Leon|passengers unknown|contact unknown/.test(r.status_reason ?? "") ? "loaded" : r.status, status_reason: bad.length ? `Loaded · passengers NOT in Leon for leg ${bad.join(", ")}` : /passengers NOT in Leon|passengers unknown|contact unknown/.test(r.status_reason ?? "") ? "Loaded" : r.status_reason, updated_at: new Date().toISOString(), updated_by: user.email }) });
+    settleConfirmation(begun.entry, o[0]);
+    return { accepted: true, outcome: o[0] };
+  } catch (e) { failConfirmation(begun.entry); throw e; }
 }

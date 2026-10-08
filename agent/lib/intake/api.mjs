@@ -4,13 +4,14 @@
 import { tzStatus } from "../tzdata.mjs";
 import { lookupNow, lookupState, recordAnswer, peekAnswer, answerByToken } from "./notification.mjs";
 import { recordCancelAnswer } from "./cancel.mjs";
+import { nameSplit } from "./leon-pax.mjs";
 import { randomUUID } from "node:crypto";
 import { rest } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
 import { cancelConfirmation, getConfirmation, issueConfirmation, beginConfirmation, settleConfirmation, failConfirmation } from "../confirm.mjs";
 import { readKey } from "./blobstore.mjs";
 import { STAGES, enqueue, processMessage, loadParsed, attachmentsOf, queueDepth } from "./pipeline.mjs";
-import { prepareSend, confirmSend, sendStatus, legStates, resolveUnknown, TOOL, checklistPlan } from "./send.mjs";
+import { prepareSend, confirmSend, sendStatus, legStates, resolveUnknown, TOOL, checklistPlan, preparePeopleSend, confirmPeopleSend } from "./send.mjs";
 import { blockersFor, validateValue, recomputeTimes, applyTzChoice, tzOptions, CORE_FIELDS, fmtDate } from "./review.mjs";
 import { aircraftByRegistration, airport, checklistDefinitions } from "./leon-lookup.mjs";
 import { leonConfigured } from "./leon-client.mjs";
@@ -112,7 +113,7 @@ async function requestDetail(id) {
   // Passenger / crew writes: counts, states and Leon's (scrubbed) words only. A missing table (SQL not yet run) reads as none.
   // Cancel attempts (the provider cancelled; ops approved): one row per leg, written before each Leon call.
   const cancelWrites = (await rest(`intake_leon_writes?select=leg_index,state,leon_flight_nid,leon_error,http_status,answered_ms,created_at,updated_at,sent_by_email&request_id=eq.${id}&action=eq.cancel&order=created_at.asc`).catch(() => null)) ?? [];
-  const peopleWrites = (await rest(`intake_leon_people_writes?select=leg_index,kind,state,people_count,leon_flight_nid,leon_error,http_status,created_at,updated_at,sent_by_email&request_id=eq.${id}&order=created_at.asc`).catch(() => null)) ?? [];
+  const peopleWrites = (await rest(`intake_leon_people_writes?select=leg_index,kind,state,people_count,leon_flight_nid,leon_error,http_status,created_at,updated_at,sent_by_email,detail&request_id=eq.${id}&order=created_at.asc`).catch(() => null)) ?? [];
   const review = r.review ? structuredClone(r.review) : null;
   if (review) for (const l of review.legs) { const w = ws[l.index]; l.leon = w ? { state: w.state, flightNid: w.leon_flight_nid, error: w.leon_error, at: w.updated_at } : { state: "not_sent" }; l.inLeon = w?.state === "in_leon"; if (l.fields.some((f) => f.state === "tz_unknown") || l.tzChoice) l.tz = tzOptions(l); }
   const { blockers, warnings } = review ? blockersFor(review, r, { lookups: { aircraftNidByRegistration: new Map(review.legs.flatMap((l) => l.fields.filter((f) => f.key === "registration" && f.aircraft?.nid).map((f) => [String(f.value).toUpperCase().replace(/[^A-Z0-9]/g, ""), f.aircraft.nid]))) } }) : { blockers: [], warnings: [] };
@@ -129,7 +130,7 @@ async function requestDetail(id) {
     requestSource: review?.requestSource ?? null,
     sent: { writes: allWrites.map((w) => ({ leg: w.leg_index, state: w.state, flightNid: w.leon_flight_nid, tripNid: w.leon_trip_nid, error: w.leon_error, httpStatus: w.http_status, ms: w.answered_ms, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email, resolvedBy: w.resolved_by, checklist: w.checklist, payload: w.payload })), firstAt: firstSend?.created_at ?? null, lastMs: lastAnswer?.answered_ms ?? null,
       cancels: cancelWrites.map((w) => ({ leg: w.leg_index, state: w.state, flightNid: w.leon_flight_nid, error: w.leon_error, httpStatus: w.http_status, ms: w.answered_ms, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email })),
-      people: peopleWrites.map((w) => ({ leg: w.leg_index, kind: w.kind, state: w.state, people: w.people_count, flightNid: w.leon_flight_nid, error: w.leon_error, httpStatus: w.http_status, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email })) },
+      people: peopleWrites.filter((w) => w.kind !== "contact").map((w) => ({ leg: w.leg_index, kind: w.kind, state: w.state, people: w.people_count, flightNid: w.leon_flight_nid, error: w.leon_error, httpStatus: w.http_status, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email, detail: w.detail ?? null })) },
     checklistPlan: plans,
     extractions: extractions.map((e) => ({ id: e.id, version: e.version, model: e.model_id, at: e.created_at, by: e.created_by, tokens: (e.input_tokens ?? 0) + (e.output_tokens ?? 0) })),
     emails: sent.map((s) => ({ id: s.id, kind: s.sent_kind, subject: s.subject, at: s.received_at, to: s.to_addrs, delivery: s.delivery_status })),
@@ -239,14 +240,16 @@ async function editRequest(id, user, body) {
 async function peopleFor(id, reveal) {
   const r = (await rest(`intake_requests?select=current_extraction_id,review&id=eq.${id}`))?.[0]; if (!r) throw err(404, "No such request.");
   const ex = r.current_extraction_id ? (await rest(`intake_extractions?select=personal&id=eq.${r.current_extraction_id}`))?.[0] : null;
-  const people = ex?.personal?.people ?? [];
+  const people = ex?.personal?.people ?? []; const nameOrder = ex?.personal?.nameOrder ?? null;
   const legs = (r.review?.legs ?? []).map((l) => ({ leg: l.index, crew: [], pax: [] }));
-  for (const p of people) {
+  for (const [idx, p] of people.entries()) {
     const targets = p.leg == null ? legs : legs.filter((l) => l.leg === p.leg);
-    const row = { id: p.id ?? null, added: p.added ? { by: p.added.by, at: p.added.at } : null, role: p.role ?? p.type ?? null, salutation: p.salutation ?? null, sex: p.sex ?? null, name: p.name, dob: p.dob ? (reveal ? p.dob : MASK) : null, nationality: p.nationality ?? null, passport: p.passport ? (reveal ? p.passport : MASK) : null, expiry: p.expiry ? (reveal ? p.expiry : MASK) : null, source: p.source ?? null, copied: p.leg == null && !p.added };
+    // The name as Leon will get it: surname and given names, split by the request's declared order (or by a person).
+    const split = nameSplit(p, nameOrder);
+    const row = { idx, surname: split.surname, given: split.given, splitHow: split.how, splitBy: split.by ?? null, splitSaid: split.said ?? null, id: p.id ?? null, added: p.added ? { by: p.added.by, at: p.added.at } : null, role: p.role ?? p.type ?? null, salutation: p.salutation ?? null, sex: p.sex ?? null, name: p.name, dob: p.dob ? (reveal ? p.dob : MASK) : null, nationality: p.nationality ?? null, passport: p.passport ? (reveal ? p.passport : MASK) : null, expiry: p.expiry ? (reveal ? p.expiry : MASK) : null, source: p.source ?? null, copied: p.leg == null && !p.added };
     for (const t of targets) t[p.list].push(row);
   }
-  return { legs, purged: !ex?.personal && !!r.current_extraction_id, masked: !reveal };
+  return { legs, purged: !ex?.personal && !!r.current_extraction_id, masked: !reveal, nameOrder: nameOrder ? { said: nameOrder.said, order: nameOrder.order } : null };
 }
 
 /**
@@ -271,10 +274,16 @@ async function editPeople(id, user, body) {
     if (i < 0) throw err(404, "No such person.");
     if (!people[i].added) throw err(409, "Only people added by hand can be removed here. Edit the request instead, or re-read it.");
     people.splice(i, 1);
+  } else if (body.op === "split") {
+    // Surname / given names corrected by a person before anything is sent: kept on the person, marked with who and when.
+    const i = Number(body.idx); if (!Number.isInteger(i) || !people[i]) throw err(404, "No such person.");
+    const surname = clip(body.surname, 80), given = clip(body.given, 80);
+    if (!surname || !given) throw err(400, "Leon needs both a surname and a given name.");
+    people[i] = { ...people[i], split: { surname, given, by: me.name, at: me.at } };
   } else throw err(400, "Unknown people edit.");
   await rest(`intake_extractions?id=eq.${ex.id}`, { method: "PATCH", body: JSON.stringify({ personal: { ...(ex?.personal ?? {}), people } }) });
   if (body.op === "add") await rest(`intake_messages?id=eq.${r.message_id}`, { method: "PATCH", body: JSON.stringify({ has_personal_data: true }) }).catch(() => {});
-  await audit({ kind: body.op === "add" ? "intake.person_added" : "intake.person_removed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: id, leg: body.leg ?? null, list: body.list ?? null } }).catch(() => {});
+  await audit({ kind: body.op === "add" ? "intake.person_added" : body.op === "split" ? "intake.person_name_split" : "intake.person_removed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: id, leg: body.leg ?? null, list: body.list ?? null } }).catch(() => {});
 }
 
 // ── Mailbox ────────────────────────────────────────────────────────────────────────────────────────────
@@ -434,6 +443,9 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
       const accepted = await confirmSend(m[1], user);
       return send({ ok: true, ...accepted }, 202);
     }
+    // A leg already in Leon: its passengers sent (again) to Leon's passenger database, confirmed by a person.
+    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/legs\/(\d+)\/people\/prepare$/.exec(P)) && req.method === "POST") return send(await preparePeopleSend(m[1], Number(m[2]), user));
+    if ((m = /^\/api\/intake\/people\/([0-9a-f-]{36})\/confirm$/.exec(P)) && req.method === "POST") { const out = await confirmPeopleSend(m[1], user); return send({ ok: true, ...out, ...(out.outcome ? {} : {}) }); }
     if ((m = /^\/api\/intake\/send\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") { const st = sendStatus(m[1], user); if (!st) throw err(404, "No such send."); return send({ ok: true, ...st }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/legs\/(\d+)\/(check|not_in_leon)$/.exec(P)) && req.method === "POST") { const out = await resolveUnknown(m[1], Number(m[2]), user, m[3]); return send({ ok: true, outcome: out, ...(await requestDetail(m[1])) }); }
     if ((m = /^\/api\/intake\/attachments\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") {

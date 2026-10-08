@@ -174,7 +174,7 @@ export function composeOutcome(req, review, outcome) {
       legsBlock, ...pplBlock,
       { type: "section", title: "WHAT WENT WRONG", text: pplFailed.map((p) => `Leg ${p.leg + 1}: ${outcomeWords(p)}`).join(" ") },
       { type: "section", title: "HOW FAR IT GOT", text: "Passengers and crew, stage 9 of 12. The flights were created." },
-      { type: "section", title: "WHAT TO DO", text: "Open the request to see what Leon said. Add the missing passengers or crew to the flight in Leon by hand; the request has their details." }, ...oneShot, cta,
+      { type: "section", title: "WHAT TO DO", text: "Open the request to see what Leon said and which passenger failed. Fix it there (for example the name split) and press Send passengers to Leon: contacts already created are reused, not created again." }, ...oneShot, cta,
     ] };
   }
   const nothing = !inLeon.length;

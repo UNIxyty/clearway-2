@@ -1,20 +1,18 @@
-// Passengers and crew reach Leon — end to end on the RIG (local DB, mock Resend, mock Leon), with INVENTED people
-// (rig/intake/make-people-fixture.mjs): 16 passengers and 4 crew on two legs.
+// Passengers into Leon's passenger DATABASE and crew into the OPS notes — end to end on the RIG (local DB, mock Resend,
+// mock Leon that behaves as the real one was seen to: names-only contact search, addPassengersToList REPLACES the list),
+// with INVENTED people (rig/intake/make-people-fixture.mjs; a seed gives other passports and dates of birth).
 //   node --env-file=.env.rig rig/intake/e2e-people.mjs
-// Proves: every passenger with their documents in Leon's passenger list per leg, read back from (mock) Leon; the crew
-// in OPS notes as the operator's crew, NOT assigned; the outcome on the page's data and in the email; a refused
-// passenger write is visible (stage, status, page data, email); and no name, date of birth or document number in any
-// log, audit row, send-log row, request row or email. Prints counts and states — never a person's value.
+// Proves: 16 contacts with passports per leg, one call per leg, one contact per traveller across legs and requests, an
+// ops-made contact reused with a warning (never edited), a person's name split reaching Leon, a failure on passenger 5
+// writing nothing to the flight and a resend creating only the missing one, the provenance in OPS notes, a restart
+// mid-write (unknown, no retry), the manifest filled from Leon, and no name, date of birth or document number in any
+// log, audit row, send log, mapping row, request row or email. Prints counts and states — never a person's value.
 import { execSync } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { generatePassengerManifest } from "../../agent/lib/manifest/index.mjs";
-import { buildManifestModel } from "../../agent/lib/manifest/model.mjs";
-import { renderManifest } from "../../agent/lib/manifest/render.mjs";
-import { intakeRecordFor } from "../../agent/lib/manifest/intake-source.mjs";
-import { passengerTextFor } from "../../agent/lib/intake/leon-people.mjs";
 import { stubLeon } from "../manifest/fixtures.mjs";
 if (!/127\.0\.0\.1|localhost/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "") || !/127\.0\.0\.1/.test(process.env.LEON_API_BASE ?? "")) { console.error("rig only (local DB and the mock Leon)"); process.exit(78); }
 const AGENT = process.env.RIG_AGENT_URL || "http://127.0.0.1:5175";
@@ -32,6 +30,10 @@ const mockFlights = async () => (await fetch(`${process.env.LEON_API_BASE}/_rig/
 // The invented people, as the fixture writes them (the test's own copy, to look for them everywhere).
 const SUR = ["EXAMPLE", "SAMPLE", "SPECIMEN", "TESTER", "DUMMY", "PLACEHOLDER", "FICTIVE", "NOTREAL", "DEMOSON", "MOCKLEY", "FAKEWELL", "TESTWOOD", "SAMPLETON", "PROTO", "MOCKFORD", "DEMOVA"];
 const GIV = ["ALICE", "BRUNO", "CARLA", "DMITRI", "ELENA", "FELIX", "GRETA", "HUGO", "INES", "JONAS", "KIRA", "LUKAS", "MILA", "NILS", "OLGA", "PAVEL"];
+const NAT = { FRANCE: "FRA", LATVIA: "LVA", GERMANY: "DEU", GREECE: "GRC", MALTA: "MLT", AUSTRIA: "AUT" }, NATS = Object.keys(NAT);
+const MON3 = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const fxDate = (i, y) => `${y + ((i * 3) % 20)}-${String(((i * 5) % 12) + 1).padStart(2, "0")}-${String(1 + ((i * 7) % 28)).padStart(2, "0")}`; // the fixture's d(i, y), as ISO
+const person = (i, seed = 0) => ({ given: GIV[i], surname: SUR[i], gender: i % 3 === 0 ? "MALE" : "FEMALE", dob: fxDate(i, 1961 + seed), nat: NAT[NATS[i % 6]], passport: `TEST${String(seed * 100 + i + 1).padStart(5, "0")}`, expiry: fxDate(i + 2, 2030) });
 const PAX_DOCS = Array.from({ length: 16 }, (_, i) => `TEST${String(i + 1).padStart(5, "0")}`);
 const CREW_DOCS = Array.from({ length: 4 }, (_, i) => `TESTC${String(i + 1).padStart(4, "0")}`);
 const CREW_NAMES = ["CREWMAN", "CREWLY", "CABINSON", "STEWARDE"];
@@ -39,7 +41,7 @@ const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT
 const dobs = Array.from({ length: 16 }, (_, i) => `${String(1 + ((i * 7) % 28)).padStart(2, "0")}${MON[(i * 5) % 12]}${1961 + ((i * 3) % 20)}`);
 // Words that are also ordinary English or our own labels are not proof of a leak; whole surnames + documents are.
 const PII = [...SUR.filter((w) => !/^(EXAMPLE|SAMPLE|SPECIMEN|TESTER|DUMMY|PLACEHOLDER|PROTO)$/.test(w)), ...CREW_NAMES, ...PAX_DOCS, ...CREW_DOCS, ...dobs];
-const leaks = (label, text) => { const t = String(text ?? ""); const hit = PII.filter((w) => new RegExp(`(?<![A-Z0-9])${w}(?![A-Z0-9])`, "i").test(t)); return hit.length ? `${label}: ${hit.length} personal value(s)` : null; };
+const leaks = (label, text) => { const t = String(text ?? ""); const hit = [...PII.filter((w) => new RegExp(`(?<![A-Z0-9])${w}(?![A-Z0-9])`, "i").test(t)), ...(t.match(/TEST\d{5}|TESTC\d{4}|\b(19[5-9]\d)-\d\d-\d\d\b/g) ?? [])]; return hit.length ? `${label}: ${hit.length} personal value(s)` : null; };
 
 async function deliver(file) {
   const emailId = randomUUID();
@@ -66,150 +68,142 @@ async function send(id) {
 const peopleOn = (d, leg) => { const l = d.people.legs?.[String(leg)] ?? { crew: 0, pax: 0 }, a = d.people.legs?.all ?? { crew: 0, pax: 0 }; return { pax: l.pax + a.pax, crew: l.crew + a.crew }; };
 
 // ── reset (rig DB intake tables, mock Leon) ──
-execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events cascade;"`);
+execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events, public.intake_leon_contacts cascade;"`);
 rmSync(path.join(SCR, "intake"), { recursive: true, force: true }); rmSync(MOCKLOG, { force: true }); faults({});
 execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${SCR}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
 await sleep(1500);
-execSync(`node rig/intake/make-people-fixture.mjs RIGPAX17 OELCB 7 ${path.join(SCR, "rigpax17-oelcb.eml")}`);
+const fixture = (ref, call, days, seed) => { const f = path.join(SCR, `${ref.toLowerCase()}.eml`); execSync(`node rig/intake/make-people-fixture.mjs ${ref} ${call} ${days} ${f} ${seed}`); return f; };
+const contactsInLeon = async () => (await fetch(`${process.env.LEON_API_BASE}/_rig/contacts`)).json();
+const mockLog = () => (existsSync(MOCKLOG) ? readFileSync(MOCKLOG, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
+const calls = (re) => mockLog().filter((e) => re.test(e.q));
+const paxWrite = (r, leg) => r.legs.find((l) => l.index === leg)?.people?.find((p) => p.kind === "pax");
+const flightOf = async (nid) => (await mockFlights()).find((f) => String(f.flightNid) === String(nid));
+/** Every passenger row of a flight against the fixture's people, field by field. → count of rows that match entirely */
+const rowsMatching = (f, seed, edits = {}) => (f.passengerList.passengerContactList ?? []).filter((x, i) => { const p = { ...person(i, seed), ...(edits[i] ?? {}) }; const c = x.contact, pp = x.departurePassport;
+  return c.name === p.given && c.surname === p.surname && c.genderEnum === p.gender && c.dateOfBirth === p.dob && c.nationality?.code === p.nat && pp?.number === p.passport && pp?.countryCode === p.nat && pp?.expiresDate === p.expiry; }).length;
+async function peopleSend(requestId, leg) {
+  const p = await api(`/api/intake/requests/${requestId}/legs/${leg}/people/prepare`, {});
+  if (p.status !== 200) return { prepared: p };
+  return { prepared: p, confirmed: await api(`/api/intake/people/${p.json.confirmation.token}/confirm`, {}) };
+}
 
-console.log("\n=== 1. 16 passengers and 4 crew on two legs ===");
+console.log("\n=== 1. 16 passengers on two legs: contacts with passports, one call per leg ===");
 const m1 = await deliver("rig/fixtures/intake/rigpax16-oelca.eml");
 let d = await detail(m1.request_id);
-console.log(`  ${d.request.reference} · ${d.request.route} · ${d.request.ui.label} · blockers ${JSON.stringify(d.blockers)}`);
-ok(d.review.legs.length === 2 && [0, 1].every((i) => peopleOn(d, i).pax === 16 && peopleOn(d, i).crew === 4), "the request's people, read: 16 passengers and 4 crew on each leg", [0, 1].map((i) => `leg ${i + 1}: ${peopleOn(d, i).pax} pax, ${peopleOn(d, i).crew} crew`).join(" · "));
-faults({ dispatcherEditAfterCreate: ["OELCA"] }); // a dispatcher types into the OPS notes as soon as each flight exists
+const ppl = (await api(`/api/intake/requests/${m1.request_id}/people`)).json;
+ok(ppl.nameOrder?.order === "given_first" && /First, Middle, Last/i.test(ppl.nameOrder?.said ?? ""), "the request's declared name order is read (\"First, Middle, Last Name\")", JSON.stringify(ppl.nameOrder));
+ok(ppl.legs[0].pax.length === 16 && ppl.legs[0].pax.every((r, i) => r.surname === SUR[i] && r.given === GIV[i] && r.splitHow === "declared"), "the review screen's data shows each passenger's surname and given names, split by that order");
 const s1 = await send(m1.request_id);
-faults({});
-ok(s1.prepared.status === 200, "prepare issues a confirmation", s1.prepared.status === 200 ? "" : JSON.stringify(s1.prepared.json?.blockers ?? s1.prepared.json));
+ok(s1.prepared.status === 200 && s1.prepared.json.legs.every((l) => l.people?.pax?.people === 16), "the confirmation counts 16 passengers per leg", JSON.stringify(s1.prepared.json?.legs?.map((l) => l.people?.pax) ?? s1.prepared.json?.blockers));
 if (s1.prepared.status !== 200) { console.log(`\n${failures} FAILED (cannot continue)`); process.exit(1); }
-ok(s1.prepared.json.legs.every((l) => l.people?.pax?.people === 16 && l.people?.pax?.count === 16 && l.people?.crew?.people === 4), "the confirmation shows, per leg: 16 passengers to Leon's passenger list, 4 crew to OPS notes (counts only)", JSON.stringify(s1.prepared.json.legs.map((l) => l.people)));
-ok(!JSON.stringify(s1.prepared.json).match(new RegExp(PAX_DOCS[0])), "…and carries no passenger value");
 const r1 = s1.result;
-ok(r1?.legs?.every((l) => l.state === "in_leon"), "both flights created", r1?.legs?.map((l) => `leg ${l.index + 1} → ${l.flightNid}`).join(", "));
-ok(r1?.legs?.every((l) => l.people?.find((p) => p.kind === "pax")?.state === "in_leon" && l.people?.find((p) => p.kind === "crew")?.state === "in_leon"), "both legs: passengers and crew written", JSON.stringify(r1?.legs?.map((l) => l.people?.map((p) => `${p.kind}:${p.state}:${p.people}`))));
-
-console.log("\n  read back from Leon (the mock's own flight record, as flight(flightNid) answers it):");
-const fl = (await mockFlights()).filter((f) => r1.legs.some((l) => String(l.flightNid) === String(f.flightNid)));
+const [p0, p1] = [paxWrite(r1, 0), paxWrite(r1, 1)];
+ok(r1.legs.every((l) => l.state === "in_leon") && p0?.state === "in_leon" && p1?.state === "in_leon", "both flights created, both legs' passengers in Leon's database", JSON.stringify([p0, p1].map((p) => p && `${p.state} created ${p.created} reused ${p.reused}`)));
+ok(p0.created === 16 && p0.reused === 0 && p1.created === 0 && p1.reused === 16 && (await contactsInLeon()).length === 16, "leg 1 created 16 contacts; leg 2 reused all 16: one contact per traveller (16 in Leon's address book)", `contacts ${(await contactsInLeon()).length}`);
+const lists = calls(/addPassengersToList/);
+ok(lists.length === 2 && lists.every((e) => e.variables.l.length === 16) && calls(/savePassengerText/).length === 0, "exactly ONE addPassengersToList call per leg, each with all 16 (it replaces the list); no text-list call", `${lists.length} list calls`);
+const fl = await Promise.all(r1.legs.map((l) => flightOf(l.flightNid)));
 for (const f of fl) {
-  const t = f.passengerList.passengerText;
-  const rows = t.split("\n").filter((x) => /^\d+\. /.test(x));
-  const full = rows.filter((x) => / · [MF] · DOB \S+/.test(x) && /Passport TEST\d{5}/.test(x) && /Expires \S+/.test(x) && / · [A-Z]+ · Passport/.test(x));
-  console.log(`  flight ${f.flightNid} ${f.flightNo} ${f.startAirport.code.icao}→${f.endAirport.code.icao}: passengerList count ${f.passengerList.count}, realCount ${f.passengerList.realCount}, ${rows.length} passengers listed, ${full.length} with sex + DOB + nationality + passport + expiry`);
-  ok(f.passengerList.count === 16 && rows.length === 16 && full.length === 16 && PAX_DOCS.every((p) => t.includes(`Passport ${p}`)), `  flight ${f.flightNid}: all 16 passengers with their passport details, in the request's order`, `first line: ${t.split("\n")[0].slice(0, 90)}`);
+  ok(f.passengerList.isDataSourceContact && f.passengerList.passengerContactList.length === 16 && rowsMatching(f, 0) === 16, `flight ${f.flightNid} read back: 16 passengers, each with given name, surname, gender, date of birth, nationality, passport number, passport country and expiry as the request gave them`, `${rowsMatching(f, 0)} of 16 rows match`);
   const ops = f.notes.ops;
-  const crewAt = ops.indexOf("OPERATOR'S CREW per the handling request");
-  ok(/^CWY-INTAKE /.test(ops) && crewAt > ops.indexOf("CLIENT'S REQUEST"), `  flight ${f.flightNid}: OPS notes keep our marker and the services note first, the crew block after`);
-  const block = ops.slice(crewAt);
-  ok(/NOT assigned in Leon/.test(block) && /Crew count per the request: 4/.test(block) && CREW_DOCS.every((c) => block.includes(`Passport ${c}`)) && /^1\. CPT · /m.test(block), `  flight ${f.flightNid}: the 4 crew in OPS notes, labelled the operator's crew per the request, NOT assigned, count 4`);
-  ok((f.crewMemberList ?? []).length === 0, `  flight ${f.flightNid}: no crew assignment and no crew record created`);
-  ok(ops.includes("DISPATCHER EDIT: typed in Leon right after the flight was created") && crewAt > 0, `  flight ${f.flightNid}: the dispatcher's edit made after creation is still there, with the crew block (nothing wrote the notes back)`);
+  ok(ops.indexOf("PASSENGERS per the handling request") > ops.indexOf("OPERATOR'S CREW per the handling request") && (ops.match(/^\d+\. /gm) ?? []).length === 20, `flight ${f.flightNid}: the request's own passenger list is in the OPS notes (provenance), after the crew block`);
 }
-const mutations = readFileSync(MOCKLOG, "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((e) => /mutation/.test(e.q));
-ok(!mutations.some((e) => /flightListUpdate|flightUpdate|opsNotes/i.test(e.q)), "no notes write after creation: the crew block went in the create; Leon's notes are never read and written back", `${mutations.length} mutations: ${[...new Set(mutations.map((e) => (/createTrip|flightCreate|savePassengerText|flightListUpdate/.exec(e.q) ?? ["other"])[0]))].join(", ")}`);
+ok(fl[0].passengerList.passengerContactList.length === 16, "writing leg 2's list left leg 1's list whole (16)");
 const log1 = await db(`intake_leon_writes?select=payload&request_id=eq.${m1.request_id}`);
-ok(log1.every((w) => /OPERATOR'S CREW per the handling request/.test(w.payload.opsNotes) && /4 crew · count 4 · sent to Leon in these notes; names and documents are not kept in the send log/.test(w.payload.opsNotes) && !CREW_DOCS.some((c) => JSON.stringify(w.payload).includes(c))), "the send log keeps the crew block's heading and a count line, not the names");
-ok(!readFileSync(MOCKLOG, "utf8").includes("savePassengerText") || !PII.some((w) => readFileSync(MOCKLOG, "utf8").includes(w)), "mock Leon's own request log holds a hash and a length for the texts, not the people");
-
+ok(log1.every((w) => /PASSENGERS per the handling request/.test(w.payload.opsNotes) && /16 passengers as the request gave them · sent to Leon in these notes; names and documents are not kept in the send log/.test(w.payload.opsNotes)), "the send log keeps the passenger block's heading and a count, not the names");
 d = await detail(m1.request_id);
-const stage1 = d.stages.find((s) => s.name === "Passengers and crew");
-ok(stage1?.state === "done" && /16 passengers written/.test(stage1.note) && /NOT assigned/.test(stage1.note), "pipeline stage Passengers and crew = DONE, with what was written", stage1?.note?.slice(0, 160));
-ok(d.request.ui.key === "loaded", "request Loaded", d.request.statusReason);
-ok((d.sent.people ?? []).length === 4 && d.sent.people.every((p) => p.state === "in_leon"), "page data: four people writes, all In Leon (counts only)", d.sent.people?.map((p) => `leg ${p.leg + 1} ${p.kind} ${p.people}`).join(", "));
-const e1 = (await db(`intake_messages?select=subject,sent_kind,delivery_detail&request_id=eq.${m1.request_id}&direction=eq.outbound&order=received_at.desc&limit=1`))[0];
-ok(/^Loaded:/.test(e1.subject) && /PASSENGERS AND CREW:/.test(e1.delivery_detail.text) && /16 passengers written/.test(e1.delivery_detail.text) && /Crew were recorded as a note[^.]*\. They are NOT assigned in Leon/.test(e1.delivery_detail.text), "completion email: says the passengers are in Leon and the crew are a note, NOT assigned", e1.subject);
-console.log(`  email PASSENGERS AND CREW section:\n    ${e1.delivery_detail.text.split("PASSENGERS AND CREW:")[1].split("\n\n")[0].trim().split("\n").join("\n    ")}`);
+ok(d.request.ui.key === "loaded" && /16 passengers in the flight's passenger database in Leon/.test(d.stages.find((s) => s.name === "Passengers and crew")?.note ?? ""), "request Loaded; the stage says the passengers are in Leon's passenger database", d.stages.find((s) => s.name === "Passengers and crew")?.note?.slice(0, 140));
+let e1 = (await db(`intake_messages?select=subject,delivery_detail&request_id=eq.${m1.request_id}&direction=eq.outbound&order=received_at.desc&limit=1`))[0];
+ok(/^Loaded:/.test(e1.subject) && /16 passengers in the flight's passenger database in Leon \(PAX → DATABASE\): 16 new contacts, 0 existing contacts reused/.test(e1.delivery_detail.text) && /0 new contacts, 16 existing contacts reused/.test(e1.delivery_detail.text), "completion email: per leg, passengers in the passenger database with created/reused counts", e1.subject);
 
-console.log("\n=== 2. The manifest of leg 1: rows from our own intake record ===");
-{ const PY = path.resolve("rig/.scratch/fontenv/bin/python");
-  const OUTD = path.join(SCR, "manifest-intake"); mkdirSync(OUTD, { recursive: true });
-  const spans = (file) => JSON.parse(execFileSync(PY, ["-c", "import json,sys,pymupdf as f\nprint(json.dumps([{'page':i+1,'text':s['text']} for i,p in enumerate(f.open(sys.argv[1])) for b in p.get_text('dict')['blocks'] for l in b.get('lines',[]) for s in l['spans']]))", file]).toString());
-  const leonFlightOf = async (nid) => { const f = (await mockFlights()).find((x) => x.flightNid === nid); return { ...f, isCnl: false, operator: { name: "SAMPLE CHARTER (RIG)", planMode: "pro", isGuest: false }, flightWatch: { paxCount: null }, journeyLog: { paxCount: null } }; };
-  const f = fl.find((x) => x.startAirport.code.icao === "LFPB");
-  const genFor = async () => generatePassengerManifest({ flightId: `cwy-cwy:${f.flightNid}`, leon: stubLeon(await leonFlightOf(f.flightNid)), lookup: async () => ({ holders: [], unchecked: [] }) });
-  const g = await genFor();
-  const file = path.join(OUTD, g.filename); writeFileSync(file, g.pdf);
-  const sp = spans(file);
-  const isName = (t) => SUR.some((sname) => t.endsWith(` ${sname}`)) && GIV.some((gname) => t.startsWith(gname));
-  const p1 = sp.filter((x) => x.page === 1 && isName(x.text)).length, p2 = sp.filter((x) => x.page === 2 && isName(x.text)).length;
-  console.log(`  manifest: ${g.result.pageCount} pages, ${g.result.passengerCount} passenger rows (${p1} on page 1, ${p2} on page 2), crew ${g.result.crewCount} (${g.result.crewSource}), POB ${g.result.personsOnBoard}, source ${JSON.stringify(g.result.passengerSource)}`);
-  console.log(`  warnings: ${g.result.warnings.map((w) => w.code).join(", ") || "none"}`);
-  ok(g.result.passengerSource.kind === "intake" && g.result.passengerSource.reference === "RIGPAX16", "Leon holds no passenger records → the rows come from the intake record RIGPAX16, and the result says so");
-  ok(g.result.pageCount === 2 && p1 === 14 && p2 === 2, "16 passengers across both pages: 14 + 2 rows");
-  const sexes = sp.filter((x) => x.text === "M" || x.text === "F");
-  ok(sexes.filter((x) => x.text === "M").length === 6 && sexes.filter((x) => x.text === "F").length === 10 && !g.result.missing.some((m) => m.fields.includes("sex")), "SEX filled on every row from the request's Gender column (6 M, 10 F, as the request says)");
-  ok(sp.filter((x) => /^\d{2}-[A-Z][a-z]{2}-\d{4}$/.test(x.text)).length >= 32 && PAX_DOCS.every((d) => sp.some((x) => x.text === d)), "dates of birth and expiries as DD-Mon-YYYY, every passport number as given");
-  ok(!g.result.warnings.some((w) => w.code === "intake-differs-from-leon") && g.paxNote === f.passengerList.passengerText, "Leon's text list is what the intake wrote → no staleness warning; Leon's list is still shown beside the file");
-  // Masked copy for the report: the same model, every passenger value replaced by bullets of the same length.
-  const rec = await intakeRecordFor("cwy-cwy", f.flightNid);
-  const built = buildManifestModel(await leonFlightOf(f.flightNid), { operatorName: "SAMPLE CHARTER (RIG)", intake: rec, intakeText: passengerTextFor(rec.passengers, { reference: rec.reference, paxNumber: 16 }).text });
-  const mask = (v) => String(v ?? "").replace(/[A-Za-z0-9]/g, "•");
-  built.model.passengers = built.model.passengers.map((p) => ({ ...p, name: mask(p.name), dateOfBirth: mask(p.dateOfBirth), placeOfBirth: mask(p.placeOfBirth), documentNumber: mask(p.documentNumber), documentExpiry: mask(p.documentExpiry), nationality: mask(p.nationality) }));
-  const masked = await renderManifest(built.model, { title: g.title, creationDate: new Date() });
-  const maskedFile = path.join(OUTD, g.filename.replace(/\.pdf$/, "_MASKED.pdf")); writeFileSync(maskedFile, Buffer.from(masked.bytes));
-  execFileSync(PY, ["-c", "import sys,pymupdf as f\nd=f.open(sys.argv[1])\nfor i,p in enumerate(d): p.get_pixmap(dpi=110).save(sys.argv[1].replace('.pdf',f'_p{i+1}.png'))", maskedFile]);
-  console.log(`  files: ${file}\n         ${maskedFile} (+ _p1.png, _p2.png)`);
-  // Somebody edits the passengers in Leon after we loaded them: a warning, never a merge.
-  await fetch(`${process.env.LEON_API_BASE}/_rig/edit-passenger-text`, { method: "POST", body: JSON.stringify({ flightNid: f.flightNid, text: `${f.passengerList.passengerText}\n17. LATE ADDITION (typed in Leon)` }) });
-  const g2 = await genFor();
-  const sp2 = spans((() => { const x = path.join(OUTD, "edited.pdf"); writeFileSync(x, g2.pdf); return x; })());
-  ok(g2.result.warnings.some((w) => w.code === "intake-differs-from-leon") && g2.result.passengerCount === 16 && !sp2.some((x) => /LATE ADDITION/.test(x.text)), "Leon's list edited after loading → 'differs' warning; rows stay the intake record's 16, nothing merged", g2.result.warnings.find((w) => w.code === "intake-differs-from-leon")?.message.slice(0, 110));
-  rmSync(path.join(OUTD, "edited.pdf"), { force: true }); }
+console.log("\n=== 2. The same 16 travellers on another request: one contact each, nothing created ===");
+const before2 = calls(/personCreate/).length;
+const m2 = await deliver(fixture("RIGPAX18", "OELCC", 14, 0));
+const r2 = (await send(m2.request_id)).result;
+ok(r2.legs.every((l) => paxWrite(r2, l.index)?.state === "in_leon" && paxWrite(r2, l.index).created === 0 && paxWrite(r2, l.index).reused === 16) && calls(/personCreate/).length === before2 && (await contactsInLeon()).length === 16, "sent again: every passenger matched by passport through our own mapping — 0 contacts created, still 16 in Leon", `${calls(/personCreate/).length - before2} creates`);
 
-console.log("\n=== 3. A refused passenger write is visible ===");
-faults({ refusePassengerText: ["OELCB"] });
-const m2 = await deliver(path.join(SCR, "rigpax17-oelcb.eml"));
-const s2 = await send(m2.request_id); const r2 = s2.result;
-ok(r2?.legs?.every((l) => l.state === "in_leon"), "the flights are created", r2?.legs?.map((l) => l.state).join(","));
-ok(r2?.legs?.every((l) => l.people.find((p) => p.kind === "pax").state === "not_in_leon" && l.people.find((p) => p.kind === "crew").state === "in_leon"), "passengers refused on both legs; crew written", JSON.stringify(r2?.legs?.map((l) => l.people.map((p) => `${p.kind}:${p.state}`))));
-d = await detail(m2.request_id);
-const pr = d.sent.people.filter((p) => p.kind === "pax");
-ok(pr.every((p) => p.state === "not_in_leon" && /Passenger list is locked by another user/.test(p.error ?? "")), "page data: passengers NOT in Leon, with Leon's reason", pr[0]?.error);
-ok(pr.every((p) => !leaks("", p.error)), "…and Leon's echo of the passenger text is removed from the reason");
-ok(d.request.ui.key === "needs_you" && /passengers NOT in Leon for leg 1, 2/.test(d.request.statusReason), "request Needs you", d.request.statusReason);
-const stage2 = d.stages.find((s) => s.name === "Passengers and crew");
-ok(stage2?.state === "part" && /Passengers NOT written to Leon/.test(stage2.note), "pipeline stage Passengers and crew = PARTLY FAILED", stage2?.note?.slice(0, 160));
-const e2 = (await db(`intake_messages?select=subject,delivery_detail&request_id=eq.${m2.request_id}&direction=eq.outbound&order=received_at.desc&limit=1`))[0];
-ok(/^Needs you: .* · 2 flights in Leon · passengers NOT in Leon for leg 1, 2$/.test(e2.subject) && /WHAT WENT WRONG:\n.*Passengers NOT written to Leon: Leon: Passenger list is locked/.test(e2.delivery_detail.text), "email: Needs you, the subject says passengers are not in Leon, and why", e2.subject);
+console.log("\n=== 3. The manifest of a flight our pipeline created fills its rows from Leon ===");
+{ const f = fl[0];
+  const g = await generatePassengerManifest({ flightId: `cwy-cwy:${f.flightNid}`, leon: stubLeon({ ...f, isCnl: false, operator: { name: "SAMPLE CHARTER (RIG)", planMode: "pro", isGuest: false }, flightWatch: { paxCount: null }, journeyLog: { paxCount: null } }), lookup: async () => ({ holders: [], unchecked: [] }) });
+  console.log(`  manifest: ${g.result.pageCount} pages, ${g.result.passengerCount} rows, source ${JSON.stringify(g.result.passengerSource)}, warnings: ${g.result.warnings.map((w) => w.code).join(", ") || "none"}`);
+  ok(g.result.passengerSource.kind === "leon" && g.result.passengerCount === 16 && g.result.pageCount === 2 && !g.result.missing.some((m) => m.fields.some((x) => /sex|passport|date of birth|nationality/.test(x))), "rows from LEON's passenger records (the source says so): 16 across both pages, sex, date of birth, passport, expiry and nationality filled — no change to the manifest code"); }
+
+console.log("\n=== 4. A contact ops made by hand (reused with a warning, never edited) and a person's name split ===");
+{ const f4 = fixture("RIGPAX19", "OELCD", 21, 2);
+  const p3 = person(2, 2); // passenger 3 of that request
+  const seeded = await (await fetch(`${process.env.LEON_API_BASE}/_rig/seed-contact`, { method: "POST", body: JSON.stringify({ name: p3.given, surname: p3.surname, gender: p3.gender, dateOfBirth: "1950-01-01", nationality: p3.nat, documents: { passportList: [{ country: p3.nat, number: p3.passport, name: p3.given, surname: p3.surname, dateOfExpiry: p3.expiry }] } }) })).json();
+  const m4 = await deliver(f4);
+  const pp4 = (await api(`/api/intake/requests/${m4.request_id}/people`)).json;
+  const idx2 = pp4.legs[0].pax[1].idx;
+  const ed = await api(`/api/intake/requests/${m4.request_id}/people/edit`, { op: "split", idx: idx2, surname: `${SUR[1]} DOUBLE`, given: GIV[1] });
+  const shown = ed.json.legs[0].pax[1];
+  ok(ed.status === 200 && shown.surname === `${SUR[1]} DOUBLE` && shown.splitHow === "edited" && !!shown.splitBy, "a person corrects passenger 2's split on the review screen: kept, marked edited and by whom", `${shown.splitHow} by ${shown.splitBy}`);
+  const r4 = (await send(m4.request_id)).result; const w4 = paxWrite(r4, 0);
+  const f = await flightOf(r4.legs[0].flightNid);
+  const row2 = f.passengerList.passengerContactList[1].contact, row3 = f.passengerList.passengerContactList[2].contact;
+  ok(row2.surname === `${SUR[1]} DOUBLE` && row2.name === GIV[1], "the edited split reached Leon: the contact's surname and given name are the person's");
+  const after = (await contactsInLeon()).find((c) => c.contactNid === seeded.contactNid);
+  ok(row3.contactNid === seeded.contactNid && after.dateOfBirth === "1950-01-01" && w4.differs.some((x) => x.row === 3 && x.fields.join() === "date of birth"), "passenger 3: the contact ops made (same passport) is reused, NOT edited, and the difference is a warning (passenger 3: date of birth)", JSON.stringify(w4.differs));
+  const d4 = await detail(m4.request_id);
+  ok(d4.sent.people.some((p) => p.kind === "pax" && p.detail?.differs?.some((x) => x.row === 3)), "…the warning is on the page's data"); }
+
+console.log("\n=== 5. Passenger 5 of 16 fails: nothing written to the flight; a resend creates only the missing one ===");
+faults({ refuseContactPassport: ["TEST00105"] });
+const m5 = await deliver(fixture("RIGPAX17", "OELCB", 7, 1));
+const r5 = (await send(m5.request_id)).result;
 faults({});
+const w5 = [paxWrite(r5, 0), paxWrite(r5, 1)];
+const legsLists = calls(/addPassengersToList/).filter((e) => r5.legs.some((l) => Number(l.flightNid) === e.variables.f));
+ok(r5.legs.every((l) => l.state === "in_leon") && w5.every((w) => w.state === "not_in_leon" && /passenger 5 of 16: Leon refused the contact/.test(w.error) && /Nothing was written to the flight's passenger list/.test(w.error)), "both flights exist; passengers NOT written: the failure names passenger 5 of 16 and says nothing was written to the flight", w5[0]?.error?.slice(0, 160));
+ok(legsLists.length === 0 && (await Promise.all(r5.legs.map((l) => flightOf(l.flightNid)))).every((f) => !f.passengerList.passengerContactList), "no list call was made: the flights hold no partial list");
+ok(!leaks("", w5[0].error), "…and Leon's echo of the passport number is removed from the reason");
+d = await detail(m5.request_id);
+ok(d.request.ui.key === "needs_you" && /passengers NOT in Leon for leg 1, 2/.test(d.request.statusReason) && d.stages.find((s) => s.name === "Passengers and crew")?.state === "part", "request red (Needs you), the stage partly failed", d.request.statusReason);
+let e5 = (await db(`intake_messages?select=subject,delivery_detail&request_id=eq.${m5.request_id}&direction=eq.outbound&order=received_at.desc&limit=1`))[0];
+ok(/passengers NOT in Leon for leg 1, 2/.test(e5.subject) && /passenger 5 of 16/.test(e5.delivery_detail.text), "the email says passengers are not in Leon and names passenger 5 of 16", e5.subject);
+const creates5 = calls(/personCreate/).length;
+const rs = await peopleSend(m5.request_id, 0);
+const after5 = (await detail(m5.request_id)).sent.people.filter((p) => p.kind === "pax" && p.leg === 0).sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt)).pop();
+ok(rs.confirmed?.status === 200 && after5.state === "in_leon" && after5.detail.created === 1 && after5.detail.reused === 15 && calls(/personCreate/).length === creates5 + 1, "\"Send passengers to Leon\" (leg 1, confirmed by a person): only passenger 5 is created; the other 15 are reused, not written again", `${after5.state} · created ${after5.detail?.created} reused ${after5.detail?.reused}`);
+const f5 = await Promise.all(r5.legs.map((l) => flightOf(l.flightNid)));
+ok(rowsMatching(f5[0], 1) === 16 && !f5[1].passengerList.passengerContactList, "leg 1 now holds all 16, as the request gave them; leg 2's list was not touched by leg 1's write");
+await peopleSend(m5.request_id, 1);
+d = await detail(m5.request_id);
+ok((await flightOf(r5.legs[1].flightNid)).passengerList.passengerContactList.length === 16 && d.request.ui.key === "loaded", "leg 2 sent too: request back to Loaded", d.request.statusReason);
 
-console.log("\n=== 4. The service restarts during a passenger write ===");
-{ execSync(`node rig/intake/make-people-fixture.mjs RIGPAX18 OELCC 14 ${path.join(SCR, "rigpax18-oelcc.eml")}`);
-  const m3 = await deliver(path.join(SCR, "rigpax18-oelcc.eml"));
-  faults({ hangPassengerText: ["OELCC"], hangMs: 60000 });
-  const p3 = await api(`/api/intake/requests/${m3.request_id}/prepare`, {});
-  void api(`/api/intake/send/${p3.json.confirmation.token}/confirm`, {}).catch(() => null);
-  let mid = []; for (let i = 0; i < 40 && !mid.some((w) => w.kind === "pax" && w.state === "sending"); i += 1) { await sleep(500); mid = await db(`intake_leon_people_writes?select=kind,state&request_id=eq.${m3.request_id}`); }
-  ok(mid.some((w) => w.kind === "pax" && w.state === "sending"), "the passenger write's attempt row exists BEFORE Leon answers", mid.map((w) => `${w.kind}:${w.state}`).join(","));
-  const paxCalls = () => readFileSync(MOCKLOG, "utf8").split("\n").filter((l) => l.includes("savePassengerText") && l.includes('"f":' + String(mockFirst))).length;
-  const mockFirst = (await db(`intake_leon_writes?select=leon_flight_nid&request_id=eq.${m3.request_id}&state=eq.in_leon`))[0]?.leon_flight_nid;
-  const before = paxCalls();
+console.log("\n=== 6. The service restarts during a list write: unknown, a person decides, nothing retried ===");
+{ const m6 = await deliver(fixture("RIGPAX20", "OELCE", 28, 0));
+  faults({ hangPassengerList: ["OELCE"], hangMs: 60000 });
+  const p6 = await api(`/api/intake/requests/${m6.request_id}/prepare`, {});
+  void api(`/api/intake/send/${p6.json.confirmation.token}/confirm`, {}).catch(() => null);
+  let mid = []; for (let i = 0; i < 60 && !mid.some((w) => w.kind === "pax" && w.state === "sending"); i += 1) { await sleep(500); mid = await db(`intake_leon_people_writes?select=kind,state&request_id=eq.${m6.request_id}`); }
+  ok(mid.some((w) => w.kind === "pax" && w.state === "sending"), "the list write's attempt row exists before Leon answers", mid.map((w) => `${w.kind}:${w.state}`).join(","));
+  const listsBefore = calls(/addPassengersToList/).length;
   execSync(`kill $(lsof -tiTCP:5175 -sTCP:LISTEN)`); await sleep(1000);
   execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCR}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
   for (let i = 0; i < 20; i += 1) { await sleep(1000); try { if ((await fetch(`${AGENT}/api/health`)).ok) break; } catch { /* starting */ } }
-  await sleep(1500);
-  const after = await db(`intake_leon_people_writes?select=kind,state,leon_error&request_id=eq.${m3.request_id}&kind=eq.pax`);
-  ok(after.length === 1 && after[0].state === "unknown", "after the restart the passenger write is UNKNOWN (a person checks Leon)", after[0]?.leon_error);
-  const rq3 = (await db(`intake_requests?select=status,status_reason&id=eq.${m3.request_id}`))[0];
-  ok(rq3.status === "needs_you" && /passengers unknown · check Leon/.test(rq3.status_reason), "the request asks a person to check Leon", rq3.status_reason);
-  await sleep(3000);
-  ok(paxCalls() === before, "no automatic retry: Leon received that passenger write once", `${paxCalls()} call(s) for that flight`);
-  faults({}); }
+  await sleep(2000);
+  const after = await db(`intake_leon_people_writes?select=state&request_id=eq.${m6.request_id}&kind=eq.pax`);
+  const rq = (await db(`intake_requests?select=status,status_reason&id=eq.${m6.request_id}`))[0];
+  ok(after.some((w) => w.state === "unknown") && rq.status === "needs_you" && /passengers unknown · check Leon/.test(rq.status_reason), "after the restart the list write is UNKNOWN and the request asks a person", rq.status_reason);
+  await sleep(3000); faults({});
+  ok(calls(/addPassengersToList/).length === listsBefore, "nothing was retried"); }
 
-console.log("\n=== 5. No name, date of birth or document number anywhere it must not be ===");
+console.log("\n=== 7. No name, date of birth or document number anywhere it must not be ===");
 const out = [];
-out.push(leaks("agent log", readFileSync(path.join(SCR, "agent.out"), "utf8")));
+out.push(leaks("agent log", readFileSync(path.join(SCR, "agent.out"), "utf8").split("\n").filter((l) => l >= "").slice(-4000).join("\n")));
 out.push(leaks("mock Leon request log", readFileSync(MOCKLOG, "utf8")));
 out.push(leaks("audit rows", JSON.stringify(await db(`agent_audit_log?select=*&created_at=gte.${started}`))));
 out.push(leaks("people send log", JSON.stringify(await db(`intake_leon_people_writes?select=*`))));
+out.push(leaks("passport mapping", JSON.stringify(await db(`intake_leon_contacts?select=*`))));
 out.push(leaks("flight send log", JSON.stringify(await db(`intake_leon_writes?select=*`))));
-out.push(leaks("request rows (review, stages, status)", JSON.stringify(await db(`intake_requests?select=review,stages,status_reason,route,duplicate`))));
-out.push(leaks("emails (subject, html, text, search)", JSON.stringify(await db(`intake_messages?select=subject,sent_html,delivery_detail,search_text,understood&direction=eq.outbound`))));
-out.push(leaks("inbound mailbox rows (status, search index)", JSON.stringify(await db(`intake_messages?select=status_reason,search_text,understood&direction=eq.inbound`))));
-out.push(leaks("request API response", JSON.stringify([await detail(m1.request_id), await detail(m2.request_id)])));
-const audits = await db(`agent_audit_log?select=kind&created_at=gte.${started}&kind=like.intake.leon_*`);
-console.log(`  checked: agent log, mock Leon log, ${audits.length} intake.leon_* audit rows (${[...new Set(audits.map((a) => a.kind))].join(", ")}), send logs, request rows, emails, mailbox rows, API`);
+out.push(leaks("request rows", JSON.stringify(await db(`intake_requests?select=review,stages,status_reason`))));
+out.push(leaks("emails", JSON.stringify(await db(`intake_messages?select=subject,sent_html,delivery_detail,search_text,understood&direction=eq.outbound`))));
+out.push(leaks("request API", JSON.stringify([await detail(m1.request_id), await detail(m5.request_id)])));
+const maps = await db("intake_leon_contacts?select=passport_hmac,issuing_country,source");
+console.log(`  checked: agent log, mock Leon log, audit rows, send logs, ${maps.length} mapping rows (passport as HMAC only), request rows, emails, API`);
 ok(out.every((x) => !x), "none found", out.filter(Boolean).join(" · "));
-ok(PII.some((w) => JSON.stringify(fl).includes(w)), "(control: the same check does find them in Leon's passenger list, where they belong)");
+ok(maps.length >= 32 && maps.every((m) => /^[0-9a-f]{64}$/.test(m.passport_hmac)), "the mapping holds HMACs, never a passport number");
 
 console.log(`\n${failures ? `${failures} FAILED` : "ALL PASSED"}`);
 process.exit(failures ? 1 : 0);

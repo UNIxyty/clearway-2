@@ -232,14 +232,35 @@ like a passport number or a date of birth returns the "not searchable" state.
     A refusal or no answer keeps the flight, turns the stage "Passengers and crew" red/partial, makes the request
     Needs you ("passengers NOT in Leon for leg N") and the completion email Needs you. Bound to the confirmation like
     the payload: people changed after the dialog opened → nothing is sent.
-- **Passengers into Leon's passenger DATABASE (in progress, 2026-10-08).** Decided: contacts are created in cwy-cwy (Clearway's
-  own Leon). Leon's import (`passengerList.importPaxFromExcel` / `phonebook.importPaxFromExcel`) takes a file already
-  uploaded into Leon in Leon's own Excel template (`FileInput.pathGwt`), not rows — not used. The route is
-  `phonebook.personCreate` (the contact with its passport in one call, `documents.passportList`) then
-  `passengerList.addPassengersToList`. Field forms from Leon's own data: countries ISO-3 (`Country.code`), dates
-  `YYYY-MM-DD`, gender `MALE` / `FEMALE` / `UNKNOWN`. First step: `agent/scripts/leon-pax-probe.mjs` writes ONE passenger
-  to one test flight (a person types the phrase) and prints what was sent and what Leon stored, masked; ops confirm the
-  DATABASE tab before the full write is built.
+- **Passengers into Leon's passenger DATABASE** (`leon-pax.mjs`, 2026-10-08; decided: contacts in cwy-cwy, Clearway's own
+  Leon). Leon's import (`importPaxFromExcel`) takes a file already uploaded into Leon in its own template: not used. Per
+  leg, after the flight exists: each passenger becomes (or is matched to) a contact with its passport
+  (`phonebook.personCreate`, contact + passport in one call), then the leg's WHOLE list goes in ONE
+  `passengerList.addPassengersToList` — it REPLACES the flight's list (seen on the probe), so never one at a time. The TEXT
+  tab and the DATABASE tab cannot both hold data, so no text list is written; the request's own list is a
+  `PASSENGERS per the handling request · <marker>` block in the OPS notes, part of the create (redacted in the send log).
+  - Fields (confirmed by the probe on a real flight, all ten stored as sent): given name and surname separate, gender
+    `MALE`/`FEMALE` (`UNKNOWN` only when the request genuinely gave nothing; unreadable or never captured → left out),
+    dates `YYYY-MM-DD`, nationality and passport country as Leon's ISO-3 code (exact match of Leon's country name or code;
+    the request gives no issuing country, so the passport's country is the nationality). Absent → left out, never a
+    placeholder.
+  - **Name split**: by the order the request declares for its list (`personal.nameOrder`, e.g. "First, Middle, Last Name"
+    → the last word is the surname), a comma ("SURNAME, Given"), or a person's correction on the review screen (✎ on
+    each passenger; kept on the person with who and when). No declared order → the same split, marked "check".
+  - **Duplicates**: Leon's contact searches match NAMES only (`contactByWildcardForDuplicationList`, `contactByWildcard`,
+    `passengerByWildcard`: given name, surname, either order — never a passport number or a contact id; tested on the
+    probe's contacts, 2026-10-08). So: (1) our mapping `intake_leon_contacts` (passport number + issuing country as an HMAC
+    with a server secret → Leon contact and passport ids; no number stored); (2) Leon by name, the person confirmed by
+    the passport (number + country) or, without that, by the same name and date of birth — one only, else a person
+    decides; (3) a new contact. A reused contact is never edited; differences are warnings (field names only).
+  - **Failure**: if any passenger cannot be resolved, the flight's list is not touched (a partial list looks right and is
+    not); the failure names "passenger N of M". Every contact create and every list write is a send-log row
+    (`intake_leon_people_writes`, kinds `contact` / `pax`) written before its call; restart → unknown, request Needs you.
+    **Send passengers to Leon** (per leg, on the page, the same one-time confirmation) sends again: contacts already
+    created are reused through the mapping, the list replaces the flight's list whole.
+  - Tools: `agent/scripts/leon-pax-probe.mjs` (one passenger to one test flight, a person types the phrase),
+    `agent/scripts/leon-contact-cleanup.mjs` (removes test contacts; only contacts whose passports are exactly the named
+    number). Tests: `rig/intake/e2e-people.mjs`, `browser-people.mjs`.
 - **Passenger Manifest for an intake-created flight** (`agent/lib/manifest/intake-source.mjs`): rows come from (1) Leon's
   structured passenger records if any exist, else (2) this intake record (the leg's passengers a person confirmed),
   else (3) blank rows with the existing warning; the result names the source. Leon's text list is still shown beside

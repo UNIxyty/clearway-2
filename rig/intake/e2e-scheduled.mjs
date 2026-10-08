@@ -94,7 +94,7 @@ let f = Object.fromEntries(r.review.legs[0].fields.map((x) => [x.key, x]));
 ok(f.std.utc === "2026-10-03T23:30:00Z" && f.sta.utc === "2026-10-04T00:13:00Z" && f.sta.state === "converted", "arrival computed across midnight UTC: 23:30Z + 0,72 h = 00:13Z next day, marked converted", `${f.std.utc} → ${f.sta.utc} (${f.sta.state}) ${f.sta.note}`);
 ok(f.std.state === "cross_checked", "the Z and LT columns were cross-checked against tz data", `${f.std.state} · ${f.std.note}`);
 ok(f.aircraftType.value === "C25C" && f.aircraftType.state === "converted", "aircraft name → ICAO type (Citation CJ4 → C25C)", `${f.aircraftType.value} ${f.aircraftType.note}`);
-ok(f.crewCount.state === "not_given" && f.crewCount.required, "crew count is a blocking gap");
+ok(String(f.crewCount.value) === "2" && f.crewCount.state === "converted" && /#1º, #2º/.test(f.crewCount.note), "crew count 2, counted from the notification's #1º / #2º lines (the portal has none)", `${f.crewCount.value} · ${f.crewCount.note}`);
 
 // ── 3. Approve by the answer page: the DST-change record, review, Leon ───────────────────────────────────────
 console.log("\n── 3. Approve → full path ──");
@@ -108,7 +108,7 @@ ok(ans.json?.state === "recorded", "one tap on Yes", ans.json?.state);
 r = await until(async () => { const x = await requestOf(m.request_id); return x.review?.legs?.length ? x : null; });
 ok(!!r && logins().length === before + 1 && r.review.approval.answer.value === "yes" && r.review.approval.answer.how === "answer page", "approval recorded, exactly one login after it", `logins ${logins().length - before}`);
 ok(["Request received", "Confirmation sent", "Confirmation received", "Collecting data", "Data collected", "Review requested"].every((n) => stage(r, n)?.state === "done") && stage(r, "Reviewed and confirmed")?.state === "wait", "stages 1–6 done, 7 waiting", r.stages.map((s) => `${s.name}:${s.state}`).join(" "));
-ok(r.stages.length === 11, "eleven stages", r.stages.length);
+ok(r.stages.length === 13, "thirteen stages (… Passengers and crew, Notification sent, Cancellation)", r.stages.length);
 let legs = r.review.legs.map((l) => Object.fromEntries(l.fields.map((x) => [x.key, x])));
 // The record spans the DST change: 30/10 16:00Z + 3,12 h = 19:07Z; 01/11 13:00Z + 3,10 h = 16:06Z.
 ok(legs[0].std.utc === "2026-10-30T16:00:00Z" && legs[0].sta.utc === "2026-10-30T19:07:00Z", "leg 1 arrival: 16:00Z + 3,12 h = 19:07Z", `${legs[0].std.utc} → ${legs[0].sta.utc}`);
@@ -118,18 +118,13 @@ ok(legs.every((l) => l.sta.state === "converted" && /Computed by code/.test(l.st
 let rev = (await emails(r.id)).find((e) => /Ready to confirm/.test(e.sent_kind ?? ""));
 ok(!!rev && /^Review: 2612398 · /.test(rev.subject) && /Open Flight intake and confirm/.test(rev.delivery_detail?.text ?? ""), "step 5: the review-ready email tells ops to come and confirm", rev?.subject);
 let d = (await api(`/api/intake/requests/${r.id}`)).json;
-ok(d.blockers.some((b) => /Crew is not given/.test(b)) && d.blockers.some((b) => /services are not given/.test(b)), "the gaps block: crew count and services", d.blockers.join(" | "));
-ok(!d.blockers.some((b) => /Aircraft type/.test(b)), "a mapped aircraft type does not block");
+// A schedule has no services and needs none: zero services, crew from the notification → nothing blocks, no manual step.
+ok(d.review.legs.every((l) => l.services.length === 0) && d.blockers.length === 0, "ZERO services and nothing blocks: a schedule needs no service (type 2's expectation is not applied)", d.blockers.join(" | ") || "no blockers");
 let p = await api(`/api/intake/requests/${r.id}/prepare`, {});
-ok(p.status === 409, "confirm refused while the gaps are open", p.status);
-// Ops fill the gaps on the page.
-for (const i of [0, 1]) { await api(`/api/intake/requests/${r.id}/edit`, { op: "field", leg: i, key: "crewCount", value: "2" }); await api(`/api/intake/requests/${r.id}/edit`, { op: "service_add", leg: i, name: "Handling" }); }
-d = (await api(`/api/intake/requests/${r.id}`)).json;
-ok(d.blockers.length === 0, "after filling crew and a service, nothing blocks", d.blockers.join(" | "));
-p = await api(`/api/intake/requests/${r.id}/prepare`, {});
 ok(p.status === 200 && p.json.confirmation?.token && p.json.legs?.length === 2, "stage 7–8: the Leon payload is built through the type 2 path (same confirmation token)", JSON.stringify(p.json.legs?.[0]?.payload ?? p.json).slice(0, 200));
 const pay = p.json.legs?.[0]?.payload ?? {};
 ok(pay.startTimeUTC?.startsWith("2026-10-30T16:00") && pay.endTimeUTC?.startsWith("2026-10-30T19:07") && pay.adepCode === "LEBL", "payload carries the computed arrival", JSON.stringify(pay).slice(0, 200));
+ok(p.json.legs.every((l) => !/CLIENT'S REQUEST|No services|services/i.test(String(l.payload.opsNotes).split("\n\n")[0] + String(l.payload.opsNotes).replace(/^CWY-INTAKE \S+/, "").split("OPERATOR'S CREW")[0])), "…with no services entry in OPS notes: our marker, then only the crew block — no placeholder, no \"none\"", JSON.stringify(p.json.legs[0].payload.opsNotes).slice(0, 160));
 if (process.env.RIG_SEND_TO_MOCK_LEON !== "off") {
   const token = p.json.confirmation.token;
   const a = await api(`/api/intake/send/${token}/confirm`, {});
@@ -172,6 +167,13 @@ ok(f.aircraftType.state === "invalid" && !f.aircraftType.value && /Learjet 60XR/
 d = (await api(`/api/intake/requests/${r.id}`)).json;
 ok(d.blockers.some((b) => /Aircraft type is not valid/.test(b)), "…and blocks confirm", d.blockers.join(" | "));
 ok(r.review.approval.answer.how === "intake page", "approval from the intake page is recorded as such");
+// #TCP filled (probably cabin crew; not settled with CNAIR): the crew count stops for a person — never counted or ignored.
+m = await deliver(write("invite-tcp-2613417.eml", readFileSync(invite("2613417", "LEBL-LEMD", "11/10/26"), "utf8").replace("#TCP:\r\n", "#TCP:      XXC\r\n")));
+r = await requestOf(m.request_id); await api(`/api/intake/requests/${r.id}/approve`, {});
+r = await until(async () => { const x = await requestOf(m.request_id); return x.review?.legs?.length ? x : null; });
+f = Object.fromEntries(r.review.legs[0].fields.map((x) => [x.key, x]));
+d = (await api(`/api/intake/requests/${r.id}`)).json;
+ok(!f.crewCount.value && f.crewCount.state === "not_given" && /#TCP line .* is filled/.test(f.crewCount.note) && d.blockers.some((b) => /Crew is not given/.test(b)), "a filled #TCP → crew count left to a person, and it blocks until someone enters it", f.crewCount.note);
 
 // ── 6. Breakage detection: an altered structure is refused ───────────────────────────────────────────────────
 console.log("\n── 6. Breakage ──");

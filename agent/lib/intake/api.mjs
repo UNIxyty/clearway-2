@@ -3,6 +3,7 @@
 // Responses never carry personal data except the two reveal endpoints, which are audited.
 import { tzStatus } from "../tzdata.mjs";
 import { lookupNow, lookupState, recordAnswer, peekAnswer, answerByToken } from "./notification.mjs";
+import { recordCancelAnswer } from "./cancel.mjs";
 import { randomUUID } from "node:crypto";
 import { rest } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
@@ -83,7 +84,7 @@ async function requestRows({ tab = "all", q = "", type = "" }) {
   const msgs = msgIds.length ? (await rest(`intake_messages?select=id,from_addr,received_at,search_text&id=in.(${msgIds.join(",")})`)) ?? [] : [];
   const messages = new Map(msgs.map((m) => [m.id, m]));
   const ids = rows.map((r) => r.id);
-  const wrows = ids.length ? (await rest(`intake_leon_writes?select=request_id,leg_index,state,created_at&request_id=in.(${ids.join(",")})&order=created_at.asc`)) ?? [] : [];
+  const wrows = ids.length ? (await rest(`intake_leon_writes?select=request_id,leg_index,state,created_at&action=eq.create&request_id=in.(${ids.join(",")})&order=created_at.asc`)) ?? [] : [];
   const writes = new Map(); for (const w of wrows) { const m = writes.get(w.request_id) ?? {}; m[w.leg_index] = w; writes.set(w.request_id, m); }
   let out = rows.map((r) => ({ ...listRow(r, messages, writes), _search: `${r.reference ?? ""} ${r.route ?? ""} ${r.registration ?? ""} ${r.first_std ? fmtDate(r.first_std) : ""} ${r.first_std?.slice(0, 10) ?? ""} ${messages.get(r.message_id)?.search_text ?? ""}` }));
   const counts = { all: out.length, needs: out.filter((r) => r.needsAttention).length, progress: out.filter((r) => TABS.progress.includes(r.statusKey)).length, loaded: out.filter((r) => r.statusKey === "loaded").length, closed: out.filter((r) => TABS.closed.includes(r.statusKey)).length };
@@ -106,9 +107,11 @@ async function requestDetail(id) {
   if (!UUID.test(id)) throw err(404, "No such request.");
   const r = (await rest(`intake_requests?select=*&id=eq.${id}`))?.[0]; if (!r) throw err(404, "No such request.");
   const m = (await rest(`intake_messages?select=id,from_addr,to_addrs,subject,received_at,purged_at,has_personal_data&id=eq.${r.message_id}`))?.[0];
-  const allWrites = (await rest(`intake_leon_writes?select=id,leg_index,state,leon_flight_nid,leon_trip_nid,leon_error,checklist,http_status,answered_ms,payload,created_at,updated_at,sent_by_email,resolved_by,resolved_note&request_id=eq.${id}&order=created_at.asc`)) ?? [];
+  const allWrites = (await rest(`intake_leon_writes?select=id,leg_index,state,leon_flight_nid,leon_trip_nid,leon_error,checklist,http_status,answered_ms,payload,created_at,updated_at,sent_by_email,resolved_by,resolved_note&request_id=eq.${id}&action=eq.create&order=created_at.asc`)) ?? [];
   const ws = legStates(allWrites);
   // Passenger / crew writes: counts, states and Leon's (scrubbed) words only. A missing table (SQL not yet run) reads as none.
+  // Cancel attempts (the provider cancelled; ops approved): one row per leg, written before each Leon call.
+  const cancelWrites = (await rest(`intake_leon_writes?select=leg_index,state,leon_flight_nid,leon_error,http_status,answered_ms,created_at,updated_at,sent_by_email&request_id=eq.${id}&action=eq.cancel&order=created_at.asc`).catch(() => null)) ?? [];
   const peopleWrites = (await rest(`intake_leon_people_writes?select=leg_index,kind,state,people_count,leon_flight_nid,leon_error,http_status,created_at,updated_at,sent_by_email&request_id=eq.${id}&order=created_at.asc`).catch(() => null)) ?? [];
   const review = r.review ? structuredClone(r.review) : null;
   if (review) for (const l of review.legs) { const w = ws[l.index]; l.leon = w ? { state: w.state, flightNid: w.leon_flight_nid, error: w.leon_error, at: w.updated_at } : { state: "not_sent" }; l.inLeon = w?.state === "in_leon"; if (l.fields.some((f) => f.state === "tz_unknown") || l.tzChoice) l.tz = tzOptions(l); }
@@ -125,6 +128,7 @@ async function requestDetail(id) {
     attachments: (r.attachment_roles ?? []).map((a) => ({ ...a, url: a.id ? `/agent/api/intake/attachments/${a.id}` : null })),
     requestSource: review?.requestSource ?? null,
     sent: { writes: allWrites.map((w) => ({ leg: w.leg_index, state: w.state, flightNid: w.leon_flight_nid, tripNid: w.leon_trip_nid, error: w.leon_error, httpStatus: w.http_status, ms: w.answered_ms, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email, resolvedBy: w.resolved_by, checklist: w.checklist, payload: w.payload })), firstAt: firstSend?.created_at ?? null, lastMs: lastAnswer?.answered_ms ?? null,
+      cancels: cancelWrites.map((w) => ({ leg: w.leg_index, state: w.state, flightNid: w.leon_flight_nid, error: w.leon_error, httpStatus: w.http_status, ms: w.answered_ms, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email })),
       people: peopleWrites.map((w) => ({ leg: w.leg_index, kind: w.kind, state: w.state, people: w.people_count, flightNid: w.leon_flight_nid, error: w.leon_error, httpStatus: w.http_status, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email })) },
     checklistPlan: plans,
     extractions: extractions.map((e) => ({ id: e.id, version: e.version, model: e.model_id, at: e.created_at, by: e.created_by, tokens: (e.input_tokens ?? 0) + (e.output_tokens ?? 0) })),
@@ -137,7 +141,7 @@ async function requestDetail(id) {
 // ── Review edits ───────────────────────────────────────────────────────────────────────────────────────
 async function editRequest(id, user, body) {
   const r = (await rest(`intake_requests?select=*&id=eq.${id}`))?.[0]; if (!r?.review) throw err(404, "No such request.");
-  const ws = legStates((await rest(`intake_leon_writes?select=leg_index,state,created_at&request_id=eq.${id}&order=created_at.asc`)) ?? []);
+  const ws = legStates((await rest(`intake_leon_writes?select=leg_index,state,created_at&request_id=eq.${id}&action=eq.create&order=created_at.asc`)) ?? []);
   if (Object.values(ws).some((w) => w.state === "sending")) throw err(409, "A send to Leon is running. Wait for Leon's answer.");
   const review = r.review; const me = who(user); const op = String(body.op ?? "");
   const leg = body.leg != null ? review.legs.find((l) => l.index === Number(body.leg)) : null;
@@ -395,6 +399,13 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/(approve|decline)$/.exec(P)) && req.method === "POST") {
       const out = await recordAnswer(m[1], { value: m[2] === "approve" ? "yes" : "no", by: who(user).name, how: "intake page" });
       if (out.state === "invalid") throw err(404, "Not a scheduled-flight request.");
+      return send({ ok: true, answer: out, ...(await requestDetail(m[1])) });
+    }
+    // "Cancel in Leon?" answered from the intake page (the provider cancelled a loaded flight): the person's name is the answer's author.
+    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/cancel-(approve|decline)$/.exec(P)) && req.method === "POST") {
+      const out = await recordCancelAnswer(m[1], { value: m[2] === "approve" ? "yes" : "no", by: who(user).name, how: "intake page" });
+      if (out.state === "invalid") throw err(404, "This request has no cancellation to answer.");
+      if (out.state === "already") throw err(409, `Already answered: ${out.answered?.by ?? "someone"} said ${out.answered?.value ?? "?"}.`);
       return send({ ok: true, answer: out, ...(await requestDetail(m[1])) });
     }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await requestDetail(m[1])) });

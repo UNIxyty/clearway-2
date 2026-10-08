@@ -4,7 +4,8 @@
 // "argumentValidation". Faults for tests come from rig/.scratch/leon-mock-faults.json:
 //   { "refuseFlightNo": ["YULSA"], "refuseLegOnAdes": ["LIPZ"], "hangFlightNo": ["AMQ5V"], "hangMs": 60000,
 //     "refuseChecklistDef": [1231], "refusePassengerText": ["9HGVL"], "refuseCrewNotes": ["9HGVL"],
-//     "hangPassengerText": ["9HGVL"], "dispatcherEditAfterCreate": ["9HGVL"] }
+//     "hangPassengerText": ["9HGVL"], "dispatcherEditAfterCreate": ["9HGVL"], "refuseCancelFlightNid": [90000001],
+//     "hangCancelFlightNid": [90000001] }
 // dispatcherEditAfterCreate: a dispatcher types into the flight's OPS notes the moment it exists (before the agent's
 // passenger write), so a test can show the agent never writes the notes back over that edit.
 // Passengers (passengerList.savePassengerText) and the crew's OPS-notes update (flights.flightListUpdate) are held per
@@ -45,6 +46,7 @@ http.createServer(async (req, res) => {
   let b = ""; for await (const c of req) b += c;
   if (req.url.startsWith("/access_token/refresh")) { res.writeHead(200, { "content-type": "text/plain" }); return res.end("rig-mock-leon-access-token-" + "x".repeat(40)); }
   if (req.url === "/_rig/flights") return reply(res, 200, created.map(toFlight));
+  if (req.url === "/_rig/set-flight") { const { flightNid, isCnl, startTimeUTC } = JSON.parse(b || "{}"); const f = created.find((x) => x.flightNid === Number(flightNid)); if (f) { if (isCnl !== undefined) f.isCnl = isCnl; if (startTimeUTC) f.payload = { ...f.payload, startTimeUTC }; } return reply(res, f ? 200 : 404, { ok: !!f }); } // tests: Leon changed by hand
   if (req.url === "/_rig/edit-passenger-text") { const { flightNid, text } = JSON.parse(b || "{}"); const f = created.find((x) => x.flightNid === Number(flightNid)); if (f) f.passengerText = text; return reply(res, f ? 200 : 404, { ok: !!f }); } // tests: someone edits the list in Leon   // tests: what the mock holds, checklist included
   if (!req.url.startsWith("/api/graphql")) return reply(res, 404, { errors: [{ message: "not in the mock" }] });
   const { query = "", variables = {} } = JSON.parse(b || "{}");
@@ -101,7 +103,13 @@ http.createServer(async (req, res) => {
       const key = q.includes("addOrUpdateOpsItems") ? "addOrUpdateOpsItems" : q.includes("opsItemStatusUpdate") ? "opsItemStatusUpdate" : "opsItemNoteUpdate";
       return reply(res, 200, { data: { checklist: { [key]: true } } });
     }
-    if (q.includes("flightDelete")) { const f = created.find((x) => x.flightNid === Number(variables.n)); if (f) f.isCnl = true; return reply(res, 200, { data: { flightDelete: !!f } }); }
+    if (q.includes("flightDelete")) {
+      const f = created.find((x) => x.flightNid === Number(variables.n));
+      const fx = faults();
+      if (f && (fx.refuseCancelFlightNid ?? []).includes(f.flightNid)) return reply(res, 400, { data: null, errors: [{ message: "Flight has a journey log and cannot be cancelled", extensions: { category: "businessLogic" } }] });
+      if (f && (fx.hangCancelFlightNid ?? []).includes(f.flightNid)) await new Promise((r) => setTimeout(r, fx.hangMs ?? 60000));
+      if (f) f.isCnl = true; return reply(res, 200, { data: { flightDelete: !!f } });
+    }
     return reply(res, 400, { errors: [{ message: `mock leon does not know: ${q.slice(0, 60)}` }] });
   } catch (e) { return reply(res, 500, { errors: [{ message: String(e.message) }] }); }
 }).listen(PORT, "127.0.0.1", () => console.log(`mock leon on :${PORT} · ${Object.keys(snap.airports).length} airports · ${snap.flights.length} flights`));

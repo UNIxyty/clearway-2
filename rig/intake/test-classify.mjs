@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { classifyAutomatic, calendarsFrom, notificationSignals, notificationChanges, decideType, parseIcs, isMailSystemSender } from "../../agent/lib/intake/classify.mjs";
+import { classifyAutomatic, calendarsFrom, notificationSignals, notificationChanges, decideType, parseIcs, isMailSystemSender, hashBlock, htmlToLines } from "../../agent/lib/intake/classify.mjs";
 const { simpleParser } = createRequire(path.resolve("agent/package.json"))("mailparser");
 let failures = 0; const ok = (c, what, detail = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${detail ? `  · ${detail}` : ""}`); if (!c) failures += 1; };
 const FX = "rig/fixtures/cnair/";
@@ -12,7 +12,7 @@ const mail = (from, subject, body, extraHeaders = "") => Buffer.from(`From: ${fr
 const forwardAsAttachment = (inner, from) => { const B = "fwd_boundary"; return Buffer.from([`From: ${from}`, "To: handling@intake.rig.invalid", "Subject: FW: LEBL-GMMN-LEBL", "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${B}"`, "", `--${B}`, "Content-Type: text/plain", "", "FYI, see attached.", `--${B}`, "Content-Type: message/rfc822", "Content-Disposition: attachment; filename=\"invite.eml\"", "", inner.toString("latin1"), `--${B}--`, ""].join("\r\n"), "latin1"); };
 /** What the pipeline does before classifying: open attached emails, collect texts and calendar parts. */
 async function read(raw) {
-  const p = await simpleParser(raw, { skipImageLinks: true }); const texts = [p.text ?? ""]; const atts = []; const subjects = [];
+  const p = await simpleParser(raw, { skipImageLinks: true }); const texts = [p.text ?? "", ...(p.html ? [htmlToLines(p.html)] : [])]; const atts = []; const subjects = [];
   for (const a of p.attachments ?? []) {
     atts.push({ name: a.filename ?? "(no name)", declaredType: a.contentType, content: a.content });
     if (a.contentType === "message/rfc822") { const q = await simpleParser(a.content, { skipImageLinks: true }); texts.push(q.text ?? ""); subjects.push(q.subject ?? ""); for (const c of q.attachments ?? []) atts.push({ name: c.filename ?? "(no name)", declaredType: c.contentType, content: c.content, parent: a.filename ?? "the attached email" }); }
@@ -22,6 +22,35 @@ async function read(raw) {
 }
 const FIELD = (value) => ({ value, said: String(value), source: "Email", confidence: 1, state: "extracted" });
 const leg = (withIds = true) => ({ std: { value: { date: "2026-10-08", utcTime: "14:00" } }, sta: { value: { date: "2026-10-08", utcTime: "16:00" } }, registration: withIds ? FIELD("9H-ZWX") : { value: null }, flightNumber: { value: null }, services: [{ name: "Handling", isNote: false }] });
+
+// ── The #Key block in every real layout (LEBL-LPFR-LEBL, #Ref 2610228, 2026-10-08) ──────────────────────────────
+{ const FFFD = "\uFFFD";
+  const A = `#Pax:   0/4\r\n#Cliente:       (Intracomunitario Pasaje)\r\n#1${FFFD}:    AAA\r\n#2${FFFD}:    BBB\r\n#TCP:\r\n#Fra:\r\n#Ref:   2610228\r\n#Otros:\r\n#DATE:  17/10/26\r\n#ETD:   17:45:00-LEBL 19:00:00-LPFR\r\n`;
+  const B = ["  #Pax: 0/4", "#Cliente:  (Intracomunitario Pasaje)", `#1${FFFD}: AAA`, `#2${FFFD}: BBB`, "#TCP: ", "#Fra: ", "#Ref: 2610228", "#Otros: ", "#DATE: 17/10/26", "#ETD: 17:45:00-LEBL 19:00:00-LPFR"].map((l) => l + " ".repeat(21)).join("\n");
+  const T = ["#Pax:", "", "0/4", "", "#Cliente:", "", "(Intracomunitario Pasaje)", "", `#1${FFFD}:`, "", "AAA", "", `#2${FFFD}:`, "", "BBB", "", "#TCP:", "", "#Fra:", "", "#Ref:", "", "2610228", "", "#Otros:", "", "#DATE:", "", "17/10/26", "", "#ETD:", "", "17:45:00-LEBL 19:00:00-LPFR", "", "", "Kind regards"].join("\r\n");
+  const W = `Where: #Pax: 0/4 #Cliente: (Intracomunitario Pasaje) #1${FFFD}: AAA #2${FFFD}: BBB #TCP: #Fra: #Ref: 2610228 #Otros`;
+  const want = { pax: "0/4", cliente: "(Intracomunitario Pasaje)", 1: "AAA", 2: "BBB", tcp: "", fra: "", ref: "2610228", otros: "", date: "17/10/26", etd: "17:45:00-LEBL 19:00:00-LPFR" };
+  const same = (b, keys = Object.keys(want)) => keys.every((k) => b.get(String(k)) === want[k]);
+  const a = hashBlock(A), b = hashBlock(B), t = hashBlock(T), w = hashBlock(W);
+  ok(same(a) && same(b), "copy A (a run of spaces after the colon) and copy B (one space + 21 spaces of padding, leading spaces) parse to the same ten values");
+  ok(same(t), "the delivered layout (Outlook's table flattened: each value on a line below its key) parses to the same values; empty #TCP/#Fra/#Otros stay empty, the signature is not a value");
+  ok(same(w, ["pax", "cliente", "1", "2", "tcp", "fra", "ref"]) && !w.has("otros") && !w.has("date"), "a run of keys on one line cut short (\"… #Ref: 2610228 #Otros\") gives the keys it holds, #Ref without the cut-off tail");
+  const u = hashBlock(A.replace("#Ref:", "#Zona:   NORTE\r\n#Ref:"));
+  ok(same(u) && u.get("zona") === "NORTE", "an unknown #Key in the middle is kept and ignored by the reader; nothing after it is lost");
+  ok(same(hashBlock(A.split("\r\n").reverse().join("\r\n"))), "any key order (#Ref is not the anchor)");
+  ok(same(hashBlock(A.replace(/\uFFFD/g, "º"))) && same(hashBlock(A.replace(/\uFFFD/g, ""))), "#1º / #1\uFFFD / #1 all read as crew line 1");
+  const sigA = notificationSignals({ subject: "LEBL-LPFR-LEBL", texts: [A], calendars: [{ method: "REQUEST", uid: "u", description: B, location: T, where: "the message" }] });
+  ok(sigA.reference === "2610228" && sigA.notification.crewNamed === 2 && sigA.notification.legs === 2, "three copies that agree → reference 2610228, crew 2, 2 legs");
+  const sigC = notificationSignals({ subject: "LEBL-LPFR-LEBL", texts: [A], calendars: [{ method: "REQUEST", uid: "u", description: B.replace("2610228", "2610229"), where: "the message" }] });
+  ok(sigC.reference === null && /different #Ref values \(2610228, 2610229\)/.test(sigC.searched.refProblem), "two copies that DISAGREE on #Ref → no reference (never a guess), and the screen is told why", sigC.searched.refProblem);
+  const sigN = notificationSignals({ subject: "LEBL-LPFR-LEBL", texts: [T.replace("2610228", "")], calendars: [] });
+  ok(sigN.reference === null && /#Ref is in the message but no value was found next to it/.test(sigN.searched.refProblem) && sigN.searched.lines.some((l) => l.startsWith("#Ref")) && sigN.searched.where.length >= 1, "no readable #Ref → the reason and the lines searched are kept for the screen", sigN.searched.refProblem);
+  ok(!JSON.stringify(sigA.searched).includes("AAA") && !JSON.stringify(sigN.searched).includes("BBB"), "…with the crew initials masked in what is kept");
+  let r = await read(readFileSync(FX + "forward-2610228.eml"));
+  ok(r.signals.confident && r.signals.reference === "2610228" && r.signals.notification.crewNamed === 2 && r.signals.notification.pax === "0/4" && r.signals.notification.etd.map((e) => `${e.time}-${e.airport}`).join(" ") === "17:45-LEBL 19:00-LPFR" && r.signals.notification.client === "(Intracomunitario Pasaje)", "the DELIVERED copy (Outlook forward, as Resend gave it, redacted): reference 2610228, crew 2, pax 0/4, both ETDs", `confidence ${r.signals.confidence}`);
+  ok(r.calendars[0]?.method === "REQUEST" && r.calendars[0].uid === "6b65d09f-e212-4884-985d-707dea56b4e2" && decideType({ signals: r.signals }).type === "scheduled", "…its calendar part (method REQUEST, CNAIR's UID): decided as a scheduled flight with no person choosing");
+  r = await read(readFileSync(FX + "invite-request-2610228.eml"));
+  ok(r.signals.confident && r.signals.reference === "2610228" && r.signals.notification.crewNamed === 2, "the .msg's own copies (A in the body, B in LOCATION): reference 2610228, crew 2"); }
 
 // ── Notification, whoever sends it ───────────────────────────────────────────────────────────────────────────
 let r = await read(readFileSync(FX + "invite-request.eml"));

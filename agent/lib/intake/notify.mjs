@@ -49,13 +49,13 @@ export function composeReview(req, review, ctx) {
   const blocks = [
     { type: "heading", text: tz ? `A ${sched ? "scheduled flight" : "handling request"} needs you` : sched ? "A scheduled flight is ready to confirm" : "A handling request needs review" },
     { type: "mono", text: `${req.reference} · ${req.sender_name ?? ""}`.trim() },
-    { type: "table", rows: [["Route", routeOf(review), true], ["Dates", datesOf(review), true], ["Legs", String(legs.length)], ["Aircraft", [f0.aircraftType?.value, f0.registration?.value].filter(Boolean).join(" · ") || "not given", true], ["Services", sched ? "none in the portal · choose them on the page" : `${lines} lines · ${toConfirm} ask us to confirm`], ["People", sched ? "crew count and passenger names are not in the portal" : ctx.peopleLine ?? "not given"]] },
+    { type: "table", rows: [["Route", routeOf(review), true], ["Dates", datesOf(review), true], ["Legs", String(legs.length)], ["Aircraft", [f0.aircraftType?.value, f0.registration?.value].filter(Boolean).join(" · ") || "not given", true], ["Services", sched ? "none (a schedule has none; add one on the page only if ops want it)" : `${lines} lines · ${toConfirm} ask us to confirm`], ["People", sched ? "crew count from the notification's #1º / #2º lines; passenger names are not in the portal (not needed for Leon)" : ctx.peopleLine ?? "not given"]] },
     { type: "legs", title: `THE ${legs.length} LEG${legs.length === 1 ? "" : "S"} · TIMES IN UTC${sched ? " · ARRIVALS COMPUTED" : ""}`, rows: legRows(review) },
   ];
   if (tz) blocks.push({ type: "callout", tone: "red", title: "Timezone unknown.", text: `The times in the request have no timezone. Nothing can be sent until someone sets it.${ctx.tzLine ? ` ${ctx.tzLine}` : ""}` });
-  else if (sched && gaps) blocks.push({ type: "callout", tone: "amber", title: `${gaps} value${gaps === 1 ? " is" : "s are"} not in the portal.`, text: "Crew count, passenger names, services and anything the agent could not map are blocking: fill them in on the page." });
+  else if (sched && gaps) blocks.push({ type: "callout", tone: "amber", title: `${gaps} value${gaps === 1 ? " is" : "s are"} not in the portal.`, text: "Values the agent could not read or map (an aircraft name it does not know, a crew count when #TCP is filled) block until someone fills them in on the page. Services and passenger names are not needed for a schedule." });
   else if (low) blocks.push({ type: "callout", tone: "amber", title: `${low} value${low === 1 ? " needs" : "s need"} a look.`, text: "The agent marked them as low confidence." });
-  blocks.push({ type: "section", title: "WHAT HAPPENS NEXT", text: sched ? "Come to Flight intake, check the values the agent read from the portal, fill the gaps, choose the services and confirm. Nothing is created in Leon until then." : "Nothing is created in Leon until someone checks this request on the page, chooses the services and confirms." });
+  blocks.push({ type: "section", title: "WHAT HAPPENS NEXT", text: sched ? "Come to Flight intake, check the values the agent read from the portal and the notification, fill any gap and confirm. Nothing is created in Leon until then." : "Nothing is created in Leon until someone checks this request on the page, chooses the services and confirms." });
   blocks.push({ type: "cta", text: sched ? "Open Flight intake and confirm" : "Review the request", url: `${consoleBase()}/agent/intake?r=${req.id}` });
   const context = sched ? `because ${review.approval?.answer?.by ?? "ops"} approved the processing of ${req.reference} and its record was read from the ${review.notification?.providerName ?? "provider"}'s portal. Nothing is in Leon yet.` : `because ${req.sender_name ?? "a dispatcher"} emailed the intake address at ${hm(ctx.receivedAt)}Z. Nothing is in Leon yet.`;
   return { kind: tz ? "E4 · Needs you" : sched ? "E1 · Ready to confirm" : "E2 · Needs review", subject, blocks, context };
@@ -64,11 +64,29 @@ export function composeReview(req, review, ctx) {
 // ── E1: the approval gate for a scheduled flight ────────────────────────────────────────────────────────────
 const notifSummary = (req, review) => { const n = review.notification ?? {}; return { n, route: (n.route ?? []).join(" → ") || req.route || "route not given", legs: req.legs_count ?? Math.max(1, (n.route?.length ?? 2) - 1), when: n.date ?? "date not given", provider: n.providerName ?? "the provider" }; };
 const notifRows = (req, review) => { const { n, route, legs, when, provider } = notifSummary(req, review); return [["Reference", req.reference, true], ["Provider", provider], ["Route", route, true], ["Date", when, true], ["Legs", String(legs)], ["Times in the invite", (n.etd ?? []).length ? `${n.etd.join(", ")} (local, as the provider wrote them — not used)` : "not given"], ["Received", `${hm(req.created_at)}Z · ${req.sender_name ?? "unknown sender"}`]]; };
-const reSubject = (req, tail) => `Re: Process? ${req.reference} · ${tail}`;
+const reSubject = (req, tail, question = "process") => `Re: ${question === "cancel" ? "Cancel in Leon?" : "Process?"} ${req.reference} · ${tail}`;
 
-/** E1 "Process?": what arrived, Yes / No, the reply path, and the deadline. One email per recipient (own links). */
-export function composeProcess(req, review, { links, deadlineAt }) {
+/**
+ * E1: what arrived, Yes / No, the reply path, and the deadline. One email per recipient (own links). The same email
+ * asks the second question type 1 has, `question: "cancel"`: the provider cancelled a flight we loaded — cancel it in
+ * Leon? (Leon cancels a flight and keeps it; it is not removed.)
+ */
+export function composeProcess(req, review, { links, deadlineAt, question = "process" }) {
   const { route, legs, when } = notifSummary(req, review);
+  if (question === "cancel") {
+    const c = review.cancellation ?? {}; const L = c.legs ?? [];
+    const toCancel = L.filter((l) => !l.alreadyCancelled && !l.departed), departed = L.filter((l) => l.departed && !l.alreadyCancelled), already = L.filter((l) => l.alreadyCancelled);
+    const legLine = (l) => `Leg ${l.index + 1} · Leon flight ${l.flightNid} · departs ${l.std ? `${day(l.std)} ${hm(l.std)}Z` : "?"}`;
+    return { kind: "E1 · Cancel in Leon?", subject: `Cancel in Leon? ${req.reference} · ${route} · ${when} · cancelled by ${notifSummary(req, review).provider}`, context: `because ${notifSummary(req, review).provider} sent a cancellation for ${req.reference} at ${hm(c.receivedAt)}Z. Nothing has been cancelled in Leon.`, blocks: [
+      { type: "heading", text: "The provider cancelled this flight. Cancel it in Leon?" }, { type: "mono", text: req.reference },
+      { type: "table", rows: [["Reference", req.reference, true], ["Route", route, true], ["Date", when, true], ["Matched by", c.matchedBy ?? "reference"], ...(c.uidDiffers ? [["Calendar UID", "differs from the one on file (the reference matched)"]] : []), ["To cancel", toCancel.length ? toCancel.map(legLine).join("; ") : "none", true], ...(departed.length ? [["Already departed", `${departed.map(legLine).join("; ")} — the agent will NOT cancel a departed flight; decide by hand`, true]] : []), ...(already.length ? [["Already cancelled in Leon", already.map(legLine).join("; "), true]] : [])] },
+      { type: "section", title: "WHAT HAPPENS ON YES", text: `Every leg listed under "To cancel" is cancelled in Leon. Leon keeps the flights as cancelled; they are not removed. You get an email saying which legs were cancelled and which were not.` },
+      { type: "section", title: "WHAT HAPPENS ON NO", text: "Nothing is touched in Leon. The request records that the cancellation arrived and was declined, with your name." },
+      { type: "choice", options: [{ text: "Yes, cancel in Leon", url: links.yes }, { text: "No, keep the flights", url: links.no }] },
+      { type: "paragraph", text: "Or just reply yes or no." },
+      { type: "callout", tone: "amber", title: `No answer by ${hm(deadlineAt)}Z ${day(deadlineAt) === day(new Date().toISOString()) ? "today" : `on ${day(deadlineAt)}`}:`, text: "nothing is cancelled. The request waits on the intake page, where anyone can decide." },
+    ] };
+  }
   return { kind: "E1 · Process?", subject: `Process? ${req.reference} · ${route} · ${when} · ${legs} leg${legs === 1 ? "" : "s"}`, context: `because a flight notification for ${req.reference} arrived at ${hm(req.created_at)}Z. Nothing has been read from the provider and nothing is in Leon.`, blocks: [
     { type: "heading", text: "Does this scheduled flight need processing?" }, { type: "mono", text: req.reference },
     { type: "table", rows: notifRows(req, review) },
@@ -80,15 +98,20 @@ export function composeProcess(req, review, { links, deadlineAt }) {
   ] };
 }
 /** E1a: a late or repeated answer; the first one stands. */
-export function composeProcessAnswered(req, review, answered) {
-  return { kind: "E1a · Already answered", subject: reSubject(req, "already answered"), context: `because another answer arrived for ${req.reference}.`, blocks: [
+export function composeProcessAnswered(req, review, answered, { question = "process" } = {}) {
+  return { kind: "E1a · Already answered", subject: reSubject(req, "already answered", question), context: `because another answer arrived for ${req.reference}.`, blocks: [
     { type: "heading", text: "This question was already answered" }, { type: "mono", text: req.reference },
     { type: "callout", tone: "green", title: `${answered.by} answered ${answered.value === "yes" ? "yes" : "no"} at ${hm(answered.at)}Z.`, text: "The first answer stands; this one changed nothing." },
     { type: "cta", text: "Open the request", url: `${consoleBase()}/agent/intake?r=${req.id}` },
   ] };
 }
 /** E1b: an answer after the deadline. */
-export function composeProcessExpired(req, review) {
+export function composeProcessExpired(req, review, { question = "process" } = {}) {
+  if (question === "cancel") return { kind: "E1b · Expired", subject: reSubject(req, "the question has expired", question), context: `because an answer arrived for ${req.reference} after its deadline.`, blocks: [
+    { type: "heading", text: "This question has expired" }, { type: "mono", text: req.reference },
+    { type: "callout", tone: "amber", title: `No answer arrived by ${hm(review.cancellation?.approval?.deadlineAt)}Z.`, text: "Nothing was cancelled. The cancellation waits on the intake page, where anyone signed in can decide." },
+    { type: "cta", text: "Open the request", url: `${consoleBase()}/agent/intake?r=${req.id}` },
+  ] };
   return { kind: "E1b · Expired", subject: reSubject(req, "this request has expired"), context: `because an answer arrived for ${req.reference} after its deadline.`, blocks: [
     { type: "heading", text: "This request has expired" }, { type: "mono", text: req.reference },
     { type: "callout", tone: "amber", title: `No answer arrived by ${hm(review.approval?.deadlineAt)}Z, so the request was closed.`, text: "Nothing was created. It is still on the intake page, where anyone can process it." },
@@ -96,7 +119,13 @@ export function composeProcessExpired(req, review) {
   ] };
 }
 /** E1c: a reply that was neither a yes nor a no. */
-export function composeProcessUnclear(req, review, { quoted, links }) {
+export function composeProcessUnclear(req, review, { quoted, links, question = "process" }) {
+  const cq = question === "cancel"; const opts = cq ? [{ text: "Yes, cancel in Leon", url: links.yes }, { text: "No, keep the flights", url: links.no }] : null;
+  if (cq) return { kind: "E1c · Unclear", subject: reSubject(req, "was that a yes or a no?", question), context: `because a reply arrived for ${req.reference} that the agent could not read as an answer.`, blocks: [
+    { type: "heading", text: "Was that a yes or a no?" }, { type: "mono", text: req.reference },
+    { type: "paragraph", text: `The reply began “${String(quoted ?? "").slice(0, 80)}”. The agent did nothing with it: nothing was cancelled.` },
+    { type: "choice", options: opts }, { type: "paragraph", text: "Or reply again with just yes or no as the first line." },
+  ] };
   return { kind: "E1c · Unclear", subject: reSubject(req, "was that a yes or a no?"), context: `because a reply arrived for ${req.reference} that the agent could not read as an answer.`, blocks: [
     { type: "heading", text: "Was that a yes or a no?" }, { type: "mono", text: req.reference },
     { type: "paragraph", text: `The reply began “${String(quoted ?? "").slice(0, 80)}”. The agent did nothing with it.` },
@@ -158,6 +187,24 @@ export function composeOutcome(req, review, outcome) {
     { type: "section", title: "HOW FAR IT GOT", text: "Sent to Leon, stage 8 of 12." },
     { type: "section", title: "WHAT TO DO", text: "Open the request. You can correct the leg and resend it, or create it in Leon yourself and mark it handled." }, ...oneShot, cta,
   ] };
+}
+
+/** After a cancel run: which legs Leon cancelled, which it did not, and that cancelled means kept, not removed. */
+export function composeCancelOutcome(req, review, { outcome, by, at }) {
+  const done = outcome.filter((o) => o.state === "cancelled"), bad = outcome.filter((o) => ["not_cancelled", "unknown", "not_sent"].includes(o.state)), dep = outcome.filter((o) => o.state === "departed");
+  const row = (o) => ({ n: o.index + 1, route: `Leon flight ${o.flightNid}`, when: o.state === "cancelled" ? (o.already ? "was already cancelled in Leon" : "cancelled in Leon") : o.state === "departed" ? "already departed — not cancelled by the agent" : o.error ?? o.state, state: o.state === "cancelled" ? "✓ Cancelled in Leon" : o.state === "departed" ? "Departed · a person decides" : "✕ NOT cancelled", stateTone: o.state === "cancelled" ? "ok" : "bad" });
+  const legsBlock = { type: "legs", title: "EVERY LEG", rows: outcome.map(row) };
+  const kept = { type: "section", title: "CANCELLED, NOT REMOVED", text: "Leon keeps a cancelled flight (it is marked cancelled and stays on the trip); the agent removed nothing." };
+  const cta = { type: "cta", text: "Open the request", url: `${consoleBase()}/agent/intake?r=${req.id}` };
+  const who = `. ${by} approved the cancellation; the agent cancelled at ${hm(at)}Z.`;
+  if (!bad.length && !dep.length) return { kind: "E3 · Cancelled", subject: `Cancelled in Leon: ${req.reference} · ${done.length} flight${done.length === 1 ? "" : "s"}`, context: who, blocks: [
+    { type: "heading", text: `Cancelled in Leon: ${done.length} flight${done.length === 1 ? "" : "s"}` }, { type: "mono", text: req.reference },
+    { type: "callout", tone: "green", title: `${done.length === 1 ? "The flight is" : `All ${done.length} flights are`} cancelled in Leon.`, text: "Not removed: Leon keeps them as cancelled." }, legsBlock, kept, cta] };
+  return { kind: "E4 · Needs you", subject: `Needs you: ${req.reference} · ${done.length} of ${outcome.length} legs cancelled in Leon${bad.length ? `, ${bad.length === 1 ? `leg ${bad[0].index + 1} is` : `legs ${bad.map((o) => o.index + 1).join(", ")} are`} NOT` : ""}${dep.length ? ` · ${dep.length === 1 ? `leg ${dep[0].index + 1} had` : `legs ${dep.map((o) => o.index + 1).join(", ")} had`} departed` : ""}`, context: who, blocks: [
+    { type: "heading", text: "Needs you: the cancellation is not complete" }, { type: "mono", text: req.reference },
+    { type: "callout", tone: "red", title: `${done.length} of ${outcome.length} legs cancelled in Leon.`, text: [bad.length ? `Not cancelled: ${bad.map((o) => `leg ${o.index + 1} (${o.error ?? o.state})`).join("; ")}.` : null, dep.length ? `Already departed, not cancelled by the agent: ${dep.map((o) => `leg ${o.index + 1}`).join(", ")}.` : null].filter(Boolean).join(" ") },
+    legsBlock, kept,
+    { type: "section", title: "WHAT TO DO", text: "Check the legs above in Leon and cancel any that should be by hand. The legs that were cancelled are not sent again." }, cta] };
 }
 
 /** A pipeline failure before anything was sent (duplicate stop, could not read, portal down). E4b structure. */

@@ -55,7 +55,7 @@ export function ConfirmDialog({ prepared, detail, runsAs, onFinished }: { prepar
   };
   // What goes to Leon about services: the note in each flight's OPS notes, word for word; no checklist status.
   const services = legs.map((l) => { const rl = detail.review?.legs.find((x) => x.index === l.index); const svc = (rl?.services ?? []).filter((s) => !s.isNote); const byPeople = svc.filter((s) => s.decided).length; return `Leg ${l.index + 1}: ${svc.length ? `${svc.length} requested · ${svc.filter((s) => s.decision === "provide").length} provide · ${svc.filter((s) => s.decision === "to_confirm").length} to confirm · ${svc.filter((s) => s.decision === "decline").length} declined${byPeople ? ` · ${byPeople} decided by people` : ""}` : "none requested"}`; });
-  const checklist = legs.map((l) => `Leg ${l.index + 1}: the request goes into the flight's OPS notes, unactioned${l.note ? ` (${l.note.split("\n").length} lines)` : ""}. No checklist status is set: every item stays at Leon's default (?).`);
+  const checklist = legs.map((l) => (l.note ? `Leg ${l.index + 1}: the request goes into the flight's OPS notes, unactioned (${l.note.split("\n").length} lines). No checklist status is set: every item stays at Leon's default (?).` : `Leg ${l.index + 1}: no services; the OPS notes carry only the agent's marker. No checklist status is set.`));
 
   const rows: { k: string; lines: string[]; mono?: boolean; bg?: string; color?: string }[] = [
     { k: "Where", lines: [prepared.resend ? "Leon · flights not yet in Leon" : "Leon · new flights"] },

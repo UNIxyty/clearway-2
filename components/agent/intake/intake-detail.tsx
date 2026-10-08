@@ -13,6 +13,7 @@ import { CARD, LeonPill, dateRange, errText, fieldOf, fmtMin, legDate, legKeyOf,
 import { Pipeline } from "./intake-pipeline";
 import { ReviewCard } from "./intake-review";
 import { NotificationCard } from "./intake-notification";
+import { CancellationPanel } from "./intake-cancel";
 import { SentSection, EmailsSection, latestWrites } from "./intake-sent";
 import { OriginalEmailDrawer } from "./intake-drawer";
 import { ConfirmDialog } from "./intake-confirm";
@@ -180,7 +181,8 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
         )}
 
         {dupOpen ? <DuplicateBox detail={detail} apply={apply} /> : <Banner detail={detail} now={now} closed={closed} />}
-        {anySent && <LegChips legs={legs} />}
+        {detail.review?.cancellation && <CancellationPanel detail={detail} answer={async (yes) => { try { setDetail(await intakeApi.cancelAnswer(id, yes)); onChanged(); } catch (e) { setSaveError(e instanceof Error ? e.message : "The answer was not recorded."); } }} />}
+        {anySent && <LegChips legs={legs} cancelled={new Set((detail.sent.cancels ?? []).filter((w) => w.state === "cancelled").map((w) => w.leg))} />}
         {r.duplicateResolution && (
           <div style={{ fontSize: 12.5, color: C.muted }}>
             {r.duplicateResolution.action === "not_duplicate" ? "Marked not a duplicate" : "Closed as a revision to update in Leon by hand"} by {r.duplicateResolution.by}, <span style={mono()}>{hmZ(r.duplicateResolution.at)}</span>.
@@ -234,6 +236,15 @@ function legDesc(l: Leg) { const std = fieldOf(l, "std")?.value; const d = legDa
 function legsWord(ns: number[]) { return ns.length === 1 ? `Leg ${ns[0]}` : `Legs ${listWords(ns)}`; }
 export function bannerFor(detail: RequestDetail, now: number, closed: boolean): B | null {
   const r = detail.request; const legs = (detail.review?.legs ?? []).filter((l) => !l.removed);
+  // The provider cancelled a flight we know: that comes first, whatever else the request says.
+  const cx = r.type === "scheduled" ? detail.review?.cancellation : null;
+  if (cx) {
+    const a = cx.approval; const note = detail.stages.find((x) => x.name === "Cancellation")?.note ?? null;
+    if (a && !a.answer) return { tone: "red", icon: "circle-help", title: "The provider cancelled this flight. Cancel it in Leon?", body: `Ops were asked by email; answer by ${hmZ(a.deadlineAt)}${Date.parse(a.deadlineAt) <= now ? " (passed)" : ""}. Nothing is cancelled until someone says yes; answer below or from the email.` };
+    if (a?.answer?.value === "no") return { tone: "slate", icon: "circle-minus", title: `The provider's cancellation was declined by ${a.answer.by}. The flights are unchanged in Leon.`, body: note };
+    if (cx.outcome || ["ambiguous", "leon-unknown", "leon-unreadable"].includes(cx.case)) return { tone: r.status === "closed" ? "slate" : "red", icon: r.status === "closed" ? "circle-check" : "circle-alert", title: r.statusReason ?? "Cancellation", body: note };
+    if (["declined-at-gate", "never-loaded", "already-cancelled"].includes(cx.case)) return { tone: "slate", icon: "circle-minus", title: r.statusReason ?? "Cancelled by the provider", body: note };
+  }
   // A scheduled flight (type 1) before its record is read: the approval gate, then the portal read.
   if (r.type === "scheduled" && !legs.length) {
     const ap = detail.review?.approval;
@@ -302,7 +313,7 @@ export function bannerFor(detail: RequestDetail, now: number, closed: boolean): 
     body: `The agent read ${plural(legs.length, "leg")}${r.type === "handling" ? ` and ${plural(svc, "service line")}` : ""} from the email${nAtt ? ` and its ${plural(nAtt, "attachment")}` : ""}. ${lows ? `Check the ${plural(lows, "value")} marked low confidence, ` : "Check the values, "}${r.type === "handling" ? "choose the services, " : ""}then confirm.${escalated}` };
 }
 
-function LegChips({ legs }: { legs: Leg[] }) {
+function LegChips({ legs, cancelled = new Set<number>() }: { legs: Leg[]; cancelled?: Set<number> }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8, paddingLeft: 32 }}>
       {legs.filter((l) => !l.removed).map((l) => {
@@ -311,6 +322,7 @@ function LegChips({ legs }: { legs: Leg[] }) {
           <div key={l.index} style={{ borderRadius: 10, padding: "10px 12px", background: not ? C.danger : C.surface, border: `1px solid ${not ? C.danger : C.border}`, display: "flex", flexDirection: "column", gap: 5, color: not ? C.surface : C.ink }}>
             <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}><span style={mono({ fontSize: 11.5, fontWeight: 700 })}>LEG {legNo(l)}</span><span style={mono({ fontSize: 13, fontWeight: 600 })}>{legRoute(l)}</span></div>
             <div><LeonPill k={k} id={l.leon?.flightNid} /></div>
+            {cancelled.has(l.index) && <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Cancelled in Leon (kept, not removed)</span>}
             {not && l.leon?.error && <span style={{ fontSize: 12 }}>{l.leon.error}</span>}
           </div>
         );

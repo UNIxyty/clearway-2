@@ -34,3 +34,14 @@ flights; they identify no person.
   `rig/intake/mock-cnair.mjs` serves the records above through it, speaking the recorded protocol, so the agent's
   reader is exercised unchanged on the rig; the mock also adds two synthetic records (2619001, an aircraft name the
   agent must not guess; 2619002, hidden from the list on demand).
+
+## Added 2026-10-08
+
+- `forward-2610228.eml`: the FIRST REAL message through Resend (LEBL-LPFR-LEBL, #Ref 2610228), as delivered: an Outlook
+  forward of the appointment (`multipart/alternative`: text, HTML with the block as a table, `text/calendar` METHOD:REQUEST
+  with CNAIR's UID; the block in the text with values on separate lines, run together on the `Where:` line, and padded in
+  the calendar LOCATION; `º` as U+FFFD). Same MIME shape and part contents; every address, person's name and crew initial
+  replaced (`AAA`/`BBB`), checked by the redaction script (nothing of the original left).
+- `invite-request-2610228.eml`: the same message's own two copies of the block from the `.msg` export (copy A in the body:
+  a run of spaces after each colon; copy B in LOCATION: one space, 21 spaces of padding, leading spaces).
+  Written by `rig/cnair/make-invite-fixtures.mjs request-2610228`.

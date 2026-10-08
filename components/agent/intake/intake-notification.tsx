@@ -13,6 +13,8 @@ const LOOK = { found: { icon: "circle-check", color: C.okDot, words: "Found" }, 
 
 export function NotificationCard({ detail, compact = false }: { detail: RequestDetail; compact?: boolean }) {
   const rv = detail.review; const n = rv?.notification; const lk = rv?.lookup; const ap = rv?.approval;
+  // The provider cancelled it (cancel.mjs); older rows carry the earlier `cancelled` record.
+  const cx = rv?.cancellation ? { at: rv.cancellation.receivedAt, matchedBy: rv.cancellation.matchedBy } : rv?.cancelled ?? null;
   if (!n) return <div style={{ ...CARD, padding: "16px 18px", fontSize: 13, color: C.muted }}>No notification is stored for this request.</div>;
   const approval = (
     <div style={{ borderTop: `1px solid ${C.divider}`, padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -76,14 +78,14 @@ export function NotificationCard({ detail, compact = false }: { detail: RequestD
         {lk?.nextAt && !lk.found && <div style={{ fontSize: 12.5, color: C.muted }}>Next look-up at <span style={mono({ fontSize: 12 })}>{hmZ(lk.nextAt)}</span>. A record can appear in the portal days after its quote date.</div>}
       </div>
 
-      {((rv?.updates ?? []).length > 0 || (rv?.copies ?? 0) > 0 || rv?.cancelled) && (
+      {((rv?.updates ?? []).length > 0 || (rv?.copies ?? 0) > 0 || cx) && (
         <div style={{ borderTop: `1px solid ${C.divider}`, padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
           <span style={EYEBROW}>From the provider since</span>
           {(rv?.updates ?? []).map((u, i) => (
             <div key={i} style={{ fontSize: 13, lineHeight: 1.5, color: C.body }}><span style={mono({ fontSize: 12 })}>{dayTimeZ(u.at)}</span> · Update{u.sequence != null ? ` (sequence ${u.sequence})` : ""}: {u.changes.length ? u.changes.join("; ") : "re-sent, the lines are the same"} <span style={{ color: C.muted }}>· matched by {u.matchedBy}</span></div>
           ))}
           {(rv?.copies ?? 0) > 0 && <div style={{ fontSize: 13, color: C.body }}>{rv?.copies} further cop{rv?.copies === 1 ? "y" : "ies"} of the same notification arrived.</div>}
-          {rv?.cancelled && <div style={{ fontSize: 13, fontWeight: 600, color: C.danger }}><span style={mono({ fontSize: 12 })}>{dayTimeZ(rv.cancelled.at)}</span> · Cancelled by the provider <span style={{ color: C.muted, fontWeight: 400 }}>· matched by {rv.cancelled.matchedBy}</span></div>}
+          {cx && <div style={{ fontSize: 13, fontWeight: 600, color: C.danger }}><span style={mono({ fontSize: 12 })}>{dayTimeZ(cx.at)}</span> · Cancelled by the provider <span style={{ color: C.muted, fontWeight: 400 }}>· matched by {cx.matchedBy}</span></div>}
         </div>
       )}
     </div>

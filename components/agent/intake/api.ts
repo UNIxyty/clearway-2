@@ -48,13 +48,18 @@ export type RequestDetail = {
     // Type 1 (scheduled flight): the provider's notification and the look-ups of its reference. No legs: they are the provider's record, not this message.
     kind?: "notification"; notification?: Notification; lookup?: { attempts: { at: string; state: "found" | "not_found" | "unavailable"; why: string | null; listed: number | null; by: string | null }[]; nextAt: string | null; found?: { at: string; row: { quote: string; quoteDate: string; flightDate: string; aircraft: string; typeCode: string } } };
     // E1: the question to ops and its answer (tokens are hashes; never shown).
+    // Type 1: the provider cancelled a flight we know (cancel.mjs). legs = what Leon held when it arrived.
+    cancellation?: { receivedAt: string; messageId: string; matchedBy: string; uidDiffers: boolean; case: string;
+      legs?: { index: number; flightNid: string; std: string | null; departed: boolean; alreadyCancelled: boolean }[];
+      approval?: { askedAt: string; deadlineAt: string; to: string[]; answer: { value: "yes" | "no"; by: string; at: string; how: string } | null; expiredNoted?: string } | null;
+      outcome?: { at: string; by: string; legs: { index: number; flightNid: string; state: string; error?: string; already?: boolean }[] } | null } | null;
     approval?: { askedAt: string; deadlineAt: string; to: string[]; answer: { value: "yes" | "no"; by: string; at: string; how: string } | null; late?: { at: string; value: string; by: string; how: string }[] } | null;
     // The portal record the legs were read from (non-personal values only).
     record?: { quote: string; quoteDate: string | null; flightDate: string | null; registration: string | null; aircraftName: string | null; cabinConfig: string | null; seats: string | null; crewLinesFilled: number; paxRows: number; totalEstimatedHours: string | null; readAt: string } | null;
     updates?: { at: string; sequence: number | null; changes: string[]; matchedBy: string }[]; copies?: number; cancelled?: { at: string; matchedBy: string } } | null;
   blockers: string[]; warnings: string[];
   attachments: AttachmentRole[]; requestSource: { attachment: string | null; attachmentId: string | null; why: string; by?: string | null } | null;
-  sent: { writes: Write[]; firstAt: string | null; lastMs: number | null; people?: PeopleWrite[] };
+  sent: { writes: Write[]; firstAt: string | null; lastMs: number | null; people?: PeopleWrite[]; cancels?: { leg: number; state: string; flightNid: string | null; error: string | null; at: string; updatedAt: string; by: string | null }[] };
   checklistPlan: { leg: number; plan: ChecklistItem[]; skipped: { serviceId: string; name: string; why: string }[]; note: { text: string; lines: unknown[]; remarks: unknown[]; parties: unknown[] } }[];
   extractions: { id: string; version: number; model: string; at: string; by: string; tokens: number }[];
   emails: { id: string; kind: string; subject: string; at: string; to: string[]; delivery: string | null }[];
@@ -99,6 +104,7 @@ export const intakeApi = {
   lookup: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/lookup`, { json: {} }),
   approve: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/approve`, { json: {} }),
   decline: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/decline`, { json: {} }),
+  cancelAnswer: (id: string, yes: boolean) => call<RequestDetail>(`/api/intake/requests/${id}/cancel-${yes ? "approve" : "decline"}`, { json: {} }),
   edit: (id: string, body: Record<string, unknown>) => call<RequestDetail>(`/api/intake/requests/${id}/edit`, { json: body }),
   reprocess: (id: string, attachmentId?: string | null) => call<RequestDetail>(`/api/intake/requests/${id}/reprocess`, { json: { attachmentId: attachmentId ?? null } }),
   people: (id: string) => call<People>(`/api/intake/requests/${id}/people`),

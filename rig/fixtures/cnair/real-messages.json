@@ -19,6 +19,7 @@
     "The crew keys are #1º: and #2º: (with the ordinal), not #1: / #2:.",
     "#Pax is one count per leg in leg order (0/5/5 on the three-leg trip); #ETD is one HH:MM:SS-ICAO per leg in the same order.",
     "The appointment's start is the first ETD read as Europe/Madrid local time; its end does not follow any one rule (the last ETD taken as UTC in two cases, 20:51Z in another). Calendar times are never used for the flight.",
-    "No SEQUENCE is visible in a .msg; whether Zimbra sends updates with the same UID and a higher SEQUENCE is still unknown (no real update has been seen)."
+    "No SEQUENCE is visible in a .msg; whether Zimbra sends updates with the same UID and a higher SEQUENCE is still unknown (no real update has been seen).",
+    "2026-10-08, the first real message through Resend (LEBL-LPFR-LEBL, #Ref 2610228, uid 6b65d09f-e212-4884-985d-707dea56b4e2, IPM.Schedule.Meeting.Request, crew lines #1º and #2º filled, #TCP empty, #Pax 0/4, #ETD 17:45:00-LEBL 19:00:00-LPFR, #DATE 17/10/26, #Cliente (Intracomunitario Pasaje)). It arrived as an Outlook FORWARD of the appointment: the text part had each key alone on a line with its value two lines below (the HTML part is a table), the Where: line carried the keys run together and cut short at #Otros, and the calendar LOCATION carried the provider's padded copy. The º arrived as U+FFFD. The .msg export's body has a third layout (a run of spaces after each colon). Fixtures: forward-2610228.eml (redacted delivered copy), invite-request-2610228.eml."
   ]
 }

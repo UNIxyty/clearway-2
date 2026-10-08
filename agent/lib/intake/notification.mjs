@@ -11,9 +11,9 @@
 //
 // One-shot, on purpose: a schedule arrives, is approved, is loaded, done. Changes the provider makes after the
 // import are NOT detected (no re-reading, no polling); the request page and the completion email say so. The
-// linking of a later invite with the same calendar UID (update / copy / cancellation) is kept from before and is
-// still UNVERIFIED against real mail: it was built on fictional invites (rig/fixtures/cnair/invite-*.eml), and
-// whether a real Exchange invite keeps its calendar part through Resend is not proven.
+// linking of a later message (update / copy / cancellation) goes by reference first, the calendar UID as a
+// cross-check. A real invite has come through Resend (2026-10-08, an Outlook forward: its calendar part survived);
+// a real UPDATE and a real cancellation through Resend have not been seen yet. Cancellations: cancel.mjs.
 //
 // Confirm, Leon payload, send, checklist and the completion email are the type 2 path (send.mjs): one write path.
 import { createHash, randomBytes } from "node:crypto";
@@ -25,23 +25,24 @@ import { readPortal, lookupState } from "./providers/cnair.mjs";
 import { normalise, enforce } from "./extract.mjs";
 import { reviewFromExtraction } from "./review.mjs";
 import { checklistDefinitions } from "./leon-lookup.mjs";
+import { handleCancellation, peekCancel, recordCancelAnswer, cancelDeadlines } from "./cancel.mjs";
 import { composeProcess, composeProcessAnswered, composeProcessExpired, composeProcessUnclear, composeReview, composeStopped, sendIntakeEmail, notifyTo, consoleBase } from "./notify.mjs";
 
 /** Minutes after the first look-up at which it is tried again; then a person is asked. */
 const schedule = () => { const env = String(process.env.INTAKE_LOOKUP_SCHEDULE_MIN ?? "").split(",").map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n >= 0); return env.length ? env : [0, 15, 60, 180, 360, 720, 1440]; };
 /** How long ops have to answer E1. */
-const approvalHours = () => { const n = Number(process.env.INTAKE_APPROVAL_HOURS); return Number.isFinite(n) && n > 0 ? n : 4; };
+export const approvalHours = () => { const n = Number(process.env.INTAKE_APPROVAL_HOURS); return Number.isFinite(n) && n > 0 ? n : 4; };
 /** Aircraft model names as the portal writes them → ICAO type. Anything else blocks; the agent never guesses a type. */
 export const AIRCRAFT_TYPES = { "citation cj4": "C25C", "cessna citation cj4": "C25C", "citation cj4 gen2": "C25C", "cj4": "C25C" };
-const hm = (iso) => `${new Date(iso).toISOString().slice(11, 16)}Z`;
+export const hm = (iso) => `${new Date(iso).toISOString().slice(11, 16)}Z`;
 const span = (min) => (min >= 60 ? `${Math.round(min / 60)} h` : `${Math.round(min)} min`);
-const patchRequest = (id, patch) => rest(`intake_requests?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }) });
-const patchMessage = (id, patch) => rest(`intake_messages?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
-const loadRequest = async (id) => (await rest(`intake_requests?select=*&id=eq.${id}`))?.[0];
-const routeText = (n) => (n?.route ?? []).join(" → ");
+export const patchRequest = (id, patch) => rest(`intake_requests?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }) });
+export const patchMessage = (id, patch) => rest(`intake_messages?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+export const loadRequest = async (id) => (await rest(`intake_requests?select=*&id=eq.${id}`))?.[0];
+export const routeText = (n) => (n?.route ?? []).join(" → ");
 const checksOf = (decision) => (decision?.evidence ?? []).filter((e) => e.test !== "hint" || e.found).map((e) => [({ reference: "Provider reference", block: "Notification block", calendar: "Calendar part", subject: "Subject", sender: "Sender", asks: "Asks us for something", schedule: "Own schedule", reading: "The agent's reading" })[e.signal] ?? e.signal, e.found ? "yes" : "none", e.detail]);
 const sha = (s) => createHash("sha256").update(s).digest("hex");
-const stagesOf = (r) => (r.stages?.length ? r.stages : freshStages("scheduled")).map((s) => ({ ...s }));
+export const stagesOf = (r) => (r.stages?.length ? r.stages : freshStages("scheduled")).map((s) => ({ ...s }));
 const isExpired = (r) => r.status === "closed" && r.closed_reason === "expired";
 
 /**
@@ -82,23 +83,15 @@ export async function handleNotification({ message, signals, decision, senderNam
   const search = `${message.from_addr ?? ""}\n${message.subject ?? ""}\n${ref ?? ""}\n${(n.route ?? []).join(" ")}`;
   const found = await findExisting(message, n);
 
-  // ── A cancellation (unverified against real mail) ─────────────────────────────────────────────────────────
+  // ── A cancellation: the calendar METHOD is the test (the subject prefix and body line are evidence only) ─────────────────────────────────────────────────────────
   if (method === "CANCEL") {
     if (!found) {
       await patchMessage(message.id, { status: "not_recognised", status_reason: `A cancellation for ${ref}, but the agent has no request for it`, search_text: search,
         understood: { ...base, kind: "notrec", title: `Needs a decision: a cancellation for ${provider} reference ${ref}, which the agent has no request for`, body: "If that flight is in Leon, it may need cancelling there. The agent did nothing.", hint: "Check Leon for this flight, then mark this message as ignored." } });
       return { cancellation: true, requestId: null };
     }
-    const r = found.request; const review = r.review ?? {};
-    const inLeon = (await rest(`intake_leon_writes?select=leg_index&request_id=eq.${r.id}&state=in.(in_leon,sending,unknown)`)) ?? [];
-    const stages = stagesOf(r);
-    review.cancelled = { at: classification.at, messageId: message.id, matchedBy: found.by };
-    if (inLeon.length) { setStage(stages, "Collecting data", "hold", `Cancelled by the provider. ${inLeon.length} leg${inLeon.length === 1 ? " is" : "s are"} in Leon (or may be): cancel ${inLeon.length === 1 ? "it" : "them"} there.`); await patchRequest(r.id, { status: "needs_you", status_reason: "Cancelled by the provider · legs are in Leon", stages, review }); }
-    else { setStage(stages, "Confirmation received", "skip", "Cancelled by the provider before anything was loaded."); setStage(stages, "Collecting data", "skip", null); await patchRequest(r.id, { status: "closed", closed_reason: "cancelled", status_reason: "Cancelled by the provider", stages, review }); }
-    await patchMessage(message.id, { status: "processed", status_reason: `Cancellation of ${ref}`, request_id: r.id, search_text: search,
-      understood: { ...base, kind: "processed", title: `A cancellation of flight notification ${ref}`, body: inLeon.length ? "The flight is in Leon: a person must cancel it there." : "Nothing had been loaded, so the request was closed as cancelled.", refState: inLeon.length ? "Needs you" : "Cancelled" } });
-    await audit({ kind: "intake.notification_cancelled", success: true, confirmationStatus: "not_required", detail: { requestId: r.id, messageId: message.id, matchedBy: found.by, inLeon: inLeon.length } }).catch(() => {});
-    return { cancellation: true, requestId: r.id };
+    // Matched: which case it is, and (when Leon has flights to cancel) the "Cancel in Leon?" question — cancel.mjs.
+    return handleCancellation({ message, n, found, base, search, provider });
   }
 
   // ── An update to, or another copy of, a request we already have (unverified against real mail) ───────────
@@ -145,12 +138,13 @@ export async function handleNotification({ message, signals, decision, senderNam
 
 // ── 2. E1: does this schedule need processing? ───────────────────────────────────────────────────────────────
 /** One pair of single-use links per recipient, bound to the request, the recipient and the answer; only hashes are stored. */
-function issueTokens(requestId, recipient) {
-  const to = String(recipient).toLowerCase(); const tokens = []; const links = {};
+// `question`: "process" (E1, the original) or "cancel" (the same email and page asking "Cancel in Leon?").
+export function issueTokens(requestId, recipient, question = "process") {
+  const to = String(recipient).toLowerCase(); const tokens = []; const links = {}; const q = question === "cancel" ? ":cancel" : "";
   for (const answer of ["yes", "no"]) {
     const secret = randomBytes(18).toString("base64url");
-    tokens.push({ h: sha(`${requestId}:${to}:${answer}:${secret}`), to, answer });
-    links[answer] = `${consoleBase()}/intake/answer?t=${Buffer.from(`${requestId}:${to}:${answer}:${secret}`).toString("base64url")}`;
+    tokens.push({ h: sha(`${requestId}:${to}:${answer}:${secret}${q}`), to, answer });
+    links[answer] = `${consoleBase()}/intake/answer?t=${Buffer.from(`${requestId}:${to}:${answer}:${secret}${q}`).toString("base64url")}`;
   }
   return { tokens, links };
 }
@@ -179,16 +173,17 @@ export async function askOps(requestId) {
 }
 
 /** Parses an answer-page token. → { requestId, to, answer, secret } or null. */
-export function parseToken(t) { try { const [requestId, to, answer, secret] = Buffer.from(String(t ?? ""), "base64url").toString("utf8").split(":"); return /^[0-9a-f-]{36}$/.test(requestId ?? "") && to && (answer === "yes" || answer === "no") && secret ? { requestId, to, answer, secret } : null; } catch { return null; } }
-const tokenValid = (p, approval) => !!approval?.tokens?.some((x) => x.h === sha(`${p.requestId}:${p.to.toLowerCase()}:${p.answer}:${p.secret}`));
+export function parseToken(t) { try { const [requestId, to, answer, secret, q] = Buffer.from(String(t ?? ""), "base64url").toString("utf8").split(":"); return /^[0-9a-f-]{36}$/.test(requestId ?? "") && to && (answer === "yes" || answer === "no") && secret && (!q || q === "cancel") ? { requestId, to, answer, secret, question: q ? "cancel" : "process" } : null; } catch { return null; } }
+const tokenValid = (p, approval) => !!approval?.tokens?.some((x) => x.h === sha(`${p.requestId}:${p.to.toLowerCase()}:${p.answer}:${p.secret}${p.question === "cancel" ? ":cancel" : ""}`));
 
 /** What the answer page shows before the tap: the question and the answer this link carries. Never personal data. */
 export async function peekAnswer(t) {
   const p = parseToken(t); if (!p) return { state: "invalid" };
-  const r = await loadRequest(p.requestId); const a = r?.review?.approval;
+  const r = await loadRequest(p.requestId); const a = p.question === "cancel" ? r?.review?.cancellation?.approval : r?.review?.approval;
   if (!r || !tokenValid(p, a)) return { state: "invalid" };
   const n = r.review.notification ?? {};
-  const summary = { reference: r.reference, route: routeText(n) || r.route || null, date: n.date ?? null, legs: r.legs_count, provider: n.providerName ?? "the provider", deadlineAt: a.deadlineAt, requestId: r.id };
+  const summary = { reference: r.reference, route: routeText(n) || r.route || null, date: n.date ?? null, legs: r.legs_count, provider: n.providerName ?? "the provider", deadlineAt: a.deadlineAt, requestId: r.id, question: p.question };
+  if (p.question === "cancel") return peekCancel(r, p, summary);
   if (a.answer) return { state: "already", answer: p.answer, answered: { value: a.answer.value, by: a.answer.by, at: a.answer.at }, ...summary };
   if (isExpired(r)) return { state: "expired", answer: p.answer, ...summary };
   if (r.status !== "awaiting_approval") return { state: "already", answer: p.answer, answered: { value: r.status === "closed" ? "no" : "yes", by: "the intake page", at: r.updated_at }, ...summary };
@@ -198,7 +193,7 @@ export async function peekAnswer(t) {
 export async function answerByToken(t) {
   const peek = await peekAnswer(t); if (peek.state !== "open") return peek;
   const p = parseToken(t);
-  const out = await recordAnswer(p.requestId, { value: p.answer, by: p.to, how: "answer page" });
+  const out = await (p.question === "cancel" ? recordCancelAnswer : recordAnswer)(p.requestId, { value: p.answer, by: p.to, how: "answer page" });
   return out.state === "recorded" ? { ...peek, state: "recorded" } : { ...peek, state: out.state, answered: out.answered ?? null };
 }
 
@@ -243,24 +238,29 @@ const YES = /^(yes|y|yep|yeah|ok|okay|approve[d]?|process( it)?|go( ahead)?|sure
 const NO = /^(no|n|nope|skip( it)?|decline[d]?|don'?t|do not|nē|нет)\b/i;
 /** An email reply to E1. Returns null when the message is not such a reply; otherwise the reply never becomes a request. */
 export async function handleApprovalReply(message, parsed) {
-  const m = /\bProcess\?\s+(\d{6,8})\b/.exec(String(message.subject ?? "")); if (!m) return null;
-  const r = (await rest(`intake_requests?select=*&request_type=eq.scheduled&reference=eq.${m[1]}&order=created_at.desc&limit=1`))?.[0];
+  const m = /\b(Process|Cancel in Leon)\?\s+(\d{6,8})\b/.exec(String(message.subject ?? "")); if (!m) return null;
+  const cancelQ = m[1] === "Cancel in Leon";
+  const r = cancelQ
+    ? (await rest(`intake_requests?select=*&request_type=eq.scheduled&reference=eq.${m[2]}&order=created_at.desc&limit=20`))?.find((x) => x.review?.cancellation?.approval) ?? null
+    : (await rest(`intake_requests?select=*&request_type=eq.scheduled&reference=eq.${m[2]}&order=created_at.desc&limit=1`))?.[0];
   if (!r) return null;
   const from = String(parsed.from?.value?.[0]?.address ?? "").toLowerCase();
   const allowed = (await notifyTo()).map((x) => x.toLowerCase());
   const first = String(parsed.text ?? "").split(/\r?\n/).map((l) => l.trim()).find((l) => l && !l.startsWith(">") && !/^(on .* wrote:|from:|sent:|to:|subject:|-{3,}|_{3,})/i.test(l)) ?? "";
   const value = YES.test(first) ? "yes" : NO.test(first) ? "no" : null;
-  const link = (kind, title, body) => patchMessage(message.id, { status: "reply", status_reason: title, request_id: r.id, search_text: `${from}\n${message.subject ?? ""}\n${r.reference}`, understood: { kind, title, body, ref: r.reference, checks: [["Reply to", "yes", `Process? ${r.reference}`], ["From a notification address", allowed.includes(from) ? "yes" : "no", allowed.includes(from) ? from : "Only the addresses that received the question can answer by email"], ["Answer", value ? "yes" : "none", value ? `“${first.slice(0, 40)}” read as ${value}` : `“${first.slice(0, 60)}” is not a yes or a no`]] } });
+  const link = (kind, title, body) => patchMessage(message.id, { status: "reply", status_reason: title, request_id: r.id, search_text: `${from}\n${message.subject ?? ""}\n${r.reference}`, understood: { kind, title, body, ref: r.reference, checks: [["Reply to", "yes", `${cancelQ ? "Cancel in Leon?" : "Process?"} ${r.reference}`], ["From a notification address", allowed.includes(from) ? "yes" : "no", allowed.includes(from) ? from : "Only the addresses that received the question can answer by email"], ["Answer", value ? "yes" : "none", value ? `“${first.slice(0, 40)}” read as ${value}` : `“${first.slice(0, 60)}” is not a yes or a no`]] } });
   if (!allowed.includes(from)) { await link("replybad", "Reply not from a notification address", "The answer was not applied. Only the addresses that received the “Process?” email can answer by email."); return { reply: true, applied: false }; }
   if (!value) {
     await link("replybad", "Reply not understood: was that a yes or a no?", "The agent did nothing with it and asked again (E1c).");
-    if (r.status === "awaiting_approval") { const links = await reissue(r.id, from); if (links) await sendIntakeEmail(r, composeProcessUnclear(r, (await loadRequest(r.id)).review ?? {}, { quoted: first, links }), { to: [from] }).catch(() => {}); }
+    if (!cancelQ && r.status === "awaiting_approval") { const links = await reissue(r.id, from); if (links) await sendIntakeEmail(r, composeProcessUnclear(r, (await loadRequest(r.id)).review ?? {}, { quoted: first, links }), { to: [from] }).catch(() => {}); }
+    if (cancelQ && r.review?.cancellation?.approval && !r.review.cancellation.approval.answer) { const issued = issueTokens(r.id, from, "cancel"); const rr = await loadRequest(r.id); rr.review.cancellation.approval.tokens.push(...issued.tokens); await patchRequest(r.id, { review: rr.review }); await sendIntakeEmail(r, composeProcessUnclear(r, rr.review, { quoted: first, links: issued.links, question: "cancel" }), { to: [from] }).catch(() => {}); }
     return { reply: true, applied: false };
   }
-  const out = await recordAnswer(r.id, { value, by: from, how: "email reply" });
-  if (out.state === "already") { await link("reply", `Reply read as ${value}, but ${r.reference} was already answered`, `${out.answered?.by ?? "someone"} answered ${out.answered?.value ?? "?"} at ${out.answered?.at ? hm(out.answered.at) : "?"}. This reply changed nothing.`); if (out.answered) await sendIntakeEmail(r, composeProcessAnswered(r, r.review ?? {}, out.answered), { to: [from] }).catch(() => {}); }
-  else if (out.state === "expired") { await link("reply", `Reply read as ${value}, but ${r.reference} had expired`, "Nothing was created; the late answer was not acted on. The request is on the intake page, where anyone can still process it."); await sendIntakeEmail(r, composeProcessExpired(r, r.review ?? {}), { to: [from] }).catch(() => {}); }
-  else await link("reply", `Reply read as ${value} · applied to ${r.reference}`, value === "yes" ? "Approved: the record is being read from the provider's portal." : "Declined: the request is closed. Nothing was created.");
+  const out = await (cancelQ ? recordCancelAnswer : recordAnswer)(r.id, { value, by: from, how: "email reply" });
+  const qArg = cancelQ ? { question: "cancel" } : {};
+  if (out.state === "already") { await link("reply", `Reply read as ${value}, but ${r.reference} was already answered`, `${out.answered?.by ?? "someone"} answered ${out.answered?.value ?? "?"} at ${out.answered?.at ? hm(out.answered.at) : "?"}. This reply changed nothing.`); if (out.answered) await sendIntakeEmail(r, composeProcessAnswered(r, r.review ?? {}, out.answered, qArg), { to: [from] }).catch(() => {}); }
+  else if (out.state === "expired") { await link("reply", `Reply read as ${value}, but ${r.reference} had expired`, cancelQ ? "Nothing was cancelled; the late answer was not acted on. Decide on the intake page." : "Nothing was created; the late answer was not acted on. The request is on the intake page, where anyone can still process it."); await sendIntakeEmail(r, composeProcessExpired(r, r.review ?? {}, qArg), { to: [from] }).catch(() => {}); }
+  else await link("reply", `Reply read as ${value} · applied to ${r.reference}`, cancelQ ? (value === "yes" ? "Approved: the flights are being cancelled in Leon." : "Declined: nothing is touched in Leon.") : value === "yes" ? "Approved: the record is being read from the provider's portal." : "Declined: the request is closed. Nothing was created.");
   return { reply: true, applied: out.state === "recorded", value };
 }
 
@@ -290,14 +290,22 @@ export function extractionFromRecord(record) {
   return { requestType: "scheduled", whyType: "A CNAIR flight notification; the record was read from the portal.", reference: F(record.quote, `Quote Nº ${record.quote}`), requester: { company: F("CNAIR", "CNAIR"), contact: F(null, null) }, operator: F(null, null), legs, notes: [], attachments: [], requestSource: { attachment: null, why: `Record ${record.quote} in the CNAIR portal, read at ${hm(record.readAt)}.` }, conflicts: [], personal: { people: [] }, typeConfidence: 1, ask: { said: null, source: null } };
 }
 /** After normalise: the computed arrival is CONVERTED, an unknown aircraft name blocks, the gaps are required. */
-function markDerived(x, record) {
+function markDerived(x, record, notification = {}) {
   const name = String(record.aircraftName ?? "").trim();
   x.legs.forEach((leg, i) => {
     const l = record.legs[i];
     if (leg.sta?.value?.utc && leg.sta.state !== "conflict" && leg.sta.state !== "invalid") { leg.sta.state = "converted"; leg.sta.note = `Computed by code: Z departure ${l.zTime.slice(0, 5)} + ${l.estHours} h (Estimated Hours) → ${leg.sta.value.utc.slice(11, 16)}Z${leg.sta.value.utc.slice(0, 10) !== leg.std?.value?.utc?.slice(0, 10) ? ", the next day" : ""}. The portal gives no arrival time.`; }
     if (!leg.aircraftType?.value) { leg.aircraftType = { ...leg.aircraftType, value: null, state: "invalid", note: name ? `The portal calls it “${name}”, which is not in the agent's list of aircraft names. Enter the ICAO type; the agent does not guess.` : "The portal gives no aircraft type. Enter the ICAO type." }; }
     else if (leg.aircraftType.state === "extracted" || leg.aircraftType.state === "converted") { leg.aircraftType.state = "converted"; leg.aircraftType.note = `“${name}” → ${leg.aircraftType.value} (the agent's list of aircraft names)`; }
-    if (leg.crewCount) { leg.crewCount.state = "not_given"; leg.crewCount.note = "The portal has no crew count (it names a captain and a first officer). Enter it."; }
+    // Crew: the portal holds no crew count; the notification's crew lines do. #1º and #2º (captain, first officer) are
+    // counted when filled. #TCP is most likely cabin crew (Tripulante de Cabina de Pasajeros), but whether and how it
+    // counts is not settled with CNAIR: a filled #TCP stops for a person, it is never counted or ignored silently.
+    if (leg.crewCount) {
+      const c = notification.crewLines;
+      if (c?.tcp) { leg.crewCount = { ...leg.crewCount, value: null, state: "not_given", note: "The notification's #TCP line (probably cabin crew) is filled. Whether it adds to the crew count is not settled with CNAIR, so the agent does not count it. Enter the crew count." }; }
+      else if (c && (c.first || c.second)) { const n = (c.first ? 1 : 0) + (c.second ? 1 : 0); leg.crewCount = { ...leg.crewCount, value: n, said: `#1º ${c.first ? "filled" : "empty"} · #2º ${c.second ? "filled" : "empty"} · #TCP empty`, source: "the notification's crew lines", state: "converted", note: `Counted from the notification: ${n} crew line${n === 1 ? "" : "s"} filled (#1º, #2º); #TCP empty. The portal has no crew count.` }; }
+      else { leg.crewCount.state = "not_given"; leg.crewCount.note = "Neither the portal nor the notification gives a crew count (no #1º / #2º line filled). Enter it."; }
+    }
   });
   return x;
 }
@@ -321,7 +329,7 @@ export async function collect(requestId, { manual = false, actor = null } = {}) 
     if (res.state === "found" && res.record) {
       lookup.found = { at, row: res.row, fingerprint: res.record.fingerprint }; lookup.nextAt = null;
       let x = enforce(await normalise(extractionFromRecord(res.record)));
-      x = markDerived(x, res.record);
+      x = markDerived(x, res.record, n);
       const prev = (await rest(`intake_extractions?select=version&request_id=eq.${r.id}&order=version.desc&limit=1`))?.[0]?.version ?? 0;
       const ex = (await rest("intake_extractions", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify([{ request_id: r.id, version: prev + 1, model_id: "portal:cnair", model_tier: "none", input_tokens: 0, output_tokens: 0, fields: (({ personal, ...f }) => f)(x), personal: null, created_by: actor?.email ?? "intake" }]) }))?.[0];
       const defs = await checklistDefinitions().catch(() => []);
@@ -331,7 +339,7 @@ export async function collect(requestId, { manual = false, actor = null } = {}) 
         record: { quote: res.record.quote, quoteDate: res.record.quoteDate, flightDate: res.record.flightDate, registration: res.record.registration, aircraftName: res.record.aircraftName, cabinConfig: res.record.cabinConfig, seats: res.record.seats, crewLinesFilled: res.record.crewLinesFilled, paxRows: res.record.paxRows, totalEstimatedHours: res.record.totalEstimatedHours, readAt: res.record.readAt } });
       const legsN = rv.legs.length;
       setStage(stages, "Collecting data", "done", `Record ${r.reference} read from the ${provider} portal (flight date ${res.record.flightDate}, ${res.record.registration}, ${res.record.aircraftName ?? "type not named"})${events.some((e) => e.event === "signout") ? " · signed out" : ""}.`);
-      setStage(stages, "Data collected", "done", `${legsN} leg${legsN === 1 ? "" : "s"} · arrival times computed from Estimated Hours · crew count, passengers and services are not in the portal`);
+      setStage(stages, "Data collected", "done", `${legsN} leg${legsN === 1 ? "" : "s"} · arrival times computed from Estimated Hours · ${n.crewLines?.tcp ? "#TCP is filled: crew count left to a person" : n.crewLines && (n.crewLines.first || n.crewLines.second) ? "crew count from the notification's #1º / #2º lines" : "no crew count in the portal or the notification"} · passenger names and services are not in the portal`);
       let duplicate = null; try { duplicate = await findDuplicates(rv, r.reference, r.id); } catch (e) { duplicate = { error: `Could not check Leon for duplicates: ${String(e.message).slice(0, 160)}` }; }
       const route = rv.legs.map((l, i) => { const f = Object.fromEntries(l.fields.map((y) => [y.key, y])); return i === 0 ? `${f.departure?.value} → ${f.arrival?.value}` : ` → ${f.arrival?.value}`; }).join("");
       const firstStd = rv.legs.map((l) => l.fields.find((f) => f.key === "std")?.utc).filter(Boolean).sort()[0] ?? null;
@@ -340,11 +348,11 @@ export async function collect(requestId, { manual = false, actor = null } = {}) 
       else if (duplicate?.error) { duplicate = null; }
       await patchRequest(r.id, { status, status_reason: reason, stages, review: rv, current_extraction_id: ex?.id ?? null, duplicate, duplicate_resolution: null, route, registration: res.record.registration ?? null, first_std: firstStd, legs_count: legsN });
       // Step 5: ops are told to come and confirm.
-      const mail = status === "needs_you" ? composeStopped(r, { title: "A scheduled flight may already be in Leon", subject: "possible duplicate, nothing created", what: stages.find((s) => s.name === "Review requested")?.note ?? "", stage: "Stopped before review (stage 6 of 12)." }) : composeReview({ ...r, request_type: "scheduled" }, rv, { receivedAt: r.created_at });
+      const mail = status === "needs_you" ? composeStopped(r, { title: "A scheduled flight may already be in Leon", subject: "possible duplicate, nothing created", what: stages.find((s) => s.name === "Review requested")?.note ?? "", stage: "Stopped before review (stage 6 of 13)." }) : composeReview({ ...r, request_type: "scheduled" }, rv, { receivedAt: r.created_at });
       const sent = await sendIntakeEmail(r, mail).catch((e) => ({ ok: false, error: e.message }));
       const s2 = (await loadRequest(r.id)).stages;
       setStage(s2, "Review requested", sent.ok ? "done" : "fail", sent.ok ? `${mail.kind.split(" · ")[0]} email ${sent.mode === "capture" ? "captured (not sent)" : "sent"} to ${sent.to.length} address${sent.to.length === 1 ? "" : "es"}: open Flight intake and confirm` : `Email not sent: ${sent.error}`);
-      if (status === "needs_review") setStage(s2, "Reviewed and confirmed", "wait", "Waiting for someone to check the values, fill the gaps, choose the services and confirm.");
+      if (status === "needs_review") setStage(s2, "Reviewed and confirmed", "wait", "Waiting for someone to check the values, fill any gap and confirm.");
       await patchRequest(r.id, { stages: s2 });
       await audit({ kind: "intake.portal_collected", success: true, confirmationStatus: "not_required", detail: { requestId: r.id, legs: legsN, attempt } }).catch(() => {});
       return { state: "collected", legs: legsN };
@@ -357,13 +365,13 @@ export async function collect(requestId, { manual = false, actor = null } = {}) 
       lookup.nextAt = new Date(first + nextOffset * 60000).toISOString();
       setStage(stages, "Collecting data", "prog", `${res.state === "not_found" ? `${r.reference} is not in the ${provider} portal yet` : `The portal could not be read (${res.why})`}. Try ${attempt} of ${sched.length}; next at ${hm(lookup.nextAt)}.`);
       patch = { status: "collecting", status_reason: res.state === "not_found" ? "Approved · reference not in the portal yet, will look again" : "Approved · provider portal not readable, will try again" };
-      if (res.structural) alert = { title: "The provider's portal is not what the agent expects", subject: "portal screen changed, nothing read", what: res.why, stage: `Collecting data (stage 4 of 12), try ${attempt} of ${sched.length}. The import was refused: nothing is read from a screen the agent does not recognise.` };
+      if (res.structural) alert = { title: "The provider's portal is not what the agent expects", subject: "portal screen changed, nothing read", what: res.why, stage: `Collecting data (stage 4 of 13), try ${attempt} of ${sched.length}. The import was refused: nothing is read from a screen the agent does not recognise.` };
     } else {
       lookup.nextAt = null;
       const over = span(sched[Math.min(attempt, sched.length) - 1] ?? 0);
       setStage(stages, "Collecting data", "fail", res.state === "not_found" ? `${r.reference} was not found in the ${provider} portal after ${attempt} ${attempt === 1 ? "try" : `tries over ${over}`}. A person decides: it may appear later, or the reference may be wrong.` : `The ${provider} portal could not be read after ${attempt} ${attempt === 1 ? "try" : "tries"}: ${res.why}`);
       patch = { status: "needs_you", status_reason: res.state === "not_found" ? "Reference not found in the provider's portal" : "Provider portal could not be read" };
-      alert = { title: res.state === "not_found" ? "A scheduled flight could not be found in the portal" : "The provider's portal could not be read", subject: res.state === "not_found" ? "reference not found, nothing created" : "portal not readable, nothing created", what: stages.find((s) => s.name === "Collecting data")?.note ?? "", stage: `Collecting data (stage 4 of 12), ${attempt} ${attempt === 1 ? "try" : "tries"}.` };
+      alert = { title: res.state === "not_found" ? "A scheduled flight could not be found in the portal" : "The provider's portal could not be read", subject: res.state === "not_found" ? "reference not found, nothing created" : "portal not readable, nothing created", what: stages.find((s) => s.name === "Collecting data")?.note ?? "", stage: `Collecting data (stage 4 of 13), ${attempt} ${attempt === 1 ? "try" : "tries"}.` };
     }
     review.lookup = lookup;
     await patchRequest(r.id, { ...patch, stages, review });
@@ -398,6 +406,7 @@ export function startLookupTicker() {
         await patchRequest(r.id, { stages, status: "closed", closed_reason: "expired", status_reason: `No answer by ${hm(d)} · nothing created` });
         await audit({ kind: "intake.approval_expired", success: true, confirmationStatus: "not_required", detail: { requestId: r.id, deadlineAt: d } }).catch(() => {});
       }
+      await cancelDeadlines().catch(() => {});
     } finally { busy = false; }
   };
   setInterval(tick, 30000).unref(); void tick();

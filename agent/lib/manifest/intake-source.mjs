@@ -15,7 +15,7 @@ import { peopleForLeg } from "../intake/leon-people.mjs";
  */
 export async function intakeRecordFor(oprId, nid) {
   if (String(oprId) !== leonOperator()) return null; // the intake writes to one Leon account only
-  const w = (await rest(`intake_leon_writes?select=request_id,leg_index&leon_flight_nid=eq.${Number(nid)}&state=eq.in_leon&order=updated_at.desc&limit=1`))?.[0];
+  const w = (await rest(`intake_leon_writes?select=request_id,leg_index&leon_flight_nid=eq.${Number(nid)}&action=eq.create&state=eq.in_leon&order=updated_at.desc&limit=1`))?.[0];
   if (!w) return null;
   const r = (await rest(`intake_requests?select=id,reference,current_extraction_id,review&id=eq.${w.request_id}`))?.[0];
   if (!r) return null;

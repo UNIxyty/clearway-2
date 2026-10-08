@@ -44,7 +44,8 @@ Rules that follow:
 
 The notification is a trigger and a key. Its lines (local times, no date per leg, no arrival time, no crew count)
 are never turned into flights; the flight is the provider's record, read from the CNAIR portal **once, after ops
-approve**. Eleven stages:
+approve**. Thirteen stages (the twelfth, Passengers and crew, is shared with type 2; the thirteenth is the
+provider's cancellation, below):
 
 | # | Stage | What happens |
 |---|---|---|
@@ -52,7 +53,7 @@ approve**. Eleven stages:
 | 2 | Confirmation sent | **E1 "Process? `<ref>` · route · date · N legs"** to every notification address, one email each: what arrived, **Yes, process it** / **No, skip it** buttons, "Or just reply yes or no", the deadline (`INTAKE_APPROVAL_HOURS`, default 4 h). The plain-text part carries both URLs. |
 | 3 | Confirmation received | A person answers: a tap on the **answer page** (`/intake/answer?t=…`, no sign-in; L1 question → L2 recorded, L3 already answered, L4 expired), an **email reply** whose first non-quoted line is yes or no (only from an address that received E1; anything else → **E1c** "was that a yes or a no?"), or **Process it / Skip it on the intake page**. A second answer → **E1a**; an answer after the deadline → **E1b**. **No** closes the request (`declined`). **No answer by the deadline** closes it (`expired`), visibly, and it can still be processed from the page: that tap is the approval. **Nothing contacts the portal before a yes** (`intake.portal_login` audit rows and the rig's mock log prove it). |
 | 4 | Collecting data | One session: log in, read the list, open the record, sign out. Keyed on the program's own column names; the screen (program, window, tables, columns, fields, actions) is checked before anything is read and any difference **refuses the import** and alerts (`structural`). The portal being down ("No se ha podido iniciar sesión") or unreachable is an ordinary failure: recorded, retried on `INTAKE_LOOKUP_SCHEDULE_MIN`, then a person is alerted. Not found is legitimate (records appear days after their quote date) and retried the same way. **Never type 2.** |
-| 5 | Data collected | The record becomes the same extraction shape as a type 2 reading, so the same review, blockers, payload and send apply. Arrival = Z departure + round(Estimated Hours × 60), stored as **converted** with the sum in its note. The Z and LT columns are cross-checked against tz data. Aircraft model name → ICAO through `AIRCRAFT_TYPES` (Citation CJ4 → C25C); an unknown name is **invalid** and blocks, never guessed. Crew count, passenger names and services are not in the portal: each is a blocking "not given" on the review screen (a scheduled request needs at least one service per leg). |
+| 5 | Data collected | The record becomes the same extraction shape as a type 2 reading, so the same review, blockers, payload and send apply. Arrival = Z departure + round(Estimated Hours × 60), stored as **converted** with the sum in its note. The Z and LT columns are cross-checked against tz data. Aircraft model name → ICAO through `AIRCRAFT_TYPES` (Citation CJ4 → C25C); an unknown name is **invalid** and blocks, never guessed. Crew count, passenger names and services are not in the portal: each is a blocking "not given" on the review screen (a schedule needs no service: zero services confirms, and its OPS notes then carry only our marker — no "none" entry; changed 2026-10-08). |
 | 6 | Review requested | **"Review: `<ref>` …"** email: ops are told to open Flight intake and confirm. |
 | 7 | Reviewed and confirmed | The review screen behaves as for type 2 (every value editable, edits marked). |
 | 8–11 | Building Leon request → Leon request built → Sent to Leon → Notification sent | **The type 2 path, unchanged** (`send.mjs`): same confirmation token, same send-log-before-Leon ordering, same partial-success handling, same checklist, same E3 / E4. |
@@ -60,6 +61,44 @@ approve**. Eleven stages:
 **One-shot, by design.** Change detection is not built: the portal is read once at import. The request page says
 so above the legs, and the completion email (E3) carries the same line. A later message about the same flight
 still links (update / copy / cancellation) and only asks a person; it never re-reads the portal on its own.
+
+**Reading the `#Key:` block (2026-10-08, after the first real message through Resend, LEBL-LPFR-LEBL #Ref 2610228).**
+That message arrived as an Outlook forward ("-----Original Appointment-----") and its block came in three copies,
+none of them in the layout the reader expected: the text part had each `#Key:` on its own line with the value two
+lines below (Outlook's HTML table flattened), the `Where:` line had every key run together and cut short ("… #Ref:
+2610228 #Otros"), and the calendar `LOCATION` had the provider's padded copy. The `º` arrived as U+FFFD (`#1\uFFFD:`,
+bytes `23 31 ef bf bd 3a`). The reader (`classify.mjs` `hashBlock`) now takes every layout generally: a value after
+ANY run of whitespace, trailing padding trimmed; a value on a following line when every key line in that text is bare
+(a table); a run of keys on one line, used only for keys no one-per-line copy has; any key order; unknown keys kept and
+ignored. It reads the body text, the HTML part with table cells kept on their row (`htmlToLines`), every attached
+email, and the calendar DESCRIPTION and LOCATION. Copies that disagree on `#Ref` give NO reference (never a guess).
+When the reference cannot be read, the message keeps why and the `#` lines it searched (crew values masked) for the
+screen. Fixtures: `rig/fixtures/cnair/forward-2610228.eml` (the delivered copy, redacted, same MIME shape) and
+`invite-request-2610228.eml` (the `.msg`'s own two copies).
+
+**Crew count** comes from the notification (the portal has none): `#1º` and `#2º` filled → counted. `#TCP` is most
+likely cabin crew (Tripulante de Cabina de Pasajeros); whether it counts is NOT settled with CNAIR, so a filled `#TCP`
+leaves the crew count to a person (a blocking gap, the note says why) — never counted, never ignored.
+
+**Services:** a schedule has none and needs none. Zero services confirms; the OPS notes then carry only our marker (no
+"none" entry, no placeholder). Shared validation was checked for other type 2 expectations a schedule cannot meet:
+passenger names, a handling agent and remarks were never required; the only one was "at least one service".
+
+**Cancellations** (`cancel.mjs`, 2026-10-08): classified by the calendar `METHOD:CANCEL` (subject prefix and body line
+are evidence only); matched by reference, the UID a cross-check (a differing UID is recorded, not fatal). When Leon has
+flights to cancel, ops get the same E1 email and answer page as "Process?", asking **"Cancel in Leon? `<ref>`"**
+(buttons open the one-tap page; "or just reply yes or no"; reply subject `Re: Cancel in Leon? <ref>`). Yes → each leg
+still to fly is cancelled in Leon (`flightDelete`: Leon keeps the flight as cancelled, it is not removed), each attempt
+written to the send log (`intake_leon_writes`, `action = 'cancel'`) BEFORE the call; No → nothing touched, recorded
+with who and when; no answer → nothing cancelled, the stage shows the deadline and waits; links expire at the
+deadline, the intake page can still decide. Completion email: legs cancelled / not, "cancelled, not removed". Cases
+told plainly, none guessed: no matching request (Needs a decision); declined at the original gate or never loaded
+(nothing in Leon, closed); already cancelled in Leon (no call); more than one of our requests with flights in Leon for
+the reference (stop and ask, nothing cancelled); a departed leg (shown, flagged, never cancelled by the agent); partial
+failure (red, legs named, cancelled legs not retried); a restart mid-cancel (unknown, a person checks, nothing retried).
+The agent never sends a calendar response and never modifies a calendar item (the mailer refuses calendar content).
+Tests: `rig/intake/e2e-cancel.mjs`, `browser-cancel.mjs`. DDL: the "Cancellations in the send log" section of
+`docs/supabase-agent-intake.sql`.
 
 **Linking: the reference first, the calendar UID as a cross-check.** A real cancellation carries the full block
 including `#Ref`, so a message whose reference we have is that flight even if its UID was never seen (the UID

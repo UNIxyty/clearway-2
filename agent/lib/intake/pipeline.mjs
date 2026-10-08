@@ -26,12 +26,12 @@ import { reviewFromExtraction } from "./review.mjs";
 import { flightsBetween, checklistDefinitions } from "./leon-lookup.mjs";
 import { personalTokens, scrubString, searchTextFor } from "./personal.mjs";
 import { composeReview, composeStopped, sendIntakeEmail } from "./notify.mjs";
-import { classifyAutomatic, calendarsFrom, notificationSignals, decideType, isMailSystemSender } from "./classify.mjs";
+import { classifyAutomatic, calendarsFrom, notificationSignals, decideType, isMailSystemSender, htmlToLines } from "./classify.mjs";
 import { handleNotification, handleApprovalReply } from "./notification.mjs";
 
 export const STAGES = {
   handling: ["Request received", "Reading request", "Data extracted", "Awaiting review", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Passengers and crew", "Services noted", "Checklist left to ops", "Notification sent"],
-  scheduled: ["Request received", "Confirmation sent", "Confirmation received", "Collecting data", "Data collected", "Review requested", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Passengers and crew", "Notification sent"],
+  scheduled: ["Request received", "Confirmation sent", "Confirmation received", "Collecting data", "Data collected", "Review requested", "Reviewed and confirmed", "Building Leon request", "Leon request built", "Sent to Leon", "Passengers and crew", "Notification sent", "Cancellation"],
 };
 export const freshStages = (type) => STAGES[type].map((name) => ({ name, state: "none", at: null, ms: null, note: null }));
 export function setStage(stages, name, state, note = null, at = new Date().toISOString()) {
@@ -138,7 +138,7 @@ export async function findDuplicates(review, reference, requestId) {
     ours = (await rest(`intake_requests?select=id,reference,status&id=neq.${requestId}&reference=ilike.${encodeURIComponent(base)}*&status=in.(loaded,partly_loaded,needs_you,in_progress)`).catch(() => [])) ?? [];
     ours = ours.filter((r) => String(r.reference).toUpperCase().replace(/[-\s]*(R\d+|REV(ISED)?\d*)$/, "") === base);
     // Only an earlier request that actually put flights in Leon counts (one stopped as a duplicate does not).
-    if (ours.length) { const inLeon = new Set(((await rest(`intake_leon_writes?select=request_id&state=eq.in_leon&request_id=in.(${ours.map((o) => o.id).join(",")})`).catch(() => [])) ?? []).map((w) => w.request_id)); ours = ours.filter((o) => inLeon.has(o.id)); }
+    if (ours.length) { const inLeon = new Set(((await rest(`intake_leon_writes?select=request_id&action=eq.create&state=eq.in_leon&request_id=in.(${ours.map((o) => o.id).join(",")})`).catch(() => [])) ?? []).map((w) => w.request_id)); ours = ours.filter((o) => inLeon.has(o.id)); }
   }
   if (!matches.length && !ours.length) return null;
   // Comparison table: this request vs the Leon flights (per matched leg).
@@ -189,7 +189,7 @@ export async function processMessage(messageId, opts = {}) {
   // A re-run reuses the message's request; a new message has NO request until its type is known.
   const existing = (await rest(`intake_requests?select=*&message_id=eq.${message.id}`))?.[0];
   if (existing) {
-    const sent = (await rest(`intake_leon_writes?select=id&request_id=eq.${existing.id}&state=in.(sending,in_leon,unknown)&limit=1`)) ?? [];
+    const sent = (await rest(`intake_leon_writes?select=id&request_id=eq.${existing.id}&action=eq.create&state=in.(sending,in_leon,unknown)&limit=1`)) ?? [];
     if (sent.length) return { refused: "This request already has legs in Leon (or a send in progress); it is not read again." };
   }
   const sender = parsed.from?.value?.[0]?.name || message.from_addr;
@@ -214,7 +214,9 @@ export async function processMessage(messageId, opts = {}) {
   // The block may sit in the body, in an attached email, or only in a calendar part's DESCRIPTION (a
   // cancellation). An attached .msg of a meeting carries its own calendar facts (method, UID) without an .ics.
   const calendars = [...calendarsFrom(atts), ...atts.filter((a) => a.email?.calendar?.method).map((a) => ({ ...a.email.calendar, where: `inside ${a.name}` }))];
-  const signals = notificationSignals({ subject: message.subject, texts: [bodyText, ...atts.filter((a) => a.email).map((a) => a.email.text ?? "")], calendars, fromAddr: fromAddress, attachedSubjects: atts.filter((a) => a.email).map((a) => a.email.subject ?? "") });
+  // The HTML part too, with table cells kept on their row: Outlook's forward of an appointment renders the block as
+  // a table, and its text part then puts each value on a line of its own.
+  const signals = notificationSignals({ subject: message.subject, texts: [bodyText, ...(parsed.html ? [htmlToLines(parsed.html)] : []), ...atts.filter((a) => a.email).map((a) => a.email.text ?? "")], calendars, fromAddr: fromAddress, attachedSubjects: atts.filter((a) => a.email).map((a) => a.email.subject ?? "") });
   if (!opts.forceHandling && !chosen && (signals.confident || opts.forceType === "scheduled")) {
     if (opts.forceType === "scheduled" && !signals.reference) {
       const ref = String(opts.reference ?? "").trim();
@@ -323,7 +325,7 @@ export async function processMessage(messageId, opts = {}) {
   if (duplicate && !duplicate.error) { status = "needs_you"; reason = `Awaiting review · stopped: possible duplicate of Leon ${duplicate.leonIds.join(", ") || duplicate.ours.map((o) => o.reference).join(", ")}`; setStage(stages, "Awaiting review", "hold", `Stopped before review: matches ${duplicate.leonIds.length ? `Leon flight${duplicate.leonIds.length === 1 ? "" : "s"} ${duplicate.leonIds.join(", ")}` : `request ${duplicate.ours.map((o) => o.reference).join(", ")}`}. Nothing has been sent to Leon.`); }
   else if (duplicate?.error) { status = "needs_you"; reason = "Awaiting review · duplicate check did not run"; setStage(stages, "Awaiting review", "wait", duplicate.error); }
   else if (tz) { status = "needs_you"; reason = "Awaiting review · timezone unknown"; setStage(stages, "Awaiting review", "wait", "Timezone unknown: someone must set it before anything can be sent."); }
-  else setStage(stages, "Awaiting review", "wait", "Waiting for someone to check the values, choose the services and confirm.");
+  else setStage(stages, "Awaiting review", "wait", "Waiting for someone to check the values, decide the services and confirm.");
 
   const firstStd = review.legs.map((l) => l.fields.find((f) => f.key === "std")?.utc).filter(Boolean).sort()[0] ?? null;
   await patchRequest(req.id, { status, status_reason: reason, stages, review, attachment_roles: roles, current_extraction_id: ex?.id, reference, reference_built: built, duplicate, duplicate_resolution: null, route, registration: regs[0] ?? null, first_std: firstStd, legs_count: legsN });

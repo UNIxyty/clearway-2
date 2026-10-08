@@ -30,6 +30,7 @@ import { findDuplicates, setStage } from "./pipeline.mjs";
 import { composeOutcome, sendIntakeEmail } from "./notify.mjs";
 import { peoplePlan, peopleHash, writeLegPeople, recoverPeopleOnStart, outcomeWords, peopleForLeg, crewNoteFor, payloadForLog, recordCrewAttempt, settleCrew, settleCrewForLeg } from "./leon-people.mjs";
 import { personalTokens, scrubString } from "./personal.mjs";
+import { recoverCancelsOnStart } from "./cancel.mjs";
 
 export const TOOL = "intake.leon_send";
 export const PEOPLE_STAGE = "Passengers and crew";
@@ -51,7 +52,8 @@ const notesWithCrew = (base, crew) => (crew ? `${base}\n\n${crew.text}` : base);
 function legPeoplePlan(people, leg, req, payload) {
   return peoplePlan(people, leg, { reference: req.reference, marker: markerFor(req.id, leg.index), paxNumber: payload.paxNumber, crewCount: crewCountOf(leg) });
 }
-async function writesOf(id) { return (await rest(`intake_leon_writes?select=*&request_id=eq.${id}&order=created_at.asc`)) ?? []; }
+// The send log also holds cancel attempts (action 'cancel', cancel.mjs); a leg's Leon state is its CREATE rows.
+async function writesOf(id) { return (await rest(`intake_leon_writes?select=*&request_id=eq.${id}&action=eq.create&order=created_at.asc`)) ?? []; }
 /** Current Leon state per leg from the send log: the latest row for that leg decides. */
 export function legStates(writes) {
   const out = {};
@@ -92,6 +94,14 @@ export function servicesNote(leg, { reference, receivedAt, requester } = {}) {
   if (parties.length) { out.push("", "Parties the request names (not services):"); for (const p of parties) out.push(`- ${q(p.said)}`); }
   return { text: out.join("\n"), lines, remarks, parties };
 }
+/**
+ * The services note that goes into a leg's OPS notes, or null. A schedule (type 1) that names no service, remark or
+ * party writes nothing beyond our marker: no "none" entry, no placeholder, nothing service-like in Leon.
+ */
+export function legNoteText(leg, req, ctx) {
+  const note = servicesNote(leg, ctx);
+  return req.request_type === "scheduled" && !note.lines.length && !note.remarks.length && !note.parties.length ? null : note.text;
+}
 /** Kept for the page: the plan is empty by design (no checklist item is ever written); the note is what goes to Leon. */
 export function checklistPlan(leg, defs, ctx) { return { plan: [], skipped: [], note: servicesNote(leg, ctx) }; }
 
@@ -108,12 +118,12 @@ export async function prepareSend(requestId, user) {
   const people = await peopleOf(req);
   const legs = [];
   for (const leg of review.legs.filter((l) => !l.removed && !l.inLeon)) {
-    const note = servicesNote(leg, noteCtx);
+    const noteText = legNoteText(leg, req, noteCtx);
     const crew = crewOf(people, leg, req);
-    const built = buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), note.text), crew));
+    const built = buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), noteText), crew));
     if (!built.ok) return { ok: false, blockers: built.reasons.map((r) => `Leg ${leg.index + 1}: ${r}.`), warnings };
     const plan = legPeoplePlan(people, leg, req, built.payload);
-    legs.push({ index: leg.index, payload: payloadForLog(built.payload, crew), payloadSha256: payloadHash(built.payload), peopleSha256: peopleHash(plan), people: { pax: plan.pax && { people: plan.pax.people, count: plan.pax.count }, crew: plan.crew && { people: plan.crew.people, count: plan.crew.count } }, note: note.text, checklist: [], skipped: [] });
+    legs.push({ index: leg.index, payload: payloadForLog(built.payload, crew), payloadSha256: payloadHash(built.payload), peopleSha256: peopleHash(plan), people: { pax: plan.pax && { people: plan.pax.people, count: plan.pax.count }, crew: plan.crew && { people: plan.crew.people, count: plan.crew.count } }, note: noteText ?? "", checklist: [], skipped: [] });
   }
   const resend = Object.values(writes).some((w) => w.state === "in_leon" || w.state === "not_in_leon");
   const input = { requestId, legs: legs.map((l) => ({ index: l.index, payloadSha256: l.payloadSha256, peopleSha256: l.peopleSha256, checklist: argsHash([]) })) };
@@ -166,7 +176,7 @@ export async function confirmSend(token, user) {
 /** The send stopped (before Leon, or crashed during it): say so on the request; unfinished legs become unknown. */
 async function sendFailed(requestId, user, e) {
   const msg = String(e?.message ?? e).slice(0, 300);
-  const stuck = await rest(`intake_leon_writes?request_id=eq.${requestId}&state=eq.sending`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ state: "unknown", leon_error: `The send stopped: ${msg}`, updated_at: new Date().toISOString() }) }).catch(() => []);
+  const stuck = await rest(`intake_leon_writes?request_id=eq.${requestId}&action=eq.create&state=eq.sending`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ state: "unknown", leon_error: `The send stopped: ${msg}`, updated_at: new Date().toISOString() }) }).catch(() => []);
   const req = (await rest(`intake_requests?select=stages&id=eq.${requestId}`).catch(() => []))?.[0];
   const stages = (req?.stages ?? []).map((x) => ({ ...x }));
   if ((stuck ?? []).length) setStage(stages, "Sent to Leon", "fail", `Stopped during the send: ${msg}. Check Leon before resending.`);
@@ -198,7 +208,7 @@ async function run(entry, user) {
   for (const b of entry.input.legs) {
     const leg = review.legs.find((l) => l.index === b.index);
     const crew = leg && crewOf(people, leg, req);
-    const built = leg && buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), servicesNote(leg, noteCtx).text), crew));
+    const built = leg && buildFlightCreate(builderLeg(leg), lookups, notesWithCrew(opsNotesFor(markerFor(requestId, leg.index), legNoteText(leg, req, noteCtx)), crew));
     if (!built?.ok || payloadHash(built.payload) !== b.payloadSha256) throw Object.assign(new Error(`Leg ${b.index + 1} changed after the confirmation was shown. Nothing was sent. Review it and confirm again.`), { status: 409 });
     if (peopleHash(legPeoplePlan(people, leg, req, built.payload)) !== b.peopleSha256) throw Object.assign(new Error(`Leg ${b.index + 1}'s crew or passengers changed after the confirmation was shown. Nothing was sent. Review it and confirm again.`), { status: 409 });
     legs.push({ leg, payload: built.payload, sha: b.payloadSha256, crew });
@@ -308,7 +318,8 @@ async function run(entry, user) {
 /** On start: an attempt that never recorded an outcome is unknown. A person checks Leon; nothing retries. */
 export async function recoverOnStart() {
   await recoverPeopleOnStart();
-  const rows = await rest(`intake_leon_writes?state=eq.sending`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ state: "unknown", leon_error: "The service stopped during the send; the result was never recorded.", updated_at: new Date().toISOString() }) }).catch(() => []);
+  await recoverCancelsOnStart();
+  const rows = await rest(`intake_leon_writes?action=eq.create&state=eq.sending`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ state: "unknown", leon_error: "The service stopped during the send; the result was never recorded.", updated_at: new Date().toISOString() }) }).catch(() => []);
   for (const w of rows ?? []) {
     await rest(`intake_requests?id=eq.${w.request_id}`, { method: "PATCH", body: JSON.stringify({ status: "needs_you", status_reason: `Leon did not answer · leg ${w.leg_index + 1} unknown · check Leon`, updated_at: new Date().toISOString() }) }).catch(() => {});
     await audit({ kind: "intake.leon_unknown", success: false, error: "service restarted during a send", confirmationStatus: "not_required", detail: { requestId: w.request_id, leg: w.leg_index, writeId: w.id } }).catch(() => {});
@@ -322,7 +333,7 @@ export async function recoverOnStart() {
  * Neither sends anything.
  */
 export async function resolveUnknown(requestId, legIndex, user, action) {
-  const w = (await rest(`intake_leon_writes?select=*&request_id=eq.${requestId}&leg_index=eq.${legIndex}&state=eq.unknown&order=created_at.desc&limit=1`))?.[0];
+  const w = (await rest(`intake_leon_writes?select=*&request_id=eq.${requestId}&leg_index=eq.${legIndex}&action=eq.create&state=eq.unknown&order=created_at.desc&limit=1`))?.[0];
   if (!w) throw Object.assign(new Error("That leg is not unknown."), { status: 409 });
   if (action === "check") {
     const std = Date.parse(w.payload?.startTimeUTC);

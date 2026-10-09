@@ -92,7 +92,8 @@ PY
 )
 if [ "$DRY" = 1 ]; then echo "  would write the config without the /pickem routes"; else
   printf '%s' "$NEW" > "$CONFIG.new"
-  cloudflared tunnel ingress validate --config "$CONFIG.new" >/dev/null || { echo "  the new config does not validate; nothing changed ($CONFIG.new kept to look at)" >&2; exit 1; }
+  # --config goes before "ingress": after it, cloudflared prints usage and still exits 0. So require its "OK".
+  cloudflared tunnel --config "$CONFIG.new" ingress validate 2>&1 | grep -qx "OK" || { echo "  the new config does not validate; nothing changed ($CONFIG.new kept to look at)" >&2; exit 1; }
   mv "$CONFIG.new" "$CONFIG"; systemctl restart cloudflared; sleep 5
 fi
 

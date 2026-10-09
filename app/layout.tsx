@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Mono, Public_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { PortalFrame } from "@/components/portal/Shell";
 
 // Portal redesign: the same type stack as the Display Console — Public Sans
 // for UI, IBM Plex Mono for ICAOs / NOTAM ids / timestamps / raw METAR-TAF.
@@ -47,7 +48,9 @@ export default function RootLayout({
     <html lang="en" className={`${publicSans.variable} ${plexMono.variable}`}>
       <body className="min-h-screen bg-background font-sans">
         <script dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
-        <Providers>{children}</Providers>
+        {/* One persistent portal frame (sidebar, agent panel, viewer) around every page; only the content changes on
+            navigation (portal foundations 3.1). Full-screen routes are left bare: components/portal/Shell.tsx. */}
+        <Providers><PortalFrame>{children}</PortalFrame></Providers>
       </body>
     </html>
   );

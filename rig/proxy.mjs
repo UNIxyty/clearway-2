@@ -6,7 +6,9 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 const here = path.dirname(new URL(import.meta.url).pathname); // rig/
-const T = { portal: { host: "127.0.0.1", port: 3998 }, agent: { host: "127.0.0.1", port: 5175 }, wall: { host: "127.0.0.1", port: 5199 } };
+// Ports are overridable so a second proxy can front the sign-in-ON services (RIG_PROXY_PORT=3989 RIG_PORTAL_PORT=3992 …).
+const port = (name, dflt) => Number(process.env[name] || dflt);
+const T = { portal: { host: "127.0.0.1", port: port("RIG_PORTAL_PORT", 3998) }, agent: { host: "127.0.0.1", port: port("RIG_AGENT_PORT", 5175) }, wall: { host: "127.0.0.1", port: port("RIG_WALL_PORT", 5199) } };
 const LOG = path.join(process.env.RIG_SCRATCH || here, "rig-proxy.log");
 function route(url) {
   if (url.startsWith("/agent/api")) return [T.agent, url.slice("/agent".length)];
@@ -27,4 +29,4 @@ http.createServer((req, res) => {
   const up = http.request({ ...target, path: p, method: req.method, headers: { ...req.headers, host: `${target.host}:${target.port}` } }, (r) => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
   up.on("error", (e) => { res.writeHead(502); res.end(String(e)); });
   req.pipe(up);
-}).listen(3999, () => console.log("rig proxy on :3999"));
+}).listen(port("RIG_PROXY_PORT", 3999), () => console.log(`rig proxy on :${port("RIG_PROXY_PORT", 3999)}`));

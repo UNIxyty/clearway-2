@@ -12,14 +12,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { clsx } from "clsx";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import MaskIcon from "@/components/portal/Icon";
 import ClientNavProgress from "@/components/portal/ClientNavProgress";
 import { topicsForRole, type Role } from "@/components/portal/nav";
 import AgentPanel, { useAgentPanel } from "@/components/agent/panel/AgentPanel";
-import { useAgentContext } from "@/components/agent/panel/useAgentContext";
+import { SearchWatcher, useAgentContext } from "@/components/agent/panel/useAgentContext";
 import { installFailedRequestTracker, subscribeHelpStream } from "@/components/help/helpApi";
 import { Keycap, RingMark } from "@/components/agent/ui/primitives";
 import AskAboutButton from "@/components/agent/ui/AskAboutButton";
@@ -39,6 +39,22 @@ export type DeepContext = {
   backHref: string;
   items: Array<{ id: string; label: string; icon: string; href: string; active?: boolean }>;
 };
+
+// Portal foundations 3.1 — one shell. The frame (sidebar, mobile bar, identity, badges, the agent panel and the
+// document viewer) is mounted ONCE, by <PortalFrame> in the root layout, and survives every navigation: only the
+// content changes, the way the wall console keeps its shell and swaps the page (opsboard-react/src/router.js).
+// Pages keep rendering <PortalShell title=… crumb=…>; inside the frame that renders only the page's header, content
+// and footer, and tells the frame its title and deep-context nav.
+type PageMeta = { title?: string; deepContext?: DeepContext | null };
+type FrameApi = {
+  setPage: (meta: PageMeta | null) => void;
+  hasAgent: boolean;
+  agentContext: ReturnType<typeof useAgentContext>;
+  agentOpen: boolean;
+};
+const FrameContext = createContext<FrameApi | null>(null);
+// Layout effect in the browser (the sidebar switches to a page's deep nav before paint); plain effect on the server.
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export function useIdentity() {
   const [email, setEmail] = useState<string | null>(null);
@@ -128,27 +144,11 @@ function NavButton({
   );
 }
 
-function PortalShellInner({
-  children,
-  deepContext = null,
-  crumb,
-  title,
-  subtitle,
-  headerRight,
-  wide = true,
-  footer = true,
-}: {
-  children: ReactNode;
-  deepContext?: DeepContext | null;
-  crumb?: string;
-  title?: string;
-  subtitle?: string;
-  headerRight?: ReactNode;
-  wide?: boolean;
-  /** Full-viewport pages (developer inbox) suppress the site footer so their
-      panes own the scroll instead of the page. */
-  footer?: boolean;
-}) {
+function ShellFrame({ children }: { children: ReactNode }) {
+  // What the current page tells the frame (its title, and a deep-context nav if it has one). Set by <PortalShell>.
+  const [page, setPage] = useState<PageMeta | null>(null);
+  const deepContext = page?.deepContext ?? null;
+  const title = page?.title;
   const pathname = usePathname() || "/";
   const router = useRouter();
   const { email, display, initials, role, isDeveloper, hasAgent } = useIdentity();
@@ -158,9 +158,9 @@ function PortalShellInner({
   useEffect(() => { document.body.style.overflow = viewer.open ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [viewer.open]);
   // Persisted UI state is read in lazy initializers (typeof window guard for
   // SSR) so the sidebar renders its persisted collapsed/open state on the
-  // FIRST client paint — no expand-flicker from a post-mount useEffect. The
-  // shell still mounts per-page, so this is what keeps route changes visually
-  // continuous.
+  // FIRST client paint — no expand-flicker from a post-mount useEffect. (The
+  // frame now mounts once and survives navigation; this still matters for the
+  // first load.)
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -277,7 +277,8 @@ function PortalShellInner({
   // ⌘J is inert without a grant: the shortcut must not reveal a capability the
   // user does not have.
   const agentOpen = hasAgent && agentOpenRaw;
-  const agentContext = useAgentContext();
+  const [search, setSearch] = useState("");
+  const agentContext = useAgentContext(search);
 
   // Internal navigations go through startTransition so navPending drives the
   // slim top progress bar (Next 14 App Router has no router events; the
@@ -295,7 +296,16 @@ function PortalShellInner({
   }
 
   const showLabels = !collapsed;
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  // Only the most specific item is active: on /aip/service-status that is "Service status", not "Airport search"
+  // (/aip) as well. An item matches its own path and the paths below it.
+  const navHrefs = useMemo(
+    () => [...topics.flatMap((t) => [t.href, ...(t.items ?? []).map((i) => i.href)]), ...(deepContext?.items ?? []).map((i) => i.href)]
+      .filter((h): h is string => typeof h === "string" && h.startsWith("/")).map((h) => h.split("?")[0]),
+    [topics, deepContext],
+  );
+  const covers = (href: string) => href !== "/" && (pathname === href || pathname.startsWith(`${href}/`));
+  const activeHref = useMemo(() => navHrefs.filter(covers).sort((a, b) => b.length - a.length)[0] ?? null, [navHrefs, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : href.split("?")[0] === activeHref);
 
   const sidebarBody = (labels: boolean) => (
     <>
@@ -508,7 +518,10 @@ function PortalShellInner({
     </>
   );
 
+  const frameApi = useMemo<FrameApi>(() => ({ setPage, hasAgent, agentContext, agentOpen }), [hasAgent, agentContext, agentOpen]);
   return (
+    <FrameContext.Provider value={frameApi}>
+      <SearchWatcher onChange={setSearch} />
     <div className="flex min-h-screen bg-cw-page font-sans text-cw-ink">
       <ClientNavProgress pending={navPending} />
       {/* Panel animations, and the hover states its buttons borrow. */}
@@ -562,6 +575,40 @@ function PortalShellInner({
           </span>
         </div>
 
+        {children}
+      </div>
+      {/* The agent panel. Rendered only for allowlisted users — hasAgent is the
+          same runtime probe that gates the nav entry, so a user without a grant
+          gets no panel, no shortcut and no trace of it. */}
+      {hasAgent && (
+        <AgentPanel open={agentOpen && !viewer.panelClosed} onClose={() => setAgentOpen(false)} context={agentContext} initials={initials} initialConversationId={agentOpenWith} />
+      )}
+      {hasAgent && <DocumentViewer onAskAbout={() => setAgentOpen(true)} />}
+      {hasAgent && <ComposeOpensPanel onOpen={() => setAgentOpen(true)} />}
+    </div>
+    </FrameContext.Provider>
+  );
+}
+
+type PageProps = {
+  children: ReactNode;
+  deepContext?: DeepContext | null;
+  crumb?: string;
+  title?: string;
+  subtitle?: string;
+  headerRight?: ReactNode;
+  wide?: boolean;
+  /** Full-viewport pages (developer inbox) suppress the site footer so their
+      panes own the scroll instead of the page. */
+  footer?: boolean;
+};
+
+/** A page's own part of the shell: its header, its content, its footer. The frame around it stays put. */
+function PageBody({ children, crumb, title, subtitle, headerRight, wide = true, footer = true }: PageProps) {
+  const frame = useContext(FrameContext)!;
+  const { hasAgent, agentContext, agentOpen } = frame;
+  return (
+    <>
         {/* page header */}
         {title && (
           <div className="sticky top-0 z-[5] hidden items-end justify-between gap-6 border-b border-cw-border bg-[rgba(251,251,252,.92)] px-8 pb-[15px] pt-4 backdrop-blur-[6px] lg:flex">
@@ -596,27 +643,48 @@ function PortalShellInner({
           />
         </div>
         )}
-      </div>
-      {/* The agent panel. Rendered only for allowlisted users — hasAgent is the
-          same runtime probe that gates the nav entry, so a user without a grant
-          gets no panel, no shortcut and no trace of it. */}
-      {hasAgent && (
-        <AgentPanel open={agentOpen && !viewer.panelClosed} onClose={() => setAgentOpen(false)} context={agentContext} initials={initials} initialConversationId={agentOpenWith} />
-      )}
-      {hasAgent && <DocumentViewer onAskAbout={() => setAgentOpen(true)} />}
-      {hasAgent && <ComposeOpensPanel onOpen={() => setAgentOpen(true)} />}
-    </div>
+    </>
   );
+}
+
+function RegisteredPage(props: PageProps) {
+  const frame = useContext(FrameContext)!;
+  const deepKey = props.deepContext ? JSON.stringify(props.deepContext) : "";
+  useIsoLayoutEffect(() => {
+    frame.setPage({ title: props.title, deepContext: props.deepContext ?? null });
+    return () => frame.setPage(null);
+  }, [props.title, deepKey]); // eslint-disable-line react-hooks/exhaustive-deps -- deepKey stands for deepContext
+  return <PageBody {...props} />;
 }
 
 // The ViewerProvider lives in the root layout (app/layout.tsx) so page
 // components that render this shell — and call useOpenDocument above it —
 // share one viewer with the shell and the panel.
-export default function PortalShell(props: Parameters<typeof PortalShellInner>[0]) {
-  return <PortalShellInner {...props} />;
+export default function PortalShell(props: PageProps) {
+  // Inside the persistent frame: just the page. Anywhere else (a page under a bare route): the whole shell, as before.
+  if (useContext(FrameContext)) return <RegisteredPage {...props} />;
+  return (
+    <ShellFrame>
+      <RegisteredPage {...props} />
+    </ShellFrame>
+  );
 }
 
-/** A prepared request from the viewer (selection actions) opens the panel if it is closed. */
+// Routes that are whole screens of their own, with no portal chrome: sign-in and its flows, the maintenance and
+// access screens, the one-tap intake answer, the Telegram mini app, the agent panel framed by the wall console, and
+// the captcha (HITL) viewer popups. Everything else gets the frame.
+const BARE = /^\/(login|signup|auth|maintenance|pending-approval|access-blocked|forbidden|intake\/answer|telegram|agent\/panel|[a-z]+-hitl-auto-test)(\/|$)/;
+export function isBareRoute(pathname: string) {
+  return BARE.test(pathname);
+}
+
+/** In the root layout: the one persistent frame around every portal page. */
+export function PortalFrame({ children }: { children: ReactNode }) {
+  const pathname = usePathname() || "/";
+  if (isBareRoute(pathname)) return <>{children}</>;
+  return <ShellFrame>{children}</ShellFrame>;
+}
+
 function ComposeOpensPanel({ onOpen }: { onOpen: () => void }) {
   useEffect(() => { const f = () => { if (!document.querySelector("[data-cw-thread-column]")) onOpen(); }; window.addEventListener("cw-agent-compose", f); return () => window.removeEventListener("cw-agent-compose", f); }, [onOpen]);
   return null;

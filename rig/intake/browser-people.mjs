@@ -4,6 +4,7 @@
 // Production build via the proxy.   node --env-file=.env.rig rig/intake/browser-people.mjs  → rig/.scratch/shots/people-*.png
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { maskForReader } from "../../agent/lib/intake/personal.mjs";
 const BASE = process.env.RIG_URL || "http://127.0.0.1:3999";
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 200)}` : ""}`); if (!c) failures += 1; };
@@ -40,16 +41,35 @@ await open("RIGPAX19", "split-and-warning", async (page, text) => {
   await table.scrollIntoViewIfNeeded(); await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/people-split.png` });
   const t = await table.innerText();
-  ok(/Surname/i.test(t) && /Given names/i.test(t) && /SAMPLE DOUBLE · edited by/.test(t), "review screen: Surname and Given names columns; the person's edit shown as edited, with who", t.split("\n").slice(0, 4).join(" | "));
+  // Portal foundations 1.4: passengers' names are masked with the rest until a person shows personal data.
+  ok(/Surname/i.test(t) && /Given names/i.test(t) && /•{8} · edited by/.test(t) && !/SAMPLE|EXAMPLE|SPECIMEN/.test(t), "review screen: Surname and Given names masked like the rest; the person's edit still marked, with who", t.split("\n").slice(0, 4).join(" | "));
+  ok(!/ALICE|BRUNO|CARLA|SAMPLE DOUBLE/.test(await page.evaluate(() => document.body.innerText)), "no passenger name anywhere on the page before Show personal data");
   ok(await table.getByRole("button", { name: /Correct the surname and given names of passenger 1$/ }).count() === 1, "each passenger's split can be corrected (✎)");
   await table.getByRole("button", { name: /Correct the surname and given names of passenger 1$/ }).click();
-  ok(await page.getByRole("group", { name: "Name split, passenger 1" }).count() === 1, "…opening the two fields, surname and given names");
+  ok(await page.getByRole("button", { name: "Show for 60 s" }).count() >= 1 && await page.getByRole("group", { name: "Name split, passenger 1" }).count() === 0, "…while masked, ✎ asks to show personal data first (no names in an editor)");
+  await page.getByRole("button", { name: "Show for 60 s" }).first().click();
+  await page.waitForTimeout(800);
+  const shown = await table.innerText();
+  ok(/SAMPLE DOUBLE · edited by/.test(shown), "after Show personal data: the names, on amber, with the edit marked", shown.split("\n").slice(0, 3).join(" | "));
+  await table.getByRole("button", { name: /Correct the surname and given names of passenger 1$/ }).click();
+  ok(await page.getByRole("group", { name: "Name split, passenger 1" }).count() === 1, "…and ✎ opens the two fields, surname and given names");
   await page.screenshot({ path: `${OUT}/people-split-editor.png` });
+  await page.getByRole("button", { name: "Hide now" }).first().click();
+  await page.waitForTimeout(300);
 });
 await open("RIGPAX20", "unknown", async (page, text) => {
   ok(/Passengers: The service stopped during the write; the result was never recorded/.test(text), "after a restart: the passengers' write is shown as unknown, in red");
   ok(await page.getByRole("button", { name: "Send passengers to Leon" }).count() >= 1, "…with \"Send passengers to Leon\" for a person to decide");
 });
 await browser.close();
+
+// The email reader (mailbox) masks passengers' names too, until "Show personal data in this message"; crew names stay
+// readable (portal foundations 1.4). The rig's requests carry their lists in attachments, so this is checked directly.
+{
+  const people = [{ list: "pax", name: "ALICE EXAMPLE", passport: "TEST00001" }, { list: "pax", name: "Bruno Sample", split: { surname: "SAMPLE", given: "BRUNO" } }, { list: "crew", name: "CAPT KAPTEINIS" }];
+  const text = "Pax: ALICE EXAMPLE, passport TEST00001\nSAMPLE, Bruno\nPassport_EXAMPLE_ALICE.pdf\nCrew: CAPT KAPTEINIS";
+  const r = maskForReader(text, people, () => "[M]");
+  ok(!/ALICE|EXAMPLE|SAMPLE|Bruno|TEST00001/i.test(r.text) && /KAPTEINIS/.test(r.text), "mailbox reader: passengers' names masked (any case, surname-first, in a file name); crew names readable", r.text.replace(/\n/g, " | "));
+}
 console.log(`\n${failures ? `${failures} FAILED` : "ALL PASSED"} · screenshots in ${OUT}/people-*.png`);
 process.exit(failures ? 1 : 0);

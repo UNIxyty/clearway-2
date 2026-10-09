@@ -102,7 +102,7 @@ function TriggerLogOverlay({ oprId, event, onClose }) {
             <div style={{ fontSize: 15.5, fontWeight: 800, fontFamily: t.mono }}>{event}</div>
             <div style={{ fontSize: 12, color: t.faint }}>Trigger history · {oprId} · newest first</div>
           </div>
-          <IconButton icon="x" title="Close" onClick={onClose} />
+          <IconButton icon="x" title="Close" viewOnlyOk onClick={onClose} />
         </div>
         <div style={{ overflowY: 'auto', padding: '12px 20px 18px' }}>
           {error && <ErrorBanner>{error}</ErrorBanner>}
@@ -253,6 +253,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
               <IconButton
                 icon="clock"
                 title="Trigger history — what Leon pushed and what it changed"
+                viewOnlyOk
                 onClick={() => setLogEvent(event)}
               />
               {registration && (
@@ -316,7 +317,7 @@ export default function WebhooksPage() {
         desc="Leon push subscriptions per operator. When OPS set a landing, cancel a flight or change a schedule, Leon pushes the event here and the wall updates within seconds — the 60s poll always remains as fallback."
         descMax={680}
         actions={
-          <Button icon="refresh-cw" spin={refreshing} onClick={() => load({ refresh: true })}>
+          <Button icon="refresh-cw" viewOnlyOk spin={refreshing} onClick={() => load({ refresh: true })}>
             Refresh health
           </Button>
         }

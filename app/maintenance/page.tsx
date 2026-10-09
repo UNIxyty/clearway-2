@@ -92,6 +92,14 @@ export default function MaintenancePage() {
             <RefreshCwIcon className="size-4" />
             Try again
           </Button>
+          {/* Portal foundations 1.2: sign-in stays open during maintenance; an admin or developer who signs in lands
+              on the page that turns it off. */}
+          <p className="text-xs text-muted-foreground">
+            Clearway admin?{" "}
+            <a className="underline underline-offset-2 hover:text-foreground" href="/login?next=%2Fadmin%2Fmaintenance">
+              Sign in to turn maintenance off
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>

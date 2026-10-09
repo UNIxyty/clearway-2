@@ -44,17 +44,21 @@ export function scrubDeep(v, tokens) {
 }
 
 /**
- * For the message reader: masks the SENSITIVE values (dates of birth, passport and ID numbers, expiry) and
- * leaves names readable, as the spec draws. Returns { text, count }. `mark` wraps each masked value so the
- * client can render the mask chip; the real value is never in the response.
+ * For the message reader: masks the SENSITIVE values (dates of birth, passport and ID numbers, expiry) and the
+ * PASSENGERS' names (portal foundations 1.4: names are masked with everything else, behind the same "Show personal
+ * data"). Crew names stay readable. Returns { text, count }. `mark` wraps each masked value so the client can render
+ * the mask chip; the real value is never in the response.
  */
 export function maskForReader(s, people = [], mark = (i) => `\u0000M${i}\u0000`) {
   const sensitive = new Set();
   for (const p of people ?? []) for (const k of ["dob", "passport", "expiry"]) if (p?.[k] && String(p[k]).trim().length >= 4) sensitive.add(String(p[k]).trim());
+  for (const t of personalTokens((people ?? []).filter((p) => p?.list === "pax").map((p) => ({ name: p.name, split: p.split })))) sensitive.add(t);
+  // A person's corrected split (surname / given names as Leon gets them) is masked as well.
+  for (const p of people ?? []) if (p?.list === "pax" && p.split) for (const k of ["surname", "given"]) if (p.split[k] && String(p.split[k]).trim().length >= 3) sensitive.add(String(p.split[k]).trim());
   let count = 0; let out = String(s ?? ""); const values = [];
   const hit = (m0) => { values.push(m0); return mark(count++, m0); };
   // A date of birth takes the age printed after it with it ("01 Jan 1980 (46)"): the age gives the year away.
-  for (const t of [...sensitive].sort((a, b) => b.length - a.length)) out = out.replace(new RegExp(`(?<![\\p{L}\\d])${esc(t)}(?:\\s*\\(\\d{1,3}\\))?(?![\\p{L}\\d])`, "gu"), hit);
+  for (const t of [...sensitive].sort((a, b) => b.length - a.length)) out = out.replace(new RegExp(`(?<![\\p{L}\\d])${esc(t)}(?:\\s*\\(\\d{1,3}\\))?(?![\\p{L}\\d])`, "giu"), hit);
   out = out.replace(DOB_WITH_AGE, hit).replace(DOB_WORDED, hit).replace(PASSPORTISH, (m) => (/^\d+$/.test(m) ? m : hit(m)));
   return { text: out, count, values };
 }

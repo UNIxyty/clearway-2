@@ -68,7 +68,9 @@ services:
     image: selenium/standalone-chromium:latest
     shm_size: "2gb"
     ports:
-      - "6080:7900"
+      # noVNC viewer of the scraping browser: localhost only (portal foundations 1.5 — it listened on every interface,
+      # with the image's default VNC password and no host firewall). Reach it with: ssh -L 6080:127.0.0.1:6080 root@clearway-2
+      - "127.0.0.1:6080:7900"
     environment:
       SE_NODE_MAX_SESSIONS: 1
       SE_NODE_OVERRIDE_MAX_SESSIONS: "true"

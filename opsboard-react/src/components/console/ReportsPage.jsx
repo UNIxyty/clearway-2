@@ -11,10 +11,12 @@ import { subscribeWallStream } from '../../services/wallStream';
 import useViewport from '../../hooks/useViewport';
 import { BottomSheet, ChipRow } from './mobile';
 import Icon from './icons';
+import { useIsAdmin } from '../../AuthGate';
 import {
   Button,
   Card,
   ConfirmDialog,
+  ViewOnly,
   Dropdown,
   EmptyState,
   ErrorBanner,
@@ -91,6 +93,7 @@ function emptyForm(categories) {
 }
 
 export default function ReportsPage() {
+  const isAdmin = useIsAdmin();
   const [reports, setReports] = useState([]);
   const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
@@ -373,7 +376,7 @@ export default function ReportsPage() {
                 <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', gap: 6, flex: 'none' }}>
                   <IconButton icon="send" title="Send to email" size={34} onClick={() => { setSendFor(report); setSendTo([]); setSendExtra(''); setSendError(''); }} />
                   <IconButton icon="pencil" title="Edit" size={34} onClick={() => setForm({ id: report.id, category: report.category, title: report.title, body: report.body, status: report.status })} />
-                  <IconButton icon="trash-2" title="Delete" size={34} onClick={() => setConfirmDelete(report)} />
+                  <ViewOnly when={!isAdmin}><IconButton icon="trash-2" title="Delete" size={34} onClick={() => setConfirmDelete(report)} /></ViewOnly>
                 </span>
               </div>
             </div>
@@ -466,9 +469,12 @@ export default function ReportsPage() {
         desc="Internal issue & request tracker — raise a report, keep its status current, and route it to the right inbox."
         actions={
           <span style={{ display: 'inline-flex', gap: 8 }}>
-            <Button variant="soft" icon="mail-check" onClick={() => { setPresetDraft(presets.length ? [...presets] : [{ label: 'IT', email: '' }]); setPresetsOpen((v) => !v); }}>
-              Recipient presets
-            </Button>
+            {/* Presets, deleting and restoring are an admin's (portal foundations 1.1); raising, editing and sending are anyone's. */}
+            <ViewOnly when={!isAdmin}>
+              <Button variant="soft" icon="mail-check" onClick={() => { setPresetDraft(presets.length ? [...presets] : [{ label: 'IT', email: '' }]); setPresetsOpen((v) => !v); }}>
+                Recipient presets
+              </Button>
+            </ViewOnly>
             <Button variant="primary" icon="plus" onClick={() => setForm(emptyForm(categories))}>
               New report
             </Button>
@@ -651,7 +657,7 @@ export default function ReportsPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <IconButton icon="send" title="Send to email" onClick={() => { setSendFor(report); setSendTo([]); setSendExtra(''); setSendError(''); }} />
                 <IconButton icon="pencil" title="Edit" onClick={() => setForm({ id: report.id, category: report.category, title: report.title, body: report.body, status: report.status })} />
-                <IconButton icon="trash-2" title="Delete" onClick={() => setConfirmDelete(report)} />
+                <ViewOnly when={!isAdmin}><IconButton icon="trash-2" title="Delete" onClick={() => setConfirmDelete(report)} /></ViewOnly>
               </div>
             </div>
           </div>

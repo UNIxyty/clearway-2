@@ -1,3 +1,4 @@
+-- docs/supabase-maintenance.sql (the rig had no maintenance table). user_preferences.is_admin already exists here.
 -- Maintenance mode table
 create table if not exists public.maintenance (
   id uuid primary key default gen_random_uuid(),
@@ -8,9 +9,6 @@ create table if not exists public.maintenance (
   updated_by uuid references auth.users(id)
 );
 
--- Optional admin flag in user preferences
-alter table public.user_preferences
-  add column if not exists is_admin boolean not null default false;
 
 -- Enable RLS and public read access for maintenance status
 alter table public.maintenance enable row level security;

@@ -90,7 +90,10 @@ async function peopleSend(requestId, leg) {
 console.log("\n=== 1. 16 passengers on two legs: contacts with passports, one call per leg ===");
 const m1 = await deliver("rig/fixtures/intake/rigpax16-oelca.eml");
 let d = await detail(m1.request_id);
-const ppl = (await api(`/api/intake/requests/${m1.request_id}/people`)).json;
+const masked = (await api(`/api/intake/requests/${m1.request_id}/people`)).json;
+// Portal foundations 1.4: passengers' names come masked like the rest; the logged reveal call carries them.
+ok(masked.legs[0].pax.length === 16 && masked.legs[0].pax.every((r) => r.surname === "••••••••" && r.given === "••••••••" && r.name === "••••••••"), "the people list comes with passengers' names masked (surname, given names, name)");
+const ppl = (await api(`/api/intake/requests/${m1.request_id}/people/reveal`, {})).json;
 ok(ppl.nameOrder?.order === "given_first" && /First, Middle, Last/i.test(ppl.nameOrder?.said ?? ""), "the request's declared name order is read (\"First, Middle, Last Name\")", JSON.stringify(ppl.nameOrder));
 ok(ppl.legs[0].pax.length === 16 && ppl.legs[0].pax.every((r, i) => r.surname === SUR[i] && r.given === GIV[i] && r.splitHow === "declared"), "the review screen's data shows each passenger's surname and given names, split by that order");
 const s1 = await send(m1.request_id);
@@ -136,7 +139,7 @@ console.log("\n=== 4. A contact ops made by hand (reused with a warning, never e
   const pp4 = (await api(`/api/intake/requests/${m4.request_id}/people`)).json;
   const idx2 = pp4.legs[0].pax[1].idx;
   const ed = await api(`/api/intake/requests/${m4.request_id}/people/edit`, { op: "split", idx: idx2, surname: `${SUR[1]} DOUBLE`, given: GIV[1] });
-  const shown = ed.json.legs[0].pax[1];
+  const shown = (await api(`/api/intake/requests/${m4.request_id}/people/reveal`, {})).json.legs[0].pax[1];
   ok(ed.status === 200 && shown.surname === `${SUR[1]} DOUBLE` && shown.splitHow === "edited" && !!shown.splitBy, "a person corrects passenger 2's split on the review screen: kept, marked edited and by whom", `${shown.splitHow} by ${shown.splitBy}`);
   const r4 = (await send(m4.request_id)).result; const w4 = paxWrite(r4, 0);
   const f = await flightOf(r4.legs[0].flightNid);

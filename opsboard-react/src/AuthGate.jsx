@@ -17,6 +17,11 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+/** Admin or developer, as the wall server decided (portal foundations 1.1). The server enforces it on every write. */
+export function useIsAdmin() {
+  return Boolean(useContext(AuthContext).user?.isAdmin);
+}
+
 /**
  * Builds the portal sign-in URL with a `next` parameter pointing back at the
  * page the user is on right now (path + query + hash), so after signing in

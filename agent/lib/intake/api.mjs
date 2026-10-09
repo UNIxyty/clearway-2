@@ -15,7 +15,7 @@ import { prepareSend, confirmSend, sendStatus, legStates, resolveUnknown, TOOL, 
 import { blockersFor, validateValue, recomputeTimes, applyTzChoice, tzOptions, CORE_FIELDS, fmtDate } from "./review.mjs";
 import { aircraftByRegistration, airport, checklistDefinitions } from "./leon-lookup.mjs";
 import { leonConfigured } from "./leon-client.mjs";
-import { maskForReader, MASK } from "./personal.mjs";
+import { maskForReader, MASK, personalTokens, scrubString } from "./personal.mjs";
 import { sanitizeEmailHtml } from "./sanitize.mjs";
 import { retentionDays, deleteAtFor } from "./retention.mjs";
 import { notifyTo } from "./notify.mjs";
@@ -95,6 +95,15 @@ async function requestRows({ tab = "all", q = "", type = "" }) {
   return { rows: out.map(({ _search, ...r }) => r), counts };
 }
 
+// Passengers' names in an attachment's file name ("Passport_SMITH_JOHN.pdf") are masked like the rest of their personal
+// data (portal foundations 1.4). Opening the file is the reveal, and it is logged.
+const paxTokens = (people) => personalTokens((people ?? []).filter((p) => p?.list === "pax"));
+const maskFileName = (name, tokens) => (name && tokens.length ? scrubString(name, tokens, MASK) : name);
+async function peopleOf(extractionId) {
+  if (!extractionId) return [];
+  return (await rest(`intake_extractions?select=personal&id=eq.${extractionId}`))?.[0]?.personal?.people ?? [];
+}
+
 async function peopleCounts(extractionId) {
   if (!extractionId) return { hasPersonal: false, legs: {} };
   const ex = (await rest(`intake_extractions?select=personal&id=eq.${extractionId}`))?.[0];
@@ -126,7 +135,7 @@ async function requestDetail(id) {
     request: { id: r.id, type: r.request_type, typeLabel: r.request_type === "scheduled" ? "Scheduled flight" : "Handling request", reference: r.reference, referenceBuilt: r.reference_built, status: r.status, ui: uiStatus(r), statusReason: r.status_reason, sender: r.sender_name, fromAddr: m?.from_addr, toAddrs: m?.to_addrs, subject: m?.subject, receivedAt: m?.received_at, messageId: r.message_id, route: r.route, firstStd: r.first_std, legsCount: r.legs_count, closedReason: r.closed_reason, duplicate: r.duplicate, duplicateResolution: r.duplicate_resolution, purged: !!m?.purged_at, hasPersonal: !!m?.has_personal_data },
     stageNames: STAGES[r.request_type], stages: r.stages ?? [],
     review, blockers, warnings,
-    attachments: (r.attachment_roles ?? []).map((a) => ({ ...a, url: a.id ? `/agent/api/intake/attachments/${a.id}` : null })),
+    attachments: await (async () => { const t = paxTokens(await peopleOf(r.current_extraction_id)); return (r.attachment_roles ?? []).map((a) => ({ ...a, name: maskFileName(a.name, t), url: a.id ? `/agent/api/intake/attachments/${a.id}` : null })); })(),
     requestSource: review?.requestSource ?? null,
     sent: { writes: allWrites.map((w) => ({ leg: w.leg_index, state: w.state, flightNid: w.leon_flight_nid, tripNid: w.leon_trip_nid, error: w.leon_error, httpStatus: w.http_status, ms: w.answered_ms, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email, resolvedBy: w.resolved_by, checklist: w.checklist, payload: w.payload })), firstAt: firstSend?.created_at ?? null, lastMs: lastAnswer?.answered_ms ?? null,
       cancels: cancelWrites.map((w) => ({ leg: w.leg_index, state: w.state, flightNid: w.leon_flight_nid, error: w.leon_error, httpStatus: w.http_status, ms: w.answered_ms, at: w.created_at, updatedAt: w.updated_at, by: w.sent_by_email })),
@@ -246,7 +255,10 @@ async function peopleFor(id, reveal) {
     const targets = p.leg == null ? legs : legs.filter((l) => l.leg === p.leg);
     // The name as Leon will get it: surname and given names, split by the request's declared order (or by a person).
     const split = nameSplit(p, nameOrder);
-    const row = { idx, surname: split.surname, given: split.given, splitHow: split.how, splitBy: split.by ?? null, splitSaid: split.said ?? null, id: p.id ?? null, added: p.added ? { by: p.added.by, at: p.added.at } : null, role: p.role ?? p.type ?? null, salutation: p.salutation ?? null, sex: p.sex ?? null, name: p.name, dob: p.dob ? (reveal ? p.dob : MASK) : null, nationality: p.nationality ?? null, passport: p.passport ? (reveal ? p.passport : MASK) : null, expiry: p.expiry ? (reveal ? p.expiry : MASK) : null, source: p.source ?? null, copied: p.leg == null && !p.added };
+    // Passengers' names are masked with their other personal data until a person reveals them (portal foundations
+    // 1.4). Crew names stay readable: they are the operator's own staff, and ops work with them.
+    const hide = (v) => (v && !reveal && p.list === "pax" ? MASK : v);
+    const row = { idx, surname: hide(split.surname), given: hide(split.given), splitHow: split.how, splitBy: split.by ?? null, splitSaid: split.said ?? null, id: p.id ?? null, added: p.added ? { by: p.added.by, at: p.added.at } : null, role: p.role ?? p.type ?? null, salutation: p.salutation ?? null, sex: p.sex ?? null, name: hide(p.name), dob: p.dob ? (reveal ? p.dob : MASK) : null, nationality: p.nationality ?? null, passport: p.passport ? (reveal ? p.passport : MASK) : null, expiry: p.expiry ? (reveal ? p.expiry : MASK) : null, source: p.source ?? null, copied: p.leg == null && !p.added };
     for (const t of targets) t[p.list].push(row);
   }
   return { legs, purged: !ex?.personal && !!r.current_extraction_id, masked: !reveal, nameOrder: nameOrder ? { said: nameOrder.said, order: nameOrder.order } : null };
@@ -362,7 +374,8 @@ async function readerPayload(id, user) {
   if (m.direction === "outbound") return { ...base, sent: { kind: m.sent_kind, resendId: m.provider === "resend" ? m.provider_message_id : null, delivery: m.delivery_status, events: m.delivery_events ?? [], detail: m.delivery_detail?.error ?? null }, thread, attachments: [] };
   const atts = (await rest(`intake_attachments?select=id,bytes,sniffed_type,declared_type,declared_name,purged_at&message_id=eq.${m.id}`)) ?? [];
   const roles = req ? (await rest(`intake_requests?select=attachment_roles&id=eq.${req.id}`))?.[0]?.attachment_roles ?? [] : [];
-  return { ...base, thread, attachments: atts.map((a) => { const r = roles.find((x) => x.id === a.id); return { id: a.id, name: a.declared_name ?? "(no name)", type: a.sniffed_type, declared: a.declared_type, bytes: a.bytes, purged: !!a.purged_at, role: r?.role ?? null, why: r?.why ?? null, personal: r?.personal ?? false, url: `/agent/api/intake/attachments/${a.id}` }; }) };
+  const tokens = paxTokens(await peopleForMessage(m));
+  return { ...base, thread, attachments: atts.map((a) => { const r = roles.find((x) => x.id === a.id); return { id: a.id, name: maskFileName(a.declared_name, tokens) ?? "(no name)", type: a.sniffed_type, declared: a.declared_type, bytes: a.bytes, purged: !!a.purged_at, role: r?.role ?? null, why: r?.why ?? null, personal: r?.personal ?? false, url: `/agent/api/intake/attachments/${a.id}` }; }) };
 }
 
 async function peopleForMessage(m) {

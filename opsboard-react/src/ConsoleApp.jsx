@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAuth } from './AuthGate';
+import { useAuth, useIsAdmin } from './AuthGate';
 import Icon from './components/console/icons';
 import {
   Avatar,
   ConsoleStyles,
   t,
   timeAgo,
-  ToastProvider, initialsOf } from './components/console/ui';
+  ToastProvider, initialsOf, ViewOnly, ViewOnlyNote } from './components/console/ui';
 import { MOBILE } from './components/console/mobile';
 import useViewport from './hooks/useViewport';
 import AircraftPage from './components/console/AircraftPage';
@@ -228,6 +228,7 @@ function UserBadge({ user, collapsed }) {
  */
 export default function ConsoleApp({ page, navigate }) {
   const { user } = useAuth();
+  const isAdmin = useIsAdmin();
   // Ops Agent side panel (⌘J) — hosted from the portal, see AgentDock.
   const agent = useAgentDock({ page, label: NAV.find((n) => n.key === page)?.label });
   // Breakpoints (design section E, width only — the console ignores rotation):
@@ -405,22 +406,31 @@ export default function ConsoleApp({ page, navigate }) {
     navigate({ surface: 'console', page: pageKey });
   }
 
+  // Portal foundations 1.1: everyone sees these pages; only an admin changes them. The wall server refuses a
+  // non-admin's write regardless — the view-only mode only stops offering buttons it would refuse.
+  const adminPage = (node, note) => (
+    <ViewOnly when={!isAdmin}>
+      <ViewOnlyNote>{note}</ViewOnlyNote>
+      {node}
+    </ViewOnly>
+  );
+
   function renderPage() {
     switch (page) {
       case 'notam-check':
         return <NotamCheckPage navigate={navigate} />;
       case 'operators':
-        return <OperatorsPage />;
+        return adminPage(<OperatorsPage />, 'Only an admin can add, edit or delete operators.');
       case 'aircraft':
-        return <AircraftPage />;
+        return adminPage(<AircraftPage />, 'Only an admin can show, hide or delete aircraft.');
       case 'limitations':
-        return <LimitationsPage />;
+        return adminPage(<LimitationsPage />, 'Only an admin can add, edit or delete limitations.');
       case 'important':
-        return <ImportantPage />;
+        return adminPage(<ImportantPage />, 'Only an admin can add, edit or delete IMP entries.');
       case 'caa':
-        return <CaaPage />;
+        return adminPage(<CaaPage />, 'Only an admin can add, edit or delete CAA entries.');
       case 'webhooks':
-        return <WebhooksPage />;
+        return adminPage(<WebhooksPage />, 'Only an admin can change the Leon webhooks.');
       case 'reports':
         return <ReportsPage />;
       case 'settings':
@@ -480,7 +490,7 @@ export default function ConsoleApp({ page, navigate }) {
       <ToastProvider>
         <div className="cw-console" style={{ ...s.shell, background: t.subtle }}>
           <ConsoleStyles />
-          <DeviceApprovalPopup />
+          {isAdmin && <DeviceApprovalPopup />}
 
           {/* 56px top bar: 44px hamburger, page title + service context. */}
           <div
@@ -714,7 +724,7 @@ export default function ConsoleApp({ page, navigate }) {
     <ToastProvider>
       <div className="cw-console" style={s.shell}>
         <ConsoleStyles />
-        <DeviceApprovalPopup />
+        {isAdmin && <DeviceApprovalPopup />}
 
         {/* ── Top bar ── */}
         <div style={s.topBar}>

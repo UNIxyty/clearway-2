@@ -845,7 +845,7 @@ export default function LimitationsPage() {
                   {editingId ? 'Save changes' : 'Save limitation'}
                 </Button>
                 {editingId && (
-                  <Button variant="ghost" size="lg" type="button" onClick={cancelEdit} disabled={saving}>
+                  <Button variant="ghost" size="lg" type="button" viewOnlyOk onClick={cancelEdit} disabled={saving}>
                     Cancel
                   </Button>
                 )}

@@ -20,6 +20,7 @@ import {
 } from '../../services/timelineApi';
 import { collectViewportEnv, getDeviceId } from '../../services/device';
 import { fetchCurrentUser } from '../../services/timelineApi';
+import { useIsAdmin } from '../../AuthGate';
 
 // Which ACCOUNT's profile the sizing cards edit. null = your own view;
 // the string carries the target account (the main wall signs in as
@@ -27,6 +28,21 @@ import { fetchCurrentUser } from '../../services/timelineApi';
 // cards below stay unchanged — deviceId IS the account key now.
 const MAIN_WALL_ACCOUNT = 'ops@clearway.aero';
 const DeviceCtx = createContext({ deviceId: null, device: null });
+
+// Portal foundations 1.1: the big screen and the wall-wide settings are an admin's to change; everyone can still see
+// them. The wall server refuses those writes regardless — this only stops the controls pretending otherwise.
+const FIELDSET = { border: 0, padding: 0, margin: 0, minWidth: 0 };
+function Locked({ when, note, children }) {
+  if (!when) return children;
+  return (
+    <ViewOnly when>
+      {note !== null && <ViewOnlyNote>{note}</ViewOnlyNote>}
+      <fieldset disabled style={FIELDSET}>{children}</fieldset>
+    </ViewOnly>
+  );
+}
+const BIG_SCREEN_NOTE = <>The big screen&apos;s settings are an admin&apos;s to change. Your own view is under <strong>My view</strong>.</>;
+const WALL_WIDE_NOTE = 'These settings apply to every wall; only an admin can change them.';
 import Icon from './icons';
 import ColoursCard from './ColoursCard';
 import FontCard from './FontCard';
@@ -37,6 +53,8 @@ import {
   Button,
   Card,
   ChipInput,
+  ViewOnly,
+  ViewOnlyNote,
   Dropdown,
   ErrorBanner,
   FieldLabel,
@@ -289,6 +307,7 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
     cursor: 'pointer', marginBottom: 8, background: active ? '#f0f6ff' : t.card,
   });
   const flash = useToast();
+  const isAdmin = useIsAdmin();
   const env = wallDevice?.env || null;
   return (
     <Card style={{ marginBottom: 22 }}>
@@ -315,9 +334,10 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
             {env ? ` · ${env.innerWidth}×${env.innerHeight} css px · DPR ${env.devicePixelRatio}` : ''}
           </div>
         </div>
-        {selected === MAIN_WALL_ACCOUNT && <MonoChip color="#92500b" bg="#fdf3e2">editing the BIG SCREEN</MonoChip>}
+        {selected === MAIN_WALL_ACCOUNT && <MonoChip color="#92500b" bg="#fdf3e2">{isAdmin ? 'editing the BIG SCREEN' : 'viewing the BIG SCREEN'}</MonoChip>}
       </div>
       {selected === MAIN_WALL_ACCOUNT && (
+        <ViewOnly when={!isAdmin}>
         <Button
           size="sm"
           variant="soft"
@@ -330,6 +350,7 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
         >
           Reset main wall to defaults
         </Button>
+        </ViewOnly>
       )}
     </Card>
   );
@@ -1862,6 +1883,8 @@ function MobileGroup({ title, summary, open, onToggle, note = false, children })
 
 export default function SettingsPage() {
   const [selectedAccount, setSelectedAccount] = useState(null); // null = my view
+  const isAdmin = useIsAdmin();
+  const bigLocked = !isAdmin && selectedAccount === MAIN_WALL_ACCOUNT;
   const [devices, setDevices] = useState([]);
   const [myEmail, setMyEmail] = useState('');
 
@@ -1925,9 +1948,10 @@ export default function SettingsPage() {
 
   if (isMobile) {
     const x = (v, fallback) => `${Number(Number.isFinite(v) ? v : fallback).toFixed(2)}×`;
-    const group = (id, title, summary, node, note = false) => (
+    // `locked`: the card is shown but its controls are disabled (the note sits above the groups).
+    const group = (id, title, summary, node, note = false, locked = bigLocked) => (
       <MobileGroup key={`${id}-${selectedAccount ?? 'own'}`} title={title} summary={summary} note={note} open={openGroups.has(id)} onToggle={() => toggleGroup(id)}>
-        {node}
+        <Locked when={locked} note={null}>{node}</Locked>
       </MobileGroup>
     );
     return (
@@ -1971,6 +1995,7 @@ export default function SettingsPage() {
             <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
             <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
               <div key={selectedAccount ?? 'own'}>
+                {bigLocked && <ViewOnly when><ViewOnlyNote>{BIG_SCREEN_NOTE}</ViewOnlyNote></ViewOnly>}
                 {group('scale', 'Display scale', x(summaryValues?.scale, 1.3), <DisplayScaleCard />, true)}
                 {group('hour', 'Hour spacing', x(summaryValues?.timeZoom, 1), <HourSpacingCard />, true)}
                 {group('vertical', 'Vertical sizing', x(summaryValues?.rowZoom, 1), <VerticalSizingCard />, true)}
@@ -1987,7 +2012,7 @@ export default function SettingsPage() {
             <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
             <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
               <div key={selectedAccount ?? 'own'}>
-                <ColoursCard deviceId={selectedAccount} />
+                <Locked when={bigLocked} note={BIG_SCREEN_NOTE}><ColoursCard deviceId={selectedAccount} /></Locked>
               </div>
             </DeviceCtx.Provider>
           </>
@@ -1997,29 +2022,32 @@ export default function SettingsPage() {
             <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
             <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
               <div key={selectedAccount ?? 'own'}>
-                <FontCard deviceId={selectedAccount} />
+                <Locked when={bigLocked} note={BIG_SCREEN_NOTE}><FontCard deviceId={selectedAccount} /></Locked>
               </div>
             </DeviceCtx.Provider>
           </>
         )}
         {section === 'wall' && (
           <>
+            {!isAdmin && <ViewOnly when><ViewOnlyNote>{WALL_WIDE_NOTE}</ViewOnlyNote></ViewOnly>}
             {group(
               'window',
               'Flight visibility window',
               `${Number.isFinite(summaryValues?.upcomingHorizonHours) ? summaryValues.upcomingHorizonHours : 17}h`,
               <VisibilityWindowCard />,
-              true
+              true,
+              !isAdmin
             )}
-            {group('clocks', 'Wall clocks', '', <ClocksCard />)}
-            {group('devices', 'Devices', '', <DevicesCard />)}
+            {group('clocks', 'Wall clocks', '', <ClocksCard />, false, !isAdmin)}
+            {group('devices', 'Devices', '', <DevicesCard />, false, !isAdmin)}
           </>
         )}
         {section === 'checks' && (
           <>
-            {group('digest', 'NOTAM digest', '', <NotamDigestCard />)}
-            {group('weather', 'Weather', '', <WeatherCard />)}
-            {group('filter', 'NOTAM / alert filter', '', <AlertFilterCard />)}
+            {!isAdmin && <ViewOnly when><ViewOnlyNote>{WALL_WIDE_NOTE}</ViewOnlyNote></ViewOnly>}
+            {group('digest', 'NOTAM digest', '', <NotamDigestCard />, false, !isAdmin)}
+            {group('weather', 'Weather', '', <WeatherCard />, false, !isAdmin)}
+            {group('filter', 'NOTAM / alert filter', '', <AlertFilterCard />, false, !isAdmin)}
           </>
         )}
       </div>
@@ -2052,13 +2080,15 @@ export default function SettingsPage() {
           <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
             {/* key remounts the cards so they re-fetch the selected profile */}
             <div key={selectedAccount ?? 'own'}>
-              <DisplayScaleCard />
-              <HourSpacingCard />
-              <VerticalSizingCard />
-              <HorizontalSizingCard />
-              <PanelScalesCard />
-              <ChipsCard />
-              <UpcomingTableCard />
+              <Locked when={bigLocked} note={BIG_SCREEN_NOTE}>
+                <DisplayScaleCard />
+                <HourSpacingCard />
+                <VerticalSizingCard />
+                <HorizontalSizingCard />
+                <PanelScalesCard />
+                <ChipsCard />
+                <UpcomingTableCard />
+              </Locked>
             </div>
           </DeviceCtx.Provider>
         </>
@@ -2070,7 +2100,7 @@ export default function SettingsPage() {
           <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
           <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
             <div key={selectedAccount ?? 'own'}>
-              <ColoursCard deviceId={selectedAccount} />
+              <Locked when={bigLocked} note={BIG_SCREEN_NOTE}><ColoursCard deviceId={selectedAccount} /></Locked>
             </div>
           </DeviceCtx.Provider>
         </>
@@ -2081,24 +2111,24 @@ export default function SettingsPage() {
           <AccountProfileCard selected={selectedAccount} onSelect={setSelectedAccount} myEmail={myEmail} wallDevice={wallDevice} />
           <DeviceCtx.Provider value={{ deviceId: selectedAccount, device: selectedAccount === MAIN_WALL_ACCOUNT ? wallDevice : null }}>
             <div key={selectedAccount ?? 'own'}>
-              <FontCard deviceId={selectedAccount} />
+              <Locked when={bigLocked} note={BIG_SCREEN_NOTE}><FontCard deviceId={selectedAccount} /></Locked>
             </div>
           </DeviceCtx.Provider>
         </>
       )}
       {section === 'wall' && (
-        <>
+        <Locked when={!isAdmin} note={WALL_WIDE_NOTE}>
           <VisibilityWindowCard />
           <ClocksCard />
           <DevicesCard />
-        </>
+        </Locked>
       )}
       {section === 'checks' && (
-        <>
+        <Locked when={!isAdmin} note={WALL_WIDE_NOTE}>
           <NotamDigestCard />
           <WeatherCard />
           <AlertFilterCard />
-        </>
+        </Locked>
       )}
     </div>
   );

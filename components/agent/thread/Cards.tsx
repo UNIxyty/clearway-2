@@ -229,14 +229,18 @@ export function GeneratedFile({ file, panel = false, onSend }: { file: FileData;
 // document, masked or truncated values. A manifest with no passengers says so plainly.
 export function ManifestNotice({ manifest: m, panel = false, notePath = null }: { manifest: ManifestInfo; panel?: boolean; notePath?: string | null }) {
   // The operator's free-text passenger note, when Leon has one: fetched from the file's own owner-only route and shown
-  // verbatim — never part of the message text, the stored conversation or anything the model sees.
+  // verbatim — never part of the message text, the stored conversation or anything the model sees. It is a passenger
+  // list (names, often more), so it stays hidden behind "Show personal data" like every other one (portal foundations
+  // 1.4): fetched only when a person asks, hidden again after 60 s.
   const [note, setNote] = useState<string | null>(null);
+  const [showNote, setShowNote] = useState(false);
   useEffect(() => {
-    if (!m.hasPaxNote || !notePath) return;
+    if (!showNote || !m.hasPaxNote || !notePath) return;
     let alive = true;
-    fetch(notePath, { credentials: "same-origin", cache: "no-store" }).then((r) => (r.ok ? r.text() : null)).then((t) => { if (alive) setNote(t); }).catch(() => {});
-    return () => { alive = false; };
-  }, [m.hasPaxNote, notePath]);
+    fetch(notePath, { credentials: "same-origin", cache: "no-store" }).then((r) => (r.ok ? r.text() : "The note could not be loaded.")).then((t) => { if (alive) setNote(t); }).catch(() => { if (alive) setNote("The note could not be loaded."); });
+    const hide = setTimeout(() => setShowNote(false), 60000);
+    return () => { alive = false; clearTimeout(hide); setNote(null); };
+  }, [showNote, m.hasPaxNote, notePath]);
   if (m.blank) return null;
   const items: { tone: "warn" | "info"; text: string }[] = [];
   for (const w of m.warnings) items.push({ tone: w.code === "no-passengers" ? "info" : "warn", text: w.message });
@@ -268,7 +272,14 @@ export function ManifestNotice({ manifest: m, panel = false, notePath = null }: 
       {m.hasPaxNote && (
         <div aria-label={m.passengerSource?.kind === "intake" ? "Leon's text passenger list" : "The operator's own passenger note in Leon"} style={{ border: `1px dashed ${C.warnBorder}`, borderRadius: 9, background: C.surface, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: C.warn }}>{m.passengerSource?.kind === "intake" ? "LEON'S TEXT PASSENGER LIST · VERBATIM · COMPARE IT WITH THE ROWS — NOT MERGED" : "THE OPERATOR'S OWN NOTE IN LEON · VERBATIM · NOT CHECKED, NOT PARSED INTO ROWS"}</span>
-          <pre data-pax-note="" style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", ...mono({ fontSize: 12.5 }), color: C.ink }}>{note ?? "Loading the note…"}</pre>
+          {showNote ? (
+            <>
+              <pre data-pax-note="" style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", ...mono({ fontSize: 12.5 }), color: C.ink }}>{note ?? "Loading the note…"}</pre>
+              <button type="button" className="ag-focus" onClick={() => setShowNote(false)} style={{ alignSelf: "flex-start", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: C.ink, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}><Icon name="eye-off" size={13} color={C.muted} />Hide now · hides after 60 s</button>
+            </>
+          ) : (
+            <button type="button" className="ag-focus" onClick={() => setShowNote(true)} disabled={!notePath} style={{ alignSelf: "flex-start", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: C.ink, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}><Icon name="eye" size={13} color={C.muted} />Show personal data</button>
+          )}
         </div>
       )}
     </div>

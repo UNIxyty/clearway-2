@@ -147,7 +147,7 @@ function OperatorForm({ operator = null, onSaved, onCancel }) {
           <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving}>
             {editing ? 'Save changes' : 'Save operator'}
           </Button>
-          <Button variant="ghost" size="lg" onClick={onCancel}>
+          <Button variant="ghost" size="lg" viewOnlyOk onClick={onCancel}>
             Cancel
           </Button>
         </div>
@@ -275,7 +275,7 @@ export default function OperatorsPage() {
               </StatusPill>
             )}
           </div>
-          <Button icon="refresh-cw" size="sm" spin={forceSyncing} onClick={forceSync}>
+          <Button icon="refresh-cw" size="sm" viewOnlyOk spin={forceSyncing} onClick={forceSync}>
             {forceSyncing ? 'Syncing…' : 'Force sync'}
           </Button>
         </div>
@@ -319,7 +319,7 @@ export default function OperatorsPage() {
             existing Leon webhook registrations are now invalid. Open the <strong>Webhooks</strong> page and use{' '}
             <strong>Re-register</strong> for {reregisterNotice.oprId} so live events keep flowing.
           </span>
-          <IconButton icon="x" title="Dismiss" onClick={() => setReregisterNotice(null)} />
+          <IconButton icon="x" title="Dismiss" viewOnlyOk onClick={() => setReregisterNotice(null)} />
         </div>
       )}
 

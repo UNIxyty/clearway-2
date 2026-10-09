@@ -129,6 +129,11 @@ ok(!PII.test(JSON.stringify(conv)), "no passenger detail in the stored conversat
 await openPicker(); await search("DLV240"); await page.keyboard.press("Enter");
 await page.waitForSelector('[aria-label^="Generated file PAX-Manifest_DLV240"]', { timeout: 120_000 }).catch(() => {});
 await sleep(3000);
+// Portal foundations 1.4: the note is a passenger list, so it stays hidden behind "Show personal data" (fetched on click).
+const noticeBox = page.locator('[aria-label="Passenger manifest — read before sending"]').last();
+ok(await noticeBox.locator("[data-pax-note]").count() === 0 && !/FAKENAME/.test(await noticeBox.innerText()), "the operator's note is hidden until a person asks for it");
+await noticeBox.getByRole("button", { name: "Show personal data" }).click();
+await sleep(1500);
 const noteBox = page.locator("[data-pax-note]").last();
 const noteText = await noteBox.innerText().catch(() => "");
 ok(/FAKENAME Alpha  P\/N RIG000001/.test(noteText) && /FAKENAME Beta/.test(noteText), "the operator's free-text note is shown in the chat, verbatim (double spaces kept)");

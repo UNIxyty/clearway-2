@@ -13,6 +13,7 @@ import {
 } from "./lib/voice-readout.mjs";
 import { authenticateRequest, authEnabled, authMisconfigured, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import { assertRigSafe } from "./lib/rig-guard.mjs";
+import { ADMIN_ONLY_MESSAGE, isUserWrite, isWriteMethod, resolveIsAdmin } from "./lib/roles.mjs";
 assertRigSafe("digital-wall");
 import {
   announceDevice,
@@ -59,8 +60,11 @@ const staticRoot = candidateRoots.find((dir) => {
   );
 });
 
+// Portal foundations 1.5: the copied site is no longer SERVED (it was public, with an injected script that planted
+// fake admin tokens in the browser). Its two JSON files are still read once at startup as the static flight seed
+// (leon-sync loadStaticSeeds), so a missing copy is fine: the wall starts without a seed.
 if (!staticRoot) {
-  throw new Error("Could not resolve upstream static directory.");
+  console.warn("No upstream copy: starting without the static flight seed.");
 }
 
 const operatorsStore = new OperatorsStore();
@@ -579,7 +583,8 @@ function isDisplayReadPath(pathname, method) {
 function safeJoin(root, requestPath) {
   const sanitized = requestPath.replace(/^\/+/, "");
   const resolved = path.resolve(root, sanitized);
-  if (!resolved.startsWith(root)) {
+  // The separator matters: "/app/guide-old" starts with "/app/guide" (portal foundations 1.5).
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
     return null;
   }
   return resolved;
@@ -606,21 +611,6 @@ async function readJsonBody(req) {
   const raw = Buffer.concat(chunks).toString("utf-8");
   if (!raw.trim()) return {};
   return JSON.parse(raw);
-}
-
-async function serveLocalFile(res, fileName) {
-  const filePath = path.resolve(cwd, fileName);
-  const fileBuffer = await readMaybe(filePath);
-  if (!fileBuffer) {
-    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
-    res.end(`${fileName} not found.`);
-    return true;
-  }
-  const extension = path.extname(filePath).toLowerCase();
-  const contentType = contentTypes[extension] ?? "application/octet-stream";
-  res.writeHead(200, { "content-type": contentType });
-  res.end(fileBuffer);
-  return true;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -713,12 +703,6 @@ const server = http.createServer(async (req, res) => {
     ) {
       res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       res.end("Not found.");
-      return;
-    }
-
-    if (pathname === "/admin-common.css" || pathname === "/wall-menu.js") {
-      const fileName = pathname.slice(1);
-      await serveLocalFile(res, fileName);
       return;
     }
 
@@ -857,6 +841,14 @@ const server = http.createServer(async (req, res) => {
         );
         return;
       }
+      // ── Who may write (portal foundations 1.1) ──
+      // Every write is admin-only unless lib/roles.mjs USER_WRITES opens it to any signed-in user (own view, day-to-day
+      // ops actions). Enforced here, before any handler, so a hidden console button is never the only guard.
+      if (requestUser) requestUser = { ...requestUser, isAdmin: await resolveIsAdmin(requestUser) };
+      if (isWriteMethod(req.method) && !isUserWrite(req.method, pathname) && !requestUser?.isAdmin) {
+        sendJson(res, { ok: false, error: ADMIN_ONLY_MESSAGE, adminOnly: true }, 403);
+        return;
+      }
     }
 
     // Who is acting — used for the added-by / confirmed-by / deleted-by audit
@@ -876,6 +868,7 @@ const server = http.createServer(async (req, res) => {
             firstname: requestUser.name.split(" ")[0] ?? "",
             lastname: requestUser.name.split(" ").slice(1).join(" "),
             role: requestUser.role,
+            isAdmin: Boolean(requestUser.isAdmin),
           },
         });
         return;
@@ -1408,6 +1401,11 @@ const server = http.createServer(async (req, res) => {
       // Writable targets: your OWN profile (default) or the MAIN WALL.
       // Another user's personal profile is never writable.
       const account = requested === MAIN_WALL_ACCOUNT ? MAIN_WALL_ACCOUNT : own;
+      // The big screen's profile is an admin's to change (1.1); everyone else edits only their own view.
+      if (account === MAIN_WALL_ACCOUNT && !requestUser?.isAdmin) {
+        sendJson(res, { ok: false, error: "Only an admin can change the big screen's settings. Your own view is under My view.", adminOnly: true }, 403);
+        return;
+      }
       let settings;
       const shape = await readDisplayProfiles();
       try {
@@ -1435,6 +1433,18 @@ const server = http.createServer(async (req, res) => {
       // what ops configured. The window keys are GLOBAL: persist them into
       // the default and keep them OUT of account profiles.
       const windowTouched = GLOBAL_SETTING_KEYS.some((k) => (body.settings ?? body ?? {})[k] !== undefined);
+      // The visibility window is global (every wall), so it is the big screen's setting too: a non-admin's save may
+      // carry the current values back unchanged, but may not change them. (Compared after the same sanitising.)
+      let currentGlobals = {};
+      try {
+        currentGlobals = sanitizeDisplaySettings({ ...DEFAULT_DISPLAY_SETTINGS, ...(shape.default ?? {}) });
+      } catch {
+        currentGlobals = { ...DEFAULT_DISPLAY_SETTINGS, ...(shape.default ?? {}) };
+      }
+      if (!requestUser?.isAdmin && GLOBAL_SETTING_KEYS.some((k) => settings[k] !== currentGlobals[k])) {
+        sendJson(res, { ok: false, error: "Only an admin can change the visibility window — it applies to every wall.", adminOnly: true }, 403);
+        return;
+      }
       shape.default = shape.default && typeof shape.default === "object" ? shape.default : {};
       for (const k of GLOBAL_SETTING_KEYS) {
         shape.default[k] = settings[k];
@@ -1466,6 +1476,10 @@ const server = http.createServer(async (req, res) => {
       const own = String(requestUser?.email || "").toLowerCase();
       const requested = decodeURIComponent(pathname.split("/").pop()).toLowerCase();
       const account = requested === MAIN_WALL_ACCOUNT ? MAIN_WALL_ACCOUNT : own;
+      if (account === MAIN_WALL_ACCOUNT && !requestUser?.isAdmin) {
+        sendJson(res, { ok: false, error: "Only an admin can reset the big screen's settings.", adminOnly: true }, 403);
+        return;
+      }
       const shape = await readDisplayProfiles();
       if (shape.accounts[account]) {
         delete shape.accounts[account];
@@ -2356,73 +2370,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/user" || pathname === "/api/users/me" || pathname === "/api/profile") {
-      sendJson(res, { ok: true, authEnabled: authEnabled(), user: requestUser ?? MOCK_USER });
+      const { claims: _claims, ...who } = requestUser ?? { ...MOCK_USER, isAdmin: true };
+      sendJson(res, { ok: true, authEnabled: authEnabled(), user: { ...who, isAdmin: Boolean(who.isAdmin) } });
       return;
     }
 
-    const normalizedPath = pathname === "/" ? "/timeline.html" : pathname;
-    const primary = safeJoin(staticRoot, normalizedPath);
-
-    if (!primary) {
-      res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
-      res.end("Bad request.");
+    // Portal foundations 1.5: nothing else is served. The old copied timeline site (timeline.html, its js/css, and
+    // the unknown-path fallback to it) was public; the wall and console are the opsboard-react build, served by the
+    // frontend container. Unknown /api/* paths keep their empty answer (behind the session gate above).
+    if (pathname.startsWith("/api/")) {
+      sendJson(res, {});
       return;
     }
-
-    let filePath = primary;
-    let fileBuffer = await readMaybe(filePath);
-
-    if (!fileBuffer && !path.extname(filePath)) {
-      filePath = `${filePath}.html`;
-      fileBuffer = await readMaybe(filePath);
-    }
-
-    if (!fileBuffer) {
-      if (pathname.startsWith("/api/")) {
-        sendJson(res, {});
-        return;
-      }
-      const spaEntry = safeJoin(staticRoot, "/timeline.html");
-      if (spaEntry) {
-        filePath = spaEntry;
-        fileBuffer = await readMaybe(filePath);
-      }
-      if (!fileBuffer) {
-        res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
-        res.end("Not found.");
-        return;
-      }
-    }
-
-    const extension = path.extname(filePath).toLowerCase();
-    const contentType = contentTypes[extension] ?? "application/octet-stream";
-
-    let responseBody = fileBuffer;
-
-    if (path.basename(filePath) === "timeline.html") {
-      const authBypassScript =
-        "<script>(function(){try{localStorage.clear();}catch(e){}localStorage.setItem('accessToken','local-dev-access-token');localStorage.setItem('refreshToken','local-dev-refresh-token');localStorage.setItem('accessTokenExpirationTime','2099-12-31T23:59:59.000Z');localStorage.setItem('refreshTokenExpirationTime','2099-12-31T23:59:59.000Z');localStorage.setItem('role','ADMIN');localStorage.setItem('firstname','Local');localStorage.setItem('lastname','Operator');localStorage.setItem('userId','local-user-id');const forceTimeline=function(){if(location.pathname==='/'||location.pathname==='/login'){history.replaceState({},'', '/timeline');}};forceTimeline();setInterval(forceTimeline,300);})();</script>";
-      const wallAssets =
-        '<link rel="stylesheet" href="/admin-common.css" /><script defer src="/wall-menu.js"></script>';
-      responseBody = Buffer.from(
-        fileBuffer
-          .toString("utf-8")
-          .replace("</head>", `${authBypassScript}${wallAssets}</head>`),
-        "utf-8"
-      );
-    }
-
-    if (path.basename(filePath) === "app.ea7fb7f2.js") {
-      responseBody = Buffer.from(
-        fileBuffer
-          .toString("utf-8")
-          .replaceAll("http://164.92.164.35:80/api", "/api"),
-        "utf-8"
-      );
-    }
-
-    res.writeHead(200, { "content-type": contentType });
-    res.end(responseBody);
+    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.end("Not found.");
   } catch (error) {
     sendJson(
       res,

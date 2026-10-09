@@ -651,7 +651,7 @@ export default function CaaPage() {
                 <Button variant="primary" size="lg" disabled={saving || (!form.country.trim() && !form.authorityName.trim())} spin={saving} onClick={save}>
                   Save changes
                 </Button>
-                <Button variant="ghost" size="lg" disabled={saving} onClick={() => setSelectedId(form.id || '')}>
+                <Button variant="ghost" size="lg" viewOnlyOk disabled={saving} onClick={() => setSelectedId(form.id || '')}>
                   Cancel
                 </Button>
                 <Button

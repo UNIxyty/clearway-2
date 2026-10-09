@@ -1,7 +1,8 @@
 "use client";
 
-// Crew and passengers (§I8). Values come masked from the server; real dates of birth and passport numbers
-// only through the reveal call, held in the parent's short-lived state, shown on amber, and never printed.
+// Crew and passengers (§I8). Values come masked from the server; real dates of birth, passport numbers and passengers'
+// names (portal foundations 1.4) only through the reveal call, held in the parent's short-lived state, shown on amber,
+// and never printed. Crew names stay readable.
 
 import { useState, type ReactNode } from "react";
 import { C, INTAKE, TONE, mono } from "../ui/tokens";
@@ -17,7 +18,7 @@ export type RevealState = { phase: "off" } | { phase: "ask"; section: string } |
 type Col = { key: keyof Person; label: string; pii: boolean };
 const CREW_COLS: Col[] = [{ key: "role", label: "Role", pii: false }, { key: "name", label: "Name", pii: false }, { key: "sex", label: "Sex", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }, { key: "expiry", label: "Expiry", pii: true }];
 // Passengers go to Leon's passenger database as contacts: the name is shown as Leon gets it, surname and given names.
-const PAX_COLS: Col[] = [{ key: "role", label: "Type", pii: false }, { key: "surname", label: "Surname", pii: false }, { key: "given", label: "Given names", pii: false }, { key: "sex", label: "Sex", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }, { key: "expiry", label: "Expiry", pii: true }];
+const PAX_COLS: Col[] = [{ key: "role", label: "Type", pii: false }, { key: "surname", label: "Surname", pii: true }, { key: "given", label: "Given names", pii: true }, { key: "sex", label: "Sex", pii: false }, { key: "dob", label: "Date of birth", pii: true }, { key: "nationality", label: "Nationality", pii: false }, { key: "passport", label: "Passport no.", pii: true }, { key: "expiry", label: "Expiry", pii: true }];
 const MASK = "••••••••";
 
 export function PeopleSection({ leg, people, peopleError, reveal, setReveal, doReveal, purged, retentionDays, editPeople = null }: {
@@ -33,6 +34,7 @@ export function PeopleSection({ leg, people, peopleError, reveal, setReveal, doR
 }
 
 /** A person corrects how a passenger's name is split for Leon. Kept on the request, marked with who and when. */
+// `row` is the REVEALED row: the editor only opens while personal data is shown.
 function SplitEditor({ row, n, onCancel, onSave }: { row: Person; n: number; onCancel: () => void; onSave: (surname: string, given: string) => Promise<void> }) {
   const [surname, setSurname] = useState(row.surname ?? ""); const [given, setGiven] = useState(row.given ?? "");
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
@@ -90,20 +92,22 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
                   return (
                     <span role="cell" key={c.key} style={{ ...mono({ fontSize: 12.5 }), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", justifySelf: "start", borderRadius: 4, padding: "1px 3px", background: real ? TONE.amber.bg : "transparent", color: real ? C.ink : C.faint }}>
                       {real ? <><span className="cw-reveal-value">{String(real)}</span><span className="cw-reveal-mask" style={{ display: "none" }}>{MASK}</span></> : <span className="cw-reveal-mask">{v ? MASK : "—"}</span>}
+                      {c.key === "surname" && splitNote(r)}
                     </span>
                   );
                 }
-                if (c.key === "surname") return <span role="cell" key={c.key} style={{ fontSize: 12.5, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={undefined}>{v ? String(v) : "—"}{r.splitHow === "edited" ? <span style={{ fontWeight: 400, color: C.primaryHover }}> · edited{r.splitBy ? ` by ${r.splitBy}` : ""}</span> : r.splitHow === "undeclared" || r.splitHow === "single" ? <span style={{ fontWeight: 400, color: TONE.amber.fg }}> · check</span> : null}</span>;
+                if (c.key === "surname") return <span role="cell" key={c.key} style={{ fontSize: 12.5, color: C.ink, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={undefined}>{v ? String(v) : "—"}{splitNote(r)}</span>;
                 return <span role="cell" key={c.key} style={{ fontSize: 12.5, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v == null || v === "" ? "—" : String(v)}</span>;
               })}
               {editPeople && (
                 <span role="cell" style={{ justifySelf: "end", display: "inline-flex", gap: 2 }}>
                   {kind === "pax" && r.idx != null && (
-                    <button type="button" className="ag-focus" aria-label={`Correct the surname and given names of passenger ${i + 1}`} onClick={() => setSplitting(splitting === r.idx ? null : r.idx ?? null)}
+                    <button type="button" className="ag-focus" aria-label={`Correct the surname and given names of passenger ${i + 1}`} title={revealed ? undefined : "Shows personal data first: the names are masked until then"}
+                      onClick={() => { if (!revealed) { setReveal({ phase: "ask", section }); return; } setSplitting(splitting === r.idx ? null : r.idx ?? null); }}
                       style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: splitting === r.idx ? C.primaryTint3 : "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: C.muted }}>✎</button>
                   )}
                   {r.added && r.id ? (
-                    <button type="button" className="ag-focus" aria-label={`Remove ${r.name ?? "this person"}, added by ${r.added.by}`} disabled={removing === r.id}
+                    <button type="button" className="ag-focus" aria-label={`Remove ${kind === "pax" ? `passenger ${i + 1}` : r.name ?? "this person"}, added by ${r.added.by}`} disabled={removing === r.id}
                       onClick={async () => { setRemoving(r.id ?? null); setRemoveError(null); try { await editPeople({ op: "remove", personId: r.id as string }); } catch (e) { setRemoveError(errText(e)); } finally { setRemoving(null); } }}
                       style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                       <Icon name="x" size={13} color={C.muted} />
@@ -111,7 +115,7 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
                   ) : null}
                 </span>
               )}
-              {splitting === r.idx && r.idx != null && editPeople && <SplitEditor row={r} n={i + 1} onCancel={() => setSplitting(null)} onSave={async (surname, given) => { await editPeople({ op: "split", idx: r.idx as number, surname, given }); setSplitting(null); }} />}
+              {splitting === r.idx && r.idx != null && editPeople && revealed?.[i] && <SplitEditor row={revealed[i]} n={i + 1} onCancel={() => setSplitting(null)} onSave={async (surname, given) => { await editPeople({ op: "split", idx: r.idx as number, surname, given }); setSplitting(null); }} />}
             </div>
           ))}
         </div>
@@ -151,6 +155,12 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
   );
 }
 
+function splitNote(r: Person) {
+  if (r.splitHow === "edited") return <span style={{ fontWeight: 400, color: C.primaryHover, fontFamily: "inherit" }}> · edited{r.splitBy ? ` by ${r.splitBy}` : ""}</span>;
+  if (r.splitHow === "undeclared" || r.splitHow === "single") return <span style={{ fontWeight: 400, color: TONE.amber.fg, fontFamily: "inherit" }}> · check</span>;
+  return null;
+}
+
 function RevealControls({ section, reveal, setReveal, doReveal }: { section: string; reveal: RevealState; setReveal: (r: RevealState) => void; doReveal: (section: string) => void }) {
   const btn = { fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: C.ink, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer" } as const;
   if (reveal.phase === "on") {
@@ -164,7 +174,7 @@ function RevealControls({ section, reveal, setReveal, doReveal }: { section: str
   if ((reveal.phase === "ask" || reveal.phase === "loading" || reveal.phase === "error") && reveal.section === section) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: reveal.phase === "error" ? C.danger : C.body }}>{reveal.phase === "error" ? `Could not show it: ${reveal.message}` : "Showing dates of birth and passport numbers is logged under your name."}</span>
+        <span style={{ fontSize: 12, color: reveal.phase === "error" ? C.danger : C.body }}>{reveal.phase === "error" ? `Could not show it: ${reveal.message}` : "Showing passengers' names, dates of birth and passport numbers is logged under your name."}</span>
         <button type="button" className="ag-focus" disabled={reveal.phase === "loading"} onClick={() => doReveal(section)} style={{ ...btn, color: C.surface, background: C.ink, border: `1px solid ${C.ink}` }}>{reveal.phase === "loading" ? "Showing…" : "Show for 60 s"}</button>
         <button type="button" className="ag-focus" style={btn} onClick={() => setReveal({ phase: "off" })}>Cancel</button>
       </div>

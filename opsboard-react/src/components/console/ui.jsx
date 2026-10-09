@@ -167,6 +167,19 @@ const BUTTON_VARIANTS = {
   },
 };
 
+// ── View only (portal foundations 1.1) ──────────────────────────────────────
+// Inside <ViewOnly when>, every Button / IconButton / Toggle is disabled unless it carries `viewOnlyOk` (reads:
+// refresh, close, history). The wall server refuses these writes from non-admins regardless; this only stops the
+// console offering a button the server would refuse.
+const ViewOnlyContext = createContext(false);
+export const VIEW_ONLY_TITLE = 'Only an admin can change this';
+export function ViewOnly({ when, children }) {
+  return <ViewOnlyContext.Provider value={Boolean(when)}>{children}</ViewOnlyContext.Provider>;
+}
+export function useViewOnly() {
+  return useContext(ViewOnlyContext);
+}
+
 export function Button({
   variant = 'secondary',
   icon,
@@ -176,8 +189,14 @@ export function Button({
   disabled = false,
   style = {},
   children,
+  viewOnlyOk = false,
   ...rest
 }) {
+  const locked = useContext(ViewOnlyContext) && !viewOnlyOk;
+  if (locked) {
+    disabled = true;
+    rest.title = VIEW_ONLY_TITLE;
+  }
   const v = BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.secondary;
   const pad = size === 'sm' ? '7px 13px' : size === 'lg' ? '11px 20px' : '10px 16px';
   const fontSize = size === 'sm' ? 13 : 14;
@@ -214,7 +233,11 @@ export function Button({
   );
 }
 
-export function IconButton({ icon, title, onClick, size = 30, color = t.muted, disabled = false, style = {} }) {
+export function IconButton({ icon, title, onClick, size = 30, color = t.muted, disabled = false, style = {}, viewOnlyOk = false }) {
+  if (useContext(ViewOnlyContext) && !viewOnlyOk) {
+    disabled = true;
+    title = `${title ? `${title} — ` : ''}${VIEW_ONLY_TITLE.toLowerCase()}`;
+  }
   return (
     <button
       type="button"
@@ -244,6 +267,8 @@ export function IconButton({ icon, title, onClick, size = 30, color = t.muted, d
 
 // ── Toggle switch (46×27, green when on) ─────────────────────────────────────
 export function Toggle({ on, onToggle, disabled = false, size = 'md' }) {
+  const locked = useContext(ViewOnlyContext);
+  if (locked) disabled = true;
   const w = size === 'sm' ? 44 : 46;
   const h = size === 'sm' ? 26 : 27;
   const knob = h - 6;
@@ -253,6 +278,7 @@ export function Toggle({ on, onToggle, disabled = false, size = 'md' }) {
       role="switch"
       aria-checked={Boolean(on)}
       disabled={disabled}
+      title={locked ? VIEW_ONLY_TITLE : undefined}
       onClick={onToggle}
       style={{
         width: w,
@@ -741,6 +767,12 @@ export function PageHeader({ title, desc, actions, descMax = 560 }) {
   );
 }
 
+// Top of a page (or section) that a non-admin can view but not change (portal foundations 1.1).
+export function ViewOnlyNote({ children }) {
+  if (!useContext(ViewOnlyContext)) return null;
+  return <InfoBanner><strong>View only.</strong> {children || 'Only an admin can change what is on this page.'}</InfoBanner>;
+}
+
 export function InfoBanner({ children, style = {} }) {
   return (
     <div
@@ -931,7 +963,7 @@ export function ConfirmDialog({ open, title, body, confirmLabel = 'Delete', dang
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button variant="ghost" viewOnlyOk onClick={onCancel}>Cancel</Button>
           <Button variant={danger ? 'danger' : 'primary'} spin={busy} disabled={busy} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
       </div>

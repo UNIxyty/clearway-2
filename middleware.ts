@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
 import { rigViolation } from "@/lib/rig-guard.mjs";
+import { resolveRole } from "@/lib/role-resolve";
 
 function isTemporaryUser(user: {
   app_metadata?: Record<string, unknown> | null;
@@ -65,7 +66,10 @@ export async function middleware(request: NextRequest) {
   // secret header instead (digital-wall/lib/portal-client.mjs) and are let
   // through below, next to the /api bypass.
   const isStoredFile = pathname.startsWith("/files/");
-  const isPublicAsset = !isStoredFile && /\.[^/]+$/.test(pathname);
+  // Portal foundations 1.5: only real static assets are public — images, fonts, styles, scripts (the PDF worker and
+  // the voice worklet). It used to be ANY path with a dot, which served internal HTML tools and JSON from public/ to
+  // anyone (and rendered page shells such as /aip/X.json without a session). Everything else needs sign-in.
+  const isPublicAsset = !isStoredFile && /\.(?:png|jpe?g|gif|svg|webp|ico|avif|woff2?|ttf|otf|css|js|mjs|map)$/i.test(pathname);
 
   // Bypass auth checks on isolated test environments.
   if (disableAuthForTesting) {
@@ -145,13 +149,21 @@ export async function middleware(request: NextRequest) {
     return failClosed(request, pathname);
   }
 
-  // Maintenance gate: allow only maintenance/admin/api while enabled.
+  // Maintenance gate (portal foundations 1.2). While maintenance is on:
+  //   - sign-in stays reachable (/login, and /auth/* for callbacks and password resets), so nobody is locked out;
+  //   - an admin or developer is sent to /admin/maintenance, the page that turns it off;
+  //   - everyone else sees /maintenance. /api keeps answering (each route checks its own access).
+  // The way out from the server when even that fails: MAINTENANCE_FORCE_OFF=true in the portal's env ignores the flag,
+  // or scripts/maintenance-off.sh records "off" in the database (docs/maintenance.md).
+  const maintenanceForcedOff = String(process.env.MAINTENANCE_FORCE_OFF || "").toLowerCase() === "true";
   const maintenanceAllowed =
     pathname.startsWith("/maintenance") ||
     pathname.startsWith("/api") ||
-    pathname.startsWith("/admin/maintenance");
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/auth/");
 
-  if (!maintenanceAllowed) {
+  if (!maintenanceAllowed && !maintenanceForcedOff) {
+    let enabled = false;
     try {
       const { data: maintenance } = await supabase
         .from("maintenance")
@@ -159,14 +171,37 @@ export async function middleware(request: NextRequest) {
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-
-      if (maintenance?.enabled) {
-        const maintenanceUrl = request.nextUrl.clone();
-        maintenanceUrl.pathname = "/maintenance";
-        return NextResponse.redirect(maintenanceUrl);
-      }
+      enabled = Boolean(maintenance?.enabled);
     } catch {
       // If maintenance table is missing/unavailable, continue without blocking.
+    }
+
+    if (enabled) {
+      let staff = false;
+      let signedIn = false;
+      try {
+        const { data: { user: who } } = await supabase.auth.getUser();
+        if (who) {
+          signedIn = true;
+          staff = (await resolveRole(supabase, who, who.id, who.email ?? null)) !== "none";
+        }
+      } catch {
+        // Unknown → treated as not staff: they see /maintenance, which links to sign-in.
+      }
+      const isOffSwitch = pathname.startsWith("/admin/maintenance");
+      if (isOffSwitch && !signedIn) {
+        // Fall through to the normal sign-in redirect below, which comes back here.
+      } else if (staff && !isOffSwitch) {
+        const offSwitch = request.nextUrl.clone();
+        offSwitch.pathname = "/admin/maintenance";
+        offSwitch.search = "";
+        return NextResponse.redirect(offSwitch);
+      } else if (!staff) {
+        const maintenanceUrl = request.nextUrl.clone();
+        maintenanceUrl.pathname = "/maintenance";
+        maintenanceUrl.search = "";
+        return NextResponse.redirect(maintenanceUrl);
+      }
     }
   }
 

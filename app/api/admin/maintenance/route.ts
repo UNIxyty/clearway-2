@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin, requireDeveloper } from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/admin-auth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   try {
@@ -25,9 +26,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireDeveloper();
+    // Turning maintenance ON stays a developer's call; turning it OFF is open to admins too, so an admin who signs
+    // in during maintenance can end it (portal foundations 1.2).
+    const auth = await requireAdmin();
     if ("error" in auth) return auth.error;
-    const { supabase, user } = auth;
+    const { user, isDeveloper } = auth;
 
     const body = (await request.json().catch(() => ({}))) as {
       enabled?: boolean;
@@ -38,6 +41,9 @@ export async function POST(request: Request) {
     if (typeof body.enabled !== "boolean") {
       return NextResponse.json({ error: "enabled(boolean) is required" }, { status: 400 });
     }
+    if (body.enabled && !isDeveloper) {
+      return NextResponse.json({ error: "Only a developer can turn maintenance on." }, { status: 403 });
+    }
 
     const payload = {
       enabled: body.enabled,
@@ -47,7 +53,9 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
+    // Written with the service role after the check above: the table no longer takes inserts from any signed-in user
+    // (docs/supabase-maintenance.sql), which let anyone switch maintenance on or off straight through Supabase.
+    const { data, error } = await createSupabaseAdminClient()
       .from("maintenance")
       .insert(payload)
       .select("id, enabled, message, eta_text, updated_at")

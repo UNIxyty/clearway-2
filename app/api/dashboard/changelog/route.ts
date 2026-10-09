@@ -7,8 +7,12 @@
 // everything else).
 // Wall JSON stores (read via fs, absent files skipped silently in dev):
 // important.json, reports.json, webhook-log.json (failures → ERROR).
-// Session-authed like other portal routes; admin NOT required.
+// Who sees what (portal foundations 1.3): an ordinary user sees only THEIR OWN entries — what they did, and what
+// happened to their own things (their bug reports, emails to them). System entries with no person behind them (debug
+// runs, Leon webhooks) and other people's activity are admin-only. An admin or developer sees everyone's, and the
+// response says so (scope: "everyone") so the card can label it.
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveRole } from "@/lib/role-resolve";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
@@ -71,6 +75,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Admin or developer → everyone's activity; anyone else → their own. The rig's auth-off mode is the mock admin.
+    const everyone = user ? (await resolveRole(supabase, user, user.id, user.email ?? null)) !== "none" : disableAuthForTesting;
+    const myId = user?.id ?? "";
+    const myEmail = String(user?.email ?? "").toLowerCase();
+    // Emails are stored as auth gives them (lower case); matched exactly, never as a pattern.
+    const isMe = (actor: unknown) => Boolean(myEmail) && String(actor ?? "").toLowerCase() === myEmail;
+
     const filterParam = request.nextUrl.searchParams.get("filter");
     const filter: "all" | "edits" | "errors" =
       filterParam === "edits" || filterParam === "errors" ? filterParam : "all";
@@ -88,12 +99,12 @@ export async function GET(request: NextRequest) {
       // itself; this feed is for changes to the platform.
       tasks.push(
         (async () => {
-          const { data } = await service
+          let q = service
             .from("agent_audit_log")
             .select("kind, user_email, actor_email, error, detail, created_at")
-            .in("kind", ["access.granted", "access.revoked", "killswitch.changed", "chat.error"])
-            .order("created_at", { ascending: false })
-            .limit(25);
+            .in("kind", ["access.granted", "access.revoked", "killswitch.changed", "chat.error"]);
+          if (!everyone) q = q.or(`user_email.eq."${myEmail}",actor_email.eq."${myEmail}"`);
+          const { data } = await q.order("created_at", { ascending: false }).limit(25);
           for (const row of (data ?? []) as Array<Record<string, unknown>>) {
             const at = iso(row.created_at);
             if (!at) continue;
@@ -139,7 +150,7 @@ export async function GET(request: NextRequest) {
       // above — a question is not a change — but a write is exactly a change.
       tasks.push(
         (async () => {
-          const { data } = await service
+          let q = service
             .from("agent_actions")
             // Columns must match docs/supabase-agent-actions.sql exactly: a
             // select naming a column that does not exist fails the whole
@@ -151,9 +162,9 @@ export async function GET(request: NextRequest) {
             // explicit null branch because `error` is nullable and SQL's
             // `error <> 'x'` is NULL, not true, for a null error — a bare neq
             // here would have hidden every SUCCESSFUL action instead.
-            .or("error.is.null,error.neq.awaiting_confirmation")
-            .order("created_at", { ascending: false })
-            .limit(30);
+            .or("error.is.null,error.neq.awaiting_confirmation");
+          if (!everyone) q = q.eq("user_email", myEmail);
+          const { data } = await q.order("created_at", { ascending: false }).limit(30);
           for (const row of (data ?? []) as Array<Record<string, unknown>>) {
             const at = iso(row.created_at);
             if (!at) continue;
@@ -188,11 +199,11 @@ export async function GET(request: NextRequest) {
       // 1. Airports hidden / restored.
       tasks.push(
         (async () => {
-          const { data } = await service
+          let q = service
             .from("deleted_airports")
-            .select("icao, deleted_by, deleted_reason, deleted_at, restored_at")
-            .order("deleted_at", { ascending: false })
-            .limit(25);
+            .select("icao, deleted_by, deleted_reason, deleted_at, restored_at");
+          if (!everyone) q = q.eq("deleted_by", myId);
+          const { data } = await q.order("deleted_at", { ascending: false }).limit(25);
           for (const row of (data ?? []) as Array<Record<string, unknown>>) {
             const icao = String(row.icao ?? "").toUpperCase();
             const actor = row.deleted_by ? String(row.deleted_by) : null;
@@ -224,11 +235,11 @@ export async function GET(request: NextRequest) {
       // 2. Bug reports filed / status changed.
       tasks.push(
         (async () => {
-          const { data } = await service
+          let q = service
             .from("bug_reports")
-            .select("id, user_email, airport_icao, status, created_at, status_updated_at, status_updated_by")
-            .order("created_at", { ascending: false })
-            .limit(25);
+            .select("id, user_email, airport_icao, status, created_at, status_updated_at, status_updated_by");
+          if (!everyone) q = q.eq("user_email", myEmail);
+          const { data } = await q.order("created_at", { ascending: false }).limit(25);
           for (const row of (data ?? []) as Array<Record<string, unknown>>) {
             const icao = String(row.airport_icao ?? "").toUpperCase();
             const createdAt = iso(row.created_at);
@@ -260,11 +271,11 @@ export async function GET(request: NextRequest) {
       // 3. Maintenance banner toggles.
       tasks.push(
         (async () => {
-          const { data } = await service
+          let q = service
             .from("maintenance")
-            .select("enabled, message, updated_by, updated_at")
-            .order("updated_at", { ascending: false })
-            .limit(10);
+            .select("enabled, message, updated_by, updated_at");
+          if (!everyone) q = q.eq("updated_by", myId);
+          const { data } = await q.order("updated_at", { ascending: false }).limit(10);
           for (const row of (data ?? []) as Array<Record<string, unknown>>) {
             const at = iso(row.updated_at);
             if (!at) continue;
@@ -283,12 +294,12 @@ export async function GET(request: NextRequest) {
       // 4. Failed emails → ERROR.
       tasks.push(
         (async () => {
-          const { data } = await service
+          let q = service
             .from("email_logs")
             .select("recipient_email, email_type, subject, error_message, created_at")
-            .eq("status", "failed")
-            .order("created_at", { ascending: false })
-            .limit(20);
+            .eq("status", "failed");
+          if (!everyone) q = q.eq("recipient_email", myEmail);
+          const { data } = await q.order("created_at", { ascending: false }).limit(20);
           for (const row of (data ?? []) as Array<Record<string, unknown>>) {
             const at = iso(row.created_at);
             if (!at) continue;
@@ -304,8 +315,8 @@ export async function GET(request: NextRequest) {
         })(),
       );
 
-      // 5. Debug-run failures → ERROR.
-      tasks.push(
+      // 5. Debug-run failures → ERROR. No person behind these: admins only.
+      if (everyone) tasks.push(
         (async () => {
           const { data } = await service
             .from("debug_run_failures")
@@ -343,7 +354,7 @@ export async function GET(request: NextRequest) {
         const title = String(entry.title ?? entry.id ?? "bulletin");
         const addedAt = iso(entry.addedAt ?? entry.createdAt);
         const addedBy = entry.addedBy ? String(entry.addedBy) : null;
-        if (addedAt) {
+        if (addedAt && (everyone || isMe(addedBy))) {
           entries.push({
             kind: "edit",
             source: "Wall — Important",
@@ -353,8 +364,8 @@ export async function GET(request: NextRequest) {
           });
         }
         const confirmedAt = iso(entry.confirmedAt);
-        if (confirmedAt) {
-          const confirmedBy = entry.confirmedBy ? String(entry.confirmedBy) : null;
+        const confirmedBy = entry.confirmedBy ? String(entry.confirmedBy) : null;
+        if (confirmedAt && (everyone || isMe(confirmedBy))) {
           entries.push({
             kind: "edit",
             source: "Wall — Important",
@@ -376,7 +387,7 @@ export async function GET(request: NextRequest) {
         const title = String(report.title ?? report.id ?? "report");
         const createdAt = iso(report.createdAt);
         const createdBy = report.createdBy ? String(report.createdBy) : null;
-        if (createdAt) {
+        if (createdAt && (everyone || isMe(createdBy))) {
           entries.push({
             kind: "edit",
             source: "Wall — Reports",
@@ -386,8 +397,8 @@ export async function GET(request: NextRequest) {
           });
         }
         const updatedAt = iso(report.updatedAt);
-        if (updatedAt && updatedAt !== createdAt) {
-          const updatedBy = report.updatedBy ? String(report.updatedBy) : null;
+        const updatedBy = report.updatedBy ? String(report.updatedBy) : null;
+        if (updatedAt && updatedAt !== createdAt && (everyone || isMe(updatedBy))) {
           entries.push({
             kind: "edit",
             source: "Wall — Reports",
@@ -404,7 +415,7 @@ export async function GET(request: NextRequest) {
     const webhookLog = await readWallJson<{ logs?: Record<string, Array<Record<string, unknown>>> }>(
       "webhook-log.json",
     );
-    if (webhookLog?.logs) {
+    if (everyone && webhookLog?.logs) {
       const flat: Array<{ event: string; at: string; entry: Record<string, unknown> }> = [];
       for (const [key, list] of Object.entries(webhookLog.logs)) {
         const event = key.includes(":") ? key.slice(key.indexOf(":") + 1) : key;
@@ -441,6 +452,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       filter,
+      scope: everyone ? "everyone" : "mine",
       entries: filtered.slice(0, CAP),
       generatedAt: new Date().toISOString(),
     });

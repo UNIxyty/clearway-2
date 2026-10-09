@@ -92,7 +92,7 @@ export default function AdminMaintenancePage() {
             <CardTitle className="text-base">Maintenance Control</CardTitle>
             <CardDescription>
               Enable or disable portal-wide maintenance mode.
-              {!isDeveloper && " Requires Developer role."}
+              {!isDeveloper && " Turning it on requires the Developer role; any admin can turn it off."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -138,9 +138,16 @@ export default function AdminMaintenancePage() {
                     </div>
                   </>
                 ) : (
-                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                    Maintenance mode is currently <strong>{data.enabled ? "enabled" : "disabled"}</strong>.
-                    Only Developers can toggle it.
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                      Maintenance mode is currently <strong>{data.enabled ? "enabled" : "disabled"}</strong>.
+                      {data.enabled ? " Any admin can turn it off." : " Only Developers can turn it on."}
+                    </div>
+                    {data.enabled && (
+                      <Button type="button" variant="outline" disabled={saving} onClick={() => save(false)}>
+                        {saving ? "Saving…" : "Disable maintenance"}
+                      </Button>
+                    )}
                   </div>
                 )}
 

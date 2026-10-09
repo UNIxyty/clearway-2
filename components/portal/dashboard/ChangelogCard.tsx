@@ -37,11 +37,13 @@ const SOURCE_ICON: Record<string, string> = {
 
 export default function ChangelogCard() {
   const [filter, setFilter] = useState<Filter>("all");
-  const { data, loading, error, refresh } = usePoll<{ entries?: Entry[] }>(
+  const { data, loading, error, refresh } = usePoll<{ entries?: Entry[]; scope?: "mine" | "everyone" }>(
     `/api/dashboard/changelog?filter=${filter}`,
     60_000,
   );
   const entries = data?.entries ?? [];
+  // Portal foundations 1.3: ordinary users get only their own entries; admins get everyone's, and the card says so.
+  const everyone = data?.scope === "everyone";
 
   const headerRight = (
     <div className="flex items-center gap-[7px]">
@@ -68,8 +70,12 @@ export default function ChangelogCard() {
   return (
     <RegionCard
       icon="clipboard-list"
-      title="Changelog"
-      subtitle="Edits and errors across every service"
+      title={everyone ? "Changelog — everyone (admin view)" : "Your changelog"}
+      subtitle={
+        everyone
+          ? "Everyone's edits and errors across every service. Only admins see this."
+          : "Your own edits, and what happened to your reports and emails"
+      }
       headerRight={headerRight}
     >
       {loading && !data ? (
@@ -93,7 +99,9 @@ export default function ChangelogCard() {
           body={
             filter === "errors"
               ? "No failures from email delivery, debug runs or wall webhooks — that's a good sign."
-              : "Edits to airports, bulletins, reports and settings will appear here as they happen."
+              : everyone
+                ? "Edits to airports, bulletins, reports and settings will appear here as they happen."
+                : "Your edits to airports, reports and settings will appear here as they happen."
           }
         />
       ) : (

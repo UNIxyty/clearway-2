@@ -929,6 +929,7 @@ export class LeonTimelineService {
   }
 
   async loadStaticSeeds() {
+    if (!this.staticRoot) return; // no upstream copy on this host: no seed
     const staticFlights = await readJsonIfExists(path.join(this.staticRoot, "api", "flights", "data.html"));
     const staticLimitations = await readJsonIfExists(path.join(this.staticRoot, "api", "limitations.html"));
 

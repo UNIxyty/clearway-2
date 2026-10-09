@@ -29,6 +29,7 @@ export const MOCK_USER = {
   name: "RIG TEST ACCOUNT (not a person)",
   initials: "RT",
   role: "ADMIN",
+  mock: true,
 };
 
 function supabaseUrl() {
@@ -138,6 +139,11 @@ export function extractAccessTokenFromCookies(cookieHeader) {
   return null;
 }
 
+function pick(m) {
+  const src = m && typeof m === "object" ? m : {};
+  return { role: src.role, roles: src.roles, is_admin: src.is_admin, is_developer: src.is_developer };
+}
+
 function mapSupabaseUser(payload) {
   const meta = payload.user_metadata || {};
   const email = payload.email || null;
@@ -158,6 +164,8 @@ function mapSupabaseUser(payload) {
     name,
     initials,
     role: String(payload.app_metadata?.role || meta.role || "user"),
+    // Only the role signals, for lib/roles.mjs (admin check on writes).
+    claims: { app: pick(payload.app_metadata), user: pick(meta) },
   };
 }
 

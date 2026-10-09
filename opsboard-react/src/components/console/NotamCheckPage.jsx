@@ -11,7 +11,8 @@ import NotamText, { buildHighlightGroups } from '../NotamText';
 import useViewport from '../../hooks/useViewport';
 import { MOBILE } from './mobile';
 import Icon from './icons';
-import { Button, ErrorBanner, HelpBanner, PageHeader, Spinner, t, useToast } from './ui';
+import { Button, ErrorBanner, HelpBanner, PageHeader, Spinner, t, useToast, ViewOnly, VIEW_ONLY_TITLE } from './ui';
+import { useIsAdmin } from '../../AuthGate';
 
 // NOTAM Check — visual treatment from Claude Design "NOTAM Check.dc.html"
 // applied to the functional page. Endpoints and SSE are unchanged
@@ -92,6 +93,7 @@ function NotamRecord({ notam, groups, muted = false }) {
 }
 
 function SignBanner({ sign, done, total, ranAt, running, onRun }) {
+  const isAdmin = useIsAdmin();
   const checked = sign === 'CHECKED';
   const v = checked
     ? {
@@ -134,9 +136,12 @@ function SignBanner({ sign, done, total, ranAt, running, onRun }) {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: t.faint }}>LAST RUN</div>
           <div style={{ ...mono, fontSize: 15, fontWeight: 600, color: t.body, marginTop: 2 }}>{zTime(ranAt)}</div>
         </div>
-        <Button icon={running ? 'loader' : 'refresh-cw'} spin={running} onClick={onRun}>
-          {running ? 'Running…' : 'Run check now'}
-        </Button>
+        {/* A manual run sends the daily notification email: admin only (portal foundations 1.1). */}
+        <ViewOnly when={!isAdmin}>
+          <Button icon={running ? 'loader' : 'refresh-cw'} spin={running} onClick={onRun}>
+            {running ? 'Running…' : 'Run check now'}
+          </Button>
+        </ViewOnly>
       </div>
     </div>
   );
@@ -600,6 +605,7 @@ function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onA
 }
 
 export default function NotamCheckPage({ navigate }) {
+  const isAdmin = useIsAdmin();
   const [state, setState] = useState(null);
   const [groups, setGroups] = useState([]);
   const [legend, setLegend] = useState([]);
@@ -756,7 +762,7 @@ export default function NotamCheckPage({ navigate }) {
               {error}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <Button variant="primary" icon="rotate-cw" onClick={runNow}>Retry check</Button>
+              <ViewOnly when={!isAdmin}><Button variant="primary" icon="rotate-cw" onClick={runNow}>Retry check</Button></ViewOnly>
             </div>
           </div>
         </div>
@@ -779,7 +785,7 @@ export default function NotamCheckPage({ navigate }) {
               The daily run collects today's airports, filters the NOTAMs and raises the wall sign. You can start it
               manually without waiting for the schedule.
             </div>
-            <Button icon="refresh-cw" onClick={runNow}>Run check now</Button>
+            <ViewOnly when={!isAdmin}><Button icon="refresh-cw" onClick={runNow}>Run check now</Button></ViewOnly>
           </div>
         </div>
       )}
@@ -846,7 +852,8 @@ export default function NotamCheckPage({ navigate }) {
             <span style={{ fontFamily: t.mono, fontSize: 11.5, color: t.faint, flex: 'none' }}>{zTime(state.ranAt)}</span>
             <button
               type="button"
-              title={running ? 'Running…' : 'Run check now'}
+              title={!isAdmin ? VIEW_ONLY_TITLE : running ? 'Running…' : 'Run check now'}
+              disabled={!isAdmin}
               onClick={runNow}
               style={{
                 width: 44,

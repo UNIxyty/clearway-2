@@ -6,6 +6,15 @@ import { ArrowLeftIcon, ExternalLinkIcon, MonitorIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+
+// The viewer opens as a popup from the airport page (AirportView). "Back" closes it and returns there; opened any other
+// way, it goes back in history, or to airport search. (It used to link to a "… HITL test" page that no longer exists.)
+function backToAirport() {
+  if (window.opener && !window.opener.closed) { window.close(); return; }
+  if (window.history.length > 1) { window.history.back(); return; }
+  window.location.assign("/aip");
+}
+
 type ViewerClientProps = {
   noVncUrl: string;
   sessionId: string;
@@ -86,13 +95,10 @@ export default function LithuaniaHitlViewerClient({ noVncUrl, sessionId, closeOn
   return (
     <div className="min-h-dvh bg-background px-4 py-6 md:px-6">
       <div className="mx-auto max-w-6xl space-y-6">
-        <Link
-          href="/lithuania-hitl-auto-test"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
+        <button type="button" onClick={backToAirport} className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground cursor-pointer border-none bg-transparent p-0">
           <ArrowLeftIcon className="size-4" />
-          Back to Lithuania HITL test
-        </Link>
+          Back to the airport
+        </button>
 
         <Card>
           <CardHeader className="space-y-3">

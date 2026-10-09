@@ -49,6 +49,8 @@ export const NAV_TOPICS: NavTopic[] = [
     items: [
       { id: "aip-search", label: "Airport search", icon: "search", href: "/aip" },
       { id: "aip-status", label: "Service status", icon: "activity", href: "/aip/service-status" },
+      // Everyone can hide an airport from their own search; this is where they get it back (it used to sit under Admin).
+      { id: "aip-hidden", label: "Hidden airports", icon: "eye-off", href: "/admin/airports/deleted" },
     ],
   },
   {
@@ -95,7 +97,8 @@ export const NAV_TOPICS: NavTopic[] = [
     icon: "flag",
     roles: ["admin", "user"],
     items: [
-      { id: "rep-bugs", label: "Bug reports", icon: "bug", href: "/admin/debug" }, // bug triage lives in the debug console today
+      // Bug reports are filed and followed in Help & support (developers answer them in the Inbox).
+      { id: "rep-bugs", label: "Bug reports", icon: "bug", href: "/help" },
       { id: "rep-console", label: "Console reports", icon: "clipboard-list", href: "/digital-wall/console/reports", external: true },
     ],
   },
@@ -109,11 +112,9 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "adm-agent-sites", label: "Agent sites", icon: "globe", href: "/admin/agent-sites" }, // Chrome extension site list: approve requests, add, revoke
       { id: "adm-perms", label: "Permissions", icon: "lock", href: "/admin/permissions" }, // what each role may do (docs/permissions.md)
       { id: "adm-maint", label: "Maintenance", icon: "wrench", href: "/admin/maintenance" },
-      { id: "adm-email", label: "Email tools", icon: "mail", href: "/admin/email-tools" },
       { id: "adm-logs", label: "Email logs", icon: "inbox", href: "/admin/email/logs" },
       { id: "adm-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
       { id: "adm-status", label: "Service status editor", icon: "activity", href: "/admin/service-status" },
-      { id: "adm-deleted", label: "Deleted airports", icon: "trash-2", href: "/admin/airports/deleted" },
     ],
   },
   {
@@ -137,6 +138,8 @@ export const NAV_TOPICS: NavTopic[] = [
     items: [
       { id: "pick-play", label: "Play", icon: "play", href: "/pickem", external: true },
       { id: "pick-admin", label: "Admin", icon: "sliders-horizontal", href: "/pickem/admin", external: true, deep: "pickem" },
+      // The World Cup email console (it was mislabelled "Admin → Email tools"; it goes with Pickem in 4.1).
+      { id: "pick-email", label: "Email console", icon: "mail", href: "/pickem/admin?section=email-tools", external: true },
     ],
   },
   {

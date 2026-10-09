@@ -15,7 +15,6 @@ export default function NetherlandsHitlViewerClient({
     <HitlCountryViewerClient
       countryKey="netherlands"
       countryName="Netherlands"
-      backHref="/netherlands-hitl-auto-test"
       noVncUrl={noVncUrl}
       sessionId={sessionId}
       closeOnClear={closeOnClear}

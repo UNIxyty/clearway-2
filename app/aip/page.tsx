@@ -89,7 +89,6 @@ function AIPSearchPageInner() {
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseLoadingStepIndex, setBrowseLoadingStepIndex] = useState(0);
   const [browseCountrySearch, setBrowseCountrySearch] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [bugReports, setBugReports] = useState<BugReportRow[]>([]);
   const [recents, setRecents] = useState<RecentEntry[]>([]);
 
@@ -210,13 +209,6 @@ function AIPSearchPageInner() {
         }
       })
       .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/admin/status", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { isAdmin: false }))
-      .then((data) => setIsAdmin(Boolean(data?.isAdmin)))
-      .catch(() => setIsAdmin(false));
   }, []);
 
   const countriesInRegion = useMemo(() => {
@@ -1161,16 +1153,15 @@ function AIPSearchPageInner() {
                         </p>
                       </div>
                       <div className="flex-1" />
-                      {isAdmin && (
-                        <PButton
-                          type="button"
-                          variant="quiet"
-                          size="sm"
-                          onClick={() => router.push("/admin/airports/deleted")}
-                        >
-                          Restore deleted airports
-                        </PButton>
-                      )}
+                      {/* Everyone can hide an airport (for themselves), so everyone gets the way back. */}
+                      <PButton
+                        type="button"
+                        variant="quiet"
+                        size="sm"
+                        onClick={() => router.push("/admin/airports/deleted")}
+                      >
+                        Airports you hid
+                      </PButton>
                     </div>
                     <div className="max-h-[320px] overflow-y-auto px-5 py-2">
                       {loadingCountry ? (

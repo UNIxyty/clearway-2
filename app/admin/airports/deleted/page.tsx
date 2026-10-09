@@ -98,10 +98,11 @@ export default function DeletedAirportsPage() {
     <PortalShell>
       <div className="max-w-[1100px] px-[30px] pb-10 pt-[26px]">
         <h1 className="m-0 mb-[5px] text-[26px] font-extrabold tracking-[-0.02em]">
-          Deleted airports
+          Airports you hid
         </h1>
         <p className="m-0 mb-5 text-[15px] text-[#6c7079]">
-          Restore airports hidden from the portal menu.
+          Hiding an airport removes it from your own search and browse lists only — nobody else&apos;s. Restore any of
+          yours here.
         </p>
 
         {rows.length > 0 && (

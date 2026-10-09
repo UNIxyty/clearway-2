@@ -122,6 +122,15 @@ function UserBadge({ user, collapsed }) {
   }, [open]);
 
   const go = (path) => () => window.location.assign(path);
+  // Sign out for real: the portal ends the session on the server and lands on sign-in. (Going to /login alone
+  // bounced a signed-in person straight back.) A POST, so nothing but this menu can trigger it.
+  const signOut = () => {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/auth/sign-out';
+    document.body.appendChild(form);
+    form.submit();
+  };
   const item = (label, icon, onClick) => (
     <button
       key={label}
@@ -209,11 +218,11 @@ function UserBadge({ user, collapsed }) {
             )}
           </div>
           <div style={{ height: 1, background: '#eef0f2', margin: '2px 4px 7px' }} />
-          {item('Profile', 'user', go('/profile'))}
-          {item('Notification settings', 'bell', go('/settings/notifications'))}
-          {item('Search statistics', 'bar-chart-3', go('/stats'))}
+          {item('Profile', 'user', go('/account/profile'))}
+          {item('Notification settings', 'bell', go('/account/notifications'))}
+          {item('Search statistics', 'bar-chart-3', go('/account/search-stats'))}
           {item('Guide', 'book-open', () => window.open('/digital-wall/guide/', '_blank', 'noopener,noreferrer'))}
-          {item('Sign out', 'log-out', go('/login'))}
+          {item('Sign out', 'log-out', signOut)}
         </div>
       )}
     </div>

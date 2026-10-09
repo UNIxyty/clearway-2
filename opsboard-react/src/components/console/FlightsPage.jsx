@@ -725,7 +725,18 @@ export default function FlightsPage() {
   const [operatorFilter, setOperatorFilter] = useState('');
   const [airportFilter, setAirportFilter] = useState('');
   const [range, setRange] = useState('today');
-  const [selectedKey, setSelectedKey] = useState('');
+  // "Open in Flights" (an agent flight card) links here with ?flight=<oprId>:<flightNid>: open on that flight.
+  const [selectedKey, setSelectedKey] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('flight') || ''; } catch { return ''; }
+  });
+  // Keep the open flight in the address, so a reload or a shared link opens it again.
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      if (selectedKey) u.searchParams.set('flight', selectedKey); else u.searchParams.delete('flight');
+      if (u.href !== window.location.href) window.history.replaceState(window.history.state, '', u.href);
+    } catch { /* address unchanged */ }
+  }, [selectedKey]);
   const [sort, setSort] = useState({ key: 'etd', dir: 1 });
   const flash = useToast();
   const loadedRef = useRef(false);
@@ -814,7 +825,17 @@ export default function FlightsPage() {
 
   const overlayNid = overlay.open ? String(overlay.flightNid) : '';
   const wallFlight = overlayNid ? allFlights.find((f) => String(f.flightNid) === overlayNid) : null;
-  const selected = rows.find((f) => flightKey(f) === selectedKey) || allFlights.find((f) => flightKey(f) === selectedKey) || null;
+  // A bare flight number (no operator) still finds its flight.
+  const matches = (f) => flightKey(f) === selectedKey || (!selectedKey.includes(':') && String(f.flightNid) === selectedKey);
+  const selected = selectedKey ? rows.find(matches) || allFlights.find(matches) || null : null;
+  // A linked flight outside today's list: show the whole list once, so the flight is in it as well as open.
+  const widenedRef = useRef(false);
+  useEffect(() => {
+    if (widenedRef.current || !selected || range !== 'today') return;
+    widenedRef.current = true;
+    if (!rows.some(matches)) setRange('all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
 
   async function toggleWall(flight) {
     const onWall = String(flight.flightNid) === overlayNid;

@@ -1,12 +1,9 @@
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
-// The unified admin console moved to /pickem/admin. Preserve old bookmarks,
-// forwarding any ?section= so deep links keep working.
-export default function Page({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
-  const section = typeof searchParams.section === 'string' ? searchParams.section : null;
-  redirect(section ? `/pickem/admin?section=${section}` : '/pickem/admin');
+// Rendered per request so the redirect is a real 307 (a static page would answer 200 with a meta refresh).
+export const dynamic = "force-dynamic";
+
+// /admin is the portal's Admin section; its first page is Users. (It used to forward to the Pickem console.)
+export default function Page() {
+  redirect("/admin/users");
 }

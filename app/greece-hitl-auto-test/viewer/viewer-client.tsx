@@ -11,7 +11,6 @@ export default function GreeceHitlViewerClient({ noVncUrl, sessionId, closeOnCle
     <HitlCountryViewerClient
       countryKey="greece"
       countryName="Greece"
-      backHref="/greece-hitl-auto-test"
       noVncUrl={noVncUrl}
       sessionId={sessionId}
       closeOnClear={closeOnClear}

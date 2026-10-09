@@ -61,6 +61,8 @@ COPY digital-wall/lib/mailer.mjs /digital-wall/lib/mailer.mjs
 COPY digital-wall/lib/flight-record.mjs /digital-wall/lib/flight-record.mjs
 # The rig guard (refuses a test-rig run that points at production) lives at the repo root; server.mjs imports ../lib/rig-guard.mjs.
 COPY lib/rig-guard.mjs /lib/rig-guard.mjs
+# Permissions (docs/permissions.md): the catalogue and grants shared with the portal and the wall (../lib/permissions).
+COPY lib/permissions /lib/permissions
 
 EXPOSE 5175
 

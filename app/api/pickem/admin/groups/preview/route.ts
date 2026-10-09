@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getActiveCompetition, listGroups, listTeams } from '@/lib/pickem-store';
 import { previewGroupPositionPoints } from '@/lib/pickem-scoring';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic';
  * the admin still has to Publish Standings to commit.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ('error' in auth) return auth.error;
 
   const comp = await getActiveCompetition();

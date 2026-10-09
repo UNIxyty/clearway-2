@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireDeveloper } from "@/lib/admin-auth";
 import { auditAgent, getKillSwitch, setKillSwitch } from "@/lib/agent/store";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission("portal.agent.killswitch");
   if ("error" in auth) return auth.error;
 
   const body = (await request.json().catch(() => ({}))) as { enabled?: boolean; reason?: string };

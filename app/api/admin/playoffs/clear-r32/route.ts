@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { R32_LEFT_IDS, R32_RIGHT_IDS } from '@/lib/playoffs/bracketData';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ('error' in auth) return auth.error;
 
   const supabase = createSupabaseAdminClient();

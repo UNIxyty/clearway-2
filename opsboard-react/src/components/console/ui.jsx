@@ -167,12 +167,26 @@ const BUTTON_VARIANTS = {
   },
 };
 
-// ── View only (portal foundations 1.1) ──────────────────────────────────────
-// Inside <ViewOnly when>, every Button / IconButton / Toggle is disabled unless it carries `viewOnlyOk` (reads:
-// refresh, close, history). The wall server refuses these writes from non-admins regardless; this only stops the
-// console offering a button the server would refuse.
+// ── Permissions (docs/permissions.md) ───────────────────────────────────────
+// A Button / IconButton / Toggle that changes something names its `action` (lib/permissions/catalogue.mjs); it is
+// disabled, with the reason, unless the signed-in person's role holds it (Admin → Permissions). Inside
+// <ViewOnly when>, every control is disabled unless it carries `viewOnlyOk` (reads: refresh, close, history). The wall
+// server refuses a write without the permission regardless; this only stops the console offering it.
 const ViewOnlyContext = createContext(false);
-export const VIEW_ONLY_TITLE = 'Only an admin can change this';
+const CanContext = createContext(() => false);
+export const VIEW_ONLY_TITLE = "You don't have permission to change this";
+export function PermissionsProvider({ can, children }) {
+  return <CanContext.Provider value={can}>{children}</CanContext.Provider>;
+}
+export function useCan() {
+  return useContext(CanContext);
+}
+function useLocked(action, viewOnlyOk) {
+  const viewOnly = useContext(ViewOnlyContext);
+  const can = useContext(CanContext);
+  if (action) return !can(action);
+  return viewOnly && !viewOnlyOk;
+}
 export function ViewOnly({ when, children }) {
   return <ViewOnlyContext.Provider value={Boolean(when)}>{children}</ViewOnlyContext.Provider>;
 }
@@ -190,9 +204,10 @@ export function Button({
   style = {},
   children,
   viewOnlyOk = false,
+  action = null,
   ...rest
 }) {
-  const locked = useContext(ViewOnlyContext) && !viewOnlyOk;
+  const locked = useLocked(action, viewOnlyOk);
   if (locked) {
     disabled = true;
     rest.title = VIEW_ONLY_TITLE;
@@ -233,8 +248,8 @@ export function Button({
   );
 }
 
-export function IconButton({ icon, title, onClick, size = 30, color = t.muted, disabled = false, style = {}, viewOnlyOk = false }) {
-  if (useContext(ViewOnlyContext) && !viewOnlyOk) {
+export function IconButton({ icon, title, onClick, size = 30, color = t.muted, disabled = false, style = {}, viewOnlyOk = false, action = null }) {
+  if (useLocked(action, viewOnlyOk)) {
     disabled = true;
     title = `${title ? `${title} — ` : ''}${VIEW_ONLY_TITLE.toLowerCase()}`;
   }
@@ -266,8 +281,8 @@ export function IconButton({ icon, title, onClick, size = 30, color = t.muted, d
 }
 
 // ── Toggle switch (46×27, green when on) ─────────────────────────────────────
-export function Toggle({ on, onToggle, disabled = false, size = 'md' }) {
-  const locked = useContext(ViewOnlyContext);
+export function Toggle({ on, onToggle, disabled = false, size = 'md', action = null }) {
+  const locked = useLocked(action, false);
   if (locked) disabled = true;
   const w = size === 'sm' ? 44 : 46;
   const h = size === 'sm' ? 26 : 27;
@@ -770,7 +785,7 @@ export function PageHeader({ title, desc, actions, descMax = 560 }) {
 // Top of a page (or section) that a non-admin can view but not change (portal foundations 1.1).
 export function ViewOnlyNote({ children }) {
   if (!useContext(ViewOnlyContext)) return null;
-  return <InfoBanner><strong>View only.</strong> {children || 'Only an admin can change what is on this page.'}</InfoBanner>;
+  return <InfoBanner><strong>View only.</strong> {children || "You don't have permission to change what is on this page."}</InfoBanner>;
 }
 
 export function InfoBanner({ children, style = {} }) {

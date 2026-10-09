@@ -11,6 +11,7 @@ import {
   type CountryServiceState,
   type CountryServiceSummaryResponse,
 } from "@/lib/country-service-status-shared";
+import { requirePermission } from "@/lib/permissions/server";
 
 function isCountryServiceState(value: string): value is CountryServiceState {
   return COUNTRY_SERVICE_STATES.includes(value as CountryServiceState);
@@ -54,7 +55,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.service-status.edit");
   if ("error" in auth) return auth.error;
 
   const body = (await request.json().catch(() => ({}))) as {

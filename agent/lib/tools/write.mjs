@@ -368,7 +368,7 @@ defineTool({
   name: "set_operator_active",
   description:
     "Enable or disable an operator on the ops wall. Disabling stops its flights appearing. Executes directly and can be undone.",
-  permission: "admin",
+  permission: "user", // what it may change is the permission in lib/permissions (AGENT_TOOLS)
   sourceTier: "internal",
   sourceLabel: (input) => `Internal · operator ${input.isActive ? "enabled" : "disabled"} · ${input.operatorId}`,
   timeoutMs: 30_000,

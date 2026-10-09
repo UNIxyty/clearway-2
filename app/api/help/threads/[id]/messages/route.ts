@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuthenticatedUser } from "@/lib/admin-auth";
+import { holds, requirePermission } from "@/lib/permissions/server";
 import { summarizeBlocks, type HelpBlock } from "@/lib/help/shared";
 import {
   ThreadClosedError,
@@ -21,14 +21,16 @@ export const dynamic = "force-dynamic";
  * so the client can offer "file a linked report, keeping everything typed".
  */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission(["portal.help.ask", "portal.help.answer"]);
   if ("error" in auth) return auth.error;
+  // Someone else's thread needs portal.help.answer (Admin → Permissions); your own, portal.help.ask.
+  const answers = await holds(auth.role, "portal.help.answer");
   const thread = await getThread(params.id);
   if (!thread) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isOwner = thread.userId === auth.user.id;
-  if (!isOwner && !auth.isDeveloper) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const author: "ops" | "developer" = isOwner && !auth.isDeveloper ? "ops" : "developer";
+  if (!isOwner && !answers) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const author: "ops" | "developer" = isOwner && !answers ? "ops" : "developer";
 
   let body: Record<string, unknown>;
   try {

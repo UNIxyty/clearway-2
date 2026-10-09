@@ -197,7 +197,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
         </h3>
         <StatusPill color={health.color} bg={health.bg} dot={health.dot}>{health.label}</StatusPill>
         <div style={{ flex: 1 }} />
-        <Button size="sm" icon="rotate-cw" spin={busyAll} disabled={busyAll} onClick={reRegister}>
+        <Button size="sm" icon="rotate-cw" spin={busyAll} disabled={busyAll} action="wall.webhooks.reregister" onClick={reRegister}>
           Re-register all
         </Button>
       </div>
@@ -260,11 +260,12 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
                 <IconButton
                   icon="trash-2"
                   title={`Delete webhook ${registration.label}`}
+                  action="wall.webhooks.toggle"
                   disabled={busyEvent === event}
                   onClick={() => toggle(event, false)}
                 />
               )}
-              <Toggle on={enabled} disabled={busyEvent === event} onToggle={() => toggle(event, !enabled)} />
+              <Toggle on={enabled} disabled={busyEvent === event} onToggle={() => toggle(event, !enabled)} action="wall.webhooks.toggle" />
             </div>
           );
         })}

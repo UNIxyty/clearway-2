@@ -11,12 +11,11 @@ import { subscribeWallStream } from '../../services/wallStream';
 import useViewport from '../../hooks/useViewport';
 import { BottomSheet, ChipRow } from './mobile';
 import Icon from './icons';
-import { useIsAdmin } from '../../AuthGate';
 import {
   Button,
   Card,
   ConfirmDialog,
-  ViewOnly,
+  useCan,
   Dropdown,
   EmptyState,
   ErrorBanner,
@@ -56,9 +55,10 @@ function StatusChip({ value }) {
 function StatusQuickPick({ report, onChanged }) {
   const [open, setOpen] = useState(false);
   const flash = useToast();
+  const editable = useCan()('wall.reports.edit');
   return (
     <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-      <span role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}>
+      <span role="button" tabIndex={0} aria-disabled={!editable} title={editable ? undefined : "You don't have permission to change a report's status"} style={{ cursor: editable ? 'pointer' : 'default' }} onClick={(e) => { e.stopPropagation(); if (editable) setOpen((v) => !v); }}>
         <StatusChip value={report.status} />
       </span>
       {open && (
@@ -93,7 +93,6 @@ function emptyForm(categories) {
 }
 
 export default function ReportsPage() {
-  const isAdmin = useIsAdmin();
   const [reports, setReports] = useState([]);
   const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
@@ -232,7 +231,7 @@ export default function ReportsPage() {
           <span style={{ fontSize: 12.5, color: t.faint, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {counts.map((s) => `${s.n} ${s.label.toLowerCase()}`).join(' · ') || 'No reports yet'}
           </span>
-          <Button variant="primary" icon="plus" size="sm" onClick={() => setForm(emptyForm(categories))} style={{ height: 40, flex: 'none' }}>
+          <Button variant="primary" icon="plus" size="sm" action="wall.reports.create" onClick={() => setForm(emptyForm(categories))} style={{ height: 40, flex: 'none' }}>
             New report
           </Button>
         </div>
@@ -281,6 +280,7 @@ export default function ReportsPage() {
                 variant="primary"
                 disabled={saving || !form.title.trim()}
                 spin={saving}
+                action={form?.id ? 'wall.reports.edit' : 'wall.reports.create'}
                 onClick={save}
                 style={{ flex: 1, height: 48, fontWeight: 700, borderRadius: 12 }}
               >
@@ -313,7 +313,7 @@ export default function ReportsPage() {
             </div>
             <TextInput mono placeholder="or type an address…" value={sendExtra} onChange={(e) => setSendExtra(e.target.value)} style={{ marginBottom: 10, height: 48 }} />
             <div style={{ display: 'flex', gap: 10 }}>
-              <Button variant="primary" icon="send" disabled={sending} spin={sending} onClick={doSend} style={{ flex: 1, height: 48, fontWeight: 700, borderRadius: 12 }}>
+              <Button variant="primary" icon="send" disabled={sending} spin={sending} action="wall.reports.send" onClick={doSend} style={{ flex: 1, height: 48, fontWeight: 700, borderRadius: 12 }}>
                 Send report
               </Button>
               <Button variant="ghost" onClick={() => { setSendFor(null); setSendTo([]); setSendExtra(''); setSendError(''); }} style={{ height: 48 }}>Cancel</Button>
@@ -374,9 +374,9 @@ export default function ReportsPage() {
                   {(report.sends || []).length > 0 ? ` · ✉ ${report.sends[report.sends.length - 1].to.join(', ')}` : ''}
                 </span>
                 <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', gap: 6, flex: 'none' }}>
-                  <IconButton icon="send" title="Send to email" size={34} onClick={() => { setSendFor(report); setSendTo([]); setSendExtra(''); setSendError(''); }} />
-                  <IconButton icon="pencil" title="Edit" size={34} onClick={() => setForm({ id: report.id, category: report.category, title: report.title, body: report.body, status: report.status })} />
-                  <ViewOnly when={!isAdmin}><IconButton icon="trash-2" title="Delete" size={34} onClick={() => setConfirmDelete(report)} /></ViewOnly>
+                  <IconButton icon="send" title="Send to email" size={34} action="wall.reports.send" onClick={() => { setSendFor(report); setSendTo([]); setSendExtra(''); setSendError(''); }} />
+                  <IconButton icon="pencil" title="Edit" size={34} action="wall.reports.edit" onClick={() => setForm({ id: report.id, category: report.category, title: report.title, body: report.body, status: report.status })} />
+                  <IconButton icon="trash-2" title="Delete" size={34} action="wall.reports.delete" onClick={() => setConfirmDelete(report)} />
                 </span>
               </div>
             </div>
@@ -439,6 +439,7 @@ export default function ReportsPage() {
                 variant="primary"
                 spin={sheetBusy}
                 disabled={sheetBusy}
+                action="wall.reports.edit"
                 onClick={applySheetStatus}
                 style={{ height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}
               >
@@ -469,13 +470,11 @@ export default function ReportsPage() {
         desc="Internal issue & request tracker — raise a report, keep its status current, and route it to the right inbox."
         actions={
           <span style={{ display: 'inline-flex', gap: 8 }}>
-            {/* Presets, deleting and restoring are an admin's (portal foundations 1.1); raising, editing and sending are anyone's. */}
-            <ViewOnly when={!isAdmin}>
-              <Button variant="soft" icon="mail-check" onClick={() => { setPresetDraft(presets.length ? [...presets] : [{ label: 'IT', email: '' }]); setPresetsOpen((v) => !v); }}>
+            {/* Each control asks for its own permission (Admin → Permissions); the wall server checks every write too. */}
+              <Button variant="soft" icon="mail-check" action="wall.reports.config" onClick={() => { setPresetDraft(presets.length ? [...presets] : [{ label: 'IT', email: '' }]); setPresetsOpen((v) => !v); }}>
                 Recipient presets
               </Button>
-            </ViewOnly>
-            <Button variant="primary" icon="plus" onClick={() => setForm(emptyForm(categories))}>
+            <Button variant="primary" icon="plus" action="wall.reports.create" onClick={() => setForm(emptyForm(categories))}>
               New report
             </Button>
           </span>
@@ -505,6 +504,7 @@ export default function ReportsPage() {
           <div style={{ display: 'flex', gap: 8 }}>
             <Button size="sm" variant="soft" icon="plus" onClick={() => setPresetDraft((prev) => [...prev, { label: '', email: '' }])}>Add row</Button>
             <Button
+              action="wall.reports.config"
               size="sm"
               variant="primary"
               onClick={async () => {
@@ -564,7 +564,7 @@ export default function ReportsPage() {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <Button variant="primary" size="lg" disabled={saving || !form.title.trim()} spin={saving} onClick={save}>
+            <Button variant="primary" size="lg" disabled={saving || !form.title.trim()} spin={saving} action={form?.id ? 'wall.reports.edit' : 'wall.reports.create'} onClick={save}>
               {form.id ? 'Save changes' : 'Create report'}
             </Button>
             <Button variant="ghost" size="lg" onClick={() => setForm(null)}>Cancel</Button>
@@ -594,7 +594,7 @@ export default function ReportsPage() {
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <TextInput mono placeholder="or type an address…" value={sendExtra} onChange={(e) => setSendExtra(e.target.value)} style={{ maxWidth: 320 }} />
-            <Button variant="primary" icon="send" disabled={sending} spin={sending} onClick={doSend}>Send report</Button>
+            <Button variant="primary" icon="send" disabled={sending} spin={sending} action="wall.reports.send" onClick={doSend}>Send report</Button>
             <Button variant="ghost" onClick={() => { setSendFor(null); setSendTo([]); setSendExtra(''); setSendError(''); }}>Cancel</Button>
           </div>
         </Card>
@@ -655,9 +655,9 @@ export default function ReportsPage() {
                 {report.updatedBy ? `${String(report.updatedBy).split('@')[0]} · ` : ''}{timeAgo(report.updatedAt)}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <IconButton icon="send" title="Send to email" onClick={() => { setSendFor(report); setSendTo([]); setSendExtra(''); setSendError(''); }} />
-                <IconButton icon="pencil" title="Edit" onClick={() => setForm({ id: report.id, category: report.category, title: report.title, body: report.body, status: report.status })} />
-                <ViewOnly when={!isAdmin}><IconButton icon="trash-2" title="Delete" onClick={() => setConfirmDelete(report)} /></ViewOnly>
+                <IconButton icon="send" title="Send to email" action="wall.reports.send" onClick={() => { setSendFor(report); setSendTo([]); setSendExtra(''); setSendError(''); }} />
+                <IconButton icon="pencil" title="Edit" action="wall.reports.edit" onClick={() => setForm({ id: report.id, category: report.category, title: report.title, body: report.body, status: report.status })} />
+                <IconButton icon="trash-2" title="Delete" action="wall.reports.delete" onClick={() => setConfirmDelete(report)} />
               </div>
             </div>
           </div>

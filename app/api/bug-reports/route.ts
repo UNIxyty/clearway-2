@@ -7,6 +7,7 @@ import { summarizeBlocks, type HelpStatus, type HelpThread } from "@/lib/help/sh
 import { createThread, addMessage, listAllThreads, listThreadsForUser } from "@/lib/help/store";
 import { publishHelpEvent } from "@/lib/help/stream";
 import { notifyTelegramNewThread } from "@/lib/help/telegram";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,7 +65,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission("portal.bugs.file");
   if ("error" in auth) return auth.error;
 
   const body = (await request.json().catch(() => ({}))) as {

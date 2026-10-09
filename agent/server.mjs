@@ -10,6 +10,9 @@ import { readFileSync } from "node:fs";
 //                                                                  \-> audit
 // The agent carries the CALLER's session. There is no service account.
 
+import { endpointFor, isWriteMethod } from "../lib/permissions/catalogue.mjs";
+import { can, loadGrants, REFUSED } from "../lib/permissions/grants.mjs";
+import { checkCatalogue, checkCodeRoutes, checkTools } from "../lib/permissions/check.mjs";
 import http from "node:http";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
@@ -152,7 +155,7 @@ function sanitiseAttachments(raw) {
 
 import { wallGet as wallGetForServer, portalGet as portalGetForServer } from "./lib/tools/http.mjs";
 import { documentRevision, loadSiblings, publicRevision, revisionFromPortal } from "./lib/knowledge/revision.mjs";
-import { lowRiskCatalogue } from "./lib/tools/framework.mjs";
+import { allTools, lowRiskCatalogue } from "./lib/tools/framework.mjs";
 import { assertManifestFont } from "./lib/manifest/fonts.mjs";
 import { routingSettings, setRoutingSettings, userPrefs, setUserPref, setSkipConfirmLock, escalationAfterRound, asksForCare, atLeast, oneUp, costUsd, MANUAL_TIERS } from "./lib/routing.mjs";
 
@@ -240,6 +243,30 @@ function passToPortal(req, res) {
 
 // Every request runs inside a context that names its front end (console or
 // the Chrome extension + page host), so audit rows can say where it came from.
+// Knowledge base visibility (docs/permissions.md): everyone sees approved documents and their own uploads. Other
+// people's uploads that are not approved (pending, rejected, failed), and who uploaded or approved anything, need
+// agent.kb.see-others (Admin → Permissions). Returns the filter and the redaction for this person.
+async function knowledgeView(user) {
+  const all = await can(user.agentRole, "agent.kb.see-others");
+  const mine = (d) => d.uploaded_by === user.userId || (!!user.email && String(d.uploaded_by_email ?? "").toLowerCase() === String(user.email).toLowerCase());
+  const approved = (d) => d.status === "indexed" || d.status === "approved";
+  return {
+    visible: (d) => all || approved(d) || mine(d),
+    redact: (d) => (all || mine(d) ? d : { ...d, uploaded_by: null, uploaded_by_email: null, approved_by: null, approved_by_email: null }),
+  };
+}
+
+// Permissions startup check (docs/permissions.md): every write route here and in the intake API, and every agent tool,
+// must be in lib/permissions/catalogue.mjs (and every agent entry there must still exist). Refuse to start otherwise.
+{
+  const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
+  const problems = [...checkCatalogue(), ...checkCodeRoutes("agent", [read("./server.mjs"), read("./lib/intake/api.mjs")]), ...checkTools(allTools().map((t) => t.name))];
+  if (problems.length) {
+    console.error(`REFUSING TO START: permissions check failed\n  ${problems.join("\n  ")}`);
+    process.exit(1);
+  }
+}
+
 const server = http.createServer((req, res) => requestContext.run(clientOf(req), () => handleRequest(req, res)));
 
 async function handleRequest(req, res) {
@@ -291,6 +318,17 @@ async function handleRequest(req, res) {
     const user = await authenticateRequest(req);
     if (!user) {
       return sendJson(res, { ok: false, error: "unauthorized", message: "Sign in through the Clearway portal first." }, 401);
+    }
+
+    // ── Permissions (docs/permissions.md) ──
+    // Every write must be in lib/permissions/catalogue.mjs and the person's role must hold its action (Admin →
+    // Permissions in the portal). An endpoint nobody listed is refused. The grants are loaded here for the whole request
+    // (the tool list reads them synchronously); handlers check finer actions themselves.
+    await loadGrants();
+    if (isWriteMethod(req.method)) {
+      const entry = endpointFor("agent", req.method, pathname);
+      if (!entry) return sendJson(res, { ok: false, error: "forbidden", message: "This endpoint is not in the permissions list, so it is refused." }, 403);
+      if (!entry.public && !(await can(user.agentRole, entry.action))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED, permission: entry.action }, 403);
     }
 
     // ── Flight intake and the agent mailbox (agent/lib/intake/api.mjs). Agent users only; the mailbox
@@ -371,7 +409,7 @@ async function handleRequest(req, res) {
     if (pathname === "/api/settings" && req.method === "GET") {
       await assertMayUseAgent(user);
       const [caps, enabled, binds] = await Promise.all([capabilities(), agentEnabled(), keybinds()]);
-      return sendJson(res, { ok: true, capabilities: CAPABILITIES.map((c) => ({ ...c, enabled: caps[c.key] })), keybinds: binds, keybindActions: KEYBIND_ACTIONS, keybindDefaults: KEYBIND_DEFAULTS, killSwitch: enabled, canEdit: user.agentRole === "admin" || user.agentRole === "developer" });
+      return sendJson(res, { ok: true, capabilities: CAPABILITIES.map((c) => ({ ...c, enabled: caps[c.key] })), keybinds: binds, keybindActions: KEYBIND_ACTIONS, keybindDefaults: KEYBIND_DEFAULTS, killSwitch: enabled, canEdit: await can(user.agentRole, "agent.settings.manage") });
     }
     // Slash commands (§4.20), config-driven: agent/config/commands.json merged with the admin override in
     // agent_settings `commands`; only commands whose tools this user has are returned (item 10).
@@ -407,11 +445,11 @@ async function handleRequest(req, res) {
     if (pathname === "/api/settings/routing" && req.method === "GET") {
       await assertMayUseAgent(user);
       const r = await routingSettings({ reload: true });
-      return sendJson(res, { ok: true, tiers: r.tiers, escalation: r.escalation, override: r.override, canEdit: user.agentRole === "admin" || user.agentRole === "developer" });
+      return sendJson(res, { ok: true, tiers: r.tiers, escalation: r.escalation, override: r.override, canEdit: await can(user.agentRole, "agent.settings.manage") });
     }
     if (pathname === "/api/settings/routing" && req.method === "PUT") {
       await assertMayUseAgent(user);
-      if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden", message: "Admins only." }, 403);
+      if (!(await can(user.agentRole, "agent.settings.manage"))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       const body = await readJsonBody(req);
       let r; try { r = await setRoutingSettings(body, user); } catch (e) { throw BadRequest(e.message); }
       await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { routing: body } });
@@ -419,7 +457,7 @@ async function handleRequest(req, res) {
     }
     if (pathname === "/api/settings/skip-confirm-lock" && req.method === "PUT") {
       await assertMayUseAgent(user);
-      if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden", message: "Admins only." }, 403);
+      if (!(await can(user.agentRole, "agent.settings.manage"))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       const body = await readJsonBody(req);
       await setSkipConfirmLock({ all: body.all === true, userIds: body.userIds ?? [] }, user);
       await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { skipConfirmLock: body } });
@@ -428,7 +466,7 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/settings" && req.method === "PATCH") {
       await assertMayUseAgent(user);
-      if (!(user.agentRole === "admin" || user.agentRole === "developer")) return sendJson(res, { ok: false, error: "forbidden", message: "Admins only." }, 403);
+      if (!(await can(user.agentRole, "agent.settings.manage"))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       const body = await readJsonBody(req);
       if (body.keybinds && typeof body.keybinds === "object") {
         let binds;
@@ -530,7 +568,7 @@ async function handleRequest(req, res) {
     }
     if (pathname === "/api/extension/sites/admin" && req.method === "GET") {
       await assertMayUseAgent(user);
-      if (!isPrivilegedUser(user)) return sendJson(res, { ok: false, error: "forbidden", message: "Approving sites needs an admin." }, 403);
+      if (!(await can(user.agentRole, "agent.extension.sites"))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       const [approved, requests] = await Promise.all([listSites(), listRequests()]);
       return sendJson(res, { ok: true, approved, requests });
     }
@@ -706,8 +744,10 @@ async function handleRequest(req, res) {
         } });
       }
       if (source === "knowledge") {
-        const d = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`).catch(() => null))?.[0];
-        if (!d) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+        const view = await knowledgeView(user);
+        const raw = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`).catch(() => null))?.[0];
+        if (!raw || !view.visible(raw)) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+        const d = view.redact(raw);
         const approved = d.tier === "tier1" && (d.status === "indexed" || d.status === "approved");
         const pending = d.status === "awaiting_approval" || d.status === "classified" || d.status === "uploaded";
         return sendJson(res, { ok: true, document: {
@@ -716,7 +756,7 @@ async function handleRequest(req, res) {
           tier: "company", sourceName: "Knowledge base", fetchedAt: d.created_at, uploadedBy: d.uploaded_by_email ?? null,
           revision: viewerRevision(documentRevision(d, await loadSiblings(d)), (id) => `/agent/doc?source=knowledge&id=${id}`),
           approval: approved ? { status: "authoritative", by: d.approved_by_email ?? null, at: d.approved_at ?? null } : pending ? { status: "awaiting", uploadedBy: d.uploaded_by_email ?? null, at: d.created_at } : d.status === "rejected" ? { status: "rejected" } : { status: "reference" },
-          canApprove: user.agentRole === "developer",
+          canApprove: await can(user.agentRole, "agent.kb.approve"),
           fileMissing: !(await documentFileExists(d.storage_key)),
           record: { title: d.title, source: d.source ?? null, version: d.version ?? null, effectiveDate: d.effective_date ?? null, icao: d.icao ?? null, country: d.country ?? null, tags: d.tags ?? [], tier: d.tier ?? null, status: d.status },
         } });
@@ -900,7 +940,8 @@ async function handleRequest(req, res) {
       const filter = status ? `&status=eq.${encodeURIComponent(status)}` : "";
       const rows = await knowledgeRest(`agent_documents?select=*${filter}&order=created_at.desc&limit=200`);
       // Revision words per row (siblings = the same listing): unknown is stated, never blank.
-      const all = rows ?? [];
+      const view = await knowledgeView(user);
+      const all = (rows ?? []).filter(view.visible).map(view.redact);
       // A row whose bytes are not on the persistent volume must not look healthy (file missing → re-upload).
       const present = await Promise.all(all.map((d) => documentFileExists(d.storage_key)));
       return sendJson(res, { ok: true, documents: all.map((d, i) => ({ ...d, fileMissing: !present[i], revision: publicRevision(documentRevision(d, all)) })) });
@@ -909,7 +950,7 @@ async function handleRequest(req, res) {
     // Re-upload the original for an existing row whose file is missing (or replace it with the same content).
     if (/^\/api\/knowledge\/documents\/[^/]+\/file$/.test(pathname) && req.method === "PUT") {
       await assertMayUseAgent(user);
-      if (user.agentRole !== "developer") return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to replace a document's file." }, 403);
+      if (!(await can(user.agentRole, "agent.kb.edit"))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       assertRigMayWriteKnowledge();
       const id = pathname.split("/")[4];
       const document = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`))?.[0];
@@ -928,7 +969,7 @@ async function handleRequest(req, res) {
     // Edit the document's RECORD (not the file): title, tags, version, effective date, source, scope.
     if (/^\/api\/knowledge\/documents\/[^/]+$/.test(pathname) && req.method === "PATCH") {
       await assertMayUseAgent(user);
-      if (user.agentRole !== "developer") return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to edit a document's record." }, 403);
+      if (!(await can(user.agentRole, "agent.kb.edit"))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       assertRigMayWriteKnowledge();
       const id = pathname.split("/")[4];
       const before = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`))?.[0];
@@ -956,8 +997,8 @@ async function handleRequest(req, res) {
       // Uploading to the knowledge base is a DEVELOPER action while the agent
       // is a build in progress — same reasoning as the allowlist.
       await assertMayUseAgent(user);
-      if (user.agentRole !== "developer") {
-        return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to upload documents." }, 403);
+      if (!(await can(user.agentRole, "agent.kb.upload"))) {
+        return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       }
       // Two shapes: the original (small) base64 JSON, and a RAW body with the
       // file name and metadata in the query — the only way a manual-sized PDF
@@ -1023,8 +1064,8 @@ async function handleRequest(req, res) {
     if (/^\/api\/knowledge\/documents\/[^/]+\/approve$/.test(pathname) && req.method === "POST") {
       await assertMayUseAgent(user);
       assertRigMayWriteKnowledge();
-      if (user.agentRole !== "developer") {
-        return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required to approve documents." }, 403);
+      if (!(await can(user.agentRole, "agent.kb.approve"))) {
+        return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       }
       const id = pathname.split("/")[4];
       const body = await readJsonBody(req);
@@ -1074,8 +1115,8 @@ async function handleRequest(req, res) {
     if (/^\/api\/knowledge\/documents\/[^/]+\/reject$/.test(pathname) && req.method === "POST") {
       await assertMayUseAgent(user);
       assertRigMayWriteKnowledge();
-      if (user.agentRole !== "developer") {
-        return sendJson(res, { ok: false, error: "forbidden", message: "Developer role required." }, 403);
+      if (!(await can(user.agentRole, "agent.kb.approve"))) {
+        return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       }
       const id = pathname.split("/")[4];
       const body = await readJsonBody(req);
@@ -1098,7 +1139,7 @@ async function handleRequest(req, res) {
       const id = pathname.split("/")[4];
       const rows = await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
       const document = rows?.[0];
-      if (!document) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+      if (!document || !(await knowledgeView(user)).visible(document)) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
       let buffer;
       try { buffer = await readDocumentFile(document.storage_key); }
       catch (error) { if (error?.code === "ENOENT") return sendJson(res, { ok: false, error: "file_missing", message: `The record for ${document.title ?? document.filename} exists, but its file is not in storage.` }, 404); throw error; }

@@ -7,7 +7,8 @@ While maintenance is on, the portal shows `/maintenance` to everyone except Clea
 - **Sign-in stays open.** `/login` and `/auth/*` (callbacks, password resets) are reachable during maintenance.
 - **Admins and developers** who sign in are sent to **`/admin/maintenance`**, the page that turns it off. The
   maintenance page links there: "Sign in to turn maintenance off".
-- **Who may switch it:** a developer turns it on; any admin or developer turns it off.
+- **Who may switch it:** by default a developer turns it on and any admin or developer turns it off. These are two
+  permissions under Admin → Permissions (Maintenance), so they can be changed there ([permissions.md](permissions.md)).
 - **`/api/*`** keeps answering. Each route checks its own access.
 
 Admin and developer are the portal's usual rule (`lib/role-resolve.ts`). Any one of these makes a person an admin or

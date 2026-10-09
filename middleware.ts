@@ -4,6 +4,8 @@ import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
 import { rigViolation } from "@/lib/rig-guard.mjs";
 import { resolveRole } from "@/lib/role-resolve";
+import { endpointFor, isWriteMethod } from "@/lib/permissions/catalogue.mjs";
+import { can, canAny, REFUSED, roleKey } from "@/lib/permissions/grants.mjs";
 
 function isTemporaryUser(user: {
   app_metadata?: Record<string, unknown> | null;
@@ -183,7 +185,9 @@ export async function middleware(request: NextRequest) {
         const { data: { user: who } } = await supabase.auth.getUser();
         if (who) {
           signedIn = true;
-          staff = (await resolveRole(supabase, who, who.id, who.email ?? null)) !== "none";
+          // Admins and developers, and anyone the grid lets switch maintenance (Admin → Permissions), reach the off switch.
+          const role = await resolveRole(supabase, who, who.id, who.email ?? null);
+          staff = role !== "none" || (await canAny(roleKey(role), ["portal.maintenance.disable", "portal.maintenance.enable"]));
         }
       } catch {
         // Unknown → treated as not staff: they see /maintenance, which links to sign-in.
@@ -268,6 +272,20 @@ export async function middleware(request: NextRequest) {
     blockedUrl.pathname = "/access-blocked";
     blockedUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(blockedUrl);
+  }
+
+  // Permissions (docs/permissions.md): every write must be in lib/permissions/catalogue.mjs, and the person's role must
+  // hold its action. An endpoint nobody listed is refused, not open. The handler checks again where the work happens.
+  if (isWriteMethod(request.method)) {
+    const entry = endpointFor("portal", request.method, pathname);
+    if (!entry) {
+      return NextResponse.json({ error: "This endpoint is not in the permissions list, so it is refused." }, { status: 403 });
+    }
+    if (!entry.public) {
+      const role = roleKey(await resolveRole(supabase, user, user.id, user.email ?? null));
+      const allowed = entry.any ? await canAny(role, entry.any) : await can(role, entry.action);
+      if (!allowed) return NextResponse.json({ error: REFUSED, permission: entry.any ?? entry.action }, { status: 403 });
+    }
   }
 
   return response;

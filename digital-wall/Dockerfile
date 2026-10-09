@@ -13,6 +13,9 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+# Permissions (docs/permissions.md): the catalogue and grants shared with the portal and the agent, at the path the
+# server imports them from (../lib/permissions from /app).
+COPY --from=repo lib/permissions /lib/permissions
 
 EXPOSE 5173
 

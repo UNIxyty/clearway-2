@@ -4,6 +4,7 @@ import { existsSync } from "fs";
 import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
+import { requirePermission } from "@/lib/permissions/server";
 
 const MAX_BYTES = 45 * 1024 * 1024;
 const TIMEOUT_MS = 300_000;
@@ -76,6 +77,8 @@ function runPython(
 }
 
 export async function POST(request: NextRequest) {
+  const permission = await requirePermission("portal.aip.fetch");
+  if ("error" in permission) return permission.error;
   if (!isMetaCompareAllowed(request)) {
     return NextResponse.json(
       { ok: false, error: "AIP meta compare API is disabled for this deployment." },

@@ -17,9 +17,13 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-/** Admin or developer, as the wall server decided (portal foundations 1.1). The server enforces it on every write. */
-export function useIsAdmin() {
-  return Boolean(useContext(AuthContext).user?.isAdmin);
+/**
+ * May the signed-in person do this action (lib/permissions/catalogue.mjs)? As the wall server reported it on sign-in
+ * (`user.can`, from Admin → Permissions). The server checks every write itself; this only draws the buttons.
+ */
+export function useCanAction() {
+  const can = useContext(AuthContext).user?.can;
+  return (action) => Boolean(can?.[action]);
 }
 
 /**

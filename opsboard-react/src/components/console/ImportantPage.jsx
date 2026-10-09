@@ -206,7 +206,7 @@ function AttachmentsSection({ entry, onChanged, setError }) {
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint }}>
           ATTACHMENTS {attachments.length > 0 && `(${attachments.length})`}
         </div>
-        <Button size="sm" variant="softBlue" icon="plus" disabled={busy} spin={busy} onClick={() => fileRef.current?.click()}>
+        <Button size="sm" variant="softBlue" icon="plus" disabled={busy} spin={busy} action="wall.imp.attachments" onClick={() => fileRef.current?.click()}>
           Attach file
         </Button>
         <input
@@ -235,7 +235,7 @@ function AttachmentsSection({ entry, onChanged, setError }) {
             <span style={{ fontSize: 11.5, color: t.faint, fontFamily: t.mono }}>
               {(att.size / 1024).toFixed(0)} KB{att.uploadedBy ? ` · ${att.uploadedBy}` : ''}
             </span>
-            <IconButton icon="trash-2" title="Remove attachment" disabled={busy} onClick={() => removeAttachment(att)} />
+            <IconButton icon="trash-2" title="Remove attachment" action="wall.imp.attachments" disabled={busy} onClick={() => removeAttachment(att)} />
           </div>
         ))}
       </div>
@@ -517,8 +517,9 @@ export default function ImportantPage() {
                 setForm((prev) => ({ ...prev, isActive: !prev.isActive }));
                 toggleActive(selected, !form.isActive);
               }}
+              action="wall.imp.edit"
             />
-            <IconButton icon="trash-2" title="Delete entry" onClick={() => remove(selected)} />
+            <IconButton icon="trash-2" title="Delete entry" action="wall.imp.delete" onClick={() => remove(selected)} />
           </div>
         )}
       </div>
@@ -624,11 +625,11 @@ export default function ImportantPage() {
         </div>
         {!isMobileView && (
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-            <Button variant="primary" size="lg" disabled={saving || !form.title.trim()} spin={saving} onClick={() => save()}>
+            <Button variant="primary" size="lg" disabled={saving || !form.title.trim()} spin={saving} action={selectedId === '__new__' ? 'wall.imp.create' : 'wall.imp.edit'} onClick={() => save()}>
               Save changes
             </Button>
             {!form.reviewed && (
-              <Button variant="successSoft" size="lg" icon="check" disabled={saving} onClick={() => save({ markReviewed: true })}>
+              <Button variant="successSoft" size="lg" icon="check" disabled={saving} action="wall.imp.edit" onClick={() => save({ markReviewed: true })}>
                 Mark reviewed
               </Button>
             )}
@@ -657,7 +658,7 @@ export default function ImportantPage() {
             {entries.length} entr{entries.length === 1 ? 'y' : 'ies'}
             {unreviewedCount > 0 ? ` · ${unreviewedCount} awaiting review` : ''}
           </span>
-          <Button variant="primary" icon="plus" size="sm" onClick={() => setSelectedId('__new__')} style={{ height: 40, flex: 'none' }}>
+          <Button variant="primary" icon="plus" size="sm" action="wall.imp.create" onClick={() => setSelectedId('__new__')} style={{ height: 40, flex: 'none' }}>
             New entry
           </Button>
         </div>
@@ -675,6 +676,7 @@ export default function ImportantPage() {
                   variant="primary"
                   disabled={saving || !form.title.trim()}
                   spin={saving}
+                  action={selectedId === '__new__' ? 'wall.imp.create' : 'wall.imp.edit'}
                   onClick={() => save()}
                   style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}
                 >
@@ -685,6 +687,7 @@ export default function ImportantPage() {
                     variant="successSoft"
                     icon="check"
                     disabled={saving}
+                    action="wall.imp.edit"
                     onClick={() => save({ markReviewed: true })}
                     style={{ height: 48, borderRadius: 12, fontWeight: 700 }}
                   >
@@ -714,7 +717,7 @@ export default function ImportantPage() {
         }
         descMax={600}
         actions={
-          <Button variant="primary" icon="plus" onClick={() => setSelectedId('__new__')}>
+          <Button variant="primary" icon="plus" action="wall.imp.create" onClick={() => setSelectedId('__new__')}>
             New entry
           </Button>
         }
@@ -856,8 +859,9 @@ export default function ImportantPage() {
                         setForm((prev) => ({ ...prev, isActive: !prev.isActive }));
                         toggleActive(selected, !form.isActive);
                       }}
+                      action="wall.imp.edit"
                     />
-                    <IconButton icon="trash-2" title="Delete entry" onClick={() => remove(selected)} />
+                    <IconButton icon="trash-2" title="Delete entry" action="wall.imp.delete" onClick={() => remove(selected)} />
                   </div>
                 )}
               </div>
@@ -962,11 +966,11 @@ export default function ImportantPage() {
                   />
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                  <Button variant="primary" size="lg" disabled={saving || !form.title.trim()} spin={saving} onClick={() => save()}>
+                  <Button variant="primary" size="lg" disabled={saving || !form.title.trim()} spin={saving} action={selectedId === '__new__' ? 'wall.imp.create' : 'wall.imp.edit'} onClick={() => save()}>
                     Save changes
                   </Button>
                   {!form.reviewed && (
-                    <Button variant="successSoft" size="lg" icon="check" disabled={saving} onClick={() => save({ markReviewed: true })}>
+                    <Button variant="successSoft" size="lg" icon="check" disabled={saving} action="wall.imp.edit" onClick={() => save({ markReviewed: true })}>
                       Mark reviewed
                     </Button>
                   )}

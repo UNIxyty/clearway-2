@@ -11,6 +11,7 @@ import {
   setStatus,
 } from "@/lib/help/store";
 import { publishHelpEvent } from "@/lib/help/stream";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
 /** Status change — developer only. Impossible requires a written reason (enforced in the store). */
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission("portal.help.answer");
   if ("error" in auth) return auth.error;
   const thread = await resolveThread(params.id);
   if (!thread) return NextResponse.json({ error: "Not found" }, { status: 404 });

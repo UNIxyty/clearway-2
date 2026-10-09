@@ -11,8 +11,7 @@ import NotamText, { buildHighlightGroups } from '../NotamText';
 import useViewport from '../../hooks/useViewport';
 import { MOBILE } from './mobile';
 import Icon from './icons';
-import { Button, ErrorBanner, HelpBanner, PageHeader, Spinner, t, useToast, ViewOnly, VIEW_ONLY_TITLE } from './ui';
-import { useIsAdmin } from '../../AuthGate';
+import { Button, ErrorBanner, HelpBanner, PageHeader, Spinner, t, useToast, useCan, VIEW_ONLY_TITLE } from './ui';
 
 // NOTAM Check — visual treatment from Claude Design "NOTAM Check.dc.html"
 // applied to the functional page. Endpoints and SSE are unchanged
@@ -93,7 +92,6 @@ function NotamRecord({ notam, groups, muted = false }) {
 }
 
 function SignBanner({ sign, done, total, ranAt, running, onRun }) {
-  const isAdmin = useIsAdmin();
   const checked = sign === 'CHECKED';
   const v = checked
     ? {
@@ -136,12 +134,10 @@ function SignBanner({ sign, done, total, ranAt, running, onRun }) {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: t.faint }}>LAST RUN</div>
           <div style={{ ...mono, fontSize: 15, fontWeight: 600, color: t.body, marginTop: 2 }}>{zTime(ranAt)}</div>
         </div>
-        {/* A manual run sends the daily notification email: admin only (portal foundations 1.1). */}
-        <ViewOnly when={!isAdmin}>
-          <Button icon={running ? 'loader' : 'refresh-cw'} spin={running} onClick={onRun}>
-            {running ? 'Running…' : 'Run check now'}
-          </Button>
-        </ViewOnly>
+        {/* A manual run sends the daily notification email: its own permission (Admin → Permissions). */}
+        <Button icon={running ? 'loader' : 'refresh-cw'} spin={running} action="wall.notam.run" onClick={onRun}>
+          {running ? 'Running…' : 'Run check now'}
+        </Button>
       </div>
     </div>
   );
@@ -217,10 +213,10 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
               </div>
               <div style={{ fontSize: 11.5, color: t.faint }}>{airport.checked.by} · {zTime(airport.checked.at)}</div>
             </div>
-            <Button variant="soft" size="sm" spin={ackBusy} onClick={onAck}>Undo</Button>
+            <Button variant="soft" size="sm" spin={ackBusy} action="wall.notam.ack" onClick={onAck}>Undo</Button>
           </div>
         ) : (
-          <Button variant="primary" size="sm" icon="check" spin={ackBusy} style={{ fontWeight: 700 }} onClick={onAck}>
+          <Button variant="primary" size="sm" icon="check" spin={ackBusy} style={{ fontWeight: 700 }} action="wall.notam.ack" onClick={onAck}>
             Mark checked
           </Button>
         )}
@@ -233,7 +229,7 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
               Fetch failed: {airport.error}
             </span>
             {/* Retry lives ONLY on failed airports — successful ones keep their cached fetch. */}
-            <Button size="sm" icon="rotate-cw" spin={resyncBusy} disabled={resyncBusy} onClick={onResync}>
+            <Button size="sm" icon="rotate-cw" spin={resyncBusy} disabled={resyncBusy} action="wall.notam.resync" onClick={onResync}>
               {resyncBusy ? 'Retrying…' : 'Retry'}
             </Button>
           </div>
@@ -399,6 +395,7 @@ function PhoneNotamRecord({ notam, groups, muted = false }) {
 function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onAck, ackBusy, onResync, resyncBusy, onReport }) {
   const [showMore, setShowMore] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const canAck = useCan()('wall.notam.ack');
   const checked = Boolean(airport.checked);
   const sub = airportSub(airport);
 
@@ -499,7 +496,7 @@ function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onA
             {airport.error}
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
-            <Button variant="danger" spin={resyncBusy} disabled={resyncBusy} onClick={onResync} style={{ height: 40 }}>
+            <Button variant="danger" spin={resyncBusy} disabled={resyncBusy} action="wall.notam.resync" onClick={onResync} style={{ height: 40 }}>
               {resyncBusy ? 'Retrying…' : 'Retry'}
             </Button>
             {onReport && (
@@ -552,7 +549,8 @@ function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onA
       <div style={{ padding: '12px 13px', borderTop: `1px solid ${t.rowLine}`, display: 'flex', gap: 10 }}>
         <button
           type="button"
-          disabled={Boolean(airport.error) || ackBusy}
+          disabled={Boolean(airport.error) || ackBusy || !canAck}
+          title={canAck ? undefined : VIEW_ONLY_TITLE}
           onClick={onAck}
           style={{
             fontFamily: t.mono,
@@ -605,7 +603,7 @@ function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onA
 }
 
 export default function NotamCheckPage({ navigate }) {
-  const isAdmin = useIsAdmin();
+  const canRun = useCan()('wall.notam.run');
   const [state, setState] = useState(null);
   const [groups, setGroups] = useState([]);
   const [legend, setLegend] = useState([]);
@@ -762,7 +760,7 @@ export default function NotamCheckPage({ navigate }) {
               {error}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <ViewOnly when={!isAdmin}><Button variant="primary" icon="rotate-cw" onClick={runNow}>Retry check</Button></ViewOnly>
+              <Button variant="primary" icon="rotate-cw" action="wall.notam.run" onClick={runNow}>Retry check</Button>
             </div>
           </div>
         </div>
@@ -785,7 +783,7 @@ export default function NotamCheckPage({ navigate }) {
               The daily run collects today's airports, filters the NOTAMs and raises the wall sign. You can start it
               manually without waiting for the schedule.
             </div>
-            <ViewOnly when={!isAdmin}><Button icon="refresh-cw" onClick={runNow}>Run check now</Button></ViewOnly>
+            <Button icon="refresh-cw" action="wall.notam.run" onClick={runNow}>Run check now</Button>
           </div>
         </div>
       )}
@@ -852,8 +850,8 @@ export default function NotamCheckPage({ navigate }) {
             <span style={{ fontFamily: t.mono, fontSize: 11.5, color: t.faint, flex: 'none' }}>{zTime(state.ranAt)}</span>
             <button
               type="button"
-              title={!isAdmin ? VIEW_ONLY_TITLE : running ? 'Running…' : 'Run check now'}
-              disabled={!isAdmin}
+              title={!canRun ? VIEW_ONLY_TITLE : running ? 'Running…' : 'Run check now'}
+              disabled={!canRun}
               onClick={runNow}
               style={{
                 width: 44,

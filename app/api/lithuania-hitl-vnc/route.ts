@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -452,6 +453,8 @@ async function runLithuaniaScrape(
 }
 
 export async function POST(request: NextRequest) {
+  const permission = await requirePermission("portal.aip.fetch");
+  if ("error" in permission) return permission.error;
   try {
     await cleanupStaleSessions();
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;

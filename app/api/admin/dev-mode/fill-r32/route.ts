@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { R32_PAIRINGS } from '@/lib/playoffs/r32Bracket';
 import { computeGroupStandings, computeBestThird, resolveR32Pairings } from '@/lib/playoffs/standings';
 import type { BracketTeam, GroupMatch } from '@/lib/playoffs/standings';
+import { requirePermission } from "@/lib/permissions/server";
 
 const FLAG_BY_CODE: Record<string, string> = {
   MEX:'🇲🇽', RSA:'🇿🇦', KOR:'🇰🇷', CZE:'🇨🇿', CAN:'🇨🇦', BIH:'🇧🇦', QAT:'🇶🇦', SUI:'🇨🇭',
@@ -15,7 +16,7 @@ const FLAG_BY_CODE: Record<string, string> = {
 };
 
 export async function POST() {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission("portal.devmode");
   if ('error' in auth) return auth.error;
 
   const supabase = createSupabaseAdminClient();

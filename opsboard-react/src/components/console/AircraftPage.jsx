@@ -170,10 +170,10 @@ export default function AircraftPage() {
           <strong style={{ color: t.greenDeep }}>{shownCount}</strong> on wall ·{' '}
           <strong style={{ color: t.faint }}>{hiddenCount}</strong> hidden
         </span>
-        <Button variant="softBlue" size="sm" disabled={bulkBusy} onClick={() => setAll(true)} style={{ height: 42 }}>
+        <Button variant="softBlue" size="sm" disabled={bulkBusy} action="wall.aircraft.visibility" onClick={() => setAll(true)} style={{ height: 42 }}>
           Show all
         </Button>
-        <Button variant="soft" size="sm" disabled={bulkBusy} onClick={() => setAll(false)} style={{ height: 42, color: t.muted }}>
+        <Button variant="soft" size="sm" disabled={bulkBusy} action="wall.aircraft.visibility" onClick={() => setAll(false)} style={{ height: 42, color: t.muted }}>
           Hide all
         </Button>
       </div>
@@ -224,10 +224,12 @@ export default function AircraftPage() {
                   on={shown}
                   disabled={savingKey === `${row.oprId}:${row.registration}` || deletingKey === `${row.oprId}:${row.registration}` || bulkBusy}
                   onToggle={() => toggle(row, !shown)}
+                  action="wall.aircraft.visibility"
                 />
                 <IconButton
                   icon="trash-2"
                   title="Delete aircraft"
+                  action="wall.aircraft.delete"
                   disabled={deletingKey === `${row.oprId}:${row.registration}`}
                   onClick={() => setConfirmDelete(row)}
                 />

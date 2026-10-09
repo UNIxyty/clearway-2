@@ -14,6 +14,7 @@
 //
 // Listing is by id prefix (`id=like.extsite:*`, colon URL-encoded).
 
+import { can } from "../../lib/permissions/grants.mjs";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { audit } from "./store.mjs";
@@ -51,8 +52,9 @@ const parseReason = (row) => { try { return row?.reason ? JSON.parse(row.reason)
 
 // ── Who may approve ──────────────────────────────────────────────────────────
 export const isPrivileged = (user) => user?.agentRole === "admin" || user?.agentRole === "developer";
-function assertAdmin(user) {
-  if (!isPrivileged(user)) throw Forbidden("Approving sites needs an admin.");
+// Approving, adding and revoking sites is a permission (Admin → Permissions: agent.extension.sites).
+async function assertAdmin(user) {
+  if (!(await can(user?.agentRole, "agent.extension.sites"))) throw Forbidden("You don't have permission to approve, add or revoke the extension's sites.");
 }
 
 // ── Validation ───────────────────────────────────────────────────────────────
@@ -152,7 +154,7 @@ async function approvePendingFor(host, admin, note) {
 }
 
 export async function decideRequest({ admin, id, decision, note: rawNote }) {
-  assertAdmin(admin);
+  await assertAdmin(admin);
   const reqId = String(id ?? "").trim();
   if (!/^[0-9a-f-]{36}$/i.test(reqId)) throw BadRequest("A request id is required.");
   if (decision !== "approve" && decision !== "decline") throw BadRequest('decision must be "approve" or "decline".');
@@ -175,7 +177,7 @@ export async function decideRequest({ admin, id, decision, note: rawNote }) {
 }
 
 export async function revokeSite({ admin, host: rawHost }) {
-  assertAdmin(admin);
+  await assertAdmin(admin);
   const host = normaliseHost(rawHost);
   const site = await getSite(host);
   if (!site) throw BadRequest(`${host} is not on the list.`);
@@ -185,7 +187,7 @@ export async function revokeSite({ admin, host: rawHost }) {
 }
 
 export async function addSite({ admin, host: rawHost, includeSubdomains }) {
-  assertAdmin(admin);
+  await assertAdmin(admin);
   const host = normaliseHost(rawHost);
   const site = await writeSite({ host, includeSubdomains, admin, note: null });
   // Anyone who had asked for this site is answered by the addition.

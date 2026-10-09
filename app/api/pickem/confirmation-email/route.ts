@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { pickemTeamFlag, sendPickemSubmissionEmail } from "@/lib/pickem-email";
 import { getActiveCompetition, hasSubmitted, listGroups, listMatches, listTeams, listUserPredictions } from "@/lib/pickem-store";
+import { requirePermission } from "@/lib/permissions/server";
 
 export async function POST() {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission("portal.pickem.play");
   if ("error" in auth) return auth.error;
 
   const competition = await getActiveCompetition();

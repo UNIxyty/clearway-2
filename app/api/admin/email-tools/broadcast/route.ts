@@ -7,6 +7,7 @@ import {
   type BroadcastRecipient,
 } from '@/server/emails/broadcast';
 import { resolveRecipients, type RecipientFilters } from '@/server/emails/resolveRecipients';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export const dynamic = 'force-dynamic';
  *   testOnly=false -> batch to all non-opted-out users
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.email.broadcast");
   if ('error' in auth) return auth.error;
 
   const body = await req.json().catch(() => ({}));

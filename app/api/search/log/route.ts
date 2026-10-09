@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { requirePermission } from "@/lib/permissions/server";
 
 export async function POST(request: Request) {
+  const permission = await requirePermission("portal.search.log");
+  if ("error" in permission) return permission.error;
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

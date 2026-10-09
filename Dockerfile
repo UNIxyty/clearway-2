@@ -7,6 +7,9 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Permissions (docs/permissions.md): no write endpoint without an entry in lib/permissions/catalogue.mjs, in the portal,
+# the agent or the wall — or the image is not built.
+RUN node lib/permissions/check.mjs --code
 RUN npm run build
 
 FROM node:20-bookworm-slim AS base-runtime

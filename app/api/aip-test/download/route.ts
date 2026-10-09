@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
 import { join } from "path";
+import { requirePermission } from "@/lib/permissions/server";
 
 const SCRIPT = join(process.cwd(), "scripts", "ead-download-aip-pdf.mjs");
 const CROP_SCRIPT = join(process.cwd(), "scripts", "extract-pdf-pages.py");
@@ -87,6 +88,8 @@ async function cropPdfToMaxPages(
 }
 
 export async function POST(request: NextRequest) {
+  const permission = await requirePermission("portal.aip.fetch");
+  if ("error" in permission) return permission.error;
   let icao: string;
   let eadUser: string | undefined;
   let eadPassword: string | undefined;

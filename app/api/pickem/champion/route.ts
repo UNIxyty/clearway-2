@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/admin-auth';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-admin';
 import { getActiveCompetition, getTournamentState, getUserPlayoffAccess, listTeams } from '@/lib/pickem-store';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -68,7 +69,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission("portal.pickem.play");
   if ('error' in auth) return auth.error;
   const comp = await getActiveCompetition();
   if (!comp) return NextResponse.json({ error: 'Competition not configured.' }, { status: 404 });

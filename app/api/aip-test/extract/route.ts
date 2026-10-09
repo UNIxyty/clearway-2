@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
 import { join } from "path";
+import { requirePermission } from "@/lib/permissions/server";
 
 const SCRIPT_REGEX = join(process.cwd(), "scripts", "ead-extract-aip-from-pdf.mjs");
 const SCRIPT_AI = join(process.cwd(), "scripts", "ead-extract-aip-from-pdf-ai.mjs");
 const TIMEOUT_MS = 120_000;
 
 export async function POST(request: NextRequest) {
+  const permission = await requirePermission("portal.aip.fetch");
+  if ("error" in permission) return permission.error;
   const useAi = request.nextUrl.searchParams.get("useAi") === "1" || request.nextUrl.searchParams.get("useAi") === "true";
   const script = useAi ? SCRIPT_AI : SCRIPT_REGEX;
 

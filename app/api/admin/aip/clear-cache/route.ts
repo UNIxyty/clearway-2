@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { STORAGE_ROOT } from "@/lib/storage";
 import { rm, readdir, stat } from "fs/promises";
 import path from "path";
+import { requirePermission } from "@/lib/permissions/server";
 
 // Directories to wipe. All are auto-synced and will re-populate on next sync.
 // Intentionally excludes aip/usa-pdf and aip/usa-gen-pdf (manually uploaded static files)
@@ -31,7 +32,7 @@ async function listFiles(dir: string): Promise<string[]> {
 }
 
 export async function DELETE() {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.aip.clear-cache");
   if ("error" in auth) return auth.error;
 
   const deleted: string[] = [];

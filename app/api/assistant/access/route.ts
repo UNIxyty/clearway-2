@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireDeveloper } from "@/lib/admin-auth";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { auditAgent, grantAgentAccess, listAgentAccess, revokeAgentAccess } from "@/lib/agent/store";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission("portal.agent.access");
   if ("error" in auth) return auth.error;
 
   const body = (await request.json().catch(() => ({}))) as { userId?: string; email?: string; note?: string };
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission("portal.agent.access");
   if ("error" in auth) return auth.error;
 
   const userId = String(request.nextUrl.searchParams.get("userId") || "").trim();

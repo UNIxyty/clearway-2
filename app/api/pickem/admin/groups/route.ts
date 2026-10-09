@@ -9,6 +9,7 @@ import {
   replaceGroupResultOrder,
 } from "@/lib/pickem-store";
 import { recomputePickemPoints } from "@/lib/pickem-scoring";
+import { requirePermission } from "@/lib/permissions/server";
 
 export async function GET() {
   const auth = await requireAdmin();
@@ -34,7 +35,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ("error" in auth) return auth.error;
 
   const competition = await getActiveCompetition();

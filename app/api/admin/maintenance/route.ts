@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { holds, refused, requirePermission } from "@/lib/permissions/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
@@ -26,11 +27,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    // Turning maintenance ON stays a developer's call; turning it OFF is open to admins too, so an admin who signs
-    // in during maintenance can end it (portal foundations 1.2).
-    const auth = await requireAdmin();
+    // Turning maintenance on and off are two permissions (Admin → Permissions); by default a developer turns it on and
+    // any admin can turn it off, so an admin who signs in during maintenance can end it (portal foundations 1.2).
+    const auth = await requirePermission(["portal.maintenance.enable", "portal.maintenance.disable"]);
     if ("error" in auth) return auth.error;
-    const { user, isDeveloper } = auth;
+    const { user, role } = auth;
 
     const body = (await request.json().catch(() => ({}))) as {
       enabled?: boolean;
@@ -41,9 +42,8 @@ export async function POST(request: Request) {
     if (typeof body.enabled !== "boolean") {
       return NextResponse.json({ error: "enabled(boolean) is required" }, { status: 400 });
     }
-    if (body.enabled && !isDeveloper) {
-      return NextResponse.json({ error: "Only a developer can turn maintenance on." }, { status: 403 });
-    }
+    const needed = body.enabled ? "portal.maintenance.enable" : "portal.maintenance.disable";
+    if (!(await holds(role, needed))) return refused(needed);
 
     const payload = {
       enabled: body.enabled,

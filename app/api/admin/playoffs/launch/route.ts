@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getActiveCompetition, openPlayoffs, getTournamentState } from '@/lib/pickem-store';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * only update playoffs_prediction_deadline. There is no "close" action.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ('error' in auth) return auth.error;
 
   const comp = await getActiveCompetition();

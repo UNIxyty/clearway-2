@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportByIcao } from "@/lib/asecna-airports";
+import { requirePermission } from "@/lib/permissions/server";
 
 export async function POST(request: NextRequest) {
+  const permission = await requirePermission("portal.aip.fetch");
+  if ("error" in permission) return permission.error;
   const body = (await request.json().catch(() => ({}))) as {
     icao?: string;
     countryCode?: string;

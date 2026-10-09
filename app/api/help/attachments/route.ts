@@ -4,6 +4,7 @@ import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { saveFile } from "@/lib/storage";
 import { HELP_ATTACHMENT_MAX_BYTES, HELP_ATTACHMENT_MIMES } from "@/lib/help/shared";
 import { createAttachment } from "@/lib/help/store";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
  * that copy lives in the client, the numbers live here.
  */
 export async function POST(request: Request) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission("portal.help.ask");
   if ("error" in auth) return auth.error;
 
   let form: FormData;

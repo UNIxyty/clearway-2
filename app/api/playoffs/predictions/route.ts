@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { requirePermission } from "@/lib/permissions/server";
 
 export async function GET() {
   const supabase = await createSupabaseServerClient();
@@ -16,6 +17,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const permission = await requirePermission("portal.pickem.play");
+  if ("error" in permission) return permission.error;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

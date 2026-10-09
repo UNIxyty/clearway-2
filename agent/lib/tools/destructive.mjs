@@ -196,7 +196,7 @@ defineTool({
   name: "purge_deleted_limitation",
   description:
     "Permanently destroy a deleted limitation so it can no longer be restored. THIS CANNOT BE UNDONE. Only for records that must genuinely be gone. The first call never destroys anything — it returns a confirmation token to relay to the user.",
-  permission: "admin",
+  permission: "user", // what it may change is the permission in lib/permissions (AGENT_TOOLS)
   sourceTier: "internal",
   sourceLabel: (input) => `Internal · purge requested · ${input.id}`,
   timeoutMs: 30_000,
@@ -276,7 +276,7 @@ function defineSoftDelete({ kind, noun, listPath, itemPath, resultKey, listKey, 
   defineTool({
     name: delName,
     description: `Remove ${noun === "IMPORTANT entry" ? "an" : "a"} ${noun} from the ops wall. The record is kept and can be restored with ${restoreName} — nothing is destroyed. Executes directly when the instruction is clear. ${UNDO_NOTE}`,
-    permission: kind === "report" ? "admin" : "user",
+    permission: "user", // what it may change is the permission in lib/permissions (AGENT_TOOLS)
     sourceTier: "internal",
     sourceLabel: (input) => `Internal · ${noun} deleted · ${input.id}`,
     timeoutMs: 30_000,
@@ -324,7 +324,7 @@ function defineSoftDelete({ kind, noun, listPath, itemPath, resultKey, listKey, 
   defineTool({
     name: restoreName,
     description: `Put a deleted ${noun} back on the wall, exactly as it was, with the same id. Use ${listName} to find the id.`,
-    permission: kind === "report" ? "admin" : "user",
+    permission: "user", // what it may change is the permission in lib/permissions (AGENT_TOOLS)
     sourceTier: "internal",
     sourceLabel: (input) => `Internal · ${noun} restored · ${input.id}`,
     timeoutMs: 30_000,

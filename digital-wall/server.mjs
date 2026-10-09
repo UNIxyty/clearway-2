@@ -13,7 +13,10 @@ import {
 } from "./lib/voice-readout.mjs";
 import { authenticateRequest, authEnabled, authMisconfigured, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import { assertRigSafe } from "./lib/rig-guard.mjs";
-import { ADMIN_ONLY_MESSAGE, isUserWrite, isWriteMethod, resolveIsAdmin } from "./lib/roles.mjs";
+import { resolveRoleKey } from "./lib/roles.mjs";
+import { endpointFor, isWriteMethod } from "../lib/permissions/catalogue.mjs";
+import { can, grantsFor, REFUSED } from "../lib/permissions/grants.mjs";
+import { checkCatalogue, checkCodeRoutes } from "../lib/permissions/check.mjs";
 assertRigSafe("digital-wall");
 import {
   announceDevice,
@@ -45,6 +48,16 @@ import {
   saveAttachmentBytes,
   validateAttachment,
 } from "./lib/attachment-store.mjs";
+
+// Permissions startup check (docs/permissions.md): every write route below must be in lib/permissions/catalogue.mjs,
+// and every wall entry there must still exist here. Refuse to start rather than serve a route nobody decided on.
+{
+  const problems = [...checkCatalogue(), ...checkCodeRoutes("wall", [fsSync.readFileSync(new URL(import.meta.url), "utf8")])];
+  if (problems.length) {
+    console.error(`REFUSING TO START: permissions check failed\n  ${problems.join("\n  ")}`);
+    process.exit(1);
+  }
+}
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
@@ -841,13 +854,21 @@ const server = http.createServer(async (req, res) => {
         );
         return;
       }
-      // ── Who may write (portal foundations 1.1) ──
-      // Every write is admin-only unless lib/roles.mjs USER_WRITES opens it to any signed-in user (own view, day-to-day
-      // ops actions). Enforced here, before any handler, so a hidden console button is never the only guard.
-      if (requestUser) requestUser = { ...requestUser, isAdmin: await resolveIsAdmin(requestUser) };
-      if (isWriteMethod(req.method) && !isUserWrite(req.method, pathname) && !requestUser?.isAdmin) {
-        sendJson(res, { ok: false, error: ADMIN_ONLY_MESSAGE, adminOnly: true }, 403);
-        return;
+      // ── Who may write (docs/permissions.md) ──
+      // Every write must be in lib/permissions/catalogue.mjs and the person's role must hold its action (Admin →
+      // Permissions in the portal). An endpoint nobody listed is refused. Enforced here, before any handler, so a
+      // hidden console button is never the only guard.
+      if (requestUser) requestUser = { ...requestUser, permRole: await resolveRoleKey(requestUser) };
+      if (isWriteMethod(req.method)) {
+        const entry = endpointFor("wall", req.method, pathname);
+        if (!entry) {
+          sendJson(res, { ok: false, error: "This endpoint is not in the permissions list, so it is refused.", permission: null }, 403);
+          return;
+        }
+        if (!entry.public && !(await can(requestUser?.permRole, entry.action))) {
+          sendJson(res, { ok: false, error: REFUSED, permission: entry.action }, 403);
+          return;
+        }
       }
     }
 
@@ -868,7 +889,8 @@ const server = http.createServer(async (req, res) => {
             firstname: requestUser.name.split(" ")[0] ?? "",
             lastname: requestUser.name.split(" ").slice(1).join(" "),
             role: requestUser.role,
-            isAdmin: Boolean(requestUser.isAdmin),
+            permRole: requestUser.permRole ?? null,
+            can: await grantsFor(requestUser.permRole, "wall"),
           },
         });
         return;
@@ -1402,8 +1424,9 @@ const server = http.createServer(async (req, res) => {
       // Another user's personal profile is never writable.
       const account = requested === MAIN_WALL_ACCOUNT ? MAIN_WALL_ACCOUNT : own;
       // The big screen's profile is an admin's to change (1.1); everyone else edits only their own view.
-      if (account === MAIN_WALL_ACCOUNT && !requestUser?.isAdmin) {
-        sendJson(res, { ok: false, error: "Only an admin can change the big screen's settings. Your own view is under My view.", adminOnly: true }, 403);
+      // The big screen's profile is its own permission; everyone else edits only their own view (wall.myview).
+      if (account === MAIN_WALL_ACCOUNT && !(await can(requestUser?.permRole, "wall.bigscreen.settings"))) {
+        sendJson(res, { ok: false, error: `${REFUSED} (Changing the big screen's settings.) Your own view is under My view.`, permission: "wall.bigscreen.settings" }, 403);
         return;
       }
       let settings;
@@ -1441,8 +1464,8 @@ const server = http.createServer(async (req, res) => {
       } catch {
         currentGlobals = { ...DEFAULT_DISPLAY_SETTINGS, ...(shape.default ?? {}) };
       }
-      if (!requestUser?.isAdmin && GLOBAL_SETTING_KEYS.some((k) => settings[k] !== currentGlobals[k])) {
-        sendJson(res, { ok: false, error: "Only an admin can change the visibility window — it applies to every wall.", adminOnly: true }, 403);
+      if (GLOBAL_SETTING_KEYS.some((k) => settings[k] !== currentGlobals[k]) && !(await can(requestUser?.permRole, "wall.window"))) {
+        sendJson(res, { ok: false, error: `${REFUSED} (The visibility window applies to every wall.)`, permission: "wall.window" }, 403);
         return;
       }
       shape.default = shape.default && typeof shape.default === "object" ? shape.default : {};
@@ -1476,8 +1499,8 @@ const server = http.createServer(async (req, res) => {
       const own = String(requestUser?.email || "").toLowerCase();
       const requested = decodeURIComponent(pathname.split("/").pop()).toLowerCase();
       const account = requested === MAIN_WALL_ACCOUNT ? MAIN_WALL_ACCOUNT : own;
-      if (account === MAIN_WALL_ACCOUNT && !requestUser?.isAdmin) {
-        sendJson(res, { ok: false, error: "Only an admin can reset the big screen's settings.", adminOnly: true }, 403);
+      if (account === MAIN_WALL_ACCOUNT && !(await can(requestUser?.permRole, "wall.bigscreen.settings"))) {
+        sendJson(res, { ok: false, error: `${REFUSED} (Resetting the big screen's settings.)`, permission: "wall.bigscreen.settings" }, 403);
         return;
       }
       const shape = await readDisplayProfiles();
@@ -2370,8 +2393,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/user" || pathname === "/api/users/me" || pathname === "/api/profile") {
-      const { claims: _claims, ...who } = requestUser ?? { ...MOCK_USER, isAdmin: true };
-      sendJson(res, { ok: true, authEnabled: authEnabled(), user: { ...who, isAdmin: Boolean(who.isAdmin) } });
+      const { claims: _claims, ...who } = requestUser ?? { ...MOCK_USER, permRole: "developer" };
+      // `can`: the wall actions this person holds, so the console draws the buttons the server will accept.
+      sendJson(res, { ok: true, authEnabled: authEnabled(), user: { ...who, can: await grantsFor(who.permRole, "wall") } });
       return;
     }
 

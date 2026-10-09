@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { requirePermission } from "@/lib/permissions/server";
 
 const PREF_SELECT =
   "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, captcha_consent_dismissed, is_admin, created_at, updated_at";
@@ -63,6 +64,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const permission = await requirePermission("portal.account.preferences");
+  if ("error" in permission) return permission.error;
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

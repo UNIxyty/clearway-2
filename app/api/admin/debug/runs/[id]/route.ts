@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getDebugRun, stopDebugRun, loadPersistedRunFailures } from "@/lib/debug-runner";
+import { requirePermission } from "@/lib/permissions/server";
 
 type Params = { params: { id: string } };
 
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 }
 
 export async function POST(_request: NextRequest, { params }: Params) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.debug.run");
   if ("error" in auth) return auth.error;
   const ok = stopDebugRun(params.id);
   if (!ok) return NextResponse.json({ error: "Run not found" }, { status: 404 });

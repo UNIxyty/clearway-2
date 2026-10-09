@@ -6,11 +6,12 @@ import { OFFICIAL_MATCH_NUMBER } from '@/lib/playoffs/bracketData';
 import { computeGroupStandings, computeBestThird, resolveR32Pairings } from '@/lib/playoffs/standings';
 import { flagFor } from '@/lib/playoffs/flags';
 import type { BracketTeam, GroupMatch } from '@/lib/playoffs/standings';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ('error' in auth) return auth.error;
 
   const supabase = createSupabaseAdminClient();

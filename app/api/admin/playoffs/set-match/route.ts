@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { MATCHES, OFFICIAL_MATCH_NUMBER } from '@/lib/playoffs/bracketData';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
  * via ADMIN_EMAILS / auth metadata.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ('error' in auth) return auth.error;
 
   const body = await req.json().catch(() => ({}));

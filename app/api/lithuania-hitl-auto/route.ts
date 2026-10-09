@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { cleanupStaleSessions, closeSession, createSession, getSession, getChallengeInfo, makeSnapshot } from "@/lib/lithuania-hitl-session";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -234,6 +235,8 @@ async function runLithuaniaScrape(session: any, mode: Mode, icao: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const permission = await requirePermission("portal.aip.fetch");
+  if ("error" in permission) return permission.error;
   try {
     await cleanupStaleSessions();
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireDeveloper } from '@/lib/admin-auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { requirePermission } from "@/lib/permissions/server";
 
 function matchOutcome(home: number, away: number): 'home' | 'away' | 'draw' {
   if (home === away) return 'draw';
@@ -120,7 +121,7 @@ export async function GET() {
 
 /** POST — activate dev mode: seed overrides + seed predictions */
 export async function POST() {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission("portal.devmode");
   if ('error' in auth) return auth.error;
 
   const supabase = createSupabaseAdminClient();
@@ -177,7 +178,7 @@ export async function POST() {
 
 /** DELETE — deactivate dev mode: clear overrides */
 export async function DELETE() {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission("portal.devmode");
   if ('error' in auth) return auth.error;
 
   const supabase = createSupabaseAdminClient();

@@ -27,8 +27,8 @@ export function PeopleSection({ leg, people, peopleError, reveal, setReveal, doR
   const pl = people?.legs.find((l) => l.leg === leg.index);
   return (
     <>
-      <Group editPeople={editPeople} kind="crew" leg={leg} rows={pl?.crew ?? []} loaded={!!people} error={peopleError} reveal={reveal} setReveal={setReveal} doReveal={doReveal} purged={purged || !!people?.purged} retentionDays={retentionDays} />
-      <Group editPeople={editPeople} nameOrder={people?.nameOrder ?? null} kind="pax" leg={leg} rows={pl?.pax ?? []} loaded={!!people} error={peopleError} reveal={reveal} setReveal={setReveal} doReveal={doReveal} purged={purged || !!people?.purged} retentionDays={retentionDays} />
+      <Group canReveal={people?.canReveal !== false} editPeople={editPeople} kind="crew" leg={leg} rows={pl?.crew ?? []} loaded={!!people} error={peopleError} reveal={reveal} setReveal={setReveal} doReveal={doReveal} purged={purged || !!people?.purged} retentionDays={retentionDays} />
+      <Group canReveal={people?.canReveal !== false} editPeople={editPeople} nameOrder={people?.nameOrder ?? null} kind="pax" leg={leg} rows={pl?.pax ?? []} loaded={!!people} error={peopleError} reveal={reveal} setReveal={setReveal} doReveal={doReveal} purged={purged || !!people?.purged} retentionDays={retentionDays} />
     </>
   );
 }
@@ -51,8 +51,8 @@ function SplitEditor({ row, n, onCancel, onSave }: { row: Person; n: number; onC
   );
 }
 
-function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, purged, retentionDays, editPeople, nameOrder = null }: {
-  kind: "crew" | "pax"; leg: Leg; rows: Person[]; loaded: boolean; error: string | null; reveal: RevealState; setReveal: (r: RevealState) => void; doReveal: (section: string) => void; purged: boolean; retentionDays: number; editPeople: EditPeople; nameOrder?: People["nameOrder"];
+function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, purged, retentionDays, editPeople, nameOrder = null, canReveal = true }: {
+  kind: "crew" | "pax"; leg: Leg; rows: Person[]; loaded: boolean; error: string | null; reveal: RevealState; setReveal: (r: RevealState) => void; doReveal: (section: string) => void; purged: boolean; retentionDays: number; editPeople: EditPeople; nameOrder?: People["nameOrder"]; canReveal?: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -103,7 +103,7 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
                 <span role="cell" style={{ justifySelf: "end", display: "inline-flex", gap: 2 }}>
                   {kind === "pax" && r.idx != null && (
                     <button type="button" className="ag-focus" aria-label={`Correct the surname and given names of passenger ${i + 1}`} title={revealed ? undefined : "Shows personal data first: the names are masked until then"}
-                      onClick={() => { if (!revealed) { setReveal({ phase: "ask", section }); return; } setSplitting(splitting === r.idx ? null : r.idx ?? null); }}
+                      onClick={() => { if (!revealed) { if (canReveal) setReveal({ phase: "ask", section }); return; } setSplitting(splitting === r.idx ? null : r.idx ?? null); }}
                       style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: splitting === r.idx ? C.primaryTint3 : "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: C.muted }}>✎</button>
                   )}
                   {r.added && r.id ? (
@@ -145,7 +145,9 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
         <span style={EYEBROW}>{kind === "crew" ? "Crew" : "Passengers"} · Leg {n}</span>
         <span style={{ ...mono({ fontSize: 12, fontWeight: 600 }), color: C.body }}>{count}</span>
         <span style={{ fontSize: 11.5, color: C.faint, flex: 1 }}>{sources}</span>
-        {rows.length > 0 && hasPii && <RevealControls section={section} reveal={reveal} setReveal={setReveal} doReveal={doReveal} />}
+        {rows.length > 0 && hasPii && (canReveal
+          ? <RevealControls section={section} reveal={reveal} setReveal={setReveal} doReveal={doReveal} />
+          : <span style={{ fontSize: 12, color: C.muted }}>Personal data stays masked: you don&apos;t have permission to show it.</span>)}
         {editPeople && !adding && <Button size="xs" variant="ghost" icon="plus" onClick={() => setAdding(true)}>{kind === "crew" ? "Add crew member" : "Add passenger"}</Button>}
       </div>
       {body}

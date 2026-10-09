@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { getActiveCompetition, getUserLockOverride, listMatches, saveMatchPredictions } from "@/lib/pickem-store";
 import { isGroupPredictionsLocked } from "@/lib/pickem-rules";
+import { requirePermission } from "@/lib/permissions/server";
 
 export async function PUT(request: NextRequest) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission("portal.pickem.play");
   if ("error" in auth) return auth.error;
   const competition = await getActiveCompetition();
   if (!competition) return NextResponse.json({ error: "Competition not configured." }, { status: 404 });

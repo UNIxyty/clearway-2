@@ -307,6 +307,7 @@ export default function CaaPage() {
               variant="primary"
               disabled={saving || (!form.country.trim() && !form.authorityName.trim())}
               spin={saving}
+              action={selectedId === '__new__' ? 'wall.caa.create' : 'wall.caa.edit'}
               onClick={save}
               style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}
             >
@@ -337,7 +338,7 @@ export default function CaaPage() {
         desc="Civil Aviation Authority contact details and permit processes. Matching flights show a CAA marker on the wall and the authority's details in the flight overlay."
         descMax={620}
         actions={
-          <Button variant="primary" icon="plus" onClick={() => setSelectedId('__new__')}>
+          <Button variant="primary" icon="plus" action="wall.caa.create" onClick={() => setSelectedId('__new__')}>
             Add CAA
           </Button>
         }
@@ -347,7 +348,7 @@ export default function CaaPage() {
           <span style={{ fontSize: 12.5, color: t.faint, flex: 1 }}>
             {entries.length} authorit{entries.length === 1 ? 'y' : 'ies'}
           </span>
-          <Button variant="primary" icon="plus" size="sm" onClick={() => setSelectedId('__new__')} style={{ height: 40, flex: 'none' }}>
+          <Button variant="primary" icon="plus" size="sm" action="wall.caa.create" onClick={() => setSelectedId('__new__')} style={{ height: 40, flex: 'none' }}>
             Add CAA
           </Button>
         </div>
@@ -538,8 +539,9 @@ export default function CaaPage() {
                         setForm((prev) => ({ ...prev, isActive: !prev.isActive }));
                         toggleActive(selected, !form.isActive);
                       }}
+                      action="wall.caa.edit"
                     />
-                    <IconButton icon="trash-2" title="Delete entry" onClick={() => setConfirmDelete(selected)} />
+                    <IconButton icon="trash-2" title="Delete entry" action="wall.caa.delete" onClick={() => setConfirmDelete(selected)} />
                   </div>
                 )}
               </div>
@@ -648,7 +650,7 @@ export default function CaaPage() {
 
               {/* actions */}
               <div style={{ padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Button variant="primary" size="lg" disabled={saving || (!form.country.trim() && !form.authorityName.trim())} spin={saving} onClick={save}>
+                <Button variant="primary" size="lg" disabled={saving || (!form.country.trim() && !form.authorityName.trim())} spin={saving} action={selectedId === '__new__' ? 'wall.caa.create' : 'wall.caa.edit'} onClick={save}>
                   Save changes
                 </Button>
                 <Button variant="ghost" size="lg" viewOnlyOk disabled={saving} onClick={() => setSelectedId(form.id || '')}>

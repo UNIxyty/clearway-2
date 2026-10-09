@@ -72,14 +72,15 @@ const admin = await account("rig-access-admin@rig.invalid", true);
 
 const me = await call(user, "GET", "/api/user");
 const meA = await call(admin, "GET", "/api/user");
-ok(me.status === 200 && me.body.user?.isAdmin === false && !("claims" in me.body.user), "an ordinary user's /api/user says isAdmin false (and carries no raw claims)");
-ok(meA.body.user?.isAdmin === true, "the admin's /api/user says isAdmin true (from user_preferences.is_admin)");
+ok(me.status === 200 && me.body.user?.permRole === "user" && me.body.user?.can?.["wall.operators.delete"] === false && me.body.user?.can?.["wall.myview"] === true && !("claims" in me.body.user), "an ordinary user's /api/user: role user, and what they may do (no raw claims)");
+ok(meA.body.user?.permRole === "admin" && meA.body.user?.can?.["wall.operators.delete"] === true, "the admin's /api/user: role admin (from user_preferences.is_admin), with the admin actions");
 const authMe = await call(user, "GET", "/api/auth/me");
-ok(authMe.body.user?.isAdmin === false, "/api/auth/* reports isAdmin to the console", JSON.stringify(authMe.body.user ?? {}));
+ok(authMe.body.user?.permRole === "user" && authMe.body.user?.can?.["wall.aircraft.delete"] === false, "/api/auth/* reports the role and permissions to the console", JSON.stringify(authMe.body.user ?? {}).slice(0, 120));
 
 for (const [m, p] of ADMIN_ONLY) {
   const r = await call(user, m, p);
-  ok(r.status === 403 && r.body.adminOnly === true, `ordinary user refused: ${m} ${p}`, `${r.status} ${r.body.error ?? ""}`);
+  // Refused by the permissions check: names the action it needs, or says the endpoint is not listed at all.
+  ok(r.status === 403 && (Boolean(r.body.permission) || /not in the permissions list/.test(r.body.error ?? "")), `ordinary user refused: ${m} ${p}`, `${r.status} ${r.body.error ?? ""}`);
 }
 for (const [m, p, b] of USER_OK) {
   const r = await call(user, m, p, b);

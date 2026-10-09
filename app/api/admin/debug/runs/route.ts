@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/permissions/server";
 import { listDebugRuns, startDebugRun, listPersistedRunIds } from "@/lib/debug-runner";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
@@ -29,8 +30,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Server-to-server (the internal secret) carries no person; everyone else needs portal.debug.run.
   if (!hasInternalDebugAccess(request)) {
-    const auth = await requireAdmin();
+    const auth = await requirePermission("portal.debug.run");
     if ("error" in auth) return auth.error;
   }
 

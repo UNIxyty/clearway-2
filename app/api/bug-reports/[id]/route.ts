@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireAuthenticatedUser } from "@/lib/admin-auth";
 import { BUG_REPORT_STATUSES, type BugReportStatus } from "@/lib/bug-reports-shared";
 import { deleteFixedBugReport, updateBugReportStatus } from "@/lib/bug-reports-store";
+import { holds, requirePermission } from "@/lib/permissions/server";
 
 function isBugStatus(value: string): value is BugReportStatus {
   return BUG_REPORT_STATUSES.includes(value as BugReportStatus);
@@ -11,7 +12,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.bugs.triage");
   if ("error" in auth) return auth.error;
 
   const id = String(params.id || "").trim();
@@ -43,14 +44,14 @@ export async function DELETE(
   const id = String(params.id || "").trim();
   if (!id) return NextResponse.json({ error: "Bug report id is required" }, { status: 400 });
 
-  const adminAuth = await requireAdmin();
+  // Anyone's report: portal.bugs.delete. Otherwise only your own fixed report (portal.bugs.file).
+  const auth = await requirePermission(["portal.bugs.file", "portal.bugs.delete"]);
+  if ("error" in auth) return auth.error;
   try {
-    if (!("error" in adminAuth)) {
+    if (await holds(auth.role, "portal.bugs.delete")) {
       const deleted = await deleteFixedBugReport({ id });
       return NextResponse.json({ ok: true, deleted });
     }
-    const auth = await requireAuthenticatedUser();
-    if ("error" in auth) return auth.error;
     const deleted = await deleteFixedBugReport({ id, userId: auth.user.id });
     if (!deleted) {
       return NextResponse.json(

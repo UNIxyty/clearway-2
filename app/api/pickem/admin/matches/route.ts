@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { recomputePickemPoints } from "@/lib/pickem-scoring";
 import { claimPlayoffsAutoOpen, getActiveCompetition, listMatches, listTeams, updateMatchScore } from "@/lib/pickem-store";
+import { requirePermission } from "@/lib/permissions/server";
 
 export async function GET() {
   const auth = await requireAdmin();
@@ -32,7 +33,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ("error" in auth) return auth.error;
 
   const competition = await getActiveCompetition();

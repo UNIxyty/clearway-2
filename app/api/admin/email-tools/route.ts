@@ -8,6 +8,7 @@ import { sendGroupStageCompleteBlast } from '@/server/emails/triggers/sendGroupS
 import { sendFinalStandingsBlast } from '@/server/emails/triggers/sendFinalStandingsEmail';
 import { playoffsOpenedTemplateExists, renderPlayoffsOpenedMock, sendPlayoffsOpenedBlast } from '@/server/emails/triggers/sendPlayoffsOpenedEmail';
 import { getAdminEmails } from '@/server/emails/resolveRecipients';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +66,7 @@ export async function GET() {
 
 // ── POST: { action: 'test', emailType, recipient } | { action: 'all', emailType, force } ──
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.email.tools");
   if ('error' in auth) return auth.error;
 
   const body = await req.json().catch(() => ({}));

@@ -1,6 +1,7 @@
 // HTTP routes for the Flight intake page and the Agent mailbox. Wired from server.mjs after authentication:
 // every route here runs as the signed-in user, and the mailbox routes additionally require mailbox access.
 // Responses never carry personal data except the two reveal endpoints, which are audited.
+import { can } from "../../../lib/permissions/grants.mjs";
 import { tzStatus } from "../tzdata.mjs";
 import { lookupNow, lookupState, recordAnswer, peekAnswer, answerByToken } from "./notification.mjs";
 import { recordCancelAnswer } from "./cancel.mjs";
@@ -432,8 +433,8 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await requestDetail(m[1])) });
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/edit$/.exec(P)) && req.method === "POST") { await editRequest(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await requestDetail(m[1])) }); }
-    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await peopleFor(m[1], false)) });
-    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/edit$/.exec(P)) && req.method === "POST") { await editPeople(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await peopleFor(m[1], false)) }); }
+    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await peopleFor(m[1], false)), canReveal: await can(user.agentRole, "intake.people.reveal") });
+    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/edit$/.exec(P)) && req.method === "POST") { await editPeople(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await peopleFor(m[1], false)), canReveal: await can(user.agentRole, "intake.people.reveal") }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/reveal$/.exec(P)) && req.method === "POST") {
       const out = await peopleFor(m[1], true);
       await audit({ kind: "intake.personal_revealed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: m[1], seconds: 60 } }).catch(() => {});
@@ -474,7 +475,8 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     }
     // Intake settings (Agent settings page): admins and developers only, read and write.
     if (P === "/api/intake/settings" && (req.method === "GET" || req.method === "PUT")) {
-      if (!isPrivileged(user)) throw err(403, "Intake settings are for admins.");
+      // Reading them: admins and developers, or anyone the grid lets change them (intake.settings, Admin → Permissions).
+      if (!isPrivileged(user) && !(await can(user.agentRole, "intake.settings"))) throw err(403, "Intake settings are for admins.");
       if (req.method === "PUT") {
         const body = await readJsonBody(req); const before = await intakeSettings({ fresh: true });
         const after = await setIntakeSettings(body, user);

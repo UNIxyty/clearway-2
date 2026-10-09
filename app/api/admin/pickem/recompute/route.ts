@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getActiveCompetition, getLeaderboard } from '@/lib/pickem-store';
 import { recomputePickemPoints } from '@/lib/pickem-scoring';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
  * present. Returns participant + points totals so the admin can confirm.
  */
 export async function POST() {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ('error' in auth) return auth.error;
 
   const comp = await getActiveCompetition();

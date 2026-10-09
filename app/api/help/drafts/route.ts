@@ -3,6 +3,7 @@ import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { readFile, saveFile, deleteFile } from "@/lib/storage";
 import { HELP_THREAD_TYPES, type HelpThreadType } from "@/lib/help/shared";
 import { sanitizeBlocks } from "@/lib/help/store";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission("portal.help.ask");
   if ("error" in auth) return auth.error;
   let body: Record<string, unknown>;
   try {
@@ -66,7 +67,7 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission("portal.help.ask");
   if ("error" in auth) return auth.error;
   const route = routeOf(new URL(request.url).searchParams.get("route"));
   if (!route) return NextResponse.json({ error: "route required" }, { status: 400 });

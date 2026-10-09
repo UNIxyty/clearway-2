@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { requirePermission } from "@/lib/permissions/server";
 
 const ENTRY_URL = "https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html";
 const PROJECT_ROOT = process.cwd();
@@ -136,6 +137,8 @@ async function resolveContext(cookie: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const permission = await requirePermission("portal.aip.fetch");
+  if ("error" in permission) return permission.error;
   try {
     const body = (await request.json().catch(() => ({}))) as { cookie?: string; mode?: Mode; icao?: string };
     const cookie = String(body.cookie || "").trim();

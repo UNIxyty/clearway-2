@@ -21,6 +21,7 @@ import {
 } from "@/lib/help/store";
 import { publishHelpEvent } from "@/lib/help/stream";
 import { notifyTelegramNewThread } from "@/lib/help/telegram";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export async function GET() {
  * and chat use the waiting framing and open with presence.
  */
 export async function POST(request: Request) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission("portal.help.ask");
   if ("error" in auth) return auth.error;
 
   let body: Record<string, unknown>;

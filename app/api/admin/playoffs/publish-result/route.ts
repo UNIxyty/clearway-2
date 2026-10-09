@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getActiveCompetition } from '@/lib/pickem-store';
 import { MATCHES } from '@/lib/playoffs/bracketData';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +57,7 @@ async function advanceWinner(
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ('error' in auth) return auth.error;
 
   const body = await req.json().catch(() => ({}));

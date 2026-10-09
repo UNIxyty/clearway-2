@@ -335,7 +335,7 @@ export default function LimitationsPage() {
                   {/* The one edit that happens more than once a shift stays
                       on the row (C5). */}
                   <span onClick={(e) => e.stopPropagation()} style={{ flex: 'none', display: 'inline-flex' }}>
-                    <Toggle size="sm" on={active} disabled={busyId === item.id} onToggle={() => toggleActive(item, !active)} />
+                    <Toggle size="sm" on={active} disabled={busyId === item.id} onToggle={() => toggleActive(item, !active)} action="wall.limitations.edit" />
                   </span>
                 </div>
                 <div style={{ fontSize: 13, lineHeight: 1.55, color: t.muted }}>{item.description || '—'}</div>
@@ -351,7 +351,7 @@ export default function LimitationsPage() {
         </div>
 
         <FixedActionBar>
-          <Button variant="primary" onClick={openNew} style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}>
+          <Button variant="primary" action="wall.limitations.create" onClick={openNew} style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}>
             Publish a limitation
           </Button>
         </FixedActionBar>
@@ -386,6 +386,7 @@ export default function LimitationsPage() {
                   variant="primary"
                   spin={saving}
                   disabled={saving || !form.title.trim()}
+                  action={editingId ? 'wall.limitations.edit' : 'wall.limitations.create'}
                   onClick={mobileSave}
                   style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}
                 >
@@ -658,10 +659,11 @@ export default function LimitationsPage() {
                     >
                       {matches > 0 ? `matches ${matches} flight${matches > 1 ? 's' : ''}` : 'no current matches'}
                     </StatusPill>
-                    <Toggle size="sm" on={active} disabled={busyId === item.id} onToggle={() => toggleActive(item, !active)} />
+                    <Toggle size="sm" on={active} disabled={busyId === item.id} onToggle={() => toggleActive(item, !active)} action="wall.limitations.edit" />
                     <IconButton
                       icon="pencil"
                       title="Edit limitation"
+                      action="wall.limitations.edit"
                       color={editingId === item.id ? t.blueDeep : t.muted}
                       onClick={() => startEdit(item)}
                     />
@@ -676,7 +678,7 @@ export default function LimitationsPage() {
                         disabled
                       />
                     ) : (
-                      <IconButton icon="trash-2" title="Delete limitation" disabled={busyId === item.id} onClick={() => setConfirmDelete(item)} />
+                      <IconButton icon="trash-2" title="Delete limitation" action="wall.limitations.delete" disabled={busyId === item.id} onClick={() => setConfirmDelete(item)} />
                     )}
                   </div>
                   <div style={{ fontSize: 13.5, lineHeight: 1.5, color: t.body, marginBottom: 6 }}>{item.description || '—'}</div>
@@ -841,7 +843,7 @@ export default function LimitationsPage() {
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
-                <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving}>
+                <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving} action={editingId ? 'wall.limitations.edit' : 'wall.limitations.create'}>
                   {editingId ? 'Save changes' : 'Save limitation'}
                 </Button>
                 {editingId && (

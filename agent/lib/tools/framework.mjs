@@ -11,6 +11,8 @@
 // object and the caller's identity. It cannot be handed a URL, a query, or a
 // credential, because no tool declares one.
 
+import { AGENT_TOOLS } from "../../../lib/permissions/catalogue.mjs";
+import { can, canCached } from "../../../lib/permissions/grants.mjs";
 import { validate, SchemaError } from "./schema.mjs";
 import { ToolError, InvalidInput, Timeout } from "./errors.mjs";
 import { audit, agentEnabled } from "../store.mjs";
@@ -183,10 +185,22 @@ export function toolAllowedByCapabilities(tool, caps) {
   if (caps.write_actions === false && confirmLevelFor(tool)) return false;
   return true;
 }
+/**
+ * May this person use this tool? Its role level (reads), and — for a tool that changes something — the permission
+ * named in lib/permissions/catalogue.mjs AGENT_TOOLS (Admin → Permissions; the same action the wall checks when the
+ * tool writes through it). A tool not listed there is never offered. Synchronous, from the grants loaded this request.
+ */
+export function toolPermitted(user, tool) {
+  if (!(tool.name in AGENT_TOOLS)) return false;
+  if (!roleSatisfies(user.agentRole, tool.permission)) return false;
+  const action = AGENT_TOOLS[tool.name];
+  return action ? canCached(user.agentRole, action) : true;
+}
+
 export function toolSpecsFor(user) {
   const caps = capabilityGate();
   return allTools()
-    .filter((tool) => roleSatisfies(user.agentRole, tool.permission) && toolAllowedByCapabilities(tool, caps))
+    .filter((tool) => toolPermitted(user, tool) && toolAllowedByCapabilities(tool, caps))
     .map((tool) => ({
       toolSpec: {
         name: tool.name,
@@ -197,7 +211,7 @@ export function toolSpecsFor(user) {
 }
 
 export function toolNamesFor(user) {
-  return allTools().filter((t) => roleSatisfies(user.agentRole, t.permission)).map((t) => t.name);
+  return allTools().filter((t) => toolPermitted(user, t)).map((t) => t.name);
 }
 
 function byteSize(value) {
@@ -272,8 +286,14 @@ export async function executeTool({ name, input, user, conversationId, inputMode
 
   // Belt and braces: the model was never offered this tool, but a crafted
   // request must still be refused by the backend rather than by omission.
-  if (!roleSatisfies(user.agentRole, tool.permission)) {
+  if (!roleSatisfies(user.agentRole, tool.permission) || !(name in AGENT_TOOLS)) {
     const result = { ok: false, error: "NO_PERMISSION", message: `Your account cannot use ${name}.` };
+    await record(result, false, "NO_PERMISSION");
+    return result;
+  }
+  // The permission for what the tool changes (docs/permissions.md), checked before anyone is asked to confirm.
+  if (AGENT_TOOLS[name] && !(await can(user.agentRole, AGENT_TOOLS[name]))) {
+    const result = { ok: false, error: "NO_PERMISSION", message: `You don't have permission to ${name.replace(/_/g, " ")}. An admin can grant it under Admin → Permissions.` };
     await record(result, false, "NO_PERMISSION");
     return result;
   }

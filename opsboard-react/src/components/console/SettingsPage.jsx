@@ -20,7 +20,6 @@ import {
 } from '../../services/timelineApi';
 import { collectViewportEnv, getDeviceId } from '../../services/device';
 import { fetchCurrentUser } from '../../services/timelineApi';
-import { useIsAdmin } from '../../AuthGate';
 
 // Which ACCOUNT's profile the sizing cards edit. null = your own view;
 // the string carries the target account (the main wall signs in as
@@ -29,8 +28,8 @@ import { useIsAdmin } from '../../AuthGate';
 const MAIN_WALL_ACCOUNT = 'ops@clearway.aero';
 const DeviceCtx = createContext({ deviceId: null, device: null });
 
-// Portal foundations 1.1: the big screen and the wall-wide settings are an admin's to change; everyone can still see
-// them. The wall server refuses those writes regardless — this only stops the controls pretending otherwise.
+// The big screen and each wall-wide setting are their own permission (Admin → Permissions in the portal); everyone can
+// still see them. The wall server refuses those writes regardless — this only stops the controls pretending otherwise.
 const FIELDSET = { border: 0, padding: 0, margin: 0, minWidth: 0 };
 function Locked({ when, note, children }) {
   if (!when) return children;
@@ -41,8 +40,8 @@ function Locked({ when, note, children }) {
     </ViewOnly>
   );
 }
-const BIG_SCREEN_NOTE = <>The big screen&apos;s settings are an admin&apos;s to change. Your own view is under <strong>My view</strong>.</>;
-const WALL_WIDE_NOTE = 'These settings apply to every wall; only an admin can change them.';
+const BIG_SCREEN_NOTE = <>You don&apos;t have permission to change the big screen&apos;s settings. Your own view is under <strong>My view</strong>.</>;
+const WALL_WIDE_NOTE = "This applies to every wall, and you don't have permission to change it.";
 import Icon from './icons';
 import ColoursCard from './ColoursCard';
 import FontCard from './FontCard';
@@ -55,6 +54,7 @@ import {
   ChipInput,
   ViewOnly,
   ViewOnlyNote,
+  useCan,
   Dropdown,
   ErrorBanner,
   FieldLabel,
@@ -307,7 +307,7 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
     cursor: 'pointer', marginBottom: 8, background: active ? '#f0f6ff' : t.card,
   });
   const flash = useToast();
-  const isAdmin = useIsAdmin();
+  const canBig = useCan()('wall.bigscreen.settings');
   const env = wallDevice?.env || null;
   return (
     <Card style={{ marginBottom: 22 }}>
@@ -334,11 +334,11 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
             {env ? ` · ${env.innerWidth}×${env.innerHeight} css px · DPR ${env.devicePixelRatio}` : ''}
           </div>
         </div>
-        {selected === MAIN_WALL_ACCOUNT && <MonoChip color="#92500b" bg="#fdf3e2">{isAdmin ? 'editing the BIG SCREEN' : 'viewing the BIG SCREEN'}</MonoChip>}
+        {selected === MAIN_WALL_ACCOUNT && <MonoChip color="#92500b" bg="#fdf3e2">{canBig ? 'editing the BIG SCREEN' : 'viewing the BIG SCREEN'}</MonoChip>}
       </div>
       {selected === MAIN_WALL_ACCOUNT && (
-        <ViewOnly when={!isAdmin}>
         <Button
+          action="wall.bigscreen.settings"
           size="sm"
           variant="soft"
           onClick={async () => {
@@ -350,7 +350,6 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
         >
           Reset main wall to defaults
         </Button>
-        </ViewOnly>
       )}
     </Card>
   );
@@ -1425,7 +1424,7 @@ function AlertFilterCard() {
           <Button variant="soft" size="sm" icon="code" onClick={() => setRawMode((v) => !v)}>
             {rawMode ? 'Friendly editor' : 'Advanced (raw JSON)'}
           </Button>
-          <Button variant="primary" size="sm" icon="radar" spin={scanning} onClick={runScan}>
+          <Button variant="primary" size="sm" icon="radar" spin={scanning} action="wall.alerts.scan" onClick={runScan}>
             {scanning ? 'Scanning…' : 'Run scan now'}
           </Button>
         </div>
@@ -1645,6 +1644,7 @@ function WeatherCard() {
       <ErrorBanner>{error}</ErrorBanner>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <Button
+          action="wall.cache.weather"
           variant="primary"
           icon="cloud-download"
           disabled={busy}
@@ -1743,6 +1743,7 @@ function DevicesCard() {
             style={{ width: 220 }}
           />
           <Button
+            action="wall.devices.approve"
             variant="primary"
             disabled={busyId === d.deviceId}
             onClick={async () => {
@@ -1787,6 +1788,7 @@ function DevicesCard() {
           </span>
           <span style={{ flex: 1 }} />
           <Button
+            action="wall.devices.revoke"
             variant="soft"
             disabled={busyId === d.deviceId}
             onClick={async () => {
@@ -1883,8 +1885,9 @@ function MobileGroup({ title, summary, open, onToggle, note = false, children })
 
 export default function SettingsPage() {
   const [selectedAccount, setSelectedAccount] = useState(null); // null = my view
-  const isAdmin = useIsAdmin();
-  const bigLocked = !isAdmin && selectedAccount === MAIN_WALL_ACCOUNT;
+  const can = useCan();
+  const bigLocked = !can('wall.bigscreen.settings') && selectedAccount === MAIN_WALL_ACCOUNT;
+  const devicesLocked = !['wall.devices.approve', 'wall.devices.revoke', 'wall.devices.edit', 'wall.devices.delete'].some(can);
   const [devices, setDevices] = useState([]);
   const [myEmail, setMyEmail] = useState('');
 
@@ -1949,9 +1952,10 @@ export default function SettingsPage() {
   if (isMobile) {
     const x = (v, fallback) => `${Number(Number.isFinite(v) ? v : fallback).toFixed(2)}×`;
     // `locked`: the card is shown but its controls are disabled (the note sits above the groups).
-    const group = (id, title, summary, node, note = false, locked = bigLocked) => (
+    // The display groups share one note above them (the big screen); a wall-wide card carries its own.
+    const group = (id, title, summary, node, note = false, locked = bigLocked, ownNote = locked !== bigLocked || section !== 'display') => (
       <MobileGroup key={`${id}-${selectedAccount ?? 'own'}`} title={title} summary={summary} note={note} open={openGroups.has(id)} onToggle={() => toggleGroup(id)}>
-        <Locked when={locked} note={null}>{node}</Locked>
+        <Locked when={locked} note={ownNote ? WALL_WIDE_NOTE : null}>{node}</Locked>
       </MobileGroup>
     );
     return (
@@ -2029,25 +2033,23 @@ export default function SettingsPage() {
         )}
         {section === 'wall' && (
           <>
-            {!isAdmin && <ViewOnly when><ViewOnlyNote>{WALL_WIDE_NOTE}</ViewOnlyNote></ViewOnly>}
             {group(
               'window',
               'Flight visibility window',
               `${Number.isFinite(summaryValues?.upcomingHorizonHours) ? summaryValues.upcomingHorizonHours : 17}h`,
               <VisibilityWindowCard />,
               true,
-              !isAdmin
+              !can('wall.window')
             )}
-            {group('clocks', 'Wall clocks', '', <ClocksCard />, false, !isAdmin)}
-            {group('devices', 'Devices', '', <DevicesCard />, false, !isAdmin)}
+            {group('clocks', 'Wall clocks', '', <ClocksCard />, false, !can('wall.clocks'))}
+            {group('devices', 'Devices', '', <DevicesCard />, false, devicesLocked)}
           </>
         )}
         {section === 'checks' && (
           <>
-            {!isAdmin && <ViewOnly when><ViewOnlyNote>{WALL_WIDE_NOTE}</ViewOnlyNote></ViewOnly>}
-            {group('digest', 'NOTAM digest', '', <NotamDigestCard />, false, !isAdmin)}
-            {group('weather', 'Weather', '', <WeatherCard />, false, !isAdmin)}
-            {group('filter', 'NOTAM / alert filter', '', <AlertFilterCard />, false, !isAdmin)}
+            {group('digest', 'NOTAM digest', '', <NotamDigestCard />, false, !can('wall.notam.digest'))}
+            {group('weather', 'Weather', '', <WeatherCard />, false, !can('wall.cache.weather'))}
+            {group('filter', 'NOTAM / alert filter', '', <AlertFilterCard />, false, !can('wall.alerts.rules') && !can('wall.alerts.scan'))}
           </>
         )}
       </div>
@@ -2117,18 +2119,18 @@ export default function SettingsPage() {
         </>
       )}
       {section === 'wall' && (
-        <Locked when={!isAdmin} note={WALL_WIDE_NOTE}>
-          <VisibilityWindowCard />
-          <ClocksCard />
-          <DevicesCard />
-        </Locked>
+        <>
+          <Locked when={!can('wall.window')} note={WALL_WIDE_NOTE}><VisibilityWindowCard /></Locked>
+          <Locked when={!can('wall.clocks')} note={WALL_WIDE_NOTE}><ClocksCard /></Locked>
+          <Locked when={devicesLocked} note={WALL_WIDE_NOTE}><DevicesCard /></Locked>
+        </>
       )}
       {section === 'checks' && (
-        <Locked when={!isAdmin} note={WALL_WIDE_NOTE}>
-          <NotamDigestCard />
-          <WeatherCard />
-          <AlertFilterCard />
-        </Locked>
+        <>
+          <Locked when={!can('wall.notam.digest')} note={WALL_WIDE_NOTE}><NotamDigestCard /></Locked>
+          <Locked when={!can('wall.cache.weather')} note={WALL_WIDE_NOTE}><WeatherCard /></Locked>
+          <Locked when={!can('wall.alerts.rules') && !can('wall.alerts.scan')} note={WALL_WIDE_NOTE}><AlertFilterCard /></Locked>
+        </>
       )}
     </div>
   );

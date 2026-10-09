@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { requirePermission } from "@/lib/permissions/server";
 
 const VALID_SOURCES = new Set(["ead", "scraper", "usa", "asecna"]);
 
 export async function POST(request: NextRequest) {
+  const permission = await requirePermission("portal.aip.stats");
+  if ("error" in permission) return permission.error;
   try {
     const body = (await request.json().catch(() => ({}))) as {
       icao?: string;

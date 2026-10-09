@@ -144,7 +144,7 @@ function OperatorForm({ operator = null, onSaved, onCancel }) {
           )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving}>
+          <Button variant="primary" size="lg" type="submit" disabled={saving} spin={saving} action={editing ? 'wall.operators.edit' : 'wall.operators.create'}>
             {editing ? 'Save changes' : 'Save operator'}
           </Button>
           <Button variant="ghost" size="lg" viewOnlyOk onClick={onCancel}>
@@ -255,7 +255,7 @@ export default function OperatorsPage() {
         title="Operators"
         desc="Manage the Leon operators feeding the wall and keep an eye on sync health."
         actions={
-          <Button variant="primary" icon="plus" onClick={() => setAddOpen((v) => !v)}>
+          <Button variant="primary" icon="plus" action="wall.operators.create" onClick={() => setAddOpen((v) => !v)}>
             Add operator
           </Button>
         }
@@ -363,15 +363,18 @@ export default function OperatorsPage() {
                     on={Boolean(operator.isActive)}
                     disabled={togglingId === operator.id || deletingId === operator.id}
                     onToggle={() => toggleOperator(operator, !operator.isActive)}
+                    action="wall.operators.edit"
                   />
                   <IconButton
                     icon="pencil"
                     title="Edit operator (name, prefix, token)"
+                    action="wall.operators.edit"
                     onClick={() => { setAddOpen(false); setEditingOperator(operator); }}
                   />
                   <IconButton
                     icon="trash-2"
                     title="Delete operator"
+                    action="wall.operators.delete"
                     disabled={deletingId === operator.id}
                     onClick={() => setConfirmDelete(operator)}
                   />

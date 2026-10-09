@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { holds, refused, requirePermission } from "@/lib/permissions/server";
 
 export async function GET() {
   try {
@@ -56,7 +57,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireAdmin();
+    const auth = await requirePermission(["portal.users.approve", "portal.users.set-admin", "portal.users.set-developer"]);
     if ("error" in auth) return auth.error;
     const callerIsDeveloper = auth.isDeveloper;
 
@@ -76,8 +77,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "isAdmin, isDeveloper, or isApproved (boolean) is required." }, { status: 400 });
     }
 
-    if (settingDeveloper && !callerIsDeveloper) {
-      return NextResponse.json({ error: "Only Developers can assign the Developer role." }, { status: 403 });
+    // Each change needs its own permission (Admin → Permissions). Changing a role is only effective for a role that
+    // can also manage permissions, and never on yourself: nobody raises their own access.
+    if (settingApproved && !(await holds(auth.role, "portal.users.approve"))) return refused("portal.users.approve");
+    if (settingAdmin && !(await holds(auth.role, "portal.users.set-admin"))) return refused("portal.users.set-admin");
+    if (settingDeveloper && !(await holds(auth.role, "portal.users.set-developer"))) return refused("portal.users.set-developer");
+    if (targetUserId === auth.user.id && (settingAdmin || settingDeveloper)) {
+      return NextResponse.json({ error: "You cannot change your own role." }, { status: 400 });
     }
 
     const service = createSupabaseServiceRoleClient();
@@ -92,12 +98,6 @@ export async function POST(request: Request) {
 
     if (targetIsDeveloper && !callerIsDeveloper) {
       return NextResponse.json({ error: "Admins cannot modify Developer accounts." }, { status: 403 });
-    }
-    if (targetUserId === auth.user.id && settingAdmin && body.isAdmin === false) {
-      return NextResponse.json({ error: "You cannot remove your own admin role." }, { status: 400 });
-    }
-    if (targetUserId === auth.user.id && settingDeveloper && body.isDeveloper === false) {
-      return NextResponse.json({ error: "You cannot remove your own Developer role." }, { status: 400 });
     }
 
     const patch: Record<string, boolean> = {};

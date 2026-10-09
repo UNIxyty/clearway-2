@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireDeveloper } from "@/lib/admin-auth";
 import { HELP_STATUSES, type HelpStatus } from "@/lib/help/shared";
 import { deleteSavedReply, listSavedReplies, upsertSavedReply, bumpSavedReplyUse } from "@/lib/help/store";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission("portal.help.saved-replies");
   if ("error" in auth) return auth.error;
   let body: Record<string, unknown>;
   try {
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission("portal.help.saved-replies");
   if ("error" in auth) return auth.error;
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });

@@ -22,6 +22,7 @@ import {
   parseNetherlandsMenuUrl,
   resolveNetherlandsAd2HtmlUrl,
 } from "@/lib/netherlands-eaip-navigation.mjs";
+import { requirePermission } from "@/lib/permissions/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1412,6 +1413,8 @@ async function runBlockedScrape(
 }
 
 export async function POST(request: NextRequest) {
+  const permission = await requirePermission("portal.aip.fetch");
+  if ("error" in permission) return permission.error;
   try {
     await cleanupStaleSessions();
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;

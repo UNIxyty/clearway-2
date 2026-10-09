@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { getActiveCompetition, getTournamentState, markR32Confirmed } from '@/lib/pickem-store';
 import { recomputePickemPoints } from '@/lib/pickem-scoring';
 import { sendGroupStageCompleteBlast } from '@/server/emails/triggers/sendGroupStageCompleteEmail';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +21,7 @@ export const dynamic = 'force-dynamic';
  * mistyped R32 pair) — re-scoring is idempotent; the email is re-sent.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("portal.pickem.admin");
   if ('error' in auth) return auth.error;
 
   const comp = await getActiveCompetition();

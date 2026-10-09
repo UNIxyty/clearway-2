@@ -8,6 +8,7 @@ import {
   type ResolveContext, type ServerMatch, type ServerTeam, type ServerPrediction,
 } from '@/lib/playoffs/resolveBracketServer';
 import { flagFor } from '@/lib/playoffs/flags';
+import { requirePermission } from "@/lib/permissions/server";
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ function formatPick(team: ServerTeam | null, hs: number | null, as_: number | nu
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission("portal.pickem.play");
   if ('error' in auth) return auth.error;
   if (!auth.user.email) {
     return NextResponse.json({ error: 'No email on account.' }, { status: 400 });

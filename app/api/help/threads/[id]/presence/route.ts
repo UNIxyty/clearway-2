@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuthenticatedUser } from "@/lib/admin-auth";
+import { holds, requirePermission } from "@/lib/permissions/server";
 import { helpThreadHasPresence } from "@/lib/help/shared";
 import { addEvent, getThread, setPresence, setStatus } from "@/lib/help/store";
 import { publishHelpEvent } from "@/lib/help/stream";
@@ -17,12 +17,14 @@ export const dynamic = "force-dynamic";
  * Every transition is stated in words with a timestamp on the strip.
  */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requirePermission(["portal.help.ask", "portal.help.answer"]);
   if ("error" in auth) return auth.error;
+  // Someone else's thread needs portal.help.answer (Admin → Permissions); your own, portal.help.ask.
+  const answers = await holds(auth.role, "portal.help.answer");
   const thread = await getThread(params.id);
   if (!thread) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const isOwner = thread.userId === auth.user.id;
-  if (!isOwner && !auth.isDeveloper) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!isOwner && !answers) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!helpThreadHasPresence(thread.type)) {
     return NextResponse.json({ error: "Reports do not carry presence" }, { status: 400 });
   }
@@ -42,13 +44,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (action === "nudge" && isOwner) {
     await notifyTelegramThreadActivity(thread, `${thread.userName || "ops"} is still waiting in the chat`);
     eventPayload = { kind: "nudged" };
-  } else if (action === "joining" && auth.isDeveloper) {
+  } else if (action === "joining" && answers) {
     updated = (await setPresence({ threadId: thread.id, presence: "joining" })) ?? thread;
     eventPayload = { kind: "presence_changed", note: "joining" };
-  } else if (action === "join" && auth.isDeveloper) {
+  } else if (action === "join" && answers) {
     updated = (await setPresence({ threadId: thread.id, presence: "present" })) ?? thread;
     eventPayload = { kind: "joined" };
-  } else if (action === "close" && auth.isDeveloper) {
+  } else if (action === "close" && answers) {
     updated = (await setPresence({ threadId: thread.id, presence: "none" })) ?? thread;
     const result = await setStatus({ thread: updated, status: "done", actor });
     updated = result.thread;

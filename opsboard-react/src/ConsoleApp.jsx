@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAuth, useIsAdmin } from './AuthGate';
+import { useAuth, useCanAction } from './AuthGate';
 import Icon from './components/console/icons';
 import {
   Avatar,
   ConsoleStyles,
   t,
   timeAgo,
-  ToastProvider, initialsOf, ViewOnly, ViewOnlyNote } from './components/console/ui';
+  ToastProvider, initialsOf, ViewOnly, ViewOnlyNote, PermissionsProvider } from './components/console/ui';
 import { MOBILE } from './components/console/mobile';
 import useViewport from './hooks/useViewport';
 import AircraftPage from './components/console/AircraftPage';
@@ -228,7 +228,7 @@ function UserBadge({ user, collapsed }) {
  */
 export default function ConsoleApp({ page, navigate }) {
   const { user } = useAuth();
-  const isAdmin = useIsAdmin();
+  const can = useCanAction();
   // Ops Agent side panel (⌘J) — hosted from the portal, see AgentDock.
   const agent = useAgentDock({ page, label: NAV.find((n) => n.key === page)?.label });
   // Breakpoints (design section E, width only — the console ignores rotation):
@@ -406,31 +406,43 @@ export default function ConsoleApp({ page, navigate }) {
     navigate({ surface: 'console', page: pageKey });
   }
 
-  // Portal foundations 1.1: everyone sees these pages; only an admin changes them. The wall server refuses a
-  // non-admin's write regardless — the view-only mode only stops offering buttons it would refuse.
-  const adminPage = (node, note) => (
-    <ViewOnly when={!isAdmin}>
-      <ViewOnlyNote>{note}</ViewOnlyNote>
-      {node}
-    </ViewOnly>
-  );
+  // Everyone sees these pages; each control that changes something asks for its own permission (Admin → Permissions
+  // in the portal). With none of a page's permissions, the page says it is view only. The wall server checks every
+  // write itself regardless.
+  const PAGE_ACTIONS = {
+    operators: ['wall.operators.create', 'wall.operators.edit', 'wall.operators.delete'],
+    aircraft: ['wall.aircraft.visibility', 'wall.aircraft.delete'],
+    limitations: ['wall.limitations.create', 'wall.limitations.edit', 'wall.limitations.delete', 'wall.limitations.restore', 'wall.limitations.purge'],
+    important: ['wall.imp.create', 'wall.imp.edit', 'wall.imp.delete', 'wall.imp.attachments', 'wall.imp.restore', 'wall.imp.purge'],
+    caa: ['wall.caa.create', 'wall.caa.edit', 'wall.caa.delete'],
+    webhooks: ['wall.webhooks.toggle', 'wall.webhooks.reregister', 'wall.webhooks.delete'],
+  };
+  const adminPage = (node, key) => {
+    const none = !PAGE_ACTIONS[key].some(can);
+    return (
+      <ViewOnly when={none}>
+        <ViewOnlyNote />
+        {node}
+      </ViewOnly>
+    );
+  };
 
   function renderPage() {
     switch (page) {
       case 'notam-check':
         return <NotamCheckPage navigate={navigate} />;
       case 'operators':
-        return adminPage(<OperatorsPage />, 'Only an admin can add, edit or delete operators.');
+        return adminPage(<OperatorsPage />, 'operators');
       case 'aircraft':
-        return adminPage(<AircraftPage />, 'Only an admin can show, hide or delete aircraft.');
+        return adminPage(<AircraftPage />, 'aircraft');
       case 'limitations':
-        return adminPage(<LimitationsPage />, 'Only an admin can add, edit or delete limitations.');
+        return adminPage(<LimitationsPage />, 'limitations');
       case 'important':
-        return adminPage(<ImportantPage />, 'Only an admin can add, edit or delete IMP entries.');
+        return adminPage(<ImportantPage />, 'important');
       case 'caa':
-        return adminPage(<CaaPage />, 'Only an admin can add, edit or delete CAA entries.');
+        return adminPage(<CaaPage />, 'caa');
       case 'webhooks':
-        return adminPage(<WebhooksPage />, 'Only an admin can change the Leon webhooks.');
+        return adminPage(<WebhooksPage />, 'webhooks');
       case 'reports':
         return <ReportsPage />;
       case 'settings':
@@ -487,10 +499,11 @@ export default function ConsoleApp({ page, navigate }) {
       </button>
     );
     return (
+      <PermissionsProvider can={can}>
       <ToastProvider>
         <div className="cw-console" style={{ ...s.shell, background: t.subtle }}>
           <ConsoleStyles />
-          {isAdmin && <DeviceApprovalPopup />}
+          {can('wall.devices.approve') && <DeviceApprovalPopup />}
 
           {/* 56px top bar: 44px hamburger, page title + service context. */}
           <div
@@ -717,14 +730,16 @@ export default function ConsoleApp({ page, navigate }) {
           )}
         </div>
       </ToastProvider>
+      </PermissionsProvider>
     );
   }
 
   return (
+    <PermissionsProvider can={can}>
     <ToastProvider>
       <div className="cw-console" style={s.shell}>
         <ConsoleStyles />
-        {isAdmin && <DeviceApprovalPopup />}
+        {can('wall.devices.approve') && <DeviceApprovalPopup />}
 
         {/* ── Top bar ── */}
         <div style={s.topBar}>
@@ -970,6 +985,7 @@ export default function ConsoleApp({ page, navigate }) {
         </div>
       </div>
     </ToastProvider>
+    </PermissionsProvider>
   );
 }
 

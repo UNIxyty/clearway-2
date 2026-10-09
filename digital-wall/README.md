@@ -1,18 +1,11 @@
-# Digital Wall Screen (Local Prototype)
+# Digital Wall backend
 
-Standalone local prototype for the aviation Digital Wall timeline screen.
+The Digital Wall's server (`server.mjs`): the Leon sync, the flight cache, and the `/api/*` the wall and the console
+(`opsboard-react/`, served by its own container) read and write. Every write is checked against the role permissions
+in `lib/permissions/` (docs/permissions.md). It serves no pages of its own: the old copied timeline site, its admin
+pages and the React prototype that once lived here were removed (portal foundations 1.5 and 4.2).
 
-## Current mode
-
-- This setup serves the downloaded timeline page copy from `../164.92.164.35`.
-- Root path (`/`) maps to `timeline` and resolves to `timeline.html`.
-- Backend test UI is available at `/backend-test` for quick endpoint checks.
-- Admin pages:
-  - `/operators` — add Leon operators (Name, Prefix, Refresh Token)
-  - `/aircrafts` — show aircraft with flights in next 7 days and hide/show on timeline
-- Timeline has a left menu button (☰) with navigation overlay.
-- API-like paths without extension are resolved to `.html` files (for example `/api/flights/data`).
-- Auth-related API calls are mocked in `server.mjs` to bypass login locally.
+## API
 - A custom backend adapter is available for your own timeline integration:
   - `GET /api/timeline/flights`
   - `GET /api/timeline/aircraft`

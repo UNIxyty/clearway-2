@@ -15,8 +15,7 @@ const DEBUG_DEEP_CONTEXT: DeepContext = {
   backHref: "/",
   items: [
     { id: "dbg-run", label: "Run a check", icon: "play", href: "/admin/debug" },
-    { id: "dbg-raw", label: "Raw stream", icon: "server", href: "/admin/debug/raw" },
-    { id: "dbg-logs", label: "Email logs", icon: "inbox", href: "/admin/debug/email-logs" },
+    { id: "dbg-logs", label: "Email logs", icon: "inbox", href: "/admin/email/logs" },
   ],
 };
 

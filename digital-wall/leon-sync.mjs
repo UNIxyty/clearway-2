@@ -251,76 +251,6 @@ function flightDedupKey(flight, registration) {
   return `${registration}|${no}|${adep}|${ades}|${start}|${end}`;
 }
 
-function mapStaticFlight(rawFlight) {
-  const plannedDeparture = normalizeDateLike(rawFlight.startTimeUTC ?? null);
-  const plannedArrival = normalizeDateLike(rawFlight.endTimeUTC ?? null);
-  const etd = normalizeDateLike(rawFlight.flightWatch?.etd ?? null);
-  const eta = normalizeDateLike(rawFlight.flightWatch?.eta ?? null);
-  const atd = normalizeDateLike(rawFlight.flightWatch?.atd ?? null);
-  const ata = normalizeDateLike(rawFlight.flightWatch?.ata ?? null);
-  const departureDelayMin = diffMinutes(atd ?? etd, plannedDeparture);
-  const arrivalDelayMin = diffMinutes(ata ?? eta, plannedArrival);
-  const delayedDepartureUTC = addDelayIso(etd ?? plannedDeparture, departureDelayMin);
-  const delayedArrivalUTC = addDelayIso(eta ?? plannedArrival, arrivalDelayMin);
-
-  const hasArrived = Boolean(ata);
-  const isAirborne = Boolean(atd) && !hasArrived;
-
-  return {
-    // Pill-semantics defaults for static seeds (no Leon extras available).
-    blockOff: null,
-    takeOff: null,
-    landing: null,
-    blockOn: null,
-    hasArrived,
-    isAirborne,
-    ctot: null,
-    tripStatus: rawFlight.tripStatus ?? rawFlight.status ?? null,
-    isConfirmed: true,
-    checklistColor: null,
-    movementState: movementStateOf({ hasArrived, isAirborne, ctot: null, departureDelayMin }),
-    flightNid: rawFlight.flightNid ?? rawFlight.id,
-    flightNo: rawFlight.flightNo ?? "UNKNOWN",
-    tripNo: rawFlight.tripNo ?? null,
-    tripCode: rawFlight.tripCode ?? null,
-    status: rawFlight.tripStatus ?? rawFlight.status ?? null,
-    startTimeUTC: plannedDeparture,
-    endTimeUTC: plannedArrival,
-    etd,
-    eta,
-    atd,
-    ata,
-    departureDelayMin,
-    arrivalDelayMin,
-    delayMin: departureDelayMin ?? arrivalDelayMin,
-    delayedDepartureUTC,
-    delayedArrivalUTC,
-    aircraftRegistration: rawFlight.acft ?? null,
-    isCnl: Boolean(rawFlight.isCnl),
-    flightLastModificationTime: rawFlight.flightLastModificationTime ?? null,
-    adep: rawFlight.adep
-      ? {
-          icao: rawFlight.adep.code ?? null,
-          iata: null,
-          name: rawFlight.adep.name ?? null,
-          city: rawFlight.adep.city ?? null,
-          weather: rawFlight.wx_dep ?? rawFlight.adep.weather ?? null,
-        }
-      : null,
-    ades: rawFlight.ades
-      ? {
-          icao: rawFlight.ades.code ?? null,
-          iata: null,
-          name: rawFlight.ades.name ?? null,
-          city: rawFlight.ades.city ?? null,
-          weather: rawFlight.wx_arr ?? rawFlight.ades.weather ?? null,
-        }
-      : null,
-    crewCount: Array.isArray(rawFlight.crewMemberList) ? rawFlight.crewMemberList.length : 0,
-    passengerCount: rawFlight.passengerList?.count ?? null,
-  };
-}
-
 /**
  * Movement state for the wall pill fill (LEON-PILL-MAPPING.md):
  * arrived → airborne → ctot → delayed → scheduled.
@@ -772,8 +702,7 @@ function gqlString(value) {
 }
 
 export class LeonTimelineService {
-  constructor({ staticRoot, operatorsStore = null, importantStore = null, alertsStore = null }) {
-    this.staticRoot = staticRoot;
+  constructor({ operatorsStore = null, importantStore = null, alertsStore = null }) {
     this.operatorsStore = operatorsStore;
     // Optional extra decoration sources: Important entries (class IMP) and
     // NOTAM/weather alert findings (classes NTM/WX). Both plug into the same
@@ -822,7 +751,7 @@ export class LeonTimelineService {
     this.cacheFilePath = LOCAL_CACHE_FILE;
 
     this.state = {
-      source: "static-seed",
+      source: "empty", // nothing yet: the cache or the first Leon sync replaces this
       healthy: true,
       lastSyncTimestamp: null,
       lastRunAt: null,
@@ -913,10 +842,8 @@ export class LeonTimelineService {
 
   async bootstrap() {
     await this.loadAirportDirectory();
-    const loadedFromCache = await this.loadLocalCache();
-    if (!loadedFromCache) {
-      await this.loadStaticSeeds();
-    }
+    // No cache: start empty and let Leon fill it (the old copied site's static seed is gone, portal foundations 4.2).
+    await this.loadLocalCache();
     const configured = await this.isAnyOperatorConfigured();
     this.state.configured = configured;
     if (configured) {
@@ -925,39 +852,6 @@ export class LeonTimelineService {
         this.state.lastError = error instanceof Error ? error.message : String(error);
       });
       this.startPolling();
-    }
-  }
-
-  async loadStaticSeeds() {
-    if (!this.staticRoot) return; // no upstream copy on this host: no seed
-    const staticFlights = await readJsonIfExists(path.join(this.staticRoot, "api", "flights", "data.html"));
-    const staticLimitations = await readJsonIfExists(path.join(this.staticRoot, "api", "limitations.html"));
-
-    if (Array.isArray(staticFlights)) {
-      for (const aircraftGroup of staticFlights) {
-        const aircraftNid = aircraftGroup.acftNid ?? null;
-        const registration = aircraftGroup.flights?.[0]?.acft ?? "UNKNOWN";
-        for (const flight of aircraftGroup.flights ?? []) {
-          const mapped = mapStaticFlight(flight);
-          const nid = String(mapped.flightNid);
-          this.flightsByNid.set(nid, mapped);
-          this.aircraftByFlightNid.set(nid, { aircraftNid, registration });
-        }
-      }
-    }
-
-    if (staticLimitations?.limitations && Array.isArray(staticLimitations.limitations)) {
-      this.rawLimitations = staticLimitations.limitations;
-      // Keep legacy limitations for backward compatibility, but use custom limitations for timeline logic.
-      this.limitations = staticLimitations.limitations.map((item) => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        isPermanent: Boolean(item.isPermanent),
-        type: item.type,
-        startDate: item.startDate,
-        endDate: item.endDate,
-      }));
     }
   }
 

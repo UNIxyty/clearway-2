@@ -30,16 +30,14 @@ export default function AccessBlockedPage() {
             </div>
             <CardTitle>Access restricted</CardTitle>
             <CardDescription>
-              This account is a temporary user and can access only the Pickem area.
+              This is a temporary guest account. Pick&apos;em, the area it was made for, has been retired, so there is
+              nothing it can open. Ask a Clearway admin for a full account.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-center">
             <p className="text-sm text-muted-foreground break-all">
               Blocked path: <span className="font-semibold text-foreground">{from}</span>
             </p>
-            <Button type="button" className="w-full" onClick={() => (window.location.href = "/pickem")}>
-              Open Pickem
-            </Button>
             <Button type="button" variant="outline" className="w-full" onClick={signOut}>
               Sign out
             </Button>

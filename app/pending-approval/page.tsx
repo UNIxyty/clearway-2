@@ -43,7 +43,7 @@ export default function PendingApprovalPage() {
             (data.session.user?.user_metadata?.roles as unknown[]).some(
               (value) => String(value).toLowerCase() === "temporary",
             ));
-        window.location.href = isTemporary ? "/pickem" : nextParam;
+        window.location.href = isTemporary ? "/access-blocked" : nextParam;
       }
     }, 4000);
     return () => clearInterval(interval);

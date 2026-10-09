@@ -6,7 +6,7 @@ import { C } from "../ui/tokens";
 // (the wall console frames the panel; a citation there hands off here). Opens
 // with the panel closed and "Ask about this document" in the header.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import PortalShell from "@/components/portal/Shell";
 import { fetchDocRef, useViewer } from "./ViewerContext";
@@ -15,8 +15,10 @@ import type { DocRef } from "./types";
 function Opener() {
   const params = useSearchParams();
   const v = useViewer();
+  // Nothing to open (no link, or a document this account cannot see): say so rather than "Opening…" forever.
+  const [missing, setMissing] = useState(false);
   useEffect(() => {
-    const source = params.get("source") as DocRef["source"] | null; const id = params.get("id"); if (!source || !id) return;
+    const source = params.get("source") as DocRef["source"] | null; const id = params.get("id"); if (!source || !id) { setMissing(true); return; }
     const page = Number(params.get("page") || 0) || null; const span = params.get("span");
     (async () => {
       let ref: DocRef | null = null;
@@ -33,9 +35,11 @@ function Opener() {
       if (!ref && source === "aip") { const url = params.get("url") ?? `${id}?inline=1`; const filename = params.get("filename") ?? id.split("/").pop() ?? "document.pdf"; ref = { key: `aip:${id}`, source: "aip", id, filename, mime: "application/pdf", bytes: null, url, downloadUrl: id, sourceUrl: id, tier: "internal", sourceName: "AIP Portal" }; }
       // `bytes` lets a link state the size when the metadata has none (e.g. a hand-off link); the viewer's size limit reads it.
       if (ref && params.get("bytes")) ref = { ...ref, bytes: Number(params.get("bytes")) || ref.bytes };
+      if (!ref) { setMissing(true); return; }
       if (ref) v.openDocument(ref, { page, panelClosed: true, from: "Chat", citation: span ? (params.get("verbatim") === "1" ? { k: 1, page, span: null, verbatim: { text: span, recordId: params.get("record") } } : { k: 1, page, span, revision: params.get("citedRevision") ? { state: "superseded", label: String(params.get("citedRevision")), revision: String(params.get("citedRevision")) } : null }) : null });
     })();
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (missing && !v.open) return <div role="alert" style={{ padding: 32, fontSize: 14, color: C.muted }}>This document could not be opened. It may not exist any more, or your account cannot see it — the agent&apos;s documents need OPS agent access.</div>;
   return <div style={{ padding: 32, fontSize: 14, color: C.muted }}>{v.open ? "" : "Opening the document…"}</div>;
 }
 

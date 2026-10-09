@@ -102,12 +102,6 @@ insert into public.permission_grants (role, action, allowed, updated_by_email) s
   ('user', 'portal.maintenance.disable', false),
   ('admin', 'portal.maintenance.disable', true),
   ('developer', 'portal.maintenance.disable', true),
-  ('user', 'portal.email.tools', false),
-  ('admin', 'portal.email.tools', true),
-  ('developer', 'portal.email.tools', true),
-  ('user', 'portal.email.broadcast', false),
-  ('admin', 'portal.email.broadcast', true),
-  ('developer', 'portal.email.broadcast', true),
   ('user', 'portal.debug.run', false),
   ('admin', 'portal.debug.run', true),
   ('developer', 'portal.debug.run', true),
@@ -117,9 +111,6 @@ insert into public.permission_grants (role, action, allowed, updated_by_email) s
   ('user', 'portal.service-status.edit', false),
   ('admin', 'portal.service-status.edit', true),
   ('developer', 'portal.service-status.edit', true),
-  ('user', 'portal.devmode', false),
-  ('admin', 'portal.devmode', false),
-  ('developer', 'portal.devmode', true),
   ('user', 'portal.aip.fetch', true),
   ('admin', 'portal.aip.fetch', true),
   ('developer', 'portal.aip.fetch', true),
@@ -156,12 +147,6 @@ insert into public.permission_grants (role, action, allowed, updated_by_email) s
   ('user', 'portal.service-checks.recheck', true),
   ('admin', 'portal.service-checks.recheck', true),
   ('developer', 'portal.service-checks.recheck', true),
-  ('user', 'portal.pickem.play', true),
-  ('admin', 'portal.pickem.play', true),
-  ('developer', 'portal.pickem.play', true),
-  ('user', 'portal.pickem.admin', false),
-  ('admin', 'portal.pickem.admin', true),
-  ('developer', 'portal.pickem.admin', true),
   ('user', 'agent.chat', true),
   ('admin', 'agent.chat', true),
   ('developer', 'agent.chat', true),
@@ -384,3 +369,9 @@ insert into public.permission_grants (role, action, allowed, updated_by_email) s
 ) as v(r, a, al)
 on conflict (role, action) do nothing;
 -- END SEED
+
+-- Retired actions (portal foundations 4.1: Pick'em, its Email tools and its developer mode were removed). Their grant
+-- rows go, so the grid holds no switches for pages that no longer exist; their history in permission_changes stays —
+-- history is not rewritten. Safe to re-run.
+delete from public.permission_grants
+  where action in ('portal.pickem.play', 'portal.pickem.admin', 'portal.email.tools', 'portal.email.broadcast', 'portal.devmode');

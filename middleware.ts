@@ -23,10 +23,6 @@ function isTemporaryUser(user: {
 
 function isTemporaryAllowedPath(pathname: string): boolean {
   return (
-    pathname.startsWith("/pickem") ||
-    pathname.startsWith("/api/pickem") ||
-    pathname.startsWith("/playoffs") ||
-    pathname.startsWith("/api/playoffs") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/auth/") ||
@@ -109,12 +105,14 @@ export async function middleware(request: NextRequest) {
 
   // Health probes must answer even while auth is misconfigured, so ops can
   // see the outage instead of a 503 (§8.3 fail-closed exception).
-  if (
-    pathname === "/api/health" ||
-    pathname === "/api/pickem/health" ||
-    pathname === "/pickem/api/health"
-  ) {
+  if (pathname === "/api/health") {
     return NextResponse.next();
+  }
+
+  // Pick'em has been retired (portal foundations 4.1; archived on the server, docs/pickem-archive.md). Its paths
+  // answer 410 Gone to everyone, signed in or not, so an old link or bookmark is told so rather than sent to sign-in.
+  if (/^\/(api\/)?(pickem|playoffs)(\/|$)/.test(pathname)) {
+    return new NextResponse("Pick'em has been retired.", { status: 410, headers: { "content-type": "text/plain; charset=utf-8" } });
   }
 
   // /maintenance must always render: it is both the maintenance-mode page and

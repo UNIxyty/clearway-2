@@ -11,8 +11,7 @@ const DEBUG_DEEP_CONTEXT: DeepContext = {
   backHref: "/",
   items: [
     { id: "dbg-run", label: "Run a check", icon: "play", href: "/admin/debug" },
-    { id: "dbg-raw", label: "Raw stream", icon: "server", href: "/admin/debug/raw" },
-    { id: "dbg-logs", label: "Email logs", icon: "inbox", href: "/admin/debug/email-logs" },
+    { id: "dbg-logs", label: "Email logs", icon: "inbox", href: "/admin/email/logs" },
   ],
 };
 
@@ -51,7 +50,14 @@ function AdminDebugRawPageClient() {
       deepContext={DEBUG_DEEP_CONTEXT}
     >
       <div className="p-4 md:p-6">
-        <pre className="rounded border bg-black p-3 text-xs text-green-300 min-h-[70vh] max-h-[70vh] overflow-auto whitespace-pre-wrap">{content}</pre>
+        {/* A run's own "raw stream" link opens this with ?run=; on its own there is nothing to show. */}
+        {run ? (
+          <pre className="rounded border bg-black p-3 text-xs text-green-300 min-h-[70vh] max-h-[70vh] overflow-auto whitespace-pre-wrap">{content}</pre>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No run selected. Open a run in the <a className="underline" href="/admin/debug">Debug runner</a> and use its raw stream link.
+          </p>
+        )}
       </div>
     </PortalShell>
   );

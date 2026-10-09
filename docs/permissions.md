@@ -62,8 +62,11 @@ Every service caches grants for 10 seconds, so a change in the grid reaches all 
    - Nobody can change their own role.
 6. **Deploying changes nothing.** The seed (`docs/supabase-permissions.sql`) is generated from the catalogue's
    defaults, and the defaults reproduce exactly what each endpoint allowed before. The check fails if the two drift.
-   The only deliberate differences are the two reads above, and calculating Pick'em playoff points, which now follows
-   the same admin rule as its sibling actions; it used to read only the `is_admin` flag.
+   The only deliberate differences are the two reads above.
+7. **No action without something to guard.** Every action must still be named by a live endpoint, an agent tool, or a
+   server check that tests it by name; an action pointing at nothing fails the same check. Retiring a feature
+   therefore means removing its actions too, and deleting their grant rows in the SQL (history stays). Pick'em's were
+   removed this way (`docs/pickem-archive.md`).
 
 ## Way out from the server
 

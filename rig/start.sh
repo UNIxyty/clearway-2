@@ -23,7 +23,7 @@ rm -rf .next/standalone/.next/static .next/standalone/public && cp -R .next/stat
 # self-test fails, and local → UTC conversion is refused: loud, by design.
 [ -f "$SCR/icu-tz/zoneinfo64.res" ] || echo "NOTE: no rig/.scratch/icu-tz — run rig/tzdata.sh, or the agent will refuse to convert local times"
 ( cd agent && env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" INTAKE_APPROVAL_HOURS="${INTAKE_APPROVAL_HOURS:-4}" node --env-file="$ENV" server.mjs > "$SCR/agent.out" 2>&1 & )
-[ -d "$SCR/wall/upstream" ] || cp -R "$ROOT/164.92.164.35" "$SCR/wall/upstream"   # the wall's static timeline copy
+mkdir -p "$SCR/wall"
 ( cd "$SCR/wall" && env -i PATH="$PATH" HOME="$HOME" PORT=5199 node --env-file="$ENV" "$ROOT/digital-wall/server.mjs" > "$SCR/wall.out" 2>&1 & )
 ( cd "$RIG" && env -i PATH="$PATH" HOME="$HOME" RIG_SCRATCH="$SCR" node proxy.mjs > "$SCR/proxy.out" 2>&1 & )
 ( cd "$RIG/fixtures" && env -i PATH="$PATH" HOME="$HOME" PORT=3997 node server.mjs > "$SCR/fixtures.out" 2>&1 & )

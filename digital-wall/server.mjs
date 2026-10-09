@@ -61,24 +61,9 @@ import {
 
 const port = Number(process.env.PORT || 5173);
 const cwd = process.cwd();
-const candidateRoots = [
-  path.resolve(cwd, "upstream"),
-  path.resolve(cwd, "../164.92.164.35"),
-];
 
-const staticRoot = candidateRoots.find((dir) => {
-  return (
-    fsSync.existsSync(path.join(dir, "timeline.html")) &&
-    fsSync.existsSync(path.join(dir, "api", "flights", "data.html"))
-  );
-});
-
-// Portal foundations 1.5: the copied site is no longer SERVED (it was public, with an injected script that planted
-// fake admin tokens in the browser). Its two JSON files are still read once at startup as the static flight seed
-// (leon-sync loadStaticSeeds), so a missing copy is fine: the wall starts without a seed.
-if (!staticRoot) {
-  console.warn("No upstream copy: starting without the static flight seed.");
-}
+// Portal foundations 4.2: the old copied timeline site (once served here, then read only as a startup flight seed)
+// is gone. The wall starts from its own cache (data/timeline-cache.json) or empty, and Leon fills it.
 
 const operatorsStore = new OperatorsStore();
 const importantStore = new ImportantStore();
@@ -87,7 +72,7 @@ await importantStore.load();
 const caaStore = new CaaStore();
 await caaStore.load();
 process.stdout.write(`CAA store: ${caaStore.entries.length} authorities loaded\n`);
-const timelineService = new LeonTimelineService({ staticRoot, operatorsStore, importantStore });
+const timelineService = new LeonTimelineService({ operatorsStore, importantStore });
 timelineService.caaStore = caaStore;
 await timelineService.bootstrap();
 

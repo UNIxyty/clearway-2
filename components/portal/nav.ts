@@ -13,7 +13,7 @@ export type NavItem = {
   icon: string;
   href: string;
   external?: boolean; // full navigation / new-tab (cross-app)
-  deep?: "wall" | "debug" | "pickem"; // enters a deep context
+  deep?: "wall" | "debug"; // enters a deep context
   // Sub-item gates (agent topic): admins-only and approvers-only rows. The
   // page behind each still enforces its own permission; this only hides.
   adminOnly?: boolean;
@@ -128,18 +128,6 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "dev-replies", label: "Saved replies", icon: "message-square", href: "/developer/saved-replies" },
       { id: "dev-agent", label: "Agent access", icon: "key", href: "/developer/agent-access" },
       { id: "dev-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
-    ],
-  },
-  {
-    id: "pickem",
-    label: "Pickem",
-    icon: "trophy",
-    roles: ["admin", "guest"],
-    items: [
-      { id: "pick-play", label: "Play", icon: "play", href: "/pickem", external: true },
-      { id: "pick-admin", label: "Admin", icon: "sliders-horizontal", href: "/pickem/admin", external: true, deep: "pickem" },
-      // The World Cup email console (it was mislabelled "Admin → Email tools"; it goes with Pickem in 4.1).
-      { id: "pick-email", label: "Email console", icon: "mail", href: "/pickem/admin?section=email-tools", external: true },
     ],
   },
   {

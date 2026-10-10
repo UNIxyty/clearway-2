@@ -10,6 +10,7 @@
 //        node scripts/capture-pages.mjs --only 02,12                       some of them
 //        node scripts/capture-pages.mjs --list my-pages.json               another list (same shape as PAGES)
 //        node scripts/capture-pages.mjs --base http://127.0.0.1:3989 --session rig-session.json   (the rig)
+//        node scripts/capture-pages.mjs --channel chrome --only 10          with Google Chrome (shows embedded PDFs)
 //   The session file (~/.clearway/portal-capture-session.json by default) is a signed-in session: keep it private, and
 //   delete it when done (it is never written into the repo).
 //
@@ -30,6 +31,9 @@ const SESSION = arg("session", path.join(os.homedir(), ".clearway", "portal-capt
 const OUT = arg("out", "out/portal-before");
 const ONLY = arg("only") ? new Set(arg("only").split(",").map((s) => s.trim())) : null;
 const WIDTH = Number(arg("width", 1440));
+// The bundled Chromium has no PDF viewer: an embedded PDF (the AIP page's AD2) shows "Native PDF preview is not
+// available". --channel chrome uses the installed Google Chrome instead; --headed shows the window.
+const LAUNCH = { ...(arg("channel") ? { channel: arg("channel") } : {}), headless: !process.argv.includes("--headed") };
 
 export const PAGES = [
   { id: "01", name: "dashboard", path: "/dashboard", waitFor: "text=Changelog", settleMs: 4000 },
@@ -77,7 +81,7 @@ async function capture() {
   if (arg("list")) pages = JSON.parse(fs.readFileSync(arg("list"), "utf8"));
   if (ONLY) pages = pages.filter((p) => ONLY.has(p.id));
   fs.mkdirSync(OUT, { recursive: true });
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(LAUNCH);
   const report = [];
   for (const spec of pages) {
     const ctx = await browser.newContext({ viewport: { width: WIDTH, height: 900 }, storageState: SESSION, colorScheme: "light" });
@@ -135,7 +139,14 @@ async function capture() {
     await ctx.close();
   }
   await browser.close();
-  fs.writeFileSync(path.join(OUT, "capture-report.json"), JSON.stringify({ base: BASE, at: new Date().toISOString(), width: WIDTH, pages: report }, null, 2));
+  // A partial run (--only) updates its pages in the existing report rather than replacing the report.
+  const reportFile = path.join(OUT, "capture-report.json");
+  let merged = report;
+  if (ONLY && fs.existsSync(reportFile)) {
+    const prev = JSON.parse(fs.readFileSync(reportFile, "utf8")).pages ?? [];
+    merged = [...prev.filter((p) => !report.some((r) => r.id === p.id)), ...report].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  }
+  fs.writeFileSync(reportFile, JSON.stringify({ base: BASE, at: new Date().toISOString(), width: WIDTH, browser: LAUNCH.channel ?? "chromium", pages: merged }, null, 2));
   if (!process.argv.includes("--no-zip")) {
     const zip = `${OUT.replace(/\/+$/, "")}.zip`;
     fs.rmSync(zip, { force: true });

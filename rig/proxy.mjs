@@ -26,7 +26,13 @@ http.createServer((req, res) => {
     fs.appendFileSync(LOG, line + "\n");
     if (fs.existsSync(path.join(process.env.RIG_SCRATCH || here, "rig-401"))) { res.writeHead(401, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "unauthorized", message: "Sign in through the Clearway portal first." })); return; }
   }
-  const up = http.request({ ...target, path: p, method: req.method, headers: { ...req.headers, host: `${target.host}:${target.port}` } }, (r) => { res.writeHead(r.statusCode, r.headers); r.pipe(res); });
+  const up = http.request({ ...target, path: p, method: req.method, headers: { ...req.headers, host: `${target.host}:${target.port}` } }, (r) => {
+    // As in production (where the portal's redirects reach the browser as relative paths): a Location pointing back at
+    // the upstream's own address becomes a path, so the browser stays on this proxy, with its cookies.
+    const loc = r.headers.location;
+    if (typeof loc === "string") { const m = loc.match(/^https?:\/\/(?:localhost|127\.0\.0\.1):\d+(\/.*)?$/); if (m) r.headers.location = m[1] || "/"; }
+    res.writeHead(r.statusCode, r.headers); r.pipe(res);
+  });
   up.on("error", (e) => { res.writeHead(502); res.end(String(e)); });
   req.pipe(up);
 }).listen(port("RIG_PROXY_PORT", 3999), () => console.log(`rig proxy on :${port("RIG_PROXY_PORT", 3999)}`));

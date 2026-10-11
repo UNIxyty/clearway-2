@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
 import { sanitizeLayout } from "@/lib/dashboard-layout";
+import { isDensity, isMotion, isStartPage, sanitizePins } from "@/lib/user-settings";
 
 const PREF_SELECT =
   "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, captcha_consent_dismissed, is_admin, created_at, updated_at";
@@ -12,8 +13,9 @@ const PREF_POST_SELECT =
 
 const THEMES = ["system", "light", "dark"];
 // Columns added by the portal redesign. Until their SQL has run (docs/supabase-portal-theme.sql,
-// docs/supabase-portal-dashboard.sql) a read or write leaves them out instead of failing the rest.
-const OPTIONAL = ["theme", "dashboard_layout"] as const;
+// docs/supabase-portal-dashboard.sql, docs/supabase-portal-settings.sql) a read or write leaves them out instead of
+// failing the rest.
+const OPTIONAL = ["theme", "dashboard_layout", "table_density", "motion", "start_page", "pinned_tabs"] as const;
 type Optional = (typeof OPTIONAL)[number];
 const missingColumn = (e: { message?: string; code?: string }, col: string) => (e.message ?? "").includes(col) && (e.code === "42703" || e.code === "PGRST204" || /does not exist|schema cache/.test(e.message ?? ""));
 const missingOptional = (e: { message?: string; code?: string } | null, cols: readonly Optional[]) => (e ? cols.find((c) => missingColumn(e, c)) ?? null : null);
@@ -113,6 +115,10 @@ export async function POST(request: Request) {
       captcha_consent_dismissed?: boolean;
       theme?: string;
       dashboard_layout?: unknown;
+      table_density?: unknown;
+      motion?: unknown;
+      start_page?: unknown;
+      pinned_tabs?: unknown;
     };
 
     const admin = createSupabaseServiceRoleClient();
@@ -144,6 +150,25 @@ export async function POST(request: Request) {
       updates.dashboard_layout = layout;
     }
 
+    // Settings (lib/user-settings): each checked here; a bad value is refused, not stored.
+    if (body.table_density !== undefined) {
+      if (!isDensity(body.table_density)) return NextResponse.json({ error: "table_density must be comfortable or compact" }, { status: 400 });
+      updates.table_density = body.table_density;
+    }
+    if (body.motion !== undefined) {
+      if (!isMotion(body.motion)) return NextResponse.json({ error: "motion must be system or reduce" }, { status: 400 });
+      updates.motion = body.motion;
+    }
+    if (body.start_page !== undefined) {
+      if (!isStartPage(body.start_page)) return NextResponse.json({ error: "start_page is not one of the start pages" }, { status: 400 });
+      updates.start_page = body.start_page;
+    }
+    if (body.pinned_tabs !== undefined) {
+      const pins = sanitizePins(body.pinned_tabs);
+      if (!pins) return NextResponse.json({ error: "pinned_tabs must be up to 5 pages or airports" }, { status: 400 });
+      updates.pinned_tabs = pins;
+    }
+
     const db = admin ?? supabase;
     let cols = OPTIONAL.filter((c) => updates[c] !== undefined);
     const write = () => db.from("user_preferences").upsert(updates, { onConflict: "user_id" }).select([PREF_POST_SELECT, ...cols].join(", ")).single();
@@ -167,6 +192,7 @@ export async function POST(request: Request) {
       preferences: data,
       ...(body.theme !== undefined ? { themeSaved: !unsaved.has("theme") } : {}),
       ...(body.dashboard_layout !== undefined ? { dashboardSaved: !unsaved.has("dashboard_layout") } : {}),
+      unsaved: [...unsaved],
     });
   } catch (e: unknown) {
     return NextResponse.json(

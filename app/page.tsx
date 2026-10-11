@@ -1,7 +1,6 @@
-// The root no longer hosts the AIP search monolith (audit §5.2): "/" lands
-// on the dashboard. Airport search lives at /aip; the airport view is a real
-// deep-linkable route at /aip/<ICAO>. Legacy /?icao=EVRA deep links are
-// forwarded to /aip, which resolves them to /aip/EVRA.
+// The root no longer hosts the AIP search monolith (audit §5.2). A signed-in "/" is redirected by the middleware to
+// the person's start page (Settings → Preferences, stage 4) before this renders; what reaches here is a legacy
+// /?icao=EVRA deep link, forwarded to /aip (which resolves it to /aip/EVRA), or the fallback: the Dashboard.
 
 import { redirect } from "next/navigation";
 

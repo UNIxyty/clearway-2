@@ -54,6 +54,8 @@ export default function Dashboard() {
     }).catch(() => setLayout((cur) => (cur === undefined ? null : cur)));
   }, []);
   useEffect(() => { setHello(greeting(name)); }, [name]);
+  // Settings → Customisation links here with ?customise=1: open straight into editing.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("customise") === "1") setEdit(true); }, []);
 
   const save = useRef<number | null>(null);
   const change = useCallback((next: Layout | null) => {

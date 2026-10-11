@@ -3,9 +3,10 @@
 // Account → Profile (portal redesign, stage 3 — "Page Profile"): one account card with the labels on the left —
 // display name, sign-in email (change it: a confirmation goes to the new address), password (we check the current
 // one, then email a secure link), role, user ID — and Sign out. Search statistics and notification settings are no
-// longer linked from here.
+// longer linked from here; appearance and the dashboard are in Settings (stage 4), and the page says so.
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import PortalShell, { useIdentity } from "@/components/portal/Shell";
 import { Button, Callout, Card, ErrorState, IconButton, RoleBadge, SkeletonRows, TextInput, useToast } from "@/components/kit";
@@ -183,9 +184,10 @@ export default function ProfilePage() {
                 </Row>
               </Card>
               <section aria-label="Sign out" className="flex flex-wrap items-center gap-4 rounded-[14px] border border-cw-border bg-cw-bg-surface px-6 py-[18px] shadow-cw-1">
-                <div className="min-w-[220px] flex-1"><div className="text-[14px] font-semibold text-cw-text">Sign out</div><div className="mt-0.5 text-[12.5px] text-cw-text-muted">Ends this session. Your theme and dashboard layout stay with your account.</div></div>
+                <div className="min-w-[220px] flex-1"><div className="text-[14px] font-semibold text-cw-text">Sign out</div><div className="mt-0.5 text-[12.5px] text-cw-text-muted">Ends this session. Your theme, pinned tabs and dashboard layout stay with your account.</div></div>
                 <Button variant="danger-quiet" icon="log-out" className="border border-cw-danger-border" onClick={() => void signOut()}>Sign out</Button>
               </section>
+              <p className="m-0 text-[13px] text-cw-text-muted">Looking for appearance or dashboard options? They are in <Link href="/settings" className="font-semibold text-cw-text-link no-underline hover:text-cw-primary-hover">Settings</Link>.</p>
             </>
           )}
       </div>

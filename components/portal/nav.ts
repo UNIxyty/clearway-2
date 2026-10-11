@@ -144,6 +144,8 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "acc-signout", label: "Sign out", icon: "log-out", href: "/login" },
     ],
   },
+  // Portal redesign stage 4: appearance, customisation and preferences — each person's own (§3.11). Last in the sidebar.
+  { id: "settings", label: "Settings", icon: "settings", roles: ["admin", "user", "guest"], href: "/settings" },
 ];
 
 // The reduced account dropdown = identity + exactly these five.

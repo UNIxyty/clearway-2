@@ -6,6 +6,7 @@ import { rigViolation } from "@/lib/rig-guard.mjs";
 import { resolveRole } from "@/lib/role-resolve";
 import { endpointFor, isWriteMethod } from "@/lib/permissions/catalogue.mjs";
 import { can, canAny, REFUSED, roleKey } from "@/lib/permissions/grants.mjs";
+import { DEFAULT_START, isStartPage } from "@/lib/user-settings";
 
 function isTemporaryUser(user: {
   app_metadata?: Record<string, unknown> | null;
@@ -284,6 +285,26 @@ export async function middleware(request: NextRequest) {
       const allowed = entry.any ? await canAny(role, entry.any) : await can(role, entry.action);
       if (!allowed) return NextResponse.json({ error: REFUSED, permission: entry.any ?? entry.action }, { status: 403 });
     }
+  }
+
+  // Start page (Settings → Preferences, portal redesign stage 4): "/" — where sign-in lands when no other page was asked
+  // for — sends the person to the page they chose, the Dashboard otherwise. Here, before anything renders, so it is a
+  // real redirect. Their own row (RLS: user_preferences_all_own); before docs/supabase-portal-settings.sql has run the
+  // read fails and the Dashboard stands. Legacy /?icao= links go on to the page, which forwards them to /aip.
+  if (pathname === "/" && request.method === "GET" && !request.nextUrl.searchParams.has("icao")) {
+    let dest = DEFAULT_START;
+    try {
+      const { data } = await supabase.from("user_preferences").select("start_page").eq("user_id", user.id).maybeSingle();
+      const chosen = (data as { start_page?: unknown } | null)?.start_page;
+      if (isStartPage(chosen)) dest = chosen;
+    } catch { /* the Dashboard */ }
+    // Built like the sign-in redirect above (nextUrl, which follows the host the request came in on).
+    const to = request.nextUrl.clone();
+    to.pathname = dest;
+    to.search = "";
+    const redirect = NextResponse.redirect(to);
+    for (const c of response.cookies.getAll()) redirect.cookies.set(c);
+    return redirect;
   }
 
   return response;

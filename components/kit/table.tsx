@@ -118,7 +118,7 @@ export type Column<R> = {
 export type TableState = "ready" | "loading" | "error";
 
 export function DataTable<R>({
-  label, columns, rows, rowKey, density = "comfortable", state = "ready", error, empty, filtered, onClearFilters, noMatchTitle, noMatchBody,
+  label, columns, rows, rowKey, density: densityProp, state = "ready", error, empty, filtered, onClearFilters, noMatchTitle, noMatchBody,
   selectable = false, selected, onSelectedChange, bulkActions, rowMenu, onRowClick, pageSize: initialPageSize = 50, toolbar, defaultSort, rowTone,
 }: {
   label: string;
@@ -145,6 +145,8 @@ export function DataTable<R>({
   defaultSort?: { id: string; dir: "asc" | "desc" };
   rowTone?: (r: R) => "selected" | "warning" | "danger" | null;
 }) {
+  // No density given: comfortable, made compact by the person's Settings → Table density (CSS on .cw-auto-density).
+  const density = densityProp ?? "comfortable";
   const [sort, setSort] = useState<{ id: string; dir: "asc" | "desc" } | null>(defaultSort ?? null);
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [page, setPage] = useState(0);
@@ -205,7 +207,7 @@ export function DataTable<R>({
         </div>
       ) : toolbar}
       <div ref={sentinel} aria-hidden className="h-0" />
-      <table aria-label={label} aria-busy={state === "loading" || undefined} className="w-full border-separate border-spacing-0 text-left">
+      <table aria-label={label} aria-busy={state === "loading" || undefined} className={clsx("w-full border-separate border-spacing-0 text-left", !densityProp && "cw-auto-density")}>
         <thead>
           <tr>
             {selectable && (

@@ -228,6 +228,13 @@ body {
 @media (min-width: 900px) { .cw-narrow-only { display: none !important; } }
 /* Skeleton shimmer (§1.5: 1400ms linear). */
 .cw-shimmer { background: linear-gradient(90deg, var(--cw-skeleton) 0, var(--cw-skeleton-shine) 50%, var(--cw-skeleton) 100%); background-size: 640px 100%; animation: cw-shimmer 1400ms linear infinite; }
+/* Settings (stage 4). Compact tables: a DataTable that does not set its own density follows the person's choice
+   (52px rows → 32px). Reduced motion: no animation or transition anywhere in the portal — shimmer, panel slides, chart
+   fills — whatever the device says. */
+html[data-density="compact"] .cw-auto-density > tbody > tr > td { height: 32px; padding-top: 0; padding-bottom: 0; font-size: 13px; }
+html[data-density="compact"] .cw-auto-density > thead > tr > th { height: 32px; }
+html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-motion="reduce"] *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+html[data-motion="reduce"] .cw-shimmer { animation: none !important; }
 /* Dashboard (stage 3): a 12-column grid; each block spans --span columns (S 4, M 6, L 8). Below 900px every block is
    full width; between 900 and 1199 an S block takes half the row so it is not squeezed. */
 .cw-dash-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; align-items: start; }

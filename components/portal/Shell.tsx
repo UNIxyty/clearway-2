@@ -19,6 +19,7 @@ import { ClearwayLogo, ClearwayMark } from "@/components/portal/ClearwayLogo";
 import TopSearch, { pagesSource } from "@/components/portal/TopSearch";
 import ThemeMenu from "@/components/portal/ThemeMenu";
 import { adoptAccountChoice } from "@/components/portal/theme";
+import { adoptAccountSettings, useLocalSettings } from "@/components/portal/user-settings";
 import AgentPanel, { useAgentPanel } from "@/components/agent/panel/AgentPanel";
 import { SearchWatcher, useAgentContext } from "@/components/agent/panel/useAgentContext";
 import { installFailedRequestTracker, subscribeHelpStream } from "@/components/help/helpApi";
@@ -86,8 +87,10 @@ export function useIdentity() {
       .then((r) => r.json())
       .then((d) => {
         if (d.preferences?.display_name) merge({ name: d.preferences.display_name });
-        // The account's appearance choice follows the person between devices (portal redesign §1.3).
+        // The account's appearance choice follows the person between devices (portal redesign §1.3), and so do their
+        // settings: table density, motion, pinned tabs (stage 4).
         adoptAccountChoice(d.preferences?.theme);
+        adoptAccountSettings(d.preferences);
       })
       .catch(() => {});
     // Existing admin check — never reimplemented (audit rule). A failed probe means NOT admin and NOT developer
@@ -298,6 +301,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
   const agentOpen = hasAgent && agentOpenRaw;
   const [search, setSearch] = useState("");
   const agentContext = useAgentContext(search);
+  const { pins } = useLocalSettings();
 
   // Internal navigations go through startTransition so navPending drives the slim top progress bar. External
   // (cross-app) targets stay full navigations on purpose.
@@ -567,8 +571,26 @@ function ShellFrame({ children }: { children: ReactNode }) {
             <span className="cw-wide-only">{crumbA}</span>
             {crumbB && <><span className="cw-wide-only" style={{ display: "inline-flex" }}><MaskIcon name="chevron-right" size={13} /></span><span className="truncate font-semibold text-cw-text">{crumbB}</span></>}
           </div>
-          <div className="flex min-w-0 flex-1 justify-center">
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
             {!narrow && <TopSearch sources={searchSources} narrow={false} onGo={(r) => go(r.href, r.external)} />}
+            {/* Pinned tabs (Settings → Customisation): beside search at full width; they hide on the rail and below (§4.4). */}
+            {pins.length > 0 && (
+              <nav aria-label="Pinned" className="hidden flex-none items-center gap-1 min-[1200px]:flex">
+                {pins.map((p) => {
+                  const on = pathname === p.href || pathname.startsWith(`${p.href}/`);
+                  const external = p.href.startsWith("/digital-wall");
+                  return (
+                    <a key={p.href} href={p.href} aria-current={on ? "page" : undefined} title={p.label}
+                      onClick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return; e.preventDefault(); go(p.href, external); }}
+                      className={clsx("flex h-[30px] max-w-[150px] items-center gap-1.5 rounded-[8px] border px-2.5 text-[12.5px] font-semibold no-underline outline-none focus-visible:shadow-[0_0_0_2px_var(--cw-focus)]",
+                        on ? "border-cw-primary-tint-border bg-cw-bg-selected text-cw-text-link" : "border-cw-border bg-cw-bg-surface text-cw-text hover:bg-cw-bg-hover")}>
+                      <MaskIcon name={p.icon} size={13} color={on ? "var(--cw-text-link)" : "var(--cw-text-muted)"} />
+                      <span className={clsx("truncate", p.kind === "airport" && "font-mono")}>{p.label}</span>
+                    </a>
+                  );
+                })}
+              </nav>
+            )}
           </div>
           {narrow && <TopSearch sources={searchSources} narrow onGo={(r) => go(r.href, r.external)} />}
           <ThemeMenu />

@@ -22,7 +22,9 @@ import { Button, Select, Checkbox, DataTable, FilterBar, Card, useToast } from "
 
 - **No native control.** No `<select>`, checkbox, radio or date/time input anywhere in `app/` or `components/`:
   `node scripts/check-portal-controls.mjs` (and no hard-coded colour: `node scripts/check-portal-colours.mjs`).
-- **Tables scroll with the page**, never inside their own box. The header sticks at `top: var(--cw-topbar)`.
+- **Tables scroll with the page**, never inside their own box. The header sticks at `top: var(--cw-topbar)`. A
+  `DataTable` that does not set `density` follows the person's Settings → Table density (comfortable 52px rows,
+  compact 32px; `html[data-density]`, set before the first paint).
 - **Two kinds of empty**: nothing exists yet (say how things get here) and nothing matches (say what hid it, offer to
   clear). Loading draws the shape of what is coming. Errors name what failed, keep the status visible, offer a retry.
 - **Popovers** (select, menu, date, filters) render in a portal inside the nearest `[data-theme]`, close on Esc or a

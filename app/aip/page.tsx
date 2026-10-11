@@ -16,7 +16,6 @@ import PortalShell from "@/components/portal/Shell";
 import { PButton, PCard, PMono, PSectionTitle, PTh } from "@/components/portal/ui";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { useBackgroundSearch, type SyncStage } from "@/lib/search-context";
-import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 import {
   type AIPAirport,
   type RecentEntry,
@@ -62,7 +61,6 @@ function AIPSearchPageInner() {
   const { bgList, startBackground, updateStage, finishBackground, cancelBackground } = useBackgroundSearch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<AIPAirport[]>([]);
@@ -145,25 +143,6 @@ function AIPSearchPageInner() {
       .catch(() => setRegions([]));
   }, []);
 
-  useEffect(() => {
-    fetch("/api/user/preferences")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.preferences) {
-          const p = data.preferences;
-          setNotifPrefs((prev) => ({
-            ...prev,
-            notify_enabled: p.notify_enabled ?? prev.notify_enabled,
-            notify_search_start: p.notify_search_start ?? prev.notify_search_start,
-            notify_search_end: p.notify_search_end ?? prev.notify_search_end,
-            notify_notam: p.notify_notam ?? prev.notify_notam,
-            notify_aip: p.notify_aip ?? prev.notify_aip,
-            notify_gen: p.notify_gen ?? prev.notify_gen,
-          }));
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   const countriesInRegion = useMemo(() => {
     if (!selectedRegion) return [];
@@ -341,7 +320,6 @@ function AIPSearchPageInner() {
     setError(null);
     startBackground(qUpper);
     updateStage(qUpper, "airport", "running", "Searching…");
-    sendNotification("search_start", "Search started", `Looking up ${qUpper}…`, notifPrefs);
 
     if (queryOverride === undefined && searchParams.get("fromBanner") === "1") {
       const params = new URLSearchParams(searchParams.toString());
@@ -410,7 +388,6 @@ function AIPSearchPageInner() {
         router.push(`/aip/${newResults[0].icao.toUpperCase()}`);
       }
       updateStage(qUpper, "airport", "done", "Airport loaded");
-      sendNotification("search_end", "Search completed", `${qUpper} ready`, notifPrefs);
 
       // Fire-and-forget search analytics (per-user, Supabase-backed)
       if (typeof console !== "undefined" && console.warn) {
@@ -453,7 +430,7 @@ function AIPSearchPageInner() {
       setLoading(false);
       setHasSearched(true);
     }
-  }, [query, notifPrefs, startBackground, updateStage, searchParams, router, beginRequest, finishRequest, isAbortError, cancelBackground]);
+  }, [query, startBackground, updateStage, searchParams, router, beginRequest, finishRequest, isAbortError, cancelBackground]);
 
   const stopSearch = useCallback(() => {
     stopAllRequests();

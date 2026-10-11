@@ -123,15 +123,6 @@ insert into public.permission_grants (role, action, allowed, updated_by_email) s
   ('user', 'portal.airports.hide', true),
   ('admin', 'portal.airports.hide', true),
   ('developer', 'portal.airports.hide', true),
-  ('user', 'portal.bugs.file', true),
-  ('admin', 'portal.bugs.file', true),
-  ('developer', 'portal.bugs.file', true),
-  ('user', 'portal.bugs.triage', false),
-  ('admin', 'portal.bugs.triage', true),
-  ('developer', 'portal.bugs.triage', true),
-  ('user', 'portal.bugs.delete', false),
-  ('admin', 'portal.bugs.delete', true),
-  ('developer', 'portal.bugs.delete', true),
   ('user', 'portal.help.ask', true),
   ('admin', 'portal.help.ask', true),
   ('developer', 'portal.help.ask', true),
@@ -378,3 +369,7 @@ on conflict (role, action) do nothing;
 -- history is not rewritten. Safe to re-run.
 delete from public.permission_grants
   where action in ('portal.pickem.play', 'portal.pickem.admin', 'portal.email.tools', 'portal.email.broadcast', 'portal.devmode');
+-- Retired with the old bug-report endpoint (Part B, 2026-10-11: no screen or outside caller used /api/bug-reports;
+-- bug reports are filed in Help & support, portal.help.*). Same rule: the grant rows go, the history stays.
+delete from public.permission_grants
+  where action in ('portal.bugs.file', 'portal.bugs.triage', 'portal.bugs.delete');

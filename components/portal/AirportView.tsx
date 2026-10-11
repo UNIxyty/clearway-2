@@ -20,7 +20,6 @@ import { PMono, PSectionTitle } from "@/components/portal/ui";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
 import { useBackgroundSearch } from "@/lib/search-context";
-import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
 import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-weather";
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
@@ -588,7 +587,6 @@ export default function AirportView({ icao }: { icao: string }) {
   const { bgList, updateStage, finishBackground } = useBackgroundSearch();
   const searchParams = useSearchParams();
   const [airport, setAirport] = useState<AIPAirport | null>(null);
-  const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [aipEadSyncSteps, setAipEadSyncSteps] = useState<string[]>([]);
   const [, setError] = useState<string | null>(null);
   const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; detail?: string; updatedAt?: string | null }>>({});
@@ -770,25 +768,6 @@ export default function AirportView({ icao }: { icao: string }) {
     return { airportLine, bullets, strippedPlain };
   }, [cachedWeather?.weather]);
 
-  useEffect(() => {
-    fetch("/api/user/preferences")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.preferences) {
-          const p = data.preferences;
-          setNotifPrefs((prev) => ({
-            ...prev,
-            notify_enabled: p.notify_enabled ?? prev.notify_enabled,
-            notify_search_start: p.notify_search_start ?? prev.notify_search_start,
-            notify_search_end: p.notify_search_end ?? prev.notify_search_end,
-            notify_notam: p.notify_notam ?? prev.notify_notam,
-            notify_aip: p.notify_aip ?? prev.notify_aip,
-            notify_gen: p.notify_gen ?? prev.notify_gen,
-          }));
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   const requestSyncNotams = useCallback((icao: string) => {
     setSyncRequestedIcao(icao);
@@ -986,7 +965,6 @@ export default function AirportView({ icao }: { icao: string }) {
               setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
               settled = true;
               updateStage(icao, "aip", "done", "AIP re-synced from source");
-              sendNotification("aip", "AIP re-synced", `${icao}`, notifPrefs);
               // EAD route: refresh the "Cached … expires …" line from the
               // server's REAL TTL (cache.ttlMs). meta=1 is a pure storage read
               // — never an external request.
@@ -1033,7 +1011,7 @@ export default function AirportView({ icao }: { icao: string }) {
       setAipPdfSlowIcao((prev) => (prev === icao ? null : prev));
       setAipEadSyncSteps([]);
     }
-  }, [aipEadCache, viewingAirport, notifPrefs, updateStage, beginRequest, finishRequest, isAbortError]);
+  }, [aipEadCache, viewingAirport, updateStage, beginRequest, finishRequest, isAbortError]);
 
   const handleCaptchaConsentContinue = useCallback(() => {
     void openCaptchaNoVncPopup(pendingCaptchaIcao);
@@ -1350,7 +1328,6 @@ export default function AirportView({ icao }: { icao: string }) {
                     setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
                     setAipEadSyncSteps([]);
                     updateStage(icao, "aip", "done", "AIP retrieved");
-                    sendNotification("aip", "AIP retrieved", `${icao}`, notifPrefs);
                     return;
                   } else if (data.error) {
                     const errMsg = formatAipSyncError(data);
@@ -1412,7 +1389,6 @@ export default function AirportView({ icao }: { icao: string }) {
         }
         if (shouldExtractSync) {
           updateStage(icao, "aip", "done", "AIP retrieved");
-          sendNotification("aip", "AIP retrieved", `${icao}`, notifPrefs);
         } else if (doSync) {
           updateStage(icao, "aip", "done", "AIP PDF ready");
         }
@@ -1442,7 +1418,7 @@ export default function AirportView({ icao }: { icao: string }) {
     aipEadCache,
     aipPdfReady,
     aipPdfExistsOnServer,
-    notifPrefs,
+   
     updateStage,
     searchParams,
     beginRequest,
@@ -1524,7 +1500,6 @@ export default function AirportView({ icao }: { icao: string }) {
         if (useSyncedGen) updateStage(icao, "gen", "done", "GEN retrieved");
         else {
           updateStage(icao, "gen-non-ead", "done", "GEN retrieved");
-          sendNotification("gen", "GEN retrieved", `Prefix ${prefix}`, notifPrefs);
         }
       })
       .catch((err) => {
@@ -1541,7 +1516,7 @@ export default function AirportView({ icao }: { icao: string }) {
         finishRequest(`gen-${prefix}`, controller);
         setGenLoadingPrefix((p) => (p === prefix ? null : p));
       });
-  }, [viewingAirport?.icao, genCache, genLoadingPrefix, notifPrefs, updateStage, beginRequest, finishRequest, isAbortError]);
+  }, [viewingAirport?.icao, genCache, genLoadingPrefix, updateStage, beginRequest, finishRequest, isAbortError]);
 
   // Fetch NOTAMs when an airport is selected (search or browse). Load/sync even without coords so map + NOTAMs show after user initiates.
   useEffect(() => {
@@ -1598,7 +1573,6 @@ export default function AirportView({ icao }: { icao: string }) {
                       [icao]: { notams: data.notams ?? [], error: null, updatedAt: data.updatedAt ?? null },
                     }));
                     updateStage(icao, "notam", "done", "NOTAMs retrieved");
-                    sendNotification("notam", "NOTAMs retrieved", `${icao}`, notifPrefs);
                     return;
                   } else if (data.error) {
                     setNotamsCache((c) => ({
@@ -1664,7 +1638,7 @@ export default function AirportView({ icao }: { icao: string }) {
         setNotamsLoadingIcao(null);
         setSyncRequestedIcao((prev) => (prev === icao ? null : prev));
       });
-  }, [viewingAirport?.icao, syncRequestedIcao, notamsCache, notifPrefs, updateStage, searchParams, beginRequest, finishRequest, isAbortError]);
+  }, [viewingAirport?.icao, syncRequestedIcao, notamsCache, updateStage, searchParams, beginRequest, finishRequest, isAbortError]);
 
   useEffect(() => {
     const icao = viewingAirport?.icao ?? null;

@@ -74,6 +74,14 @@ ok(actions.length > 0 && !actions.some((a) => /search.?stat|notification.?settin
 const dbg = actions.find((a) => a.key === "portal.debug.run");
 ok(dbg && JSON.stringify(dbg.default) === JSON.stringify(["developer"]), "portal.debug.run stays in the grid, developer only by default", JSON.stringify(dbg?.default));
 
+// The old bug-report endpoint is gone, with its three switches; nothing on the airport pages sends browser
+// notifications any more (the setting was deleted, so nobody could turn them off).
+for (const [m, path] of [["GET", "/api/bug-reports"], ["POST", "/api/bug-reports"], ["PATCH", "/api/bug-reports/x"]]) {
+  const r = await fetch(`${BASE}${path}`, { method: m, headers: { cookie: await cookie("admin"), "content-type": "application/json" }, body: m === "GET" ? undefined : "{}" });
+  ok(r.status === 404 || r.status === 403, `${m} ${path} is gone`, r.status);
+}
+ok(!actions.some((a) => a.key.startsWith("portal.bugs.")), "the grid has no bug-report switches (portal.bugs.* retired)");
+for (const f of ["components/portal/AirportView.tsx", "app/aip/page.tsx"]) ok(!/sendNotification|new Notification\(/.test(readFileSync(f, "utf8")), `${f} sends no browser notification`);
 const inv = readFileSync("docs/portal-inventory.md", "utf8");
 ok(/\*\*`\/admin\/debug`\*\*[^\n]*developer/i.test(inv) && /\*\*`\/developer\/components`\*\*[^\n]*component sheet/i.test(inv) && /Reachable by URL only, on purpose/.test(inv), "docs/portal-inventory.md marks both URL-only pages as intentional");
 

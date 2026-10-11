@@ -48,15 +48,15 @@ const admin = { "content-type": "application/json", apikey: KEY, authorization: 
   await page.locator("button", { hasText: "Clear search" }).click(); await sleep(200);
   // Differs from default: change one cell, see it, put it back.
   const before = await page.getByRole("radio", { name: /Differs from default/ }).innerText();
-  await page.locator("tbody[aria-label='Bug reports']").getByRole("button", { expanded: false }).first().click();
-  const cell = page.locator(`[role="checkbox"][aria-label="Change a bug report's status — User"]`);
+  await page.locator("tbody[aria-label='Developer tools']").getByRole("button", { expanded: false }).first().click();
+  const cell = page.locator(`[role="checkbox"][aria-label="Edit country service statuses — User"]`);
   const label = await cell.getAttribute("aria-label");
   const wasOn = (await cell.getAttribute("aria-checked")) === "true";
   await cell.click(); if (await page.getByRole("dialog").count()) await page.getByRole("dialog").getByRole("button", { name: "Grant" }).click();
   await sleep(1500);
   await page.getByRole("radio", { name: /Differs from default/ }).click(); await sleep(300);
   const changedCell = page.locator(`td:has([role="checkbox"][aria-label="${label}"])`);
-  ok(/default (on|off)/.test(await changedCell.innerText()) && await page.locator("tbody[aria-label='Bug reports']").getByText(/1 differ/).isVisible(), "a changed cell is tinted with its default written beneath; its group counts it", `${label}: ${(await changedCell.innerText()).replace(/\s+/g, " ")} · filter was “${before.replace(/\s+/g, " ")}”`);
+  ok(/default (on|off)/.test(await changedCell.innerText()) && await page.locator("tbody[aria-label='Developer tools']").getByText(/1 differ/).isVisible(), "a changed cell is tinted with its default written beneath; its group counts it", `${label}: ${(await changedCell.innerText()).replace(/\s+/g, " ")} · filter was “${before.replace(/\s+/g, " ")}”`);
   await page.screenshot({ path: `${OUT}/s3b1-permissions-differs.png` });
   await page.locator(`[role="checkbox"][aria-label="${label}"]`).click(); if (await page.getByRole("dialog").count()) await page.getByRole("dialog").getByRole("button", { name: "Grant" }).click();
   await sleep(1500);

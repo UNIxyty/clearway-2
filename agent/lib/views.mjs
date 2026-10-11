@@ -300,7 +300,7 @@ export async function suggestions(user, context) {
   const notam = await wallGet("/api/notam-check/today", user, { timeoutMs: 8_000 }).catch(() => null);
   // /api/notam-check/today is the check's publicState: { total, done, airports[] }.
   const outstanding = notam?.outstandingCount ?? (Array.isArray(notam?.outstanding) ? notam.outstanding.length : Number.isInteger(notam?.total) && Number.isInteger(notam?.done) ? notam.total - notam.done : null);
-  const recent = (await rest(`agent_conversations?user_id=eq.${encodeURIComponent(user.userId)}&archived_at=is.null&select=id,title,last_message_at&order=last_message_at.desc&limit=2`).catch(() => [])) ?? [];
+  const recent = (await rest(`agent_conversations?user_id=eq.${encodeURIComponent(user.userId)}&archived_at=is.null&select=id,title,last_message_at&order=last_message_at.desc&limit=5`).catch(() => [])) ?? [];
   const firstName = String(user.name || user.email || "").split(/[\s@.]/)[0] || null;
   const hour = new Date().getUTCHours();
   const greeting = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";

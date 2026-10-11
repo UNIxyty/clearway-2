@@ -5,7 +5,7 @@ const db = async (p) => (await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/re
 const ADDR = `ops-desk-${Date.now().toString(36)}@clearway.example`;
 const b = await chromium.launch(); const p = await (await b.newContext({ viewport: { width: 1366, height: 1000 } })).newPage();
 const errors = []; p.on("pageerror", (e) => errors.push(e.message)); p.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
-await p.goto("http://127.0.0.1:3999/agent/settings", { waitUntil: "load" }); await p.waitForTimeout(3500);
+await p.goto("http://127.0.0.1:3999/agent/settings?tab=intake", { waitUntil: "load" }); await p.waitForTimeout(3500);
 const card = p.locator('section[aria-label="Flight intake"]');
 ok(await card.count() === 1, "Flight intake card on Agent settings");
 const field = card.getByLabel("Add to Send intake emails to");

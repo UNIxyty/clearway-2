@@ -103,6 +103,8 @@ function requestView(row) {
     id: r.id ?? String(row.id).slice(REQ_PREFIX.length), host: r.host ?? null, includeSubdomains: r.includeSubdomains === true, reason: r.reason ?? null,
     status: r.status ?? (row.enabled ? "pending" : "declined"), requestedBy: r.requestedBy ?? null, requestedByName: r.requestedByName ?? null,
     requestedAt: r.requestedAt ?? row.updated_at ?? null, decidedBy: r.decidedBy ?? null, decidedAt: r.decidedAt ?? null, note: r.note ?? null,
+    // The scope an admin granted, when it was approved (null before; older records did not keep it).
+    grantedSubdomains: typeof r.grantedSubdomains === "boolean" ? r.grantedSubdomains : null,
   };
 }
 async function allRequests() {
@@ -141,19 +143,21 @@ export async function requestSite({ user, host: rawHost, includeSubdomains, reas
 }
 
 /** Mark every pending request for `host` approved (an approval covers everyone who asked for that site). */
-async function approvePendingFor(host, admin, note) {
+async function approvePendingFor(host, admin, note, grantedSubdomains) {
   const now = new Date().toISOString();
   const approved = [];
   for (const r of await allRequests()) {
     if (r.host !== host || r.status !== "pending") continue;
-    const next = { ...r, status: "approved", decidedBy: admin.email ?? null, decidedAt: now, note: note ?? r.note ?? null };
+    const next = { ...r, status: "approved", decidedBy: admin.email ?? null, decidedAt: now, note: note ?? r.note ?? null, grantedSubdomains };
     await writeRequest(next, admin.email);
     approved.push(next);
   }
   return approved;
 }
 
-export async function decideRequest({ admin, id, decision, note: rawNote }) {
+// includeSubdomains (optional, approve only): the scope the admin chose — "this host only" or "host and subdomains" —
+// which may differ from what was asked for. Absent, the request's own scope stands.
+export async function decideRequest({ admin, id, decision, note: rawNote, includeSubdomains: chosenScope }) {
   await assertAdmin(admin);
   const reqId = String(id ?? "").trim();
   if (!/^[0-9a-f-]{36}$/i.test(reqId)) throw BadRequest("A request id is required.");
@@ -163,16 +167,18 @@ export async function decideRequest({ admin, id, decision, note: rawNote }) {
   if (!rows?.[0]) throw BadRequest("No such site request.");
   const request = requestView(rows[0]);
   if (request.status !== "pending") throw BadRequest(`This request was already ${request.status}.`);
+  if (chosenScope !== undefined && chosenScope !== null && typeof chosenScope !== "boolean") throw BadRequest("includeSubdomains must be true or false.");
+  const scope = typeof chosenScope === "boolean" ? chosenScope : request.includeSubdomains;
   let result;
   if (decision === "approve") {
-    await writeSite({ host: request.host, includeSubdomains: request.includeSubdomains, admin, note });
-    const approved = await approvePendingFor(request.host, admin, note);
-    result = approved.find((r) => r.id === request.id) ?? { ...request, status: "approved", decidedBy: admin.email ?? null, decidedAt: new Date().toISOString(), note };
+    await writeSite({ host: request.host, includeSubdomains: scope, admin, note });
+    const approved = await approvePendingFor(request.host, admin, note, scope);
+    result = approved.find((r) => r.id === request.id) ?? { ...request, status: "approved", decidedBy: admin.email ?? null, decidedAt: new Date().toISOString(), note, grantedSubdomains: scope };
   } else {
     result = { ...request, status: "declined", decidedBy: admin.email ?? null, decidedAt: new Date().toISOString(), note };
     await writeRequest(result, admin.email);
   }
-  await audit({ kind: "extension.site_decided", userId: admin.userId, userEmail: admin.email, actorId: admin.userId, actorEmail: admin.email, success: true, confirmationStatus: "confirmed", detail: { host: request.host, id: request.id, decision, note, includeSubdomains: request.includeSubdomains, requestedBy: request.requestedBy } });
+  await audit({ kind: "extension.site_decided", userId: admin.userId, userEmail: admin.email, actorId: admin.userId, actorEmail: admin.email, success: true, confirmationStatus: "confirmed", detail: { host: request.host, id: request.id, decision, note, includeSubdomains: decision === "approve" ? scope : request.includeSubdomains, requested: request.includeSubdomains, requestedBy: request.requestedBy } });
   return result;
 }
 
@@ -191,7 +197,7 @@ export async function addSite({ admin, host: rawHost, includeSubdomains }) {
   const host = normaliseHost(rawHost);
   const site = await writeSite({ host, includeSubdomains, admin, note: null });
   // Anyone who had asked for this site is answered by the addition.
-  const approved = await approvePendingFor(host, admin, "Added by an admin.");
+  const approved = await approvePendingFor(host, admin, "Added by an admin.", site.includeSubdomains);
   await audit({ kind: "extension.site_added", userId: admin.userId, userEmail: admin.email, actorId: admin.userId, actorEmail: admin.email, success: true, confirmationStatus: "confirmed", detail: { host, includeSubdomains: site.includeSubdomains, requestsApproved: approved.length } });
   return site;
 }

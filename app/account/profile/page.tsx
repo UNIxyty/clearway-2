@@ -1,109 +1,102 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import PortalShell from "@/components/portal/Shell";
-import { PCard, PButton, PSectionTitle } from "@/components/portal/ui";
-import { BarChartIcon, LogOutIcon, BellIcon, Mail } from "lucide-react";
+// Account → Profile (portal redesign, stage 3 — "Page Profile"): one account card with the labels on the left —
+// display name, sign-in email (change it: a confirmation goes to the new address), password (we check the current
+// one, then email a secure link), role, user ID — and Sign out. Search statistics and notification settings are no
+// longer linked from here.
 
-const inputClass =
-  "h-10 w-full rounded-[10px] border border-cw-border-control bg-cw-bg-surface px-3 text-sm text-cw-text outline-none placeholder:text-cw-text-muted focus:border-cw-primary";
-const labelClass = "mb-1.5 block text-[13px] font-semibold text-cw-text";
-const errorBox =
-  "rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-2.5 text-sm text-cw-danger-text";
-const successBox =
-  "rounded-[10px] border border-cw-success-border bg-cw-success-tint px-3.5 py-2.5 text-sm text-cw-success-text";
-const amberBox =
-  "rounded-[10px] border border-cw-orange-border bg-cw-orange-tint px-3.5 py-2.5 text-sm text-cw-orange-text";
-const readOnlyField =
-  "rounded-[10px] bg-cw-bg-sunken px-3 py-2.5 font-mono text-[13px] text-cw-text-body break-all";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import PortalShell, { useIdentity } from "@/components/portal/Shell";
+import { Button, Callout, Card, ErrorState, IconButton, RoleBadge, SkeletonRows, TextInput, useToast } from "@/components/kit";
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const ROLE_TEXT = { developer: "Developer", admin: "Admin", user: "User" } as const;
+
+function Row({ label, hint, children, last = false }: { label: ReactNode; hint?: ReactNode; children: ReactNode; last?: boolean }) {
+  return (
+    <div className={`grid items-start gap-x-6 gap-y-2 px-6 py-5 md:grid-cols-[220px_minmax(0,1fr)] ${last ? "" : "border-b border-cw-divider"}`}>
+      <div><div className="text-[14px] font-semibold text-cw-text">{label}</div>{hint && <div className="mt-0.5 text-[12.5px] leading-normal text-cw-text-muted">{hint}</div>}</div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
-  const router = useRouter();
+  const toast = useToast();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-
-  const [email, setEmail] = useState<string>("");
-  const [userId, setUserId] = useState<string>("");
-  const [displayName, setDisplayName] = useState<string>("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
+  const { role, roleKnown, isDeveloper } = useIdentity();
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [email, setEmail] = useState("");
+  const [userId, setUserId] = useState("");
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
-  const [emailChangeSentTo, setEmailChangeSentTo] = useState<string | null>(null);
-  const [emailSaving, setEmailSaving] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [savedName, setSavedName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [emailInfo, setEmailInfo] = useState<string | null>(null);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
-  const [passwordResetEmailSentTo, setPasswordResetEmailSentTo] = useState<string | null>(null);
-  const [passwordSaving, setPasswordSaving] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordInfo, setPasswordInfo] = useState<string | null>(null);
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwSentTo, setPwSentTo] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadAccount() {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-      setEmail(user?.email ?? "");
-      setUserId(user?.id ?? "");
-      const pending =
-        (user as unknown as { new_email?: string | null; email_change?: string | null })?.new_email ??
-        (user as unknown as { new_email?: string | null; email_change?: string | null })?.email_change ??
-        null;
-      setPendingEmail(pending || null);
-      if (!pending) {
-        setEmailChangeSentTo(null);
-      }
-    }
-
-    void loadAccount();
-
-    fetch("/api/user/preferences")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.preferences?.display_name) {
-          setDisplayName(data.preferences.display_name);
-        }
-      })
-      .catch(() => {});
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void loadAccount();
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+  const loadAccount = useCallback(async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) { setState("error"); return; }
+    const user = data.user as typeof data.user & { new_email?: string | null; email_change?: string | null };
+    setEmail(user.email ?? ""); setUserId(user.id); setCreatedAt(user.created_at ?? null);
+    setPendingEmail(user.new_email || user.email_change || null);
+    setState("ready");
   }, [supabase]);
 
-  async function handleSave() {
-    setError(null);
-    setSuccess(false);
-    setSaving(true);
+  useEffect(() => {
+    void loadAccount();
+    fetch("/api/user/preferences").then((r) => r.json()).then((d) => { const n = d.preferences?.display_name ?? ""; setDisplayName(n); setSavedName(n); }).catch(() => {});
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => { void loadAccount(); });
+    return () => subscription.unsubscribe();
+  }, [supabase, loadAccount]);
 
+  async function saveName() {
+    setSavingName(true);
+    const res = await fetch("/api/user/preferences", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ display_name: displayName }) }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    setSavingName(false);
+    if (!res?.ok) { toast.show({ tone: "danger", title: "Couldn't save your name", body: data.error || `The server said ${res?.status ?? "nothing"}.` }); return; }
+    setSavedName(displayName.trim());
+    toast.show({ tone: "success", title: displayName.trim() ? "Name saved" : "Name removed — your email shows instead" });
+  }
+
+  async function changeEmail() {
+    setEmailError(null);
+    const target = newEmail.trim().toLowerCase();
+    if (!EMAIL.test(target)) { setEmailError("That doesn't look like an email address."); return; }
+    if (target === email.trim().toLowerCase()) { setEmailError("That is already your sign-in email."); return; }
+    setEmailSaving(true);
+    const { error } = await supabase.auth.updateUser({ email: target });
+    setEmailSaving(false);
+    if (error) { setEmailError(error.message || "Couldn't start the change."); return; }
+    setPendingEmail(target); setEditingEmail(false); setNewEmail("");
+  }
+
+  async function changePassword() {
+    setPwError(null);
+    if (!currentPassword) { setPwError("Enter your current password."); return; }
+    setPwSaving(true);
     try {
-      const res = await fetch("/api/user/preferences", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ display_name: displayName }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Failed to save");
-        return;
-      }
-
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: currentPassword });
+      if (error) throw new Error("That isn't your current password.");
+      const res = await fetch("/api/auth/password/forgot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Couldn't send the email.");
+      setPwSentTo(email.trim()); setPwOpen(false); setCurrentPassword("");
     } catch (e) {
-      setError((e as Error).message || "Failed to save");
+      setPwError((e as Error).message);
     } finally {
-      setSaving(false);
+      setPwSaving(false);
     }
   }
 
@@ -112,295 +105,89 @@ export default function ProfilePage() {
     window.location.href = "/login";
   }
 
-  async function handleChangeEmail() {
-    setEmailError(null);
-    setEmailInfo(null);
-    const targetEmail = newEmail.trim().toLowerCase();
-    if (!targetEmail) {
-      setEmailError("Enter a new email.");
-      return;
-    }
-    if (targetEmail === email.trim().toLowerCase()) {
-      setEmailError("New email must be different from current email.");
-      return;
-    }
-    setEmailSaving(true);
-    try {
-      const { error: updateError } = await supabase.auth.updateUser({ email: targetEmail });
-      if (updateError) throw updateError;
-      setEmailInfo(
-        "Confirmation sent. Open your new email inbox and confirm the change. If secure email change is enabled, you may also need to confirm from your current email inbox.",
-      );
-      setEmailChangeSentTo(targetEmail);
-      setPendingEmail(targetEmail);
-      setNewEmail("");
-    } catch (e) {
-      setEmailError((e as { message?: string })?.message || "Failed to start email change.");
-    } finally {
-      setEmailSaving(false);
-    }
-  }
-
-  async function handleChangePassword() {
-    setPasswordError(null);
-    setPasswordInfo(null);
-    if (!email.trim()) {
-      setPasswordError("Current email is missing. Refresh and try again.");
-      return;
-    }
-    if (!currentPassword) {
-      setPasswordError("Enter your current password.");
-      return;
-    }
-    setPasswordSaving(true);
-    try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: currentPassword,
-      });
-      if (signInError) {
-        throw new Error("Current password is incorrect.");
-      }
-
-      const res = await fetch("/api/auth/password/forgot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        sent?: boolean;
-        message?: string;
-      };
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to send verification email.");
-      }
-
-      setPasswordResetEmailSentTo(email.trim());
-      setPasswordInfo(
-        data.message ||
-          "Verification email sent. Open your inbox and use the reset link to set a new password.",
-      );
-      setCurrentPassword("");
-    } catch (e) {
-      setPasswordError((e as { message?: string })?.message || "Failed to start password change.");
-    } finally {
-      setPasswordSaving(false);
-    }
-  }
+  const name = savedName || email;
+  const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "?";
+  const roleKey = isDeveloper ? "developer" : role === "admin" ? "admin" : "user";
+  const since = createdAt ? new Date(createdAt) : null;
 
   return (
-    <PortalShell>
-      <div className="max-w-[1100px] px-[30px] pb-10 pt-[26px]">
-        <div className="mb-[5px] flex items-center gap-3">
-          <img
-            src="/PFP.png"
-            alt="Profile picture"
-            className="h-9 w-9 rounded-full border border-cw-border bg-cw-primary-tint object-cover"
-          />
-          <h1 className="m-0 text-[26px] font-extrabold tracking-[-0.02em]">Profile</h1>
+    <PortalShell crumb="Account" title="Profile">
+      <div className="flex max-w-[880px] flex-col gap-5" style={{ padding: "0 var(--cw-page-pad) 40px" }}>
+        <div className="flex items-center gap-4">
+          <span aria-hidden className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-cw-primary text-[20px] font-bold text-cw-text-on-primary">{state === "ready" ? initials : ""}</span>
+          <div className="min-w-0">
+            <div className="truncate text-[20px] font-extrabold tracking-[-0.01em] text-cw-text">{state === "ready" ? name : " "}</div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13.5px] text-cw-text-muted">
+              {roleKnown && <RoleBadge role={roleKey} />}
+              {since && <span>Member since <span className="font-mono">{String(since.getUTCDate()).padStart(2, "0")} {since.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })} {since.getUTCFullYear()}</span></span>}
+            </div>
+          </div>
         </div>
-        <p className="m-0 mb-5 text-[15px] text-cw-text-muted">
-          Manage your account settings and preferences
-        </p>
 
-        <div className="flex max-w-[680px] flex-col gap-4">
-          {error && <div className={errorBox}>{error}</div>}
-
-          {success && <div className={successBox}>Profile updated successfully</div>}
-
-          <PCard className="p-[22px]">
-            <PSectionTitle>Account Information</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
-              Your authentication details (read-only)
-            </p>
-            <div className="mt-4 space-y-4">
-              <div>
-                <label className={labelClass}>Email</label>
-                <div className={readOnlyField}>{email}</div>
-              </div>
-              {pendingEmail && (
-                <div className={amberBox}>
-                  Pending email change: {pendingEmail}. Confirm from your inbox(es) to finalize.
-                </div>
-              )}
-              <div>
-                <label className={labelClass}>User ID</label>
-                <div className={readOnlyField}>{userId}</div>
-              </div>
-            </div>
-          </PCard>
-
-          <PCard className="p-[22px]">
-            <PSectionTitle>Display Name</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
-              Optional name shown in the portal (instead of your email)
-            </p>
-            <div className="mt-4 space-y-4">
-              <div>
-                <label className={labelClass} htmlFor="displayName">
-                  Name
-                </label>
-                <input
-                  id="displayName"
-                  className={inputClass}
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Your name"
-                />
-              </div>
-              <PButton variant="primary" onClick={handleSave} disabled={saving}>
-                {saving ? "Saving…" : "Save"}
-              </PButton>
-            </div>
-          </PCard>
-
-          <PCard className="p-[22px]">
-            <PSectionTitle>Change Email</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
-              Update the email used to sign in. A confirmation email is sent to the new address.
-            </p>
-            <div className="mt-4 space-y-4">
-              {emailError && <div className={errorBox}>{emailError}</div>}
-              {emailInfo && <div className={successBox}>{emailInfo}</div>}
-              {emailChangeSentTo || pendingEmail ? (
-                <div className="rounded-[12px] border border-cw-border bg-cw-bg-page px-4 py-6 text-center">
-                  <Mail className="mx-auto mb-2 h-6 w-6 text-cw-text-muted" />
-                  <p className="m-0 text-sm font-semibold text-cw-text">Check your email</p>
-                  <p className="m-0 mt-1 text-sm text-cw-text-muted">
-                    We sent confirmation for{" "}
-                    <span className="font-mono">{emailChangeSentTo || pendingEmail}</span>.
-                  </p>
-                  <button
-                    type="button"
-                    className="mt-4 cursor-pointer border-none bg-transparent p-0 text-xs text-cw-text-muted underline underline-offset-4 hover:text-cw-text"
-                    onClick={() => {
-                      setEmailChangeSentTo(null);
-                      setEmailInfo(null);
-                    }}
-                  >
-                    Change email again
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label className={labelClass} htmlFor="newEmail">
-                      New email
-                    </label>
-                    <input
-                      id="newEmail"
-                      className={inputClass}
-                      type="email"
-                      autoComplete="email"
-                      placeholder="name@example.com"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                    />
-                  </div>
-                  <PButton
-                    variant="primary"
-                    onClick={handleChangeEmail}
-                    disabled={emailSaving || !newEmail.trim()}
-                  >
-                    {emailSaving ? "Sending confirmation…" : "Change email"}
-                  </PButton>
-                </>
-              )}
-            </div>
-          </PCard>
-
-          <PCard className="p-[22px]">
-            <PSectionTitle>Change Password</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
-              Verify your current password first. We then send a verification email with a secure reset link.
-            </p>
-            <div className="mt-4 space-y-4">
-              {passwordError && <div className={errorBox}>{passwordError}</div>}
-              {passwordInfo && <div className={successBox}>{passwordInfo}</div>}
-              {passwordResetEmailSentTo ? (
-                <div className="rounded-[12px] border border-cw-border bg-cw-bg-page px-4 py-6 text-center">
-                  <Mail className="mx-auto mb-2 h-6 w-6 text-cw-text-muted" />
-                  <p className="m-0 text-sm font-semibold text-cw-text">Check your email</p>
-                  <p className="m-0 mt-1 text-sm text-cw-text-muted">
-                    We sent a password verification link to{" "}
-                    <span className="font-mono">{passwordResetEmailSentTo}</span>.
-                  </p>
-                  <button
-                    type="button"
-                    className="mt-4 cursor-pointer border-none bg-transparent p-0 text-xs text-cw-text-muted underline underline-offset-4 hover:text-cw-text"
-                    onClick={() => {
-                      setPasswordResetEmailSentTo(null);
-                      setPasswordInfo(null);
-                    }}
-                  >
-                    Start again
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label className={labelClass} htmlFor="currentPassword">
-                      Current password
-                    </label>
-                    <input
-                      id="currentPassword"
-                      className={inputClass}
-                      type="password"
-                      autoComplete="current-password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                    />
-                  </div>
-                  <PButton
-                    variant="primary"
-                    onClick={handleChangePassword}
-                    disabled={passwordSaving || !currentPassword}
-                  >
-                    {passwordSaving ? "Verifying…" : "Verify and send email"}
-                  </PButton>
-                </>
-              )}
-            </div>
-          </PCard>
-
-          <PCard className="p-[22px]">
-            <PSectionTitle>Quick Links</PSectionTitle>
-            <div className="mt-4 flex flex-col gap-2">
-              <PButton
-                variant="secondary"
-                className="w-full justify-start"
-                onClick={() => router.push("/account/search-stats")}
-              >
-                <BarChartIcon className="h-4 w-4" />
-                Search Stats
-              </PButton>
-              <PButton
-                variant="secondary"
-                className="w-full justify-start"
-                onClick={() => router.push("/account/notifications")}
-              >
-                <BellIcon className="h-4 w-4" />
-                Notification Settings
-              </PButton>
-            </div>
-          </PCard>
-
-          <PCard className="border-cw-danger-border p-[22px]">
-            <PSectionTitle>Sign Out</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">End your current session</p>
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={signOut}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-4 py-[10px] text-sm font-semibold text-cw-danger-text hover:bg-cw-danger-tint"
-              >
-                <LogOutIcon className="h-4 w-4" />
-                Sign out
-              </button>
-            </div>
-          </PCard>
-        </div>
+        {state === "loading" ? <Card padded={false}><SkeletonRows rows={4} avatar={false} label="Loading your profile" /></Card>
+          : state === "error" ? <Card padded={false}><ErrorState title="Couldn't load your profile" detail="You're still signed in. Reload the page, or sign in again if it keeps failing." onRetry={() => { setState("loading"); void loadAccount(); }} /></Card>
+          : (
+            <>
+              <Card title="Account" padded={false}>
+                <Row label="Display name" hint="Shown instead of your email.">
+                  <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void saveName(); }}>
+                    <span className="flex-1"><TextInput value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your name" aria-label="Display name" maxLength={80} /></span>
+                    {displayName.trim() !== savedName.trim() && <Button type="submit" variant="primary" loading={savingName} loadingLabel="Saving…">Save</Button>}
+                  </form>
+                </Row>
+                <Row label="Sign-in email" hint="A confirmation goes to the new address.">
+                  {editingEmail ? (
+                    <form noValidate className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void changeEmail(); }}>
+                      <div className="flex h-9 items-center rounded-[8px] border border-cw-border bg-cw-bg-sunken px-3 font-mono text-[13.5px] text-cw-text-body">{email}</div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="min-w-[220px] flex-1"><TextInput mono autoFocus type="email" autoComplete="email" value={newEmail} onChange={(e) => { setNewEmail(e.target.value); setEmailError(null); }} placeholder="New address" aria-label="New sign-in email" invalid={Boolean(emailError)} /></span>
+                        <Button variant="quiet" onClick={() => { setEditingEmail(false); setNewEmail(""); setEmailError(null); }}>Cancel</Button>
+                        {newEmail.trim() && <Button type="submit" variant="primary" loading={emailSaving} loadingLabel="Sending…">Send confirmation</Button>}
+                      </div>
+                      {emailError && <p role="alert" className="m-0 text-[13px] text-cw-danger-text">{emailError}</p>}
+                    </form>
+                  ) : (
+                    <div className="flex flex-col gap-2.5">
+                      <div className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate font-mono text-[14px] text-cw-text">{email}</span><Button size="sm" onClick={() => setEditingEmail(true)}>Change</Button></div>
+                      {pendingEmail && (
+                        <Callout tone="info" icon="mail" title={<>Waiting for you to confirm <span className="font-mono">{pendingEmail}</span></>}>
+                          Open the link we sent there. Until then you sign in with <span className="font-mono">{email}</span>. If the confirmation asks for both addresses, confirm from both inboxes.
+                        </Callout>
+                      )}
+                    </div>
+                  )}
+                </Row>
+                <Row label="Password">
+                  {pwOpen ? (
+                    <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void changePassword(); }}>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="min-w-[220px] flex-1"><TextInput autoFocus type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => { setCurrentPassword(e.target.value); setPwError(null); }} placeholder="Current password" aria-label="Current password" invalid={Boolean(pwError)} /></span>
+                        <Button variant="quiet" onClick={() => { setPwOpen(false); setCurrentPassword(""); setPwError(null); }}>Cancel</Button>
+                        {currentPassword && <Button type="submit" variant="primary" loading={pwSaving} loadingLabel="Checking…">Check and send the link</Button>}
+                      </div>
+                      {pwError && <p role="alert" className="m-0 text-[13px] text-cw-danger-text">{pwError}</p>}
+                    </form>
+                  ) : (
+                    <div className="flex flex-col gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2"><span className="min-w-0 flex-1 text-[13.5px] text-cw-text-body">We check your current password, then email you a secure link to set a new one.</span><Button size="sm" onClick={() => { setPwOpen(true); setPwSentTo(null); }}>Change password</Button></div>
+                      {pwSentTo && <Callout tone="success" icon="mail" title="Check your email">We sent a link to <span className="font-mono">{pwSentTo}</span>. It opens a page where you choose the new password.</Callout>}
+                    </div>
+                  )}
+                </Row>
+                <Row label="Role">
+                  <span className="text-[13.5px] text-cw-text-body">{roleKnown ? ROLE_TEXT[roleKey] : "…"} — set by an admin in Admin → Users.</span>
+                </Row>
+                <Row label="User ID" last>
+                  <div className="flex items-center gap-1.5"><span className="min-w-0 truncate font-mono text-[13px] text-cw-text-body">{userId}</span>
+                    <IconButton icon="copy" label="Copy your user ID" size="sm" onClick={() => { void navigator.clipboard?.writeText(userId).then(() => toast.show({ tone: "info", title: "User ID copied" })).catch(() => {}); }} /></div>
+                </Row>
+              </Card>
+              <section aria-label="Sign out" className="flex flex-wrap items-center gap-4 rounded-[14px] border border-cw-border bg-cw-bg-surface px-6 py-[18px] shadow-cw-1">
+                <div className="min-w-[220px] flex-1"><div className="text-[14px] font-semibold text-cw-text">Sign out</div><div className="mt-0.5 text-[12.5px] text-cw-text-muted">Ends this session. Your theme and dashboard layout stay with your account.</div></div>
+                <Button variant="danger-quiet" icon="log-out" className="border border-cw-danger-border" onClick={() => void signOut()}>Sign out</Button>
+              </section>
+            </>
+          )}
       </div>
     </PortalShell>
   );

@@ -1,14 +1,16 @@
 "use client";
 
-// The developer inbox — the mini app's triage logic rebuilt for a desk: three
-// panes, both inbox groups with identical chips, the auto-collected context as
-// one horizontal strip, quick actions in the thread header, saved replies as a
-// keyboard popover (↑↓ move, ⏎ insert, ⇧⏎ insert + set the status), and
-// J/K/E/⌘⏎ shortcuts. Both this and the mini app read and write the same
-// thread — a reply sent here appears in Telegram as your own message.
+// Developer → Inbox (portal redesign, stage 3 — "Page Inbox"): the mini app's triage logic rebuilt for a desk. The
+// list is grouped — waiting on you (urgent, a chat asking for you now, unread, or never touched), open, done — and
+// filtered by Unread / All, status and type. The thread shows its status, where it was sent from, the auto-collected
+// context as one strip, the conversation, and a reply composer with attachments, code fences and saved replies (a
+// keyboard popover: ↑↓ move, ⏎ insert, ⇧⏎ insert and set the status). J/K/E/⌘⏎ shortcuts. Both this and the mini
+// app read and write the same thread — a reply sent here appears in Telegram as your own message.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
+import MaskIcon from "@/components/portal/Icon";
+import { Button, EmptyState, ErrorState, IconButton, Kbd, Menu, NoMatchState, Segmented, Select, SkeletonRows, TextInput, errorDetail, useToast } from "@/components/kit";
 import BlockRenderer, { type AttachmentMeta } from "@/components/help/BlockRenderer";
 import { StatusChip, TypeChip } from "@/components/help/chips";
 import {
@@ -50,7 +52,8 @@ export default function DeveloperInbox() {
   const [filter, setFilter] = useState<"unread" | "all">("all");
   const [statusFilter, setStatusFilter] = useState<HelpStatus | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
-  const [openDropdown, setOpenDropdown] = useState<"status" | "type" | "setstatus" | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const toast = useToast();
   const [reasonDraft, setReasonDraft] = useState<string | null>(null); // non-null = collecting Impossible reason
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
@@ -65,9 +68,12 @@ export default function DeveloperInbox() {
 
   const loadList = useCallback(() => {
     fetch("/api/help/inbox", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setThreads(d.threads || []))
-      .catch(() => setThreads([]));
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(errorDetail(r.status, "GET", "/api/help/inbox") + (d?.error ? ` · ${d.error}` : ""));
+        setThreads(d.threads || []); setListError(null);
+      })
+      .catch((e) => setListError((prev) => (e instanceof Error ? e.message : prev ?? errorDetail("network", "GET", "/api/help/inbox"))));
   }, []);
 
   const loadDetail = useCallback((id: string) => {
@@ -103,9 +109,13 @@ export default function DeveloperInbox() {
     return list;
   }, [threads, filter, statusFilter, typeFilter]);
 
-  const urgentGroup = filtered.filter(needsYouNow);
-  const waitingGroup = filtered.filter((t) => !needsYouNow(t));
-  const ordered = [...urgentGroup, ...waitingGroup];
+  // Waiting on you: open, and urgent, a chat asking for you now, unread, or never touched. Open: the rest not done.
+  const isDone = (t: ThreadWithMeta) => t.status === "done" || t.status === "impossible";
+  const waitingOnYou = (t: ThreadWithMeta) => !isDone(t) && (needsYouNow(t) || t.unread > 0 || t.status === "untouched");
+  const waitingGroup = [...filtered.filter(waitingOnYou)].sort((a, b) => Number(needsYouNow(b)) - Number(needsYouNow(a)));
+  const openGroup = filtered.filter((t) => !isDone(t) && !waitingOnYou(t));
+  const doneGroup = filtered.filter(isDone);
+  const ordered = [...waitingGroup, ...openGroup, ...doneGroup];
   const unreadCount = (threads || []).filter((t) => t.unread > 0).length;
   const openCount = (threads || []).filter((t) => t.status === "untouched" || t.status === "under_process").length;
 
@@ -137,15 +147,14 @@ export default function DeveloperInbox() {
   async function setStatus(status: HelpStatus, reason?: string) {
     const id = selectedIdRef.current;
     if (!id) return;
-    if (status === "impossible" && !reason) { setReasonDraft(""); setOpenDropdown(null); return; }
+    if (status === "impossible" && !reason) { setReasonDraft(""); return; }
     try {
       await helpApi.setStatus(id, status, reason);
       setReasonDraft(null);
-      setOpenDropdown(null);
       loadDetail(id);
       loadList();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed");
+      toast.show({ tone: "danger", title: "Couldn't change the status", body: error instanceof Error ? error.message : undefined });
     }
   }
 
@@ -176,7 +185,7 @@ export default function DeveloperInbox() {
       loadDetail(id);
       loadList();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Send failed");
+      toast.show({ tone: "danger", title: "Couldn't send the reply", body: error instanceof Error ? error.message : undefined, action: { label: "Retry", onClick: () => void send() } });
     } finally {
       setSending(false);
     }
@@ -223,414 +232,218 @@ export default function DeveloperInbox() {
   const t = detail?.thread;
   const statusMeta = t ? HELP_STATUS_META[t.status] : null;
 
-  const row = (r: ThreadWithMeta, urgentRow: boolean) => (
-    <button
-      key={r.id}
-      onClick={() => setSelectedId(r.id)}
-      className="flex w-full cursor-pointer gap-[11px] border-x-0 border-b border-t-0 border-solid border-cw-divider px-[18px] py-3 text-left"
-      style={{
-        background: r.id === selectedId ? "var(--cw-primary-tint)" : urgentRow ? (r.type === "urgent" ? "var(--cw-danger-tint)" : "var(--cw-success-tint)") : "var(--cw-bg-surface)",
-      }}
-    >
-      <span
-        className="flex h-8 w-8 flex-none items-center justify-center rounded-full font-mono text-[11px] font-bold"
-        style={{
-          background: r.type === "urgent" ? "var(--cw-danger-tint)" : r.type === "chat" ? "var(--cw-success-tint)" : r.unread ? "var(--cw-primary-tint)" : "var(--cw-bg-sunken)",
-          color: r.type === "urgent" ? "var(--cw-danger-text)" : r.type === "chat" ? "var(--cw-success-text)" : r.unread ? "var(--cw-text-link)" : "var(--cw-text-muted)",
-        }}
-      >
-        {initialsOf(r.userName || r.userEmail || "??")}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="flex items-center gap-[7px]">
-          <span className="text-[13.5px] text-cw-text" style={{ fontWeight: r.unread ? 700 : 500 }}>
-            {r.userName || r.userEmail || "Ops"}
+  const row = (r: ThreadWithMeta, waiting: boolean) => {
+    const on = r.id === selectedId;
+    const urgentNow = needsYouNow(r);
+    return (
+      <button key={r.id} type="button" onClick={() => setSelectedId(r.id)} aria-current={on ? "true" : undefined}
+        className={`flex w-full cursor-pointer gap-3 border-x-0 border-b border-t-0 border-solid border-cw-divider px-4 py-3 text-left font-sans outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--cw-focus)] ${on ? "bg-cw-bg-selected shadow-[inset_3px_0_0_var(--cw-primary)]" : "bg-transparent hover:bg-cw-bg-hover"}`}>
+        <span aria-hidden className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full border border-cw-border bg-cw-bg-sunken text-[11px] font-bold text-cw-text-body">
+          {initialsOf(r.userName || r.userEmail || "??")}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+          <span className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-[13.5px] text-cw-text" style={{ fontWeight: r.unread ? 700 : 500 }}>{r.userName || r.userEmail || "Ops"}</span>
+            <span className={`font-mono text-[11.5px] ${urgentNow ? "font-bold text-cw-danger-text" : "text-cw-text-muted"}`}>{urgentNow ? `waiting ${ageOf(r.lastMessageAt)}` : ageOf(r.lastMessageAt)}</span>
           </span>
-          <TypeChip type={r.type} size={18} />
-          <span
-            className="ml-auto font-mono text-[11px]"
-            style={urgentRow ? { color: "var(--cw-danger-text)", fontWeight: 700 } : { color: "var(--cw-text-muted)" }}
-          >
-            {urgentRow ? `waiting ${ageOf(r.lastMessageAt)}` : ageOf(r.lastMessageAt)}
+          <span className="truncate text-[13.5px] text-cw-text" style={{ fontWeight: r.unread ? 700 : 500 }}>{r.title || r.preview}</span>
+          <span className="mt-0.5 flex items-center gap-1.5">
+            <TypeChip type={r.type} size={18} />
+            {!waiting && <StatusChip status={r.status} size={18} />}
+            <span className="min-w-0 truncate font-mono text-[11.5px] text-cw-text-muted">{r.type === "chat" && urgentNow ? "wants to chat now" : String(r.context?.page || HELP_TYPE_META[r.type].label.toLowerCase())}</span>
+            {r.unread > 0 && <span aria-label="Unread" className={`ml-auto h-2 w-2 flex-none rounded-full ${urgentNow ? "bg-cw-danger" : "bg-cw-primary"}`} />}
           </span>
         </span>
-        <span className="truncate text-[13px] leading-[1.4]" style={{ color: r.unread ? "var(--cw-text-body)" : "var(--cw-text-muted)" }}>
-          {r.preview}
-        </span>
-        <span className="flex items-center gap-[7px]">
-          <StatusChip status={r.status} size={17} />
-          <span className="truncate font-mono text-[10.5px] text-cw-text-muted">
-            {r.type === "chat" && urgentRow ? "wants to chat now" : String(r.context?.page || HELP_TYPE_META[r.type].label.toLowerCase())}
-          </span>
-          {r.unread > 0 && <span className="ml-auto h-2 w-2 flex-none rounded-full" style={{ background: urgentRow ? "var(--cw-danger-solid)" : "var(--cw-primary)" }} />}
-        </span>
-      </span>
-    </button>
+      </button>
+    );
+  };
+  const group = (label: string, list: ThreadWithMeta[], waiting = false) => list.length > 0 && (
+    <div key={label} role="group" aria-label={label}>
+      <div className="flex gap-2 px-4 pb-1.5 pt-3.5 text-[10.5px] font-bold tracking-[0.12em] text-cw-text-muted">{label.toUpperCase()}<span className="font-mono">{list.length}</span></div>
+      {list.map((r) => row(r, waiting))}
+    </div>
   );
+  const filtering = filter === "unread" || statusFilter !== null || typeFilter !== null;
 
   return (
-    <PortalShell crumb="Developer" title="" wide footer={false}>
-      <div className="flex h-[calc(100dvh-var(--cw-topbar))] overflow-hidden">
-        {/* list pane */}
-        <div className="flex w-[372px] flex-none flex-col border-r border-cw-border bg-cw-bg-surface">
-          <div className="flex flex-none flex-col gap-3 border-b border-cw-border px-[18px] pb-3 pt-4">
-            <div className="flex items-center gap-2.5">
-              <div className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[18px] font-extrabold tracking-[-0.015em] text-cw-text">Inbox</span>
-                <span className="text-[12px] text-cw-text-muted">
-                  {threads ? `${openCount} open · ${unreadCount} unread · ${urgentGroup.length} waiting on you` : "loading…"}
-                </span>
-              </div>
+    <PortalShell crumb="Developer" title="Inbox"
+      subtitle={`Bug reports, help threads and chats sent to developers.${threads ? ` ${openCount} open · ${unreadCount} unread · ${waitingGroup.length} waiting on you.` : ""}`}
+      headerRight={<span className="cw-wide-only font-mono text-[12px] text-cw-text-muted">J / K move · E mark done · ⌘↵ send</span>}>
+      <div style={{ padding: "0 var(--cw-page-pad) 32px" }}>
+        <div className="grid overflow-hidden rounded-[14px] border border-cw-border bg-cw-bg-surface shadow-cw-1 min-[900px]:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]" style={{ height: "max(600px, calc(100dvh - var(--cw-topbar) - 170px))" }}>
+          {/* list */}
+          <div className="flex min-h-0 min-w-0 flex-col border-b border-cw-border min-[900px]:border-b-0 min-[900px]:border-r">
+            <div className="flex flex-none flex-wrap items-center gap-1.5 border-b border-cw-divider p-3">
+              <Segmented size="sm" label="Show" value={filter} onChange={setFilter} options={[{ value: "unread", label: <>Unread{unreadCount > 0 && <span className="ml-1.5 font-mono text-[11px]">{unreadCount}</span>}</> }, { value: "all", label: "All" }]} />
+              <span className="w-[108px]"><Select size="sm" label="Status" value={statusFilter ?? "any"} onChange={(v) => setStatusFilter(v === "any" ? null : (v as HelpStatus))}
+                options={[{ value: "any", label: "Status" }, ...HELP_STATUSES.map((s) => ({ value: s, label: HELP_STATUS_META[s].label }))]} /></span>
+              <span className="w-[100px]"><Select size="sm" label="Type" value={typeFilter ?? "any"} onChange={(v) => setTypeFilter(v === "any" ? null : v)}
+                options={[{ value: "any", label: "Type" }, ...Object.keys(HELP_TYPE_META).map((k) => ({ value: k, label: HELP_TYPE_META[k as keyof typeof HELP_TYPE_META].label }))]} /></span>
             </div>
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => setFilter("unread")}
-                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[9px] border-none px-3 text-[13px] font-semibold"
-                style={filter === "unread" ? { background: "var(--cw-ink)", color: "var(--cw-on-ink)" } : { background: "var(--cw-bg-sunken)", border: "1px solid var(--cw-border)", color: "var(--cw-text-body)" }}
-              >
-                Unread
-                {unreadCount > 0 && (
-                  <span className="rounded-[8px] px-[5px] font-mono text-[10px] font-bold" style={filter === "unread" ? { background: "color-mix(in srgb, var(--cw-text-on-primary) 22%, transparent)" } : { background: "var(--cw-border)" }}>
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => { setFilter("all"); setStatusFilter(null); setTypeFilter(null); }}
-                className="inline-flex h-9 cursor-pointer items-center rounded-[9px] px-3 text-[13px] font-semibold"
-                style={filter === "all" && !statusFilter && !typeFilter ? { background: "var(--cw-ink)", color: "var(--cw-on-ink)", border: "none" } : { background: "var(--cw-bg-sunken)", border: "1px solid var(--cw-border)", color: "var(--cw-text-body)" }}
-              >
-                All
-              </button>
-              {(["status", "type"] as const).map((which) => (
-                <div key={which} className="relative">
-                  <button
-                    onClick={() => setOpenDropdown(openDropdown === which ? null : which)}
-                    className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-[9px] border border-cw-border bg-cw-bg-sidebar px-3 text-[13px] text-cw-text-body"
-                  >
-                    {which === "status" ? (statusFilter ? HELP_STATUS_META[statusFilter].label : "Status") : typeFilter ? HELP_TYPE_META[typeFilter as keyof typeof HELP_TYPE_META].label : "Type"} ▾
-                  </button>
-                  {openDropdown === which && (
-                    <div className="absolute left-0 top-full z-30 mt-1 w-[170px] rounded-[10px] border border-cw-border bg-cw-bg-surface p-1 shadow-cw-2">
-                      <button onClick={() => { (which === "status" ? setStatusFilter : setTypeFilter)(null); setOpenDropdown(null); }} className="block w-full cursor-pointer rounded-[7px] border-none bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-cw-text-muted hover:bg-cw-bg-page">
-                        Any
-                      </button>
-                      {(which === "status" ? HELP_STATUSES : Object.keys(HELP_TYPE_META)).map((v) => (
-                        <button
-                          key={v}
-                          onClick={() => { if (which === "status") setStatusFilter(v as HelpStatus); else setTypeFilter(v); setOpenDropdown(null); }}
-                          className="block w-full cursor-pointer rounded-[7px] border-none bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-cw-text-body hover:bg-cw-bg-page"
-                        >
-                          {which === "status" ? HELP_STATUS_META[v as HelpStatus].label : HELP_TYPE_META[v as keyof typeof HELP_TYPE_META].label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {threads === null &&
-              [0, 1, 2].map((i) => (
-                <div key={i} className="flex flex-col gap-2 border-b border-cw-divider px-[18px] py-3">
-                  <div className="h-3 w-[120px] rounded bg-cw-bg-hover" />
-                  <div className="h-3 w-full rounded bg-cw-bg-sidebar" />
-                </div>
-              ))}
-            {threads !== null && ordered.length === 0 && (
-              <div className="px-[18px] py-8 text-center text-[13px] text-cw-text-muted">Nothing here — inbox zero.</div>
-            )}
-            {urgentGroup.length > 0 && (
-              <div className="flex items-center gap-2 px-[18px] pb-1.5 pt-[9px]">
-                <span className="font-mono text-[9.5px] font-bold tracking-[0.1em] text-cw-danger-text">NEEDS YOU NOW</span>
-                <span className="h-px flex-1 bg-cw-bg-hover" />
-              </div>
-            )}
-            {urgentGroup.map((r) => row(r, true))}
-            {waitingGroup.length > 0 && (
-              <div className="flex items-center gap-2 px-[18px] pb-1.5 pt-2.5">
-                <span className="font-mono text-[9.5px] font-bold tracking-[0.1em] text-cw-text-muted">WAITING</span>
-                <span className="h-px flex-1 bg-cw-bg-hover" />
-              </div>
-            )}
-            {waitingGroup.map((r) => row(r, false))}
-          </div>
-
-          <div className="flex flex-none items-center gap-2.5 border-t border-cw-border bg-cw-bg-page px-[18px] py-2.5">
-            <span className="flex-1 font-mono text-[10.5px] text-cw-text-muted">J / K to move · E to mark done · ⌘⏎ to send</span>
-          </div>
-        </div>
-
-        {/* thread pane */}
-        <div className="relative flex min-w-0 flex-1 flex-col bg-cw-bg-page">
-          {!t && (
-            <div className="flex flex-1 items-center justify-center text-[13.5px] text-cw-text-muted">
-              {threads?.length ? "Select a conversation — J/K walks the list." : "Reports and chats from ops appear here."}
-            </div>
-          )}
-          {t && statusMeta && detail && (
-            <>
-              <div className="flex flex-none items-center gap-3 border-b border-cw-border bg-cw-bg-surface px-[22px] py-[13px]">
-                <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                  <div className="flex items-center gap-[9px]">
-                    <span className="truncate text-[16px] font-extrabold tracking-[-0.015em] text-cw-text">{t.title}</span>
-                    <TypeChip type={t.type} size={20} />
-                  </div>
-                  <span className="truncate font-mono text-[11px] text-cw-text-muted">
-                    {t.reference} · {t.userName || t.userEmail} · {String(t.context.role || "ops")} · filed {utcTime(t.createdAt)}
-                  </span>
-                </div>
-                <div className="relative">
-                  <button
-                    onClick={() => setOpenDropdown(openDropdown === "setstatus" ? null : "setstatus")}
-                    className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[9px] border px-3 font-mono text-[10.5px] font-extrabold tracking-[0.06em]"
-                    style={{ background: statusMeta.bg, borderColor: statusMeta.border, color: statusMeta.color }}
-                  >
-                    {statusMeta.chip} <span style={{ fontSize: 10, opacity: 0.6 }}>▾</span>
-                  </button>
-                  {openDropdown === "setstatus" && (
-                    <div className="absolute right-0 top-full z-30 mt-1 w-[190px] rounded-[10px] border border-cw-border bg-cw-bg-surface p-1 shadow-cw-2">
-                      {HELP_STATUSES.map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => void setStatus(s)}
-                          className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] border-none bg-transparent px-2.5 py-2 text-left hover:bg-cw-bg-page"
-                        >
-                          <span className="h-2 w-2 rounded-full" style={{ background: HELP_STATUS_META[s].dot }} />
-                          <span className="text-[12.5px] font-semibold text-cw-text-body">{HELP_STATUS_META[s].label}</span>
-                          {s === "impossible" && <span className="ml-auto text-[10.5px] text-cw-text-muted">needs a reason</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {helpThreadHasPresence(t.type) && t.presence !== "present" && (
-                  <button
-                    onClick={() => helpApi.presence(t.id, "join").then(() => loadDetail(t.id)).catch(() => {})}
-                    className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border border-cw-border bg-cw-bg-surface px-[13px] text-[13px] font-semibold text-cw-text-body"
-                  >
-                    Go live
-                  </button>
-                )}
-                {helpThreadHasPresence(t.type) && t.presence === "present" && (
-                  <button
-                    onClick={() => helpApi.presence(t.id, "close").then(() => { loadDetail(t.id); loadList(); }).catch(() => {})}
-                    className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border border-cw-border bg-cw-bg-surface px-[13px] text-[13px] font-semibold text-cw-text-body"
-                  >
-                    End chat
-                  </button>
-                )}
-                <button
-                  onClick={() => void setStatus("done")}
-                  className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-success px-[13px] text-[13px] font-bold text-cw-text-on-primary"
-                >
-                  Mark done
-                </button>
-              </div>
-
-              {reasonDraft !== null && (
-                <div className="flex flex-none items-center gap-2.5 border-b border-cw-danger-border bg-cw-danger-tint px-[22px] py-2.5">
-                  <span className="text-[12.5px] font-bold text-cw-danger-text">Impossible needs a written reason:</span>
-                  <input
-                    autoFocus
-                    value={reasonDraft}
-                    onChange={(e) => setReasonDraft(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && reasonDraft.trim().length >= 5 && void setStatus("impossible", reasonDraft.trim())}
-                    placeholder="Why it cannot be done — ops will see this"
-                    className="h-8 flex-1 rounded-[8px] border border-cw-danger-border bg-cw-bg-surface px-2.5 text-[12.5px] outline-none"
-                  />
-                  <button
-                    onClick={() => reasonDraft.trim().length >= 5 && void setStatus("impossible", reasonDraft.trim())}
-                    className="h-8 cursor-pointer rounded-[8px] border-none bg-cw-danger-solid px-3 text-[12.5px] font-bold text-cw-text-on-primary"
-                    style={{ opacity: reasonDraft.trim().length >= 5 ? 1 : 0.5 }}
-                  >
-                    Save
-                  </button>
-                  <button onClick={() => setReasonDraft(null)} className="h-8 cursor-pointer rounded-[8px] border border-cw-danger-border bg-cw-bg-surface px-3 text-[12.5px] font-bold text-cw-danger-text">Cancel</button>
-                </div>
+            <div className="min-h-0 flex-1 overflow-y-auto" aria-label="Threads">
+              {threads === null ? (
+                listError ? <ErrorState title="Couldn't load the inbox" detail={listError} onRetry={loadList} /> : <SkeletonRows rows={6} label="Loading the inbox" />
+              ) : ordered.length === 0 ? (
+                filtering ? <NoMatchState title="Nothing matches these filters" onClear={() => { setFilter("all"); setStatusFilter(null); setTypeFilter(null); }}>{(threads?.length ?? 0)} {threads?.length === 1 ? "thread is" : "threads are"} hidden.</NoMatchState>
+                  : <EmptyState icon="inbox" title="Nothing waiting">New bug reports, help threads and chats land here as they arrive.</EmptyState>
+              ) : (
+                <>
+                  {group("Waiting on you", waitingGroup, true)}
+                  {group("Open", openGroup)}
+                  {group("Done", doneGroup)}
+                </>
               )}
+            </div>
+          </div>
 
-              <div className="flex flex-1 flex-col gap-[13px] overflow-y-auto px-[22px] py-[18px]">
-                {/* auto-collected: one horizontal strip, first thing on screen */}
-                <div className="flex items-start gap-[18px] rounded-[12px] border border-cw-border bg-cw-bg-surface px-[15px] py-3">
-                  <div className="flex flex-none items-center gap-2 pt-0.5">
-                    <span className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-cw-bg-hover text-[11px] text-cw-text-muted">⚙</span>
-                    <span className="font-mono text-[9.5px] font-bold tracking-[0.09em] text-cw-text-muted">AUTO-COLLECTED</span>
+          {/* thread */}
+          <div className="relative flex min-h-0 min-w-0 flex-col">
+            {!t && (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-cw-text-muted">
+                <MaskIcon name="mail-open" size={22} />
+                <div className="text-[14px]">{threads?.length ? "Select a conversation." : "Inbox is clear."}</div>
+                {threads?.length ? <div className="font-mono text-[12px]">J / K walks the list</div> : null}
+              </div>
+            )}
+            {t && statusMeta && detail && (
+              <>
+                <div className="flex flex-none flex-wrap items-start gap-4 border-b border-cw-divider px-6 py-[18px]">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <TypeChip type={t.type} size={20} />
+                      <StatusChip status={t.status} size={20} />
+                      <span className="font-mono text-[12px] text-cw-text-muted">{t.reference}</span>
+                    </div>
+                    <h2 className="m-0 mt-2 text-[18px] font-extrabold tracking-[-0.01em] text-cw-text">{t.title}</h2>
+                    <div className="mt-1 text-[13px] text-cw-text-muted">
+                      {t.userName || t.userEmail}{t.context.page ? <> · from <span className="font-mono">{String(t.context.page)}</span></> : null} · {String(t.context.role || "ops")} · <span className="font-mono">{utcTime(t.createdAt)}</span>
+                    </div>
                   </div>
-                  <div className="flex min-w-0 flex-1 flex-wrap gap-x-[22px] gap-y-2.5">
-                    {HELP_CONTEXT_ORDER.map(({ key, label }) => {
-                      const value = String(t.context[key] || "—");
-                      return (
-                        <div key={key} className="flex flex-none flex-col gap-px">
-                          <span className="font-mono text-[8.5px] font-bold tracking-[0.08em] text-cw-text-muted">{label}</span>
-                          <span className="whitespace-nowrap font-mono text-[11.5px] font-semibold" style={{ color: helpContextFieldIsRed(key, value) ? "var(--cw-danger-text)" : "var(--cw-text)" }}>
-                            {value}
-                          </span>
-                        </div>
-                      );
-                    })}
+                  <div className="flex flex-none flex-wrap items-center gap-2">
+                    {helpThreadHasPresence(t.type) && t.presence !== "present" && <Button size="sm" onClick={() => helpApi.presence(t.id, "join").then(() => loadDetail(t.id)).catch(() => {})}>Go live</Button>}
+                    {helpThreadHasPresence(t.type) && t.presence === "present" && <Button size="sm" onClick={() => helpApi.presence(t.id, "close").then(() => { loadDetail(t.id); loadList(); }).catch(() => {})}>End chat</Button>}
+                    <Menu label="Set status" buttonLabel={<>Status: {statusMeta.label}</>} align="end"
+                      items={HELP_STATUSES.map((s) => ({ id: s, label: <>{HELP_STATUS_META[s].label}{s === "impossible" && <span className="ml-auto pl-3 text-[11.5px] text-cw-text-muted">needs a reason</span>}</>, text: HELP_STATUS_META[s].label, onSelect: () => void setStatus(s) }))} />
+                    {t.status !== "done" && <Button size="sm" icon="check" onClick={() => void setStatus("done")}>Mark done <Kbd>E</Kbd></Button>}
                   </div>
-                  <button
-                    onClick={() =>
-                      navigator.clipboard?.writeText(
-                        HELP_CONTEXT_ORDER.map(({ key, label }) => `${label}: ${t.context[key] || "—"}`).join("\n"),
-                      ).catch(() => {})
-                    }
-                    className="flex-none cursor-pointer border-none bg-transparent text-[12px] font-bold text-cw-text-link"
-                  >
-                    Copy all
-                  </button>
                 </div>
 
-                {timeline.map((item) => {
-                  if (item.kind === "event") {
-                    const e = item.event!;
-                    const p = e.payload as { from?: string; to?: string; reason?: string };
-                    const text =
-                      e.kind === "status_changed"
-                        ? `You set status to ${HELP_STATUS_META[p.to as HelpStatus]?.label || p.to}${p.reason ? ` — ${p.reason}` : ""}`
+                {reasonDraft !== null && (
+                  <div className="flex flex-none flex-wrap items-center gap-2.5 border-b border-cw-danger-border bg-cw-danger-tint px-6 py-2.5">
+                    <span className="text-[13px] font-bold text-cw-danger-text">Impossible needs a written reason:</span>
+                    <span className="min-w-[220px] flex-1"><TextInput autoFocus value={reasonDraft} onChange={(e) => setReasonDraft(e.target.value)} aria-label="Why it can't be done"
+                      onKeyDown={(e) => e.key === "Enter" && reasonDraft.trim().length >= 5 && void setStatus("impossible", reasonDraft.trim())} placeholder="Why it can't be done — ops will see this" /></span>
+                    {reasonDraft.trim().length >= 5 && <Button size="sm" variant="danger" onClick={() => void setStatus("impossible", reasonDraft.trim())}>Save</Button>}
+                    <Button size="sm" variant="quiet" onClick={() => setReasonDraft(null)}>Cancel</Button>
+                  </div>
+                )}
+
+                <div className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-6 py-5">
+                  {/* auto-collected: one horizontal strip, first thing on screen */}
+                  <div className="flex items-start gap-4 rounded-[12px] border border-cw-border bg-cw-bg-sunken px-4 py-3">
+                    <span className="flex-none pt-0.5 text-[10.5px] font-bold tracking-[0.1em] text-cw-text-muted">AUTO-COLLECTED</span>
+                    <div className="flex min-w-0 flex-1 flex-wrap gap-x-5 gap-y-2.5">
+                      {HELP_CONTEXT_ORDER.map(({ key, label }) => {
+                        const value = String(t.context[key] || "—");
+                        return (
+                          <div key={key} className="flex flex-none flex-col">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-cw-text-muted">{label}</span>
+                            <span className={`whitespace-nowrap font-mono text-[12px] font-semibold ${helpContextFieldIsRed(key, value) ? "text-cw-danger-text" : "text-cw-text"}`}>{value}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <Button size="sm" variant="quiet" icon="copy" onClick={() => { void navigator.clipboard?.writeText(HELP_CONTEXT_ORDER.map(({ key, label }) => `${label}: ${t.context[key] || "—"}`).join("\n")).then(() => toast.show({ tone: "info", title: "Context copied" })).catch(() => {}); }}>Copy all</Button>
+                  </div>
+
+                  {timeline.map((item) => {
+                    if (item.kind === "event") {
+                      const e = item.event!;
+                      const p = e.payload as { from?: string; to?: string; reason?: string };
+                      const text =
+                        e.kind === "status_changed" ? <>Status changed to <strong className="font-semibold text-cw-text-body">{HELP_STATUS_META[p.to as HelpStatus]?.label || p.to}</strong>{p.reason ? ` — ${p.reason}` : ""}</>
                         : e.kind === "joined" ? "You joined the chat"
                         : e.kind === "chat_closed" ? "You closed the chat"
                         : e.kind === "nudged" ? "They nudged again"
                         : e.kind === "linked_report" ? "A linked report was filed"
                         : e.kind;
+                      return (
+                        <div key={e.id} className="flex items-center gap-2.5 text-[12px] text-cw-text-muted">
+                          <span className="h-px flex-1 bg-cw-divider" /><span>{text} · <span className="font-mono">{utcTime(e.createdAt)}</span></span><span className="h-px flex-1 bg-cw-divider" />
+                        </div>
+                      );
+                    }
+                    const m = item.msg!;
+                    const mine = m.author === "developer";
                     return (
-                      <div key={e.id} className="flex items-center gap-2.5 pl-[43px]">
-                        <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: e.kind === "status_changed" ? "var(--cw-primary)" : "var(--cw-border-strong)" }} />
-                        <span className="text-[12px] text-cw-text-muted">{text}</span>
-                        <span className="font-mono text-[10.5px] text-cw-text-muted">{utcTime(e.createdAt)}</span>
-                        <span className="h-px flex-1 bg-cw-bg-hover" />
+                      <div key={m.id} className={`flex gap-3 ${mine ? "flex-row-reverse" : ""}`}>
+                        <span aria-hidden className={`flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full text-[11px] font-bold ${mine ? "bg-cw-primary text-cw-text-on-primary" : "border border-cw-border bg-cw-bg-sunken text-cw-text-body"}`}>
+                          {mine ? "ME" : initialsOf(m.authorName || t.userName || t.userEmail || "??")}
+                        </span>
+                        <div className={`flex min-w-0 max-w-[560px] flex-col gap-1.5 ${mine ? "items-end" : "items-start"}`}>
+                          <div className="text-[12px] text-cw-text-muted"><strong className="font-semibold text-cw-text">{mine ? "You" : m.authorName || t.userName || "Ops"}</strong> · <span className="font-mono">{utcTime(m.createdAt)}</span></div>
+                          <div className={`rounded-[12px] border px-3.5 py-2.5 text-[14px] leading-[1.55] text-cw-text ${mine ? "border-cw-primary-tint-border bg-cw-primary-tint" : "border-cw-border bg-cw-bg-sunken"}`}>
+                            <BlockRenderer blocks={m.blocks} attachments={attachmentMap} />
+                          </div>
+                        </div>
                       </div>
                     );
-                  }
-                  const m = item.msg!;
-                  const mine = m.author === "developer";
-                  return (
-                    <div key={m.id} className="flex gap-[11px]">
-                      <span
-                        className="flex h-8 w-8 flex-none items-center justify-center rounded-full font-mono text-[11px] font-bold"
-                        style={mine ? { background: "var(--cw-ink)", color: "var(--cw-on-ink)" } : { background: "var(--cw-primary-tint)", color: "var(--cw-text-link)" }}
-                      >
-                        {mine ? "ME" : initialsOf(m.authorName || t.userName || t.userEmail || "??")}
-                      </span>
-                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                        <div className="flex items-baseline gap-[9px]">
-                          <span className="text-[13px] font-bold text-cw-text">{mine ? "You" : m.authorName || t.userName || "Ops"}</span>
-                          <span className="font-mono text-[10.5px] text-cw-text-muted">{utcTime(m.createdAt)}</span>
-                        </div>
-                        <div
-                          className="max-w-[560px] rounded-[12px] border px-4 py-3.5"
-                          style={mine ? { background: "var(--cw-primary-tint)", borderColor: "var(--cw-primary-tint-border)" } : { background: "var(--cw-bg-surface)", borderColor: "var(--cw-border)" }}
-                        >
-                          <BlockRenderer blocks={m.blocks} attachments={attachmentMap} />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="relative flex flex-none flex-col gap-2.5 border-t border-cw-border bg-cw-bg-surface px-[22px] pb-4 pt-3">
-                <div className="flex flex-col gap-2.5 rounded-[12px] border border-cw-border bg-cw-bg-page px-3.5 py-3">
-                  <textarea
-                    ref={replyRef}
-                    rows={2}
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    onKeyDown={(e) => {
-                      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); void send(); }
-                    }}
-                    placeholder="Reply — plain text; ``` fences make a code block"
-                    className="w-full resize-none border-none bg-transparent p-0 text-[13.5px] leading-[1.55] text-cw-text outline-none placeholder:text-cw-text-placeholder"
-                  />
-                  <AttachmentsPanel atts={atts} compact dropzone={false} />
-                  <div className="flex items-center gap-[9px]">
-                    <AttachButton atts={atts} />
-                    <button onClick={wrapSelectionInCode} title="Wrap selection in a code block" className="flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-cw-bg-surface font-mono text-[12px] font-bold text-cw-text-body">
-                      {"{ }"}
-                    </button>
-                    <span className="relative">
-                    <button
-                      onClick={() => { setRepliesOpen((v) => !v); setReplyIndex(0); }}
-                      className="inline-flex h-9 cursor-pointer items-center gap-[7px] rounded-[9px] border border-cw-primary-tint-border bg-cw-primary-tint px-3 text-[13px] font-bold text-cw-text-link"
-                    >
-                      ⚡ Saved replies
-                    </button>
-                    {repliesOpen && (
-                  <div className="absolute bottom-[calc(100%+8px)] left-0 z-40 w-[360px] overflow-hidden rounded-[13px] border border-cw-border bg-cw-bg-surface shadow-cw-pop">
-                    <div className="flex items-center gap-2 border-b border-cw-divider px-[13px] py-2.5">
-                      <span className="flex-1 text-[12.5px] font-bold text-cw-text">Saved replies</span>
-                      <input
-                        autoFocus
-                        value={replyFilter}
-                        onChange={(e) => { setReplyFilter(e.target.value); setReplyIndex(0); }}
-                        onKeyDown={(e) => {
-                          if (e.key === "ArrowDown") { e.preventDefault(); setReplyIndex((i) => Math.min(i + 1, visibleReplies.length - 1)); }
-                          if (e.key === "ArrowUp") { e.preventDefault(); setReplyIndex((i) => Math.max(i - 1, 0)); }
-                          if (e.key === "Enter" && visibleReplies[replyIndex]) { e.preventDefault(); insertSavedReply(visibleReplies[replyIndex], e.shiftKey); }
-                          if (e.key === "Escape") { e.preventDefault(); setRepliesOpen(false); }
-                        }}
-                        placeholder="type to filter"
-                        className="h-8 w-[140px] rounded-[7px] border border-cw-border bg-cw-bg-page px-2.5 text-[12px] text-cw-text-body outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-0.5 p-1.5">
-                      {visibleReplies.map((r, i) => (
-                        <button
-                          key={r.id}
-                          onMouseEnter={() => setReplyIndex(i)}
-                          onClick={(e) => insertSavedReply(r, e.shiftKey)}
-                          className="flex cursor-pointer items-center gap-2.5 rounded-[9px] px-2.5 py-[9px] text-left"
-                          style={i === replyIndex ? { background: "var(--cw-primary-tint)", border: "1px solid var(--cw-primary-tint-border)" } : { background: "transparent", border: "1px solid transparent" }}
-                        >
-                          <span
-                            className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-[7px] text-[12px]"
-                            style={
-                              r.setsStatus === "under_process" ? { background: "var(--cw-primary-tint)", color: "var(--cw-text-link)" }
-                              : r.setsStatus === "done" ? { background: "var(--cw-success-tint)", color: "var(--cw-success-text)" }
-                              : r.setsStatus === "impossible" ? { background: "var(--cw-danger-tint)", color: "var(--cw-danger-text)" }
-                              : { background: "var(--cw-bg-hover)", color: "var(--cw-text-body)" }
-                            }
-                          >
-                            {r.setsStatus === "under_process" ? "◷" : r.setsStatus === "done" ? "✓" : r.setsStatus === "impossible" ? "✕" : "▣"}
-                          </span>
-                          <span className="flex min-w-0 flex-1 flex-col gap-px">
-                            <span className="text-[12.5px] leading-[1.35] text-cw-text" style={{ fontWeight: i === replyIndex ? 700 : 500 }}>{r.text}</span>
-                            <span className="text-[11px] text-cw-text-muted">
-                              {r.setsStatus ? `sets ${HELP_STATUS_META[r.setsStatus].label} · ` : ""}used {r.useCount}×
-                            </span>
-                          </span>
-                        </button>
-                      ))}
-                      {!visibleReplies.length && <div className="px-2.5 py-3 text-[12px] text-cw-text-muted">No saved reply matches.</div>}
-                      <div className="flex items-center gap-3.5 px-2.5 pb-1 pt-[7px]">
-                        {[["↑↓", "move"], ["⏎", "insert"], ["⇧⏎", "insert + set status"]].map(([k, v]) => (
-                          <span key={k} className="flex items-center gap-1.5">
-                            <span className="rounded-[4px] border border-cw-border bg-cw-bg-sidebar px-[5px] py-px font-mono text-[10px] text-cw-text-muted">{k}</span>
-                            <span className="text-[11px] text-cw-text-muted">{v}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                    </span>
-                    <span className="ml-auto font-mono text-[10.5px] text-cw-text-muted">⌘⏎ to send</span>
-                    <button
-                      onClick={() => void send()}
-                      disabled={sending}
-                      className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-primary px-[15px] text-[13px] font-bold text-cw-text-on-primary"
-                    >
-                      {sending ? "Sending…" : "Send reply"}
-                    </button>
-                  </div>
+                  })}
                 </div>
 
-              </div>
-            </>
-          )}
+                <div className="relative flex-none px-6 pb-[18px] pt-3">
+                  <div className="flex flex-col gap-2.5 rounded-[12px] border border-cw-border-control bg-cw-bg-surface px-3.5 py-3 focus-within:border-cw-focus focus-within:shadow-[0_0_0_3px_var(--cw-focus-halo)]">
+                    <textarea
+                      ref={replyRef}
+                      rows={2}
+                      value={reply}
+                      aria-label={`Reply to ${t.userName || t.userEmail || "ops"}`}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); void send(); } }}
+                      placeholder={`Reply to ${t.userName || t.userEmail || "ops"}… plain text; \`\`\` fences make a code block`}
+                      className="min-h-10 w-full resize-none border-none bg-transparent p-0 font-sans text-[14px] leading-[1.55] text-cw-text outline-none placeholder:text-cw-text-placeholder"
+                    />
+                    <AttachmentsPanel atts={atts} compact dropzone={false} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <AttachButton atts={atts} />
+                      <IconButton icon="code" label="Wrap the selection in a code block" size="sm" bordered onClick={wrapSelectionInCode} />
+                      <span className="relative">
+                        <Button size="sm" icon="zap" aria-expanded={repliesOpen} onClick={() => { setRepliesOpen((v) => !v); setReplyIndex(0); }}>Saved replies</Button>
+                        {repliesOpen && (
+                          <div className="absolute bottom-[calc(100%+8px)] left-0 z-40 w-[360px] overflow-hidden rounded-[12px] border border-cw-border bg-cw-bg-raised shadow-cw-pop">
+                            <div className="flex items-center gap-2 border-b border-cw-divider px-3 py-2.5">
+                              <span className="flex-1 text-[13px] font-bold text-cw-text">Saved replies</span>
+                              <span className="w-[150px]"><TextInput autoFocus value={replyFilter} aria-label="Filter saved replies" placeholder="Type to filter"
+                                onChange={(e) => { setReplyFilter(e.target.value); setReplyIndex(0); }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "ArrowDown") { e.preventDefault(); setReplyIndex((i) => Math.min(i + 1, visibleReplies.length - 1)); }
+                                  if (e.key === "ArrowUp") { e.preventDefault(); setReplyIndex((i) => Math.max(i - 1, 0)); }
+                                  if (e.key === "Enter" && visibleReplies[replyIndex]) { e.preventDefault(); insertSavedReply(visibleReplies[replyIndex], e.shiftKey); }
+                                  if (e.key === "Escape") { e.preventDefault(); setRepliesOpen(false); }
+                                }} className="!h-8 !text-[12.5px]" /></span>
+                            </div>
+                            <div className="flex max-h-[320px] flex-col gap-0.5 overflow-y-auto p-1.5" role="listbox" aria-label="Saved replies">
+                              {visibleReplies.map((r, i) => (
+                                <button key={r.id} type="button" role="option" aria-selected={i === replyIndex} onMouseEnter={() => setReplyIndex(i)} onClick={(e) => insertSavedReply(r, e.shiftKey)}
+                                  className={`flex cursor-pointer flex-col gap-0.5 rounded-[8px] border px-2.5 py-2 text-left font-sans ${i === replyIndex ? "border-cw-primary-tint-border bg-cw-bg-selected" : "border-transparent bg-transparent"}`}>
+                                  <span className="text-[13px] leading-[1.4] text-cw-text" style={{ fontWeight: i === replyIndex ? 600 : 500 }}>{r.text}</span>
+                                  <span className="text-[11.5px] text-cw-text-muted">{r.setsStatus ? `sets ${HELP_STATUS_META[r.setsStatus].label} · ` : ""}used {r.useCount}×</span>
+                                </button>
+                              ))}
+                              {!visibleReplies.length && <div className="px-2.5 py-3 text-[12.5px] text-cw-text-muted">No saved reply matches.</div>}
+                              <div className="flex flex-wrap items-center gap-3 px-2.5 pb-1 pt-1.5 text-[11.5px] text-cw-text-muted"><span><Kbd>↑↓</Kbd> move</span><span><Kbd>↵</Kbd> insert</span><span><Kbd>⇧↵</Kbd> insert and set the status</span></div>
+                            </div>
+                          </div>
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[12px] text-cw-text-muted">They see your reply in Help &amp; support.</span>
+                      <Button size="sm" variant="primary" loading={sending} loadingLabel="Sending…" onClick={() => void send()}>Send <span className="font-mono text-[11px] font-medium opacity-80">⌘↵</span></Button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </PortalShell>

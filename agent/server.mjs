@@ -575,7 +575,7 @@ async function handleRequest(req, res) {
     if (pathname === "/api/extension/sites/decide" && req.method === "POST") {
       await assertMayUseAgent(user);
       const body = await readJsonBody(req);
-      return sendJson(res, { ok: true, request: await decideRequest({ admin: user, id: body.id, decision: body.decision, note: body.note }) });
+      return sendJson(res, { ok: true, request: await decideRequest({ admin: user, id: body.id, decision: body.decision, note: body.note, includeSubdomains: body.includeSubdomains }) });
     }
     if (pathname === "/api/extension/sites/revoke" && req.method === "POST") {
       await assertMayUseAgent(user);

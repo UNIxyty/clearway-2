@@ -224,8 +224,11 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
                 <SuggestedQuestions items={empty.items} onAsk={(q) => void t.send(q, { command: q.startsWith("/") ? q.split(" ")[0] : null })} />
                 {empty.recent && empty.recent.length > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted }}>PICK UP WHERE YOU LEFT OFF</span>
-                    {empty.recent.map((r) => <button key={r.id} type="button" onClick={() => void t.openConversation(r.id)} className="ag-row-hover ag-focus" style={{ display: "flex", justifyContent: "space-between", gap: 10, fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: cw.text, background: "transparent", border: "none", borderRadius: 8, padding: "7px 8px", cursor: "pointer", textAlign: "left" }}><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</span><span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>{hmZ(r.at)}</span></button>)}
+                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ flex: 1, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted }}>RECENT THREADS</span>
+                      <button type="button" onClick={() => { setView("history"); if (!t.conversations) void t.loadHistory(); }} className="ag-focus" style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: cw.textLink, background: "transparent", border: "none", borderRadius: 4, padding: 0, cursor: "pointer" }}>All threads</button>
+                    </span>
+                    {empty.recent.map((r) => <button key={r.id} type="button" onClick={() => void t.openConversation(r.id)} className="ag-row-hover ag-focus" style={{ display: "flex", justifyContent: "space-between", gap: 10, fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: cw.text, background: "transparent", border: "none", borderRadius: 8, padding: "7px 8px", cursor: "pointer", textAlign: "left" }}><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</span><span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted, flex: "none" }}>{recentWhen(r.at)}</span></button>)}
                   </div>
                 )}
               </div>
@@ -247,6 +250,15 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
       </aside>
     </>
   );
+}
+
+/** A recent thread's time: "14:22Z" today, "11 Oct" this year, "11 Oct 2025" before (UTC). */
+function recentWhen(iso: string) {
+  const d = new Date(iso); if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  if (d.toISOString().slice(0, 10) === now.toISOString().slice(0, 10)) return hmZ(iso);
+  const day = `${String(d.getUTCDate()).padStart(2, "0")} ${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}`;
+  return d.getUTCFullYear() === now.getUTCFullYear() ? day : `${day} ${d.getUTCFullYear()}`;
 }
 
 /** History in the panel (§6.10): ABOUT {record} → TODAY · ELSEWHERE → YESTERDAY → older. */

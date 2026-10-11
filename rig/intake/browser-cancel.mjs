@@ -1,7 +1,10 @@
 // The cancellation on screen, after rig/intake/e2e-cancel.mjs: the intake page's Cancellation panel (an open question
 // with its two answers; a partial failure in red; a departed leg) and the one-tap answer page for "Cancel in Leon?".
 // Production build via the proxy.   node --env-file=.env.rig rig/intake/browser-cancel.mjs  → rig/.scratch/shots/cancel-*.png
+// Its data comes from rig/intake/e2e-cancel.mjs. Other intake suites truncate the intake tables, so when the three
+// scheduled requests are not on the rig the check runs e2e-cancel itself first (mock Leon and mock Resend only).
 import { chromium } from "playwright";
+import { execFileSync } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
 import { writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
@@ -22,10 +25,19 @@ async function deliver(file) {
 // The provider sends its cancellation of 2612398's sister flight again: a fresh question to look at (2614050 was
 // already cancelled in Leon by hand in the e2e; 2613417 was declined at the gate — use a new copy of B's: 2613613).
 const ref = "2613613", route = "LEBL-EGJJ-LEBL";
+const scheduled = async () => Object.fromEntries((await db("intake_requests?select=id,reference,status_reason&request_type=eq.scheduled")).map((r) => [r.reference, r]));
+const before = await scheduled();
+if (!["2612398", "2612472", ref].every((k) => k in before)) {
+  try { execFileSync(process.execPath, ["rig/intake/e2e-cancel.mjs"], { env: process.env, stdio: "ignore", timeout: 600000 }); } catch { /* judged below */ }
+  const have = await scheduled();
+  ok(["2612398", "2612472", ref].every((k) => k in have), "setup: rig/intake/e2e-cancel.mjs loaded the three scheduled requests (they were not on the rig)", Object.keys(have).join(", "));
+}
 const f = path.resolve(`rig/.scratch/cancel/browser-cancel-${Date.now()}.eml`);
 writeFileSync(f, ["From: EC-ZZZ <ec-zzz@provider.example>", "To: handling@intake.rig.invalid", `Subject: Cancelado: ${route}`, `Message-ID: <cnl-b-${Date.now()}@provider.example>`, "Date: Tue, 06 Oct 2026 09:00:00 +0000", "MIME-Version: 1.0", 'Content-Type: multipart/alternative; boundary="b"', "", "--b", "Content-Type: text/plain; charset=utf-8", "", "La siguiente reunión ha sido cancelada:", "", "--b", 'Content-Type: text/calendar; charset="utf-8"; method=CANCEL', "", "BEGIN:VCALENDAR", "METHOD:CANCEL", "VERSION:2.0", "BEGIN:VEVENT", `UID:RIG-UID-${ref}`, "SEQUENCE:3", "STATUS:CANCELLED", `SUMMARY:${route}`, `DESCRIPTION:#Pax: 2/2\\n#1º: XXA\\n#2º: XXB\\n#TCP:\\n#Ref: ${ref}\\n#Otros:\\n#DATE: 05/10/26\\n#ETD: 17:00:00-LEBL 17:30:00-GMMN\\n`, "END:VEVENT", "END:VCALENDAR", "--b--", ""].join("\r\n"));
 const m = await deliver(f);
-const reqs = Object.fromEntries((await db("intake_requests?select=id,reference,status_reason&request_type=eq.scheduled")).map((r) => [r.reference, r]));
+const reqs = await scheduled();
+ok(!!m.request_id, `the provider's cancellation of ${ref} is attached to its scheduled request`, m.request_id ? "" : "no request: the scheduled requests are not on the rig");
+if (!m.request_id || !reqs["2612472"] || !reqs["2612398"]) { console.log(`\n${failures} FAILED`); process.exit(1); }
 const browser = await chromium.launch();
 const shot = async (id, file, checks) => {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1100 } }); const page = await ctx.newPage(); const errors = [];

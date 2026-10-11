@@ -10,7 +10,10 @@ for p in 5175 3993; do pid=$(lsof -tiTCP:$p -sTCP:LISTEN || true); [ -n "$pid" ]
 sleep 1
 ( cd "$RIG/manifest" && env -i PATH="$PATH" HOME="$HOME" PORT=3993 node mock-leon.mjs > "$SCR/mock-leon-operators.out" 2>&1 & )
 mkdir -p "$SCR/manifest-intake"
-( cd "$ROOT/agent" && env -i PATH="$PATH" HOME="$HOME" PORT=5175 ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" TZDATA_LATEST_CHECK=off \
+# Everything rig/start.sh gives the agent (the CNAIR portal mock and the quick look-up schedule, so the intake suites
+# still work against this agent), plus the manifest's own settings.
+( cd "$ROOT/agent" && env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" TZDATA_LATEST_CHECK=off \
+    CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" INTAKE_APPROVAL_HOURS="${INTAKE_APPROVAL_HOURS:-4}" \
     LEON_OPERATOR_API_BASE="http://127.0.0.1:3993/{opr}" LEON_REFRESH_TOKEN_ENCRYPTION_KEY=rig-local-only-not-a-secret \
     INTAKE_ROOT="$SCR/manifest-intake" STORAGE_ROOT="$SCR/manifest-storage" \
     node --env-file="$ENV" server.mjs > "$SCR/agent.out" 2>&1 & )

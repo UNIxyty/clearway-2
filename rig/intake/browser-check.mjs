@@ -1,10 +1,33 @@
 // Real-browser check of /agent/intake and /agent/mailbox on the rig (production build via the proxy).
-//   node rig/intake/browser-check.mjs            screenshots → rig/.scratch/shots/
+//   node --env-file=.env.rig rig/intake/browser-check.mjs            screenshots → rig/.scratch/shots/
+// Its data is its own: the YU-LSA CIMOG1 request (rig/fixtures/intake, invented passports XX0000…), delivered through the
+// mock Resend webhook when the rig does not have it. Other intake suites truncate the intake tables and leave their own
+// requests behind, so the check cannot rely on what ran before it.
 import { chromium } from "playwright";
-const BASE = process.env.RIG_URL || "http://127.0.0.1:3999";
+import { createHmac, randomUUID } from "node:crypto";
+import path from "node:path";
+const BASE = process.env.RIG_URL || "http://127.0.0.1:3999", AGENT = process.env.RIG_AGENT_URL || "http://127.0.0.1:5175";
+if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "") || !/^http:\/\/127\.0\.0\.1/.test(process.env.RESEND_API_BASE ?? "")) { console.error("rig only (local DB and the mock Resend): run with --env-file=.env.rig"); process.exit(78); }
 const OUT = "rig/.scratch/shots";
 const PERSONAL = /XX0000\d{3}|01 Jan 1980|01 Jan 2030|\(46\)/;
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${d}` : ""}`); if (!c) failures += 1; };
+const db = async (p) => (await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${p}`, { headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` } })).json();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ── The check's own request: delivered as the provider's email would be (one model read, like rig/intake/e2e.mjs) ──
+const cimog1 = async () => (await (await fetch(`${AGENT}/api/mailbox/messages?view=all&q=CIMOG1`)).json()).rows.find((r) => r.direction === "inbound");
+if (!(await cimog1())) {
+  const id = randomUUID(), file = path.resolve("rig/fixtures/intake/yulsa-cimog1-plus364.eml");
+  await fetch(`${process.env.RESEND_API_BASE}/_rig/register`, { method: "POST", body: JSON.stringify({ id, file }) });
+  const body = JSON.stringify({ type: "email.received", created_at: new Date().toISOString(), data: { email_id: id, created_at: new Date().toISOString(), from: "dispatch@example.invalid", to: ["handling@intake.rig.invalid"], subject: path.basename(file) } });
+  const sid = `msg_${randomUUID()}`, ts = String(Math.floor(Date.now() / 1000));
+  const sig = createHmac("sha256", Buffer.from(process.env.RESEND_WEBHOOK_SECRET.replace(/^whsec_/, ""), "base64")).update(`${sid}.${ts}.${body}`).digest("base64");
+  const r = await fetch(`${AGENT}/api/intake/resend-webhook`, { method: "POST", headers: { "content-type": "application/json", "svix-id": sid, "svix-timestamp": ts, "svix-signature": `v1,${sig}` }, body });
+  let m = null;
+  for (let i = 0; i < 80 && !(m && m.status !== "waiting"); i += 1) { await sleep(3000); m = (await db(`intake_messages?select=id,status,request_id&provider_message_id=eq.${id}`))[0]; }
+  ok(r.status === 200 && m?.request_id, "setup: the CIMOG1 request was delivered and read (it was not on the rig)", `${r.status} ${m?.status ?? "no message"}`);
+  if (!m?.request_id) { console.log("1 FAILED"); process.exit(1); }
+}
 const browser = await chromium.launch();
 async function open(path, { reduced = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: reduced ? "reduce" : "no-preference" });
@@ -28,8 +51,9 @@ async function scanPersonal(page, label) {
   const { ctx, page, errors } = await open("/agent/intake");
   await page.waitForSelector("text=Flight intake", { timeout: 20000 });
   await page.screenshot({ path: `${OUT}/intake-list.png`, fullPage: false });
-  const rows = await page.locator('[data-intake-row], [role="row"], button:has-text("CIMOG1"), button:has-text("AMQ")').count();
-  ok(rows > 0, "intake list renders rows", `${rows}`);
+  // A request's row is a disclosure button (IntakePage: button.cw-row[aria-expanded]); CIMOG1 is the check's own.
+  const rows = await page.locator("button.cw-row[aria-expanded]").count();
+  ok(rows > 0 && (await page.locator("button.cw-row[aria-expanded]", { hasText: "CIMOG1" }).count()) === 1, "intake list renders rows, the CIMOG1 request among them", `${rows}`);
   await scanNative(page, "intake list");
   // Keyboard only: / focuses search, Esc leaves, j opens path to rows, Enter expands.
   await page.keyboard.press("/"); const inSearch = await page.evaluate(() => document.activeElement?.tagName === "INPUT"); ok(inSearch, "keyboard: / focuses search");
@@ -48,7 +72,7 @@ async function scanPersonal(page, label) {
 }
 // Each request by deep link: screenshots of the states (duplicate, partial, loaded, tz).
 {
-  const reqs = await (await fetch(`http://127.0.0.1:5175/api/intake/requests`)).json();
+  const reqs = await (await fetch(`${AGENT}/api/intake/requests`)).json();
   for (const r of reqs.rows.slice(0, 8)) {
     const { ctx, page, errors } = await open(`/agent/intake?r=${r.id}`, { reduced: true });
     await page.waitForTimeout(2500);
@@ -69,7 +93,7 @@ async function scanPersonal(page, label) {
   await scanNative(page, "mailbox");
   await page.keyboard.press("g"); await page.keyboard.press("a"); await page.waitForTimeout(1200);
   await page.keyboard.press("j"); await page.waitForTimeout(2500);
-  const yu = (await (await fetch("http://127.0.0.1:5175/api/mailbox/messages?view=all&q=CIMOG1")).json()).rows.find((r) => r.direction === "inbound");
+  const yu = await cimog1();
   await page.goto(`${BASE}/agent/mailbox?m=${yu.id}`, { waitUntil: "load" }); await page.waitForTimeout(4000);
   await page.screenshot({ path: `${OUT}/mailbox-reader.png`, fullPage: true });
   await scanPersonal(page, "mailbox reader");

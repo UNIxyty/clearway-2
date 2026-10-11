@@ -9,6 +9,13 @@ import { chromium } from "../../node_modules/playwright/index.mjs";
 const ROOT = new URL("../../", import.meta.url).pathname;
 
 const BASE = "http://127.0.0.1:3999";
+// The mock's flights are hours from ITS start (mock-leon.mjs: base = Date.now()). Started long ago, most "upcoming"
+// flights have departed and the picker checks fail for no product reason: say so instead.
+{
+  let age = null;
+  try { const pid = execFileSync("lsof", ["-tiTCP:3993", "-sTCP:LISTEN"]).toString().trim().split("\n")[0]; age = (Date.now() - Date.parse(execFileSync("ps", ["-o", "lstart=", "-p", pid]).toString().trim())) / 3600_000; } catch { /* not running */ }
+  if (age === null || age > 3) { console.error(age === null ? "mock Leon (:3993) is not running: run rig/manifest/start.sh and rig/manifest/operators.mjs seed first" : `mock Leon (:3993) was started ${age.toFixed(1)} h ago and its flights are relative to its start: run rig/manifest/start.sh again`); process.exit(2); }
+}
 const SHOTS = new URL("../.scratch/manifest-shots/", import.meta.url).pathname;
 mkdirSync(SHOTS, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -2,13 +2,23 @@
 // the review screen's surname / given-names split (editable, an edit marked), a reused contact's difference as a warning,
 // an unknown write in red with the "Send passengers to Leon" action, and no document number anywhere on the page.
 // Production build via the proxy.   node --env-file=.env.rig rig/intake/browser-people.mjs  → rig/.scratch/shots/people-*.png
+// Other intake suites truncate the intake tables, so when RIGPAX16/19/20 are not on the rig the check runs
+// rig/intake/e2e-people.mjs itself first (mock Leon and mock Resend only).
 import { chromium } from "playwright";
+import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { maskForReader } from "../../agent/lib/intake/personal.mjs";
 const BASE = process.env.RIG_URL || "http://127.0.0.1:3999";
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 200)}` : ""}`); if (!c) failures += 1; };
 const db = async (p) => (await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${p}`, { headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` } })).json();
+const REFS = ["RIGPAX16", "RIGPAX19", "RIGPAX20"];
+const present = async () => (await db(`intake_requests?select=reference&reference=in.(${REFS.join(",")})`)).map((r) => r.reference);
+if ((await present()).length < REFS.length) {
+  try { execFileSync(process.execPath, ["rig/intake/e2e-people.mjs"], { env: process.env, stdio: "ignore", timeout: 900000 }); } catch { /* judged below */ }
+  const have = await present();
+  ok(have.length === REFS.length, "setup: rig/intake/e2e-people.mjs loaded RIGPAX16/19/20 (they were not on the rig)", have.join(", "));
+}
 const browser = await chromium.launch();
 const DOCS = /TEST\d{5}|TESTC\d{4}/;
 

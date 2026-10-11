@@ -7,9 +7,10 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       type={type}
       data-slot="input"
       className={cn(
-        "file:text-cw-text placeholder:text-cw-text-muted selection:bg-cw-primary selection:text-cw-text-on-primary border-cw-border-control h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-cw-focus focus-visible:ring-cw-focus/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-cw-danger/20 aria-invalid:border-cw-danger",
+        // The portal kit's text field (portal redesign §2.2): 36 high, radius 8, focus ring + halo.
+        "file:text-cw-text placeholder:text-cw-text-placeholder selection:bg-cw-primary selection:text-cw-text-on-primary border-cw-border-control h-9 w-full min-w-0 rounded-[8px] border bg-cw-bg-surface px-3 py-1 font-sans text-[14px] text-cw-text transition-[border-color,box-shadow] duration-[120ms] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:cursor-not-allowed disabled:border-cw-disabled-border disabled:bg-cw-disabled-bg disabled:text-cw-text-disabled",
+        "focus:border-cw-focus focus:shadow-[0_0_0_3px_var(--cw-focus-halo)]",
+        "aria-invalid:border-cw-danger",
         className
       )}
       {...props}

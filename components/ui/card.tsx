@@ -6,7 +6,8 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "bg-cw-bg-surface text-cw-text flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        // The portal kit's card frame (portal redesign §2.6): radius 14, border, shadow-1.
+        "bg-cw-bg-surface text-cw-text flex flex-col gap-6 rounded-[14px] border border-cw-border py-6 shadow-cw-1",
         className
       )}
       {...props}

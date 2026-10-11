@@ -26,11 +26,11 @@ const admin = await page("rig-access-admin@rig.invalid", PORTAL);
 await admin.goto(`${PORTAL}/admin/permissions`, { waitUntil: "load" });
 await admin.waitForSelector('table[aria-label^="Permissions"]', { timeout: 30000 });
 ok(await admin.getByText("Exactly the defaults").count() === 1, "the screen opens on exactly the defaults");
-ok(await admin.locator('input[aria-label="Manage permissions (this screen) — Developer"]').isDisabled(), "Developer's Manage permissions is locked on");
-ok(await admin.locator('input[aria-label="Manage permissions (this screen) — Admin"]').isDisabled(), "…and so is your own role's (you cannot take it from yourself)");
+ok(await admin.locator('[role="checkbox"][aria-label="Manage permissions (this screen) — Developer"]').isDisabled(), "Developer's Manage permissions is locked on");
+ok(await admin.locator('[role="checkbox"][aria-label="Manage permissions (this screen) — Admin"]').isDisabled(), "…and so is your own role's (you cannot take it from yourself)");
 const hardRow = admin.locator("tr", { hasText: "Delete an operator" }).first();
 ok(/Takes its flights off the wall and stops its Leon sync/.test(await hardRow.innerText()), "a hard-to-undo action says what it does, in its row");
-await admin.locator('input[aria-label="Delete an operator — User"]').click();
+await admin.locator('[role="checkbox"][aria-label="Delete an operator — User"]').click();
 await admin.waitForSelector('[role="dialog"]');
 ok(/Takes its flights off the wall/.test(await admin.locator('[role="dialog"]').innerText()), "granting it asks first, with that warning");
 await admin.screenshot({ path: `${OUT}/perm-hard-confirm.png` });
@@ -41,20 +41,20 @@ ok(/Delete an aircraft from the wall → User/.test(await admin.locator('[role="
 await admin.locator('[role="dialog"]').getByRole("button", { name: "Grant" }).click();
 await sleep(1500);
 const a = admin.locator("tbody[aria-label='Aircraft']");
-ok(await admin.locator('input[aria-label="Delete an aircraft from the wall — User"]').isChecked() && await admin.locator('input[aria-label="Show or hide aircraft on the wall — User"]').isChecked(), "one click grants a whole group (Aircraft → User)");
+ok(await admin.locator('[role="checkbox"][aria-label="Delete an aircraft from the wall — User"]').isChecked() && await admin.locator('[role="checkbox"][aria-label="Show or hide aircraft on the wall — User"]').isChecked(), "one click grants a whole group (Aircraft → User)");
 ok(/2 cells changed from the defaults/.test(await admin.locator("body").innerText()), "the drift count says what changed since the defaults");
 await a.screenshot({ path: `${OUT}/perm-group.png` });
 await admin.getByRole("button", { name: "Take away everything in Aircraft for User" }).click();
 await sleep(1200);
-await admin.locator('input[aria-label="Delete an aircraft from the wall — User"]').click();
+await admin.locator('[role="checkbox"][aria-label="Delete an aircraft from the wall — User"]').click();
 await admin.locator('[role="dialog"]').getByRole("button", { name: "Grant" }).click(); // hard to undo: confirmed
 await sleep(1500);
-await admin.getByLabel("Show only what changed").check();
+await admin.getByRole("checkbox", { name: "Show only what changed" }).check();
 await sleep(400);
 await admin.screenshot({ path: `${OUT}/perm-drift.png`, fullPage: false });
 const history = await admin.locator('table[aria-label="Permission history"]').innerText();
 ok(/rig-access-admin@rig\.invalid\s+granted\s+Delete an aircraft from the wall\s+to User/.test(history), "the history names who granted what to whom", history.split("\n").slice(0, 3).join(" | "));
-await admin.getByLabel("Show only what changed").uncheck();
+await admin.getByRole("checkbox", { name: "Show only what changed" }).uncheck();
 await admin.locator('table[aria-label="Permission history"]').scrollIntoViewIfNeeded();
 await admin.screenshot({ path: `${OUT}/perm-history.png` });
 
@@ -73,7 +73,7 @@ await sleep(2500);
 ok(await ops.getByText("View only.").count() >= 1 && await ops.getByRole("button", { name: /Add operator/ }).isDisabled(), "Operators stays view-only for them");
 
 // Back to the defaults for the next run.
-await admin.locator('input[aria-label="Delete an aircraft from the wall — User"]').click();
+await admin.locator('[role="checkbox"][aria-label="Delete an aircraft from the wall — User"]').click();
 await sleep(1200);
 await browser.close();
 console.log(`\n${failures ? `${failures} FAILED` : "ALL PASSED"} · screenshots in ${OUT}/perm-*.png`);

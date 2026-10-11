@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SearchIcon } from "lucide-react";
 import PortalShell from "@/components/portal/Shell";
 import { PCard, PButton, PChip, PTh } from "@/components/portal/ui";
+import { Select } from "@/components/kit";
 import {
   COUNTRY_SERVICE_STATE_META,
   COUNTRY_SERVICE_STATES,
@@ -166,19 +167,15 @@ export default function AdminCountryServiceStatusPage() {
                             className="h-[9px] w-[9px] flex-none rounded-full"
                             style={{ background: COUNTRY_SERVICE_STATE_META[row.state].colour }}
                           />
-                          <select
-                            className="h-9 cursor-pointer rounded-[10px] border border-cw-border-control bg-cw-bg-surface px-2 text-[13px] text-cw-text outline-none focus:border-cw-primary"
-                            value={row.state}
-                            onChange={(e) =>
-                              updateRow(row.country, { state: e.target.value as CountryServiceState })
-                            }
-                          >
-                            {COUNTRY_SERVICE_STATES.map((state) => (
-                              <option key={state} value={state}>
-                                {COUNTRY_SERVICE_STATE_META[state].label}
-                              </option>
-                            ))}
-                          </select>
+                          <span className="inline-block w-[190px]">
+                            <Select
+                              size="sm"
+                              label={`Status for ${row.country}`}
+                              value={row.state}
+                              onChange={(v) => updateRow(row.country, { state: v as CountryServiceState })}
+                              options={COUNTRY_SERVICE_STATES.map((state) => ({ value: state, label: COUNTRY_SERVICE_STATE_META[state].label }))}
+                            />
+                          </span>
                         </div>
                       </td>
                       <td className="px-3 py-2.5">

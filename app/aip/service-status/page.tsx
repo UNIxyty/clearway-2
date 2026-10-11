@@ -197,7 +197,7 @@ export default function ServiceStatusPage() {
               <PTh>STATUS</PTh>
               <PTh className="text-right">NOTE</PTh>
             </div>
-            <div className="max-h-[560px] overflow-auto">
+            <div className="overflow-x-auto">
               {visible.map((row) => {
                 const meta = COUNTRY_SERVICE_STATE_META[row.state] ?? COUNTRY_SERVICE_STATE_META.not_checked;
                 return (

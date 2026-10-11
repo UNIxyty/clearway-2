@@ -88,7 +88,7 @@ function EmailLogsContent() {
             {error}
           </div>
         )}
-        <div className="max-h-[70vh] overflow-auto rounded-xl border border-cw-text/[0.08] bg-cw-bg-surface">
+        <div className="overflow-x-auto rounded-xl border border-cw-border bg-cw-bg-surface">
           <table className="w-full min-w-[760px] text-[12.5px]">
             <thead>
               <tr className="border-b border-cw-text/[0.07] text-left text-[11px] font-bold uppercase tracking-wider text-cw-text-muted">

@@ -136,7 +136,7 @@ export default function AdminUsersPage() {
                 <PTh>EMAIL</PTh>
                 <PTh className="text-right">ACTIONS</PTh>
               </div>
-              <div className="max-h-[560px] overflow-y-auto">
+              <div>
                 {users.map((u) => {
                   const busy = updatingUserId === u.id;
                   const isDevProtected = u.isDeveloper && !callerIsDeveloper;

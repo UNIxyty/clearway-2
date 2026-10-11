@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PortalShell from "@/components/portal/Shell";
 import { PCard, PButton, PSectionTitle } from "@/components/portal/ui";
+import { Checkbox } from "@/components/kit";
 import {
   DEFAULT_NOTIFICATION_PREFS,
   getNotificationPermission,
@@ -12,8 +13,6 @@ import {
   type NotificationPrefs,
 } from "@/lib/notifications";
 
-const checkboxClass = "h-4 w-4 accent-cw-primary";
-const checkRowClass = "flex items-center gap-3 text-sm text-cw-text";
 
 export default function NotificationSettingsPage() {
   const router = useRouter();
@@ -151,82 +150,17 @@ export default function NotificationSettingsPage() {
             </div>
 
             <div className="mt-4 flex flex-col gap-2.5">
-              <label className={checkRowClass}>
-                <input
-                  type="checkbox"
-                  className={checkboxClass}
-                  checked={notificationPrefs.notify_enabled}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_enabled: e.target.checked }))
-                  }
-                />
-                Enable notifications
-              </label>
+              <Checkbox checked={notificationPrefs.notify_enabled} onChange={(on) => setNotificationPrefs((prev) => ({ ...prev, notify_enabled: on }))} label="Enable notifications" />
 
-              <label className={checkRowClass}>
-                <input
-                  type="checkbox"
-                  className={checkboxClass}
-                  checked={notificationPrefs.notify_search_start}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_search_start: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                Search started
-              </label>
+              <Checkbox checked={notificationPrefs.notify_search_start} onChange={(on) => setNotificationPrefs((prev) => ({ ...prev, notify_search_start: on }))} disabled={!notificationPrefs.notify_enabled} label="Search started" />
 
-              <label className={checkRowClass}>
-                <input
-                  type="checkbox"
-                  className={checkboxClass}
-                  checked={notificationPrefs.notify_search_end}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_search_end: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                Search completed
-              </label>
+              <Checkbox checked={notificationPrefs.notify_search_end} onChange={(on) => setNotificationPrefs((prev) => ({ ...prev, notify_search_end: on }))} disabled={!notificationPrefs.notify_enabled} label="Search completed" />
 
-              <label className={checkRowClass}>
-                <input
-                  type="checkbox"
-                  className={checkboxClass}
-                  checked={notificationPrefs.notify_notam}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_notam: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                NOTAM retrieved
-              </label>
+              <Checkbox checked={notificationPrefs.notify_notam} onChange={(on) => setNotificationPrefs((prev) => ({ ...prev, notify_notam: on }))} disabled={!notificationPrefs.notify_enabled} label="NOTAM retrieved" />
 
-              <label className={checkRowClass}>
-                <input
-                  type="checkbox"
-                  className={checkboxClass}
-                  checked={notificationPrefs.notify_aip}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_aip: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                AIP retrieved
-              </label>
+              <Checkbox checked={notificationPrefs.notify_aip} onChange={(on) => setNotificationPrefs((prev) => ({ ...prev, notify_aip: on }))} disabled={!notificationPrefs.notify_enabled} label="AIP retrieved" />
 
-              <label className={checkRowClass}>
-                <input
-                  type="checkbox"
-                  className={checkboxClass}
-                  checked={notificationPrefs.notify_gen}
-                  onChange={(e) =>
-                    setNotificationPrefs((prev) => ({ ...prev, notify_gen: e.target.checked }))
-                  }
-                  disabled={!notificationPrefs.notify_enabled}
-                />
-                GEN retrieved
-              </label>
+              <Checkbox checked={notificationPrefs.notify_gen} onChange={(on) => setNotificationPrefs((prev) => ({ ...prev, notify_gen: on }))} disabled={!notificationPrefs.notify_enabled} label="GEN retrieved" />
             </div>
           </PCard>
 

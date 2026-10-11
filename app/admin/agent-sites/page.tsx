@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 import PortalShell from "@/components/portal/Shell";
 import { PCard, PButton, PChip, PMono, PTh } from "@/components/portal/ui";
+import { Checkbox } from "@/components/kit";
 
 import { cw } from "@/lib/portal-tokens";
 
@@ -218,10 +219,7 @@ export default function AdminAgentSitesPage() {
               autoCapitalize="none"
               style={{ ...inputStyle, flex: "1 1 240px", fontFamily: "var(--font-mono, ui-monospace, monospace)" }}
             />
-            <label className="flex items-center gap-1.5 text-[13px]" style={{ color: cw.textBody }}>
-              <input type="checkbox" checked={newSubdomains} onChange={(e) => setNewSubdomains(e.target.checked)} />
-              include subdomains
-            </label>
+            <Checkbox checked={newSubdomains} onChange={setNewSubdomains} label="include subdomains" />
             <PButton type="submit" size="sm" variant="primary" disabled={busy === "add" || !newHost.trim()}>{busy === "add" ? "…" : "Add"}</PButton>
           </form>
         </PCard>
@@ -238,7 +236,7 @@ export default function AdminAgentSitesPage() {
               <div className="hidden grid-cols-[110px_1.2fr_1fr_1fr_150px_1.4fr] items-center gap-3.5 border-b px-[18px] py-2.5 md:grid" style={{ borderColor: cw.divider, background: cw.bgPage }}>
                 <PTh>STATUS</PTh><PTh>SITE</PTh><PTh>REQUESTED BY</PTh><PTh>DECIDED BY</PTh><PTh>WHEN</PTh><PTh>NOTE</PTh>
               </div>
-              <div className="max-h-[560px] overflow-y-auto">
+              <div>
                 {decided.map((r) => (
                   <div key={r.id} className="grid grid-cols-1 items-center gap-2 border-b px-[18px] py-3 last:border-b-0 md:grid-cols-[110px_1.2fr_1fr_1fr_150px_1.4fr] md:gap-3.5" style={{ borderColor: cw.divider }}>
                     <div><PChip color={STATUS_CHIP[r.status].color} bg={STATUS_CHIP[r.status].bg} className="uppercase tracking-wide text-[10px]">{r.status}</PChip></div>

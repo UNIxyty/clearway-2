@@ -12,6 +12,7 @@ import { mono } from "../ui/tokens";
 import { Button, Eyebrow, Toggle } from "../ui/primitives";
 import { AGENT_BASE } from "../types";
 import { cw } from "@/lib/portal-tokens";
+import { Checkbox, Select } from "@/components/kit";
 
 type Prefs = { defaultTier: string | null; skipConfirm: boolean; skipConfirmRequested: boolean; skipLocked: boolean; skipLockedForAll: boolean };
 type Catalogue = { qualified: { tool: string; why: string }[]; alwaysConfirm: { tool: string; why: string }[] };
@@ -94,7 +95,7 @@ export function RoutingSettings() {
     if (ok) setData((d) => d && ({ ...d, tiers: body.tiers, escalation: body.escalation }));
   }
   const input = (value: string | number | null | undefined, onChange: (v: string) => void, w = "100%") => <input value={value ?? ""} onChange={(e) => onChange(e.target.value)} style={{ width: w, height: 30, border: `1px solid ${cw.borderControl}`, borderRadius: 7, padding: "0 8px", ...mono({ fontSize: 12 }) }} />;
-  const pick = (value: string, onChange: (v: string) => void) => <select value={value} onChange={(e) => onChange(e.target.value)} style={{ height: 30, border: `1px solid ${cw.borderControl}`, borderRadius: 7, fontFamily: "inherit", fontSize: 12.5 }}>{["fast", "standard", "reasoning"].map((t) => <option key={t} value={t}>{t}</option>)}</select>;
+  const pick = (value: string, onChange: (v: string) => void, label: string) => <span style={{ display: "inline-block", width: 130 }}><Select size="sm" label={label} value={value} onChange={onChange} options={["fast", "standard", "reasoning"].map((t) => ({ value: t, label: t }))} /></span>;
   return (
     <section aria-label="Routing" style={{ ...card, gridColumn: "1 / -1" }}>
       <div style={{ padding: "14px 18px 4px", display: "flex", alignItems: "center", gap: 10 }}><Eyebrow>Routing — which model answers</Eyebrow><span style={{ flex: 1 }} /><span style={{ fontSize: 12, color: cw.textMuted }}>Applies on the next message; no deploy.</span></div>
@@ -107,13 +108,13 @@ export function RoutingSettings() {
           <span style={{ fontWeight: 700 }}>Escalation (one-way: never lowers a tier)</span>
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>Router confidence below {input(draft.escalation.lowConfidenceBelow, (v) => setEsc("lowConfidenceBelow", Number(v)), "60px")} → one tier up</label>
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>More than {input(draft.escalation.maxToolsBeforeEscalate, (v) => setEsc("maxToolsBeforeEscalate", Number(v)), "60px")} tools in a turn → one tier up</label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>Approved (authoritative) text → at least {pick(draft.escalation.authoritativeFloor, (v) => setEsc("authoritativeFloor", v))}</label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>Conflicting sources → {pick(draft.escalation.conflictTo, (v) => setEsc("conflictTo", v))}</label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>User asks for care → {pick(draft.escalation.careTo, (v) => setEsc("careTo", v))}</label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" checked={draft.escalation.retryOnFailure} onChange={(e) => setEsc("retryOnFailure", e.target.checked)} /> Retry a failed first attempt one tier up</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>Approved (authoritative) text → at least {pick(draft.escalation.authoritativeFloor, (v) => setEsc("authoritativeFloor", v), "Tier for approved text")}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>Conflicting sources → {pick(draft.escalation.conflictTo, (v) => setEsc("conflictTo", v), "Tier for conflicting sources")}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>User asks for care → {pick(draft.escalation.careTo, (v) => setEsc("careTo", v), "Tier when the user asks for care")}</div>
+          <Checkbox checked={draft.escalation.retryOnFailure} onChange={(on) => setEsc("retryOnFailure", on)} label="Retry a failed first attempt one tier up" className="text-[12.5px]" />
         </div>
         <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 12, borderTop: `1px solid ${cw.divider}`, paddingTop: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, flex: 1 }}><input type="checkbox" checked={lockAll} onChange={async (e) => { setLockAll(e.target.checked); await api("/api/settings/skip-confirm-lock", { method: "PUT", body: JSON.stringify({ all: e.target.checked }) }); }} /> Lock “Skip confirmation for low-risk actions” off for everyone</label>
+          <span style={{ flex: 1 }}><Checkbox checked={lockAll} onChange={async (on) => { setLockAll(on); await api("/api/settings/skip-confirm-lock", { method: "PUT", body: JSON.stringify({ all: on }) }); }} label="Lock “Skip confirmation for low-risk actions” off for everyone" className="text-[12.5px]" /></span>
           {msg && <span role="status" style={{ fontSize: 12.5, color: msg.error ? cw.dangerText : cw.successText }}>{msg.text}</span>}
           <Button variant="primary" size="sm" onClick={() => void save()}>Save routing</Button>
         </div>

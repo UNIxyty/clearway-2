@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
 import { PButton, PCard, PChip, PMono } from "@/components/portal/ui";
+import { Checkbox } from "@/components/kit";
 
 type Action = { key: string; label: string; default?: string[]; hard?: string; requires?: string; auto?: boolean; read?: boolean };
 type Group = { key: string; label: string; service: string; actions: Action[] };
@@ -105,7 +106,7 @@ export default function PermissionsPage() {
               <span className={driftCount ? "font-semibold text-cw-warning-text" : "text-cw-text-muted"}>
                 {driftCount ? `${driftCount} cell${driftCount === 1 ? "" : "s"} changed from the defaults` : "Exactly the defaults"}
               </span>
-              <label className="flex cursor-pointer items-center gap-2"><input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} /> Show only what changed</label>
+              <Checkbox checked={onlyChanged} onChange={setOnlyChanged} label="Show only what changed" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find an action…" aria-label="Find an action" className="ml-auto h-9 w-64 rounded-lg border border-cw-border-control px-3 text-sm" />
               <span className="basis-full text-[12.5px] leading-relaxed text-cw-text-muted">
                 Each change takes effect within 10 seconds and is logged below with your name. Every server checks these
@@ -163,11 +164,10 @@ export default function PermissionsPage() {
                               const title = [lock, changed ? `Changed from the default (${c!.default ? "on" : "off"})` : null, c?.by && c.by !== "default (seed)" ? `Last set by ${c.by}, ${fmt(c.at)}` : null].filter(Boolean).join(" · ");
                               return (
                                 <td key={r} className="px-2 py-2.5 text-center" style={changed ? { background: "var(--cw-warning-tint)" } : undefined} title={title || undefined}>
-                                  <label className="inline-flex cursor-pointer items-center gap-1">
-                                    <input type="checkbox" checked={on(c)} disabled={busy || !!lock} onChange={() => toggleCell(r, a)}
-                                      aria-label={`${a.label} — ${state.roleLabels[r]}`} className="h-4 w-4 accent-cw-primary" />
+                                  <span className="inline-flex items-center gap-1">
+                                    <Checkbox checked={on(c)} disabled={busy || !!lock} onChange={() => toggleCell(r, a)} ariaLabel={`${a.label} — ${state.roleLabels[r]}`} />
                                     {c?.pinned && <MaskIcon name="lock" size={11} color="var(--cw-text-muted)" />}
-                                  </label>
+                                  </span>
                                   {changed && <div className="text-[10.5px] leading-tight text-cw-warning-text">default {c!.default ? "on" : "off"}</div>}
                                 </td>
                               );

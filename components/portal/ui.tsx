@@ -1,11 +1,11 @@
 "use client";
 
-// Portal design-system primitives — the Display Console look (light theme,
-// white cards, Public Sans + IBM Plex Mono, blue primary) ported into
-// the portal's Tailwind stack. Pure presentation: no data logic here.
+// Portal primitives, kept for the pages that use them; the button and the empty state are drawn by the portal kit
+// (components/kit, portal redesign stage 2). Pure presentation: no data logic here.
 
 import { clsx } from "clsx";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
+import { Button } from "@/components/kit";
 
 export function PCard({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
@@ -36,26 +36,13 @@ type PButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: "md" | "sm";
 };
 
+/** The portal kit's button (components/kit, portal redesign §2.1) with this file's props. "stop" is the kit's
+ *  secondary shape in the orange family (stopping a running search, confirming a revoke). */
 export function PButton({ variant = "secondary", size = "md", className, ...rest }: PButtonProps) {
-  return (
-    <button
-      className={clsx(
-        "inline-flex cursor-pointer items-center gap-2 rounded-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        size === "md" ? "px-4 py-[10px] text-sm" : "px-3 py-[7px] text-[12.5px] rounded-lg",
-        variant === "primary" && "border-none bg-cw-primary text-cw-text-on-primary hover:bg-cw-primary-hover",
-        variant === "secondary" &&
-          "border border-cw-border-control bg-cw-bg-surface text-cw-text hover:bg-cw-bg-sunken",
-        variant === "quiet" &&
-          "border-none bg-transparent text-cw-text-muted hover:bg-cw-bg-hover hover:text-cw-text",
-        variant === "danger-quiet" &&
-          "border-none bg-transparent text-cw-text-muted hover:bg-cw-danger-tint hover:text-cw-danger-text",
-        variant === "stop" &&
-          "border border-cw-orange-border bg-cw-orange-tint text-cw-orange-text hover:bg-cw-orange-tint",
-        className
-      )}
-      {...rest}
-    />
-  );
+  if (variant === "stop") {
+    return <Button variant="secondary" size={size} className={clsx("!border-cw-orange-border !bg-cw-orange-tint !text-cw-orange-text hover:!bg-cw-orange-tint", className)} {...rest} />;
+  }
+  return <Button variant={variant} size={size} className={className} {...rest} />;
 }
 
 export function PChip({
@@ -90,6 +77,7 @@ export function PTh({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
   );
 }
 
+/** Empty state (§2.5): the kit's look, with any icon node. */
 export function PEmpty({
   icon,
   title,
@@ -100,14 +88,14 @@ export function PEmpty({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+    <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 px-6 py-8 text-center">
       {icon && (
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cw-bg-hover text-cw-text-muted">
+        <div aria-hidden className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-cw-border bg-cw-bg-sunken text-cw-text-muted [&>svg]:h-[18px] [&>svg]:w-[18px]">
           {icon}
         </div>
       )}
-      <div className="text-base font-bold text-cw-text">{title}</div>
-      {children && <div className="max-w-md text-sm leading-relaxed text-cw-text-muted">{children}</div>}
+      <div className="mt-1 text-[15px] font-bold text-cw-text">{title}</div>
+      {children && <div className="max-w-[340px] text-[13px] leading-normal text-cw-text-muted">{children}</div>}
     </div>
   );
 }

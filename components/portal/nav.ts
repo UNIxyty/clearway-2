@@ -127,6 +127,7 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "dev-inbox", label: "Inbox", icon: "inbox", href: "/developer/inbox" },
       { id: "dev-replies", label: "Saved replies", icon: "message-square", href: "/developer/saved-replies" },
       { id: "dev-agent", label: "Agent access", icon: "key", href: "/developer/agent-access" },
+      { id: "dev-components", label: "Component sheet", icon: "layout-grid", href: "/developer/components" }, // the portal kit, every state, both themes
       { id: "dev-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
     ],
   },

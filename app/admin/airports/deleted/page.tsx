@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Trash2Icon } from "lucide-react";
 import PortalShell from "@/components/portal/Shell";
 import { PCard, PButton, PEmpty, PMono, PSectionTitle } from "@/components/portal/ui";
+import { Checkbox } from "@/components/kit";
 
 type DeletedAirportRow = {
   id: number;
@@ -148,17 +149,13 @@ export default function DeletedAirportsPage() {
                   key={row.id}
                   className="flex items-center gap-3.5 border-b border-cw-divider px-[18px] py-3.5 last:border-b-0"
                 >
-                  <input
+                  <Checkbox
                     id={`deleted-airport-${row.id}`}
-                    type="checkbox"
-                    className="h-4 w-4 flex-none accent-cw-primary"
                     checked={selectedIds.includes(row.id)}
-                    onChange={(e) => {
-                      setSelectedIds((prev) =>
-                        e.target.checked ? [...prev, row.id] : prev.filter((id) => id !== row.id),
-                      );
+                    onChange={(on) => {
+                      setSelectedIds((prev) => (on ? [...prev, row.id] : prev.filter((id) => id !== row.id)));
                     }}
-                    aria-label={`Select ${row.icao} for restore`}
+                    ariaLabel={`Select ${row.icao} for restore`}
                   />
                   <PMono className="w-16 flex-none text-[14.5px] font-semibold text-cw-text">
                     {row.icao}

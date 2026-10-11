@@ -7,6 +7,7 @@
 import { forwardRef, type CSSProperties, type ReactNode, type ButtonHTMLAttributes } from "react";
 import { FONT, mono } from "./tokens";
 import { cw } from "@/lib/portal-tokens";
+import { Button as KitButton, Toggle as KitToggle, type ButtonVariant as KitVariant } from "@/components/kit";
 
 /** Lucide icon as a CSS mask so it takes any colour. Served from /icons — never a CDN. */
 export function Icon({ name, size = 16, color = cw.textMuted, style = {} }: { name: string; size?: number; color?: string; style?: CSSProperties }) {
@@ -34,38 +35,18 @@ export function Keycap({ children, standalone = false, color }: { children: Reac
 
 type Variant = "primary" | "secondary" | "ghost" | "destructive";
 type Size = "lg" | "md" | "sm" | "xs";
-const SIZES: Record<Size, CSSProperties> = {
-  lg: { fontSize: 14, padding: "10px 16px", borderRadius: 9 },
-  md: { fontSize: 13.5, padding: "9px 14px", borderRadius: 9 },
-  sm: { fontSize: 13, padding: "8px 12px", borderRadius: 8 },
-  xs: { fontSize: 12.5, padding: "6px 11px", borderRadius: 7 },
-};
+const KIT_VARIANT: Record<Variant, KitVariant> = { primary: "primary", secondary: "secondary", ghost: "quiet", destructive: "danger" };
+const KIT_SIZE: Record<Size, "md" | "sm"> = { lg: "md", md: "md", sm: "sm", xs: "sm" };
 
-/** §4.27 buttons. Disabled: 50 % opacity + not-allowed (spec default); destructive disabled uses its own fill. */
+/** §4.27 buttons — drawn by the portal kit (components/kit, portal redesign §2.1); this keeps the agent's props. */
 export const Button = forwardRef<HTMLButtonElement, { variant?: Variant; size?: Size; icon?: string; keycap?: ReactNode; spinning?: boolean } & ButtonHTMLAttributes<HTMLButtonElement>>(function Button({
-  variant = "secondary", size = "md", icon, keycap, children, disabled, style = {}, spinning = false, ...rest
+  variant = "secondary", size = "md", icon, keycap, children, spinning = false, ...rest
 }, ref) {
-  const base: CSSProperties = { fontFamily: "inherit", fontWeight: 600, border: "1px solid transparent", cursor: disabled ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, lineHeight: 1.2, whiteSpace: "nowrap", ...SIZES[size] };
-  const look: Record<Variant, CSSProperties> = {
-    primary: { background: cw.primary, color: cw.textOnPrimary },
-    secondary: { background: cw.bgSurface, color: cw.text, borderColor: cw.borderControl, padding: `calc(${SIZES[size].padding?.toString().split(" ")[0]} - 1px) ${SIZES[size].padding?.toString().split(" ")[1]}` },
-    ghost: { background: "transparent", color: cw.textBody },
-    destructive: { background: disabled ? cw.dangerBorder : cw.dangerSolid, color: cw.textOnPrimary },
-  };
-  const iconColor = variant === "primary" || variant === "destructive" ? cw.textOnPrimary : cw.textBody;
   return (
-    <button
-      ref={ref}
-      type="button"
-      className={`ag-hover ag-focus ${variant === "primary" ? "ag-btn-primary" : variant === "ghost" ? "ag-btn-ghost" : variant === "secondary" ? "ag-btn-secondary" : ""}`}
-      disabled={disabled}
-      style={{ ...base, ...look[variant], ...(disabled && variant !== "destructive" ? { opacity: 0.5 } : {}), ...style }}
-      {...rest}
-    >
-      {spinning ? <Spinner color={iconColor} /> : icon ? <Icon name={icon} size={size === "lg" ? 15 : 14} color={iconColor} /> : null}
-      {!spinning && children}
-      {!spinning && keycap && <Keycap>{keycap}</Keycap>}
-    </button>
+    <KitButton ref={ref} variant={KIT_VARIANT[variant]} size={KIT_SIZE[size]} icon={icon} loading={spinning} {...rest}>
+      {children}
+      {keycap && <Keycap>{keycap}</Keycap>}
+    </KitButton>
   );
 });
 
@@ -114,14 +95,9 @@ export function IconTile({ icon, fg, bg, size = 30, iconSize = 16, radius = 8 }:
   return <span style={{ width: size, height: size, borderRadius: radius, background: bg, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name={icon} size={iconSize} color={fg} /></span>;
 }
 
-/** Settings toggle (§12): 44×26, knob 20, on = green. Knob moves 18 px in 150 ms (T1). */
+/** Settings toggle (§12) — the portal kit's switch (32 × 18, primary when on; portal redesign §2.2). */
 export function Toggle({ on, onChange, disabled, label }: { on: boolean; onChange: (next: boolean) => void; disabled?: boolean; label: string }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)} className="ag-focus"
-      style={{ width: 44, height: 26, borderRadius: 999, border: "none", padding: 3, background: on ? cw.success : cw.borderStrong, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, flex: "none", display: "flex" }}>
-      <span className="ag-knob" style={{ width: 20, height: 20, borderRadius: "50%", background: cw.knob, boxShadow: "var(--cw-shadow-1)", transform: on ? "translateX(18px)" : "translateX(0)" }} />
-    </button>
-  );
+  return <KitToggle checked={on} onChange={onChange} disabled={disabled} ariaLabel={label} />;
 }
 
 /** Icon button 30×30 (panel header) / 34×34 (composer toolbar) / 36×36 (full-page header). */

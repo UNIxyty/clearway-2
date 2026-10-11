@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PortalShell, { type DeepContext } from "@/components/portal/Shell";
+import { Checkbox } from "@/components/kit";
 
 const DEBUG_DEEP_CONTEXT: DeepContext = {
   icon: "terminal",
@@ -221,31 +222,9 @@ export default function AdminDebugPage() {
             Concurrency
             <Input value={concurrency} onChange={(e) => setConcurrency(e.target.value)} className="w-28" />
           </label>
-          <label className="text-sm flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={allAirports}
-              onChange={(e) => setAllAirports(e.target.checked)}
-            />
-            Test all airports
-          </label>
-          <label className="text-sm flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={randomSample}
-              onChange={(e) => setRandomSample(e.target.checked)}
-              disabled={allAirports}
-            />
-            Random sample
-          </label>
-          <label className="text-sm flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={eadOnlyMode}
-              onChange={(e) => setEadOnlyMode(e.target.checked)}
-            />
-            EAD-only mode
-          </label>
+          <Checkbox checked={allAirports} onChange={setAllAirports} label="Test all airports" className="text-sm" />
+          <Checkbox checked={randomSample} onChange={setRandomSample} disabled={allAirports} label="Random sample" className="text-sm" />
+          <Checkbox checked={eadOnlyMode} onChange={setEadOnlyMode} label="EAD-only mode" className="text-sm" />
           <label className="text-sm">
             Countries (comma separated)
             <Input
@@ -257,14 +236,9 @@ export default function AdminDebugPage() {
           </label>
           <div className="flex flex-wrap gap-2 text-xs">
             {["aip", "notam", "weather", "pdf", "gen"].map((step) => (
-              <label key={step} className="inline-flex items-center gap-1 rounded border px-2 py-1">
-                <input
-                  type="checkbox"
-                  checked={Boolean(selectedSteps[step])}
-                  onChange={(e) => setSelectedSteps((prev) => ({ ...prev, [step]: e.target.checked }))}
-                />
-                {step.toUpperCase()}
-              </label>
+              <span key={step} className="inline-flex items-center rounded-[6px] border border-cw-border px-2 py-1">
+                <Checkbox checked={Boolean(selectedSteps[step])} onChange={(on) => setSelectedSteps((prev) => ({ ...prev, [step]: on }))} label={step.toUpperCase()} className="text-xs" />
+              </span>
             ))}
           </div>
           <Button

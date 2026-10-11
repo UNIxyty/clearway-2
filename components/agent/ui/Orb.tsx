@@ -9,12 +9,12 @@
 // mic (listening) or TTS output (speaking), 0–1, and defaults to 0.
 
 import { useEffect, useRef } from "react";
-import { C } from "./tokens";
+import { cw, resolveColour } from "@/lib/portal-tokens";
 
 export type OrbState = "idle" | "listening" | "thinking" | "speaking" | "error";
 
 const COLOUR: Record<OrbState, string> = {
-  idle: C.ink, listening: C.primary, thinking: C.primary, speaking: C.primary, error: C.dangerBadge,
+  idle: cw.ink, listening: cw.primary, thinking: cw.primary, speaking: cw.primary, error: cw.danger,
 };
 
 function hexWithAlpha(hex: string, alpha: number): string {
@@ -44,7 +44,7 @@ export default function Orb({
   const ref = useRef<HTMLCanvasElement | null>(null);
   const levelRef = useRef(0);
   const targetRef = useRef(level);
-  const shownColour = useRef<string>(COLOUR[state]);
+  const shownColour = useRef<string>(resolveColour(COLOUR[state]));
   targetRef.current = Math.max(0, Math.min(1, level));
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function Orb({
     canvas.style.width = `${size}px`; canvas.style.height = `${size}px`;
 
     const cx = size / 2, R = size * 0.33, w = Math.max(1.6, size * 0.075), d = R * 0.36;
-    const target = COLOUR[state];
+    const target = resolveColour(COLOUR[state]); // the theme's value: canvas cannot read a CSS variable
     const from = shownColour.current;
     const mounted = performance.now();
     let frame = 0;

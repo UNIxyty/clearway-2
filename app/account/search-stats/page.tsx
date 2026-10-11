@@ -45,20 +45,20 @@ export default async function StatsPage() {
         <h1 className="m-0 mb-[5px] text-[26px] font-extrabold tracking-[-0.02em]">
           Search statistics
         </h1>
-        <p className="m-0 mb-5 text-[15px] text-[#6c7079]">
+        <p className="m-0 mb-5 text-[15px] text-cw-text-muted">
           Hidden page (direct link only). Identity: <span className="font-mono">{identityId}</span>
         </p>
 
         <div className="flex flex-col gap-4">
           {error && (
-            <div className="space-y-1 rounded-[10px] border border-[#f0d4d4] bg-[#fdf2f2] px-3.5 py-2.5 text-sm text-[#a12a2e]">
+            <div className="space-y-1 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-2.5 text-sm text-cw-danger-text">
               <p className="m-0">Failed to load stats: {error.message}</p>
               {(error.message.includes("search_events") || error.message.includes("does not exist")) && (
-                <p className="m-0 text-[#6c7079]">
+                <p className="m-0 text-cw-text-muted">
                   Run the SQL in{" "}
-                  <code className="rounded bg-[#f0f1f3] px-1 font-mono">docs/supabase-search-events.sql</code>{" "}
+                  <code className="rounded bg-cw-bg-hover px-1 font-mono">docs/supabase-search-events.sql</code>{" "}
                   in your Supabase project → SQL Editor. See{" "}
-                  <code className="rounded bg-[#f0f1f3] px-1 font-mono">docs/SUPABASE-SETUP.md</code>.
+                  <code className="rounded bg-cw-bg-hover px-1 font-mono">docs/SUPABASE-SETUP.md</code>.
                 </p>
               )}
             </div>
@@ -67,35 +67,35 @@ export default async function StatsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <PCard className="p-[22px]">
               <PSectionTitle>Total searches</PSectionTitle>
-              <div className="mt-3 font-mono text-[32px] font-semibold leading-none text-[#17181c]">
+              <div className="mt-3 font-mono text-[32px] font-semibold leading-none text-cw-text">
                 {total}
               </div>
-              <div className="mt-2 text-[12.5px] text-[#9aa0a8]">Last 500 events stored</div>
+              <div className="mt-2 text-[12.5px] text-cw-text-muted">Last 500 events stored</div>
             </PCard>
             <PCard className="p-[22px]">
               <PSectionTitle>Last 7 days</PSectionTitle>
-              <div className="mt-3 font-mono text-[32px] font-semibold leading-none text-[#17181c]">
+              <div className="mt-3 font-mono text-[32px] font-semibold leading-none text-cw-text">
                 {last7}
               </div>
-              <div className="mt-2 text-[12.5px] text-[#9aa0a8]">Rolling window</div>
+              <div className="mt-2 text-[12.5px] text-cw-text-muted">Rolling window</div>
             </PCard>
           </div>
 
           <PCard className="p-[22px]">
             <PSectionTitle>Top queries</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">Your most searched terms</p>
+            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">Your most searched terms</p>
             <div className="mt-4">
               {topQueries.length === 0 ? (
-                <p className="m-0 text-sm text-[#6c7079]">No searches yet.</p>
+                <p className="m-0 text-sm text-cw-text-muted">No searches yet.</p>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {topQueries.map(([q, n]) => (
                     <div
                       key={q}
-                      className="rounded-[10px] border border-[#e6e7ea] bg-[#fbfbfc] px-3.5 py-2.5"
+                      className="rounded-[10px] border border-cw-border bg-cw-bg-page px-3.5 py-2.5"
                     >
-                      <div className="break-words text-sm font-semibold text-[#17181c]">{q}</div>
-                      <div className="mt-0.5 font-mono text-xs text-[#9aa0a8]">{n} searches</div>
+                      <div className="break-words text-sm font-semibold text-cw-text">{q}</div>
+                      <div className="mt-0.5 font-mono text-xs text-cw-text-muted">{n} searches</div>
                     </div>
                   ))}
                 </div>
@@ -104,24 +104,24 @@ export default async function StatsPage() {
           </PCard>
 
           <PCard className="overflow-hidden">
-            <div className="border-b border-[#eef0f2] px-[22px] py-4">
+            <div className="border-b border-cw-divider px-[22px] py-4">
               <PSectionTitle>Recent searches</PSectionTitle>
-              <p className="m-0 mt-1 text-[13px] text-[#6c7079]">Most recent first</p>
+              <p className="m-0 mt-1 text-[13px] text-cw-text-muted">Most recent first</p>
             </div>
             {(events ?? []).slice(0, 30).length === 0 ? (
-              <p className="m-0 px-[22px] py-5 text-sm text-[#6c7079]">No searches yet.</p>
+              <p className="m-0 px-[22px] py-5 text-sm text-cw-text-muted">No searches yet.</p>
             ) : (
               <div>
                 {(events ?? []).slice(0, 30).map((e, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between gap-3 border-b border-[#f2f3f5] px-[22px] py-3 last:border-b-0"
+                    className="flex items-center justify-between gap-3 border-b border-cw-divider px-[22px] py-3 last:border-b-0"
                   >
                     <div className="min-w-0">
-                      <div className="break-words text-sm font-semibold text-[#17181c]">
+                      <div className="break-words text-sm font-semibold text-cw-text">
                         {e.query}
                       </div>
-                      <div className="mt-0.5 font-mono text-xs text-[#9aa0a8]">
+                      <div className="mt-0.5 font-mono text-xs text-cw-text-muted">
                         {new Date(e.created_at).toLocaleString()}
                         {typeof e.result_count === "number" ? ` • ${e.result_count} results` : ""}
                       </div>

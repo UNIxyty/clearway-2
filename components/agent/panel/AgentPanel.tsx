@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { C, PANEL, SHADOW, mono } from "../ui/tokens";
+import { PANEL, SHADOW, mono } from "../ui/tokens";
 import { Button, Icon, IconButton, RingMark, hmZ, dayTimeZ } from "../ui/primitives";
 import AgentStyles from "../ui/AgentStyles";
 import Composer from "../thread/Composer";
@@ -25,6 +25,7 @@ import type { AgentContext, ConversationSummary } from "../types";
 import { matches as matchesBind, useKeybinds } from "../ui/keybinds";
 import { useViewerOptional } from "../viewer/ViewerContext";
 import { VIEWER } from "../ui/tokens";
+import { cw } from "@/lib/portal-tokens";
 
 export function useAgentPanel() {
   const [open, setOpen] = useState(false);
@@ -40,6 +41,8 @@ export function useAgentPanel() {
 }
 
 type Minimised = { state: "working"; step: number; of: number } | { state: "needs-you"; count: number } | { state: "done" } | null;
+
+const LOOKUP_KINDS = new Set<string>(["airport", "flight", "document", "record"]);
 
 export default function AgentPanel({ open, onClose, context, initials = null, initialConversationId = null, onWidthChange, embedded = false }: { open: boolean; onClose: () => void; context: AgentContext | null; initials?: string | null; initialConversationId?: string | null; onWidthChange?: (px: number) => void; /** Hosted in another app's iframe (wall console): fills the frame, talks to the host by postMessage. */ embedded?: boolean }) {
   const router = useRouter();
@@ -73,6 +76,9 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
   }, [t]);
   const activeContext = docContext ?? t.pinnedContext ?? context;
   const contextMoved = Boolean(t.pinnedContext && context && context.label !== t.pinnedContext.label);
+  // "Asking about …" only where the agent has something to look up: an airport (ICAO), a flight, a document. A page name
+  // alone (the wall's pages, NOTAM Check) is passed along but not claimed (portal redesign, decision 26a).
+  const chipContext = activeContext && LOOKUP_KINDS.has(activeContext.kind) ? activeContext : null;
   const live = useLiveSuggestions(activeContext);
   const empty = useMemo(() => suggestionsFor(activeContext, live), [activeContext, live]);
 
@@ -88,7 +94,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
   // Push vs overlay (§6.2).
   useEffect(() => {
     if (embedded) { setOverlay(false); return; }
-    const decide = () => { const vw = window.innerWidth; const sidebar = document.querySelector<HTMLElement>("[data-cw-sidebar]")?.offsetWidth ?? 248; setOverlay(vw <= PANEL.overlayBelow || vw - sidebar - width < PANEL.pushMinContent); };
+    const decide = () => { const vw = window.innerWidth; const sidebar = document.querySelector<HTMLElement>("[data-cw-sidebar]")?.offsetWidth ?? 248; /* at 1280 and wider it takes its width from the page (§4.3) */ setOverlay(vw < PANEL.overlayBelow || vw - sidebar - width < PANEL.pushMinContent); };
     decide(); window.addEventListener("resize", decide); return () => window.removeEventListener("resize", decide);
   }, [width, embedded]);
   const tellHost = useCallback((msg: Record<string, unknown>) => { if (embedded && window.parent !== window) window.parent.postMessage(msg, window.location.origin); }, [embedded]);
@@ -159,12 +165,12 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
       <>
       {!embedded && <FloatingVoice thread={t} context={context} openPanel={openSelf} />}
       <button type="button" data-cw-agent-minimised="" onClick={() => setMinimised(null)} title={`Reopen the agent · ${kb.label("open")}`} aria-label="Reopen the agent"
-        style={{ position: "fixed", right: 0, top: embedded ? 12 : 34 + 60, width: 44, background: amber ? C.warnTint : C.surface, border: `1px solid ${amber ? C.warnBorder : C.borderControl}`, borderRight: "none", borderRadius: "12px 0 0 12px", boxShadow: SHADOW.panelMinimised, padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", zIndex: 40, fontFamily: "inherit" }}>
-        {minimised.state === "working" ? <span className="ag-spin" style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${C.primary}`, borderTopColor: "transparent" }} /> : <RingMark size={18} color={amber ? C.warn : C.ink} />}
-        <span style={{ writingMode: "vertical-rl", fontSize: 11, fontWeight: 600, color: amber ? C.warn : minimised.state === "done" ? C.ink : C.primaryHover }}>
+        style={{ position: "fixed", right: 0, top: embedded ? 12 : 34 + 60, width: 44, background: amber ? cw.warningTint : cw.bgSurface, border: `1px solid ${amber ? cw.warningBorder : cw.borderControl}`, borderRight: "none", borderRadius: "12px 0 0 12px", boxShadow: SHADOW.panelMinimised, padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", zIndex: 40, fontFamily: "inherit" }}>
+        {minimised.state === "working" ? <span className="ag-spin" style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${cw.primary}`, borderTopColor: "transparent" }} /> : <RingMark size={18} color={amber ? cw.warningText : cw.text} />}
+        <span style={{ writingMode: "vertical-rl", fontSize: 11, fontWeight: 600, color: amber ? cw.warningText : minimised.state === "done" ? cw.text : cw.textLink }}>
           {minimised.state === "working" ? `Working · ${minimised.step} of ${minimised.of}` : amber ? `Confirm ${minimised.count} change${minimised.count > 1 ? "s" : ""}` : "Reply ready"}
         </span>
-        <span className={minimised.state === "working" ? "ag-pulse-1200" : undefined} style={{ width: 8, height: 8, borderRadius: "50%", background: amber ? C.warnDot : minimised.state === "done" ? C.ink : C.primary }} />
+        <span className={minimised.state === "working" ? "ag-pulse-1200" : undefined} style={{ width: 8, height: 8, borderRadius: "50%", background: amber ? cw.warning : minimised.state === "done" ? cw.ink : cw.primary }} />
       </button>
       </>
     );
@@ -180,16 +186,16 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
         role="complementary" aria-label="Ops Agent"
         className={`${closing ? "ag-panel-out" : "ag-panel-in"} ${expanding ? "ag-expanding" : ""}`}
         style={{
-          width: embedded ? "100%" : expanding ? "100vw" : shownWidth, flex: "none", transition: "width 200ms cubic-bezier(0.2,0,0,1)", background: C.surface, borderLeft: embedded ? "none" : `1px solid ${C.border}`, display: "flex", flexDirection: "column",
+          width: embedded ? "100%" : expanding ? "100vw" : shownWidth, flex: "none", transition: "width 200ms cubic-bezier(0.2,0,0,1)", background: cw.bgSurface, borderLeft: embedded ? "none" : `1px solid ${cw.border}`, display: "flex", flexDirection: "column",
           position: overlay || expanding ? "fixed" : "relative", ...(overlay || expanding ? { top: 0, right: 0, bottom: 0, zIndex: 60, boxShadow: SHADOW.panelOverlay } : { height: "100vh", position: "sticky", top: 0, zIndex: 40 }),
-          fontFamily: "inherit", color: C.ink,
+          fontFamily: "inherit", color: cw.text,
         }}
       >
         {!embedded && <div onMouseDown={(e) => { dragRef.current = { startX: e.clientX, startWidth: width }; e.preventDefault(); }} title="Drag to resize" role="separator" aria-orientation="vertical"
-          style={{ position: "absolute", left: -3, top: "50%", width: 6, height: 44, marginTop: -22, borderRadius: 3, background: C.borderControl, cursor: "ew-resize", zIndex: 2 }} />}
+          style={{ position: "absolute", left: -3, top: "50%", width: 6, height: 44, marginTop: -22, borderRadius: 3, background: cw.borderStrong, cursor: "ew-resize", zIndex: 2 }} />}
 
-        {/* Header 60 */}
-        <div style={{ height: PANEL.headerHeight, flex: "none", display: "flex", alignItems: "center", gap: 6, padding: "0 10px 0 16px", borderBottom: `1px solid ${C.divider}` }}>
+        {/* Header 56, level with the top bar (portal redesign §4) */}
+        <div style={{ height: PANEL.headerHeight, flex: "none", display: "flex", alignItems: "center", gap: 6, padding: "0 10px 0 16px", borderBottom: `1px solid ${cw.border}`, background: embedded ? cw.bgSurface : cw.bgSidebar }}>
           {view === "history" ? (
             <><IconButton icon="arrow-left" title="Back to thread" onClick={() => setView("thread")} /><span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>History</span></>
           ) : (
@@ -206,20 +212,20 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
           <PanelHistory conversations={t.conversations} query={historyQuery} setQuery={setHistoryQuery} currentId={t.conversationId} context={activeContext} onOpen={(id) => { void t.openConversation(id); setView("thread"); }} />
         ) : (
           <div ref={bodyRef} onScroll={onScroll} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-            <ContextChip context={activeContext} loading={contextLoading && t.messages.length === 0} onClear={() => t.setPinnedContext(null)} />
-            {contextMoved && context && <NowOnChip context={context} onSwitch={() => t.setPinnedContext(context)} />}
+            <ContextChip context={chipContext} loading={contextLoading && t.messages.length === 0} onClear={() => t.setPinnedContext(null)} />
+            {contextMoved && context && LOOKUP_KINDS.has(context.kind) && <NowOnChip context={context} onSwitch={() => t.setPinnedContext(context)} />}
 
-            {t.loadingThread && <div aria-busy style={{ display: "flex", flexDirection: "column", gap: 8 }}>{[80, 60, 70].map((w, i) => <div key={i} style={{ height: 12, width: `${w}%`, borderRadius: 4, background: C.hover }} />)}</div>}
+            {t.loadingThread && <div aria-busy style={{ display: "flex", flexDirection: "column", gap: 8 }}>{[80, 60, 70].map((w, i) => <div key={i} style={{ height: 12, width: `${w}%`, borderRadius: 4, background: cw.bgHover }} />)}</div>}
 
             {!t.loadingThread && t.messages.length === 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 16, paddingTop: 4 }}>
                 <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.3, letterSpacing: "-0.01em" }}>{empty.headline}</div>
-                <div style={{ fontSize: 13.5, lineHeight: 1.55, color: C.muted }}>{empty.sub}</div>
+                <div style={{ fontSize: 13.5, lineHeight: 1.55, color: cw.textMuted }}>{empty.sub}</div>
                 <SuggestedQuestions items={empty.items} onAsk={(q) => void t.send(q, { command: q.startsWith("/") ? q.split(" ")[0] : null })} />
                 {empty.recent && empty.recent.length > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: C.faint }}>PICK UP WHERE YOU LEFT OFF</span>
-                    {empty.recent.map((r) => <button key={r.id} type="button" onClick={() => void t.openConversation(r.id)} className="ag-row-hover ag-focus" style={{ display: "flex", justifyContent: "space-between", gap: 10, fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: C.ink, background: "transparent", border: "none", borderRadius: 8, padding: "7px 8px", cursor: "pointer", textAlign: "left" }}><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</span><span style={{ ...mono({ fontSize: 11.5 }), color: C.faint }}>{hmZ(r.at)}</span></button>)}
+                    <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted }}>PICK UP WHERE YOU LEFT OFF</span>
+                    {empty.recent.map((r) => <button key={r.id} type="button" onClick={() => void t.openConversation(r.id)} className="ag-row-hover ag-focus" style={{ display: "flex", justifyContent: "space-between", gap: 10, fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: cw.text, background: "transparent", border: "none", borderRadius: 8, padding: "7px 8px", cursor: "pointer", textAlign: "left" }}><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</span><span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>{hmZ(r.at)}</span></button>)}
                   </div>
                 )}
               </div>
@@ -230,10 +236,10 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
               : <AgentReply key={m.id ?? i} message={m} panel onContinue={m.stopped ? t.continueReply : undefined} onConfirmationSettled={(c, o) => t.onConfirmationSettled(c, o.status, o.at, o.result)} onSendFile={(f) => void t.send(`Email the file ${f.filename} — ask me who to send it to.`)} onEmailDocument={(d) => void t.send(`Email me the document "${d.title}".`)} />)}
 
             {t.streaming && t.activity && (
-              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: C.ink }}><span className="ag-pulse-1000"><Icon name="loader-circle" size={12} color={C.primary} /></span><span style={mono()}>{t.activity}</span><span>…</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: cw.text }}><span className="ag-pulse-1000"><Icon name="loader-circle" size={12} color={cw.textLink} /></span><span style={mono()}>{t.activity}</span><span>…</span></div>
             )}
             {t.offline && <OfflineCard queued={t.queued} panel />}
-            {t.error && !t.offline && <div role="alert" style={{ border: `1px solid ${C.warnBorder}`, borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}><div style={{ fontSize: 12, fontWeight: 700, color: C.warn }}>That didn&apos;t work</div><div style={{ fontSize: 13, lineHeight: 1.5 }}>{t.error}</div><div><Button variant="primary" size="xs" onClick={() => t.setError(null)}>Dismiss</Button></div></div>}
+            {t.error && !t.offline && <div role="alert" style={{ border: `1px solid ${cw.warningBorder}`, borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}><div style={{ fontSize: 12, fontWeight: 700, color: cw.warningText }}>That didn&apos;t work</div><div style={{ fontSize: 13, lineHeight: 1.5 }}>{t.error}</div><div><Button variant="primary" size="xs" onClick={() => t.setError(null)}>Dismiss</Button></div></div>}
           </div>
         )}
 
@@ -258,22 +264,22 @@ function PanelHistory({ conversations, query, setQuery, currentId, context, onOp
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "10px 12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, height: 38, border: `1px solid ${C.borderControl}`, borderRadius: 10, padding: "0 12px" }}><Icon name="search" size={14} color={C.faint} /><input name="history-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search threads" aria-label="Search threads" style={{ flex: 1, border: "none", outline: "none", fontFamily: "inherit", fontSize: 13.5, background: "transparent" }} /></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, height: 38, border: `1px solid ${cw.borderControl}`, borderRadius: 10, padding: "0 12px" }}><Icon name="search" size={14} color={cw.textMuted} /><input name="history-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search threads" aria-label="Search threads" style={{ flex: 1, border: "none", outline: "none", fontFamily: "inherit", fontSize: 13.5, background: "transparent" }} /></div>
       </div>
-      {conversations === null && <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 8 }}>{[0, 1, 2].map((i) => <div key={i} style={{ height: 44, borderRadius: 10, background: C.hover }} />)}</div>}
-      {conversations !== null && filtered.length === 0 && <div style={{ padding: "8px 12px", fontSize: 13, color: C.muted }}>{query ? "No threads match." : "No earlier conversations."}</div>}
+      {conversations === null && <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 8 }}>{[0, 1, 2].map((i) => <div key={i} style={{ height: 44, borderRadius: 10, background: cw.bgHover }} />)}</div>}
+      {conversations !== null && filtered.length === 0 && <div style={{ padding: "8px 12px", fontSize: 13, color: cw.textMuted }}>{query ? "No threads match." : "No earlier conversations."}</div>}
       {groups.map(([label, list]) => (
         <div key={label}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: C.faint, padding: "8px 12px 4px" }}>{label}</div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, padding: "8px 12px 4px" }}>{label}</div>
           {list.map((c) => (
-            <button key={c.id} type="button" onClick={() => onOpen(c.id)} className="ag-row-hover ag-focus" style={{ width: "100%", textAlign: "left", display: "flex", flexDirection: "column", gap: 2, padding: "9px 12px", borderBottom: `1px solid ${C.dividerRow}`, border: "none", background: c.id === currentId ? C.rowExpanded : "transparent", cursor: "pointer", fontFamily: "inherit" }}>
-              <span style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</span><span style={{ ...mono({ fontSize: 11 }), color: C.faint }} suppressHydrationWarning>{dayTimeZ(c.lastMessageAt)}</span></span>
-              {c.snippet && <span style={{ fontSize: 12.5, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.snippet}</span>}
+            <button key={c.id} type="button" onClick={() => onOpen(c.id)} className="ag-row-hover ag-focus" style={{ width: "100%", textAlign: "left", display: "flex", flexDirection: "column", gap: 2, padding: "9px 12px", borderBottom: `1px solid ${cw.divider}`, border: "none", background: c.id === currentId ? cw.bgSelected : "transparent", cursor: "pointer", fontFamily: "inherit" }}>
+              <span style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><span style={{ fontSize: 13.5, fontWeight: 600, color: cw.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</span><span style={{ ...mono({ fontSize: 11 }), color: cw.textMuted }} suppressHydrationWarning>{dayTimeZ(c.lastMessageAt)}</span></span>
+              {c.snippet && <span style={{ fontSize: 12.5, color: cw.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.snippet}</span>}
             </button>
           ))}
         </div>
       ))}
-      <a href="/agent/history" style={{ marginTop: "auto", padding: "10px 12px", borderTop: `1px solid ${C.divider}`, fontSize: 12.5, fontWeight: 600, color: C.primaryHover, textDecoration: "none" }}>All history in full page →</a>
+      <a href="/agent/history" style={{ marginTop: "auto", padding: "10px 12px", borderTop: `1px solid ${cw.divider}`, fontSize: 12.5, fontWeight: 600, color: cw.textLink, textDecoration: "none" }}>All history in full page →</a>
     </div>
   );
 }

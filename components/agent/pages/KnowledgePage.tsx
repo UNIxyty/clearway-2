@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PortalShell, { useIdentity } from "@/components/portal/Shell";
 import { EmptyState, FieldLabel, LoadingRows, TextArea, TextInput } from "@/components/console-kit";
-import { C, mono } from "../ui/tokens";
+import { mono } from "../ui/tokens";
 import { Button, Icon, IconButton, IconTile, Tag, hmZ, kb } from "../ui/primitives";
 import { RevisionTag } from "../thread/RevisionTag";
 import type { RevisionInfo } from "../types";
@@ -17,6 +17,7 @@ import AgentStyles from "../ui/AgentStyles";
 import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
+import { cw } from "@/lib/portal-tokens";
 
 type Doc = {
   id: string; title: string; filename: string; mime: string | null; bytes: number | null; source: string | null; version: string | null;
@@ -34,9 +35,9 @@ const ext = (name: string) => (name.split(".").pop() || "").toUpperCase().slice(
 const isPending = (d: Doc) => d.status === "awaiting_approval" || d.status === "classified" || d.status === "uploaded";
 
 const STATUS: Record<Doc["status"], { text: string; dot: string; fg: string }> = {
-  indexed: { text: "Indexed", dot: C.okDot, fg: C.ok }, approved: { text: "Indexed", dot: C.okDot, fg: C.ok },
-  awaiting_approval: { text: "Awaiting approval", dot: C.warnDot, fg: C.warn }, classified: { text: "Awaiting approval", dot: C.warnDot, fg: C.warn }, uploaded: { text: "Awaiting approval", dot: C.warnDot, fg: C.warn },
-  failed: { text: "Failed · no text", dot: C.dangerBadge, fg: C.danger }, rejected: { text: "Rejected", dot: C.dangerBadge, fg: C.danger },
+  indexed: { text: "Indexed", dot: cw.success, fg: cw.successText }, approved: { text: "Indexed", dot: cw.success, fg: cw.successText },
+  awaiting_approval: { text: "Awaiting approval", dot: cw.warning, fg: cw.warningText }, classified: { text: "Awaiting approval", dot: cw.warning, fg: cw.warningText }, uploaded: { text: "Awaiting approval", dot: cw.warning, fg: cw.warningText },
+  failed: { text: "Failed · no text", dot: cw.danger, fg: cw.dangerText }, rejected: { text: "Rejected", dot: cw.danger, fg: cw.dangerText },
 };
 
 async function agentFetch(path: string, init: RequestInit = {}) {
@@ -66,10 +67,10 @@ export default function KnowledgePage() {
   const current = useMemo(() => list.find((r) => r.id === selected) ?? list.find(isPending) ?? null, [list, selected]);
 
   const statCard = (label: string, color: string, border: string, value: number | string, sub: string) => (
-    <div style={{ background: C.surface, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px" }}>
+    <div style={{ background: cw.bgSurface, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px" }}>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color }}>{label}</div>
       <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", marginTop: 2 }}>{value}</div>
-      <div style={{ fontSize: 12.5, color: C.muted }}>{sub}</div>
+      <div style={{ fontSize: 12.5, color: cw.textMuted }}>{sub}</div>
     </div>
   );
 
@@ -79,21 +80,21 @@ export default function KnowledgePage() {
       headerRight={isDeveloper ? <Button variant="primary" size="lg" icon="upload" style={{ borderRadius: 10 }} onClick={() => setUploadOpen((v) => !v)}>Upload</Button> : undefined}>
       <AgentStyles />
       <div style={{ padding: "30px 32px", display: "flex", flexDirection: "column", gap: 18 }}>
-        {error && <div role="alert" style={{ fontSize: 13, color: C.danger }}>{error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13, color: cw.dangerText }}>{error}</div>}
         {uploadOpen && <UploadCard onDone={async () => { setUploadOpen(false); await load(); }} onCancel={() => setUploadOpen(false)} />}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 12 }}>
-          {statCard("AUTHORITATIVE", C.ink, C.ink, stats?.authoritative ?? "—", stats ? `quoted verbatim · ${stats.clauses} clause${stats.clauses === 1 ? "" : "s"}` : "quoted verbatim")}
-          {statCard("REFERENCE", C.faint, C.border, stats?.reference ?? "—", "searched and cited")}
-          {statCard("AWAITING APPROVAL", C.warn, C.warnBorder, stats?.awaiting ?? "—", stats?.oldestWaitingDays != null ? `oldest ${stats.oldestWaitingDays} day${stats.oldestWaitingDays === 1 ? "" : "s"}` : "nothing waiting")}
-          {statCard("NEEDS ATTENTION", C.danger, C.dangerBorder, stats?.failed ?? "—", stats?.failed ? "indexing failed" : "nothing failed")}
+          {statCard("AUTHORITATIVE", cw.text, cw.text, stats?.authoritative ?? "—", stats ? `quoted verbatim · ${stats.clauses} clause${stats.clauses === 1 ? "" : "s"}` : "quoted verbatim")}
+          {statCard("REFERENCE", cw.textMuted, cw.border, stats?.reference ?? "—", "searched and cited")}
+          {statCard("AWAITING APPROVAL", cw.warningText, cw.warningBorder, stats?.awaiting ?? "—", stats?.oldestWaitingDays != null ? `oldest ${stats.oldestWaitingDays} day${stats.oldestWaitingDays === 1 ? "" : "s"}` : "nothing waiting")}
+          {statCard("NEEDS ATTENTION", cw.dangerText, cw.dangerBorder, stats?.failed ?? "—", stats?.failed ? "indexing failed" : "nothing failed")}
         </div>
 
         <div style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
           {/* Document table */}
-          <div style={{ flex: 1, minWidth: 0, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2.2fr) 1.1fr 1fr 1.1fr 1fr", gap: 12, padding: "10px 18px", background: C.page, borderBottom: `1px solid ${C.divider}` }}>
-              {["DOCUMENT", "TIER", "STATUS", "OWNER", "UPDATED"].map((h) => <span key={h} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: C.faint }}>{h}</span>)}
+          <div style={{ flex: 1, minWidth: 0, background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2.2fr) 1.1fr 1fr 1.1fr 1fr", gap: 12, padding: "10px 18px", background: cw.bgPage, borderBottom: `1px solid ${cw.divider}` }}>
+              {["DOCUMENT", "TIER", "STATUS", "OWNER", "UPDATED"].map((h) => <span key={h} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: cw.textMuted }}>{h}</span>)}
             </div>
             {rows === null && <div style={{ padding: 18 }}><LoadingRows rows={4} /></div>}
             {rows !== null && list.length === 0 && <EmptyState title="No documents yet">{isDeveloper ? "Upload the first one with the button above." : "Nothing has been uploaded for the agent to read."}</EmptyState>}
@@ -102,20 +103,20 @@ export default function KnowledgePage() {
               const tier = d.tier === "tier1" && !isPending(d) && d.status !== "rejected" ? "auth" : d.proposed_tier === "tier1" && isPending(d) ? "requested" : "reference";
               return (
                 <button key={d.id} type="button" onClick={() => setSelected(d.id)} aria-pressed={sel} className="ag-row-hover ag-focus"
-                  style={{ width: "100%", display: "grid", gridTemplateColumns: "minmax(0,2.2fr) 1.1fr 1fr 1.1fr 1fr", gap: 12, alignItems: "center", padding: "12px 18px", border: "none", borderBottom: `1px solid ${C.dividerRow}`, background: sel ? C.warnWash : "transparent", cursor: "pointer", textAlign: "left", fontFamily: "inherit", color: C.ink }}>
+                  style={{ width: "100%", display: "grid", gridTemplateColumns: "minmax(0,2.2fr) 1.1fr 1fr 1.1fr 1fr", gap: 12, alignItems: "center", padding: "12px 18px", border: "none", borderBottom: `1px solid ${cw.divider}`, background: sel ? cw.warningTint : "transparent", cursor: "pointer", textAlign: "left", fontFamily: "inherit", color: cw.text }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <span style={{ width: 30, height: 36, borderRadius: 5, background: C.sidebar, border: `1px solid ${C.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.muted, flex: "none" }}>{ext(d.filename)}</span>
+                    <span style={{ width: 30, height: 36, borderRadius: 5, background: cw.bgSunken, border: `1px solid ${cw.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: cw.textMuted, flex: "none" }}>{ext(d.filename)}</span>
                     <span style={{ minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</span>
-                      <span style={{ ...mono({ fontSize: 11.5 }), color: C.faint }}>{d.id.slice(0, 8).toUpperCase()}{d.bytes ? ` · ${kb(d.bytes)}` : ""}</span>
-                      {d.fileMissing && <span data-file-missing style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: C.danger, background: C.dangerTint, border: `1px solid ${C.dangerBorder}`, borderRadius: 5, padding: "1px 6px" }}>File missing</span>}
+                      <span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>{d.id.slice(0, 8).toUpperCase()}{d.bytes ? ` · ${kb(d.bytes)}` : ""}</span>
+                      {d.fileMissing && <span data-file-missing style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: cw.dangerText, background: cw.dangerTint, border: `1px solid ${cw.dangerBorder}`, borderRadius: 5, padding: "1px 6px" }}>File missing</span>}
                     </span>
                   </span>
-                  <span>{tier === "auth" ? <Tag fg={C.surface} bg={C.ink}>AUTHORITATIVE</Tag> : tier === "requested" ? <Tag fg={C.ink} bg={C.surface} style={{ border: `1px solid ${C.ink}` }}>AUTH · REQUESTED</Tag> : <Tag fg={C.body} bg={C.surface} style={{ border: `1px solid ${C.borderControl}` }}>REFERENCE</Tag>}</span>
+                  <span>{tier === "auth" ? <Tag fg={cw.onInk} bg={cw.ink}>AUTHORITATIVE</Tag> : tier === "requested" ? <Tag fg={cw.text} bg={cw.bgSurface} style={{ border: `1px solid ${cw.text}` }}>AUTH · REQUESTED</Tag> : <Tag fg={cw.textBody} bg={cw.bgSurface} style={{ border: `1px solid ${cw.borderControl}` }}>REFERENCE</Tag>}</span>
                   <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: st.fg }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: st.dot, flex: "none" }} />{st.text}</span>
-                  <span style={{ fontSize: 12.5, color: C.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.uploaded_by_email ?? "—"}</span>
-                  <span style={{ ...mono({ fontSize: 12 }), color: C.muted, display: "inline-flex", alignItems: "center", gap: 8 }}>{dateShort(d.updated_at ?? d.created_at)}
-                    <span role="button" tabIndex={0} aria-label={`Open ${d.title}`} className="ag-kb-open ag-focus" onClick={(e) => { e.stopPropagation(); void od.openKnowledge(d.id, e.currentTarget as HTMLElement); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); void od.openKnowledge(d.id, e.currentTarget as HTMLElement); } }} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: C.primaryHover, background: C.surface, border: `1px solid ${C.primaryBorder}`, borderRadius: 7, padding: "5px 9px", opacity: 0, fontFamily: "inherit", cursor: "pointer" }}><Icon name="eye" size={12} color={C.primaryHover} />Open</span>
+                  <span style={{ fontSize: 12.5, color: cw.textBody, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.uploaded_by_email ?? "—"}</span>
+                  <span style={{ ...mono({ fontSize: 12 }), color: cw.textMuted, display: "inline-flex", alignItems: "center", gap: 8 }}>{dateShort(d.updated_at ?? d.created_at)}
+                    <span role="button" tabIndex={0} aria-label={`Open ${d.title}`} className="ag-kb-open ag-focus" onClick={(e) => { e.stopPropagation(); void od.openKnowledge(d.id, e.currentTarget as HTMLElement); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); void od.openKnowledge(d.id, e.currentTarget as HTMLElement); } }} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: cw.textLink, background: cw.bgSurface, border: `1px solid ${cw.primaryTintBorder}`, borderRadius: 7, padding: "5px 9px", opacity: 0, fontFamily: "inherit", cursor: "pointer" }}><Icon name="eye" size={12} color={cw.textLink} />Open</span>
                   </span>
                 </button>
               );
@@ -153,10 +154,10 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
     : decision?.kind === "rejected" || (!pending && doc.status === "rejected") ? "rejected"
     : decision?.kind === "reference" || (!pending && doc.tier === "tier2") ? "reference" : "pending";
   const look = {
-    pending: { border: C.warnBorder, bg: C.warnWash, icon: "shield-alert", color: C.warn, title: "Approval needed · authoritative tier" },
-    approved: { border: C.okBorder, bg: C.okWash, icon: "shield-check", color: C.ok, title: `Approved as authoritative · by ${doc.approved_by_email && me && doc.approved_by_email.toLowerCase() === me.toLowerCase() ? "you" : doc.approved_by_email ?? "an approver"}${doc.approved_at || decision?.at ? ` ${hmZ(decision?.at ?? doc.approved_at)}` : ""}${decision?.clauses != null ? ` · ${decision.clauses} clause${decision.clauses === 1 ? "" : "s"} now quotable` : ""}` },
-    reference: { border: C.border, bg: C.page, icon: "book-open", color: C.body, title: "Added as reference only · agent will cite, not quote" },
-    rejected: { border: C.dangerBorder, bg: C.dangerWash, icon: "x-circle", color: C.danger, title: `Rejected${doc.uploaded_by_email ? ` · ${doc.uploaded_by_email} can see your note` : ""}` },
+    pending: { border: cw.warningBorder, bg: cw.warningTint, icon: "shield-alert", color: cw.warningText, title: "Approval needed · authoritative tier" },
+    approved: { border: cw.successBorder, bg: cw.successTint, icon: "shield-check", color: cw.successText, title: `Approved as authoritative · by ${doc.approved_by_email && me && doc.approved_by_email.toLowerCase() === me.toLowerCase() ? "you" : doc.approved_by_email ?? "an approver"}${doc.approved_at || decision?.at ? ` ${hmZ(decision?.at ?? doc.approved_at)}` : ""}${decision?.clauses != null ? ` · ${decision.clauses} clause${decision.clauses === 1 ? "" : "s"} now quotable` : ""}` },
+    reference: { border: cw.border, bg: cw.bgPage, icon: "book-open", color: cw.textBody, title: "Added as reference only · agent will cite, not quote" },
+    rejected: { border: cw.dangerBorder, bg: cw.dangerTint, icon: "x-circle", color: cw.dangerText, title: `Rejected${doc.uploaded_by_email ? ` · ${doc.uploaded_by_email} can see your note` : ""}` },
   }[state];
   const requestedTier = doc.proposed_tier === "tier1" ? "Authoritative" : "Reference";
   const shownTitle = state === "pending" && doc.proposed_tier !== "tier1" ? "Review · reference tier proposed" : look.title;
@@ -183,56 +184,56 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
   const approveTitle = !canApprove ? "Approving needs the developer role" : own ? "You uploaded this document — someone else must approve it" : !clauses || n === 0 ? "No clauses could be extracted to approve" : undefined;
 
   return (
-    <aside aria-label="Approval" style={{ width: 440, flex: "none", background: C.surface, borderRadius: 14, border: `1.5px solid ${look.border}`, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: look.bg, borderBottom: `1px solid ${C.divider}` }}>
+    <aside aria-label="Approval" style={{ width: 440, flex: "none", background: cw.bgSurface, borderRadius: 14, border: `1.5px solid ${look.border}`, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: look.bg, borderBottom: `1px solid ${cw.divider}` }}>
         <Icon name={look.icon} size={15} color={look.color} />
         <span style={{ fontSize: 13.5, fontWeight: 700, flex: 1, minWidth: 0 }}>{shownTitle}</span>
-        <span style={{ ...mono({ fontSize: 11.5 }), color: C.muted }}>{doc.id.slice(0, 8).toUpperCase()}</span>
+        <span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>{doc.id.slice(0, 8).toUpperCase()}</span>
       </div>
       <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{doc.title}</div>
-          <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>Uploaded by {doc.uploaded_by_email ?? "—"} · {dayTime(doc.created_at)} · requested tier {requestedTier}</div>
+          <div style={{ fontSize: 12.5, color: cw.textMuted, marginTop: 2 }}>Uploaded by {doc.uploaded_by_email ?? "—"} · {dayTime(doc.created_at)} · requested tier {requestedTier}</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 7, columnGap: 8, fontSize: 13 }}>
-          <span style={{ color: C.muted }}>Extracted</span><span>{clauses ? `${n} clause${n === 1 ? "" : "s"}${extracted === false ? " · no text could be read" : ""}` : canApprove && pending ? "…" : doc.proposed_reason ?? "—"}</span>
-          <span style={{ color: C.muted }}>Applies to</span><span style={mono({ fontSize: 12.5 })}>{doc.icao ?? doc.country ?? "—"}</span>
+          <span style={{ color: cw.textMuted }}>Extracted</span><span>{clauses ? `${n} clause${n === 1 ? "" : "s"}${extracted === false ? " · no text could be read" : ""}` : canApprove && pending ? "…" : doc.proposed_reason ?? "—"}</span>
+          <span style={{ color: cw.textMuted }}>Applies to</span><span style={mono({ fontSize: 12.5 })}>{doc.icao ?? doc.country ?? "—"}</span>
           {doc.fileMissing && <span style={{ gridColumn: "1 / -1" }}><MissingFile doc={doc} canFix={canApprove} onFixed={onDecided ? () => onDecided(decision as never) : undefined} /></span>}
-          <span style={{ color: C.muted }}>Revision</span><span><RevisionTag revision={doc.revision} showCurrent /></span>
-          {doc.effective_date && <><span style={{ color: C.muted }}>Effective</span><span style={mono({ fontSize: 12.5 })}>{dateShort(doc.effective_date)}</span></>}
-          {doc.source && <><span style={{ color: C.muted }}>Source</span><span>{doc.source}{doc.version ? ` · ${doc.version}` : ""}</span></>}
-          <span style={{ color: C.muted }}>File</span><span style={mono({ fontSize: 12.5 })}>{doc.filename}{doc.bytes ? ` · ${kb(doc.bytes)}` : ""}</span>
+          <span style={{ color: cw.textMuted }}>Revision</span><span><RevisionTag revision={doc.revision} showCurrent /></span>
+          {doc.effective_date && <><span style={{ color: cw.textMuted }}>Effective</span><span style={mono({ fontSize: 12.5 })}>{dateShort(doc.effective_date)}</span></>}
+          {doc.source && <><span style={{ color: cw.textMuted }}>Source</span><span>{doc.source}{doc.version ? ` · ${doc.version}` : ""}</span></>}
+          <span style={{ color: cw.textMuted }}>File</span><span style={mono({ fontSize: 12.5 })}>{doc.filename}{doc.bytes ? ` · ${kb(doc.bytes)}` : ""}</span>
         </div>
 
         {pending && canApprove && clauses && n > 0 && (
-          <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: C.page, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em" }}>
+          <div style={{ border: `1px solid ${cw.border}`, borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: cw.bgPage, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em" }}>
               <span style={{ flex: 1, minWidth: 0 }}>CHECK THE EXTRACTED TEXT — CLAUSE {all ? "ALL" : `${i + 1} OF ${n}`}</span>
               {!all && <span style={{ display: "inline-flex", gap: 2, flex: "none" }}><IconButton icon="arrow-left" title="Previous clause" size={24} iconSize={13} disabled={i === 0} onClick={() => setI((x) => x - 1)} /><IconButton icon="arrow-right" title="Next clause" size={24} iconSize={13} disabled={i >= n - 1} onClick={() => setI((x) => x + 1)} /></span>}
             </div>
             <div style={{ padding: "10px 12px", fontSize: 13.5, lineHeight: 1.6, maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
               {(all ? clauses : clause ? [clause] : []).map((c, k) => <div key={k} style={{ whiteSpace: "pre-wrap" }}>{c.text}</div>)}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderTop: `1px solid ${C.divider}`, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: C.ok, flex: 1 }}>Extracted from {doc.filename}</span>
-              <button type="button" onClick={() => setAll((v) => !v)} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: C.primary, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>{all ? "One at a time" : `Compare all ${n}`}</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderTop: `1px solid ${cw.divider}`, fontSize: 12 }}>
+              <span style={{ fontWeight: 600, color: cw.successText, flex: 1 }}>Extracted from {doc.filename}</span>
+              <button type="button" onClick={() => setAll((v) => !v)} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: cw.textLink, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>{all ? "One at a time" : `Compare all ${n}`}</button>
             </div>
           </div>
         )}
-        {pending && canApprove && clauses && n === 0 && <div style={{ fontSize: 13, color: C.danger }}>No text could be extracted, so nothing can enter the authoritative tier from this file. Reference indexing also needs text.</div>}
-        {pending && !canApprove && <div style={{ fontSize: 12.5, color: C.muted }}>Waiting for an approver. Approving needs the developer role.</div>}
+        {pending && canApprove && clauses && n === 0 && <div style={{ fontSize: 13, color: cw.dangerText }}>No text could be extracted, so nothing can enter the authoritative tier from this file. Reference indexing also needs text.</div>}
+        {pending && !canApprove && <div style={{ fontSize: 12.5, color: cw.textMuted }}>Waiting for an approver. Approving needs the developer role.</div>}
 
-        {pending && <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.muted }}>Approving puts these clauses in the verbatim tier: the agent will quote them exactly and cite you as approver. The uploader can&apos;t approve their own document.</div>}
-        {error && <div role="alert" style={{ fontSize: 13, color: C.danger }}>{error}</div>}
+        {pending && <div style={{ fontSize: 12.5, lineHeight: 1.5, color: cw.textMuted }}>Approving puts these clauses in the verbatim tier: the agent will quote them exactly and cite you as approver. The uploader can&apos;t approve their own document.</div>}
+        {error && <div role="alert" style={{ fontSize: 13, color: cw.dangerText }}>{error}</div>}
 
         {pending && !rejecting && (
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" disabled={approveDisabled} title={approveTitle} onClick={() => void decide("approved")} className="ag-focus"
-              style={{ flex: 1, fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: C.surface, background: C.ink, padding: "10px 14px", borderRadius: 9, border: "none", cursor: approveDisabled ? "not-allowed" : "pointer", opacity: approveDisabled ? 0.4 : 1 }}>
+              style={{ flex: 1, fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: cw.onInk, background: cw.ink, padding: "10px 14px", borderRadius: 9, border: "none", cursor: approveDisabled ? "not-allowed" : "pointer", opacity: approveDisabled ? 0.4 : 1 }}>
               {busy === "approved" ? "Approving…" : "Approve as authoritative"}
             </button>
             <Button variant="secondary" size="md" disabled={!canApprove || busy !== null} spinning={busy === "reference"} onClick={() => void decide("reference")}>Reference only</Button>
-            <button type="button" disabled={!canApprove || busy !== null} onClick={() => setRejecting(true)} className="ag-focus" style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: C.dangerBadge, background: C.dangerTint, padding: "10px 14px", borderRadius: 9, border: "none", cursor: canApprove ? "pointer" : "not-allowed" }}>Reject</button>
+            <button type="button" disabled={!canApprove || busy !== null} onClick={() => setRejecting(true)} className="ag-focus" style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: cw.dangerText, background: cw.dangerTint, padding: "10px 14px", borderRadius: 9, border: "none", cursor: canApprove ? "pointer" : "not-allowed" }}>Reject</button>
           </div>
         )}
         {pending && rejecting && (
@@ -246,9 +247,9 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
           </div>
         )}
         {!pending && (
-          <div style={{ background: C.page, border: `1px solid ${C.border}`, borderRadius: 9, padding: "10px 12px", fontSize: 13 }}>{look.title}{state === "rejected" && doc.rejected_reason ? <div style={{ color: C.muted, marginTop: 4 }}>“{doc.rejected_reason}”</div> : null}</div>
+          <div style={{ background: cw.bgPage, border: `1px solid ${cw.border}`, borderRadius: 9, padding: "10px 12px", fontSize: 13 }}>{look.title}{state === "rejected" && doc.rejected_reason ? <div style={{ color: cw.textMuted, marginTop: 4 }}>“{doc.rejected_reason}”</div> : null}</div>
         )}
-        {!pending && <div><IconTile icon="download" fg={C.muted} bg={C.sidebar} /> <a href={`${AGENT_BASE}/api/knowledge/documents/${encodeURIComponent(doc.id)}/file`} style={{ fontSize: 12.5, color: C.primary, verticalAlign: "middle", marginLeft: 6 }}>Original file</a></div>}
+        {!pending && <div><IconTile icon="download" fg={cw.textMuted} bg={cw.bgSunken} /> <a href={`${AGENT_BASE}/api/knowledge/documents/${encodeURIComponent(doc.id)}/file`} style={{ fontSize: 12.5, color: cw.textLink, verticalAlign: "middle", marginLeft: 6 }}>Original file</a></div>}
       </div>
     </aside>
   );
@@ -285,19 +286,19 @@ function UploadCard({ onDone, onCancel }: { onDone: () => Promise<void>; onCance
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); setProgress(null); }
   }
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ fontSize: 14.5, fontWeight: 700 }}>Upload a document</div>
-      <div style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.5 }}>Text, Markdown, CSV or JSON is classified automatically and proposes a tier. Anything else is stored and waits for an approver to read it. The original is always kept. Up to 100 MB.</div>
-      {progress !== null && <div role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 999, background: C.divider, overflow: "hidden" }}><div style={{ width: `${progress}%`, height: "100%", background: C.primary, transition: "width 120ms linear" }} /></div>}
-      {notice && <div style={{ fontSize: 13, color: C.ok }}>{notice}</div>}
-      {error && <div role="alert" style={{ fontSize: 13, color: C.danger }}>{error}</div>}
+      <div style={{ fontSize: 12.5, color: cw.textMuted, lineHeight: 1.5 }}>Text, Markdown, CSV or JSON is classified automatically and proposes a tier. Anything else is stored and waits for an approver to read it. The original is always kept. Up to 100 MB.</div>
+      {progress !== null && <div role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 999, background: cw.bgHover, overflow: "hidden" }}><div style={{ width: `${progress}%`, height: "100%", background: cw.primary, transition: "width 120ms linear" }} /></div>}
+      {notice && <div style={{ fontSize: 13, color: cw.successText }}>{notice}</div>}
+      {error && <div role="alert" style={{ fontSize: 13, color: cw.dangerText }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
         <div style={{ gridColumn: "1 / -1" }}>
           <FieldLabel>File</FieldLabel>
-          <label style={{ display: "flex", alignItems: "center", gap: 10, border: `1px dashed ${C.borderControl}`, borderRadius: 9, padding: "10px 12px", cursor: "pointer", fontSize: 13 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, border: `1px dashed ${cw.borderControl}`, borderRadius: 9, padding: "10px 12px", cursor: "pointer", fontSize: 13 }}>
             <input type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0] ?? null; setFile(f); if (f && !title) setTitle(f.name.replace(/\.[^.]+$/, "")); }} />
-            <span style={{ fontWeight: 600, color: C.primary }}>{progress !== null ? `Uploading ${progress}%` : "Choose file"}</span>
-            <span style={{ color: file ? C.ink : C.faint }}>{file ? `${file.name} · ${kb(file.size)}` : "no file chosen"}</span>
+            <span style={{ fontWeight: 600, color: cw.textLink }}>{progress !== null ? `Uploading ${progress}%` : "Choose file"}</span>
+            <span style={{ color: file ? cw.text : cw.textMuted }}>{file ? `${file.name} · ${kb(file.size)}` : "no file chosen"}</span>
           </label>
         </div>
         <div><FieldLabel>Title</FieldLabel><TextInput value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Ground Handling Manual" /></div>
@@ -330,15 +331,15 @@ function MissingFile({ doc, canFix, onFixed }: { doc: Doc; canFix: boolean; onFi
     } catch { setState({ busy: false, message: "The file could not be uploaded — check the connection and try again.", error: true }); }
   }
   return (
-    <div role="alert" style={{ display: "flex", flexDirection: "column", gap: 6, background: C.dangerTint, border: `1px solid ${C.dangerBorder}`, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: C.body }}>
-      <span><b style={{ color: C.danger }}>File missing.</b> The record is here but its file is not in storage, so it cannot be opened or downloaded. The approved clauses still show, but they cannot be checked against the source until the file is back.</span>
+    <div role="alert" style={{ display: "flex", flexDirection: "column", gap: 6, background: cw.dangerTint, border: `1px solid ${cw.dangerBorder}`, borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: cw.textBody }}>
+      <span><b style={{ color: cw.dangerText }}>File missing.</b> The record is here but its file is not in storage, so it cannot be opened or downloaded. The approved clauses still show, but they cannot be checked against the source until the file is back.</span>
       {canFix ? (
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input ref={input} type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ""; }} />
           <Button variant="secondary" size="xs" icon="upload" disabled={state.busy} onClick={() => input.current?.click()}>{state.busy ? "Uploading…" : `Re-upload ${doc.filename}`}</Button>
-          {state.message && <span style={{ color: state.error ? C.danger : C.ok }}>{state.message}</span>}
+          {state.message && <span style={{ color: state.error ? cw.dangerText : cw.successText }}>{state.message}</span>}
         </span>
-      ) : <span style={{ color: C.muted }}>Ask a developer to re-upload it.</span>}
+      ) : <span style={{ color: cw.textMuted }}>Ask a developer to re-upload it.</span>}
     </div>
   );
 }

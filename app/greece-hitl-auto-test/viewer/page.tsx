@@ -17,7 +17,7 @@ function GreeceHitlViewerPageClient() {
 
 export default function GreeceHitlViewerPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading noVNC viewer...</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-cw-text-muted">Loading noVNC viewer...</div>}>
       <GreeceHitlViewerPageClient />
     </Suspense>
   );

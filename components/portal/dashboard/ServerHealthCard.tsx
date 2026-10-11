@@ -9,6 +9,7 @@
 import MaskIcon from "@/components/portal/Icon";
 import { PButton } from "@/components/portal/ui";
 import { LoadingRows, RegionCard, RegionNote, formatBytes, usePoll } from "./shared";
+import { cw } from "@/lib/portal-tokens";
 
 type Metrics = {
   available?: boolean;
@@ -20,9 +21,9 @@ type Metrics = {
   warnings?: string[];
 };
 
-const GREEN = "#16a34a";
-const AMBER = "#f59e0b";
-const RED = "#e5484d";
+const GREEN = cw.success;
+const AMBER = cw.warning;
+const RED = cw.danger;
 
 function barColor(pct: number, amberAt: number, redAt: number) {
   if (pct >= redAt) return RED;
@@ -52,21 +53,21 @@ function MetricTile({
     <div
       className="rounded-[11px] border p-[13px]"
       style={{
-        borderColor: warn ? (clamped >= redAt ? "#f3c9c9" : "#f4d9ae") : "#eceef0",
-        background: warn ? (clamped >= redAt ? "#fef7f7" : "#fffaf2") : "#fbfbfc",
+        borderColor: warn ? (clamped >= redAt ? "var(--cw-danger-border)" : "var(--cw-warning-border)") : "var(--cw-divider)",
+        background: warn ? (clamped >= redAt ? "var(--cw-danger-tint)" : "var(--cw-warning-tint)") : "var(--cw-bg-page)",
       }}
     >
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-bold tracking-[0.1em] text-cw-muted">{label}</span>
-        {warn && <MaskIcon name="triangle-alert" size={14} color="#d97706" />}
+        <span className="text-[11px] font-bold tracking-[0.1em] text-cw-text-muted">{label}</span>
+        {warn && <MaskIcon name="triangle-alert" size={14} color="var(--cw-warning-text)" />}
       </div>
       <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-[21px] font-semibold" style={{ color: warn ? (clamped >= redAt ? "#b91c1c" : "#b45309") : "#17181c" }}>
+        <span className="font-mono text-[21px] font-semibold" style={{ color: warn ? (clamped >= redAt ? "var(--cw-danger-text)" : "var(--cw-warning-text)") : "var(--cw-text)" }}>
           {value}
         </span>
-        {sub && <span className="text-xs text-cw-faint">{sub}</span>}
+        {sub && <span className="text-xs text-cw-text-muted">{sub}</span>}
       </div>
-      <div className="mt-2.5 h-1.5 overflow-hidden rounded bg-[#eceef0]">
+      <div className="mt-2.5 h-1.5 overflow-hidden rounded bg-cw-bg-hover">
         <div
           className="h-full rounded"
           style={{ width: `${clamped ?? 0}%`, background: color }}
@@ -86,7 +87,7 @@ export default function ServerHealthCard() {
       icon="server"
       title="Server health"
       headerRight={
-        <span className="rounded-[5px] bg-[#dbeafe] px-[7px] py-[3px] text-[11px] font-bold tracking-[0.06em] text-[#1d4ed8]">
+        <span className="rounded-[5px] bg-cw-primary-wash px-[7px] py-[3px] text-[11px] font-bold tracking-[0.06em] text-cw-text-link">
           ADMIN
         </span>
       }
@@ -102,7 +103,7 @@ export default function ServerHealthCard() {
       ) : error && !data ? (
         <RegionNote
           icon="triangle-alert"
-          iconColor="#e5484d"
+          iconColor="var(--cw-danger-text)"
           title="Couldn't load server metrics"
           body={error}
           action={
@@ -114,10 +115,10 @@ export default function ServerHealthCard() {
       ) : (
         <div className="pb-4">
           {(data?.warnings?.length ?? 0) > 0 && (
-            <div className="mx-5 mt-4 flex flex-col gap-1 rounded-[10px] border border-[#f4d9ae] bg-[#fffaf2] px-3.5 py-2.5">
+            <div className="mx-5 mt-4 flex flex-col gap-1 rounded-[10px] border border-cw-warning-border bg-cw-warning-tint px-3.5 py-2.5">
               {data!.warnings!.map((warning, i) => (
-                <div key={i} className="flex items-start gap-2 text-[12.5px] font-medium text-[#b45309]">
-                  <MaskIcon name="triangle-alert" size={14} color="#d97706" className="mt-px" />
+                <div key={i} className="flex items-start gap-2 text-[12.5px] font-medium text-cw-warning-text">
+                  <MaskIcon name="triangle-alert" size={14} color="var(--cw-warning-text)" className="mt-px" />
                   <span>{warning}</span>
                 </div>
               ))}
@@ -167,7 +168,7 @@ export default function ServerHealthCard() {
 
           {(data?.disks?.length ?? 0) > 0 && (
             <>
-              <div className="px-5 pb-1 pt-4 text-[11px] font-bold tracking-[0.12em] text-cw-faint">
+              <div className="px-5 pb-1 pt-4 text-[11px] font-bold tracking-[0.12em] text-cw-text-muted">
                 DISK BY VOLUME
               </div>
               {data!.disks!.map((disk, i) => {
@@ -180,13 +181,13 @@ export default function ServerHealthCard() {
                 );
                 const hot = pct >= 80;
                 const critical = pct >= 90;
-                const fg = critical ? "#b91c1c" : hot ? "#b45309" : "#3a3d44";
+                const fg = critical ? cw.dangerText : hot ? cw.warningText : cw.textBody;
                 return (
-                  <div key={disk.mount ?? i} className="flex items-center gap-3 border-t border-[#f4f5f6] px-5 py-2">
+                  <div key={disk.mount ?? i} className="flex items-center gap-3 border-t border-cw-divider px-5 py-2">
                     <span className="w-[110px] flex-none truncate font-mono text-[12.5px] font-medium" style={{ color: fg }} title={disk.mount}>
                       {disk.mount ?? "?"}
                     </span>
-                    <span className="h-2 flex-1 overflow-hidden rounded-[5px] bg-[#eceef0]">
+                    <span className="h-2 flex-1 overflow-hidden rounded-[5px] bg-cw-bg-hover">
                       <span
                         className="block h-full"
                         style={{ width: `${pct}%`, background: barColor(pct, 80, 90) }}
@@ -199,8 +200,8 @@ export default function ServerHealthCard() {
                       <span
                         className="flex-none rounded-md px-2 py-[3px] text-[11px] font-bold tracking-[0.05em]"
                         style={{
-                          color: critical ? "#b91c1c" : "#b45309",
-                          background: critical ? "#fee2e2" : "#fef3e2",
+                          color: critical ? "var(--cw-danger-text)" : "var(--cw-warning-text)",
+                          background: critical ? "var(--cw-danger-tint)" : "var(--cw-warning-tint)",
                         }}
                       >
                         {Math.round(pct)}%
@@ -214,7 +215,7 @@ export default function ServerHealthCard() {
 
           {(data?.containers?.length ?? 0) > 0 && (
             <>
-              <div className="px-5 pb-1 pt-3.5 text-[11px] font-bold tracking-[0.12em] text-cw-faint">
+              <div className="px-5 pb-1 pt-3.5 text-[11px] font-bold tracking-[0.12em] text-cw-text-muted">
                 CONTAINERS
               </div>
               <div className="flex flex-col gap-1.5 px-3.5 pt-1.5">
@@ -227,30 +228,30 @@ export default function ServerHealthCard() {
                       key={container.name ?? i}
                       className="flex items-center gap-[11px] rounded-[10px] border px-3 py-[7px]"
                       style={{
-                        borderColor: unhealthy ? "#f3c9c9" : "#eceef0",
-                        background: unhealthy ? "#fef7f7" : "#fff",
+                        borderColor: unhealthy ? "var(--cw-danger-border)" : "var(--cw-divider)",
+                        background: unhealthy ? "var(--cw-danger-tint)" : "var(--cw-bg-surface)",
                       }}
                     >
                       <span
                         className="h-2 w-2 flex-none rounded-full"
                         style={{ background: unhealthy ? RED : GREEN }}
                       />
-                      <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] font-medium text-cw-ink">
+                      <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] font-medium text-cw-text">
                         {container.name ?? "?"}
                       </span>
                       {container.memB != null && (
-                        <span className="hidden flex-none font-mono text-[11.5px] text-cw-faint sm:inline">
+                        <span className="hidden flex-none font-mono text-[11.5px] text-cw-text-muted sm:inline">
                           {formatBytes(container.memB)}
                         </span>
                       )}
-                      <span className="hidden max-w-[160px] flex-none truncate text-xs text-cw-muted md:inline" title={status}>
+                      <span className="hidden max-w-[160px] flex-none truncate text-xs text-cw-text-muted md:inline" title={status}>
                         {status}
                       </span>
                       <span
                         className="flex-none rounded-md px-[9px] py-[3px] text-[11px] font-bold tracking-[0.05em]"
                         style={{
-                          color: unhealthy ? "#b91c1c" : "#15803d",
-                          background: unhealthy ? "#fee2e2" : "#e7f6ec",
+                          color: unhealthy ? "var(--cw-danger-text)" : "var(--cw-success-text)",
+                          background: unhealthy ? "var(--cw-danger-tint)" : "var(--cw-success-tint)",
                         }}
                       >
                         {unhealthy ? (state !== "running" ? state.toUpperCase() || "DOWN" : "UNHEALTHY") : "RUNNING"}

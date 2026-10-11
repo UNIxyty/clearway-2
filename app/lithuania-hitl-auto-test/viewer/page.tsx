@@ -17,7 +17,7 @@ function LithuaniaHitlViewerPageClient() {
 
 export default function LithuaniaHitlViewerPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading noVNC viewer...</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-cw-text-muted">Loading noVNC viewer...</div>}>
       <LithuaniaHitlViewerPageClient />
     </Suspense>
   );

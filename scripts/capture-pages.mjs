@@ -11,6 +11,7 @@
 //        node scripts/capture-pages.mjs --list my-pages.json               another list (same shape as PAGES)
 //        node scripts/capture-pages.mjs --base http://127.0.0.1:3989 --session rig-session.json   (the rig)
 //        node scripts/capture-pages.mjs --channel chrome --only 10          with Google Chrome (shows embedded PDFs)
+//        node scripts/capture-pages.mjs --theme both                        light and dark (files get -light / -dark)
 //   The session file (~/.clearway/portal-capture-session.json by default) is a signed-in session: keep it private, and
 //   delete it when done (it is never written into the repo).
 //
@@ -34,6 +35,11 @@ const WIDTH = Number(arg("width", 1440));
 // The bundled Chromium has no PDF viewer: an embedded PDF (the AIP page's AD2) shows "Native PDF preview is not
 // available". --channel chrome uses the installed Google Chrome instead; --headed shows the window.
 const LAUNCH = { ...(arg("channel") ? { channel: arg("channel") } : {}), headless: !process.argv.includes("--headed") };
+// --theme light | dark | both (default light). The portal's theme is chosen in the browser (localStorage cw-theme,
+// read before first paint), so nothing is written to the account; the account's own saved choice is kept out of the
+// captured page so it cannot switch the theme half-way.
+const THEMES = arg("theme", "light") === "both" ? ["light", "dark"] : [arg("theme", "light")];
+if (!THEMES.every((t) => t === "light" || t === "dark")) { console.error("--theme must be light, dark or both"); process.exit(2); }
 
 export const PAGES = [
   { id: "01", name: "dashboard", path: "/dashboard", waitFor: "text=Changelog", settleMs: 4000 },
@@ -80,11 +86,14 @@ async function capture() {
   let pages = PAGES;
   if (arg("list")) pages = JSON.parse(fs.readFileSync(arg("list"), "utf8"));
   if (ONLY) pages = pages.filter((p) => ONLY.has(p.id));
+  // (with --theme both, --only still takes the base ids: 02 captures 02-light and 02-dark)
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch(LAUNCH);
   const report = [];
-  for (const spec of pages) {
-    const ctx = await browser.newContext({ viewport: { width: WIDTH, height: 900 }, storageState: SESSION, colorScheme: "light" });
+  for (const theme of THEMES) for (const base of pages) {
+    const spec = THEMES.length > 1 ? { ...base, id: `${base.id}-${theme}`, name: `${base.name}-${theme}` } : base;
+    const ctx = await browser.newContext({ viewport: { width: WIDTH, height: 900 }, storageState: SESSION, colorScheme: theme });
+    await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch { /* storage blocked */ } }, theme);
     const page = await ctx.newPage();
     const blocked = [];
     const origin = new URL(BASE).origin;
@@ -94,6 +103,11 @@ async function capture() {
       if (req.url().startsWith(origin) && !["GET", "HEAD", "OPTIONS"].includes(req.method())) {
         blocked.push(`${req.method()} ${new URL(req.url()).pathname}`);
         return route.abort();
+      }
+      if (new URL(req.url()).pathname === "/api/user/preferences" && req.method() === "GET") {
+        const r = await route.fetch(); const body = await r.json().catch(() => null);
+        if (body?.preferences) delete body.preferences.theme;
+        return route.fulfill({ response: r, body: JSON.stringify(body ?? {}) });
       }
       if (spec.holdData && req.url().includes(spec.holdData.match) && !page.__released) {
         await new Promise((r) => (page.__waiters ??= []).push(r));
@@ -146,7 +160,7 @@ async function capture() {
     const prev = JSON.parse(fs.readFileSync(reportFile, "utf8")).pages ?? [];
     merged = [...prev.filter((p) => !report.some((r) => r.id === p.id)), ...report].sort((a, b) => String(a.id).localeCompare(String(b.id)));
   }
-  fs.writeFileSync(reportFile, JSON.stringify({ base: BASE, at: new Date().toISOString(), width: WIDTH, browser: LAUNCH.channel ?? "chromium", pages: merged }, null, 2));
+  fs.writeFileSync(reportFile, JSON.stringify({ base: BASE, at: new Date().toISOString(), width: WIDTH, browser: LAUNCH.channel ?? "chromium", themes: THEMES, pages: merged }, null, 2));
   if (!process.argv.includes("--no-zip")) {
     const zip = `${OUT.replace(/\/+$/, "")}.zip`;
     fs.rmSync(zip, { force: true });

@@ -21,12 +21,12 @@ export default function AccessBlockedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-cw-bg-page flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
-        <Card className="shadow-lg border-border/70">
+        <Card className="shadow-lg border-cw-border/70">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-2">
-              <ShieldAlert className="size-8 text-amber-500" />
+              <ShieldAlert className="size-8 text-cw-warning-text" />
             </div>
             <CardTitle>Access restricted</CardTitle>
             <CardDescription>
@@ -35,8 +35,8 @@ export default function AccessBlockedPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-center">
-            <p className="text-sm text-muted-foreground break-all">
-              Blocked path: <span className="font-semibold text-foreground">{from}</span>
+            <p className="text-sm text-cw-text-muted break-all">
+              Blocked path: <span className="font-semibold text-cw-text">{from}</span>
             </p>
             <Button type="button" variant="outline" className="w-full" onClick={signOut}>
               Sign out

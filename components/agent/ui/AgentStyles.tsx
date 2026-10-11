@@ -5,7 +5,8 @@
 // so agent.css carries no hex literal of its own.
 
 import "./agent.css";
-import { C } from "./tokens";
+
+import { cw } from "@/lib/portal-tokens";
 
 // Rendered by every agent surface. It used to render once per module load,
 // which meant the FIRST page's <style> was removed on navigation and later
@@ -13,11 +14,10 @@ import { C } from "./tokens";
 // `var(--ag-primary-hover)` and "disappeared". Duplicate <style> tags are harmless.
 export default function AgentStyles() {
   const vars = {
-    "--ag-primary": C.primary, "--ag-primary-hover": C.primaryHover, "--ag-primary-border": C.primaryBorder,
-    "--ag-hover": C.hover, "--ag-page": C.page, "--ag-suggest-hover": C.suggestHover,
-    "--ag-primary-tint": C.primaryTint, "--ag-tab-hover": C.tabHover, "--ag-search-match": C.searchMatch, "--ag-search-current": C.searchCurrent, "--ag-cite-highlight": C.citeHighlight, "--ag-cite-outline": C.citeOutline, "--ag-quote-bg": C.violetTint2, "--ag-quote-line": C.violetBorder, "--ag-quote-fg": C.companyDeep, "--ag-quote-tint": C.quoteTint,
+    "--ag-primary": cw.primary, "--ag-primary-hover": cw.primaryHover, "--ag-primary-border": cw.primaryTintBorder,
+    "--ag-hover": cw.bgHover, "--ag-page": cw.bgPage, "--ag-suggest-hover": cw.primaryTint,
+    "--ag-primary-tint": cw.primaryTint, "--ag-tab-hover": cw.bgActive, "--ag-search-match": cw.paperMatch, "--ag-search-current": cw.paperMatchCurrent, "--ag-cite-highlight": cw.citeHighlight, "--ag-cite-outline": cw.citeOutline, "--ag-quote-bg": cw.diffTint, "--ag-quote-line": cw.diffBorder, "--ag-quote-fg": cw.diffText, "--ag-quote-tint": cw.diffTint,
   } as Record<string, string>;
-  // #f7faff is the suggested-question hover wash (§4.22); it is the only value
-  // the shared file has no name for and is set here so it stays in one place.
+  // The agent stylesheet (agent.css) reads these --ag-* names; each is a portal --cw-* token, so it follows the theme.
   return <style id="ag-vars">{`:root{${Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(";")}}`}</style>;
 }

@@ -9,14 +9,15 @@
 // arrives — which is exactly the state the spec draws for that moment.
 
 import { useEffect, useRef } from "react";
-import { C, WALL } from "./tokens";
+import { WALL } from "./tokens";
+import { cw, resolveColour } from "@/lib/portal-tokens";
 
 export type WaveformVariant = "bar" | "wall" | "speaking" | "short";
 const VARIANTS: Record<WaveformVariant, { w: number; h: number; bars: number; colour: string }> = {
-  bar: { w: 56, h: 18, bars: 10, colour: C.primary },
+  bar: { w: 56, h: 18, bars: 10, colour: cw.primary },
   wall: { w: 48, h: 16, bars: 10, colour: WALL.accent },
-  speaking: { w: 40, h: 16, bars: 7, colour: C.primary },
-  short: { w: 32, h: 14, bars: 6, colour: C.primary },
+  speaking: { w: 40, h: 16, bars: 7, colour: cw.primary },
+  short: { w: 32, h: 14, bars: 6, colour: cw.primary },
 };
 
 export default function Waveform({
@@ -53,7 +54,7 @@ export default function Waveform({
       // Reduced motion: static bars at the current level, at most 4 updates/s, no tween.
       if (reduced && now - last < 250) { frame = requestAnimationFrame(draw); return; }
       last = now;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); ctx.fillStyle = colour;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); ctx.fillStyle = resolveColour(colour);
       for (let i = 0; i < bars; i += 1) {
         const t = target.current[i] ?? 0;
         current.current[i] = reduced ? t : current.current[i] + (t - current.current[i]) * 0.25;

@@ -31,7 +31,7 @@ export function StatusChip({ status, size = 21 }: { status: HelpStatus; size?: n
 }
 
 export function Reference({ value }: { value: string }) {
-  return <span className="font-mono text-[10.5px] text-cw-faint">{value}</span>;
+  return <span className="font-mono text-[10.5px] text-cw-text-muted">{value}</span>;
 }
 
 /** Six read-only mono fields, fixed order; two go red when they carry a problem. */
@@ -43,10 +43,10 @@ export function ContextGrid({ context, compact = false }: { context: HelpContext
         const red = helpContextFieldIsRed(key, value);
         return (
           <div key={key} className="flex min-w-0 flex-col gap-0.5">
-            <span className="font-mono text-[9.5px] font-bold tracking-[0.09em] text-cw-faint">{label}</span>
+            <span className="font-mono text-[9.5px] font-bold tracking-[0.09em] text-cw-text-muted">{label}</span>
             <span
               className="truncate font-mono text-[12.5px] font-semibold"
-              style={{ color: red ? "#b42318" : "#17181c" }}
+              style={{ color: red ? "var(--cw-danger-text)" : "var(--cw-text)" }}
               title={value}
             >
               {value}

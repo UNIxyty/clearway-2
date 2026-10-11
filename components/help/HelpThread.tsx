@@ -39,6 +39,7 @@ import {
   type HelpStatus,
   type HelpThread as Thread,
 } from "@/lib/help/shared";
+import { cw } from "@/lib/portal-tokens";
 
 type Message = { id: string; author: "ops" | "developer"; authorName: string | null; blocks: HelpBlock[]; createdAt: string };
 type Event = { id: string; kind: string; payload: Record<string, unknown>; actor: string | null; createdAt: string };
@@ -66,10 +67,10 @@ function eventText(e: Event): string {
 }
 
 function eventDot(e: Event): string {
-  if (e.kind === "status_changed") return "#2563eb";
-  if (e.kind === "joined") return "#16a34a";
-  if (e.kind === "chat_closed") return "#9aa0a8";
-  return "#c3c7ce";
+  if (e.kind === "status_changed") return cw.primary;
+  if (e.kind === "joined") return cw.success;
+  if (e.kind === "chat_closed") return cw.neutral;
+  return cw.borderStrong;
 }
 
 const dayLabel = (iso: string) => {
@@ -84,16 +85,16 @@ const dayLabel = (iso: string) => {
 function PresenceStrip({ thread, onNudge, onFileReport }: { thread: Thread; onNudge: () => void; onFileReport: () => void }) {
   const at = thread.presenceAt ? utcTime(thread.presenceAt) : "";
   const cfg = {
-    not_notified: { bg: "#fbfbfc", border: "#e6e7ea", dot: "#9aa0a8", title: "Not notified yet",
-      sub: "Send your first message and the developer gets a Telegram alert.", tColor: "#17181c", sColor: "#6c7079", action: null as null | { label: string; onClick: () => void; primary?: boolean } },
-    notified: { bg: "#fdf6ec", border: "#f3e0c4", dot: "#f59e0b", title: `${DEVELOPER_NAME} has been notified`,
-      sub: `Telegram alert delivered ${at}. The chat has not been opened yet.`, tColor: "#8a4b09", sColor: "#8a5a23", action: { label: "Nudge again", onClick: onNudge } },
-    joining: { bg: "#f2f7ff", border: "#dbe6ff", dot: "#2563eb", title: `${DEVELOPER_NAME} is opening the chat`,
-      sub: `Opened Telegram ${at}. Usually a few seconds.`, tColor: "#1d4ed8", sColor: "#3a5170", action: null },
-    present: { bg: "#e7f6ec", border: "#c7ead2", dot: "#16a34a", title: `${DEVELOPER_NAME} is here`,
-      sub: `Joined ${at}. Replies are live from now on.`, tColor: "#15803d", sColor: "#3f6b4f", action: null },
-    no_answer: { bg: "#f5f6f7", border: "#e6e7ea", dot: "#9aa0a8", title: "No answer for five minutes",
-      sub: "They may be away from their phone. Filing this as a report keeps everything you wrote.", tColor: "#17181c", sColor: "#6c7079",
+    not_notified: { bg: "var(--cw-bg-page)", border: "var(--cw-border)", dot: "var(--cw-neutral)", title: "Not notified yet",
+      sub: "Send your first message and the developer gets a Telegram alert.", tColor: "var(--cw-text)", sColor: "var(--cw-text-muted)", action: null as null | { label: string; onClick: () => void; primary?: boolean } },
+    notified: { bg: "var(--cw-warning-tint)", border: "var(--cw-warning-border)", dot: "var(--cw-warning)", title: `${DEVELOPER_NAME} has been notified`,
+      sub: `Telegram alert delivered ${at}. The chat has not been opened yet.`, tColor: "var(--cw-warning-text)", sColor: "var(--cw-warning-text)", action: { label: "Nudge again", onClick: onNudge } },
+    joining: { bg: "var(--cw-primary-tint)", border: "var(--cw-primary-tint-border)", dot: "var(--cw-primary)", title: `${DEVELOPER_NAME} is opening the chat`,
+      sub: `Opened Telegram ${at}. Usually a few seconds.`, tColor: "var(--cw-text-link)", sColor: "var(--cw-text-body)", action: null },
+    present: { bg: "var(--cw-success-tint)", border: "var(--cw-success-border)", dot: "var(--cw-success)", title: `${DEVELOPER_NAME} is here`,
+      sub: `Joined ${at}. Replies are live from now on.`, tColor: "var(--cw-success-text)", sColor: "var(--cw-success-text)", action: null },
+    no_answer: { bg: "var(--cw-bg-sunken)", border: "var(--cw-border)", dot: "var(--cw-neutral)", title: "No answer for five minutes",
+      sub: "They may be away from their phone. Filing this as a report keeps everything you wrote.", tColor: "var(--cw-text)", sColor: "var(--cw-text-muted)",
       action: { label: "File as report", onClick: onFileReport, primary: true } },
     none: null,
   }[thread.presence];
@@ -109,7 +110,7 @@ function PresenceStrip({ thread, onNudge, onFileReport }: { thread: Thread; onNu
         <button
           onClick={cfg.action.onClick}
           className="inline-flex h-[34px] flex-none cursor-pointer items-center rounded-[9px] border px-3 text-[12.5px] font-bold"
-          style={cfg.action.primary ? { background: "#2563eb", borderColor: "#2563eb", color: "#fff" } : { background: "#fff", borderColor: cfg.border, color: cfg.tColor }}
+          style={cfg.action.primary ? { background: "var(--cw-primary)", borderColor: "var(--cw-primary)", color: "var(--cw-text-on-primary)" } : { background: "var(--cw-bg-surface)", borderColor: cfg.border, color: cfg.tColor }}
         >
           {cfg.action.label}
         </button>
@@ -242,7 +243,7 @@ export default function HelpThread({ reference }: { reference: string }) {
     return (
       <PortalShell crumb="Help" title="">
         <div className="mx-auto max-w-[640px] px-[30px] pt-10">
-          <div className="rounded-[13px] border border-cw-border bg-white p-6 text-[13.5px] text-cw-muted">
+          <div className="rounded-[13px] border border-cw-border bg-cw-bg-surface p-6 text-[13.5px] text-cw-text-muted">
             This thread does not exist, or it is not yours.
           </div>
         </div>
@@ -254,10 +255,10 @@ export default function HelpThread({ reference }: { reference: string }) {
     return (
       <PortalShell crumb="Help" title="">
         <div className="mx-auto max-w-[860px] px-[30px] pt-8">
-          <div className="flex flex-col gap-[9px] rounded-[13px] border border-cw-border bg-white px-3.5 py-[13px]">
-            <div className="h-3 w-[110px] rounded bg-[#f1f2f4]" />
-            <div className="h-3 w-full rounded bg-cw-sidebar" />
-            <div className="h-3 w-2/3 rounded bg-cw-sidebar" />
+          <div className="flex flex-col gap-[9px] rounded-[13px] border border-cw-border bg-cw-bg-surface px-3.5 py-[13px]">
+            <div className="h-3 w-[110px] rounded bg-cw-bg-hover" />
+            <div className="h-3 w-full rounded bg-cw-bg-sidebar" />
+            <div className="h-3 w-2/3 rounded bg-cw-bg-sidebar" />
           </div>
         </div>
       </PortalShell>
@@ -272,18 +273,18 @@ export default function HelpThread({ reference }: { reference: string }) {
 
   return (
     <PortalShell crumb="Help" title="" wide>
-      <div className="mx-auto flex h-[calc(100vh-120px)] max-w-[900px] flex-col px-[30px]">
+      <div className="mx-auto flex h-[calc(100vh-120px-var(--cw-topbar))] max-w-[900px] flex-col px-[30px]">
         <div
-          className="flex flex-none items-center gap-3 rounded-t-[16px] border border-cw-border bg-white px-6 py-3.5"
-          style={thread.type === "urgent" ? { background: "#fdf2f2", borderColor: "#f0c9ca" } : isChat ? { background: "#f7fdf9" } : undefined}
+          className="flex flex-none items-center gap-3 rounded-t-[16px] border border-cw-border bg-cw-bg-surface px-6 py-3.5"
+          style={thread.type === "urgent" ? { background: "var(--cw-danger-tint)", borderColor: "var(--cw-danger-border)" } : isChat ? { background: "var(--cw-success-tint)" } : undefined}
         >
-          <button onClick={() => router.push("/help")} className="flex h-[34px] w-[34px] flex-none cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-white text-[15px] text-cw-body">←</button>
+          <button onClick={() => router.push("/help")} className="flex h-[34px] w-[34px] flex-none cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-cw-bg-surface text-[15px] text-cw-text-body">←</button>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="flex items-center gap-[9px]">
-              <span className="truncate text-[16px] font-extrabold tracking-[-0.015em] text-cw-ink">{thread.title}</span>
+              <span className="truncate text-[16px] font-extrabold tracking-[-0.015em] text-cw-text">{thread.title}</span>
               <TypeChip type={thread.type} size={20} />
             </div>
-            <span className="font-mono text-[11.5px] text-cw-faint">
+            <span className="font-mono text-[11.5px] text-cw-text-muted">
               {thread.reference} · filed {utcTime(thread.createdAt)} {ageOf(thread.createdAt) === "just now" ? "today" : `· ${ageOf(thread.createdAt)}`}
             </span>
           </div>
@@ -293,7 +294,7 @@ export default function HelpThread({ reference }: { reference: string }) {
           </div>
         </div>
 
-        <div ref={scrollRef} className="flex flex-1 flex-col gap-3.5 overflow-y-auto border-x border-cw-border bg-cw-page px-6 py-5">
+        <div ref={scrollRef} className="flex flex-1 flex-col gap-3.5 overflow-y-auto border-x border-cw-border bg-cw-bg-page px-6 py-5">
           {isChat && viewer === "ops" && thread.status !== "done" && (
             <PresenceStrip
               thread={thread}
@@ -305,7 +306,7 @@ export default function HelpThread({ reference }: { reference: string }) {
           {timeline.length > 0 && (
             <div className="flex items-center gap-3">
               <span className="h-px flex-1 bg-cw-border" />
-              <span className="font-mono text-[10.5px] font-semibold tracking-[0.07em] text-cw-faint">{dayLabel(timeline[0].at)}</span>
+              <span className="font-mono text-[10.5px] font-semibold tracking-[0.07em] text-cw-text-muted">{dayLabel(timeline[0].at)}</span>
               <span className="h-px flex-1 bg-cw-border" />
             </div>
           )}
@@ -316,9 +317,9 @@ export default function HelpThread({ reference }: { reference: string }) {
               return (
                 <div key={e.id} className="flex items-center gap-2.5 pl-[46px]">
                   <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: eventDot(e) }} />
-                  <span className="text-[12.5px] text-cw-muted">{eventText(e)}</span>
-                  <span className="font-mono text-[11px] text-[#c3c7ce]">{utcTime(e.createdAt)}</span>
-                  <span className="h-px flex-1 bg-cw-borderInner" />
+                  <span className="text-[12.5px] text-cw-text-muted">{eventText(e)}</span>
+                  <span className="font-mono text-[11px] text-cw-text-muted">{utcTime(e.createdAt)}</span>
+                  <span className="h-px flex-1 bg-cw-bg-hover" />
                 </div>
               );
             }
@@ -330,21 +331,21 @@ export default function HelpThread({ reference }: { reference: string }) {
               <div key={m.id} className="flex gap-3">
                 <span
                   className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full font-mono text-[11.5px] font-bold"
-                  style={isDev ? { background: "#17181c", color: "#fff" } : { background: "#e8effe", color: "#1d4ed8" }}
+                  style={isDev ? { background: "var(--cw-ink)", color: "var(--cw-on-ink)" } : { background: "var(--cw-primary-tint)", color: "var(--cw-text-link)" }}
                 >
                   {isDev ? "DEV" : initialsOf(m.authorName || "You")}
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-[7px]">
                   <div className="flex items-baseline gap-[9px]">
-                    <span className="text-[13.5px] font-bold text-cw-ink">{mine ? "You" : isDev ? DEVELOPER_NAME : m.authorName || "Ops"}</span>
+                    <span className="text-[13.5px] font-bold text-cw-text">{mine ? "You" : isDev ? DEVELOPER_NAME : m.authorName || "Ops"}</span>
                     {isDev && (
-                      <span className="inline-flex h-[18px] items-center rounded-[4px] bg-cw-sidebar px-1.5 text-[10px] font-bold tracking-[0.05em] text-cw-muted">DEVELOPER</span>
+                      <span className="inline-flex h-[18px] items-center rounded-[4px] bg-cw-bg-sidebar px-1.5 text-[10px] font-bold tracking-[0.05em] text-cw-text-muted">DEVELOPER</span>
                     )}
-                    <span className="font-mono text-[11px] text-cw-faint">{utcTime(m.createdAt)}</span>
+                    <span className="font-mono text-[11px] text-cw-text-muted">{utcTime(m.createdAt)}</span>
                   </div>
                   <div
                     className="rounded-[13px] border px-4 py-[15px]"
-                    style={isDev ? { background: "#f2f7ff", borderColor: "#dbe6ff" } : { background: "#fff", borderColor: "#e6e7ea" }}
+                    style={isDev ? { background: "var(--cw-primary-tint)", borderColor: "var(--cw-primary-tint-border)" } : { background: "var(--cw-bg-surface)", borderColor: "var(--cw-border)" }}
                   >
                     <BlockRenderer blocks={m.blocks} attachments={attachmentMap} />
                     {isFirstOpsMessage && Object.keys(thread.context || {}).length > 0 && (
@@ -352,7 +353,7 @@ export default function HelpThread({ reference }: { reference: string }) {
                     )}
                   </div>
                   {viewer === "ops" && m.author === "ops" && lastOpsMsg?.id === m.id && devReadAt >= Date.parse(m.createdAt) && (
-                    <span className="pl-0.5 text-[11.5px] text-cw-faint">Read {utcTime(thread.devLastReadAt!)}</span>
+                    <span className="pl-0.5 text-[11.5px] text-cw-text-muted">Read {utcTime(thread.devLastReadAt!)}</span>
                   )}
                 </div>
               </div>
@@ -360,49 +361,49 @@ export default function HelpThread({ reference }: { reference: string }) {
           })}
 
           {failedItems.map((item) => (
-            <div key={item.clientKey} className="ml-[46px] flex flex-col gap-[9px] rounded-[12px] border border-[#f0c9ca] bg-[#fdf2f2] px-3.5 py-[13px]">
+            <div key={item.clientKey} className="ml-[46px] flex flex-col gap-[9px] rounded-[12px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-[13px]">
               <div className="flex items-center gap-2">
-                <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[5px] bg-cw-red text-[11px] font-extrabold text-white">!</span>
-                <span className="text-[13px] font-bold text-[#b42318]">Not delivered</span>
+                <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[5px] bg-cw-danger-solid text-[11px] font-extrabold text-cw-text-on-primary">!</span>
+                <span className="text-[13px] font-bold text-cw-danger-text">Not delivered</span>
               </div>
-              <span className="text-[12.5px] leading-normal text-[#8b3a3a]">
+              <span className="text-[12.5px] leading-normal text-cw-danger-text">
                 Sent {utcTime(item.queuedAt)}, refused by the server at {utcTime(item.lastTriedAt || item.queuedAt)}. The developer has not seen this.
               </span>
               <div className="flex gap-2">
-                <button onClick={() => retryFailed(item)} className="inline-flex h-[34px] cursor-pointer items-center rounded-[8px] border-none bg-cw-red px-3 text-[12.5px] font-bold text-white">Send again</button>
-                <button onClick={() => copyText(item)} className="inline-flex h-[34px] cursor-pointer items-center rounded-[8px] border border-[#f0c9ca] bg-white px-3 text-[12.5px] font-bold text-[#b42318]">Copy text</button>
+                <button onClick={() => retryFailed(item)} className="inline-flex h-[34px] cursor-pointer items-center rounded-[8px] border-none bg-cw-danger-solid px-3 text-[12.5px] font-bold text-cw-text-on-primary">Send again</button>
+                <button onClick={() => copyText(item)} className="inline-flex h-[34px] cursor-pointer items-center rounded-[8px] border border-cw-danger-border bg-cw-bg-surface px-3 text-[12.5px] font-bold text-cw-danger-text">Copy text</button>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="flex flex-none flex-col gap-[11px] rounded-b-[16px] border border-t-0 border-cw-border bg-white px-6 pb-[18px] pt-3.5">
+        <div className="flex flex-none flex-col gap-[11px] rounded-b-[16px] border border-t-0 border-cw-border bg-cw-bg-surface px-6 pb-[18px] pt-3.5">
           {offline && (
-            <div className="flex flex-col gap-1 rounded-[12px] border border-[#f3e0c4] bg-[#fdf6ec] px-3.5 py-[13px]">
-              <span className="text-[13px] font-bold text-[#8a4b09]">You are offline</span>
-              <span className="text-[12.5px] leading-normal text-[#8a5a23]">The reply is saved on this device. It will send by itself when the connection returns.</span>
+            <div className="flex flex-col gap-1 rounded-[12px] border border-cw-warning-border bg-cw-warning-tint px-3.5 py-[13px]">
+              <span className="text-[13px] font-bold text-cw-warning-text">You are offline</span>
+              <span className="text-[12.5px] leading-normal text-cw-warning-text">The reply is saved on this device. It will send by itself when the connection returns.</span>
             </div>
           )}
           {closed ? (
-            <div className="flex items-center gap-3 rounded-[12px] border border-cw-border bg-cw-page px-3.5 py-3">
-              <span className="flex-1 text-[12.5px] text-cw-muted">
+            <div className="flex items-center gap-3 rounded-[12px] border border-cw-border bg-cw-bg-page px-3.5 py-3">
+              <span className="flex-1 text-[12.5px] text-cw-text-muted">
                 This thread was closed 48 hours after it was marked Done. Reopening files a linked report — everything here stays.
               </span>
               <button
                 onClick={fileAsReport}
-                className="inline-flex h-[34px] flex-none cursor-pointer items-center rounded-[9px] border-none bg-cw-primary px-3 text-[12.5px] font-bold text-white"
+                className="inline-flex h-[34px] flex-none cursor-pointer items-center rounded-[9px] border-none bg-cw-primary px-3 text-[12.5px] font-bold text-cw-text-on-primary"
               >
                 File a linked report
               </button>
             </div>
           ) : (
             <>
-              <div className="rounded-[12px] border border-cw-border bg-cw-page px-4 py-3">
+              <div className="rounded-[12px] border border-cw-border bg-cw-bg-page px-4 py-3">
                 <BlockEditor lines={lines} onChange={setLines} atts={atts} screenUrl={String(thread.context.page || "/")} compact placeholder="Reply — / for commands" />
                 <div className="mt-2 flex items-center justify-end gap-2">
                   <button
                     onClick={send}
-                    className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-primary px-[15px] text-[13px] font-bold text-white"
+                    className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-primary px-[15px] text-[13px] font-bold text-cw-text-on-primary"
                   >
                     Send
                   </button>
@@ -411,7 +412,7 @@ export default function HelpThread({ reference }: { reference: string }) {
               <AttachmentsPanel atts={atts} compact />
               {viewer === "ops" && (
                 <div className="flex items-center gap-2.5">
-                  <span className="flex-1 text-[12.5px] text-cw-faint">
+                  <span className="flex-1 text-[12.5px] text-cw-text-muted">
                     {isChat
                       ? thread.presence === "present"
                         ? "This is a live chat. The developer is here."
@@ -421,9 +422,9 @@ export default function HelpThread({ reference }: { reference: string }) {
                   {!isChat && (
                     <button
                       onClick={() => router.push(`/help/new?type=chat&page=${encodeURIComponent(String(thread.context.page || ""))}`)}
-                      className="inline-flex h-[34px] cursor-pointer items-center gap-[7px] rounded-[9px] border border-[#c7ead2] bg-[#e7f6ec] px-3 text-[12.5px] font-bold text-[#15803d]"
+                      className="inline-flex h-[34px] cursor-pointer items-center gap-[7px] rounded-[9px] border border-cw-success-border bg-cw-success-tint px-3 text-[12.5px] font-bold text-cw-success-text"
                     >
-                      <span className="h-[7px] w-[7px] rounded-full bg-cw-green" />
+                      <span className="h-[7px] w-[7px] rounded-full bg-cw-success" />
                       Ask the developer to come live
                     </button>
                   )}
@@ -441,11 +442,11 @@ function CollapsedContext({ context }: { context: Thread["context"] }) {
   const [open, setOpen] = useState(false);
   const count = Object.values(context).filter(Boolean).length;
   return (
-    <div className="mt-3 border-t border-cw-borderInner pt-2.5">
+    <div className="mt-3 border-t border-cw-divider pt-2.5">
       <div className="flex items-center gap-[9px]">
-        <span className="flex h-5 w-5 flex-none items-center justify-center rounded-[6px] bg-[#f1f2f4] text-[10px] text-cw-muted">⚙</span>
-        <span className="flex-1 text-[12.5px] text-cw-faint">{count} technical details attached automatically</span>
-        <button onClick={() => setOpen((v) => !v)} className="cursor-pointer border-none bg-transparent text-[12.5px] font-bold text-cw-primary">
+        <span className="flex h-5 w-5 flex-none items-center justify-center rounded-[6px] bg-cw-bg-hover text-[10px] text-cw-text-muted">⚙</span>
+        <span className="flex-1 text-[12.5px] text-cw-text-muted">{count} technical details attached automatically</span>
+        <button onClick={() => setOpen((v) => !v)} className="cursor-pointer border-none bg-transparent text-[12.5px] font-bold text-cw-text-link">
           {open ? "Hide" : "Show"}
         </button>
       </div>

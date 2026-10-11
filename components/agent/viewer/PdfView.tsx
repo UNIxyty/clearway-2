@@ -13,10 +13,11 @@
 // the highlight layer, which multiplies onto the canvas so glyphs stay legible.
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { C, VIEWER, mono } from "../ui/tokens";
+import { VIEWER, mono } from "../ui/tokens";
 import { buildPageText, findAll, findExact, hitToItemRanges, normalise, type Hit, type PageText } from "./locate";
 import { attachTextLayerSelection, detachTextLayerSelection } from "./textLayerSelection";
 import type { Citation, CitationResult } from "./types";
+import { cw } from "@/lib/portal-tokens";
 
 type Pdfjs = typeof import("pdfjs-dist");
 type PDFDocumentProxy = import("pdfjs-dist").PDFDocumentProxy;
@@ -456,27 +457,27 @@ export const PdfView = forwardRef<PdfHandle, {
   return (
     <div style={{ display: hidden ? "none" : "flex", minHeight: 0, flex: 1 }}>
       {thumbnails && pages > 0 && (
-        <div ref={railRef} className="cw-thumb-rail" style={{ width: VIEWER.thumbRail, flex: "none", background: C.sidebar, borderRight: `1px solid ${C.border}`, overflowY: "auto", padding: "14px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }} aria-label="Pages">
+        <div ref={railRef} className="cw-thumb-rail" style={{ width: VIEWER.thumbRail, flex: "none", background: cw.bgSunken, borderRight: `1px solid ${cw.border}`, overflowY: "auto", padding: "14px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }} aria-label="Pages">
           {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
             <button key={n} type="button" data-thumb={n} onClick={() => scrollToPage(n)} aria-label={`Page ${n}`} aria-current={n === current ? "page" : undefined} style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontFamily: "inherit" }}>
-              <span style={{ position: "relative", width: 78, height: 101, background: C.viewerCanvas, border: n === current ? `2px solid ${C.primary}` : `1px solid ${C.border}`, borderRadius: 3, boxShadow: n === current ? "0 0 0 3px rgba(37,99,235,.15)" : "none", overflow: "hidden", display: "block" }}>
-                <canvas ref={(el) => { if (el) thumbEls.current.set(n, el); else thumbEls.current.delete(n); }} data-page={n} className="cw-thumb" style={{ width: "100%", height: "100%", display: "block", background: C.surface, opacity: 0 }} />
-                {citePages[n] && <span style={{ position: "absolute", top: -6, right: -6, height: 16, minWidth: 16, padding: "0 5px", borderRadius: 999, background: C.primary, color: C.surface, fontSize: 9.5, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{citePages[n].join(" ")}</span>}
-                {matchPages.has(n) && <span style={{ position: "absolute", bottom: 4, right: 4, width: 10, height: 10, borderRadius: "50%", background: C.warnDot, boxShadow: `0 0 0 2px ${C.sidebar}` }} />}
+              <span style={{ position: "relative", width: 78, height: 101, background: cw.viewerCanvas, border: n === current ? `2px solid ${cw.primary}` : `1px solid ${cw.border}`, borderRadius: 3, boxShadow: n === current ? `0 0 0 3px ${cw.focusHalo}` : "none", overflow: "hidden", display: "block" }}>
+                <canvas ref={(el) => { if (el) thumbEls.current.set(n, el); else thumbEls.current.delete(n); }} data-page={n} className="cw-thumb" style={{ width: "100%", height: "100%", display: "block", background: cw.bgSurface, opacity: 0 }} />
+                {citePages[n] && <span style={{ position: "absolute", top: -6, right: -6, height: 16, minWidth: 16, padding: "0 5px", borderRadius: 999, background: cw.primary, color: cw.textOnPrimary, fontSize: 9.5, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{citePages[n].join(" ")}</span>}
+                {matchPages.has(n) && <span style={{ position: "absolute", bottom: 4, right: 4, width: 10, height: 10, borderRadius: "50%", background: cw.warning, boxShadow: `0 0 0 2px ${cw.bgSunken}` }} />}
               </span>
-              <span style={{ ...mono({ fontSize: 11, fontWeight: n === current ? 700 : 400 }), color: n === current ? C.primaryHover : C.muted }}>{n}</span>
+              <span style={{ ...mono({ fontSize: 11, fontWeight: n === current ? 700 : 400 }), color: n === current ? cw.textLink : cw.textMuted }}>{n}</span>
             </button>
           ))}
         </div>
       )}
-      <div ref={scroller} className="cw-canvas" role="document" tabIndex={0} aria-label={pages ? `Document, page ${current} of ${pages}` : "Document"} style={{ flex: 1, minWidth: 0, overflow: "auto", background: C.viewerCanvas, padding: "24px 28px", outline: "none" }}>
+      <div ref={scroller} className="cw-canvas" role="document" tabIndex={0} aria-label={pages ? `Document, page ${current} of ${pages}` : "Document"} style={{ flex: 1, minWidth: 0, overflow: "auto", background: cw.viewerCanvas, padding: "24px 28px", outline: "none" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
           {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
-            <div key={n} ref={(el) => { if (el) pageEls.current.set(n, el); else pageEls.current.delete(n); }} className="cw-page" data-page={n} style={{ position: "relative", width: pageCss.w, height: pageCss.h, background: scanned ? C.viewerPageScan : C.surface, boxShadow: "0 1px 3px rgba(16,18,22,.12), 0 8px 20px rgba(16,18,22,.05)", flex: "none" }}>
+            <div key={n} ref={(el) => { if (el) pageEls.current.set(n, el); else pageEls.current.delete(n); }} className="cw-page" data-page={n} style={{ position: "relative", width: pageCss.w, height: pageCss.h, background: scanned ? cw.paperScan : cw.bgSurface, boxShadow: "var(--cw-shadow-2)", flex: "none" }}>
               {!rendered.has(n) && (
                 <div aria-hidden style={{ position: "absolute", inset: 0, padding: "56px 48px", display: "flex", flexDirection: "column", gap: 12 }}>
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => <span key={i} className="cw-skel" style={{ height: 10, borderRadius: 3, background: C.hover, width: `${[92, 88, 95, 70, 90, 86, 94, 60, 80][i]}%` }} />)}
-                  <span style={{ ...mono({ fontSize: 13 }), color: C.faint, textAlign: "center", marginTop: "auto" }}>p. {n} · loading</span>
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => <span key={i} className="cw-skel" style={{ height: 10, borderRadius: 3, background: cw.bgHover, width: `${[92, 88, 95, 70, 90, 86, 94, 60, 80][i]}%` }} />)}
+                  <span style={{ ...mono({ fontSize: 13 }), color: cw.textMuted, textAlign: "center", marginTop: "auto" }}>p. {n} · loading</span>
                 </div>
               )}
             </div>

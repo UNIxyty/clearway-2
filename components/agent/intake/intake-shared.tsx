@@ -4,15 +4,16 @@
 // the list status pills, leg squares, durations and small layout constants. Colours only from tokens.
 
 import type { CSSProperties, ReactNode } from "react";
-import { C, INTAKE, TONE, mono, type Tone } from "../ui/tokens";
+import { INTAKE, TONE, mono, type Tone } from "../ui/tokens";
 import { Icon } from "../ui/primitives";
 import { PulseDot, StatusPill } from "./controls";
 import { ApiError, type Leg, type LeonLegState, type ListRow, type UiStatusKey } from "./api";
+import { cw } from "@/lib/portal-tokens";
 
 // ── Layout constants ───────────────────────────────────────────────────────────────────────────────────
-export const CARD: CSSProperties = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14 };
-export const EYEBROW: CSSProperties = { fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: C.faint, textTransform: "uppercase" };
-export const COLHEAD: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: C.faint, textTransform: "uppercase" };
+export const CARD: CSSProperties = { background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14 };
+export const EYEBROW: CSSProperties = { fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, textTransform: "uppercase" };
+export const COLHEAD: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: cw.textMuted, textTransform: "uppercase" };
 export const HATCH = `repeating-linear-gradient(135deg, ${INTAKE.hatchA} 0 6px, ${INTAKE.hatchB} 6px 12px)`;
 
 // ── List status (§I3 table) ────────────────────────────────────────────────────────────────────────────
@@ -50,8 +51,8 @@ export function writeKey(state: LeonLegState["state"]): LegKey {
 export const LEG_WORD: Record<LegKey, string> = { in: "In Leon", not: "NOT in Leon", none: "Not sent", unknown: "Unknown · checking", removed: "Removed", sending: "Waiting for Leon" };
 const LEG_LOOK: Record<LegKey, { fg: string; bg: string; bd: string; ic: string; icon: string | null; pulse?: boolean }> = {
   in: { fg: TONE.green.fg, bg: TONE.green.bg, bd: TONE.green.bd, ic: TONE.green.ic, icon: "circle-check" },
-  not: { fg: C.surface, bg: C.danger, bd: C.danger, ic: C.surface, icon: "circle-x" },
-  none: { fg: C.muted, bg: C.sidebar, bd: C.border, ic: C.muted, icon: "circle-dashed" },
+  not: { fg: cw.textOnPrimary, bg: cw.dangerSolid, bd: cw.danger, ic: cw.textOnPrimary, icon: "circle-x" },
+  none: { fg: cw.textMuted, bg: cw.bgSunken, bd: cw.border, ic: cw.textMuted, icon: "circle-dashed" },
   unknown: { fg: TONE.amber.fg, bg: TONE.amber.bg, bd: TONE.amber.bd, ic: TONE.amber.ic, icon: "circle-help" },
   removed: { fg: TONE.slate.fg, bg: TONE.slate.bg, bd: TONE.slate.bd, ic: TONE.slate.ic, icon: "circle-minus" },
   sending: { fg: TONE.blue.fg, bg: TONE.blue.bg, bd: TONE.blue.bd, ic: TONE.blue.ic, icon: null, pulse: true },
@@ -69,12 +70,12 @@ export function LeonPill({ k, id, size = "md" }: { k: LegKey; id?: string | numb
 /** 13×13 leg square (§I6.3): filled green / red ✕ / amber ? / grey outline. */
 export function LegSquare({ k, size = 13 }: { k: LegKey; size?: number }) {
   const look: Record<LegKey, { bg: string; bd: string; g: string; gc: string; dashed?: boolean }> = {
-    in: { bg: C.okDot, bd: C.okDot, g: "", gc: C.surface },
-    not: { bg: C.surface, bd: C.dangerBadge, g: "✕", gc: C.dangerBadge },
+    in: { bg: cw.success, bd: cw.success, g: "", gc: cw.textOnPrimary },
+    not: { bg: cw.bgSurface, bd: cw.danger, g: "✕", gc: cw.dangerText },
     unknown: { bg: TONE.amber.bg, bd: TONE.amber.ic, g: "?", gc: TONE.amber.fg },
     sending: { bg: TONE.blue.bg, bd: TONE.blue.ic, g: "", gc: TONE.blue.fg },
-    none: { bg: C.surface, bd: C.disabledFill, g: "", gc: C.muted },
-    removed: { bg: C.surface, bd: C.disabledFill, g: "", gc: C.muted, dashed: true },
+    none: { bg: cw.bgSurface, bd: cw.borderControl, g: "", gc: cw.textMuted },
+    removed: { bg: cw.bgSurface, bd: cw.borderControl, g: "", gc: cw.textMuted, dashed: true },
   };
   const s = look[k];
   return <span aria-hidden style={{ width: size, height: size, flex: "none", boxSizing: "border-box", borderRadius: 3, background: s.bg, border: `1.5px ${s.dashed ? "dashed" : "solid"} ${s.bd}`, color: s.gc, fontSize: size * 0.62, fontWeight: 800, lineHeight: `${size - 3}px`, textAlign: "center", display: "inline-block", opacity: s.dashed ? 0.6 : 1 }}>{s.g}</span>;
@@ -135,7 +136,7 @@ export function SectionHead({ heading, sub, right }: { heading: ReactNode; sub?:
   return (
     <div style={{ padding: "14px 18px 8px", display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
       <span style={EYEBROW}>{heading}</span>
-      {sub != null && <span style={{ fontSize: 12, color: C.muted, flex: 1 }}>{sub}</span>}
+      {sub != null && <span style={{ fontSize: 12, color: cw.textMuted, flex: 1 }}>{sub}</span>}
       {right}
     </div>
   );
@@ -147,7 +148,7 @@ export function Notice({ tone, icon, heading, children, style }: { tone: "red" |
       {icon && <Icon name={icon} size={15} color={t.ic} style={{ marginTop: 1 }} />}
       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1 }}>
         {heading && <span style={{ fontSize: 12.5, fontWeight: 700, color: t.fg }}>{heading}</span>}
-        {children && <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.body }}>{children}</div>}
+        {children && <div style={{ fontSize: 12.5, lineHeight: 1.5, color: cw.textBody }}>{children}</div>}
       </div>
     </div>
   );

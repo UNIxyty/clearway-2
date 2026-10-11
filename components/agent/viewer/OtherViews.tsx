@@ -6,23 +6,24 @@
 // rendered preview via mammoth. Search in these views is the same yellow.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { C, SHADOW, mono } from "../ui/tokens";
+import { SHADOW, mono } from "../ui/tokens";
 import { Button, Icon } from "../ui/primitives";
 import { normalise } from "./locate";
 import type { DocRef } from "./types";
 import type { TableData } from "../types";
+import { cw } from "@/lib/portal-tokens";
 
 // ── State card ────────────────────────────────────────────────────────────────
 export function StateCard({ icon, tone, kind, title, body, diag, note, actions, children }: { icon: string; tone: "neutral" | "red" | "amber"; kind: string; title: string; body: string; diag?: string | null; note?: string | null; actions?: { label: string; primary?: boolean; onClick?: () => void; href?: string | null; external?: boolean }[]; children?: React.ReactNode }) {
-  const border = tone === "red" ? C.dangerBorder : tone === "amber" ? C.warnBorder : C.border;
-  const kindColor = tone === "red" ? C.danger : tone === "amber" ? C.warn : C.faint;
-  const tileBg = tone === "red" ? C.dangerTint : tone === "amber" ? C.warnTint : C.hover;
-  const tileFg = tone === "red" ? C.dangerBadge : tone === "amber" ? C.warn : C.body;
+  const border = tone === "red" ? cw.dangerBorder : tone === "amber" ? cw.warningBorder : cw.border;
+  const kindColor = tone === "red" ? cw.dangerText : tone === "amber" ? cw.warningText : cw.textMuted;
+  const tileBg = tone === "red" ? cw.dangerTint : tone === "amber" ? cw.warningTint : cw.bgHover;
+  const tileFg = tone === "red" ? cw.dangerText : tone === "amber" ? cw.warningText : cw.textBody;
   const firstRef = useRef<HTMLButtonElement | HTMLAnchorElement | null>(null);
   useEffect(() => { firstRef.current?.focus(); }, []);
   return (
-    <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: C.page, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 24px" }}>
-      <div role="group" aria-label={title} style={{ width: 460, maxWidth: "100%", background: C.surface, border: `1px solid ${border}`, borderRadius: 14, padding: 24, display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 1px 2px rgba(16,18,22,.04)" }}>
+    <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: cw.bgPage, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 24px" }}>
+      <div role="group" aria-label={title} style={{ width: 460, maxWidth: "100%", background: cw.bgSurface, border: `1px solid ${border}`, borderRadius: 14, padding: 24, display: "flex", flexDirection: "column", gap: 12, boxShadow: "var(--cw-shadow-1)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ width: 40, height: 40, borderRadius: 10, background: tileBg, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name={icon} size={20} color={tileFg} /></span>
           <div style={{ minWidth: 0 }}>
@@ -30,10 +31,10 @@ export function StateCard({ icon, tone, kind, title, body, diag, note, actions, 
             <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.01em" }}>{title}</div>
           </div>
         </div>
-        <div style={{ fontSize: 14, lineHeight: 1.55, color: C.body }}>{body}</div>
-        {diag && <div style={{ ...mono({ fontSize: 11.5 }), color: C.faint }}>{diag}</div>}
+        <div style={{ fontSize: 14, lineHeight: 1.55, color: cw.textBody }}>{body}</div>
+        {diag && <div style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>{diag}</div>}
         {children}
-        {note && <div style={{ fontSize: 12.5, color: C.muted, borderTop: `1px solid ${C.divider}`, paddingTop: 12 }}>{note}</div>}
+        {note && <div style={{ fontSize: 12.5, color: cw.textMuted, borderTop: `1px solid ${cw.divider}`, paddingTop: 12 }}>{note}</div>}
         {actions && actions.length > 0 && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {actions.map((a, i) => a.href
@@ -66,15 +67,15 @@ export function ImageView({ url, zoom, onZoom, onMeta, onError, canvasWidth, can
   const onWheel = (e: React.WheelEvent) => { if (!(e.metaKey || e.ctrlKey)) return; e.preventDefault(); const cur = zoom === "fit" ? Math.round(fit * 100) : zoom; const i = IMAGE_ZOOMS.findIndex((z) => z >= cur); const next = e.deltaY < 0 ? IMAGE_ZOOMS[Math.min(IMAGE_ZOOMS.length - 1, (i === -1 ? IMAGE_ZOOMS.length - 1 : i) + 1)] : IMAGE_ZOOMS[Math.max(0, (i === -1 ? IMAGE_ZOOMS.length : i) - 1)]; onZoom(next, next); };
   const vw = nat ? Math.min(1, (canvasWidth - 56) / (nat.w * scale)) : 1, vh = nat ? Math.min(1, (canvasHeight - 48) / (nat.h * scale)) : 1;
   return (
-    <div role="document" tabIndex={0} aria-label="Image" onKeyDown={onKey} onWheel={onWheel} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden", background: C.viewerCanvasImage, cursor: zoomed ? (drag.current ? "grabbing" : "grab") : "default", display: "flex", alignItems: "center", justifyContent: "center", outline: "none" }}>
-      {src && <img src={src} alt="" draggable={false} onLoad={(e) => { const im = e.currentTarget; const m = { w: im.naturalWidth, h: im.naturalHeight }; setNat(m); onMeta(m); }} onError={() => onError("render", "image could not be decoded")} style={{ width: nat ? nat.w * scale : undefined, height: nat ? nat.h * scale : undefined, transform: `translate(${pan.x}px, ${pan.y}px)`, boxShadow: "0 1px 3px rgba(16,18,22,.12), 0 8px 20px rgba(16,18,22,.05)", userSelect: "none", transition: drag.current ? "none" : "width 120ms, height 120ms" }} />}
+    <div role="document" tabIndex={0} aria-label="Image" onKeyDown={onKey} onWheel={onWheel} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden", background: cw.viewerCanvas, cursor: zoomed ? (drag.current ? "grabbing" : "grab") : "default", display: "flex", alignItems: "center", justifyContent: "center", outline: "none" }}>
+      {src && <img src={src} alt="" draggable={false} onLoad={(e) => { const im = e.currentTarget; const m = { w: im.naturalWidth, h: im.naturalHeight }; setNat(m); onMeta(m); }} onError={() => onError("render", "image could not be decoded")} style={{ width: nat ? nat.w * scale : undefined, height: nat ? nat.h * scale : undefined, transform: `translate(${pan.x}px, ${pan.y}px)`, boxShadow: "var(--cw-shadow-2)", userSelect: "none", transition: drag.current ? "none" : "width 120ms, height 120ms" }} />}
       {zoomed && nat && src && (
-        <div aria-hidden style={{ position: "absolute", right: 16, bottom: 16, width: 168, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: 10, boxShadow: "0 6px 16px rgba(16,18,22,.14)", padding: 8 }}>
-          <div style={{ position: "relative", height: 112, background: C.viewerCanvasImage, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div aria-hidden style={{ position: "absolute", right: 16, bottom: 16, width: 168, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: 10, boxShadow: "var(--cw-shadow-2)", padding: 8 }}>
+          <div style={{ position: "relative", height: 112, background: cw.viewerCanvas, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <img src={src} alt="" style={{ maxWidth: "100%", maxHeight: "100%" }} />
-            <div style={{ position: "absolute", border: `2px solid ${C.primary}`, background: "rgba(37,99,235,.08)", width: `${vw * 100}%`, height: `${vh * 100}%`, left: `${(50 - vw * 50) - (pan.x / (nat.w * scale)) * 100}%`, top: `${(50 - vh * 50) - (pan.y / (nat.h * scale)) * 100}%` }} />
+            <div style={{ position: "absolute", border: `2px solid ${cw.primary}`, background: "color-mix(in srgb, var(--cw-primary) 8%, transparent)", width: `${vw * 100}%`, height: `${vh * 100}%`, left: `${(50 - vw * 50) - (pan.x / (nat.w * scale)) * 100}%`, top: `${(50 - vh * 50) - (pan.y / (nat.h * scale)) * 100}%` }} />
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.muted, marginTop: 6 }}><span>Drag to pan</span><span style={mono({ fontSize: 11 })}>{Math.round(scale * 100)}%</span></div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: cw.textMuted, marginTop: 6 }}><span>Drag to pan</span><span style={mono({ fontSize: 11 })}>{Math.round(scale * 100)}%</span></div>
         </div>
       )}
     </div>
@@ -108,29 +109,29 @@ export function TableView({ url, table, query, onMeta, onError, onSearch, citedR
   useEffect(() => { onSearch({ count: hits.length, current: hits.length ? 1 : 0, pages: [] }); }, [hits, onSearch]);
   const isMono = (v: string) => /^[A-Z0-9][A-Z0-9:\-/. ]{2,}$|^\d{1,2}:\d{2}|^\d{4}-\d{2}-\d{2}/.test(v);
   return (
-    <div role="document" tabIndex={0} aria-label="Table" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: C.surface, outline: "none" }}>
+    <div role="document" tabIndex={0} aria-label="Table" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: cw.bgSurface, outline: "none" }}>
       {sheets && sheets.length > 1 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderBottom: `1px solid ${C.divider}`, fontSize: 12.5 }}>
-          {sheets.map((s, i) => <button key={s.name} type="button" onClick={() => setActive(i)} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: i === active ? 700 : 500, color: i === active ? C.ink : C.muted, background: i === active ? C.surface : "transparent", border: `1px solid ${i === active ? C.borderControl : "transparent"}`, borderRadius: 7, padding: "5px 10px", cursor: "pointer" }}>{s.name}</button>)}
-          <span style={{ flex: 1 }} /><span style={{ fontSize: 12, color: C.muted }}>{body.length} rows · {header.length} columns · header row frozen</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 16px", borderBottom: `1px solid ${cw.divider}`, fontSize: 12.5 }}>
+          {sheets.map((s, i) => <button key={s.name} type="button" onClick={() => setActive(i)} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: i === active ? 700 : 500, color: i === active ? cw.text : cw.textMuted, background: i === active ? cw.bgSurface : "transparent", border: `1px solid ${i === active ? cw.borderControl : "transparent"}`, borderRadius: 7, padding: "5px 10px", cursor: "pointer" }}>{s.name}</button>)}
+          <span style={{ flex: 1 }} /><span style={{ fontSize: 12, color: cw.textMuted }}>{body.length} rows · {header.length} columns · header row frozen</span>
         </div>
       )}
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         {sheet ? (
           <table style={{ borderCollapse: "separate", borderSpacing: 0, minWidth: "100%" }}>
-            <thead><tr><th style={{ position: "sticky", top: 0, zIndex: 2, width: 44, background: C.page, borderBottom: `1px solid ${C.divider}`, borderRight: `1px solid ${C.divider}` }} />{header.map((h, j) => <th key={j} style={{ position: "sticky", top: 0, zIndex: 1, background: C.page, textAlign: "left", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: C.faint, padding: "9px 12px", borderBottom: `1px solid ${C.divider}`, borderRight: `1px solid ${C.divider}`, whiteSpace: "nowrap" }}>{String(h).toUpperCase()}</th>)}</tr></thead>
+            <thead><tr><th style={{ position: "sticky", top: 0, zIndex: 2, width: 44, background: cw.bgPage, borderBottom: `1px solid ${cw.divider}`, borderRight: `1px solid ${cw.divider}` }} />{header.map((h, j) => <th key={j} style={{ position: "sticky", top: 0, zIndex: 1, background: cw.bgPage, textAlign: "left", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: cw.textMuted, padding: "9px 12px", borderBottom: `1px solid ${cw.divider}`, borderRight: `1px solid ${cw.divider}`, whiteSpace: "nowrap" }}>{String(h).toUpperCase()}</th>)}</tr></thead>
             <tbody>
               {body.map((r, i) => (
-                <tr key={i} style={{ background: citedRows?.has(i) ? C.citeHighlight : undefined }}>
-                  <td style={{ ...mono({ fontSize: 12 }), color: C.faint, textAlign: "right", padding: "9px 12px", borderBottom: `1px solid ${C.dividerRow}`, borderRight: `1px solid ${C.divider}`, userSelect: "none" }}>{i + 1}</td>
-                  {header.map((_, j) => { const v = String(r[j] ?? ""); const hit = q && v.toLowerCase().includes(q); return <td key={j} style={{ fontSize: 13, padding: "9px 12px", borderBottom: `1px solid ${C.dividerRow}`, borderRight: `1px solid ${C.dividerRow}`, whiteSpace: "nowrap", ...(isMono(v) ? mono({ fontSize: 12.5 }) : {}), color: v ? C.ink : C.disabledFill, background: hit ? C.searchMatch : undefined }}>{v || "—"}</td>; })}
+                <tr key={i} style={{ background: citedRows?.has(i) ? cw.citeHighlight : undefined }}>
+                  <td style={{ ...mono({ fontSize: 12 }), color: cw.textMuted, textAlign: "right", padding: "9px 12px", borderBottom: `1px solid ${cw.divider}`, borderRight: `1px solid ${cw.divider}`, userSelect: "none" }}>{i + 1}</td>
+                  {header.map((_, j) => { const v = String(r[j] ?? ""); const hit = q && v.toLowerCase().includes(q); return <td key={j} style={{ fontSize: 13, padding: "9px 12px", borderBottom: `1px solid ${cw.divider}`, borderRight: `1px solid ${cw.divider}`, whiteSpace: "nowrap", ...(isMono(v) ? mono({ fontSize: 12.5 }) : {}), color: v ? cw.text : cw.textMuted, background: hit ? cw.paperMatch : undefined }}>{v || "—"}</td>; })}
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : <div style={{ padding: 24, fontSize: 13, color: C.muted }}>Opening…</div>}
+        ) : <div style={{ padding: 24, fontSize: 13, color: cw.textMuted }}>Opening…</div>}
       </div>
-      {sheets && sheets.length <= 1 && sheet && <div style={{ padding: "8px 16px", borderTop: `1px solid ${C.divider}`, fontSize: 12, color: C.muted, textAlign: "right" }}>{body.length} rows · {header.length} columns · header row frozen</div>}
+      {sheets && sheets.length <= 1 && sheet && <div style={{ padding: "8px 16px", borderTop: `1px solid ${cw.divider}`, fontSize: 12, color: cw.textMuted, textAlign: "right" }}>{body.length} rows · {header.length} columns · header row frozen</div>}
     </div>
   );
 }
@@ -146,10 +147,10 @@ export function TextView({ url, query, citedSpan, onMeta, onError, onSearch, onC
   const cited = useMemo(() => { if (!citedSpan || !text) return new Set<number>(); const needle = normalise(citedSpan); const norm = normalise(text); const found = norm.includes(needle); onCitationResult?.(found); if (!found) return new Set<number>(); const first = needle.split(" ")[0]; const out = new Set<number>(); lines.forEach((l, i) => { if (normalise(l).includes(first) && needle.includes(normalise(l).slice(0, 30))) out.add(i); }); return out; }, [citedSpan, text, lines, onCitationResult]);
   const mark = (line: string) => { if (!q) return line; const parts: React.ReactNode[] = []; let i = 0; const low = line.toLowerCase(); let j = low.indexOf(q); while (j !== -1) { parts.push(line.slice(i, j)); parts.push(<mark key={j} className="cw-search-hit">{line.slice(j, j + q.length)}</mark>); i = j + q.length; j = low.indexOf(q, i); } parts.push(line.slice(i)); return parts; };
   return (
-    <div role="document" tabIndex={0} aria-label="Text" style={{ flex: 1, minHeight: 0, overflow: "auto", background: C.surface, outline: "none" }}>
-      {text === null ? <div style={{ padding: 24, fontSize: 13, color: C.muted }}>Opening…</div> : (
+    <div role="document" tabIndex={0} aria-label="Text" style={{ flex: 1, minHeight: 0, overflow: "auto", background: cw.bgSurface, outline: "none" }}>
+      {text === null ? <div style={{ padding: 24, fontSize: 13, color: cw.textMuted }}>Opening…</div> : (
         <pre style={{ ...mono({ fontSize: 13.5 }), lineHeight: 1.75, margin: 0, padding: "16px 0", whiteSpace: "pre", overflow: "visible" }}>
-          {lines.map((l, i) => <div key={i} style={{ display: "flex", background: cited.has(i) ? C.citeHighlight : hitLines.has(i) ? "transparent" : undefined }}><span aria-hidden style={{ width: 56, flex: "none", textAlign: "right", paddingRight: 16, color: C.disabledFill, userSelect: "none" }}>{i + 1}</span><span style={{ paddingRight: 24 }}>{mark(l)}</span></div>)}
+          {lines.map((l, i) => <div key={i} style={{ display: "flex", background: cited.has(i) ? cw.citeHighlight : hitLines.has(i) ? "transparent" : undefined }}><span aria-hidden style={{ width: 56, flex: "none", textAlign: "right", paddingRight: 16, color: cw.textMuted, userSelect: "none" }}>{i + 1}</span><span style={{ paddingRight: 24 }}>{mark(l)}</span></div>)}
         </pre>
       )}
     </div>
@@ -173,19 +174,19 @@ export function DocxView({ url, query, onMeta, onError, onSearch, canvasWidth }:
   }, [html, query]);
   const w = Math.min(canvasWidth - 56, 900);
   return (
-    <div role="document" tabIndex={0} aria-label="Document" style={{ flex: 1, minHeight: 0, overflow: "auto", background: C.viewerCanvas, padding: "24px 28px", outline: "none" }}>
-      {html === null ? <div style={{ width: w, margin: "0 auto", background: C.surface, minHeight: 520, padding: 48, boxShadow: SHADOW.frame }}><div className="cw-skel" style={{ height: 10, width: "80%", background: C.hover, borderRadius: 3 }} /></div>
-        : <div ref={host} className="cw-docx" style={{ width: w, margin: "0 auto", background: C.surface, padding: "56px 64px", boxShadow: "0 1px 3px rgba(16,18,22,.12), 0 8px 20px rgba(16,18,22,.05)", fontSize: 14.5, lineHeight: 1.6 }} />}
+    <div role="document" tabIndex={0} aria-label="Document" style={{ flex: 1, minHeight: 0, overflow: "auto", background: cw.viewerCanvas, padding: "24px 28px", outline: "none" }}>
+      {html === null ? <div style={{ width: w, margin: "0 auto", background: cw.bgSurface, minHeight: 520, padding: 48, boxShadow: SHADOW.frame }}><div className="cw-skel" style={{ height: 10, width: "80%", background: cw.bgHover, borderRadius: 3 }} /></div>
+        : <div ref={host} className="cw-docx" style={{ width: w, margin: "0 auto", background: cw.bgSurface, padding: "56px 64px", boxShadow: "var(--cw-shadow-2)", fontSize: 14.5, lineHeight: 1.6 }} />}
     </div>
   );
 }
 
 export function docTileLook(kind: string, ref: DocRef): { bg: string; border: string; fg: string; label: string } {
   const ext = String(ref.filename).split(".").pop()?.toUpperCase() ?? "";
-  if (kind === "pdf") return { bg: C.dangerTint, border: C.dangerBorder, fg: C.dangerBadge, label: "PDF" };
-  if (kind === "table") return { bg: C.okTint, border: C.okBorder, fg: C.ok, label: ext === "CSV" ? "CSV" : "XLSX" };
-  if (kind === "docx") return { bg: C.primaryTint2, border: C.primaryBorder, fg: C.primaryHover, label: "DOCX" };
-  return { bg: C.hover, border: C.border, fg: C.muted, label: (ext || "FILE").slice(0, 4) };
+  if (kind === "pdf") return { bg: cw.dangerTint, border: cw.dangerBorder, fg: cw.dangerText, label: "PDF" };
+  if (kind === "table") return { bg: cw.successTint, border: cw.successBorder, fg: cw.successText, label: ext === "CSV" ? "CSV" : "XLSX" };
+  if (kind === "docx") return { bg: cw.primaryWash, border: cw.primaryTintBorder, fg: cw.textLink, label: "DOCX" };
+  return { bg: cw.bgHover, border: cw.border, fg: cw.textMuted, label: (ext || "FILE").slice(0, 4) };
 }
 
 export const noop = () => {};

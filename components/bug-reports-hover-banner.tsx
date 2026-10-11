@@ -37,8 +37,8 @@ export default function BugReportsHoverBanner({ reports, onDeleteFixed, deleting
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <div className="w-[300px] rounded-md border bg-background/95 text-muted-foreground px-2.5 py-1.5 shadow-md backdrop-blur text-[10px]">
-        <div className="font-medium text-foreground text-[11px]">User Bug Reports</div>
+      <div className="w-[300px] rounded-md border bg-cw-bg-page/95 text-cw-text-muted px-2.5 py-1.5 shadow-md backdrop-blur text-[10px]">
+        <div className="font-medium text-cw-text text-[11px]">User Bug Reports</div>
         <div className="flex items-center gap-1 my-0.5">
           {BUG_REPORT_STATUSES.map((status) => (
             <span
@@ -51,14 +51,14 @@ export default function BugReportsHoverBanner({ reports, onDeleteFixed, deleting
       </div>
 
       <div
-        className={`absolute left-0 mt-1.5 w-[360px] max-h-[60vh] overflow-hidden rounded-md border bg-background shadow-xl transition-all duration-200 ease-out origin-top-left ${
+        className={`absolute left-0 mt-1.5 w-[360px] max-h-[60vh] overflow-hidden rounded-md border bg-cw-bg-page shadow-xl transition-all duration-200 ease-out origin-top-left ${
           open
             ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
             : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
         }`}
       >
         <div className="border-b px-3 py-2 text-sm font-medium">Bug reports</div>
-        <div className="border-b px-3 py-2 text-xs text-muted-foreground grid grid-cols-1 gap-1">
+        <div className="border-b px-3 py-2 text-xs text-cw-text-muted grid grid-cols-1 gap-1">
           {BUG_REPORT_STATUSES.map((state) => {
             const count = statusCounts[state];
             return (

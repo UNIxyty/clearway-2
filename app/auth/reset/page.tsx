@@ -144,7 +144,7 @@ export default function ResetPasswordPage() {
         <AuthCard shake={Boolean(error)}>
           {updated ? (
             <div style={{ textAlign: "center" }}>
-              <MessageIcon icon={ShieldCheck} bg="#e4f6ee" color="#0e9f6e" />
+              <MessageIcon icon={ShieldCheck} bg="var(--cw-success-tint)" color="var(--cw-success-text)" />
               <AuthHeading
                 center
                 title="Password updated"
@@ -156,7 +156,7 @@ export default function ResetPasswordPage() {
             </div>
           ) : (
             <>
-              <MessageIcon icon={ShieldCheck} bg="#ede9fe" color="#6d28d9" />
+              <MessageIcon icon={ShieldCheck} bg="var(--cw-diff-tint)" color="var(--cw-diff-text)" />
               <AuthHeading
                 title="Set a new password"
                 sub={readyForPassword ? "Choose a new password to finish resetting your account." : "Waiting for reset-link confirmation."}
@@ -190,11 +190,11 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     bottom={
                       match ? (
-                        <div style={{ fontSize: 11.5, color: "#15803d", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ fontSize: 11.5, color: "var(--cw-success-text)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
                           <Check size={13} />Passwords match
                         </div>
                       ) : mismatch ? (
-                        <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ fontSize: 11.5, color: "var(--cw-warning-text)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
                           <AlertTriangle size={13} />Passwords don&rsquo;t match yet
                         </div>
                       ) : null

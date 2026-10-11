@@ -40,7 +40,7 @@ export type NavTopic = {
 };
 
 export const NAV_TOPICS: NavTopic[] = [
-  { id: "dashboard", label: "Dashboard", icon: "layout-dashboard", roles: ["admin", "user"], href: "/dashboard" },
+  { id: "dashboard", label: "Dashboard", icon: "layout-grid", roles: ["admin", "user"], href: "/dashboard" },
   {
     id: "aip",
     label: "AIP & Documents",
@@ -76,8 +76,8 @@ export const NAV_TOPICS: NavTopic[] = [
     // Ops Agent (design spec §5): between Digital Wall and Reports & Issues.
     id: "agent",
     label: "Ops Agent",
-    // The Clearway ring mark (§4.1), static — the agent's identity everywhere else (orb, voice, minimised tab).
-    icon: "ring-mark",
+    // Portal redesign §4: the bot icon in the shell (the panel itself keeps the Clearway ring mark as the agent's identity).
+    icon: "bot",
     roles: ["admin", "user"], // roles don't matter here — agentOnly is the gate
     agentOnly: true,
     keycap: "⌘J",
@@ -88,7 +88,7 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "agent-intake", label: "Flight intake", icon: "plane-landing", href: "/agent/intake", badge: "intake-attention" },
       { id: "agent-mailbox", label: "Mailbox", icon: "mail", href: "/agent/mailbox", badge: "mailbox-attention", mailboxOnly: true },
       { id: "agent-activity", label: "Activity log", icon: "scroll-text", href: "/agent/activity" },
-      { id: "agent-settings", label: "Settings", icon: "settings-2", href: "/agent/settings" }, // personal settings for everyone; organisation sections are admin-only inside the page
+      { id: "agent-settings", label: "Settings", icon: "sliders-horizontal", href: "/agent/settings" }, // personal settings for everyone; organisation sections are admin-only inside the page
     ],
   },
   {
@@ -110,8 +110,8 @@ export const NAV_TOPICS: NavTopic[] = [
     items: [
       { id: "adm-users", label: "Users", icon: "users", href: "/admin/users" },
       { id: "adm-agent-sites", label: "Agent sites", icon: "globe", href: "/admin/agent-sites" }, // Chrome extension site list: approve requests, add, revoke
-      { id: "adm-perms", label: "Permissions", icon: "lock", href: "/admin/permissions" }, // what each role may do (docs/permissions.md)
-      { id: "adm-maint", label: "Maintenance", icon: "wrench", href: "/admin/maintenance" },
+      { id: "adm-perms", label: "Permissions", icon: "key-round", href: "/admin/permissions" }, // what each role may do (docs/permissions.md)
+      { id: "adm-maint", label: "Maintenance", icon: "power", href: "/admin/maintenance" },
       { id: "adm-logs", label: "Email logs", icon: "inbox", href: "/admin/email/logs" },
       { id: "adm-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
       { id: "adm-status", label: "Service status editor", icon: "activity", href: "/admin/service-status" },
@@ -136,7 +136,7 @@ export const NAV_TOPICS: NavTopic[] = [
     icon: "user",
     roles: ["admin", "user", "guest"],
     items: [
-      { id: "acc-profile", label: "Profile", icon: "user", href: "/account/profile" },
+      { id: "acc-profile", label: "Profile", icon: "circle-user", href: "/account/profile" },
       { id: "acc-notify", label: "Notification settings", icon: "bell", href: "/account/notifications" },
       { id: "acc-stats", label: "Search statistics", icon: "chart-bar", href: "/account/search-stats" },
       { id: "acc-guide", label: "Guide", icon: "book-open", href: "/account/guide" },

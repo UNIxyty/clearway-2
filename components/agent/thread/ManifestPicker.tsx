@@ -7,10 +7,11 @@
 // autocomplete. The flights come from EVERY configured operator, read live from each operator's Leon
 // (search_manifest_flights); an operator whose credentials fail is named as unavailable and the rest still list.
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { C, SHADOW, mono } from "../ui/tokens";
+import { SHADOW, mono } from "../ui/tokens";
 import { Icon } from "../ui/primitives";
 import { AGENT_BASE } from "../types";
 import { pickRows, toPickerFlight, whenLabel, type PickerFlight } from "./manifestSearch";
+import { cw } from "@/lib/portal-tokens";
 
 type Status = "loading" | "ready" | "error";
 
@@ -79,66 +80,66 @@ export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBla
   const repeated = new Set(rows.map((r) => r.callsign).filter((c, i, a) => a.indexOf(c) !== i));
 
   return (
-    <div className="ag-menu-in" data-manifest-picker="" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: panel ? 12 : 14, boxShadow: panel ? SHADOW.menuPanel : SHADOW.menu, zIndex: 20, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: panel ? "9px 10px" : "10px 14px", borderBottom: `1px solid ${C.divider}` }}>
-        <Icon name="search" size={15} color={C.faint} />
+    <div className="ag-menu-in" data-manifest-picker="" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: panel ? 12 : 14, boxShadow: panel ? SHADOW.menuPanel : SHADOW.menu, zIndex: 20, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: panel ? "9px 10px" : "10px 14px", borderBottom: `1px solid ${cw.divider}` }}>
+        <Icon name="search" size={15} color={cw.textMuted} />
         <input
           ref={inputRef} name="manifest-flight-search" type="text" role="combobox" aria-expanded="true" aria-controls={`${id}-list`} aria-activedescendant={optionId(highlight)} aria-autocomplete="list"
           autoComplete="off" autoCorrect="off" spellCheck={false} data-1p-ignore="" data-lpignore="true"
           value={query} onChange={(e) => { setQuery(e.target.value); setHighlight(e.target.value ? 1 : 0); }} onKeyDown={onKeyDown}
           placeholder="Callsign, registration, route, operator or date — any of them, e.g. an ICAO code, or tomorrow"
           aria-label="Find the flight for the passenger manifest"
-          style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: panel ? 13.5 : 14, color: C.ink, minWidth: 0 }}
+          style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: panel ? 13.5 : 14, color: cw.text, minWidth: 0 }}
         />
-        <button type="button" onClick={onClose} aria-label="Close" style={{ width: 22, height: 22, borderRadius: 6, border: "none", background: C.hover, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={11} color={C.muted} /></button>
+        <button type="button" onClick={onClose} aria-label="Close" style={{ width: 22, height: 22, borderRadius: 6, border: "none", background: cw.bgHover, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={11} color={cw.textMuted} /></button>
       </div>
       <div id={`${id}-list`} ref={listRef} role="listbox" aria-label="Flights" style={{ padding: 6, maxHeight: panel ? 280 : 340, overflowY: "auto" }}>
         <Row index={0} id={optionId(0)} active={highlight === 0} onHover={setHighlight} onChoose={choose}>
-          <span style={{ width: 26, height: 26, borderRadius: 7, background: C.hover, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="file-text" size={14} color={C.body} /></span>
+          <span style={{ width: 26, height: 26, borderRadius: 7, background: cw.bgHover, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="file-text" size={14} color={cw.textBody} /></span>
           <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap" }}>Blank form</span>
-          <span style={{ fontSize: 12.5, color: C.muted, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{panel ? "for filling by hand" : "no flight — the empty manifest for filling by hand"}</span>
+          <span style={{ fontSize: 12.5, color: cw.textMuted, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{panel ? "for filling by hand" : "no flight — the empty manifest for filling by hand"}</span>
         </Row>
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: C.faint, padding: "8px 10px 2px" }}>{query.trim() ? "MATCHING FLIGHTS" : "UPCOMING FLIGHTS · SOONEST FIRST"}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: cw.textMuted, padding: "8px 10px 2px" }}>{query.trim() ? "MATCHING FLIGHTS" : "UPCOMING FLIGHTS · SOONEST FIRST"}</div>
         {status === "ready" && unavailable.length > 0 && (
-          <div role="status" data-unavailable-operators="" style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 10px 8px", fontSize: 12.5, color: C.warn, lineHeight: 1.45 }}>
-            <Icon name="circle-alert" size={13} color={C.warn} style={{ marginTop: 2 }} />
+          <div role="status" data-unavailable-operators="" style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 10px 8px", fontSize: 12.5, color: cw.warningText, lineHeight: 1.45 }}>
+            <Icon name="circle-alert" size={13} color={cw.warningText} style={{ marginTop: 2 }} />
             <span>Unavailable — {unavailable.map((o) => o.name).join(", ")}: {unavailable.length === 1 ? "its" : "their"} Leon credentials failed, so {unavailable.length === 1 ? "its" : "their"} flights are not listed. Every other operator is.</span>
           </div>
         )}
         {status === "loading" && <State icon="loader-circle" text="Loading flights from every operator…" />}
         {status === "error" && (
-          <div role="alert" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px", fontSize: 13, color: C.danger }}>
-            <Icon name="circle-alert" size={14} color={C.danger} />The flight search failed.
-            <button type="button" onClick={() => setAttempt((a) => a + 1)} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: C.primaryHover, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>Try again</button>
+          <div role="alert" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px", fontSize: 13, color: cw.dangerText }}>
+            <Icon name="circle-alert" size={14} color={cw.dangerText} />The flight search failed.
+            <button type="button" onClick={() => setAttempt((a) => a + 1)} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: cw.textLink, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>Try again</button>
           </div>
         )}
         {status === "ready" && rows.length === 0 && <State icon="search" text={query.trim() ? `No flight matches “${query.trim()}”. Try a callsign, registration, ICAO, city or date.` : "No upcoming flights in the next 14 days. Type to search earlier ones."} />}
         {status === "ready" && rows.map((f, i) => (
           <Row key={f.key} index={i + 1} id={optionId(i + 1)} active={highlight === i + 1} onHover={setHighlight} onChoose={choose}>
-            <span style={{ width: 26, height: 26, borderRadius: 7, background: C.hover, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="plane-takeoff" size={14} color={C.body} /></span>
+            <span style={{ width: 26, height: 26, borderRadius: 7, background: cw.bgHover, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="plane-takeoff" size={14} color={cw.textBody} /></span>
             {panel ? (
               // The side panel is narrow: two lines — callsign · registration, then route · date and time.
               <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0, flex: 1 }}>
                 <span style={{ display: "flex", gap: 8, alignItems: "baseline", minWidth: 0 }}>
                   <span style={mono({ fontSize: 13, fontWeight: 600 })}>{f.callsign || "—"}</span>
-                  <span style={{ ...mono({ fontSize: 12 }), color: C.body }}>{f.registration}</span>
-                  <span style={{ fontSize: 11.5, fontWeight: 600, color: C.muted, marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{f.operator}</span>
+                  <span style={{ ...mono({ fontSize: 12 }), color: cw.textBody }}>{f.registration}</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: cw.textMuted, marginLeft: "auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{f.operator}</span>
                 </span>
-                <span style={{ ...mono({ fontSize: 12, fontWeight: repeated.has(f.callsign) ? 600 : 400 }), color: repeated.has(f.callsign) ? C.ink : C.body, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.adep || "????"} → {f.ades || "????"} · {whenLabel(f.std)}</span>
+                <span style={{ ...mono({ fontSize: 12, fontWeight: repeated.has(f.callsign) ? 600 : 400 }), color: repeated.has(f.callsign) ? cw.text : cw.textBody, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.adep || "????"} → {f.ades || "????"} · {whenLabel(f.std)}</span>
               </span>
             ) : (
               <>
                 <span style={{ ...mono({ fontSize: 13.5, fontWeight: 600 }), minWidth: 76 }}>{f.callsign || "—"}</span>
-                <span style={{ ...mono({ fontSize: 12.5 }), color: C.body, minWidth: 66 }}>{f.registration}</span>
-                <span style={{ ...mono({ fontSize: 12.5 }), color: C.body, minWidth: 92 }}>{f.adep || "????"} → {f.ades || "????"}</span>
-                <span style={{ ...mono({ fontSize: 12.5, fontWeight: repeated.has(f.callsign) ? 600 : 400 }), color: repeated.has(f.callsign) ? C.ink : C.body }}>{whenLabel(f.std)}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: C.body, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{f.operator}</span>
+                <span style={{ ...mono({ fontSize: 12.5 }), color: cw.textBody, minWidth: 66 }}>{f.registration}</span>
+                <span style={{ ...mono({ fontSize: 12.5 }), color: cw.textBody, minWidth: 92 }}>{f.adep || "????"} → {f.ades || "????"}</span>
+                <span style={{ ...mono({ fontSize: 12.5, fontWeight: repeated.has(f.callsign) ? 600 : 400 }), color: repeated.has(f.callsign) ? cw.text : cw.textBody }}>{whenLabel(f.std)}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: cw.textBody, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>{f.operator}</span>
               </>
             )}
           </Row>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 14, padding: panel ? "7px 12px" : "8px 16px", whiteSpace: "nowrap", borderTop: `1px solid ${C.divider}`, background: C.page, fontSize: 12, color: C.faint }}>
+      <div style={{ display: "flex", gap: 14, padding: panel ? "7px 12px" : "8px 16px", whiteSpace: "nowrap", borderTop: `1px solid ${cw.divider}`, background: cw.bgPage, fontSize: 12, color: cw.textMuted }}>
         <span>↑↓ move</span><span>⏎ make{panel ? "" : " the manifest"}</span><span>Esc close</span>{!panel && <><span style={{ flex: 1 }} /><span>Every operator, live from Leon</span></>}
       </div>
     </div>
@@ -148,12 +149,12 @@ export function ManifestPicker({ initialQuery = "", panel = false, onPick, onBla
 function Row({ index, id, active, onHover, onChoose, children }: { index: number; id: string; active: boolean; onHover: (i: number) => void; onChoose: (i: number) => void; children: React.ReactNode }) {
   return (
     <div id={id} role="option" aria-selected={active} data-index={index} onMouseEnter={() => onHover(index)} onMouseDown={(e) => e.preventDefault()} onClick={() => onChoose(index)}
-      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 8, background: active ? C.primaryTint : "transparent", cursor: "pointer" }}>
+      style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 8, background: active ? cw.primaryTint : "transparent", cursor: "pointer" }}>
       {children}
     </div>
   );
 }
 
 function State({ icon, text }: { icon: string; text: string }) {
-  return <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px", fontSize: 13, color: C.muted }}><Icon name={icon} size={14} color={C.faint} />{text}</div>;
+  return <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 10px", fontSize: 13, color: cw.textMuted }}><Icon name={icon} size={14} color={cw.textMuted} />{text}</div>;
 }

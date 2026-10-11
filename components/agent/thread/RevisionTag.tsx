@@ -5,15 +5,15 @@
 // The rule: UNKNOWN IS NOT CURRENT — an unknown revision is stated ("revision
 // unknown"), never left blank, and never styled like a current one.
 
-import { C } from "../ui/tokens";
 import { Icon } from "../ui/primitives";
 import type { RevisionInfo } from "../types";
+import { cw } from "@/lib/portal-tokens";
 
 export const REVISION_LOOK: Record<RevisionInfo["state"], { fg: string; bg: string; border: string; icon: string }> = {
-  current: { fg: C.body, bg: C.hover, border: C.border, icon: "badge-check" },
-  future: { fg: C.info, bg: C.infoTint, border: C.infoBorder, icon: "clock" },
-  superseded: { fg: C.warn, bg: C.warnTint, border: C.warnBorder, icon: "history" },
-  unknown: { fg: C.muted, bg: C.surface, border: C.borderControl, icon: "circle-help" },
+  current: { fg: cw.textBody, bg: cw.bgHover, border: cw.border, icon: "badge-check" },
+  future: { fg: cw.infoText, bg: cw.infoTint, border: cw.infoBorder, icon: "clock" },
+  superseded: { fg: cw.warningText, bg: cw.warningTint, border: cw.warningBorder, icon: "history" },
+  unknown: { fg: cw.textMuted, bg: cw.bgSurface, border: cw.borderControl, icon: "circle-help" },
 };
 
 export function revisionOrUnknown(r: RevisionInfo | null | undefined): RevisionInfo {

@@ -31,9 +31,9 @@ function StageIndicator({ stage, status }: { stage: SyncStage; status: StageStat
   return (
     <span className="inline-flex items-center gap-1 text-xs">
       {status === "running" && <Loader2Icon className="size-3 animate-spin" />}
-      {status === "done" && <CheckCircle2Icon className="size-3 text-green-500" />}
-      {status === "error" && <AlertCircleIcon className="size-3 text-red-400" />}
-      <span className={status === "running" ? "font-medium" : "text-muted-foreground"}>
+      {status === "done" && <CheckCircle2Icon className="size-3 text-cw-success-text" />}
+      {status === "error" && <AlertCircleIcon className="size-3 text-cw-danger-text" />}
+      <span className={status === "running" ? "font-medium" : "text-cw-text-muted"}>
         {STAGE_LABELS[stage]}
       </span>
     </span>
@@ -83,13 +83,13 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
       <div className="fixed top-4 right-2 z-[1200]">
         <button
           type="button"
-          className="group w-12 rounded-l-xl rounded-r-md border border-border/80 bg-card/95 px-2 py-2.5 text-card-foreground shadow-lg backdrop-blur-sm hover:bg-card transition-colors"
+          className="group w-12 rounded-l-xl rounded-r-md border border-cw-border/80 bg-cw-bg-surface/95 px-2 py-2.5 text-cw-text shadow-lg backdrop-blur-sm hover:bg-cw-bg-surface transition-colors"
           onClick={() => setCollapsed(false)}
           aria-label="Expand background search banner"
           title="Expand background search banner"
         >
           <div className="flex items-center justify-center">
-            <PanelRightOpenIcon className="size-4 text-primary group-hover:scale-105 transition-transform" />
+            <PanelRightOpenIcon className="size-4 text-cw-text-link group-hover:scale-105 transition-transform" />
           </div>
           <div className="mt-1 text-[10px] font-semibold text-center">{current.icao}</div>
           <div className="mt-1 flex flex-col items-center gap-1">
@@ -100,19 +100,19 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
                   key={stage}
                   className={`inline-flex h-1.5 w-6 rounded-full ${
                     status === "running"
-                      ? "bg-muted-foreground/40 animate-pulse"
+                      ? "bg-cw-text-muted/40 animate-pulse"
                       : status === "done"
-                        ? "bg-green-500"
+                        ? "bg-cw-success"
                         : status === "error"
-                          ? "bg-red-500"
-                          : "bg-muted"
+                          ? "bg-cw-danger-solid"
+                          : "bg-cw-bg-hover"
                   }`}
                   title={`${STAGE_LABELS[stage]}: ${status}`}
                 />
               );
             })}
           </div>
-          <div className="mt-1 text-[10px] text-muted-foreground text-center">{runningCount} active</div>
+          <div className="mt-1 text-[10px] text-cw-text-muted text-center">{runningCount} active</div>
         </button>
       </div>
     );
@@ -120,7 +120,7 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
 
   return (
     <div
-      className="fixed top-4 right-4 z-[1200] w-[min(95vw,30rem)] rounded-lg border border-border bg-card/95 text-card-foreground px-3 py-2 shadow-lg backdrop-blur-sm"
+      className="fixed top-4 right-4 z-[1200] w-[min(95vw,30rem)] rounded-lg border border-cw-border bg-cw-bg-surface/95 text-cw-text px-3 py-2 shadow-lg backdrop-blur-sm"
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onNavigate?.(current.icao)}
@@ -128,7 +128,7 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
       <div className="flex items-start gap-2">
         <button
           type="button"
-          className="mt-0.5 p-1 rounded hover:bg-accent transition-colors disabled:opacity-50"
+          className="mt-0.5 p-1 rounded hover:bg-cw-bg-hover transition-colors disabled:opacity-50"
           onClick={(e) => {
             e.stopPropagation();
             if (!canPrev) return;
@@ -147,10 +147,10 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
           tabIndex={0}
         >
           <div className="flex items-center gap-2">
-            <PlaneIcon className="size-4 shrink-0 text-muted-foreground" />
+            <PlaneIcon className="size-4 shrink-0 text-cw-text-muted" />
             <span className="font-semibold text-xs sm:text-sm">{current.icao}</span>
-            <span className="text-[10px] text-muted-foreground">-</span>
-            <span className="text-[11px] text-muted-foreground truncate">{current.progress}</span>
+            <span className="text-[10px] text-cw-text-muted">-</span>
+            <span className="text-[11px] text-cw-text-muted truncate">{current.progress}</span>
           </div>
           {activeStages.length > 0 && (
             <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -163,7 +163,7 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
 
         <button
           type="button"
-          className="mt-0.5 p-1 rounded hover:bg-accent transition-colors disabled:opacity-50"
+          className="mt-0.5 p-1 rounded hover:bg-cw-bg-hover transition-colors disabled:opacity-50"
           onClick={(e) => {
             e.stopPropagation();
             if (!canNext) return;
@@ -177,7 +177,7 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
 
         <button
           type="button"
-          className="mt-0.5 p-1 rounded hover:bg-accent transition-colors"
+          className="mt-0.5 p-1 rounded hover:bg-cw-bg-hover transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             setShowList((prev) => !prev);
@@ -188,7 +188,7 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
         </button>
         <button
           type="button"
-          className="mt-0.5 p-1 rounded hover:bg-accent transition-colors"
+          className="mt-0.5 p-1 rounded hover:bg-cw-bg-hover transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             setCollapsed(true);
@@ -200,7 +200,7 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
         </button>
         <button
           type="button"
-          className="mt-0.5 p-1 rounded hover:bg-accent transition-colors"
+          className="mt-0.5 p-1 rounded hover:bg-cw-bg-hover transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             clearBackground(current.icao);
@@ -210,16 +210,16 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
           <XIcon className="size-4" />
         </button>
       </div>
-      <div className="mt-1 text-[10px] text-muted-foreground">
+      <div className="mt-1 text-[10px] text-cw-text-muted">
         {index + 1}/{bgList.length} running
       </div>
       {showList && (
-        <div className="mt-2 max-h-40 overflow-auto rounded-md border border-border/60 bg-background/80 p-1 space-y-1">
+        <div className="mt-2 max-h-40 overflow-auto rounded-md border border-cw-border/60 bg-cw-bg-page/80 p-1 space-y-1">
           {bgList.map((item, idx) => (
             <button
               key={item.icao}
               type="button"
-              className="w-full text-left rounded px-2 py-1.5 hover:bg-accent text-xs flex items-center justify-between gap-2"
+              className="w-full text-left rounded px-2 py-1.5 hover:bg-cw-bg-hover text-xs flex items-center justify-between gap-2"
               onClick={(e) => {
                 e.stopPropagation();
                 setIndex(idx);
@@ -228,7 +228,7 @@ export function BackgroundSearchBanner({ onNavigate }: { onNavigate?: (icao: str
               }}
             >
               <span className="font-medium">{item.icao}</span>
-              <span className="text-muted-foreground truncate">{item.progress}</span>
+              <span className="text-cw-text-muted truncate">{item.progress}</span>
             </button>
           ))}
         </div>

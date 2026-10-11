@@ -13,12 +13,9 @@ type AirportMapProps = {
 };
 
 const MARKER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 42" width="32" height="42" fill="none" role="img">
-  <path d="M16 0C7.16 0 0 7.16 0 16c0 12 16 26 16 26s16-14 16-26C32 7.16 24.84 0 16 0z" fill="url(#pin-grad)" stroke="white" stroke-width="2"/>
-  <circle cx="16" cy="16" r="8" fill="white" opacity="0.95"/>
-  <circle cx="16" cy="16" r="4" fill="#2563eb"/>
-  <defs><linearGradient id="pin-grad" x1="0" y1="0" x2="0" y2="42" gradientUnits="userSpaceOnUse">
-    <stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#1d4ed8"/>
-  </linearGradient></defs>
+  <path d="M16 0C7.16 0 0 7.16 0 16c0 12 16 26 16 26s16-14 16-26C32 7.16 24.84 0 16 0z" style="fill:var(--cw-primary);stroke:var(--cw-text-on-primary)" stroke-width="2"/>
+  <circle cx="16" cy="16" r="8" style="fill:var(--cw-text-on-primary)" opacity="0.95"/>
+  <circle cx="16" cy="16" r="4" style="fill:var(--cw-primary)"/>
 </svg>`;
 
 export default function AirportMap({ lat, lon, icao, name, className = "" }: AirportMapProps) {

@@ -8,16 +8,18 @@
 import { useCallback, useEffect, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import { Dropdown, EmptyState, LoadingRows } from "@/components/console-kit";
-import { C, TIER, mono } from "../ui/tokens";
+import { TIER, mono } from "../ui/tokens";
 import { Button, Tag, hmsZ } from "../ui/primitives";
 import AgentStyles from "../ui/AgentStyles";
 import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
+import { cw } from "@/lib/portal-tokens";
 
 type Routing = { startTier: string | null; finalTier: string | null; modelId: string | null; source: string | null; reason: string | null; confidence: number | null; routerTier: string | null; escalations: { from: string; to: string; reason: string }[]; inputTokens: number | null; outputTokens: number | null; cacheReadTokens: number; costUsd: number | null };
 type Row = { routing?: Routing; id: number; at: string; who: string; from: string; kind: "READ" | "WRITE" | "SEND" | "FILE" | "ANSWER" | "INSERT"; tool: string; args: Record<string, unknown>; result: { text: string; tone: string }; confirmed: { text: string; tone: string }; conversationId: string | null; hasRecord: boolean; full: { args: Record<string, unknown>; result: unknown; error: string | null; confirmationStatus: string | null; level: string | null } };
-const KIND: Record<Row["kind"], { fg: string; bg: string }> = { READ: { fg: C.neutral, bg: C.neutralTint }, WRITE: { fg: C.primaryHover, bg: C.primaryTint2 }, SEND: { fg: TIER.company.fg, bg: TIER.company.bg }, FILE: { fg: C.ok, bg: C.okTint }, ANSWER: { fg: C.info, bg: C.infoTint }, INSERT: { fg: C.body, bg: C.hover } };
-const TONE: Record<string, string> = { ok: C.okDot, muted: C.faint, danger: C.dangerBadge, warn: C.warnDot, faint: C.faint };
+const KIND: Record<Row["kind"], { fg: string; bg: string }> = { READ: { fg: cw.neutralText, bg: cw.neutralTint }, WRITE: { fg: cw.textLink, bg: cw.primaryWash }, SEND: { fg: TIER.company.fg, bg: TIER.company.bg }, FILE: { fg: cw.successText, bg: cw.successTint }, ANSWER: { fg: cw.infoText, bg: cw.infoTint }, INSERT: { fg: cw.textBody, bg: cw.bgHover } };
+const TONE: Record<string, string> = { ok: cw.success, muted: cw.neutral, danger: cw.danger, warn: cw.warning, faint: cw.neutral }; // dots
+const TONE_TEXT: Record<string, string> = { ok: cw.successText, muted: cw.textMuted, danger: cw.dangerText, warn: cw.warningText, faint: cw.textMuted };
 // FROM (§E14 item 7): Console, or Extension · {host} — added after WHO ASKED.
 const GRID = "96px 140px 150px 78px 160px minmax(0,1fr) 150px 140px";
 
@@ -57,39 +59,39 @@ export default function ActivityPage() {
       <AgentStyles />
       <div style={{ padding: "30px 32px", display: "flex", flexDirection: "column", gap: 18 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div role="tablist" style={{ display: "flex", background: C.divider, borderRadius: 10, padding: 3 }}>
-            {(["all", "answers", "changes", "sent", "denied"] as const).map((f) => <button key={f} type="button" role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: filter === f ? C.surface : "transparent", color: filter === f ? C.ink : C.muted, boxShadow: filter === f ? "0 1px 2px rgba(0,0,0,.06)" : "none" }}>{f[0].toUpperCase() + f.slice(1)}</button>)}
+          <div role="tablist" style={{ display: "flex", background: cw.bgHover, borderRadius: 10, padding: 3 }}>
+            {(["all", "answers", "changes", "sent", "denied"] as const).map((f) => <button key={f} type="button" role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: filter === f ? cw.bgSurface : "transparent", color: filter === f ? cw.text : cw.textMuted, boxShadow: filter === f ? cw.shadow1 : "none" }}>{f[0].toUpperCase() + f.slice(1)}</button>)}
           </div>
           <Dropdown value={person} onChange={setPerson} options={[{ value: "", label: "Person: anyone" }, ...people.map((p) => ({ value: p, label: p }))]} />
           <Dropdown value={tool} onChange={setTool} options={[{ value: "", label: "Tool: any" }, ...tools.map((t) => ({ value: t, label: t }))]} />
           <DateField value={date} onChange={setDate} placeholder="Date: any" />
         </div>
-        {error && <div role="alert" style={{ fontSize: 13, color: C.danger }}>{error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13, color: cw.dangerText }}>{error}</div>}
         {rows === null && <LoadingRows rows={6} />}
         {rows !== null && rows.length === 0 && <EmptyState title="Nothing logged for this filter">Every tool call the agent makes lands here as it happens.</EmptyState>}
         {rows !== null && rows.length > 0 && (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
-            <div style={{ display: "grid", gridTemplateColumns: GRID, gap: 12, padding: "10px 18px", background: C.page, borderBottom: `1px solid ${C.divider}` }}>
-              {["TIME", "WHO ASKED", "FROM", "KIND", "TOOL", "ARGUMENTS", "RESULT", "CONFIRMED"].map((h) => <span key={h} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: C.faint }}>{h}</span>)}
+          <div style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: GRID, gap: 12, padding: "10px 18px", background: cw.bgPage, borderBottom: `1px solid ${cw.divider}` }}>
+              {["TIME", "WHO ASKED", "FROM", "KIND", "TOOL", "ARGUMENTS", "RESULT", "CONFIRMED"].map((h) => <span key={h} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: cw.textMuted }}>{h}</span>)}
             </div>
             {rows.map((r) => (
-              <div key={r.id} style={{ borderBottom: `1px solid ${C.dividerRow}` }}>
-                <button type="button" onClick={() => void toggle(r)} aria-expanded={open === r.id} className="ag-row-hover ag-focus" style={{ width: "100%", display: "grid", gridTemplateColumns: GRID, gap: 12, padding: "11px 18px", alignItems: "center", cursor: "pointer", border: "none", fontFamily: "inherit", textAlign: "left", background: open === r.id ? C.rowExpanded : "transparent" }}>
-                  <span style={{ ...mono({ fontSize: 12.5 }), color: C.body }}>{hmsZ(r.at)}</span>
+              <div key={r.id} style={{ borderBottom: `1px solid ${cw.divider}` }}>
+                <button type="button" onClick={() => void toggle(r)} aria-expanded={open === r.id} className="ag-row-hover ag-focus" style={{ width: "100%", display: "grid", gridTemplateColumns: GRID, gap: 12, padding: "11px 18px", alignItems: "center", cursor: "pointer", border: "none", fontFamily: "inherit", textAlign: "left", background: open === r.id ? cw.bgSelected : "transparent" }}>
+                  <span style={{ ...mono({ fontSize: 12.5 }), color: cw.textBody }}>{hmsZ(r.at)}</span>
                   <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.who}</span>
-                  <span title={r.from} style={{ fontSize: 12.5, color: r.from === "Console" ? C.muted : C.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.from ?? "Console"}</span>
+                  <span title={r.from} style={{ fontSize: 12.5, color: r.from === "Console" ? cw.textMuted : cw.textBody, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.from ?? "Console"}</span>
                   <span><Tag fg={KIND[r.kind].fg} bg={KIND[r.kind].bg} style={{ letterSpacing: "0.04em" }}>{r.kind}</Tag></span>
                   <span style={mono({ fontSize: 12.5, fontWeight: 600 })}>{r.tool}</span>
-                  <span style={{ ...mono({ fontSize: 12 }), color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{JSON.stringify(r.args)}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: TONE[r.result.tone] ?? C.body }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: TONE[r.result.tone] ?? C.body }} />{r.result.text}</span>
-                  <span style={{ fontSize: 12.5, fontWeight: r.confirmed.tone === "faint" ? 500 : 600, color: TONE[r.confirmed.tone] ?? C.body }}>{r.confirmed.text}</span>
+                  <span style={{ ...mono({ fontSize: 12 }), color: cw.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{JSON.stringify(r.args)}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: TONE_TEXT[r.result.tone] ?? cw.textBody }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: TONE[r.result.tone] ?? cw.textBody }} />{r.result.text}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: r.confirmed.tone === "faint" ? 500 : 600, color: TONE_TEXT[r.confirmed.tone] ?? cw.textBody }}>{r.confirmed.text}</span>
                 </button>
                 {open === r.id && r.routing && <RoutingRecord r={r.routing} />}
                 {open === r.id && !r.routing && (
-                  <div style={{ padding: "4px 18px 16px 130px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, background: C.rowRecord }}>
-                    <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: C.faint, marginBottom: 6 }}>REQUEST</div><div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{request[r.id] === undefined && r.conversationId ? "…" : request[r.id]?.text ? `“${request[r.id]?.text}”` : "Direct call — no message."}</div>{request[r.id]?.title && r.conversationId && <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>Thread <a href={`/agent/t/${encodeURIComponent(r.conversationId)}`} style={{ color: C.primary }}>{request[r.id]?.title}</a></div>}</div>
-                    <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: C.faint, marginBottom: 6 }}>ARGUMENTS · RESULT</div><div style={{ ...mono({ fontSize: 12 }), lineHeight: 1.6, background: C.sidebar, borderRadius: 8, padding: "9px 11px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{Object.entries(r.full.args).map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`).join("\n")}{r.full.result ? `\n→ ${typeof r.full.result === "object" ? JSON.stringify(r.full.result).slice(0, 600) : String(r.full.result)}` : ""}{r.full.error ? `\n→ ${r.full.error}` : ""}</div></div>
-                    <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: C.faint, marginBottom: 6 }}>CONFIRMATION</div><div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.full.confirmationStatus === "confirmed" ? `Confirmed by ${r.who} ${hmsZ(r.at)}${r.full.level ? `\nLevel: ${r.full.level}` : ""}` : r.full.confirmationStatus === "rejected" ? `Declined by ${r.who} ${hmsZ(r.at)}` : r.full.confirmationStatus === "pending" ? "Prompted — awaiting an answer" : "Not required"}</div></div>
+                  <div style={{ padding: "4px 18px 16px 130px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, background: cw.bgSurface }}>
+                    <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, marginBottom: 6 }}>REQUEST</div><div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{request[r.id] === undefined && r.conversationId ? "…" : request[r.id]?.text ? `“${request[r.id]?.text}”` : "Direct call — no message."}</div>{request[r.id]?.title && r.conversationId && <div style={{ fontSize: 12, color: cw.textMuted, marginTop: 6 }}>Thread <a href={`/agent/t/${encodeURIComponent(r.conversationId)}`} style={{ color: cw.textLink }}>{request[r.id]?.title}</a></div>}</div>
+                    <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, marginBottom: 6 }}>ARGUMENTS · RESULT</div><div style={{ ...mono({ fontSize: 12 }), lineHeight: 1.6, background: cw.bgSunken, borderRadius: 8, padding: "9px 11px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{Object.entries(r.full.args).map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`).join("\n")}{r.full.result ? `\n→ ${typeof r.full.result === "object" ? JSON.stringify(r.full.result).slice(0, 600) : String(r.full.result)}` : ""}{r.full.error ? `\n→ ${r.full.error}` : ""}</div></div>
+                    <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, marginBottom: 6 }}>CONFIRMATION</div><div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.full.confirmationStatus === "confirmed" ? `Confirmed by ${r.who} ${hmsZ(r.at)}${r.full.level ? `\nLevel: ${r.full.level}` : ""}` : r.full.confirmationStatus === "rejected" ? `Declined by ${r.who} ${hmsZ(r.at)}` : r.full.confirmationStatus === "pending" ? "Prompted — awaiting an answer" : "Not required"}</div></div>
                   </div>
                 )}
               </div>
@@ -104,11 +106,11 @@ export default function ActivityPage() {
 
 /** Which model answered, and why (item 3). */
 function RoutingRecord({ r }: { r: Routing }) {
-  const cell = (label: string, value: React.ReactNode) => <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: C.faint, marginBottom: 6 }}>{label}</div><div style={{ fontSize: 13, lineHeight: 1.55 }}>{value}</div></div>;
+  const cell = (label: string, value: React.ReactNode) => <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, marginBottom: 6 }}>{label}</div><div style={{ fontSize: 13, lineHeight: 1.55 }}>{value}</div></div>;
   return (
-    <div data-routing-record style={{ padding: "4px 18px 16px 130px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, background: C.rowRecord }}>
+    <div data-routing-record style={{ padding: "4px 18px 16px 130px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, background: cw.bgSurface }}>
       {cell("ANSWERED BY", <><span style={mono({ fontSize: 12.5 })}>{r.modelId ?? "—"}</span><br />tier <b>{r.finalTier}</b>{r.startTier && r.startTier !== r.finalTier ? <> (started on {r.startTier})</> : null}</>)}
-      {cell("WHY", <>{r.source === "manual" ? "Chosen with /model" : r.source === "user-default" ? "Your default in Settings" : r.source === "care" ? "You asked for care" : r.source === "low-confidence" ? "Router unsure — raised one tier" : r.source === "floor" ? "A change request never runs on the fast tier" : "Router"}{r.routerTier ? ` · router said ${r.routerTier}${r.confidence != null ? ` (${Math.round(r.confidence * 100)}%)` : ""}` : ""}{r.reason ? <><br /><span style={{ color: C.muted }}>{r.reason}</span></> : null}{r.escalations.map((e, i) => <div key={i} style={{ color: C.warn }}>Escalated {e.from} → {e.to}: {e.reason}</div>)}</>)}
+      {cell("WHY", <>{r.source === "manual" ? "Chosen with /model" : r.source === "user-default" ? "Your default in Settings" : r.source === "care" ? "You asked for care" : r.source === "low-confidence" ? "Router unsure — raised one tier" : r.source === "floor" ? "A change request never runs on the fast tier" : "Router"}{r.routerTier ? ` · router said ${r.routerTier}${r.confidence != null ? ` (${Math.round(r.confidence * 100)}%)` : ""}` : ""}{r.reason ? <><br /><span style={{ color: cw.textMuted }}>{r.reason}</span></> : null}{r.escalations.map((e, i) => <div key={i} style={{ color: cw.warningText }}>Escalated {e.from} → {e.to}: {e.reason}</div>)}</>)}
       {cell("TOKENS · COST", <span style={mono({ fontSize: 12.5 })}>{r.inputTokens ?? "—"} in · {r.outputTokens ?? "—"} out{r.cacheReadTokens ? ` · ${r.cacheReadTokens} cached` : ""}<br />{r.costUsd != null ? `$${r.costUsd.toFixed(4)}` : "—"}</span>)}
     </div>
   );

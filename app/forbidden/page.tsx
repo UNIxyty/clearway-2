@@ -5,9 +5,9 @@ import { ShieldXIcon, HomeIcon } from "lucide-react";
 
 export default function ForbiddenPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background p-4 sm:p-6 lg:p-10 flex items-center justify-center">
+    <div className="relative min-h-screen overflow-hidden bg-cw-bg-page p-4 sm:p-6 lg:p-10 flex items-center justify-center">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,hsl(var(--primary)/0.14),transparent_40%),radial-gradient(circle_at_80%_20%,hsl(var(--accent)/0.12),transparent_40%),radial-gradient(circle_at_50%_80%,hsl(var(--muted-foreground)/0.08),transparent_50%)]" />
-      <Card className="relative w-full max-w-2xl border-border/70 bg-card/95 backdrop-blur-sm shadow-2xl">
+      <Card className="relative w-full max-w-2xl border-cw-border/70 bg-cw-bg-surface/95 backdrop-blur-sm shadow-2xl">
         <CardHeader className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <img
@@ -18,7 +18,7 @@ export default function ForbiddenPage() {
             />
             <img src="/logo.png" alt="Verxyl" className="h-8 sm:h-10 w-auto object-contain opacity-90" />
           </div>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1 text-xs text-destructive">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-cw-danger/30 bg-cw-danger-solid/10 px-3 py-1 text-xs text-cw-danger-text">
             <ShieldXIcon className="size-3.5" />
             Error 403
           </div>
@@ -28,7 +28,7 @@ export default function ForbiddenPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-          <div className="rounded-lg border border-border/60 bg-background/70 p-4 text-muted-foreground">
+          <div className="rounded-lg border border-cw-border/60 bg-cw-bg-page/70 p-4 text-cw-text-muted">
             If you believe this is a mistake, contact an administrator.
           </div>
           <Button asChild type="button" variant="outline" className="gap-2">

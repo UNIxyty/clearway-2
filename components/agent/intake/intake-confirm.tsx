@@ -5,11 +5,12 @@
 // server: the dialog closes at once and the request row shows a spinner until Leon has answered (the page polls).
 
 import { useId, useRef, useState } from "react";
-import { C, TONE, mono } from "../ui/tokens";
+import { TONE, mono } from "../ui/tokens";
 import { Button, Icon } from "../ui/primitives";
 import { Dialog, PulseDot, useCountdown } from "./controls";
 import { intakeApi, type Prepared, type RequestDetail, type SendResult } from "./api";
 import { LeonPill, errText, fieldOf, hm, plural, writeKey } from "./intake-shared";
+import { cw } from "@/lib/portal-tokens";
 
 type Phase = { k: "review" } | { k: "sending" } | { k: "done"; result: SendResult } | { k: "error"; message: string } | { k: "cancelling" };
 
@@ -63,25 +64,25 @@ export function ConfirmDialog({ prepared, detail, runsAs, onFinished }: { prepar
     { k: "Legs", lines: legs.map(legLine), mono: true },
     { k: "Services", lines: services }, { k: "In Leon", lines: checklist },
     { k: "People", lines: legs.map((l) => { const p = l.people; const pax = p?.pax ? `${plural(p.pax.people, "passenger")} → Leon's passenger database (PAX → DATABASE), one contact with passport each${p.pax.undeclaredSplits ? ` · ${p.pax.undeclaredSplits} name split${p.pax.undeclaredSplits === 1 ? "" : "s"} not declared by the request: check them` : ""}` : "no passenger names"; const crew = p?.crew ? `${p.crew.people ? `${p.crew.people} crew` : `crew count ${p.crew.count}`} → a note in the flight's OPS notes, as the operator's crew — NOT assigned in Leon` : "no crew"; return `Leg ${l.index + 1}: ${pax} · ${crew}`; }).concat(legs.some((l) => l.people?.pax || l.people?.crew) ? ["Passengers become contacts in Leon's address book (cwy-cwy) with their passports, and the flight's passenger list is set to them in one go; a passenger already in Leon (same passport, or same name and date of birth) is reused, never changed. The request's own passenger list goes into the OPS notes. Crew go in as a note, not as crew assignments: Leon assigns crew only from its own crew records, and the agent creates none. Names and documents are not shown here."] : []) },
-    ...(prepared.edited.length ? [{ k: "Changed", lines: prepared.edited.map((e) => `Leg ${e.leg + 1} · ${e.label} → ${e.value}`), bg: C.primaryTint3, color: C.primaryHover }] : []),
+    ...(prepared.edited.length ? [{ k: "Changed", lines: prepared.edited.map((e) => `Leg ${e.leg + 1} · ${e.label} → ${e.value}`), bg: cw.primaryTint, color: cw.textLink }] : []),
     ...(prepared.notChecked.length ? [{ k: "Not checked", lines: prepared.notChecked.map((e) => `Leg ${e.leg + 1} · ${e.label} · ${e.value}`), bg: TONE.amber.bg, color: TONE.amber.fg }] : []),
   ];
 
   return (
     <Dialog open onClose={onClose} labelledBy={titleId} width={600} accent="primary">
-      <div style={{ background: C.primaryTint3, borderBottom: `1px solid ${C.primaryLine}`, padding: "13px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-        <Icon name="send" size={16} color={C.primary} />
+      <div style={{ background: cw.primaryTint, borderBottom: `1px solid ${cw.primaryTintBorder}`, padding: "13px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+        <Icon name="send" size={16} color={cw.textLink} />
         <span id={titleId} style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{phase.k === "done" ? leonAnswerTitle(phase.result) : title}</span>
-        {phase.k === "review" && cd && <span role="timer" style={{ ...mono({ fontSize: 12 }), color: expired ? C.danger : C.primaryOnTint }}>{expired ? "Expired" : `Expires in ${cd.text}`}</span>}
+        {phase.k === "review" && cd && <span role="timer" style={{ ...mono({ fontSize: 12 }), color: expired ? cw.dangerText : cw.textBody }}>{expired ? "Expired" : `Expires in ${cd.text}`}</span>}
       </div>
 
       {phase.k !== "done" && (
         <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 2 }}>
           {rows.map((r) => (
             <div key={r.k} style={{ display: "grid", gridTemplateColumns: "96px 1fr", gap: 12, padding: "7px 8px", borderRadius: 7, background: r.bg ?? "transparent" }}>
-              <span style={{ fontSize: 12.5, color: C.muted }}>{r.k}</span>
+              <span style={{ fontSize: 12.5, color: cw.textMuted }}>{r.k}</span>
               <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                {r.lines.map((ln, i) => <span key={i} style={{ ...(r.mono ? mono({ fontSize: 13, fontWeight: 600 }) : { fontSize: 13, fontWeight: 600 }), lineHeight: 1.45, color: r.color ?? C.ink, overflowWrap: "anywhere" }}>{ln}</span>)}
+                {r.lines.map((ln, i) => <span key={i} style={{ ...(r.mono ? mono({ fontSize: 13, fontWeight: 600 }) : { fontSize: 13, fontWeight: 600 }), lineHeight: 1.45, color: r.color ?? cw.text, overflowWrap: "anywhere" }}>{ln}</span>)}
               </div>
             </div>
           ))}
@@ -90,26 +91,26 @@ export function ConfirmDialog({ prepared, detail, runsAs, onFinished }: { prepar
 
       {phase.k === "done" && <Answer result={phase.result} />}
 
-      <div style={{ padding: "12px 16px 14px", borderTop: `1px solid ${C.divider}`, display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ padding: "12px 16px 14px", borderTop: `1px solid ${cw.divider}`, display: "flex", alignItems: "center", gap: 8 }}>
         {(phase.k === "review" || phase.k === "cancelling") && (
           <>
-            <span style={{ fontSize: 12, color: expired ? C.danger : C.muted, flex: 1 }}>{expired ? "This confirmation expired. Cancel and review again." : `Runs as ${prepared.runsAs ?? runsAs}. Nothing is sent until you confirm.`}</span>
+            <span style={{ fontSize: 12, color: expired ? cw.dangerText : cw.textMuted, flex: 1 }}>{expired ? "This confirmation expired. Cancel and review again." : `Runs as ${prepared.runsAs ?? runsAs}. Nothing is sent until you confirm.`}</span>
             <Button variant="secondary" size="sm" data-autofocus onClick={() => void cancel()} disabled={phase.k === "cancelling"}>Cancel</Button>
             <Button variant="primary" size="sm" onClick={() => void confirm()} disabled={expired || phase.k === "cancelling"}>{go}</Button>
           </>
         )}
         {phase.k === "sending" && (
-          <span role="status" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.body, flex: 1 }}><PulseDot color={C.primary} />Handing the send to the agent…</span>
+          <span role="status" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: cw.textBody, flex: 1 }}><PulseDot color={cw.textLink} />Handing the send to the agent…</span>
         )}
         {phase.k === "error" && (
           <>
-            <span role="alert" style={{ fontSize: 12.5, color: C.danger, flex: 1 }}>{phase.message} Nothing is shown as created. Check the Sent section on this page for each leg&apos;s state.</span>
+            <span role="alert" style={{ fontSize: 12.5, color: cw.dangerText, flex: 1 }}>{phase.message} Nothing is shown as created. Check the Sent section on this page for each leg&apos;s state.</span>
             <Button variant="secondary" size="sm" data-autofocus onClick={() => onFinished(true)}>Close</Button>
           </>
         )}
         {phase.k === "done" && (
           <>
-            <span style={{ fontSize: 12.5, color: C.body, flex: 1 }}>{phase.result.legs.some((l) => l.state === "in_leon") ? (scheduled ? "Created. This page and the email will show it." : "Created. The checklist fills next; this page and the email will show it.") : "Nothing was created in Leon."}</span>
+            <span style={{ fontSize: 12.5, color: cw.textBody, flex: 1 }}>{phase.result.legs.some((l) => l.state === "in_leon") ? (scheduled ? "Created. This page and the email will show it." : "Created. The checklist fills next; this page and the email will show it.") : "Nothing was created in Leon."}</span>
             <Button variant="secondary" size="sm" data-autofocus onClick={() => onFinished(true)}>Close</Button>
           </>
         )}
@@ -131,17 +132,17 @@ function Answer({ result }: { result: SendResult }) {
       {result.legs.map((l) => {
         const k = writeKey(l.state); const ok = l.state === "in_leon"; const bad = l.state === "not_in_leon";
         return (
-          <div key={l.index} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: ok ? TONE.green.bg : bad ? TONE.red.bg : l.state === "unknown" ? TONE.amber.bg : C.sidebar, flexWrap: "wrap" }}>
+          <div key={l.index} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, background: ok ? TONE.green.bg : bad ? TONE.red.bg : l.state === "unknown" ? TONE.amber.bg : cw.bgSunken, flexWrap: "wrap" }}>
             <span style={mono({ fontSize: 12.5, fontWeight: 700 })}>{ok ? "✓" : bad ? "✕" : "?"} LEG {l.index + 1}</span>
             <LeonPill k={k} id={l.flightNid} />
-            {l.already && <span style={{ fontSize: 12, color: C.muted }}>was already in Leon</span>}
-            {bad && l.error && <span style={{ fontSize: 12.5, color: C.danger }}>Leon: {l.error}</span>}
+            {l.already && <span style={{ fontSize: 12, color: cw.textMuted }}>was already in Leon</span>}
+            {bad && l.error && <span style={{ fontSize: 12.5, color: cw.dangerText }}>Leon: {l.error}</span>}
             {l.state === "unknown" && <span style={{ fontSize: 12.5, color: TONE.amber.fg }}>Leon did not answer. The agent is checking whether it exists.</span>}
-            {ok && (l.people ?? []).filter((p) => p.state !== "none").map((p) => <span key={p.kind} style={{ flexBasis: "100%", fontSize: 12.5, color: p.state === "in_leon" ? C.body : C.danger, fontWeight: p.state === "in_leon" ? 400 : 600 }}>{p.kind === "pax" ? (p.state === "in_leon" ? `${plural(p.people, "passenger")} in Leon's passenger list.` : `Passengers NOT in Leon. ${p.error ?? ""}`) : p.state === "in_leon" ? `Crew in OPS notes, not assigned.` : `Crew NOT in Leon. ${p.error ?? ""}`}</span>)}
+            {ok && (l.people ?? []).filter((p) => p.state !== "none").map((p) => <span key={p.kind} style={{ flexBasis: "100%", fontSize: 12.5, color: p.state === "in_leon" ? cw.textBody : cw.dangerText, fontWeight: p.state === "in_leon" ? 400 : 600 }}>{p.kind === "pax" ? (p.state === "in_leon" ? `${plural(p.people, "passenger")} in Leon's passenger list.` : `Passengers NOT in Leon. ${p.error ?? ""}`) : p.state === "in_leon" ? `Crew in OPS notes, not assigned.` : `Crew NOT in Leon. ${p.error ?? ""}`}</span>)}
           </div>
         );
       })}
-      {result.checklist.total > 0 && <span style={{ fontSize: 12.5, color: C.muted, marginTop: 4 }}>Checklist: {result.checklist.filled} of {result.checklist.total} items filled so far.</span>}
+      {result.checklist.total > 0 && <span style={{ fontSize: 12.5, color: cw.textMuted, marginTop: 4 }}>Checklist: {result.checklist.filled} of {result.checklist.total} items filled so far.</span>}
       {!result.email.ok && result.email.error && <span style={{ fontSize: 12.5, color: TONE.amber.fg }}>The notification email was not sent: {result.email.error}</span>}
     </div>
   );

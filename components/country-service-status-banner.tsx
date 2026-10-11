@@ -6,6 +6,7 @@ import {
   COUNTRY_SERVICE_STATES,
   type CountryServiceSummaryResponse,
 } from "@/lib/country-service-status-shared";
+import { cw } from "@/lib/portal-tokens";
 
 type Props = {
   currentCountry?: string | null;
@@ -94,15 +95,15 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
     [statusCounts]
   );
   const pieBackground = useMemo(() => {
-    if (totalStatuses === 0) return "conic-gradient(#9ca3af 0deg 360deg)";
+    if (totalStatuses === 0) return `conic-gradient(${cw.neutral} 0deg 360deg)`;
     let cursor = 0;
     const segments: string[] = [];
     const colors: Record<(typeof COUNTRY_SERVICE_STATES)[number], string> = {
-      not_checked: "#9ca3af",
-      in_work: "#f97316",
-      partially_works: "#f59e0b",
-      operational: "#22c55e",
-      issues: "#ef4444",
+      not_checked: cw.neutral,
+      in_work: cw.orange,
+      partially_works: cw.warning,
+      operational: cw.success,
+      issues: cw.danger,
     };
     for (const state of COUNTRY_SERVICE_STATES) {
       const value = statusCounts[state];
@@ -126,11 +127,11 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
       <div
         className={`w-[300px] rounded-md border px-2.5 py-1.5 shadow-md backdrop-blur text-[10px] ${
           hasAnyRunningDebug
-            ? "border-orange-300 bg-orange-50/95 text-orange-900 dark:border-orange-700 dark:bg-orange-950/70 dark:text-orange-200"
-            : "bg-background/95 text-muted-foreground"
+            ? "border-cw-orange-border bg-cw-orange-tint/95 text-cw-orange-text"
+            : "bg-cw-bg-page/95 text-cw-text-muted"
         }`}
       >
-        <div className="font-medium text-foreground text-[11px]">Portal Service Status</div>
+        <div className="font-medium text-cw-text text-[11px]">Portal Service Status</div>
         <div className="flex items-center gap-1 my-0.5">
           {COUNTRY_SERVICE_STATES.map((state) => (
             <span
@@ -142,11 +143,11 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
         <div>
           You can use the portal for your needs, but keep in mind that we are actively working on parts of it.
         </div>
-        {warning && <div className="mt-1 text-amber-600 text-[10px]">{warning}</div>}
+        {warning && <div className="mt-1 text-cw-warning-text text-[10px]">{warning}</div>}
       </div>
 
       <div
-        className={`absolute left-0 mt-1.5 w-[360px] max-h-[60vh] overflow-hidden rounded-md border bg-background shadow-xl transition-all duration-200 ease-out origin-top-left ${
+        className={`absolute left-0 mt-1.5 w-[360px] max-h-[60vh] overflow-hidden rounded-md border bg-cw-bg-page shadow-xl transition-all duration-200 ease-out origin-top-left ${
           open
             ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
             : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
@@ -154,7 +155,7 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
       >
         <div className="border-b px-3 py-2 text-sm font-medium">Country service statuses</div>
         {hasAnyRunningDebug && (
-          <div className="border-b px-3 py-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50/70 dark:bg-amber-950/40">
+          <div className="border-b px-3 py-2 text-xs text-cw-warning-text bg-cw-warning-tint/70">
             {data?.hasGlobalRunningDebug
               ? "Debug is currently running globally for all countries."
               : `Debug is currently running for: ${runningCountries.join(", ")}`}
@@ -166,7 +167,7 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
             style={{ background: pieBackground }}
             title="Portal status distribution"
           />
-          <div className="text-[11px] text-muted-foreground grid grid-cols-1 gap-0.5">
+          <div className="text-[11px] text-cw-text-muted grid grid-cols-1 gap-0.5">
             {COUNTRY_SERVICE_STATES.map((state) => {
               const count = statusCounts[state];
               const percent = totalStatuses > 0 ? Math.round((count / totalStatuses) * 100) : 0;
@@ -179,7 +180,7 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
             })}
           </div>
         </div>
-        <div className="border-b px-3 py-2 text-xs text-muted-foreground grid grid-cols-1 gap-1">
+        <div className="border-b px-3 py-2 text-xs text-cw-text-muted grid grid-cols-1 gap-1">
           {COUNTRY_SERVICE_STATES.map((state) => (
             <div key={state} className="flex items-center gap-2">
               <span className={`inline-block h-2.5 w-2.5 rounded-full ${COUNTRY_SERVICE_STATE_META[state].dotClass}`} />
@@ -191,16 +192,16 @@ export default function CountryServiceStatusBanner({ currentCountry }: Props) {
           {rows.map((row) => (
             <div key={row.country} className="flex items-center justify-between gap-2 py-1 border-b last:border-b-0">
               <div className="min-w-0">
-                <div className="truncate text-foreground">{row.country}</div>
+                <div className="truncate text-cw-text">{row.country}</div>
                 {row.runningDebug && (
-                  <div className="text-amber-600">
+                  <div className="text-cw-warning-text">
                     Currently debug script is running for this country, you may experience troubles and bugs.
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className={`inline-block h-2.5 w-2.5 rounded-full ${COUNTRY_SERVICE_STATE_META[row.state].dotClass}`} />
-                <span className="text-muted-foreground">{COUNTRY_SERVICE_STATE_META[row.state].label}</span>
+                <span className="text-cw-text-muted">{COUNTRY_SERVICE_STATE_META[row.state].label}</span>
               </div>
             </div>
           ))}

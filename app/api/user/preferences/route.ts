@@ -9,6 +9,9 @@ const PREF_SELECT =
 const PREF_POST_SELECT =
   "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, captcha_consent_dismissed, updated_at";
 
+const THEMES = ["system", "light", "dark"];
+const missingThemeColumn = (e: { message?: string; code?: string }) => /theme/.test(e.message ?? "") && (e.code === "42703" || e.code === "PGRST204" || /does not exist|schema cache/.test(e.message ?? ""));
+
 export async function GET() {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,11 +47,15 @@ export async function GET() {
 
     const admin = createSupabaseServiceRoleClient();
     const db = admin ?? supabase;
-    const { data, error } = await db
+    let { data, error } = await db
       .from("user_preferences")
-      .select(PREF_SELECT)
+      .select(`${PREF_SELECT}, theme`)
       .eq("user_id", userId!)
       .maybeSingle();
+    // Before docs/supabase-portal-theme.sql has run there is no theme column: read the rest as before.
+    if (error && missingThemeColumn(error)) {
+      ({ data, error } = await db.from("user_preferences").select(PREF_SELECT).eq("user_id", userId!).maybeSingle());
+    }
 
     if (error && error.code !== "PGRST116") {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -101,6 +108,7 @@ export async function POST(request: Request) {
       notify_aip?: boolean;
       notify_gen?: boolean;
       captcha_consent_dismissed?: boolean;
+      theme?: string;
     };
 
     const admin = createSupabaseServiceRoleClient();
@@ -119,19 +127,32 @@ export async function POST(request: Request) {
     if (typeof body.captcha_consent_dismissed === "boolean") {
       updates.captcha_consent_dismissed = body.captcha_consent_dismissed;
     }
+    // Appearance (portal redesign §1.3): "system" (match this device), "light" or "dark".
+    if (body.theme !== undefined) {
+      if (!THEMES.includes(body.theme)) return NextResponse.json({ error: "theme must be system, light or dark" }, { status: 400 });
+      updates.theme = body.theme;
+    }
 
     const db = admin ?? supabase;
-    const { data, error } = await db
+    let { data, error } = await db
       .from("user_preferences")
       .upsert(updates, { onConflict: "user_id" })
-      .select(PREF_POST_SELECT)
+      .select(updates.theme !== undefined ? `${PREF_POST_SELECT}, theme` : PREF_POST_SELECT)
       .single();
+    // No theme column yet (docs/supabase-portal-theme.sql not run): the choice still holds on this device
+    // (localStorage); say it was not saved to the account rather than failing the other fields.
+    let themeSaved = updates.theme !== undefined;
+    if (error && missingThemeColumn(error)) {
+      delete updates.theme;
+      themeSaved = false;
+      ({ data, error } = await db.from("user_preferences").upsert(updates, { onConflict: "user_id" }).select(PREF_POST_SELECT).single());
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, preferences: data });
+    return NextResponse.json({ ok: true, preferences: data, ...(body.theme !== undefined ? { themeSaved } : {}) });
   } catch (e: unknown) {
     return NextResponse.json(
       { error: (e as { message?: string })?.message || "Failed" },

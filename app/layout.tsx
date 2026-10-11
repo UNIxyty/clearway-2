@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Public_Sans } from "next/font/google";
+import "@/shared/portal-tokens.css";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { PortalFrame } from "@/components/portal/Shell";
+import { THEME_SCRIPT } from "@/components/portal/theme-script";
 
 // Portal redesign: the same type stack as the Display Console — Public Sans
 // for UI, IBM Plex Mono for ICAOs / NOTAM ids / timestamps / raw METAR-TAF.
@@ -44,9 +46,15 @@ export default function RootLayout({
     window.__supabaseAnonKey = ${JSON.stringify(supabaseAnonKey)};
   `;
 
+  // data-theme is set by THEME_SCRIPT before first paint, so the server's markup and the browser's differ on <html>
+  // by design: suppressHydrationWarning covers that one element (not its children).
   return (
-    <html lang="en" className={`${publicSans.variable} ${plexMono.variable}`}>
-      <body className="min-h-screen bg-background font-sans">
+    <html lang="en" className={`${publicSans.variable} ${plexMono.variable}`} suppressHydrationWarning>
+      <head>
+        <meta name="color-scheme" content="light dark" />
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
+      <body className="min-h-screen bg-cw-bg-page font-sans text-cw-text">
         <script dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
         {/* One persistent portal frame (sidebar, agent panel, viewer) around every page; only the content changes on
             navigation (portal foundations 3.1). Full-screen routes are left bare: components/portal/Shell.tsx. */}

@@ -29,13 +29,13 @@ export default function RecentsCard() {
       {loading && !data ? (
         <div className="grid grid-cols-2 gap-3.5 p-5 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-[84px] animate-pulse rounded-[10px] bg-[#f2f3f5]" />
+            <div key={i} className="h-[84px] animate-pulse rounded-[10px] bg-cw-bg-hover" />
           ))}
         </div>
       ) : error && !data ? (
         <RegionNote
           icon="triangle-alert"
-          iconColor="#e5484d"
+          iconColor="var(--cw-danger-text)"
           title="Couldn't load your recent activity"
           body={error}
           action={
@@ -52,33 +52,33 @@ export default function RecentsCard() {
           action={
             <Link
               href="/aip"
-              className="mt-1.5 rounded-[9px] bg-cw-primary px-[17px] py-[9px] text-[13.5px] font-semibold text-white no-underline hover:bg-cw-primaryDeep"
+              className="mt-1.5 rounded-[9px] bg-cw-primary px-[17px] py-[9px] text-[13.5px] font-semibold text-cw-text-on-primary no-underline hover:bg-cw-primary-hover"
             >
               Search an airport
             </Link>
           }
         />
       ) : (
-        <div className="grid grid-cols-2 gap-px bg-cw-borderInner lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-px bg-cw-bg-hover lg:grid-cols-4">
           {recents.map((item) => (
             <Link
               key={`${item.resource}-${item.when}`}
               href={item.href}
-              className="group flex flex-col gap-[9px] bg-white px-[18px] pb-[15px] pt-4 text-left no-underline hover:bg-cw-page"
+              className="group flex flex-col gap-[9px] bg-cw-bg-surface px-[18px] pb-[15px] pt-4 text-left no-underline hover:bg-cw-bg-page"
             >
               <span className="flex items-center gap-2">
-                <span className="font-mono text-base font-semibold tracking-[0.02em] text-cw-ink">
+                <span className="font-mono text-base font-semibold tracking-[0.02em] text-cw-text">
                   {item.resource}
                 </span>
-                <span className="rounded-[5px] bg-[#eef1f5] px-[7px] py-[3px] text-[11px] font-bold tracking-[0.04em] text-[#475569]">
+                <span className="rounded-[5px] bg-cw-neutral-tint px-[7px] py-[3px] text-[11px] font-bold tracking-[0.04em] text-cw-neutral-text">
                   {item.service}
                 </span>
               </span>
-              <span className="text-[13px] leading-snug text-cw-body">{item.action}</span>
-              <span className="mt-auto flex items-center gap-1.5 text-xs text-cw-faint">
+              <span className="text-[13px] leading-snug text-cw-text-body">{item.action}</span>
+              <span className="mt-auto flex items-center gap-1.5 text-xs text-cw-text-muted">
                 <MaskIcon name="history" size={12} />
                 {timeAgo(item.when)}
-                <span className="ml-auto font-semibold text-cw-primary">Open →</span>
+                <span className="ml-auto font-semibold text-cw-text-link">Open →</span>
               </span>
             </Link>
           ))}

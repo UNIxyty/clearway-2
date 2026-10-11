@@ -1,36 +1,18 @@
-// Ops Agent tokens — read from THE shared token source (shared/design-tokens.json).
-//
-// Nothing here is a literal the design invented separately: every value is
-// either a name that already existed in the shared file (page, border, text,
-// primary, the status colours…) or one the agent spec added to it in this
-// build (tier colours, voice, wall surfaces, tints, shadows, motion). Inlining
-// a hex here would be a defect — the console imports the same file, and a
-// value edited in one place must move everywhere.
+// Ops Agent tokens (portal redesign, stage 1). Colours are the portal's --cw-* tokens (lib/portal-tokens.ts →
+// shared/portal-tokens.json), so every value here follows the light/dark theme; nothing in this file is a colour
+// literal. The sizes, radii and motion below are the agent design's own (they used to be read from
+// shared/design-tokens.json, which is the Digital Wall's file — the portal no longer imports it).
 
-import tokens from "@/shared/design-tokens.json";
+import { cw } from "@/lib/portal-tokens";
 
-export const T = tokens;
-const c = tokens.color as typeof tokens.color & Record<string, string>;
-
-/** Colour — spec §2.1, mapped onto the shared names. */
-export const C = {
-  ink: c.text, body: c.textBody, muted: c.textMuted, faint: c.textFaint, disabled: c.textDisabled,
-  border: c.border, borderControl: c.borderControl, divider: c.borderInner, dividerRow: c.dividerRow,
-  page: c.page, surface: c.card, sidebar: c.sidebar, navActive: c.navActive, hover: c.hover,
-  bubbleUser: c.bubbleUser, disabledFill: c.disabledFill,
-  primary: c.primary, primaryHover: c.primaryDeep, primaryTint: c.primaryTint, primaryTint2: c.primaryWash,
-  primaryTint3: c.primaryTint3, primaryLine: c.primaryLine, primaryBorder: c.primaryBorder, primaryOnTint: c.primaryOnTint,
-  sendEmpty: c.sendEmpty, primaryFocus: c.primaryFocus, primaryHalo: c.primaryHalo,
-  warn: c.amberDeep, warnTint: c.amberTint, warnBorder: c.amberBorder, warnDot: c.amber, warnStrong: c.amberStrong, warnStrongTint: c.amberStrongTint,
-  danger: c.redDeep, dangerBadge: c.red, dangerTint: c.redTintSoft, dangerBorder: c.redBorder, dangerDisabled: c.dangerDisabled,
-  ok: c.greenDeep, okTint: c.greenTint, okBorder: c.greenBorder, okDot: c.green,
-  neutral: c.slate, neutralTint: c.greyTint, info: c.sky, infoTint: c.skyTint, infoBorder: c.skyBorder, quoteTint: c.quoteTint,
-  stop: c.stop, stopTint: c.stopTint, stopBorder: c.stopBorder, stopSquare: c.stopSquare,
-  rowExpanded: c.rowExpanded, rowRecord: c.rowRecord, warnWash: c.amberWash, okWash: c.greenWash, dangerWash: c.redWash, toggleOff: c.toggleOff, navSubBorder: c.navSubBorder, suggestHover: c.suggestHover, searchMatch: c.searchMatch, searchCurrent: c.searchCurrent, citeHighlight: c.citeHighlight, citeClaim: c.citeClaim, citeOutline: c.citeOutline, viewerCanvas: c.viewerCanvas, viewerCanvasImage: c.viewerCanvasImage, viewerPageScan: c.viewerPageScan, violetTint2: c.violetTint2, violetBorder: c.violetBorder, tabHover: c.tabHover, companyDeep: c.companyDeep, dangerWashSoft: c.redWashSoft, warnWashSoft: c.amberWashSoft, highlight: c.highlight,
-} as const;
-
-/** Source tiers — §3 rule 5: fixed, never themed, never swapped. */
-export const TIER = tokens.tier as Record<"internal" | "company" | "web" | "attachment", { fg: string; bg: string; underline: string; strip: string; claimBg?: string; tint2?: string; border?: string }>;
+/** Source tiers — §3 rule 5: each tier keeps its own colour family; in dark mode the family's dark values. */
+type TierLook = { fg: string; bg: string; underline: string; strip: string; claimBg?: string; tint2?: string; border?: string };
+export const TIER: Record<"internal" | "company" | "web" | "attachment", TierLook> = {
+  internal: { fg: cw.tierInternalFg, bg: cw.tierInternalBg, underline: cw.tierInternalLine, strip: cw.tierInternalStrip },
+  company: { fg: cw.tierCompanyFg, bg: cw.tierCompanyBg, underline: cw.tierCompanyLine, strip: cw.tierCompanyStrip, tint2: cw.tierCompanyTint, border: cw.tierCompanyBorder },
+  web: { fg: cw.tierWebFg, bg: cw.tierWebBg, underline: cw.tierWebLine, strip: cw.tierWebStrip, claimBg: cw.tierWebClaim },
+  attachment: { fg: cw.tierAttachmentFg, bg: cw.tierAttachmentBg, underline: cw.tierAttachmentLine, strip: cw.tierAttachmentStrip },
+};
 export const TIER_META: Record<keyof typeof TIER, { label: string; icon: string }> = {
   internal: { label: "Internal", icon: "database" },
   company: { label: "Company", icon: "book-open" },
@@ -38,14 +20,31 @@ export const TIER_META: Record<keyof typeof TIER, { label: string; icon: string 
   attachment: { label: "Attachment", icon: "paperclip" },
 };
 
-export const VOICE = tokens.voice as { uncertainUnderline: string; uncertainBg: string; overlayScrim: string; readingHighlight: string; popoverShadow: string; shortCardShadow: string; errorShadow: string };
-export const WALL = tokens.wall as Record<string, string>;
-export const SHADOW = tokens.shadow as Record<string, string>;
-export const MOTION = tokens.motion as { easeOut: string; easeIn: string; easeInOut: string; fast: number; base: number; hover: number };
-export const RADIUS = tokens.radius as Record<string, number>;
-export const VIEWER = tokens.viewer as { tabStrip: number; header: number; toolbar: number; searchRow: number; thumbRail: number; pageMax: number; panelNarrowBelow: number; citationOffset: number; viewLimitBytes: number; progressiveBytes: number; progressivePages: number; maxTabs: number; cachedDocs: number };
-export const PANEL = tokens.agentPanel as { width: number; minWidth: number; maxWidth: number; headerHeight: number; pushMinContent: number; overlayBelow: number };
-export const FONT = { sans: tokens.font.sans, mono: tokens.font.mono } as const;
+export const VOICE = {
+  uncertainUnderline: cw.warning,
+  uncertainBg: cw.warningTint,
+  overlayScrim: cw.bgScrim,
+  readingHighlight: cw.primaryTint,
+  popoverShadow: cw.shadowPop,
+  shortCardShadow: cw.shadow2,
+  errorShadow: cw.shadow2,
+} as const;
+/** The wall's dark surface, where the agent's voice bar sits inside the wall console (same in both themes). */
+export const WALL = { accent: cw.wallAccent } as const;
+const focusRing = `0 0 0 3px ${cw.focusHalo}`;
+export const SHADOW: Record<string, string> = {
+  frame: cw.shadow2, composer: cw.shadow1, menu: cw.shadowPop, menuPanel: cw.shadowPop, voicebar: cw.shadow2, voicebarPage: cw.shadow2,
+  overlay: cw.shadowPop, modal: cw.shadowPop, modalLight: cw.shadowPop, panelOverlay: cw.shadowPanel, panelMinimised: cw.shadow2,
+  focus: focusRing, pending: focusRing,
+};
+export const MOTION = { easeOut: "cubic-bezier(0.2, 0, 0, 1)", easeIn: "cubic-bezier(0.4, 0, 1, 1)", easeInOut: "ease-in-out", fast: 120, base: 200, hover: 120 } as const;
+export const RADIUS: Record<string, number> = { card: 13, control: 9, chip: 999, menu: 11, xs: 4, sm: 6, md: 8, lg: 10, cardLg: 14, composer: 16, overlay: 22 };
+export const VIEWER = { tabStrip: 40, header: 68, toolbar: 46, searchRow: 48, thumbRail: 132, pageMax: 900, panelNarrowBelow: 1400, citationOffset: 96, viewLimitBytes: 104857600, progressiveBytes: 10485760, progressivePages: 60, maxTabs: 6, cachedDocs: 20 } as const;
+/** The agent panel: 400 wide by default (portal redesign §4), resizable between min and max. */
+// At 1280 and wider the panel takes its width from the page (§4.3: 632px of page is left at 1280 with the full sidebar);
+// it only overlays there if a wide panel would leave the page narrower than pushMinContent.
+export const PANEL = { width: 400, minWidth: 360, maxWidth: 600, headerHeight: 56, pushMinContent: 480, overlayBelow: 1280 } as const;
+export const FONT = { sans: "var(--font-sans), 'Public Sans', system-ui, sans-serif", mono: "var(--font-mono), 'IBM Plex Mono', monospace" } as const;
 
 /** Type scale — §2.2. `mono` marks the rows the mono rule applies to. */
 export const TYPE = {
@@ -73,13 +72,19 @@ export const TYPE = {
 /** Mono rule (§2.2, §3 rule 14): anything read character by character. */
 export const mono = (extra: React.CSSProperties = {}): React.CSSProperties => ({ fontFamily: FONT.mono, fontVariantNumeric: "tabular-nums", ...extra });
 
-/** Flight intake + Agent mailbox (§I, §M): the extra values, and the five status tones built from shared names. */
-export const INTAKE = (tokens as unknown as { intake: Record<string, string> }).intake;
+
+/** Flight intake + Agent mailbox (§I, §M): the extra values, and the five status tones. */
+export const INTAKE = {
+  amberIcon: cw.warning, slateIcon: cw.neutral, slateBorder: cw.border, unknownInk: cw.textBody, unknownDash: cw.neutral,
+  hatchA: cw.bgSunken, hatchB: cw.bgHover, fieldRed: cw.dangerTint, conditionalBg: cw.neutralTint, answerBorder: cw.primaryTintBorder,
+  answerBg: cw.bgSelected, scrimDrawer: cw.bgScrim, scrimDialog: cw.bgScrim, drawerShadow: cw.shadowPanel, flashBlue: cw.primaryTint,
+  flashRed: cw.dangerTint, pulse: "1100ms",
+} as const;
 export type Tone = { fg: string; bg: string; bd: string; ic: string };
 export const TONE: Record<"red" | "amber" | "green" | "blue" | "slate", Tone> = {
-  red: { fg: c.redDeep, bg: c.redTintSoft, bd: c.redBorder, ic: c.red },
-  amber: { fg: c.amberStrong, bg: c.amberTint, bd: c.amberBorder, ic: INTAKE.amberIcon },
-  green: { fg: c.greenDeep, bg: c.greenTint, bd: c.greenBorder, ic: c.green },
-  blue: { fg: c.primaryDeep, bg: c.primaryTint, bd: c.primaryLine, ic: c.primary },
-  slate: { fg: c.slate, bg: c.greyTint, bd: INTAKE.slateBorder, ic: INTAKE.slateIcon },
+  red: { fg: cw.dangerText, bg: cw.dangerTint, bd: cw.dangerBorder, ic: cw.danger },
+  amber: { fg: cw.warningText, bg: cw.warningTint, bd: cw.warningBorder, ic: cw.warning },
+  green: { fg: cw.successText, bg: cw.successTint, bd: cw.successBorder, ic: cw.success },
+  blue: { fg: cw.textLink, bg: cw.primaryTint, bd: cw.primaryTintBorder, ic: cw.primary },
+  slate: { fg: cw.neutralText, bg: cw.neutralTint, bd: cw.border, ic: cw.neutral },
 };

@@ -17,10 +17,10 @@ type AdminUserRow = {
 };
 
 const ROLE_BADGE: Record<string, { color: string; bg: string }> = {
-  developer: { color: "#7c3aed", bg: "#f3e8ff" },
-  admin: { color: "#1d4ed8", bg: "#eef4ff" },
-  user: { color: "#475569", bg: "#eef1f5" },
-  pending: { color: "#c2703b", bg: "#fdf1e8" },
+  developer: { color: "var(--cw-diff-text)", bg: "var(--cw-diff-tint)" },
+  admin: { color: "var(--cw-text-link)", bg: "var(--cw-primary-tint)" },
+  user: { color: "var(--cw-neutral-text)", bg: "var(--cw-neutral-tint)" },
+  pending: { color: "var(--cw-orange-text)", bg: "var(--cw-orange-tint)" },
 };
 
 function RoleBadge({ label }: { label: string }) {
@@ -113,24 +113,24 @@ export default function AdminUsersPage() {
         </div>
 
         <h1 className="m-0 mb-[5px] text-[26px] font-extrabold tracking-[-0.02em]">Users</h1>
-        <p className="m-0 mb-5 text-[15px] text-[#6c7079]">
+        <p className="m-0 mb-5 text-[15px] text-cw-text-muted">
           Approve new accounts and manage roles. Admins can grant/revoke Admin. Only Developers can grant/revoke Developer.
         </p>
 
         {error && (
-          <div className="mb-4 rounded-[10px] border border-[#f0d4d4] bg-[#fdf2f2] px-3.5 py-2.5 text-sm text-[#a12a2e]">
+          <div className="mb-4 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-2.5 text-sm text-cw-danger-text">
             {error}
           </div>
         )}
 
         <PCard className="overflow-hidden">
           {loading ? (
-            <p className="m-0 px-[18px] py-5 text-sm text-[#6c7079]">Loading users…</p>
+            <p className="m-0 px-[18px] py-5 text-sm text-cw-text-muted">Loading users…</p>
           ) : users.length === 0 ? (
-            <p className="m-0 px-[18px] py-5 text-sm text-[#6c7079]">No users found.</p>
+            <p className="m-0 px-[18px] py-5 text-sm text-cw-text-muted">No users found.</p>
           ) : (
             <>
-              <div className="hidden grid-cols-[110px_1.2fr_1.4fr_auto] items-center gap-3.5 border-b border-[#eef0f2] bg-[#fbfbfc] px-[18px] py-2.5 md:grid">
+              <div className="hidden grid-cols-[110px_1.2fr_1.4fr_auto] items-center gap-3.5 border-b border-cw-divider bg-cw-bg-page px-[18px] py-2.5 md:grid">
                 <PTh>ROLE</PTh>
                 <PTh>USER</PTh>
                 <PTh>EMAIL</PTh>
@@ -143,15 +143,15 @@ export default function AdminUsersPage() {
                   return (
                     <div
                       key={u.id}
-                      className="grid grid-cols-1 items-center gap-2 border-b border-[#f2f3f5] px-[18px] py-3 last:border-b-0 md:grid-cols-[110px_1.2fr_1.4fr_auto] md:gap-3.5"
+                      className="grid grid-cols-1 items-center gap-2 border-b border-cw-divider px-[18px] py-3 last:border-b-0 md:grid-cols-[110px_1.2fr_1.4fr_auto] md:gap-3.5"
                     >
                       <div>
                         <RoleBadge label={roleLabel(u)} />
                       </div>
-                      <p className="m-0 min-w-0 truncate text-sm font-semibold text-[#17181c]">
+                      <p className="m-0 min-w-0 truncate text-sm font-semibold text-cw-text">
                         {u.displayName || u.email || "Unknown user"}
                       </p>
-                      <PMono className="min-w-0 truncate text-[12.5px] text-[#6c7079]">
+                      <PMono className="min-w-0 truncate text-[12.5px] text-cw-text-muted">
                         {u.email || "No email"}
                       </PMono>
 

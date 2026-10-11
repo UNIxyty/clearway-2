@@ -8,16 +8,16 @@ import { PCard, PButton, PSectionTitle } from "@/components/portal/ui";
 import { BarChartIcon, LogOutIcon, BellIcon, Mail } from "lucide-react";
 
 const inputClass =
-  "h-10 w-full rounded-[10px] border border-[#d6d8dc] bg-white px-3 text-sm text-[#17181c] outline-none placeholder:text-[#9aa0a8] focus:border-[#2563eb]";
-const labelClass = "mb-1.5 block text-[13px] font-semibold text-[#17181c]";
+  "h-10 w-full rounded-[10px] border border-cw-border-control bg-cw-bg-surface px-3 text-sm text-cw-text outline-none placeholder:text-cw-text-muted focus:border-cw-primary";
+const labelClass = "mb-1.5 block text-[13px] font-semibold text-cw-text";
 const errorBox =
-  "rounded-[10px] border border-[#f0d4d4] bg-[#fdf2f2] px-3.5 py-2.5 text-sm text-[#a12a2e]";
+  "rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-2.5 text-sm text-cw-danger-text";
 const successBox =
-  "rounded-[10px] border border-[#c7ead2] bg-[#e7f6ec] px-3.5 py-2.5 text-sm text-[#15803d]";
+  "rounded-[10px] border border-cw-success-border bg-cw-success-tint px-3.5 py-2.5 text-sm text-cw-success-text";
 const amberBox =
-  "rounded-[10px] border border-[#f4d4b8] bg-[#fdf1e8] px-3.5 py-2.5 text-sm text-[#c2703b]";
+  "rounded-[10px] border border-cw-orange-border bg-cw-orange-tint px-3.5 py-2.5 text-sm text-cw-orange-text";
 const readOnlyField =
-  "rounded-[10px] bg-[#f5f6f7] px-3 py-2.5 font-mono text-[13px] text-[#3a3d44] break-all";
+  "rounded-[10px] bg-cw-bg-sunken px-3 py-2.5 font-mono text-[13px] text-cw-text-body break-all";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -196,11 +196,11 @@ export default function ProfilePage() {
           <img
             src="/PFP.png"
             alt="Profile picture"
-            className="h-9 w-9 rounded-full border border-[#e6e7ea] bg-[#eef4ff] object-cover"
+            className="h-9 w-9 rounded-full border border-cw-border bg-cw-primary-tint object-cover"
           />
           <h1 className="m-0 text-[26px] font-extrabold tracking-[-0.02em]">Profile</h1>
         </div>
-        <p className="m-0 mb-5 text-[15px] text-[#6c7079]">
+        <p className="m-0 mb-5 text-[15px] text-cw-text-muted">
           Manage your account settings and preferences
         </p>
 
@@ -211,7 +211,7 @@ export default function ProfilePage() {
 
           <PCard className="p-[22px]">
             <PSectionTitle>Account Information</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">
+            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
               Your authentication details (read-only)
             </p>
             <div className="mt-4 space-y-4">
@@ -233,7 +233,7 @@ export default function ProfilePage() {
 
           <PCard className="p-[22px]">
             <PSectionTitle>Display Name</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">
+            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
               Optional name shown in the portal (instead of your email)
             </p>
             <div className="mt-4 space-y-4">
@@ -257,23 +257,23 @@ export default function ProfilePage() {
 
           <PCard className="p-[22px]">
             <PSectionTitle>Change Email</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">
+            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
               Update the email used to sign in. A confirmation email is sent to the new address.
             </p>
             <div className="mt-4 space-y-4">
               {emailError && <div className={errorBox}>{emailError}</div>}
               {emailInfo && <div className={successBox}>{emailInfo}</div>}
               {emailChangeSentTo || pendingEmail ? (
-                <div className="rounded-[12px] border border-[#e6e7ea] bg-[#fbfbfc] px-4 py-6 text-center">
-                  <Mail className="mx-auto mb-2 h-6 w-6 text-[#9aa0a8]" />
-                  <p className="m-0 text-sm font-semibold text-[#17181c]">Check your email</p>
-                  <p className="m-0 mt-1 text-sm text-[#6c7079]">
+                <div className="rounded-[12px] border border-cw-border bg-cw-bg-page px-4 py-6 text-center">
+                  <Mail className="mx-auto mb-2 h-6 w-6 text-cw-text-muted" />
+                  <p className="m-0 text-sm font-semibold text-cw-text">Check your email</p>
+                  <p className="m-0 mt-1 text-sm text-cw-text-muted">
                     We sent confirmation for{" "}
                     <span className="font-mono">{emailChangeSentTo || pendingEmail}</span>.
                   </p>
                   <button
                     type="button"
-                    className="mt-4 cursor-pointer border-none bg-transparent p-0 text-xs text-[#6c7079] underline underline-offset-4 hover:text-[#17181c]"
+                    className="mt-4 cursor-pointer border-none bg-transparent p-0 text-xs text-cw-text-muted underline underline-offset-4 hover:text-cw-text"
                     onClick={() => {
                       setEmailChangeSentTo(null);
                       setEmailInfo(null);
@@ -312,23 +312,23 @@ export default function ProfilePage() {
 
           <PCard className="p-[22px]">
             <PSectionTitle>Change Password</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">
+            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
               Verify your current password first. We then send a verification email with a secure reset link.
             </p>
             <div className="mt-4 space-y-4">
               {passwordError && <div className={errorBox}>{passwordError}</div>}
               {passwordInfo && <div className={successBox}>{passwordInfo}</div>}
               {passwordResetEmailSentTo ? (
-                <div className="rounded-[12px] border border-[#e6e7ea] bg-[#fbfbfc] px-4 py-6 text-center">
-                  <Mail className="mx-auto mb-2 h-6 w-6 text-[#9aa0a8]" />
-                  <p className="m-0 text-sm font-semibold text-[#17181c]">Check your email</p>
-                  <p className="m-0 mt-1 text-sm text-[#6c7079]">
+                <div className="rounded-[12px] border border-cw-border bg-cw-bg-page px-4 py-6 text-center">
+                  <Mail className="mx-auto mb-2 h-6 w-6 text-cw-text-muted" />
+                  <p className="m-0 text-sm font-semibold text-cw-text">Check your email</p>
+                  <p className="m-0 mt-1 text-sm text-cw-text-muted">
                     We sent a password verification link to{" "}
                     <span className="font-mono">{passwordResetEmailSentTo}</span>.
                   </p>
                   <button
                     type="button"
-                    className="mt-4 cursor-pointer border-none bg-transparent p-0 text-xs text-[#6c7079] underline underline-offset-4 hover:text-[#17181c]"
+                    className="mt-4 cursor-pointer border-none bg-transparent p-0 text-xs text-cw-text-muted underline underline-offset-4 hover:text-cw-text"
                     onClick={() => {
                       setPasswordResetEmailSentTo(null);
                       setPasswordInfo(null);
@@ -386,14 +386,14 @@ export default function ProfilePage() {
             </div>
           </PCard>
 
-          <PCard className="border-[#f0d4d4] p-[22px]">
+          <PCard className="border-cw-danger-border p-[22px]">
             <PSectionTitle>Sign Out</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">End your current session</p>
+            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">End your current session</p>
             <div className="mt-4">
               <button
                 type="button"
                 onClick={signOut}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-[#f0d4d4] bg-[#fdf2f2] px-4 py-[10px] text-sm font-semibold text-[#a12a2e] hover:bg-[#fbe8e8]"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-4 py-[10px] text-sm font-semibold text-cw-danger-text hover:bg-cw-danger-tint"
               >
                 <LogOutIcon className="h-4 w-4" />
                 Sign out

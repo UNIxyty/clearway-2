@@ -52,7 +52,7 @@ type WeatherItem = {
 
 const AirportMap = dynamic(() => import("@/components/AirportMap"), {
   ssr: false,
-  loading: () => <div className="bg-muted/30 rounded-lg flex items-center justify-center min-h-[240px] text-sm text-muted-foreground">Loading map…</div>,
+  loading: () => <div className="bg-cw-bg-hover/30 rounded-lg flex items-center justify-center min-h-[240px] text-sm text-cw-text-muted">Loading map…</div>,
 });
 
 export type RecentEntry = { icao: string; name: string; country: string; ts: number };
@@ -421,7 +421,7 @@ function AIPResultCard({
 
   return (
     <div
-      className={`${isSelected ? "rounded-[10px] ring-2 ring-[#2563eb] " : ""}${onSelect ? "cursor-pointer " : ""}`}
+      className={`${isSelected ? "rounded-[10px] ring-2 ring-cw-primary " : ""}${onSelect ? "cursor-pointer " : ""}`}
       role={onSelect ? "button" : undefined}
       onClick={onSelect}
     >
@@ -433,14 +433,14 @@ function AIPResultCard({
               alt=""
               width={22}
               height={16}
-              className="rounded-sm border border-[#e6e7ea] object-cover"
+              className="rounded-sm border border-cw-border object-cover"
             />
           ) : (
-            <GlobeIcon className="size-4 text-[#9aa0a8]" />
+            <GlobeIcon className="size-4 text-cw-text-muted" />
           )}
         </span>
-        <span className="whitespace-nowrap font-mono text-[15px] font-semibold text-[#17181c]">{airport.icao}</span>
-        {airport.name ? <span className="text-sm text-[#6c7079]">{airport.name}</span> : null}
+        <span className="whitespace-nowrap font-mono text-[15px] font-semibold text-cw-text">{airport.icao}</span>
+        {airport.name ? <span className="text-sm text-cw-text-muted">{airport.name}</span> : null}
       </div>
       <div className="flex flex-col gap-4">
         {orderedSectionKeys.map((section) => {
@@ -461,21 +461,21 @@ function AIPResultCard({
             : sectionRows;
 
           return (
-            <section key={section || "general"} className="overflow-hidden rounded-[10px] border border-[#eef0f2]">
-              <div className="flex items-center gap-2 border-b border-[#eef0f2] bg-[#fbfbfc] px-3.5 py-2">
+            <section key={section || "general"} className="overflow-hidden rounded-[10px] border border-cw-divider">
+              <div className="flex items-center gap-2 border-b border-cw-divider bg-cw-bg-page px-3.5 py-2">
                 {section ? (
-                  <PMono className="text-[11px] font-semibold tracking-wide text-[#2563eb]">{section}</PMono>
+                  <PMono className="text-[11px] font-semibold tracking-wide text-cw-text-link">{section}</PMono>
                 ) : null}
                 <PSectionTitle className="tracking-[0.06em]">{sectionTitle}</PSectionTitle>
               </div>
-              <dl className="divide-y divide-[#f2f3f5]">
+              <dl className="divide-y divide-cw-divider">
                 {normalRows.map(({ key, section: rowSection, label, value }) => (
                   <div
                     key={`${rowSection}-${label}`}
                     className="grid grid-cols-1 gap-1.5 px-3.5 py-2.5 sm:grid-cols-[minmax(160px,190px)_1fr] sm:gap-4"
                   >
-                    <dt className="text-[11.5px] leading-5 text-[#9aa0a8]">{label}</dt>
-                    <dd className={`flex min-w-0 items-center gap-2 font-mono text-[13px] leading-relaxed text-[#17181c] ${value.includes("\n") ? "whitespace-pre-wrap break-words" : ""}`}>
+                    <dt className="text-[11.5px] leading-5 text-cw-text-muted">{label}</dt>
+                    <dd className={`flex min-w-0 items-center gap-2 font-mono text-[13px] leading-relaxed text-cw-text ${value.includes("\n") ? "whitespace-pre-wrap break-words" : ""}`}>
                       {key === "country" && flagUrl ? (
                         <>
                           <img
@@ -495,21 +495,21 @@ function AIPResultCard({
                 ))}
               </dl>
               {isRunwaySection && runwayRows.length > 0 && (
-                <div className="border-t border-[#eef0f2] px-3.5 py-3.5">
+                <div className="border-t border-cw-divider px-3.5 py-3.5">
                   <PSectionTitle className="mb-2.5">Runways</PSectionTitle>
-                  <div className="overflow-hidden rounded-[10px] border border-[#eef0f2]">
+                  <div className="overflow-hidden rounded-[10px] border border-cw-divider">
                     <table className="w-full text-[13px]">
-                      <thead className="bg-[#fbfbfc]">
+                      <thead className="bg-cw-bg-page">
                         <tr>
-                          <th className="w-28 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-[#9aa0a8]">Runway</th>
-                          <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-[#9aa0a8]">Dimensions</th>
+                          <th className="w-28 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-cw-text-muted">Runway</th>
+                          <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[0.06em] text-cw-text-muted">Dimensions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#f2f3f5]">
+                      <tbody className="divide-y divide-cw-divider">
                         {runwayRows.map((r) => (
                           <tr key={`${r.runway}-${r.dimensions}`}>
-                            <td className="px-3 py-2 font-mono text-[#17181c]">{r.runway || "—"}</td>
-                            <td className="px-3 py-2 font-mono text-[#3a3d44]">{r.dimensions || "—"}</td>
+                            <td className="px-3 py-2 font-mono text-cw-text">{r.runway || "—"}</td>
+                            <td className="px-3 py-2 font-mono text-cw-text-body">{r.dimensions || "—"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -522,11 +522,11 @@ function AIPResultCard({
         })}
       </div>
       {hasGen && (
-        <div className="mt-4 border-t border-[#eef0f2] pt-4">
+        <div className="mt-4 border-t border-cw-divider pt-4">
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setShowGen((v) => !v); }}
-            className="flex cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-sm font-semibold text-[#6c7079] hover:text-[#17181c]"
+            className="flex cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-sm font-semibold text-cw-text-muted hover:text-cw-text"
           >
             {showGen ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
             {flagUrl && (
@@ -544,14 +544,14 @@ function AIPResultCard({
             <div className="mt-3 space-y-4">
               {airport.gen1_2 && (
                 <div className="max-w-none">
-                  <p className="mb-1.5 text-sm font-semibold text-[#17181c]">GEN 1.2</p>
-                  <p className="text-[13px] leading-6 text-[#3a3d44]">{airport.gen1_2}</p>
+                  <p className="mb-1.5 text-sm font-semibold text-cw-text">GEN 1.2</p>
+                  <p className="text-[13px] leading-6 text-cw-text-body">{airport.gen1_2}</p>
                 </div>
               )}
               {airport.gen1_2_point_4 && (
                 <div className="max-w-none">
-                  <p className="mb-1.5 text-sm font-semibold text-[#17181c]">GEN 1.2 Point 4</p>
-                  <p className="text-[13px] leading-6 text-[#3a3d44]">{airport.gen1_2_point_4}</p>
+                  <p className="mb-1.5 text-sm font-semibold text-cw-text">GEN 1.2 Point 4</p>
+                  <p className="text-[13px] leading-6 text-cw-text-body">{airport.gen1_2_point_4}</p>
                 </div>
               )}
             </div>
@@ -1881,7 +1881,7 @@ export default function AirportView({ icao }: { icao: string }) {
     <div className="px-4 py-6 pb-12 sm:px-[30px]">
       {!viewingAirport ? (
         <div className="mx-auto w-full max-w-[1600px]">
-          <p className="text-sm text-[#6c7079]">Loading…</p>
+          <p className="text-sm text-cw-text-muted">Loading…</p>
         </div>
       ) : (
         (() => {
@@ -1891,16 +1891,16 @@ export default function AirportView({ icao }: { icao: string }) {
             const detailCacheEntry = aipEadCache[detailIcao];
 
             const documentCard = detailSynced ? (
-                      <PCard className={`overflow-hidden ${aipEadSyncingIcao === viewingAirport.icao ? "ring-2 ring-[#2563eb]/70" : ""}`}>
-                        <div className="flex flex-wrap items-center gap-3.5 border-b border-[#eef0f2] px-[18px] py-3.5">
-                          <span className="text-[13.5px] font-semibold text-[#17181c]">PDF Viewer</span>
-                          <PMono className="text-[12.5px] text-[#9aa0a8]">
+                      <PCard className={`overflow-hidden ${aipEadSyncingIcao === viewingAirport.icao ? "ring-2 ring-cw-primary/70" : ""}`}>
+                        <div className="flex flex-wrap items-center gap-3.5 border-b border-cw-divider px-[18px] py-3.5">
+                          <span className="text-[13.5px] font-semibold text-cw-text">PDF Viewer</span>
+                          <PMono className="text-[12.5px] text-cw-text-muted">
                             AIP ({isAsecnaIcao(viewingAirport.icao) ? "ASECNA" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "Scraper" : isRussiaIcao(viewingAirport.icao) ? "Russia" : "EAD"}) · {viewingAirport.icao}
                           </PMono>
                         </div>
-                        <div className="border-b border-[#dbe6ff] bg-[#f2f7ff] px-[18px] py-[11px] text-[13.5px] text-[#3a5170]">
+                        <div className="border-b border-cw-primary-tint-border bg-cw-primary-tint px-[18px] py-[11px] text-[13.5px] text-cw-text-body">
                           Source:{" "}
-                          <strong className="font-bold text-[#1d4ed8]">
+                          <strong className="font-bold text-cw-text-link">
                             {isAsecnaIcao(viewingAirport.icao)
                               ? "ASECNA Web AIP (dynamically updated)"
                               : isUsaAipIcao(viewingAirport.icao)
@@ -1925,7 +1925,7 @@ export default function AirportView({ icao }: { icao: string }) {
                         </div>
                         <div className="p-[18px]">
                           {isKuwaitScraperIcao(viewingAirport.icao) && (
-                            <div className="mb-3 rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            <div className="mb-3 rounded-[10px] border border-cw-warning-border bg-cw-warning-tint px-3 py-2 text-xs text-cw-warning-text">
                               Kuwait AIP access is now paid. Review the subscription terms and pricing in the official order form before requesting files.
                               {" "}
                               <a
@@ -1949,7 +1949,7 @@ export default function AirportView({ icao }: { icao: string }) {
                             </div>
                           )}
                           {isUsaAipIcao(viewingAirport.icao) && (
-                            <div className="mb-3 rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            <div className="mb-3 rounded-[10px] border border-cw-warning-border bg-cw-warning-tint px-3 py-2 text-xs text-cw-warning-text">
                               USA AIP here uses hard-coded PDF files extracted from an FAA multi-page document released on 10.11.2016.
                               {" "}
                               <a
@@ -1964,19 +1964,19 @@ export default function AirportView({ icao }: { icao: string }) {
                             </div>
                           )}
                           {pdfDownloadError && (
-                            <p className="mb-2 text-sm text-[#e5484d]">{pdfDownloadError}</p>
+                            <p className="mb-2 text-sm text-cw-danger-text">{pdfDownloadError}</p>
                           )}
                           {aipEadLoadingIcao !== viewingAirport.icao && (
-                            <div className="mb-3 rounded-[10px] border border-[#e6e7ea] bg-[#fbfbfc] p-2">
+                            <div className="mb-3 rounded-[10px] border border-cw-border bg-cw-bg-page p-2">
                               {aipPdfReady[viewingAirport.icao] ||
                               aipPdfExistsOnServer[viewingAirport.icao] ? (
                                 <object
                                   data={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
                                   type="application/pdf"
-                                  className="h-[520px] w-full rounded-md border border-[#e6e7ea] bg-white"
+                                  className="h-[520px] w-full rounded-md border border-cw-border bg-cw-bg-surface"
                                   aria-label={`AIP PDF ${viewingAirport.icao}`}
                                 >
-                                  <div className="p-3 text-sm text-[#6c7079]">
+                                  <div className="p-3 text-sm text-cw-text-muted">
                                     Native PDF preview is not available in this browser.
                                     {" "}
                                     <a
@@ -1998,9 +1998,9 @@ export default function AirportView({ icao }: { icao: string }) {
                                   </div>
                                 </object>
                               ) : aipEadLoadingIcao === viewingAirport.icao ? null : (
-                                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
+                                <div className="rounded-md border border-cw-warning-border bg-cw-warning-tint p-3 text-xs text-cw-warning-text space-y-2">
                                   <div className="flex items-center gap-2">
-                                    <Spinner className="size-4 shrink-0 text-amber-700" />
+                                    <Spinner className="size-4 shrink-0 text-cw-warning-text" />
                                     <span className="font-medium">
                                       PDF is still loading from the source website.
                                     </span>
@@ -2009,7 +2009,7 @@ export default function AirportView({ icao }: { icao: string }) {
                                     Some airports serve large files slowly. The sync is still running unless an error appears.
                                   </p>
                                   {aipEadSyncSteps.length > 0 && (
-                                    <div className="rounded border border-amber-300/60 bg-amber-100/40 p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
+                                    <div className="rounded border border-cw-warning-border/60 bg-cw-warning-tint/40 p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
                                       {aipEadSyncSteps.map((step, i) => (
                                         <div key={`${step}-${i}`}>{step}</div>
                                       ))}
@@ -2025,21 +2025,21 @@ export default function AirportView({ icao }: { icao: string }) {
                                 <div
                                   className={`space-y-2 rounded-xl border-2 p-4 ${
                                     aipPdfSlowIcao === viewingAirport.icao
-                                      ? "border-amber-300 bg-amber-50 text-amber-900"
-                                      : "border-[#e6e7ea] bg-[#fbfbfc] text-[#17181c]"
+                                      ? "border-cw-warning-border bg-cw-warning-tint text-cw-warning-text"
+                                      : "border-cw-border bg-cw-bg-page text-cw-text"
                                   }`}
                                 >
                                   <div className="flex items-center gap-2">
-                                    <Spinner className={`size-4 shrink-0 ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-700" : "text-[#2563eb]"}`} />
+                                    <Spinner className={`size-4 shrink-0 ${aipPdfSlowIcao === viewingAirport.icao ? "text-cw-warning-text" : "text-cw-text-link"}`} />
                                     <span className="text-sm font-medium">
                                       {resyncingIcao === viewingAirport.icao ? "Re-sync — refetching from source…" : "Fetching AIP PDF…"}
                                     </span>
                                   </div>
-                                  <p className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-[#6c7079]"}`}>
+                                  <p className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-cw-warning-text" : "text-cw-text-muted"}`}>
                                     Live status · elapsed {aipSyncElapsedSec}s
                                   </p>
                                   {aipPdfSlowIcao === viewingAirport.icao && (
-                                    <p className="text-xs text-amber-800">
+                                    <p className="text-xs text-cw-warning-text">
                                       Source is still responding. Sync is running; large files can take extra time.
                                     </p>
                                   )}
@@ -2047,8 +2047,8 @@ export default function AirportView({ icao }: { icao: string }) {
                                     <div
                                       className={`rounded p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap ${
                                         aipPdfSlowIcao === viewingAirport.icao
-                                          ? "border border-amber-200 bg-white/80 text-amber-900"
-                                          : "border border-[#e6e7ea] bg-white text-[#6c7079]"
+                                          ? "border border-cw-warning-border bg-cw-bg-surface/80 text-cw-warning-text"
+                                          : "border border-cw-border bg-cw-bg-surface text-cw-text-muted"
                                       }`}
                                     >
                                       {aipEadSyncSteps.map((step, i) => (
@@ -2057,44 +2057,44 @@ export default function AirportView({ icao }: { icao: string }) {
                                     </div>
                                   )}
                                   {aipEadSyncSteps.length === 0 && (
-                                    <span className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-amber-800" : "text-[#6c7079]"}`}>
+                                    <span className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-cw-warning-text" : "text-cw-text-muted"}`}>
                                       Checking cache first, then fetching live PDF if needed…
                                     </span>
                                   )}
                                 </div>
                               ) : (
                                 <div className="space-y-3">
-                                  <div className="flex items-center gap-2 text-sm text-[#6c7079]">
-                                    <Spinner className="size-4 shrink-0 text-[#2563eb]" />
+                                  <div className="flex items-center gap-2 text-sm text-cw-text-muted">
+                                    <Spinner className="size-4 shrink-0 text-cw-text-link" />
                                     <span>Loading AIP cache…</span>
                                   </div>
-                                  <div className="space-y-2 section-loading-skeleton rounded-lg border border-[#e6e7ea] bg-[#fbfbfc] p-4">
-                                    <div className="h-4 w-24 rounded bg-[#f0f1f3]" />
-                                    <div className="h-3 w-full rounded bg-[#f0f1f3]" />
-                                    <div className="h-3 w-5/6 rounded bg-[#f0f1f3]" />
-                                    <div className="h-3 w-4/5 rounded bg-[#f0f1f3] mt-3" />
-                                    <div className="h-3 w-full rounded bg-[#f0f1f3]" />
-                                    <div className="h-3 w-2/3 rounded bg-[#f0f1f3] mt-3" />
+                                  <div className="space-y-2 section-loading-skeleton rounded-lg border border-cw-border bg-cw-bg-page p-4">
+                                    <div className="h-4 w-24 rounded bg-cw-bg-hover" />
+                                    <div className="h-3 w-full rounded bg-cw-bg-hover" />
+                                    <div className="h-3 w-5/6 rounded bg-cw-bg-hover" />
+                                    <div className="h-3 w-4/5 rounded bg-cw-bg-hover mt-3" />
+                                    <div className="h-3 w-full rounded bg-cw-bg-hover" />
+                                    <div className="h-3 w-2/3 rounded bg-cw-bg-hover mt-3" />
                                   </div>
                                 </div>
                               )}
                             </div>
                           )}
                           {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.error && (
-                            <p className="py-2 text-sm text-[#e5484d]">{aipEadCache[viewingAirport.icao].error}</p>
+                            <p className="py-2 text-sm text-cw-danger-text">{aipEadCache[viewingAirport.icao].error}</p>
                           )}
                         </div>
                       </PCard>
                     ) : (
                       <PCard className="overflow-hidden">
-                        <div className="border-b border-[#eef0f2] px-[18px] py-3.5">
+                        <div className="border-b border-cw-divider px-[18px] py-3.5">
                           <div className="text-base font-bold">AIP — {viewingAirport.icao}</div>
-                          <p className="mt-0.5 text-sm text-[#6c7079]">
+                          <p className="mt-0.5 text-sm text-cw-text-muted">
                             Stored AIP data from portal. For EAD/Russia airports, search an ICAO like EDQA or UUEE to use the PDF flow.
                           </p>
                         </div>
                         <div className="p-[18px]">
-                          <div className="mb-3 rounded-[10px] border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                          <div className="mb-3 rounded-[10px] border border-cw-warning-border bg-cw-warning-tint px-3 py-2 text-xs text-cw-warning-text">
                             Source:{" "}
                             <strong>
                               {viewingAirport.sourceType === "ASECNA_DYNAMIC"
@@ -2113,9 +2113,9 @@ export default function AirportView({ icao }: { icao: string }) {
 
             const genCard = (
               <PCard className="overflow-hidden">
-                <div className="flex flex-wrap items-center gap-3.5 border-b border-[#eef0f2] px-[18px] py-3.5">
-                  <span className="text-[13.5px] font-semibold text-[#17181c]">GEN PDF</span>
-                  <PMono className="text-[12.5px] text-[#9aa0a8]">GEN (General — {viewingAirport.country}) · {viewingAirport.icao}</PMono>
+                <div className="flex flex-wrap items-center gap-3.5 border-b border-cw-divider px-[18px] py-3.5">
+                  <span className="text-[13.5px] font-semibold text-cw-text">GEN PDF</span>
+                  <PMono className="text-[12.5px] text-cw-text-muted">GEN (General — {viewingAirport.country}) · {viewingAirport.icao}</PMono>
                 </div>
                 <div className="p-[18px]">
                   {isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao) ? (
@@ -2123,7 +2123,7 @@ export default function AirportView({ icao }: { icao: string }) {
                       <PSectionTitle className="mb-1.5">
                         Not Available
                       </PSectionTitle>
-                      <p className="text-xs text-[#3a3d44]">
+                      <p className="text-xs text-cw-text-body">
                         GEN 1.2 is not published on the ASECNA eAIP for this country.
                       </p>
                     </>
@@ -2132,7 +2132,7 @@ export default function AirportView({ icao }: { icao: string }) {
                       <PSectionTitle className="mb-1.5">
                         GEN loading steps
                       </PSectionTitle>
-                      <ul className="space-y-1 text-xs text-[#3a3d44]">
+                      <ul className="space-y-1 text-xs text-cw-text-body">
                         {(genSyncSteps.length > 0
                           ? genSyncSteps
                           : [
@@ -2142,7 +2142,7 @@ export default function AirportView({ icao }: { icao: string }) {
                               "Preparing download…",
                             ]).map((step, i) => (
                           <li key={`${step}-${i}`} className="flex items-start gap-1.5">
-                            <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-[#2563eb]/70" />
+                            <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-cw-primary/70" />
                             <span>{step}</span>
                           </li>
                         ))}
@@ -2155,11 +2155,11 @@ export default function AirportView({ icao }: { icao: string }) {
 
             const locationCard = (
                       <PCard className="overflow-hidden">
-                        <div className="flex items-center gap-2 border-b border-[#eef0f2] px-[15px] py-3">
-                          <MapPinIcon className="size-[15px] text-[#6c7079]" />
-                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-[#6c7079]">LOCATION</span>
+                        <div className="flex items-center gap-2 border-b border-cw-divider px-[15px] py-3">
+                          <MapPinIcon className="size-[15px] text-cw-text-muted" />
+                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-cw-text-muted">LOCATION</span>
                           {viewingAirport.lat != null && viewingAirport.lon != null && (
-                            <PMono className="text-[11.5px] text-[#9aa0a8]">
+                            <PMono className="text-[11.5px] text-cw-text-muted">
                               {viewingAirport.lat.toFixed(4)} {viewingAirport.lon.toFixed(4)}
                             </PMono>
                           )}
@@ -2174,7 +2174,7 @@ export default function AirportView({ icao }: { icao: string }) {
                               className="w-full h-full"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-[#f5f6f7] p-4 text-center text-sm text-[#6c7079]">
+                            <div className="flex h-full w-full items-center justify-center bg-cw-bg-sunken p-4 text-center text-sm text-cw-text-muted">
                               Coordinates will appear after AIP sync or when available from data.
                             </div>
                           )}
@@ -2184,12 +2184,12 @@ export default function AirportView({ icao }: { icao: string }) {
 
             const notamsCard = (
                       <PCard className="overflow-hidden">
-                        <div className="flex items-center gap-2 border-b border-[#eef0f2] px-[15px] py-3">
-                          <ScrollTextIcon className="size-[15px] text-[#6c7079]" />
-                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-[#6c7079]">NOTAMS — {viewingAirport.icao}</span>
+                        <div className="flex items-center gap-2 border-b border-cw-divider px-[15px] py-3">
+                          <ScrollTextIcon className="size-[15px] text-cw-text-muted" />
+                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-cw-text-muted">NOTAMS — {viewingAirport.icao}</span>
                           <button
                             type="button"
-                            className="flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-[#9aa0a8] hover:bg-[#f0f1f3] hover:text-[#17181c] disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-cw-text-muted hover:bg-cw-bg-hover hover:text-cw-text disabled:cursor-not-allowed disabled:opacity-50"
                             onClick={() => requestSyncNotams(viewingAirport.icao)}
                             disabled={notamsLoading}
                             title="Refresh NOTAMs"
@@ -2198,8 +2198,8 @@ export default function AirportView({ icao }: { icao: string }) {
                           </button>
                         </div>
                         {!notamsLoading && notamsUpdatedAt && (
-                          <div className="border-b border-[#f2f3f5] px-[15px] py-2">
-                            <PMono className="text-[11.5px] text-[#9aa0a8]">
+                          <div className="border-b border-cw-divider px-[15px] py-2">
+                            <PMono className="text-[11.5px] text-cw-text-muted">
                               updated {new Date(notamsUpdatedAt).toLocaleString()}
                             </PMono>
                           </div>
@@ -2208,35 +2208,35 @@ export default function AirportView({ icao }: { icao: string }) {
                           {notamsLoading && (
                             <div className="flex flex-col gap-4 py-2 animate-fade-in">
                               {notamsSyncing ? (
-                                <div className="space-y-3 rounded-lg border border-[#e6e7ea] bg-[#fbfbfc] p-4">
+                                <div className="space-y-3 rounded-lg border border-cw-border bg-cw-bg-page p-4">
                                   <div className="flex items-center gap-2">
-                                    <Spinner className="size-4 shrink-0 text-[#6c7079]" />
+                                    <Spinner className="size-4 shrink-0 text-cw-text-muted" />
                                     <span className="text-sm font-medium">Loading steps…</span>
                                   </div>
                                   {notamsSyncSteps.length > 0 && (
-                                    <ul className="list-disc space-y-1 pl-5 text-xs text-[#6c7079]">
+                                    <ul className="list-disc space-y-1 pl-5 text-xs text-cw-text-muted">
                                       {notamsSyncSteps.map((step, i) => (
                                         <li key={i}>{step}</li>
                                       ))}
                                     </ul>
                                   )}
                                   {notamsSyncSteps.length === 0 && (
-                                    <span className="text-xs text-[#6c7079]">Starting loading steps · can take 1–2 min</span>
+                                    <span className="text-xs text-cw-text-muted">Starting loading steps · can take 1–2 min</span>
                                   )}
                                 </div>
                               ) : (
                                 <div className="space-y-3">
-                                  <div className="flex items-center gap-2 text-sm text-[#6c7079]">
-                                    <Spinner className="size-4 shrink-0 text-[#6c7079]" />
+                                  <div className="flex items-center gap-2 text-sm text-cw-text-muted">
+                                    <Spinner className="size-4 shrink-0 text-cw-text-muted" />
                                     <span>Loading NOTAMs…</span>
                                   </div>
                                   <div className="space-y-2 section-loading-skeleton">
-                                    <div className="h-3 w-full rounded bg-[#f0f1f3]" />
-                                    <div className="h-3 w-4/5 rounded bg-[#f0f1f3]" />
-                                    <div className="h-3 w-3/4 rounded bg-[#f0f1f3]" />
-                                    <div className="mt-2 h-12 w-full rounded bg-[#f0f1f3]" />
-                                    <div className="h-3 w-2/3 rounded bg-[#f0f1f3]" />
-                                    <div className="mt-2 h-12 w-full rounded bg-[#f0f1f3]" />
+                                    <div className="h-3 w-full rounded bg-cw-bg-hover" />
+                                    <div className="h-3 w-4/5 rounded bg-cw-bg-hover" />
+                                    <div className="h-3 w-3/4 rounded bg-cw-bg-hover" />
+                                    <div className="mt-2 h-12 w-full rounded bg-cw-bg-hover" />
+                                    <div className="h-3 w-2/3 rounded bg-cw-bg-hover" />
+                                    <div className="mt-2 h-12 w-full rounded bg-cw-bg-hover" />
                                   </div>
                                 </div>
                               )}
@@ -2244,28 +2244,28 @@ export default function AirportView({ icao }: { icao: string }) {
                           )}
                           {!notamsLoading && notamsError && (
                             <div className="space-y-2 py-2">
-                              <p className="text-sm font-medium text-[#e5484d]">NOTAMs unavailable</p>
-                              <p className="break-words text-xs text-[#6c7079]">{notamsError}</p>
-                              <p className="text-xs text-[#6c7079]">Run locally: <code className="rounded bg-[#f0f1f3] px-1">node scripts/skylink-notams.mjs --json {viewingAirport?.icao}</code> to verify SkyLink NOTAM retrieval.</p>
+                              <p className="text-sm font-medium text-cw-danger-text">NOTAMs unavailable</p>
+                              <p className="break-words text-xs text-cw-text-muted">{notamsError}</p>
+                              <p className="text-xs text-cw-text-muted">Run locally: <code className="rounded bg-cw-bg-hover px-1">node scripts/skylink-notams.mjs --json {viewingAirport?.icao}</code> to verify SkyLink NOTAM retrieval.</p>
                             </div>
                           )}
                           {!notamsLoading && !notamsError && notams && notams.length === 0 && (
-                            <p className="py-2 text-sm text-[#6c7079]">No NOTAMs returned.</p>
+                            <p className="py-2 text-sm text-cw-text-muted">No NOTAMs returned.</p>
                           )}
                           {!notamsLoading && !notamsError && notams && notams.length > 0 && (
                             <ul className="space-y-3">
                               {notams.slice(0, 50).map((n, i) => (
-                                <li key={`${n.number}-${i}`} className="border-b border-[#f2f3f5] pb-2 text-xs last:border-0">
-                                  <div className="mb-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-[#17181c]">
+                                <li key={`${n.number}-${i}`} className="border-b border-cw-divider pb-2 text-xs last:border-0">
+                                  <div className="mb-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-cw-text">
                                     <span className="font-mono">{n.number}</span>
-                                    <span className="text-[#6c7079]">{n.class}</span>
+                                    <span className="text-cw-text-muted">{n.class}</span>
                                     {(n.startDateUtc || n.endDateUtc) && (
-                                      <span className="font-mono font-normal text-[#9aa0a8]">
+                                      <span className="font-mono font-normal text-cw-text-muted">
                                         {[n.startDateUtc, n.endDateUtc].filter(Boolean).join(" → ")}
                                       </span>
                                     )}
                                   </div>
-                                  <p className="whitespace-pre-wrap break-words leading-snug text-[#3a3d44]">
+                                  <p className="whitespace-pre-wrap break-words leading-snug text-cw-text-body">
                                     {n.condition
                                       .split("\n")
                                       .filter((line) => !/^\|#\d+\|[-\s]+/.test(line) && !/^[A-Z]\d+\/\d+\s+NOTAM[A-Z]?\s/.test(line))
@@ -2275,7 +2275,7 @@ export default function AirportView({ icao }: { icao: string }) {
                                 </li>
                               ))}
                               {notams.length > 50 && (
-                                <li className="pt-1 text-xs text-[#9aa0a8]">
+                                <li className="pt-1 text-xs text-cw-text-muted">
                                   +{notams.length - 50} more NOTAMs
                                 </li>
                               )}
@@ -2287,12 +2287,12 @@ export default function AirportView({ icao }: { icao: string }) {
 
             const weatherCard = (
                       <PCard className="overflow-hidden">
-                        <div className="flex items-center gap-2 border-b border-[#eef0f2] px-[15px] py-3">
-                          <CloudSunIcon className="size-[15px] text-[#6c7079]" />
-                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-[#6c7079]">WEATHER — {viewingAirport.icao}</span>
+                        <div className="flex items-center gap-2 border-b border-cw-divider px-[15px] py-3">
+                          <CloudSunIcon className="size-[15px] text-cw-text-muted" />
+                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-cw-text-muted">WEATHER — {viewingAirport.icao}</span>
                           <button
                             type="button"
-                            className="flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-[#9aa0a8] hover:bg-[#f0f1f3] hover:text-[#17181c] disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-cw-text-muted hover:bg-cw-bg-hover hover:text-cw-text disabled:cursor-not-allowed disabled:opacity-50"
                             onClick={() => requestSyncWeather(viewingAirport.icao)}
                             disabled={weatherLoading}
                             title="Refresh weather"
@@ -2301,23 +2301,23 @@ export default function AirportView({ icao }: { icao: string }) {
                           </button>
                         </div>
                         {!weatherLoading && cachedWeather?.updatedAt && (
-                          <div className="border-b border-[#f2f3f5] px-[15px] py-2">
-                            <PMono className="text-[11.5px] text-[#9aa0a8]">
+                          <div className="border-b border-cw-divider px-[15px] py-2">
+                            <PMono className="text-[11.5px] text-cw-text-muted">
                               updated {new Date(cachedWeather.updatedAt).toLocaleString()}
                             </PMono>
                           </div>
                         )}
                         <div className="max-h-[340px] overflow-auto px-[15px] py-3">
                           {weatherLoading && (
-                            <div className="space-y-3 rounded-lg border border-[#e6e7ea] bg-[#fbfbfc] p-4">
+                            <div className="space-y-3 rounded-lg border border-cw-border bg-cw-bg-page p-4">
                               <div className="flex items-center gap-2">
-                                <Spinner className="size-4 shrink-0 text-[#6c7079]" />
+                                <Spinner className="size-4 shrink-0 text-cw-text-muted" />
                                 <span className="text-sm font-medium">
                                   {weatherSyncing ? "Loading steps…" : "Loading weather..."}
                                 </span>
                               </div>
                               {weatherSyncing && weatherSyncSteps.length > 0 && (
-                                <ul className="list-disc space-y-1 pl-5 text-xs text-[#6c7079]">
+                                <ul className="list-disc space-y-1 pl-5 text-xs text-cw-text-muted">
                                   {weatherSyncSteps.map((step, i) => (
                                     <li key={i}>{step}</li>
                                   ))}
@@ -2325,23 +2325,23 @@ export default function AirportView({ icao }: { icao: string }) {
                               )}
                               {weatherSyncing && weatherSyncSteps.length === 0 && (
                                 <div className="space-y-2 section-loading-skeleton">
-                                  <div className="h-3 w-full rounded bg-[#f0f1f3]" />
-                                  <div className="h-3 w-4/5 rounded bg-[#f0f1f3]" />
-                                  <div className="h-3 w-3/4 rounded bg-[#f0f1f3]" />
-                                  <div className="mt-2 h-12 w-full rounded bg-[#f0f1f3]" />
+                                  <div className="h-3 w-full rounded bg-cw-bg-hover" />
+                                  <div className="h-3 w-4/5 rounded bg-cw-bg-hover" />
+                                  <div className="h-3 w-3/4 rounded bg-cw-bg-hover" />
+                                  <div className="mt-2 h-12 w-full rounded bg-cw-bg-hover" />
                                 </div>
                               )}
                             </div>
                           )}
                           {!weatherLoading && cachedWeather?.error && (
-                            <p className="break-words text-xs text-[#e5484d]">{cachedWeather.error}</p>
+                            <p className="break-words text-xs text-cw-danger-text">{cachedWeather.error}</p>
                           )}
                           {!weatherLoading && !cachedWeather?.error && (
                             <>
                               {weatherDisplay.bullets.length > 0 ? (
                                 <div className="space-y-3">
                                   {weatherDisplay.airportLine && (
-                                    <p className="whitespace-pre-wrap break-words text-xs text-[#6c7079]">
+                                    <p className="whitespace-pre-wrap break-words text-xs text-cw-text-muted">
                                       {weatherDisplay.airportLine}
                                     </p>
                                   )}
@@ -2349,10 +2349,10 @@ export default function AirportView({ icao }: { icao: string }) {
                                     {weatherDisplay.bullets.map((b, i) => (
                                       <li key={`${b.kind}-${b.id}-${i}`} className="text-xs">
                                         <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                          <PMono className="text-[12.5px] font-semibold text-[#17181c]">{b.id}</PMono>
-                                          <span className="text-[11px] font-bold tracking-[0.06em] text-[#6c7079]">{b.kind}</span>
+                                          <PMono className="text-[12.5px] font-semibold text-cw-text">{b.id}</PMono>
+                                          <span className="text-[11px] font-bold tracking-[0.06em] text-cw-text-muted">{b.kind}</span>
                                         </div>
-                                        <p className="whitespace-pre-wrap break-words rounded-lg bg-[#f5f6f7] px-[11px] py-[9px] font-mono text-[12.5px] leading-relaxed text-[#3a3d44]">
+                                        <p className="whitespace-pre-wrap break-words rounded-lg bg-cw-bg-sunken px-[11px] py-[9px] font-mono text-[12.5px] leading-relaxed text-cw-text-body">
                                           {b.body}
                                         </p>
                                       </li>
@@ -2360,11 +2360,11 @@ export default function AirportView({ icao }: { icao: string }) {
                                   </ul>
                                 </div>
                               ) : weatherDisplay.strippedPlain.trim() ? (
-                                <pre className="whitespace-pre-wrap break-words rounded-lg bg-[#f5f6f7] px-[11px] py-[9px] font-mono text-[12px] leading-5 text-[#3a3d44]">
+                                <pre className="whitespace-pre-wrap break-words rounded-lg bg-cw-bg-sunken px-[11px] py-[9px] font-mono text-[12px] leading-5 text-cw-text-body">
                                   {weatherDisplay.strippedPlain}
                                 </pre>
                               ) : (
-                                <p className="py-2 text-sm text-[#6c7079]">No weather text returned yet.</p>
+                                <p className="py-2 text-sm text-cw-text-muted">No weather text returned yet.</p>
                               )}
                             </>
                           )}
@@ -2379,12 +2379,12 @@ export default function AirportView({ icao }: { icao: string }) {
                   <button
                     type="button"
                     onClick={() => router.push("/aip")}
-                    className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-semibold text-[#6c7079] hover:text-[#17181c]"
+                    className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-semibold text-cw-text-muted hover:text-cw-text"
                   >
                     Search
                   </button>
-                  <ChevronRightIcon className="size-3.5 text-[#c3c7cd]" />
-                  <PMono className="text-[13px] text-[#17181c]">{detailIcao}</PMono>
+                  <ChevronRightIcon className="size-3.5 text-cw-text-muted" />
+                  <PMono className="text-[13px] text-cw-text">{detailIcao}</PMono>
                 </div>
 
                 {/* Header */}
@@ -2398,7 +2398,7 @@ export default function AirportView({ icao }: { icao: string }) {
                             alt=""
                             width={24}
                             height={18}
-                            className="rounded-sm border border-[#e6e7ea] object-cover"
+                            className="rounded-sm border border-cw-border object-cover"
                           />
                         </span>
                       ) : null}
@@ -2407,7 +2407,7 @@ export default function AirportView({ icao }: { icao: string }) {
                         <span className="text-[22px] font-bold tracking-[-0.01em]">{viewingAirport.name}</span>
                       ) : null}
                       {viewingAirport.country ? (
-                        <span className="text-[15px] text-[#6c7079]">{viewingAirport.country}</span>
+                        <span className="text-[15px] text-cw-text-muted">{viewingAirport.country}</span>
                       ) : null}
                     </div>
                     {detailSynced && (
@@ -2420,11 +2420,11 @@ export default function AirportView({ icao }: { icao: string }) {
                             const isExpired = expires <= new Date();
                             return (
                               <>
-                                <PMono className="text-[12.5px] text-[#9aa0a8]">
+                                <PMono className="text-[12.5px] text-cw-text-muted">
                                   Cached {cached.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · expires {expires.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
                                 </PMono>
                                 {isExpired && (
-                                  <span className="rounded-full bg-[#fef3e2] px-2.5 py-1 text-xs font-semibold text-[#b45309]">
+                                  <span className="rounded-full bg-cw-warning-tint px-2.5 py-1 text-xs font-semibold text-cw-warning-text">
                                     PDF expired — will refresh on next sync.
                                   </span>
                                 )}
@@ -2432,7 +2432,7 @@ export default function AirportView({ icao }: { icao: string }) {
                             );
                           })()
                         ) : (
-                          <span className="text-[13px] text-[#9aa0a8]">
+                          <span className="text-[13px] text-cw-text-muted">
                             {isAsecnaIcao(detailIcao)
                               ? "AD 2 PDF is fetched dynamically from ASECNA. GEN 1.2 is synced separately."
                               : isBahrainScraperIcao(detailIcao, viewingAirport)
@@ -2572,7 +2572,7 @@ export default function AirportView({ icao }: { icao: string }) {
                           <PButton
                             type="button"
                             variant="secondary"
-                            className="!border-amber-300 !bg-amber-50 !text-amber-900 hover:!bg-amber-100"
+                            className="!border-cw-warning-border !bg-cw-warning-tint !text-cw-warning-text hover:!bg-cw-warning-tint"
                             disabled={!hasLiveSync || resyncBusy || aipEadLoadingIcao === detailIcao}
                             title={
                               hasLiveSync
@@ -2626,7 +2626,7 @@ export default function AirportView({ icao }: { icao: string }) {
                                   <PSectionTitle className="mb-1.5">
                                     Not Available
                                   </PSectionTitle>
-                                  <p className="text-xs text-[#3a3d44]">
+                                  <p className="text-xs text-cw-text-body">
                                     GEN 1.2 is not published on the ASECNA eAIP for this country.
                                   </p>
                                 </>
@@ -2635,7 +2635,7 @@ export default function AirportView({ icao }: { icao: string }) {
                                   <PSectionTitle className="mb-1.5">
                                     GEN loading steps
                                   </PSectionTitle>
-                                  <ul className="space-y-1 text-xs text-[#3a3d44]">
+                                  <ul className="space-y-1 text-xs text-cw-text-body">
                                     {(genSyncSteps.length > 0
                                       ? genSyncSteps
                                       : [
@@ -2645,7 +2645,7 @@ export default function AirportView({ icao }: { icao: string }) {
                                           "Preparing download…",
                                         ]).map((step, i) => (
                                       <li key={`${step}-${i}`} className="flex items-start gap-1.5">
-                                        <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-[#2563eb]/70" />
+                                        <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-cw-primary/70" />
                                         <span>{step}</span>
                                       </li>
                                     ))}
@@ -2664,7 +2664,7 @@ export default function AirportView({ icao }: { icao: string }) {
                       ) && (
                         <button
                           type="button"
-                          className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-[#c9ddff] bg-[#eef4ff] px-4 py-[10px] text-sm font-semibold text-[#1d4ed8] transition-colors hover:bg-[#e0eaff] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-cw-primary-tint-border bg-cw-primary-tint px-4 py-[10px] text-sm font-semibold text-cw-text-link transition-colors hover:bg-cw-primary-tint disabled:cursor-not-allowed disabled:opacity-50"
                           onClick={() => {
                             const isUsa = isUsaAipIcao(viewingAirport.icao);
                             const isRussia = isRussiaIcao(viewingAirport.icao);
@@ -2697,10 +2697,10 @@ export default function AirportView({ icao }: { icao: string }) {
                           Web AIP
                         </button>
                       )}
-                      <span className="hidden h-[26px] w-px bg-[#e6e7ea] sm:block" />
+                      <span className="hidden h-[26px] w-px bg-cw-border sm:block" />
                       <button
                         type="button"
-                        className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-[#f6cdcf] bg-[#fdecec] px-4 py-[10px] text-sm font-semibold text-[#e5484d] transition-colors hover:bg-[#fadadb] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-4 py-[10px] text-sm font-semibold text-cw-danger-text transition-colors hover:bg-cw-danger-border disabled:cursor-not-allowed disabled:opacity-50"
                         title="Report a bug for this airport"
                         onClick={() => {
                           setBugReportError(null);
@@ -2721,7 +2721,7 @@ export default function AirportView({ icao }: { icao: string }) {
                 {detailSynced && resyncError[detailIcao] && (
                   <div
                     role="alert"
-                    className="mb-[18px] flex items-start gap-3 rounded-[10px] border border-[#f6cdcf] bg-[#fdecec] px-4 py-3 text-[#b3261e]"
+                    className="mb-[18px] flex items-start gap-3 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-4 py-3 text-cw-danger-text"
                   >
                     <FileWarningIcon className="mt-0.5 size-4 shrink-0" />
                     <div className="min-w-0 flex-1">
@@ -2739,7 +2739,7 @@ export default function AirportView({ icao }: { icao: string }) {
                     <button
                       type="button"
                       title="Dismiss"
-                      className="flex h-[26px] w-[26px] flex-none cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-[#b3261e] hover:bg-[#fadadb]"
+                      className="flex h-[26px] w-[26px] flex-none cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-cw-danger-text hover:bg-cw-danger-border"
                       onClick={() =>
                         setResyncError((prev) => {
                           const next = { ...prev };
@@ -2778,17 +2778,17 @@ export default function AirportView({ icao }: { icao: string }) {
 
         {/* Web AIP consent modal */}
         {webAipConsent && (
-          <div className="fixed inset-0 z-[2200] flex items-end justify-center bg-[rgba(16,18,22,.42)] p-3 sm:items-center sm:p-8">
+          <div className="fixed inset-0 z-[2200] flex items-end justify-center bg-cw-bg-scrim p-3 sm:items-center sm:p-8">
             <div
               role="dialog"
               aria-modal="true"
               aria-label="Web AIP access notice"
-              className="w-full max-w-[520px] rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgba(16,18,22,.28)] sm:p-6"
+              className="w-full max-w-[520px] rounded-2xl bg-cw-bg-surface p-5 shadow-cw-pop sm:p-6"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-base font-bold sm:text-lg">Before opening Web AIP</h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-[#6c7079] sm:text-sm">
+                  <p className="mt-1.5 text-xs leading-relaxed text-cw-text-muted sm:text-sm">
                     These links are from official websites and can be paid or inaccessible due to geographical position.
                     If this source is not working, you can always find actual new and free information on{" "}
                     <a
@@ -2801,13 +2801,13 @@ export default function AirportView({ icao }: { icao: string }) {
                     </a>
                     .
                   </p>
-                  <p className="mt-2 text-[11px] text-[#6c7079] sm:text-xs">
-                    Target source: <span className="font-medium text-[#17181c]">{webAipConsent.label}</span>
+                  <p className="mt-2 text-[11px] text-cw-text-muted sm:text-xs">
+                    Target source: <span className="font-medium text-cw-text">{webAipConsent.label}</span>
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="flex h-[30px] w-[30px] flex-none cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-[#9aa0a8] hover:bg-[#f0f1f3]"
+                  className="flex h-[30px] w-[30px] flex-none cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-cw-text-muted hover:bg-cw-bg-hover"
                   onClick={() => setWebAipConsent(null)}
                 >
                   <XIcon className="size-4" />

@@ -242,70 +242,70 @@ export function AttachmentsPanel({
           {atts.items.map((a) => {
             if (a.state === "failed") {
               return (
-                <div key={a.localId} className="flex flex-1 basis-full items-center gap-[11px] rounded-[11px] border border-[#f0c9ca] bg-[#fdf2f2] px-[13px] py-[11px]">
-                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[8px] border border-[#f0c9ca] bg-white text-[14px] font-extrabold text-cw-red">!</span>
+                <div key={a.localId} className="flex flex-1 basis-full items-center gap-[11px] rounded-[11px] border border-cw-danger-border bg-cw-danger-tint px-[13px] py-[11px]">
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[8px] border border-cw-danger-border bg-cw-bg-surface text-[14px] font-extrabold text-cw-danger-text">!</span>
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="truncate text-[13px] font-bold text-[#b42318]">{a.name} did not upload</span>
-                    <span className="text-[12px] text-[#8b3a3a]">{a.error}</span>
+                    <span className="truncate text-[13px] font-bold text-cw-danger-text">{a.name} did not upload</span>
+                    <span className="text-[12px] text-cw-danger-text">{a.error}</span>
                   </div>
-                  <button onClick={() => atts.retry(a.localId)} className="h-8 flex-none cursor-pointer rounded-[8px] border-none bg-cw-red px-3 text-[12.5px] font-bold text-white">Retry</button>
-                  <button onClick={() => atts.remove(a.localId)} className="h-8 flex-none cursor-pointer rounded-[8px] border border-[#f0c9ca] bg-white px-3 text-[12.5px] font-bold text-[#b42318]">Remove</button>
+                  <button onClick={() => atts.retry(a.localId)} className="h-8 flex-none cursor-pointer rounded-[8px] border-none bg-cw-danger-solid px-3 text-[12.5px] font-bold text-cw-text-on-primary">Retry</button>
+                  <button onClick={() => atts.remove(a.localId)} className="h-8 flex-none cursor-pointer rounded-[8px] border border-cw-danger-border bg-cw-bg-surface px-3 text-[12.5px] font-bold text-cw-danger-text">Remove</button>
                 </div>
               );
             }
             if (a.state === "toolarge") {
               return (
-                <div key={a.localId} className="flex flex-1 basis-full items-center gap-[11px] rounded-[11px] border border-[#f3e0c4] bg-[#fdf6ec] px-[13px] py-[11px]">
-                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[8px] border border-[#f3e0c4] bg-white font-mono text-[10px] font-bold text-[#b45309]">
+                <div key={a.localId} className="flex flex-1 basis-full items-center gap-[11px] rounded-[11px] border border-cw-warning-border bg-cw-warning-tint px-[13px] py-[11px]">
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[8px] border border-cw-warning-border bg-cw-bg-surface font-mono text-[10px] font-bold text-cw-warning-text">
                     {a.mime.split("/")[1]?.toUpperCase().slice(0, 4) || "FILE"}
                   </span>
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="truncate text-[13px] font-bold text-[#8a4b09]">{a.name} is too large</span>
-                    <span className="text-[12px] text-[#8a5a23]">
+                    <span className="truncate text-[13px] font-bold text-cw-warning-text">{a.name} is too large</span>
+                    <span className="text-[12px] text-cw-warning-text">
                       {kb(a.size)} · the limit is 10 MB. Trim it, or describe what happens and attach a still.
                     </span>
                   </div>
-                  <button onClick={() => atts.remove(a.localId)} className="h-8 flex-none cursor-pointer rounded-[8px] border border-[#f3e0c4] bg-white px-3 text-[12.5px] font-bold text-[#8a4b09]">Remove</button>
+                  <button onClick={() => atts.remove(a.localId)} className="h-8 flex-none cursor-pointer rounded-[8px] border border-cw-warning-border bg-cw-bg-surface px-3 text-[12.5px] font-bold text-cw-warning-text">Remove</button>
                 </div>
               );
             }
             const uploading = a.state === "uploading";
             if (a.isImage) {
               return (
-                <div key={a.localId} className="w-[190px] flex-none overflow-hidden rounded-[11px] border" style={{ borderColor: uploading ? "#dbe6ff" : "#e6e7ea", background: uploading ? "#f2f7ff" : "#fbfbfc" }}>
-                  <div className="relative flex h-[104px] items-center justify-center bg-[#eceef1]">
+                <div key={a.localId} className="w-[190px] flex-none overflow-hidden rounded-[11px] border" style={{ borderColor: uploading ? "var(--cw-primary-tint-border)" : "var(--cw-border)", background: uploading ? "var(--cw-primary-tint)" : "var(--cw-bg-page)" }}>
+                  <div className="relative flex h-[104px] items-center justify-center bg-cw-bg-hover">
                     {a.previewUrl || a.id ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={a.previewUrl || `/api/help/attachments/${a.id}`} alt={a.name} className="h-full w-full object-cover" style={{ opacity: uploading ? 0.6 : 1 }} />
                     ) : (
-                      <span className="text-[11.5px] text-cw-faint">image</span>
+                      <span className="text-[11.5px] text-cw-text-muted">image</span>
                     )}
                     {uploading && <span className="absolute bottom-0 left-0 h-[3px] bg-cw-primary" style={{ width: `${a.pct}%` }} />}
                   </div>
                   <div className="flex items-center gap-2 px-[11px] py-[9px]">
                     <div className="flex min-w-0 flex-1 flex-col gap-px">
-                      <span className="truncate text-[12px] font-semibold text-cw-ink">{a.name}</span>
-                      <span className="font-mono text-[10.5px]" style={{ color: uploading ? "#1d4ed8" : "#9aa0a8" }}>
+                      <span className="truncate text-[12px] font-semibold text-cw-text">{a.name}</span>
+                      <span className="font-mono text-[10.5px]" style={{ color: uploading ? "var(--cw-text-link)" : "var(--cw-text-muted)" }}>
                         {uploading ? `${a.pct}% · ${kb(a.size)}` : `${kb(a.size)} · attached`}
                       </span>
                     </div>
-                    <button onClick={() => atts.remove(a.localId)} className="flex h-[22px] w-[22px] flex-none cursor-pointer items-center justify-center rounded-[6px] border border-cw-border bg-white text-[11px] text-cw-muted">✕</button>
+                    <button onClick={() => atts.remove(a.localId)} className="flex h-[22px] w-[22px] flex-none cursor-pointer items-center justify-center rounded-[6px] border border-cw-border bg-cw-bg-surface text-[11px] text-cw-text-muted">✕</button>
                   </div>
                 </div>
               );
             }
             return (
-              <div key={a.localId} className="flex items-center gap-[11px] rounded-[11px] border border-cw-border bg-cw-page px-[13px] py-[11px]">
-                <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[8px] border border-cw-border bg-white font-mono text-[10px] font-bold text-cw-muted">
+              <div key={a.localId} className="flex items-center gap-[11px] rounded-[11px] border border-cw-border bg-cw-bg-page px-[13px] py-[11px]">
+                <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[8px] border border-cw-border bg-cw-bg-surface font-mono text-[10px] font-bold text-cw-text-muted">
                   {a.mime.split("/")[1]?.toUpperCase().slice(0, 4) || "FILE"}
                 </span>
                 <div className="flex flex-col gap-px">
-                  <span className="text-[13px] font-semibold text-cw-ink">{a.name}</span>
-                  <span className="font-mono text-[11px]" style={{ color: uploading ? "#1d4ed8" : "#9aa0a8" }}>
+                  <span className="text-[13px] font-semibold text-cw-text">{a.name}</span>
+                  <span className="font-mono text-[11px]" style={{ color: uploading ? "var(--cw-text-link)" : "var(--cw-text-muted)" }}>
                     {uploading ? `${a.pct}% · ${kb(a.size)}` : `${kb(a.size)} · attached`}
                   </span>
                 </div>
-                <button onClick={() => atts.remove(a.localId)} className="flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded-[6px] border border-cw-border bg-white text-[11px] text-cw-muted">✕</button>
+                <button onClick={() => atts.remove(a.localId)} className="flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded-[6px] border border-cw-border bg-cw-bg-surface text-[11px] text-cw-text-muted">✕</button>
               </div>
             );
           })}
@@ -324,18 +324,18 @@ export function AttachmentsPanel({
         }}
         className="flex items-center justify-center gap-2.5 rounded-[12px] border border-dashed px-4 text-center"
         style={{
-          borderColor: dragOver ? "#2563eb" : "#d5d8de",
-          background: dragOver ? "#f2f7ff" : "#fbfbfc",
+          borderColor: dragOver ? "var(--cw-primary)" : "var(--cw-border-control)",
+          background: dragOver ? "var(--cw-primary-tint)" : "var(--cw-bg-page)",
           paddingTop: compact ? 10 : 16,
           paddingBottom: compact ? 10 : 16,
         }}
       >
-        <span className="text-[13px] text-cw-muted">
+        <span className="text-[13px] text-cw-text-muted">
           Drop files here,{" "}
-          <button onClick={openPicker} className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-bold text-cw-primary">choose a file</button>
+          <button onClick={openPicker} className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-bold text-cw-text-link">choose a file</button>
           , or paste a screenshot with
         </span>
-        <span className="rounded-[5px] border border-cw-border bg-white px-1.5 py-0.5 font-mono text-[12px] text-cw-body">⌘V</span>
+        <span className="rounded-[5px] border border-cw-border bg-cw-bg-surface px-1.5 py-0.5 font-mono text-[12px] text-cw-text-body">⌘V</span>
       </div>
       )}
     </div>
@@ -360,7 +360,7 @@ export function AttachButton({ atts }: { atts: ReturnType<typeof useAttachments>
       <button
         onClick={() => ref.current?.click()}
         title="Attach a file"
-        className="flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-white text-[15px] text-cw-body"
+        className="flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-cw-bg-surface text-[15px] text-cw-text-body"
       >
         ⎘
       </button>
@@ -637,10 +637,10 @@ export default function BlockEditor({
   };
 
   const lineClass = (kind: EditorLine["kind"]) =>
-    kind === "heading" ? "text-[16px] font-bold text-cw-ink"
-    : kind === "subheading" ? "text-[14.5px] font-bold text-cw-body"
-    : kind === "code" ? "font-mono text-[12.5px] leading-[1.7] text-cw-ink"
-    : "text-[15px] leading-[1.65] text-cw-ink";
+    kind === "heading" ? "text-[16px] font-bold text-cw-text"
+    : kind === "subheading" ? "text-[14.5px] font-bold text-cw-text-body"
+    : kind === "code" ? "font-mono text-[12.5px] leading-[1.7] text-cw-text"
+    : "text-[15px] leading-[1.65] text-cw-text";
 
   return (
     <div
@@ -683,39 +683,39 @@ export default function BlockEditor({
           };
           return (
             <div key={line.key} data-lk={line.key} className="group relative my-1 flex flex-col gap-1.5">
-              <div className="relative inline-block max-w-[440px] self-start overflow-hidden rounded-[11px] border border-cw-border bg-cw-page">
+              <div className="relative inline-block max-w-[440px] self-start overflow-hidden rounded-[11px] border border-cw-border bg-cw-bg-page">
                 {src ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={src} alt={line.caption || line.name || "image"} className="block max-h-[280px] max-w-full object-contain" style={{ opacity: line.uploading ? 0.6 : 1 }} />
                 ) : (
-                  <div className="flex h-[104px] w-[190px] items-center justify-center text-[11.5px] text-cw-faint">image</div>
+                  <div className="flex h-[104px] w-[190px] items-center justify-center text-[11.5px] text-cw-text-muted">image</div>
                 )}
                 {line.uploading && <span className="absolute bottom-0 left-0 h-[3px] bg-cw-primary" style={{ width: `${line.pct || 0}%` }} />}
                 <div className="absolute right-1.5 top-1.5 hidden gap-1 group-hover:flex">
-                  <button title="Move up" disabled={!canMoveUp} onClick={() => move(-1)} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border border-cw-border bg-white text-[12px] text-cw-body disabled:opacity-40">↑</button>
-                  <button title="Move down" disabled={!canMoveDown} onClick={() => move(1)} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border border-cw-border bg-white text-[12px] text-cw-body disabled:opacity-40">↓</button>
+                  <button title="Move up" disabled={!canMoveUp} onClick={() => move(-1)} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border border-cw-border bg-cw-bg-surface text-[12px] text-cw-text-body disabled:opacity-40">↑</button>
+                  <button title="Move down" disabled={!canMoveDown} onClick={() => move(1)} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border border-cw-border bg-cw-bg-surface text-[12px] text-cw-text-body disabled:opacity-40">↓</button>
                   {line.id && !line.uploading && (
-                    <button onClick={() => setAnnotating(line.key)} className="flex h-7 cursor-pointer items-center rounded-[7px] border border-cw-border bg-white px-2 text-[11.5px] font-semibold text-cw-body">
+                    <button onClick={() => setAnnotating(line.key)} className="flex h-7 cursor-pointer items-center rounded-[7px] border border-cw-border bg-cw-bg-surface px-2 text-[11.5px] font-semibold text-cw-text-body">
                       ✎ Annotate
                     </button>
                   )}
-                  <button title="Remove image" onClick={() => removeLine(line.key)} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border border-cw-border bg-white text-[11px] text-cw-muted">✕</button>
+                  <button title="Remove image" onClick={() => removeLine(line.key)} className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] border border-cw-border bg-cw-bg-surface text-[11px] text-cw-text-muted">✕</button>
                 </div>
                 {line.originalId && !line.uploading && (
-                  <span className="absolute left-1.5 top-1.5 rounded-[5px] bg-[rgba(23,24,28,.65)] px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-[0.05em] text-white">ANNOTATED</span>
+                  <span className="absolute left-1.5 top-1.5 rounded-[5px] bg-cw-bg-scrim px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-[0.05em] text-cw-text-on-primary">ANNOTATED</span>
                 )}
               </div>
               {line.failed && (
-                <div className="flex items-center gap-2 self-start rounded-[9px] border border-[#f0c9ca] bg-[#fdf2f2] px-2.5 py-1.5 text-[12px] font-semibold text-[#b42318]">
+                <div className="flex items-center gap-2 self-start rounded-[9px] border border-cw-danger-border bg-cw-danger-tint px-2.5 py-1.5 text-[12px] font-semibold text-cw-danger-text">
                   {line.failed}
-                  <button onClick={() => removeLine(line.key)} className="cursor-pointer border-none bg-transparent text-[11.5px] font-bold text-[#b42318] underline">Remove</button>
+                  <button onClick={() => removeLine(line.key)} className="cursor-pointer border-none bg-transparent text-[11.5px] font-bold text-cw-danger-text underline">Remove</button>
                 </div>
               )}
               <input
                 value={line.caption}
                 onChange={(e) => update(line.key, { caption: e.target.value } as Partial<EditorLine>)}
                 placeholder="Add a caption"
-                className="w-full max-w-[440px] border-none bg-transparent p-0 text-[12.5px] italic text-cw-muted outline-none placeholder:text-[#c3c7ce]"
+                className="w-full max-w-[440px] border-none bg-transparent p-0 text-[12.5px] italic text-cw-text-muted outline-none placeholder:text-cw-text-placeholder"
               />
               {annotating === line.key && line.id && (
                 <ImageAnnotator
@@ -733,7 +733,7 @@ export default function BlockEditor({
               <div className="h-px flex-1 bg-cw-border" />
               <button
                 onClick={() => removeLine(line.key)}
-                className="hidden h-5 w-5 cursor-pointer items-center justify-center rounded border border-cw-border bg-white text-[10px] text-cw-muted group-hover:flex"
+                className="hidden h-5 w-5 cursor-pointer items-center justify-center rounded border border-cw-border bg-cw-bg-surface text-[10px] text-cw-text-muted group-hover:flex"
               >
                 ✕
               </button>
@@ -746,14 +746,14 @@ export default function BlockEditor({
           : 0;
         return (
           <div key={line.key} data-lk={line.key} className="relative">
-            <div className={`flex items-start gap-2.5 ${line.kind === "code" ? "rounded-[10px] border border-cw-border bg-cw-page px-[13px] py-[11px]" : ""}`}>
-              {line.kind === "bullet" && <span className="mt-[7px] text-[15px] leading-none text-cw-faint">•</span>}
-              {line.kind === "numbered" && <span className="mt-[5px] text-[14px] leading-none text-cw-faint">{listIndex}.</span>}
+            <div className={`flex items-start gap-2.5 ${line.kind === "code" ? "rounded-[10px] border border-cw-border bg-cw-bg-page px-[13px] py-[11px]" : ""}`}>
+              {line.kind === "bullet" && <span className="mt-[7px] text-[15px] leading-none text-cw-text-muted">•</span>}
+              {line.kind === "numbered" && <span className="mt-[5px] text-[14px] leading-none text-cw-text-muted">{listIndex}.</span>}
               {line.kind === "check" && (
                 <button
                   onClick={() => update(line.key, { checked: !line.checked } as Partial<EditorLine>)}
-                  className="mt-[5px] flex h-[15px] w-[15px] flex-none cursor-pointer items-center justify-center rounded-[4px] border bg-white text-[10px] font-bold"
-                  style={line.checked ? { background: "#2563eb", borderColor: "#2563eb", color: "#fff" } : { borderColor: "#c3c7ce", color: "transparent" }}
+                  className="mt-[5px] flex h-[15px] w-[15px] flex-none cursor-pointer items-center justify-center rounded-[4px] border bg-cw-bg-surface text-[10px] font-bold"
+                  style={line.checked ? { background: "var(--cw-primary)", borderColor: "var(--cw-primary)", color: "var(--cw-text-on-primary)" } : { borderColor: "var(--cw-border-strong)", color: "transparent" }}
                 >
                   ✓
                 </button>
@@ -770,17 +770,17 @@ export default function BlockEditor({
                 onChange={(e) => { autoGrow(e.currentTarget); onTextChange(line, e.currentTarget.value, e.currentTarget); }}
                 onKeyDown={(e) => onKeyDown(line, e)}
                 onFocus={() => { focusedKey.current = line.key; }}
-                className={`w-full resize-none overflow-hidden border-none bg-transparent p-0 outline-none placeholder:text-[#c3c7ce] ${lineClass(line.kind)}`}
+                className={`w-full resize-none overflow-hidden border-none bg-transparent p-0 outline-none placeholder:text-cw-text-placeholder ${lineClass(line.kind)}`}
                 spellCheck={line.kind !== "code"}
               />
             </div>
 
             {menu && menu.lineKey === line.key && filtered.length > 0 && (
-              <div className="absolute left-0 top-full z-40 mt-1 w-[400px] overflow-hidden rounded-[13px] border border-cw-border bg-white shadow-[0_12px_32px_rgba(16,18,22,.14)]">
-                <div className="flex items-center gap-2 border-b border-cw-borderInner px-3.5 py-2.5">
-                  <span className="text-[12.5px] text-cw-faint">Blocks matching</span>
-                  <span className="font-mono text-[12.5px] font-bold text-cw-ink">{menu.query || "anything"}</span>
-                  <span className="ml-auto text-[12px] text-[#c3c7ce]">{filtered.length} of {MENU.length}</span>
+              <div className="absolute left-0 top-full z-40 mt-1 w-[400px] overflow-hidden rounded-[13px] border border-cw-border bg-cw-bg-surface shadow-cw-pop">
+                <div className="flex items-center gap-2 border-b border-cw-divider px-3.5 py-2.5">
+                  <span className="text-[12.5px] text-cw-text-muted">Blocks matching</span>
+                  <span className="font-mono text-[12.5px] font-bold text-cw-text">{menu.query || "anything"}</span>
+                  <span className="ml-auto text-[12px] text-cw-text-muted">{filtered.length} of {MENU.length}</span>
                 </div>
                 <div className="flex max-h-[320px] flex-col gap-0.5 overflow-y-auto p-1.5">
                   {(["BASIC BLOCKS", "INSERT"] as const).map((group) => {
@@ -788,7 +788,7 @@ export default function BlockEditor({
                     if (!items.length) return null;
                     return (
                       <div key={group}>
-                        <div className="px-2.5 pb-1 pt-2 font-mono text-[9.5px] font-bold tracking-[0.1em] text-cw-faint">{group}</div>
+                        <div className="px-2.5 pb-1 pt-2 font-mono text-[9.5px] font-bold tracking-[0.1em] text-cw-text-muted">{group}</div>
                         {items.map((m) => {
                           const idx = filtered.indexOf(m);
                           const active = idx === menu.index;
@@ -804,22 +804,22 @@ export default function BlockEditor({
                                 applyAction(line.key, m.id, text, menu.slashPos);
                               }}
                               className="flex cursor-pointer items-center gap-[11px] rounded-[9px] px-2.5 py-[9px]"
-                              style={active ? { background: "#f2f7ff", border: "1px solid #dbe6ff" } : { border: "1px solid transparent" }}
+                              style={active ? { background: "var(--cw-primary-tint)", border: "1px solid var(--cw-primary-tint-border)" } : { border: "1px solid transparent" }}
                             >
                               <span
                                 className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[8px] border font-mono text-[14px] font-bold"
-                                style={active ? { background: "#fff", borderColor: "#dbe6ff", color: "#1d4ed8" } : { background: "#f5f6f7", borderColor: "#e6e7ea", color: "#3a3d44" }}
+                                style={active ? { background: "var(--cw-bg-surface)", borderColor: "var(--cw-primary-tint-border)", color: "var(--cw-text-link)" } : { background: "var(--cw-bg-sunken)", borderColor: "var(--cw-border)", color: "var(--cw-text-body)" }}
                               >
                                 {m.glyph}
                               </span>
                               <div className="flex min-w-0 flex-1 flex-col gap-px">
-                                <span className={`text-[13.5px] text-cw-ink ${active ? "font-bold" : "font-semibold"}`}>{m.label}</span>
-                                <span className="truncate text-[12px] text-cw-muted">{m.sub}</span>
+                                <span className={`text-[13.5px] text-cw-text ${active ? "font-bold" : "font-semibold"}`}>{m.label}</span>
+                                <span className="truncate text-[12px] text-cw-text-muted">{m.sub}</span>
                               </div>
                               {active ? (
-                                <span className="flex-none rounded-[5px] border border-[#dbe6ff] bg-white px-1.5 py-0.5 font-mono text-[11px] font-bold text-[#1d4ed8]">⏎</span>
+                                <span className="flex-none rounded-[5px] border border-cw-primary-tint-border bg-cw-bg-surface px-1.5 py-0.5 font-mono text-[11px] font-bold text-cw-text-link">⏎</span>
                               ) : m.shortcut ? (
-                                <span className="flex-none font-mono text-[11px] text-[#c3c7ce]">{m.shortcut}</span>
+                                <span className="flex-none font-mono text-[11px] text-cw-text-muted">{m.shortcut}</span>
                               ) : null}
                             </div>
                           );
@@ -827,12 +827,12 @@ export default function BlockEditor({
                       </div>
                     );
                   })}
-                  <div className="mx-2.5 my-1 h-px bg-cw-borderInner" />
+                  <div className="mx-2.5 my-1 h-px bg-cw-bg-hover" />
                   <div className="flex items-center gap-4 px-2.5 pb-2 pt-1">
                     {[["↑↓", "move"], ["⏎", "insert"], ["esc", "dismiss"]].map(([k, v]) => (
                       <span key={k} className="flex items-center gap-1.5">
-                        <span className="rounded-[4px] border border-cw-border bg-cw-sidebar px-[5px] py-px font-mono text-[10.5px] text-cw-muted">{k}</span>
-                        <span className="text-[11.5px] text-cw-faint">{v}</span>
+                        <span className="rounded-[4px] border border-cw-border bg-cw-bg-sidebar px-[5px] py-px font-mono text-[10.5px] text-cw-text-muted">{k}</span>
+                        <span className="text-[11.5px] text-cw-text-muted">{v}</span>
                       </span>
                     ))}
                   </div>
@@ -865,11 +865,11 @@ export function ShortcutStrip({ trailing }: { trailing?: string }) {
     <div className="flex items-center gap-3.5">
       {[["/", "commands"], ["#", "heading"], ["-", "bullet"], ["`", "code"]].map(([k, v]) => (
         <span key={k} className="flex items-center gap-[7px]">
-          <span className="rounded-[4px] border border-cw-border bg-cw-sidebar px-[5px] py-px font-mono text-[11px] text-cw-muted">{k}</span>
-          <span className="text-[12px] text-cw-faint">{v}</span>
+          <span className="rounded-[4px] border border-cw-border bg-cw-bg-sidebar px-[5px] py-px font-mono text-[11px] text-cw-text-muted">{k}</span>
+          <span className="text-[12px] text-cw-text-muted">{v}</span>
         </span>
       ))}
-      {trailing && <span className="ml-auto text-[12px] text-cw-faint">{trailing}</span>}
+      {trailing && <span className="ml-auto text-[12px] text-cw-text-muted">{trailing}</span>}
     </div>
   );
 }

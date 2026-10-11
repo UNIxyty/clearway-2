@@ -12,8 +12,9 @@
 // /api routes). A model that emits an external URL gets it rendered as text,
 // not as something a dispatcher can click.
 
-import { C, FONT } from "./tokens";
+import { FONT } from "../ui/tokens";
 import type { ReactNode } from "react";
+import { cw } from "@/lib/portal-tokens";
 
 function isSafeHref(href: string): boolean {
   return href.startsWith("/") && !href.startsWith("//");
@@ -34,7 +35,7 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
 
     if (token.startsWith("`")) {
       out.push(
-        <code key={key} style={{ fontFamily: FONT.mono, fontSize: "0.92em", background: C.wash, borderRadius: 4, padding: "1px 4px" }}>
+        <code key={key} style={{ fontFamily: FONT.mono, fontSize: "0.92em", background: cw.bgHover, borderRadius: 4, padding: "1px 4px" }}>
           {token.slice(1, -1)}
         </code>
       );
@@ -46,7 +47,7 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
       const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
       if (link && isSafeHref(link[2])) {
         out.push(
-          <a key={key} href={link[2]} style={{ color: C.blueDeep, textDecoration: "underline" }} target="_blank" rel="noopener noreferrer">
+          <a key={key} href={link[2]} style={{ color: cw.textLink, textDecoration: "underline" }} target="_blank" rel="noopener noreferrer">
             {link[1]}
           </a>
         );
@@ -73,7 +74,7 @@ function Table({ rows, keyPrefix }: { rows: string[][]; keyPrefix: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {body.map((cells, r) => (
-        <div key={`${keyPrefix}-r${r}`} style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+        <div key={`${keyPrefix}-r${r}`} style={{ border: `1px solid ${cw.border}`, borderRadius: 10, overflow: "hidden" }}>
           {head.map((label, c) => (
             <div
               key={c}
@@ -82,13 +83,13 @@ function Table({ rows, keyPrefix }: { rows: string[][]; keyPrefix: string }) {
                 gridTemplateColumns: "minmax(88px, 38%) 1fr",
                 gap: 10,
                 padding: "6px 10px",
-                borderTop: c === 0 ? "none" : `1px solid ${C.rowLine}`,
+                borderTop: c === 0 ? "none" : `1px solid ${cw.divider}`,
                 fontSize: 12.5,
                 lineHeight: 1.45,
               }}
             >
-              <span style={{ color: C.faint, fontWeight: 600 }}>{label}</span>
-              <span style={{ color: C.ink, minWidth: 0, overflowWrap: "anywhere" }}>
+              <span style={{ color: cw.textMuted, fontWeight: 600 }}>{label}</span>
+              <span style={{ color: cw.text, minWidth: 0, overflowWrap: "anywhere" }}>
                 {inline(cells[c] ?? "", `${keyPrefix}-${r}-${c}`)}
               </span>
             </div>

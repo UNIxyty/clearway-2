@@ -87,7 +87,7 @@ export default function SignupPage() {
         <AuthCard shake={Boolean(error)}>
           {confirmationSentTo ? (
             <div style={{ textAlign: "center" }}>
-              <MessageIcon icon={MailCheck} bg="#e8effe" color="#2563eb" />
+              <MessageIcon icon={MailCheck} bg="var(--cw-primary-tint)" color="var(--cw-text-link)" />
               <AuthHeading
                 center
                 title="Confirm your email"
@@ -146,7 +146,7 @@ export default function SignupPage() {
               </AuthButton>
               <p style={{ textAlign: "center", fontSize: 13, color: authMuted, marginTop: 16, marginBottom: 0 }}>
                 Already have an account?{" "}
-                <Link href={loginHref} className="cw-auth-link" style={{ fontWeight: 700, color: "#2563eb", textDecoration: "none" }}>
+                <Link href={loginHref} className="cw-auth-link" style={{ fontWeight: 700, color: "var(--cw-text-link)", textDecoration: "none" }}>
                   Sign in
                 </Link>
               </p>
@@ -154,7 +154,7 @@ export default function SignupPage() {
           )}
         </AuthCard>
 
-        <div style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,.55)", lineHeight: 1.5, maxWidth: 400, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", fontSize: 12, color: "color-mix(in srgb, var(--cw-text-on-primary) 55%, transparent)", lineHeight: 1.5, maxWidth: 400, margin: "0 auto" }}>
           By creating an account you agree to use this data for operational purposes only. Access requires admin
           approval — after confirming your email you&rsquo;ll create a password.
         </div>

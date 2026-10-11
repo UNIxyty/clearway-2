@@ -226,47 +226,47 @@ export default function HelpComposer() {
     <PortalShell crumb="Help" title="" wide>
       <div className="mx-auto max-w-[900px] px-[30px] pb-14 pt-2">
         <div
-          className="flex items-center gap-3 rounded-t-[16px] border border-cw-border bg-white px-6 py-4"
-          style={urgent ? { background: "#fdf2f2", borderColor: "#f0c9ca" } : undefined}
+          className="flex items-center gap-3 rounded-t-[16px] border border-cw-border bg-cw-bg-surface px-6 py-4"
+          style={urgent ? { background: "var(--cw-danger-tint)", borderColor: "var(--cw-danger-border)" } : undefined}
         >
-          <button onClick={() => router.push("/help")} className="flex h-[34px] w-[34px] cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-white text-[15px] text-cw-body">←</button>
+          <button onClick={() => router.push("/help")} className="flex h-[34px] w-[34px] cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-cw-bg-surface text-[15px] text-cw-text-body">←</button>
           <div className="flex flex-1 items-center gap-2.5">
-            <span className="text-[17px] font-extrabold tracking-[-0.015em] text-cw-ink">{title.trim() || t.header}</span>
+            <span className="text-[17px] font-extrabold tracking-[-0.015em] text-cw-text">{title.trim() || t.header}</span>
             <TypeChip type={type} />
           </div>
-          <button onClick={discard} className="cursor-pointer border-none bg-transparent text-[13.5px] font-semibold text-cw-muted">Discard</button>
+          <button onClick={discard} className="cursor-pointer border-none bg-transparent text-[13.5px] font-semibold text-cw-text-muted">Discard</button>
           <button
             onClick={send}
             disabled={!canSend}
             className="inline-flex h-[38px] cursor-pointer items-center rounded-[10px] border-none px-4 text-[13.5px] font-bold"
-            style={canSend ? { background: urgent ? "#e5484d" : "#2563eb", color: "#fff" } : { background: "#f1f2f4", color: "#9aa0a8", cursor: "default" }}
+            style={canSend ? { background: urgent ? "var(--cw-danger-solid)" : "var(--cw-primary)", color: "var(--cw-text-on-primary)" } : { background: "var(--cw-bg-hover)", color: "var(--cw-text-muted)", cursor: "default" }}
           >
             {sending ? "Sending…" : urgent ? "Send — it pings now" : type === "chat" ? "Start chat" : "Send report"}
           </button>
         </div>
 
-        <div className="flex flex-col gap-[18px] rounded-b-[16px] border border-t-0 border-cw-border bg-white px-6 pb-5 pt-6">
+        <div className="flex flex-col gap-[18px] rounded-b-[16px] border border-t-0 border-cw-border bg-cw-bg-surface px-6 pb-5 pt-6">
           {urgent && (
-            <div className="flex items-center gap-3 rounded-[11px] border border-[#f0c9ca] bg-[#fdf2f2] px-3.5 py-2.5 text-[12.5px] leading-normal text-[#8b3a3a]">
-              <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-[7px] bg-white text-[14px] font-extrabold text-cw-red">!</span>
+            <div className="flex items-center gap-3 rounded-[11px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-2.5 text-[12.5px] leading-normal text-cw-danger-text">
+              <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-[7px] bg-cw-bg-surface text-[14px] font-extrabold text-cw-danger-text">!</span>
               Pings the developer in Telegram the moment you send. Under 25 minutes, 06:00–22:00Z. Outside those hours
               call <span className="pl-1 font-mono font-semibold">{OUT_OF_HOURS_PHONE}</span>.
             </div>
           )}
           {type === "request" && (
-            <div className="rounded-[11px] border border-cw-border bg-cw-page px-3.5 py-2.5 text-[12.5px] text-cw-muted">
+            <div className="rounded-[11px] border border-cw-border bg-cw-bg-page px-3.5 py-2.5 text-[12.5px] text-cw-text-muted">
               Honestly: suggestions are read weekly, not daily. No response-time promise.
             </div>
           )}
           {restoredAt && (
-            <div className="flex items-center gap-2.5 rounded-[11px] border border-cw-border bg-cw-page px-3.5 py-2 text-[12.5px] text-cw-muted">
+            <div className="flex items-center gap-2.5 rounded-[11px] border border-cw-border bg-cw-bg-page px-3.5 py-2 text-[12.5px] text-cw-text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-cw-primary" />
               Draft restored — last saved {utcTime(restoredAt)}
-              <button onClick={() => setRestoredAt(null)} className="ml-auto cursor-pointer border-none bg-transparent text-[12px] text-cw-faint">Dismiss</button>
+              <button onClick={() => setRestoredAt(null)} className="ml-auto cursor-pointer border-none bg-transparent text-[12px] text-cw-text-muted">Dismiss</button>
             </div>
           )}
           {sendError && (
-            <div className="rounded-[11px] border border-[#f0c9ca] bg-[#fdf2f2] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#b42318]">{sendError}</div>
+            <div className="rounded-[11px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-2.5 text-[12.5px] font-semibold text-cw-danger-text">{sendError}</div>
           )}
 
           <textarea
@@ -279,31 +279,31 @@ export default function HelpComposer() {
               e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
             }}
             placeholder={t.placeholder}
-            className="w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[24px] font-extrabold tracking-[-0.02em] text-cw-ink outline-none placeholder:text-[#c3c7ce]"
+            className="w-full resize-none overflow-hidden border-none bg-transparent p-0 text-[24px] font-extrabold tracking-[-0.02em] text-cw-text outline-none placeholder:text-cw-text-placeholder"
           />
 
           {type === "question" && !asking && (
             <div className="flex flex-col gap-2.5">
               {guideResults.map((g, i) => (
-                <a key={i} href={g.href} target="_blank" rel="noreferrer" className="flex flex-col gap-1 rounded-[12px] border border-cw-border bg-cw-page px-4 py-3 no-underline hover:bg-cw-sidebar">
-                  <span className="text-[13.5px] font-bold text-cw-ink">{g.title}</span>
-                  <span className="text-[12.5px] leading-normal text-cw-muted">{g.snippet}</span>
-                  <span className="text-[12px] font-semibold text-cw-primary">Open in the guide →</span>
+                <a key={i} href={g.href} target="_blank" rel="noreferrer" className="flex flex-col gap-1 rounded-[12px] border border-cw-border bg-cw-bg-page px-4 py-3 no-underline hover:bg-cw-bg-sidebar">
+                  <span className="text-[13.5px] font-bold text-cw-text">{g.title}</span>
+                  <span className="text-[12.5px] leading-normal text-cw-text-muted">{g.snippet}</span>
+                  <span className="text-[12px] font-semibold text-cw-text-link">Open in the guide →</span>
                 </a>
               ))}
               {title.trim().length >= 3 && (
                 <button
                   onClick={() => setAsking(true)}
-                  className="flex cursor-pointer items-center justify-between rounded-[12px] border border-cw-border bg-white px-4 py-3 text-left hover:bg-cw-page"
+                  className="flex cursor-pointer items-center justify-between rounded-[12px] border border-cw-border bg-cw-bg-surface px-4 py-3 text-left hover:bg-cw-bg-page"
                 >
-                  <span className="text-[13.5px] font-semibold text-cw-ink">
+                  <span className="text-[13.5px] font-semibold text-cw-text">
                     {guideResults.length ? "None of these help? Ask it as a question" : "Ask it as a question"}
                   </span>
-                  <span className="text-[12px] text-cw-faint">nothing is retyped</span>
+                  <span className="text-[12px] text-cw-text-muted">nothing is retyped</span>
                 </button>
               )}
               {title.trim().length < 3 && (
-                <span className="text-[12.5px] text-cw-faint">Type at least three characters — matching guide sections appear here.</span>
+                <span className="text-[12.5px] text-cw-text-muted">Type at least three characters — matching guide sections appear here.</span>
               )}
             </div>
           )}
@@ -314,8 +314,8 @@ export default function HelpComposer() {
 
               {type === "bug" && (
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-[16px] font-bold text-cw-ink">Which screen</span>
-                  <div className="inline-flex h-[34px] items-center gap-2 self-start rounded-[9px] border border-cw-border bg-cw-sidebar px-[11px]">
+                  <span className="text-[16px] font-bold text-cw-text">Which screen</span>
+                  <div className="inline-flex h-[34px] items-center gap-2 self-start rounded-[9px] border border-cw-border bg-cw-bg-sidebar px-[11px]">
                     {editingScreen ? (
                       <input
                         autoFocus
@@ -323,12 +323,12 @@ export default function HelpComposer() {
                         onChange={(e) => setScreen(e.target.value)}
                         onBlur={() => setEditingScreen(false)}
                         onKeyDown={(e) => e.key === "Enter" && setEditingScreen(false)}
-                        className="w-[220px] border-none bg-transparent font-mono text-[12.5px] font-semibold text-cw-body outline-none"
+                        className="w-[220px] border-none bg-transparent font-mono text-[12.5px] font-semibold text-cw-text-body outline-none"
                       />
                     ) : (
                       <>
-                        <span className="font-mono text-[12.5px] font-semibold text-cw-body">{screen || "not set"}</span>
-                        <button onClick={() => setEditingScreen(true)} className="cursor-pointer border-none bg-transparent p-0 text-[11.5px] text-cw-faint">
+                        <span className="font-mono text-[12.5px] font-semibold text-cw-text-body">{screen || "not set"}</span>
+                        <button onClick={() => setEditingScreen(true)} className="cursor-pointer border-none bg-transparent p-0 text-[11.5px] text-cw-text-muted">
                           {fromPage && screen === fromPage ? "filled in for you · change" : "change"}
                         </button>
                       </>
@@ -339,14 +339,14 @@ export default function HelpComposer() {
 
               <AttachmentsPanel atts={atts} />
 
-              <div className="overflow-hidden rounded-[12px] border border-cw-border bg-cw-page">
-                <div className="flex items-center gap-3 px-[15px] py-3" style={reviewOpen ? { borderBottom: "1px solid #e6e7ea" } : undefined}>
-                  <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-[7px] bg-[#f1f2f4] text-[13px] text-cw-muted">⚙</span>
+              <div className="overflow-hidden rounded-[12px] border border-cw-border bg-cw-bg-page">
+                <div className="flex items-center gap-3 px-[15px] py-3" style={reviewOpen ? { borderBottom: "1px solid var(--cw-border)" } : undefined}>
+                  <span className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-[7px] bg-cw-bg-hover text-[13px] text-cw-text-muted">⚙</span>
                   <div className="flex flex-1 flex-col gap-0.5">
-                    <span className="text-[13px] font-bold text-cw-ink">Clearway will attach {HELP_CONTEXT_ORDER.length} technical details</span>
-                    <span className="text-[12.5px] text-cw-faint">Collected automatically — you did not type these. Nothing from the flight data.</span>
+                    <span className="text-[13px] font-bold text-cw-text">Clearway will attach {HELP_CONTEXT_ORDER.length} technical details</span>
+                    <span className="text-[12.5px] text-cw-text-muted">Collected automatically — you did not type these. Nothing from the flight data.</span>
                   </div>
-                  <button onClick={() => setReviewOpen((v) => !v)} className="cursor-pointer border-none bg-transparent text-[12.5px] font-bold text-cw-primary">
+                  <button onClick={() => setReviewOpen((v) => !v)} className="cursor-pointer border-none bg-transparent text-[12.5px] font-bold text-cw-text-link">
                     {reviewOpen ? "Hide" : "Review"}
                   </button>
                 </div>

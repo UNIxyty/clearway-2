@@ -11,9 +11,10 @@ import { useSearchParams } from "next/navigation";
 import { useIdentity } from "@/components/portal/Shell";
 import AgentPanel from "../panel/AgentPanel";
 import AgentStyles from "../ui/AgentStyles";
-import { C } from "../ui/tokens";
+
 import type { AgentContext } from "../types";
 import { matches as matchesBind, useKeybinds } from "../ui/keybinds";
+import { cw } from "@/lib/portal-tokens";
 
 function parseContext(raw: string | null): AgentContext | null {
   if (!raw) return null;
@@ -45,7 +46,7 @@ export default function EmbeddedPanel() {
   if (!hasAgent) return null;
 
   return (
-    <div style={{ height: "100vh", display: "flex", background: C.surface, fontFamily: "inherit" }}>
+    <div style={{ height: "100vh", display: "flex", background: cw.bgSurface, fontFamily: "inherit" }}>
       <AgentStyles />
       <AgentPanel open embedded onClose={() => tell({ type: "cw-agent-closed" })} context={context} initials={initials} initialConversationId={openWith} />
     </div>

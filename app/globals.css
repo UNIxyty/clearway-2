@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 @keyframes flashClear {
-  0%   { background-color: #fff; }
-  22%  { background-color: #fee2e2; }
-  100% { background-color: #fff; }
+  0%   { background-color: var(--cw-bg-surface); }
+  22%  { background-color: var(--cw-danger-tint); }
+  100% { background-color: var(--cw-bg-surface); }
 }
 .flash-clear { animation: flashClear 0.9s ease; }
 @media (prefers-reduced-motion: reduce) { .flash-clear { animation: none; } }
@@ -22,53 +22,14 @@
   .cw-nav-progress-bar { animation: none; }
 }
 
+/* Portal colours are the --cw-* tokens (shared/portal-tokens.css, imported before this file by app/layout.tsx). */
 @layer base {
-  :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
-  }
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 224 76% 48%;
-  }
+  ::placeholder { color: var(--cw-text-placeholder); opacity: 1; }
+  :focus-visible { outline-color: var(--cw-focus); }
 }
 
 body {
-  @apply bg-background text-foreground antialiased;
+  @apply bg-cw-bg-page text-cw-text antialiased;
 }
 
 @keyframes fly {
@@ -100,31 +61,6 @@ body {
 
 .animate-browse-menu-in {
   animation: browse-menu-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-/* Apple Intelligence–style border (AI reading document) */
-@keyframes ai-border-shimmer {
-  0%, 100% {
-    border-color: rgba(99, 102, 241, 0.4);
-    box-shadow: 0 0 12px rgba(99, 102, 241, 0.15), inset 0 0 12px rgba(99, 102, 241, 0.03);
-  }
-  50% {
-    border-color: rgba(139, 92, 246, 0.5);
-    box-shadow: 0 0 18px rgba(139, 92, 246, 0.2), inset 0 0 12px rgba(139, 92, 246, 0.04);
-  }
-}
-
-.border-ai-glow {
-  border-color: rgba(99, 102, 241, 0.35);
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.12);
-}
-
-.bg-ai-glow-subtle {
-  background-color: rgba(99, 102, 241, 0.05);
-}
-
-.animate-ai-border {
-  animation: ai-border-shimmer 2.5s ease-in-out infinite;
 }
 
 /* Page/section fade-in */
@@ -194,7 +130,7 @@ body {
 .airport-map-container {
   border-radius: 0 0 0.75rem 0.75rem;
   overflow: hidden;
-  background: hsl(var(--muted));
+  background: var(--cw-bg-hover);
 }
 
 .airport-map-container .leaflet-container {
@@ -211,7 +147,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(0 2px 6px var(--cw-bg-scrim));
   transition: transform 0.15s ease;
 }
 
@@ -223,12 +159,12 @@ body {
 .airport-map-popup-wrapper .leaflet-popup-content-wrapper {
   padding: 0;
   border-radius: 0.5rem;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--cw-shadow-2);
   overflow: hidden;
 }
 
 .airport-map-popup-wrapper .leaflet-popup-tip {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--cw-shadow-2);
 }
 
 .airport-map-popup {
@@ -243,16 +179,52 @@ body {
   font-weight: 600;
   font-size: 0.9375rem;
   letter-spacing: 0.02em;
-  color: hsl(221, 83%, 53%);
+  color: var(--cw-text-link);
 }
 
 .airport-map-popup-name {
   font-size: 0.8125rem;
   line-height: 1.35;
-  color: hsl(215, 16%, 47%);
+  color: var(--cw-text-muted);
 }
 
 /* R32 Projection mobile group-jump nav — hide the horizontal scrollbar
    (matches the design export's own .no-scrollbar utility). */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Portal shell (portal redesign §4; components/portal/Shell.tsx) ───────────────────────────────────────────────
+   Widths are CSS, so the server's markup is right at every width and nothing re-lays-out after load:
+     ≥1200px  full sidebar 248px (or the 64px rail when collapsed: html[data-sidebar="rail"], set before first paint)
+     900–1199 the 64px icon rail
+     <900     no sidebar; the menu button opens a 280px drawer
+   Page padding follows: 32px full, 24px with the rail, 20px narrow. */
+:root { --cw-topbar: 56px; --cw-page-pad: 32px; }
+.cw-side { width: 248px; }
+.cw-rail-only { display: none !important; }
+.cw-xl-only { display: none !important; }
+@media (min-width: 1200px) { .cw-xl-only { display: flex !important; } }
+@media (min-width: 900px) and (max-width: 1199px) {
+  :root { --cw-page-pad: 24px; }
+  .cw-side { width: 64px; }
+  .cw-side .cw-full-only { display: none !important; }
+  .cw-side .cw-rail-only { display: flex !important; }
+  .cw-side .cw-item { justify-content: center; padding-left: 0; padding-right: 0; margin-left: 0; width: 100%; }
+  .cw-side .cw-item[data-emph="1"] { background: var(--cw-bg-active); }
+}
+@media (min-width: 1200px) {
+  html[data-sidebar="rail"] { --cw-page-pad: 24px; }
+  html[data-sidebar="rail"] .cw-side { width: 64px; }
+  html[data-sidebar="rail"] .cw-side .cw-full-only { display: none !important; }
+  html[data-sidebar="rail"] .cw-side .cw-rail-only { display: flex !important; }
+  html[data-sidebar="rail"] .cw-side .cw-item { justify-content: center; padding-left: 0; padding-right: 0; margin-left: 0; width: 100%; }
+  html[data-sidebar="rail"] .cw-side .cw-item[data-emph="1"] { background: var(--cw-bg-active); }
+}
+@media (max-width: 899px) {
+  :root { --cw-page-pad: 20px; }
+  .cw-side { display: none !important; }
+  .cw-wide-only { display: none !important; }
+}
+@media (min-width: 900px) { .cw-narrow-only { display: none !important; } }
+/* Skeleton shimmer (§1.5: 1400ms linear). */
+.cw-shimmer { background: linear-gradient(90deg, var(--cw-skeleton) 0, var(--cw-skeleton-shine) 50%, var(--cw-skeleton) 100%); background-size: 640px 100%; animation: cw-shimmer 1400ms linear infinite; }

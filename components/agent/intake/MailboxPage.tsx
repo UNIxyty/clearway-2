@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PortalShell, { useIdentity } from "@/components/portal/Shell";
 import AgentStyles from "../ui/AgentStyles";
-import { C, TONE, TYPE, mono } from "../ui/tokens";
+import { TONE, TYPE, mono } from "../ui/tokens";
 import { Button, Icon, Keycap, dayTimeZ } from "../ui/primitives";
 import { IntakeStyles, Segmented, Select, TabList, useHotkeys } from "./controls";
 import { ApiError, mailboxApi, type MailMessage, type MailOverview, type MailRow } from "./api";
@@ -15,6 +15,7 @@ import { EmptyState, LinkAsButton, rangeWords } from "./mailbox-shared";
 import { GapMarker, ListSkeleton, MailListRow, NewChip } from "./mailbox-list";
 import { ReceivedReader, type ThreadItem } from "./mailbox-reader";
 import { SentReader } from "./mailbox-sent";
+import { cw } from "@/lib/portal-tokens";
 
 type Box = "received" | "sent";
 type Access = { allowed: boolean; readersCount: number | null };
@@ -153,8 +154,8 @@ export default function MailboxPage() {
   }, allowed);
 
   // ── render ────────────────────────────────────────────────────────────────────────────────────────────
-  if (accessErr) return <Frame><div style={{ padding: 28 }}><div role="alert" style={{ fontSize: 14, color: C.danger }}>{accessErr}</div></div></Frame>;
-  if (!access) return <Frame><div style={{ padding: 28, fontSize: 13, color: C.faint }}>Checking access…</div></Frame>;
+  if (accessErr) return <Frame><div style={{ padding: 28 }}><div role="alert" style={{ fontSize: 14, color: cw.dangerText }}>{accessErr}</div></div></Frame>;
+  if (!access) return <Frame><div style={{ padding: 28, fontSize: 13, color: cw.textMuted }}>Checking access…</div></Frame>;
   if (!access.allowed) return <Frame><NoAccess readers={access.readersCount} /></Frame>;
 
   const addrs = overview?.health.addresses ?? [];
@@ -188,15 +189,15 @@ export default function MailboxPage() {
 
   return (
     <Frame>
-      <div style={{ height: "100vh", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 14, padding: "24px 28px 20px", minWidth: 0 }}>
+      <div style={{ height: "calc(100vh - var(--cw-topbar))", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 14, padding: "24px 28px 20px", minWidth: 0 }}>
         {/* Header (§M3) */}
         <header style={{ display: "flex", gap: 24, alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, flex: "1 1 460px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <h1 style={{ margin: 0, ...TYPE.pageTitle, color: C.ink }}>Agent mailbox</h1>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: C.body, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: 999, padding: "3px 10px" }}><Icon name="lock" size={12} color={C.muted} />Restricted · ops leads and intake admins</span>
+              <h1 style={{ margin: 0, ...TYPE.pageTitle, color: cw.text }}>Agent mailbox</h1>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: cw.textBody, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: 999, padding: "3px 10px" }}><Icon name="lock" size={12} color={cw.textMuted} />Restricted · ops leads and intake admins</span>
             </div>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: C.muted, maxWidth: 760 }}>Every email to and from the agent&apos;s addresses, and what the agent did with it. Not a mail client: nothing is written or replied to from here. All times UTC.</p>
+            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: cw.textMuted, maxWidth: 760 }}>Every email to and from the agent&apos;s addresses, and what the agent did with it. Not a mail client: nothing is written or replied to from here. All times UTC.</p>
           </div>
           <div aria-label="Connection health" role="group" style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 520 }}>
             {!overview && <HealthPill tone="slate" label="Checking connections…" />}
@@ -208,11 +209,11 @@ export default function MailboxPage() {
         {/* Banners (§M15.3, §M15.4) */}
         {down.map((d) => <DownBanner key={d.address} addr={d} others={addrs.filter((a) => a.ok).map((a) => a.address)} />)}
         {backlogN > 10 && (
-          <div role="status" className="cw-expand" style={{ display: "flex", gap: 12, alignItems: "flex-start", background: C.warnTint, border: `1px solid ${C.warnBorder}`, borderRadius: 12, padding: "12px 16px" }}>
+          <div role="status" className="cw-expand" style={{ display: "flex", gap: 12, alignItems: "flex-start", background: cw.warningTint, border: `1px solid ${cw.warningBorder}`, borderRadius: 12, padding: "12px 16px" }}>
             <Icon name="hourglass" size={18} color={TONE.amber.ic} style={{ marginTop: 2 }} />
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: TONE.amber.fg }}>{backlogN} emails are waiting to be processed.</span>
-              <span style={{ fontSize: 13, lineHeight: 1.5, color: C.body }}>Mail is arriving normally. The agent is working through the queue. Requests in the queue are not on the intake page yet.</span>
+              <span style={{ fontSize: 13, lineHeight: 1.5, color: cw.textBody }}>Mail is arriving normally. The agent is working through the queue. Requests in the queue are not on the intake page yet.</span>
             </div>
             <span style={{ ...mono({ fontSize: 12 }), color: TONE.amber.fg }}>queue {overview?.queue ?? 0} · waiting {counts?.waiting ?? 0}</span>
           </div>
@@ -226,10 +227,10 @@ export default function MailboxPage() {
             : <Segmented label="View" value={view} onChange={setView} options={sentViews} />}
           <span style={{ flex: 1 }} />
           <label style={{ position: "relative", display: "inline-flex", alignItems: "center", width: 330, height: 34 }}>
-            <Icon name="search" size={14} color={C.muted} style={{ position: "absolute", left: 10 }} />
+            <Icon name="search" size={14} color={cw.textMuted} style={{ position: "absolute", left: 10 }} />
             <input ref={searchRef} type="text" value={qInput} onChange={(e) => setQInput(e.target.value)} placeholder={SEARCH_PLACEHOLDER} aria-label="Search mail" spellCheck={false} autoComplete="off" className="ag-focus"
               onKeyDown={(e) => { if (e.key === "Enter") setQ(qInput); }}
-              style={{ width: "100%", height: 34, boxSizing: "border-box", borderRadius: 9, border: `1px solid ${qInput ? C.citeOutline : C.borderControl}`, background: qInput ? C.suggestHover : C.surface, padding: "0 34px 0 30px", fontFamily: "inherit", fontSize: 12.5, color: C.ink, outline: "none" }} />
+              style={{ width: "100%", height: 34, boxSizing: "border-box", borderRadius: 9, border: `1px solid ${qInput ? cw.citeOutline : cw.borderControl}`, background: qInput ? cw.primaryTint : cw.bgSurface, padding: "0 34px 0 30px", fontFamily: "inherit", fontSize: 12.5, color: cw.text, outline: "none" }} />
             <span style={{ position: "absolute", right: 8, pointerEvents: "none" }}><Keycap standalone>/</Keycap></span>
           </label>
         </div>
@@ -238,26 +239,26 @@ export default function MailboxPage() {
           <Select prefix="Status" aria-label="Status" value={status} onChange={setStatus} active={!!status} options={box === "sent" ? SENT_STATUS : RECEIVED_STATUS} />
           <Select prefix={box === "sent" ? "Sent" : "Received"} aria-label={box === "sent" ? "Sent range" : "Received range"} value={String(days)} onChange={(v) => setDays(Number(v))} active={days !== 7} options={RANGES} />
           <Select prefix="Attachments" aria-label="Attachments" value={att} onChange={setAtt} active={att !== "any"} options={ATTS} />
-          {filtersOn && <button type="button" className="ag-focus" onClick={clearFilters} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: C.primary, background: "none", border: "none", cursor: "pointer" }}>Clear filters</button>}
+          {filtersOn && <button type="button" className="ag-focus" onClick={clearFilters} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: cw.textLink, background: "none", border: "none", cursor: "pointer" }}>Clear filters</button>}
           <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 12, color: C.muted }}>Last 7 days by default · older mail by date range</span>
+          <span style={{ fontSize: 12, color: cw.textMuted }}>Last 7 days by default · older mail by date range</span>
         </div>
 
         {/* Panes (§M3): list 470 · reader */}
         <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "470px minmax(0,1fr)", gap: 14 }}>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+          <div style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
             <div ref={listRef} role="list" aria-label={box === "sent" ? "Sent mail" : "Received mail"} aria-busy={rows === null} style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative" }}
               onScroll={(e) => { if (pending && e.currentTarget.scrollTop <= 4) showPending(); }}>
               {pending && <NewChip n={pending.filter((x) => !(rows ?? []).some((y) => y.id === x.id)).length} onShow={showPending} />}
               {box === "received" && down.map((d) => <GapMarker key={d.address} address={d.address} lastAt={d.lastAt} why={d.why} />)}
-              {rows === null ? <ListSkeleton /> : listErr ? <div role="alert" style={{ padding: 18, fontSize: 13, color: C.danger }}>{listErr} <button type="button" className="ag-focus" onClick={() => void load(false)} style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: C.primary, background: "none", border: "none", cursor: "pointer" }}>Try again</button></div> : empty ?? shown.map((r) => (
+              {rows === null ? <ListSkeleton /> : listErr ? <div role="alert" style={{ padding: 18, fontSize: 13, color: cw.dangerText }}>{listErr} <button type="button" className="ag-focus" onClick={() => void load(false)} style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: cw.textLink, background: "none", border: "none", cursor: "pointer" }}>Try again</button></div> : empty ?? shown.map((r) => (
                 <div role="listitem" key={r.id}>
                   <MailListRow r={r} selected={r.id === sel} isNew={flash.fresh.has(r.id)} flash={flash.changed.has(r.id)} addresses={addrs.map((a) => a.address)} onSelect={() => select(r.id)}
                     setRef={(el) => { if (el) rowEls.current.set(r.id, el); else rowEls.current.delete(r.id); }} />
                 </div>
               ))}
             </div>
-            <div style={{ padding: "9px 14px", borderTop: `1px solid ${C.divider}`, fontSize: 12, color: C.faint, display: "flex", gap: 8 }}>
+            <div style={{ padding: "9px 14px", borderTop: `1px solid ${cw.divider}`, fontSize: 12, color: cw.textMuted, display: "flex", gap: 8 }}>
               <span style={{ flex: 1 }}>{footer}</span>
               {rows && shown.length > 1 && <span style={mono({ fontSize: 11.5 })}>j / k to move</span>}
             </div>
@@ -265,12 +266,12 @@ export default function MailboxPage() {
 
           <div ref={readerRef} tabIndex={-1} aria-label="Reader" role="region" className="ag-focus" style={{ minHeight: 0, overflowY: "auto", outline: "none", paddingBottom: 12 }}>
             {!sel ? (
-              <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "48px 28px", textAlign: "center", fontSize: 13.5, color: C.faint }}>Choose a message to see what happened to it.</div>
+              <div style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, padding: "48px 28px", textAlign: "center", fontSize: 13.5, color: cw.textMuted }}>Choose a message to see what happened to it.</div>
             ) : msgErr ? (
-              <div role="alert" style={{ background: C.surface, border: `1.5px dashed ${C.dangerBadge}`, borderRadius: 14, padding: "20px 22px", fontSize: 13.5, color: C.danger }}>{msgErr}</div>
+              <div role="alert" style={{ background: cw.bgSurface, border: `1.5px dashed ${cw.danger}`, borderRadius: 14, padding: "20px 22px", fontSize: 13.5, color: cw.dangerText }}>{msgErr}</div>
             ) : !msg || msg.id !== sel ? (
-              <div aria-busy="true" style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "18px", display: "flex", flexDirection: "column", gap: 10 }}>
-                {[55, 80, 70, 40].map((w, i) => <span key={i} style={{ height: i === 0 ? 16 : 10, width: `${w}%`, borderRadius: 5, background: C.hover }} />)}
+              <div aria-busy="true" style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, padding: "18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                {[55, 80, 70, 40].map((w, i) => <span key={i} style={{ height: i === 0 ? 16 : 10, width: `${w}%`, borderRadius: 5, background: cw.bgHover }} />)}
               </div>
             ) : (
               <div key={msg.id} className="cw-fade">
@@ -300,7 +301,7 @@ function Frame({ children }: { children: React.ReactNode }) {
 function HealthPill({ tone, label, addr, plainName }: { tone: "green" | "red" | "amber" | "slate"; label: string; addr?: string; plainName?: boolean }) {
   const t = TONE[tone]; const bad = tone === "red";
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: bad ? t.fg : C.body, background: C.surface, border: `1px solid ${bad ? t.bd : C.borderControl}`, borderRadius: 999, padding: "4px 10px", maxWidth: 500 }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: bad ? t.fg : cw.textBody, background: cw.bgSurface, border: `1px solid ${bad ? t.bd : cw.borderControl}`, borderRadius: 999, padding: "4px 10px", maxWidth: 500 }}>
       <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: t.ic, flex: "none" }} />
       {addr && <span style={plainName ? { fontWeight: 700 } : { ...mono({ fontSize: 11.5, fontWeight: 600 }) }}>{addr}</span>}
       <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
@@ -310,12 +311,12 @@ function HealthPill({ tone, label, addr, plainName }: { tone: "green" | "red" | 
 
 function DownBanner({ addr, others }: { addr: MailOverview["health"]["addresses"][number]; others: string[] }) {
   return (
-    <div role="alert" className="cw-expand" style={{ display: "flex", gap: 14, alignItems: "flex-start", background: C.dangerTint, border: `1.5px solid ${C.dangerBadge}`, borderRadius: 12, padding: "14px 16px" }}>
-      <Icon name="mail-x" size={22} color={C.dangerBadge} style={{ marginTop: 1 }} />
+    <div role="alert" className="cw-expand" style={{ display: "flex", gap: 14, alignItems: "flex-start", background: cw.dangerTint, border: `1.5px solid ${cw.danger}`, borderRadius: 12, padding: "14px 16px" }}>
+      <Icon name="mail-x" size={22} color={cw.dangerText} style={{ marginTop: 1 }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
-        <span style={{ fontSize: 16, fontWeight: 800, color: C.danger }}>Nothing is arriving. The connection to {addr.address} is down{addr.why ? `: ${addr.why}` : ""}.</span>
-        <span style={{ fontSize: 13, lineHeight: 1.55, color: C.body }}>This is not a quiet morning: the agent cannot receive mail on this address, so handling requests sent to it{addr.lastAt ? ` since ${dayTimeZ(addr.lastAt)}` : ""} are not here and have not been processed. Until it is fixed, check with senders by phone or another address.{others.length ? ` ${others.join(", ")} ${others.length === 1 ? "is" : "are"} working.` : ""}</span>
-        <span style={{ ...mono({ fontSize: 12 }), color: C.body }}>{addr.lastAt ? `Last mail ${dayTimeZ(addr.lastAt)}` : "No mail on record"} · reason: {addr.why ?? "unknown"}</span>
+        <span style={{ fontSize: 16, fontWeight: 800, color: cw.dangerText }}>Nothing is arriving. The connection to {addr.address} is down{addr.why ? `: ${addr.why}` : ""}.</span>
+        <span style={{ fontSize: 13, lineHeight: 1.55, color: cw.textBody }}>This is not a quiet morning: the agent cannot receive mail on this address, so handling requests sent to it{addr.lastAt ? ` since ${dayTimeZ(addr.lastAt)}` : ""} are not here and have not been processed. Until it is fixed, check with senders by phone or another address.{others.length ? ` ${others.join(", ")} ${others.length === 1 ? "is" : "are"} working.` : ""}</span>
+        <span style={{ ...mono({ fontSize: 12 }), color: cw.textBody }}>{addr.lastAt ? `Last mail ${dayTimeZ(addr.lastAt)}` : "No mail on record"} · reason: {addr.why ?? "unknown"}</span>
       </div>
     </div>
   );
@@ -324,14 +325,14 @@ function DownBanner({ addr, others }: { addr: MailOverview["health"]["addresses"
 function NoAccess({ readers }: { readers: number | null }) {
   return (
     <div style={{ padding: "64px 28px", display: "flex", justifyContent: "center" }}>
-      <div style={{ width: 520, maxWidth: "100%", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "26px 28px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <span style={{ width: 40, height: 40, borderRadius: 12, background: C.sidebar, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="lock" size={20} color={C.muted} /></span>
-        <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: C.ink }}>You don&apos;t have access to the agent mailbox</h1>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: C.body }}>It holds emails with passport numbers and dates of birth, so it is open only to ops leads and intake admins.{readers != null ? ` ${readers} ${readers === 1 ? "person has" : "people have"} access today.` : ""}</p>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: C.body }}>If you are looking for a request, the Flight intake page shows every request the agent created, without the raw email.</p>
+      <div style={{ width: 520, maxWidth: "100%", background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, padding: "26px 28px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <span style={{ width: 40, height: 40, borderRadius: 12, background: cw.bgSunken, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="lock" size={20} color={cw.textMuted} /></span>
+        <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: cw.text }}>You don&apos;t have access to the agent mailbox</h1>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: cw.textBody }}>It holds emails with passport numbers and dates of birth, so it is open only to ops leads and intake admins.{readers != null ? ` ${readers} ${readers === 1 ? "person has" : "people have"} access today.` : ""}</p>
+        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: cw.textBody }}>If you are looking for a request, the Flight intake page shows every request the agent created, without the raw email.</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
           <LinkAsButton href="/agent/intake" primary icon="arrow-right">Go to Flight intake</LinkAsButton>
-          <span style={{ fontSize: 12.5, color: C.muted, alignSelf: "center" }}>Ask an admin for access.</span>
+          <span style={{ fontSize: 12.5, color: cw.textMuted, alignSelf: "center" }}>Ask an admin for access.</span>
         </div>
       </div>
     </div>

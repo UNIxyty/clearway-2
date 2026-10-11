@@ -5,16 +5,17 @@ import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
 import { AlertCircle, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { cw } from "@/lib/portal-tokens";
 
 // Visuals from the Claude Design "Sign In" handoff. The redirect-back
 // mechanics (validated `next`, window.location.href after sign-in) are
 // deliberately unchanged — see lib/auth-next-path.mjs.
 
-const ink = "#17181c";
-const mutedText = "#6c7079";
-const faint = "#9aa0a8";
-const inputBorder = "#d6d8dc";
-const errBorder = "#e5484d";
+const ink = "var(--cw-text)";
+const mutedText = cw.textMuted;
+const faint = cw.textMuted;
+const inputBorder = cw.borderControl;
+const errBorder = cw.danger;
 
 function Field({
   id,
@@ -44,7 +45,7 @@ function Field({
           borderRadius: 11,
           padding: "0 13px",
           height: 47,
-          background: error ? "#fffafa" : "#fff",
+          background: error ? "var(--cw-danger-tint)" : "var(--cw-bg-surface)",
         }}
       >
         <span style={{ color: faint, display: "flex", flexShrink: 0 }}>{icon}</span>
@@ -144,9 +145,9 @@ export default function LoginCard() {
   return (
     <div
       style={{
-        background: "#fff",
+        background: "var(--cw-bg-surface)",
         borderRadius: 22,
-        boxShadow: "0 30px 80px rgba(6,11,28,.45), 0 2px 6px rgba(0,0,0,.1)",
+        boxShadow: "var(--cw-shadow-pop)",
         padding: "34px 40px 26px",
         color: ink,
       }}
@@ -163,15 +164,15 @@ export default function LoginCard() {
             display: "flex",
             alignItems: "flex-start",
             gap: 10,
-            background: "#fdf0f0",
-            border: "1px solid #f4cdcd",
+            background: "var(--cw-danger-tint)",
+            border: "1px solid var(--cw-danger-border)",
             borderRadius: 11,
             padding: "11px 13px",
             marginBottom: 16,
           }}
         >
           <AlertCircle size={17} style={{ color: errBorder, flexShrink: 0, marginTop: 1 }} />
-          <span style={{ fontSize: 13, lineHeight: 1.45, color: "#b3383c" }}>{displayError}</span>
+          <span style={{ fontSize: 13, lineHeight: 1.45, color: "var(--cw-danger-text)" }}>{displayError}</span>
         </div>
       )}
       {info && (
@@ -180,8 +181,8 @@ export default function LoginCard() {
             fontSize: 13,
             lineHeight: 1.45,
             color: mutedText,
-            background: "#fbfbfc",
-            border: "1px solid #e6e7ea",
+            background: "var(--cw-bg-page)",
+            border: "1px solid var(--cw-border)",
             borderRadius: 11,
             padding: "11px 13px",
             marginBottom: 16,
@@ -194,8 +195,8 @@ export default function LoginCard() {
       {forgotEmailSentTo ? (
         <div
           style={{
-            border: "1px solid #e6e7ea",
-            background: "#fbfbfc",
+            border: "1px solid var(--cw-border)",
+            background: "var(--cw-bg-page)",
             borderRadius: 14,
             padding: "24px 16px",
             textAlign: "center",
@@ -214,7 +215,7 @@ export default function LoginCard() {
               fontFamily: "inherit",
               fontSize: 12.5,
               fontWeight: 600,
-              color: "#2563eb",
+              color: "var(--cw-text-link)",
               background: "transparent",
               border: "none",
               cursor: "pointer",
@@ -275,8 +276,8 @@ export default function LoginCard() {
               fontFamily: "inherit",
               fontSize: 15,
               fontWeight: 700,
-              color: "#fff",
-              background: loading ? "#9db8f2" : "#2563eb",
+              color: "var(--cw-text-on-primary)",
+              background: loading ? "var(--cw-primary-wash)" : "var(--cw-primary)",
               border: "none",
               borderRadius: 11,
               padding: 13,
@@ -294,8 +295,8 @@ export default function LoginCard() {
                   width: 16,
                   height: 16,
                   borderRadius: "50%",
-                  border: "2px solid rgba(255,255,255,.5)",
-                  borderTopColor: "#fff",
+                  border: "2px solid color-mix(in srgb, var(--cw-text-on-primary) 50%, transparent)",
+                  borderTopColor: "var(--cw-bg-surface)",
                   animation: "cwspin .7s linear infinite",
                 }}
               />
@@ -313,7 +314,7 @@ export default function LoginCard() {
                 fontFamily: "inherit",
                 fontSize: 13,
                 fontWeight: 600,
-                color: "#2563eb",
+                color: "var(--cw-text-link)",
                 background: "transparent",
                 border: "none",
                 padding: 0,

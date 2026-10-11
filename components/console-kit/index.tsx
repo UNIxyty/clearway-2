@@ -4,9 +4,10 @@
 //
 // The console's kit (opsboard-react/src/components/console/ui.jsx) cannot be
 // imported here — it is a separate Vite app (audit §7.3). This is the same kit
-// expressed for the Next build, wired to the SAME token source
-// (shared/design-tokens.json) so the two cannot drift on colour, radius or
-// type. Sizes and weights are copied from the console kit literally.
+// expressed for the Next build. Sizes and weights are copied from the console
+// kit literally; colours are the portal's --cw-* tokens (lib/portal-tokens.ts),
+// so the kit follows the portal's light/dark theme. (It used to read
+// shared/design-tokens.json — the wall's file — which the portal no longer imports.)
 //
 // Why it exists at all: every control below replaces a browser default.
 // Native checkboxes, `confirm()` and `prompt()` are unstyleable and look
@@ -14,45 +15,43 @@
 // one piece of UI a user cannot tell apart from a phishing prompt.
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import tokens from "@/shared/design-tokens.json";
-
-const sc = tokens.color;
+import { cw } from "@/lib/portal-tokens";
+import { FONT } from "@/components/agent/ui/tokens";
 
 export const t = {
-  font: tokens.font.sans,
-  mono: tokens.font.mono,
-  ink: sc.text,
-  body: sc.textBody,
-  muted: sc.textMuted,
-  faint: sc.textFaint,
-  canvas: "#e8e9ec",
-  surface: "#f5f6f7",
-  card: sc.card,
-  subtle: sc.cardSubtle,
-  wash: "#f0f1f3",
-  border: sc.border,
-  borderInput: "#d6d8dc",
-  borderInner: sc.borderInner,
-  blue: sc.primary,
-  blueDeep: sc.primaryDeep,
-  blueTint: sc.primaryTint,
-  blueWash: "#f2f7ff",
-  blueBorder: "#dbe6ff",
-  green: sc.green,
-  greenDeep: sc.greenDeep,
-  greenTint: sc.greenTint,
-  greenBorder: "#c7ead2",
-  red: sc.red,
-  // Console-local: the shared redDeep/redTint differ from the shipped console
-  // values, and this kit must match the console pixel for pixel.
-  redDeep: "#b3383c",
-  redTint: "#fdecec",
-  redBorder: "#f4cdcd",
-  amber: sc.amberDeep,
-  amberTint: sc.amberTint,
-  amberBorder: "#f0d3ba",
-  shadow: "0 1px 2px rgba(16,18,22,.04)",
-  shadowPanel: "0 1px 2px rgba(16,18,22,.04), 0 16px 40px rgba(16,18,22,.06)",
+  font: FONT.sans,
+  mono: FONT.mono,
+  ink: cw.text,
+  body: cw.textBody,
+  muted: cw.textMuted,
+  faint: cw.textMuted,
+  canvas: cw.bgHover,
+  surface: cw.bgSunken,
+  card: cw.bgSurface,
+  subtle: cw.bgPage,
+  wash: cw.bgHover,
+  border: cw.border,
+  borderInput: cw.borderControl,
+  borderInner: cw.divider,
+  blue: cw.primary,
+  blueDeep: cw.textLink,
+  blueHover: cw.primaryHover,
+  blueTint: cw.primaryTint,
+  blueWash: cw.primaryTint,
+  blueBorder: cw.primaryTintBorder,
+  green: cw.success,
+  greenDeep: cw.successText,
+  greenTint: cw.successTint,
+  greenBorder: cw.successBorder,
+  red: cw.dangerSolid,
+  redDeep: cw.dangerText,
+  redTint: cw.dangerTint,
+  redBorder: cw.dangerBorder,
+  amber: cw.warningText,
+  amberTint: cw.warningTint,
+  amberBorder: cw.warningBorder,
+  shadow: cw.shadow1,
+  shadowPanel: cw.shadow2,
 } as const;
 
 const GLOBAL_CSS = `
@@ -63,8 +62,8 @@ const GLOBAL_CSS = `
   @keyframes cwfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .cw-fade { animation: cwfade .22s ease; }
   .cw-hover-surface:hover { background: ${t.surface} !important; }
-  .cw-hover-primary:hover { background: ${t.blueDeep} !important; }
-  .cw-hover-danger:hover { background: #fbdcdc !important; }
+  .cw-hover-primary:hover { background: ${t.blueHover} !important; }
+  .cw-hover-danger:hover { background: var(--cw-danger-border) !important; }
   .cw-hover-row:hover { background: ${t.subtle}; }
   @media (prefers-reduced-motion: reduce) { .cw-fade { animation: none !important; } }
 `;
@@ -78,12 +77,12 @@ export function ConsoleStyles() {
 type Variant = "primary" | "secondary" | "ghost" | "soft" | "softBlue" | "danger";
 
 const BUTTON_VARIANTS: Record<Variant, { style: CSSProperties; hover: string }> = {
-  primary: { style: { color: "#fff", background: t.blue, border: "none" }, hover: "cw-hover-primary" },
+  primary: { style: { color: "var(--cw-text-on-primary)", background: t.blue, border: "none" }, hover: "cw-hover-primary" },
   secondary: { style: { color: t.ink, background: t.card, border: `1px solid ${t.borderInput}` }, hover: "cw-hover-surface" },
   ghost: { style: { color: t.body, background: "transparent", border: "none" }, hover: "cw-hover-surface" },
   soft: { style: { color: t.body, background: t.wash, border: "none" }, hover: "" },
   softBlue: { style: { color: t.blueDeep, background: t.blueTint, border: "none" }, hover: "" },
-  danger: { style: { color: "#fff", background: t.red, border: "none" }, hover: "" },
+  danger: { style: { color: "var(--cw-text-on-primary)", background: t.red, border: "none" }, hover: "" },
 };
 
 export function Button({
@@ -132,8 +131,8 @@ export function Button({
           aria-hidden
           style={{
             width: 13, height: 13, borderRadius: "50%",
-            border: `2px solid ${variant === "primary" || variant === "danger" ? "rgba(255,255,255,.45)" : "#cbd5e1"}`,
-            borderTopColor: variant === "primary" || variant === "danger" ? "#fff" : t.blue,
+            border: `2px solid ${variant === "primary" || variant === "danger" ? "color-mix(in srgb, var(--cw-text-on-primary) 45%, transparent)" : "var(--cw-border-strong)"}`,
+            borderTopColor: variant === "primary" || variant === "danger" ? "var(--cw-bg-surface)" : t.blue,
             animation: "cwspin .7s linear infinite",
           }}
         />
@@ -163,14 +162,14 @@ export function Toggle({
         width: w, height: h, borderRadius: 999, border: "none",
         cursor: disabled ? "default" : "pointer",
         padding: 3, display: "flex",
-        background: on ? t.green : "#cfd3d8",
+        background: on ? t.green : "var(--cw-border-strong)",
         justifyContent: on ? "flex-end" : "flex-start",
         transition: "background .15s",
         opacity: disabled ? 0.6 : 1,
         flexShrink: 0,
       }}
     >
-      <span style={{ width: knob, height: knob, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)" }} />
+      <span style={{ width: knob, height: knob, borderRadius: "50%", background: "var(--cw-knob)", boxShadow: "var(--cw-shadow-1)" }} />
     </button>
   );
 }
@@ -275,7 +274,7 @@ export function Dropdown<T extends string>({
                 cursor: "pointer", textAlign: "left", fontFamily: "inherit", whiteSpace: "nowrap",
               }}
             >
-              <span style={{ width: 14, color: t.blue }}>{o.value === value ? "✓" : ""}</span>
+              <span style={{ width: 14, color: t.blueDeep }}>{o.value === value ? "✓" : ""}</span>
               {o.label}
             </button>
           ))}
@@ -361,7 +360,7 @@ export function ConfirmDialog({
   return (
     <div
       className="cw-kit"
-      style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(10,14,24,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+      style={{ position: "fixed", inset: 0, zIndex: 220, background: "var(--cw-bg-scrim)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
       onClick={onCancel}
     >
       <div
@@ -369,10 +368,10 @@ export function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        style={{ background: "#fff", borderRadius: 16, boxShadow: t.shadowPanel, border: `1px solid ${t.border}`, maxWidth: 470, width: "100%", padding: "22px 24px" }}
+        style={{ background: "var(--cw-bg-surface)", borderRadius: 16, boxShadow: t.shadowPanel, border: `1px solid ${t.border}`, maxWidth: 470, width: "100%", padding: "22px 24px" }}
       >
         <div style={{ display: "flex", gap: 13, alignItems: "flex-start", marginBottom: 16 }}>
-          <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: danger ? t.redTint : t.blueTint, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 19, color: danger ? t.red : t.blueDeep }}>
+          <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: danger ? t.redTint : t.blueTint, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 19, color: danger ? t.redDeep : t.blueDeep }}>
             ⚠
           </span>
           <div style={{ minWidth: 0 }}>
@@ -410,7 +409,7 @@ export function ReasonDialog({
   return (
     <div
       className="cw-kit"
-      style={{ position: "fixed", inset: 0, zIndex: 220, background: "rgba(10,14,24,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+      style={{ position: "fixed", inset: 0, zIndex: 220, background: "var(--cw-bg-scrim)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
       onClick={onCancel}
     >
       <div
@@ -418,10 +417,10 @@ export function ReasonDialog({
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        style={{ background: "#fff", borderRadius: 16, boxShadow: t.shadowPanel, border: `1px solid ${t.border}`, maxWidth: 470, width: "100%", padding: "22px 24px" }}
+        style={{ background: "var(--cw-bg-surface)", borderRadius: 16, boxShadow: t.shadowPanel, border: `1px solid ${t.border}`, maxWidth: 470, width: "100%", padding: "22px 24px" }}
       >
         <div style={{ display: "flex", gap: 13, alignItems: "flex-start", marginBottom: 16 }}>
-          <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: danger ? t.redTint : t.blueTint, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 19, color: danger ? t.red : t.blueDeep }}>
+          <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: danger ? t.redTint : t.blueTint, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 19, color: danger ? t.redDeep : t.blueDeep }}>
             ⚠
           </span>
           <div style={{ minWidth: 0 }}>

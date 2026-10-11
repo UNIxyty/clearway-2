@@ -22,14 +22,14 @@ export default function BugReportBanner({ reports, onDeleteFixed, deletingReport
           return (
             <div key={report.id} className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="truncate text-foreground">
+                <div className="truncate text-cw-text">
                   {report.airportIcao} - {report.description}
                 </div>
-                <div className="text-muted-foreground">
+                <div className="text-cw-text-muted">
                   {new Date(report.createdAt).toLocaleString()}
                 </div>
               </div>
-              <div className="shrink-0 flex items-center gap-1 text-muted-foreground">
+              <div className="shrink-0 flex items-center gap-1 text-cw-text-muted">
                 <span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dotClass}`} />
                 <span>{meta.label}</span>
                 {report.status === "fixed" && onDeleteFixed && (
@@ -37,7 +37,7 @@ export default function BugReportBanner({ reports, onDeleteFixed, deletingReport
                     type="button"
                     onClick={() => onDeleteFixed(report.id)}
                     disabled={deletingReportId === report.id}
-                    className="ml-2 rounded border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted disabled:opacity-50"
+                    className="ml-2 rounded border px-1.5 py-0.5 text-[10px] text-cw-text hover:bg-cw-bg-hover disabled:opacity-50"
                     aria-label="Delete fixed bug report"
                   >
                     {deletingReportId === report.id ? "Deleting..." : "Delete"}

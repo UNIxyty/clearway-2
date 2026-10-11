@@ -686,7 +686,7 @@ function AIPSearchPageInner() {
                   }}
                   aria-expanded={browseMenuOpen}
                 >
-                  <GlobeIcon className="size-4 shrink-0 text-[#6c7079]" />
+                  <GlobeIcon className="size-4 shrink-0 text-cw-text-muted" />
                   {selectedRegion && selectedCountry
                     ? selectedCountry === "United States of America" && (selectedState || browseSelectedState)
                       ? `${selectedRegion} → ${selectedCountry} → ${selectedState || browseSelectedState}`
@@ -700,10 +700,10 @@ function AIPSearchPageInner() {
                     alt=""
                     width={28}
                     height={21}
-                    className="shrink-0 rounded-sm border border-[#e6e7ea] object-cover"
+                    className="shrink-0 rounded-sm border border-cw-border object-cover"
                   />
                 )}
-                {loadingCountry && <Spinner className="size-5 text-[#9aa0a8]" />}
+                {loadingCountry && <Spinner className="size-5 text-cw-text-muted" />}
               </div>
             </div>
 
@@ -713,8 +713,8 @@ function AIPSearchPageInner() {
                 <label htmlFor="search" className="sr-only">
                   Search
                 </label>
-                <div className="relative flex h-12 min-w-[240px] flex-1 items-center gap-2.5 rounded-[10px] border border-[#d6d8dc] bg-white px-3.5 transition-colors focus-within:border-[#2563eb]">
-                  <SearchIcon className="size-[18px] shrink-0 text-[#9aa0a8]" aria-hidden />
+                <div className="relative flex h-12 min-w-[240px] flex-1 items-center gap-2.5 rounded-[10px] border border-cw-border-control bg-cw-bg-surface px-3.5 transition-colors focus-within:border-cw-primary">
+                  <SearchIcon className="size-[18px] shrink-0 text-cw-text-muted" aria-hidden />
                   <input
                     id="search"
                     placeholder="Airport code / name / country..."
@@ -733,15 +733,15 @@ function AIPSearchPageInner() {
                     aria-controls="search-suggestions"
                     autoComplete="off"
                     disabled={loading}
-                    className="h-full min-w-0 flex-1 border-none bg-transparent font-mono text-[15px] tracking-[0.02em] text-[#17181c] outline-none placeholder:text-[#9aa0a8] disabled:opacity-60"
+                    className="h-full min-w-0 flex-1 border-none bg-transparent font-mono text-[15px] tracking-[0.02em] text-cw-text outline-none placeholder:text-cw-text-muted disabled:opacity-60"
                   />
-                  <PMono className="hidden text-[11px] text-[#c3c7cd] sm:inline">ICAO</PMono>
+                  <PMono className="hidden text-[11px] text-cw-text-muted sm:inline">ICAO</PMono>
                   {suggestOpen && suggestions.length > 0 && (
                     <div
                       id="search-suggestions"
                       role="listbox"
                       aria-label="Airport suggestions"
-                      className="absolute left-0 right-0 top-[calc(100%+6px)] z-[120] overflow-hidden rounded-[12px] border border-[#e6e7ea] bg-white py-1 shadow-[0_16px_44px_rgba(16,18,22,.16)]"
+                      className="absolute left-0 right-0 top-[calc(100%+6px)] z-[120] overflow-hidden rounded-[12px] border border-cw-border bg-cw-bg-surface py-1 shadow-cw-pop"
                     >
                       {suggestions.map((s, i) => {
                         const flagUrl = getCountryFlagUrl(s.country);
@@ -755,7 +755,7 @@ function AIPSearchPageInner() {
                             onClick={() => pickSuggestion(s)}
                             onMouseEnter={() => setSuggestHighlight(i)}
                             className={`flex w-full cursor-pointer items-center gap-2.5 border-none px-3 py-2 text-left text-sm transition-colors ${
-                              i === suggestHighlight ? "bg-[#eef4ff]" : "bg-transparent hover:bg-[#f5f6f7]"
+                              i === suggestHighlight ? "bg-cw-primary-tint" : "bg-transparent hover:bg-cw-bg-sunken"
                             }`}
                           >
                             <span className="inline-flex w-[22px] flex-none items-center justify-center">
@@ -765,17 +765,17 @@ function AIPSearchPageInner() {
                                   alt=""
                                   width={22}
                                   height={16}
-                                  className="rounded-sm border border-[#e6e7ea] object-cover"
+                                  className="rounded-sm border border-cw-border object-cover"
                                 />
                               ) : (
-                                <GlobeIcon className="size-4 text-[#9aa0a8]" />
+                                <GlobeIcon className="size-4 text-cw-text-muted" />
                               )}
                             </span>
-                            <PMono className="whitespace-nowrap text-[13.5px] font-semibold text-[#17181c]">
+                            <PMono className="whitespace-nowrap text-[13.5px] font-semibold text-cw-text">
                               {s.icao}
                             </PMono>
-                            <span className="min-w-0 flex-1 truncate text-[#3a3d44]">{s.name}</span>
-                            <span className="flex-none text-xs text-[#9aa0a8]">{s.country}</span>
+                            <span className="min-w-0 flex-1 truncate text-cw-text-body">{s.name}</span>
+                            <span className="flex-none text-xs text-cw-text-muted">{s.country}</span>
                           </button>
                         );
                       })}
@@ -806,33 +806,33 @@ function AIPSearchPageInner() {
               </div>
 
               {loading && (
-                <p className="mt-4 flex items-center gap-2 text-sm text-[#6c7079]">
+                <p className="mt-4 flex items-center gap-2 text-sm text-cw-text-muted">
                   <Spinner className="size-4 shrink-0" />
                   Searching…
                 </p>
               )}
 
               {!loading && hasSearched && (
-                <div className="mt-4 space-y-3 border-t border-[#eef0f2] pt-4">
+                <div className="mt-4 space-y-3 border-t border-cw-divider pt-4">
                   {error && (
-                    <p className="text-sm text-[#e5484d]">{error}</p>
+                    <p className="text-sm text-cw-danger-text">{error}</p>
                   )}
                   {!error && results === null && (
-                    <p className="text-sm text-[#6c7079]">Search failed. Try again.</p>
+                    <p className="text-sm text-cw-text-muted">Search failed. Try again.</p>
                   )}
                   {!error && results !== null && results.length === 0 && (
-                    <p className="text-sm text-[#6c7079]">
+                    <p className="text-sm text-cw-text-muted">
                       No airports found. Try ICAO (e.g. OIAA), airport name, or country.
                     </p>
                   )}
                   {!error && results !== null && results.length === 1 && (
-                    <p className="py-1 text-xs font-semibold uppercase tracking-wider text-[#9aa0a8]">
+                    <p className="py-1 text-xs font-semibold uppercase tracking-wider text-cw-text-muted">
                       1 result — AIP data below
                     </p>
                   )}
                   {!error && results !== null && results.length > 1 && (
                     <div className="space-y-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-[#9aa0a8]">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-cw-text-muted">
                         {results.length} airports — switch tab to view
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
@@ -841,12 +841,12 @@ function AIPSearchPageInner() {
                           return (
                             <div
                               key={`${airport.icao}-${airport.country}`}
-                              className="flex items-center overflow-hidden rounded-[10px] border border-[#e6e7ea] bg-white transition-colors hover:bg-[#f5f6f7]"
+                              className="flex items-center overflow-hidden rounded-[10px] border border-cw-border bg-cw-bg-surface transition-colors hover:bg-cw-bg-sunken"
                             >
                               <button
                                 type="button"
                                 onClick={() => router.push(`/aip/${airport.icao}`)}
-                                className="flex min-w-0 cursor-pointer items-center gap-2 border-none bg-transparent px-3 py-2 font-mono text-sm font-semibold text-[#17181c]"
+                                className="flex min-w-0 cursor-pointer items-center gap-2 border-none bg-transparent px-3 py-2 font-mono text-sm font-semibold text-cw-text"
                               >
                                 <span className="inline-flex w-[22px] flex-none items-center justify-center">
                                   {flagUrl ? (
@@ -855,10 +855,10 @@ function AIPSearchPageInner() {
                                       alt=""
                                       width={22}
                                       height={16}
-                                      className="rounded-sm border border-[#e6e7ea] object-cover"
+                                      className="rounded-sm border border-cw-border object-cover"
                                     />
                                   ) : (
-                                    <GlobeIcon className="size-4 text-[#9aa0a8]" />
+                                    <GlobeIcon className="size-4 text-cw-text-muted" />
                                   )}
                                 </span>
                                 <span className="whitespace-nowrap">{airport.icao}</span>
@@ -870,7 +870,7 @@ function AIPSearchPageInner() {
                                   const next = results.filter((_, j) => j !== i);
                                   setResults(next.length ? next : []);
                                 }}
-                                className="shrink-0 cursor-pointer rounded-sm border-none bg-transparent p-2 text-[#9aa0a8] hover:bg-[#f0f1f3] hover:text-[#e5484d]"
+                                className="shrink-0 cursor-pointer rounded-sm border-none bg-transparent p-2 text-cw-text-muted hover:bg-cw-bg-hover hover:text-cw-danger-text"
                                 title="Close tab"
                               >
                                 <XIcon className="size-4" />
@@ -888,7 +888,7 @@ function AIPSearchPageInner() {
             {/* Browse wizard */}
             {browseMenuOpen && (
               <PCard className="mb-6 overflow-hidden">
-                <div className="border-b border-[#eef0f2] px-5 pb-4 pt-[18px]">
+                <div className="border-b border-cw-divider px-5 pb-4 pt-[18px]">
                   <div className="mb-3 flex flex-wrap items-center gap-3.5">
                     {(regionHasUSA
                       ? ([[1, "Region"], [2, "Country"], [3, "State"], [4, "Aerodromes"]] as const)
@@ -897,24 +897,24 @@ function AIPSearchPageInner() {
                       <div key={n} className="flex items-center gap-2">
                         <span
                           className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-xs font-bold ${
-                            browseStep >= n ? "bg-[#2563eb] text-white" : "bg-[#eef0f2] text-[#9aa0a8]"
+                            browseStep >= n ? "bg-cw-primary text-cw-text-on-primary" : "bg-cw-bg-hover text-cw-text-muted"
                           }`}
                         >
                           {n}
                         </span>
-                        <span className={`text-[13.5px] ${browseStep === n ? "font-bold text-[#17181c]" : "font-medium text-[#9aa0a8]"}`}>
+                        <span className={`text-[13.5px] ${browseStep === n ? "font-bold text-cw-text" : "font-medium text-cw-text-muted"}`}>
                           {label}
                         </span>
                       </div>
                     ))}
                     <div className="flex-1" />
-                    <PMono className="text-[12.5px] text-[#9aa0a8]">
+                    <PMono className="text-[12.5px] text-cw-text-muted">
                       STEP {browseStep} / {regionHasUSA ? 4 : 3}
                     </PMono>
                   </div>
-                  <div className="h-[5px] overflow-hidden rounded-full bg-[#eef0f2]">
+                  <div className="h-[5px] overflow-hidden rounded-full bg-cw-bg-hover">
                     <div
-                      className="h-full rounded-full bg-[#2563eb] transition-all duration-300"
+                      className="h-full rounded-full bg-cw-primary transition-all duration-300"
                       style={{ width: `${Math.min(100, (browseStep / (regionHasUSA ? 4 : 3)) * 100)}%` }}
                     />
                   </div>
@@ -923,8 +923,8 @@ function AIPSearchPageInner() {
                 {browseLoading ? (
                   <div className="space-y-3 px-5 py-6">
                     <div className="mb-2 flex items-center justify-center gap-3">
-                      <PlaneIcon className="size-6 text-[#2563eb] animate-fly" strokeWidth={1.8} aria-hidden />
-                      <p className="text-xs font-semibold uppercase tracking-wider text-[#6c7079]">
+                      <PlaneIcon className="size-6 text-cw-text-link animate-fly" strokeWidth={1.8} aria-hidden />
+                      <p className="text-xs font-semibold uppercase tracking-wider text-cw-text-muted">
                         {browseStep === 1 ? "Loading region…" : browseStep === 2 ? "Loading country…" : "Adding airports…"}
                       </p>
                     </div>
@@ -932,21 +932,21 @@ function AIPSearchPageInner() {
                       {BROWSE_LOADING_STEPS.map((step, i) => (
                         <div key={step.id} className="flex items-center gap-2 text-sm">
                           {i < browseLoadingStepIndex ? (
-                            <span className="text-[#2563eb]">✓</span>
+                            <span className="text-cw-text-link">✓</span>
                           ) : i === browseLoadingStepIndex ? (
-                            <Spinner className="size-3.5 text-[#2563eb]" />
+                            <Spinner className="size-3.5 text-cw-text-link" />
                           ) : (
-                            <span className="text-[#c3c7cd]">○</span>
+                            <span className="text-cw-text-muted">○</span>
                           )}
-                          <span className={i <= browseLoadingStepIndex ? "text-[#17181c]" : "text-[#9aa0a8]"}>
+                          <span className={i <= browseLoadingStepIndex ? "text-cw-text" : "text-cw-text-muted"}>
                             {step.label}
                           </span>
                         </div>
                       ))}
                     </div>
-                    <div className="mx-auto h-[5px] max-w-sm overflow-hidden rounded-full bg-[#eef0f2]">
+                    <div className="mx-auto h-[5px] max-w-sm overflow-hidden rounded-full bg-cw-bg-hover">
                       <div
-                        className="h-full rounded-full bg-[#2563eb] transition-all duration-300"
+                        className="h-full rounded-full bg-cw-primary transition-all duration-300"
                         style={{ width: `${((browseLoadingStepIndex + 1) / BROWSE_LOADING_STEPS.length) * 100}%` }}
                       />
                     </div>
@@ -954,11 +954,11 @@ function AIPSearchPageInner() {
                 ) : browseStep === 1 ? (
                   <div className="space-y-4 px-5 py-5">
                     <div className="space-y-2">
-                      <label htmlFor="browse-country-search" className="text-sm font-semibold text-[#17181c]">
+                      <label htmlFor="browse-country-search" className="text-sm font-semibold text-cw-text">
                         Find country
                       </label>
                       <div className="relative flex max-w-[420px] items-center">
-                        <SearchIcon className="pointer-events-none absolute left-3 size-4 text-[#9aa0a8]" aria-hidden />
+                        <SearchIcon className="pointer-events-none absolute left-3 size-4 text-cw-text-muted" aria-hidden />
                         <input
                           id="browse-country-search"
                           type="search"
@@ -973,21 +973,21 @@ function AIPSearchPageInner() {
                               applyBrowseCountrySelection(only.country, only.region);
                             }
                           }}
-                          className={`h-[42px] w-full rounded-[10px] border border-[#d6d8dc] bg-white pl-9 text-sm text-[#17181c] outline-none transition-colors focus:border-[#2563eb] ${browseCountrySearch.trim() ? "pr-9" : "pr-3"}`}
+                          className={`h-[42px] w-full rounded-[10px] border border-cw-border-control bg-cw-bg-surface pl-9 text-sm text-cw-text outline-none transition-colors focus:border-cw-primary ${browseCountrySearch.trim() ? "pr-9" : "pr-3"}`}
                           aria-describedby="browse-country-search-hint"
                         />
                         {browseCountrySearch.trim() ? (
                           <button
                             type="button"
                             aria-label="Clear country search"
-                            className="absolute right-2 cursor-pointer rounded border-none bg-transparent p-1 text-[#9aa0a8] hover:text-[#17181c]"
+                            className="absolute right-2 cursor-pointer rounded border-none bg-transparent p-1 text-cw-text-muted hover:text-cw-text"
                             onClick={() => setBrowseCountrySearch("")}
                           >
                             <XIcon className="size-4" />
                           </button>
                         ) : null}
                       </div>
-                      <p id="browse-country-search-hint" className="text-xs text-[#9aa0a8]">
+                      <p id="browse-country-search-hint" className="text-xs text-cw-text-muted">
                         {browseCountrySearch.trim()
                           ? "Pick a country below, or browse by region."
                           : "Or choose a region below to list countries."}
@@ -997,19 +997,19 @@ function AIPSearchPageInner() {
                       <div className="space-y-2">
                         <PSectionTitle>Matches</PSectionTitle>
                         {countrySearchMatches.length === 0 ? (
-                          <p className="py-2 text-sm text-[#6c7079]">No countries match.</p>
+                          <p className="py-2 text-sm text-cw-text-muted">No countries match.</p>
                         ) : (
                           <div
                             role="listbox"
                             aria-label="Country search results"
-                            className="max-h-[min(220px,40vh)] space-y-1 overflow-y-auto rounded-[10px] border border-[#e6e7ea] bg-white p-1.5"
+                            className="max-h-[min(220px,40vh)] space-y-1 overflow-y-auto rounded-[10px] border border-cw-border bg-cw-bg-surface p-1.5"
                           >
                             {countrySearchMatches.map(({ country, region }) => (
                               <button
                                 key={`${region}::${country}`}
                                 type="button"
                                 role="option"
-                                className="flex w-full cursor-pointer items-center gap-2 rounded-md border-none bg-transparent px-2 py-2 text-left text-sm transition-colors hover:bg-[#f5f6f7] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20"
+                                className="flex w-full cursor-pointer items-center gap-2 rounded-md border-none bg-transparent px-2 py-2 text-left text-sm transition-colors hover:bg-cw-bg-sunken focus:outline-none focus:ring-2 focus:ring-cw-primary/20"
                                 onClick={() => applyBrowseCountrySelection(country, region)}
                               >
                                 <span className="inline-flex w-[22px] flex-none items-center justify-center">
@@ -1024,22 +1024,22 @@ function AIPSearchPageInner() {
                                   ) : null}
                                 </span>
                                 <span className="min-w-0 flex-1 truncate font-semibold">{country}</span>
-                                <span className="shrink-0 text-xs text-[#9aa0a8]">{region}</span>
+                                <span className="shrink-0 text-xs text-cw-text-muted">{region}</span>
                               </button>
                             ))}
                           </div>
                         )}
                       </div>
                     ) : null}
-                    <div className={browseCountrySearch.trim() ? "space-y-3 border-t border-[#eef0f2] pt-4" : "space-y-3"}>
-                      <p className="text-sm font-semibold text-[#17181c]">Select region</p>
+                    <div className={browseCountrySearch.trim() ? "space-y-3 border-t border-cw-divider pt-4" : "space-y-3"}>
+                      <p className="text-sm font-semibold text-cw-text">Select region</p>
                       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
                         {regions.map((r) => (
                           <button
                             key={r.region}
                             type="button"
-                            className={`flex cursor-pointer items-center gap-3.5 rounded-xl border px-[18px] py-4 text-left transition-colors hover:border-[#2563eb] hover:bg-[#f8fbff] ${
-                              selectedRegion === r.region ? "border-[#2563eb] bg-[#f8fbff]" : "border-[#e6e7ea] bg-white"
+                            className={`flex cursor-pointer items-center gap-3.5 rounded-xl border px-[18px] py-4 text-left transition-colors hover:border-cw-primary hover:bg-cw-primary-tint ${
+                              selectedRegion === r.region ? "border-cw-primary bg-cw-primary-tint" : "border-cw-border bg-cw-bg-surface"
                             }`}
                             onClick={() => {
                               setBrowseCountrySearch("");
@@ -1049,9 +1049,9 @@ function AIPSearchPageInner() {
                               setBrowseStep(2);
                             }}
                           >
-                            <GlobeIcon className="size-5 shrink-0 text-[#2563eb]" />
+                            <GlobeIcon className="size-5 shrink-0 text-cw-text-link" />
                             <span className="flex-1 text-[15px] font-bold">{r.region}</span>
-                            <ChevronRightIcon className="size-4 shrink-0 text-[#c3c7cd]" />
+                            <ChevronRightIcon className="size-4 shrink-0 text-cw-text-muted" />
                           </button>
                         ))}
                       </div>
@@ -1062,7 +1062,7 @@ function AIPSearchPageInner() {
                 {!browseLoading && browseStep === 2 && (
                   <div className="space-y-4 px-5 py-5">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-[#17181c]">Select country</p>
+                      <p className="text-sm font-semibold text-cw-text">Select country</p>
                       <PButton
                         type="button"
                         variant="quiet"
@@ -1075,14 +1075,14 @@ function AIPSearchPageInner() {
                         ← Back
                       </PButton>
                     </div>
-                    <p className="text-xs text-[#9aa0a8]">{selectedRegion}</p>
+                    <p className="text-xs text-cw-text-muted">{selectedRegion}</p>
                     <div className="grid max-h-[260px] grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-2 overflow-y-auto pr-1">
                       {countriesInRegion.map((c) => (
                         <button
                           key={c}
                           type="button"
-                          className={`flex cursor-pointer items-center gap-3 rounded-[10px] border px-3.5 py-[11px] text-left transition-colors hover:border-[#2563eb] hover:bg-[#f8fbff] ${
-                            selectedCountry === c ? "border-[#2563eb] bg-[#f8fbff]" : "border-[#e6e7ea] bg-white"
+                          className={`flex cursor-pointer items-center gap-3 rounded-[10px] border px-3.5 py-[11px] text-left transition-colors hover:border-cw-primary hover:bg-cw-primary-tint ${
+                            selectedCountry === c ? "border-cw-primary bg-cw-primary-tint" : "border-cw-border bg-cw-bg-surface"
                           }`}
                           onClick={() => {
                             setBrowseSelectedCountry(c);
@@ -1101,7 +1101,7 @@ function AIPSearchPageInner() {
                             )}
                           </span>
                           <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold">{c}</span>
-                          <ChevronRightIcon className="size-4 shrink-0 text-[#c3c7cd]" />
+                          <ChevronRightIcon className="size-4 shrink-0 text-cw-text-muted" />
                         </button>
                       ))}
                     </div>
@@ -1111,19 +1111,19 @@ function AIPSearchPageInner() {
                 {!browseLoading && browseStep === 3 && isUSABrowse && (
                   <div className="space-y-4 px-5 py-5">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-[#17181c]">Select state or territory</p>
+                      <p className="text-sm font-semibold text-cw-text">Select state or territory</p>
                       <PButton type="button" variant="quiet" size="sm" onClick={() => setBrowseStep(2)}>
                         ← Back
                       </PButton>
                     </div>
-                    <p className="text-xs text-[#9aa0a8]">{selectedRegion} → {browseSelectedCountry}</p>
+                    <p className="text-xs text-cw-text-muted">{selectedRegion} → {browseSelectedCountry}</p>
                     <div className="grid max-h-[260px] grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-2 overflow-y-auto pr-1">
                       {usaStates.map((stateName) => (
                         <button
                           key={stateName}
                           type="button"
-                          className={`flex cursor-pointer items-center gap-2.5 rounded-[10px] border px-3.5 py-[11px] text-left transition-colors hover:border-[#2563eb] hover:bg-[#f8fbff] ${
-                            browseSelectedState === stateName ? "border-[#2563eb] bg-[#f8fbff]" : "border-[#e6e7ea] bg-white"
+                          className={`flex cursor-pointer items-center gap-2.5 rounded-[10px] border px-3.5 py-[11px] text-left transition-colors hover:border-cw-primary hover:bg-cw-primary-tint ${
+                            browseSelectedState === stateName ? "border-cw-primary bg-cw-primary-tint" : "border-cw-border bg-cw-bg-surface"
                           }`}
                           onClick={() => {
                             setBrowseSelectedState(stateName);
@@ -1131,10 +1131,10 @@ function AIPSearchPageInner() {
                           }}
                         >
                           {USA_STATE_ABBR[stateName] ? (
-                            <PMono className="shrink-0 text-xs text-[#9aa0a8]">({USA_STATE_ABBR[stateName]})</PMono>
+                            <PMono className="shrink-0 text-xs text-cw-text-muted">({USA_STATE_ABBR[stateName]})</PMono>
                           ) : null}
                           <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold">{stateName}</span>
-                          <ChevronRightIcon className="size-4 shrink-0 text-[#c3c7cd]" />
+                          <ChevronRightIcon className="size-4 shrink-0 text-cw-text-muted" />
                         </button>
                       ))}
                     </div>
@@ -1143,10 +1143,10 @@ function AIPSearchPageInner() {
 
                 {!browseLoading && (browseStep === 3 && !isUSABrowse || browseStep === 4) && (
                   <div>
-                    <div className="flex flex-wrap items-center gap-3 border-b border-[#eef0f2] px-5 py-4">
+                    <div className="flex flex-wrap items-center gap-3 border-b border-cw-divider px-5 py-4">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#17181c]">Select airport(s)</p>
-                        <p className="mt-0.5 text-xs text-[#9aa0a8]">
+                        <p className="text-sm font-semibold text-cw-text">Select airport(s)</p>
+                        <p className="mt-0.5 text-xs text-cw-text-muted">
                           {browseStep === 4
                             ? `${selectedRegion} → ${browseSelectedCountry} → ${browseSelectedState} · Click to toggle, then Done`
                             : `${selectedRegion} → ${browseSelectedCountry} · Click to toggle, then Done`}
@@ -1166,7 +1166,7 @@ function AIPSearchPageInner() {
                     <div className="max-h-[320px] overflow-y-auto px-5 py-2">
                       {loadingCountry ? (
                         <div className="flex items-center justify-center py-8">
-                          <Spinner className="size-6 text-[#2563eb]" />
+                          <Spinner className="size-6 text-cw-text-link" />
                         </div>
                       ) : browseCountryAirports.length > 0 ? (
                         browseCountryAirports.map((airport) => {
@@ -1194,13 +1194,13 @@ function AIPSearchPageInner() {
                                   );
                                 }
                               }}
-                              className="flex w-full cursor-pointer items-center gap-3.5 border-b border-[#f2f3f5] px-1 py-3 text-left last:border-b-0 focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20"
+                              className="flex w-full cursor-pointer items-center gap-3.5 border-b border-cw-divider px-1 py-3 text-left last:border-b-0 focus:outline-none focus:ring-2 focus:ring-cw-primary/20"
                             >
                               <span
                                 className={`flex h-5 w-5 flex-none items-center justify-center rounded-[6px] border text-xs font-medium transition-colors ${
                                   isSelected
-                                    ? "border-[#2563eb] bg-[#2563eb] text-white"
-                                    : "border-[#d6d8dc] bg-white"
+                                    ? "border-cw-primary bg-cw-primary text-cw-text-on-primary"
+                                    : "border-cw-border-control bg-cw-bg-surface"
                                 }`}
                               >
                                 {isSelected ? "✓" : ""}
@@ -1216,16 +1216,16 @@ function AIPSearchPageInner() {
                                   />
                                 )}
                               </span>
-                              <PMono className="w-16 flex-none whitespace-nowrap text-[14.5px] font-semibold text-[#17181c]">
+                              <PMono className="w-16 flex-none whitespace-nowrap text-[14.5px] font-semibold text-cw-text">
                                 {airport.icao}
                               </PMono>
-                              <span className="min-w-0 flex-1 truncate text-[14.5px] text-[#3a3d44]">
+                              <span className="min-w-0 flex-1 truncate text-[14.5px] text-cw-text-body">
                                 {airport.name}
                               </span>
                               <button
                                 type="button"
                                 aria-label={`Hide ${airport.icao}`}
-                                className="flex h-[30px] w-[30px] flex-none cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-[#9aa0a8] hover:bg-[#fdecec] hover:text-[#e5484d] disabled:opacity-50"
+                                className="flex h-[30px] w-[30px] flex-none cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-cw-text-muted hover:bg-cw-danger-tint hover:text-cw-danger-text disabled:opacity-50"
                                 disabled={isDeleting}
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -1239,14 +1239,14 @@ function AIPSearchPageInner() {
                           );
                         })
                       ) : (
-                        <p className="py-4 text-center text-sm text-[#6c7079]">
+                        <p className="py-4 text-center text-sm text-cw-text-muted">
                           No airports found for this country.
                         </p>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-3.5 border-t border-[#eef0f2] bg-[#fbfbfc] px-5 py-4">
-                      <span className="text-sm text-[#6c7079]">
-                        <strong className="font-bold text-[#17181c]">{browseSelection.length} selected</strong>
+                    <div className="flex flex-wrap items-center gap-3.5 border-t border-cw-divider bg-cw-bg-page px-5 py-4">
+                      <span className="text-sm text-cw-text-muted">
+                        <strong className="font-bold text-cw-text">{browseSelection.length} selected</strong>
                       </span>
                       <div className="flex-1" />
                       <PButton
@@ -1301,11 +1301,11 @@ function AIPSearchPageInner() {
               <div>
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-[17px] font-bold">Recently opened</h2>
-                  <span className="text-[13px] text-[#9aa0a8]">Stored on this device</span>
+                  <span className="text-[13px] text-cw-text-muted">Stored on this device</span>
                 </div>
                 <PCard className="overflow-x-auto">
                   <div className="min-w-[680px]">
-                    <div className="grid grid-cols-[110px_1.6fr_1fr_150px_90px] items-center border-b border-[#eef0f2] bg-[#fbfbfc] px-[18px] py-[11px]">
+                    <div className="grid grid-cols-[110px_1.6fr_1fr_150px_90px] items-center border-b border-cw-divider bg-cw-bg-page px-[18px] py-[11px]">
                       <PTh>ICAO</PTh>
                       <PTh>AERODROME</PTh>
                       <PTh>COUNTRY</PTh>
@@ -1324,7 +1324,7 @@ function AIPSearchPageInner() {
                             router.push(`/aip/${r.icao}`);
                           }
                         }}
-                        className="grid cursor-pointer grid-cols-[110px_1.6fr_1fr_150px_90px] items-center border-b border-[#f2f3f5] px-[18px] py-[13px] last:border-b-0 hover:bg-[#f8fafc] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20"
+                        className="grid cursor-pointer grid-cols-[110px_1.6fr_1fr_150px_90px] items-center border-b border-cw-divider px-[18px] py-[13px] last:border-b-0 hover:bg-cw-bg-sunken focus:outline-none focus:ring-2 focus:ring-cw-primary/20"
                       >
                         <div className="flex items-center gap-2">
                           <span className="inline-flex w-[22px] flex-none items-center justify-center">
@@ -1334,23 +1334,23 @@ function AIPSearchPageInner() {
                                 alt=""
                                 width={22}
                                 height={16}
-                                className="rounded-sm border border-[#e6e7ea] object-cover"
+                                className="rounded-sm border border-cw-border object-cover"
                               />
                             ) : (
-                              <GlobeIcon className="size-4 text-[#9aa0a8]" />
+                              <GlobeIcon className="size-4 text-cw-text-muted" />
                             )}
                           </span>
                           <PMono className="whitespace-nowrap text-[14.5px] font-semibold">{r.icao}</PMono>
                         </div>
-                        <div className="truncate pr-3 text-sm text-[#17181c]">{r.name}</div>
-                        <div className="truncate pr-3 text-sm text-[#6c7079]">{r.country}</div>
-                        <PMono className="text-[12.5px] text-[#9aa0a8]">{formatRecentTimestamp(r.ts)}</PMono>
+                        <div className="truncate pr-3 text-sm text-cw-text">{r.name}</div>
+                        <div className="truncate pr-3 text-sm text-cw-text-muted">{r.country}</div>
+                        <PMono className="text-[12.5px] text-cw-text-muted">{formatRecentTimestamp(r.ts)}</PMono>
                         <div className="flex justify-end">
                           <PButton
                             type="button"
                             variant="secondary"
                             size="sm"
-                            className="text-[#1d4ed8]"
+                            className="text-cw-text-link"
                             onClick={(e) => {
                               e.stopPropagation();
                               router.push(`/aip/${r.icao}`);
@@ -1381,8 +1381,8 @@ export default function AIPSearchPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen w-full items-center justify-center bg-[#f5f6f7]">
-          <div className="text-sm text-[#6c7079]">Loading…</div>
+        <div className="flex h-screen w-full items-center justify-center bg-cw-bg-sunken">
+          <div className="text-sm text-cw-text-muted">Loading…</div>
         </div>
       }
     >

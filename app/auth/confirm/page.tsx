@@ -139,13 +139,13 @@ function ConfirmEmailContent() {
         <AuthAlert tone="info">Validating your confirmation link…</AuthAlert>
       ) : error && !confirmedEmail ? (
         <div style={{ textAlign: "center" }}>
-          <MessageIcon icon={AlertTriangle} bg="#fdecec" color="#e5484d" />
+          <MessageIcon icon={AlertTriangle} bg="var(--cw-danger-tint)" color="var(--cw-danger-text)" />
           <AuthHeading center title="Link problem" sub={error} />
           <AuthButton onClick={() => router.push("/signup")}>Back to sign up</AuthButton>
         </div>
       ) : (
         <>
-          <MessageIcon icon={KeyRound} bg="#ede9fe" color="#6d28d9" />
+          <MessageIcon icon={KeyRound} bg="var(--cw-diff-tint)" color="var(--cw-diff-text)" />
           <AuthHeading title="Set your password" sub="Create a password to finish setting up your account." />
           {error && <AuthAlert>{error}</AuthAlert>}
           {info && <AuthAlert tone="info">{info}</AuthAlert>}
@@ -174,11 +174,11 @@ function ConfirmEmailContent() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             bottom={
               match ? (
-                <div style={{ fontSize: 11.5, color: "#15803d", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ fontSize: 11.5, color: "var(--cw-success-text)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
                   <Check size={13} />Passwords match
                 </div>
               ) : mismatch ? (
-                <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ fontSize: 11.5, color: "var(--cw-warning-text)", marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
                   <AlertTriangle size={13} />Passwords don&rsquo;t match yet
                 </div>
               ) : null

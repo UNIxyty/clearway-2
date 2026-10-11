@@ -1,7 +1,5 @@
 "use client";
 
-import { C } from "../ui/tokens";
-
 // /agent/doc — the viewer on its own page, for hosts that cannot overlay it
 // (the wall console frames the panel; a citation there hands off here). Opens
 // with the panel closed and "Ask about this document" in the header.
@@ -11,6 +9,7 @@ import { useSearchParams } from "next/navigation";
 import PortalShell from "@/components/portal/Shell";
 import { fetchDocRef, useViewer } from "./ViewerContext";
 import type { DocRef } from "./types";
+import { cw } from "@/lib/portal-tokens";
 
 function Opener() {
   const params = useSearchParams();
@@ -39,8 +38,8 @@ function Opener() {
       if (ref) v.openDocument(ref, { page, panelClosed: true, from: "Chat", citation: span ? (params.get("verbatim") === "1" ? { k: 1, page, span: null, verbatim: { text: span, recordId: params.get("record") } } : { k: 1, page, span, revision: params.get("citedRevision") ? { state: "superseded", label: String(params.get("citedRevision")), revision: String(params.get("citedRevision")) } : null }) : null });
     })();
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (missing && !v.open) return <div role="alert" style={{ padding: 32, fontSize: 14, color: C.muted }}>This document could not be opened. It may not exist any more, or your account cannot see it — the agent&apos;s documents need OPS agent access.</div>;
-  return <div style={{ padding: 32, fontSize: 14, color: C.muted }}>{v.open ? "" : "Opening the document…"}</div>;
+  if (missing && !v.open) return <div role="alert" style={{ padding: 32, fontSize: 14, color: cw.textMuted }}>This document could not be opened. It may not exist any more, or your account cannot see it — the agent&apos;s documents need OPS agent access.</div>;
+  return <div style={{ padding: 32, fontSize: 14, color: cw.textMuted }}>{v.open ? "" : "Opening the document…"}</div>;
 }
 
 export default function StandaloneDocument() {

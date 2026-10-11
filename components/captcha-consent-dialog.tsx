@@ -20,10 +20,10 @@ export function CaptchaConsentDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-xl rounded-lg border bg-background p-5 shadow-xl">
+    <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-cw-ink/50 p-4">
+      <div className="w-full max-w-xl rounded-lg border bg-cw-bg-page p-5 shadow-xl">
         <h2 className="text-lg font-semibold">Captcha verification required</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-cw-text-muted">
           {country || "This country"} uses reCAPTCHA and may require manual verification.
           Wait for automatic solve, or press the captcha checkbox in the popup if prompted.
           The popup closes automatically when verification is complete.

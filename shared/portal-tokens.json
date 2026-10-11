@@ -1,0 +1,525 @@
+{
+ "$comment": "Clearway portal tokens (from the Claude Design project, shared/design-tokens.json there; renamed here because the repo's shared/design-tokens.json is the Digital Wall's). Each token has a light and a dark value chosen for its theme. The Digital Wall's per-account colour and font settings are a separate system and are NOT in this file. Tokens after 'knob' were added in the build (the agent UI and document viewer needed them); each says so in 'use'.",
+ "prefix": "--cw-",
+ "color-scheme": {
+  "light": "light",
+  "dark": "dark"
+ },
+ "tokens": {
+  "bg-page": {
+   "light": "#fbfbfc",
+   "dark": "#0d1015",
+   "use": "Page background"
+  },
+  "bg-surface": {
+   "light": "#ffffff",
+   "dark": "#14181e",
+   "use": "Cards, tables, panels"
+  },
+  "bg-raised": {
+   "light": "#ffffff",
+   "dark": "#1a1f27",
+   "use": "Menus, popovers, modals, toasts"
+  },
+  "bg-sunken": {
+   "light": "#f5f6f7",
+   "dark": "#101318",
+   "use": "Table header, read-only fields, inset blocks"
+  },
+  "bg-sidebar": {
+   "light": "#f5f6f7",
+   "dark": "#101318",
+   "use": "Sidebar, agent panel header"
+  },
+  "bg-hover": {
+   "light": "#f0f1f3",
+   "dark": "#1c2129",
+   "use": "Row and quiet-button hover"
+  },
+  "bg-active": {
+   "light": "#e9ebee",
+   "dark": "#232a34",
+   "use": "Pressed, active nav item"
+  },
+  "bg-selected": {
+   "light": "#eef4ff",
+   "dark": "#15213a",
+   "use": "Selected row, active filter chip"
+  },
+  "bg-scrim": {
+   "light": "rgba(16,18,22,.40)",
+   "dark": "rgba(0,0,0,.60)",
+   "use": "Behind modals and the narrow-screen drawer"
+  },
+  "text": {
+   "light": "#17181c",
+   "dark": "#eceef2",
+   "use": "Headings, primary text"
+  },
+  "text-body": {
+   "light": "#3a3d44",
+   "dark": "#c3c8d0",
+   "use": "Body copy, table cells"
+  },
+  "text-muted": {
+   "light": "#5f646d",
+   "dark": "#959ca8",
+   "use": "Descriptions, meta, column headers"
+  },
+  "text-placeholder": {
+   "light": "#676c75",
+   "dark": "#8c93a0",
+   "use": "Input placeholders (surface and sunken only)"
+  },
+  "text-disabled": {
+   "light": "#a3a8b0",
+   "dark": "#5b626d",
+   "use": "Disabled labels (exempt from AA)"
+  },
+  "text-on-primary": {
+   "light": "#ffffff",
+   "dark": "#ffffff",
+   "use": "Text on primary and danger-solid"
+  },
+  "text-link": {
+   "light": "#1d4ed8",
+   "dark": "#86aefc",
+   "use": "Links, blue text, primary as text"
+  },
+  "border": {
+   "light": "#e6e7ea",
+   "dark": "#252b34",
+   "use": "Card and table outlines"
+  },
+  "border-control": {
+   "light": "#d6d8dc",
+   "dark": "#333a45",
+   "use": "Inputs, secondary buttons"
+  },
+  "border-strong": {
+   "light": "#b9bec6",
+   "dark": "#4a5260",
+   "use": "Control hover border"
+  },
+  "divider": {
+   "light": "#eef0f2",
+   "dark": "#1e232b",
+   "use": "Row and section dividers"
+  },
+  "primary": {
+   "light": "#2563eb",
+   "dark": "#2563eb",
+   "use": "Primary button fill, checked controls"
+  },
+  "primary-hover": {
+   "light": "#1d4ed8",
+   "dark": "#1d4ed8",
+   "use": "Primary hover"
+  },
+  "primary-active": {
+   "light": "#1e40af",
+   "dark": "#1e40af",
+   "use": "Primary pressed"
+  },
+  "primary-tint": {
+   "light": "#eef4ff",
+   "dark": "#15213a",
+   "use": "Info callouts, selected"
+  },
+  "primary-tint-border": {
+   "light": "#c9daff",
+   "dark": "#24396a",
+   "use": "Border on primary tint"
+  },
+  "focus": {
+   "light": "#2563eb",
+   "dark": "#6c9cff",
+   "use": "Focus ring 2px"
+  },
+  "focus-halo": {
+   "light": "rgba(37,99,235,.18)",
+   "dark": "rgba(108,156,255,.28)",
+   "use": "Focus halo 3px outside ring"
+  },
+  "disabled-bg": {
+   "light": "#f0f1f3",
+   "dark": "#1c2129",
+   "use": "Disabled control fill"
+  },
+  "disabled-border": {
+   "light": "#e6e7ea",
+   "dark": "#252b34",
+   "use": "Disabled control border"
+  },
+  "success": {
+   "light": "#16a34a",
+   "dark": "#22c55e",
+   "use": "Dots, icons, toggle on"
+  },
+  "success-text": {
+   "light": "#13773a",
+   "dark": "#5bd08a",
+   "use": "Success text"
+  },
+  "success-tint": {
+   "light": "#e7f6ec",
+   "dark": "#10251a",
+   "use": "Success badge/callout fill"
+  },
+  "success-border": {
+   "light": "#c7ead2",
+   "dark": "#1d4a2f",
+   "use": "Success callout border"
+  },
+  "warning": {
+   "light": "#d97706",
+   "dark": "#f59e0b",
+   "use": "Dots, icons"
+  },
+  "warning-text": {
+   "light": "#a14a07",
+   "dark": "#f0b252",
+   "use": "Warning text, hard-to-undo"
+  },
+  "warning-tint": {
+   "light": "#fef3e2",
+   "dark": "#2a1e0d",
+   "use": "Warning fill"
+  },
+  "warning-border": {
+   "light": "#f6ddb0",
+   "dark": "#5a4012",
+   "use": "Warning border"
+  },
+  "danger": {
+   "light": "#e5484d",
+   "dark": "#f05a5f",
+   "use": "Dots, icons, error border"
+  },
+  "danger-text": {
+   "light": "#b91c1c",
+   "dark": "#ff8f8f",
+   "use": "Error text, destructive quiet"
+  },
+  "danger-tint": {
+   "light": "#fdecec",
+   "dark": "#2e1517",
+   "use": "Error fill"
+  },
+  "danger-border": {
+   "light": "#f7cfd0",
+   "dark": "#5c2427",
+   "use": "Error callout border"
+  },
+  "danger-solid": {
+   "light": "#dc2626",
+   "dark": "#dc2626",
+   "use": "Destructive button fill"
+  },
+  "danger-solid-hover": {
+   "light": "#b91c1c",
+   "dark": "#b91c1c",
+   "use": "Destructive hover"
+  },
+  "info": {
+   "light": "#0284c7",
+   "dark": "#38bdf8",
+   "use": "Dots, icons"
+  },
+  "info-text": {
+   "light": "#0369a1",
+   "dark": "#62c3f5",
+   "use": "Info text"
+  },
+  "info-tint": {
+   "light": "#e0f2fe",
+   "dark": "#0d2230",
+   "use": "Info fill"
+  },
+  "info-border": {
+   "light": "#bae3fb",
+   "dark": "#17435c",
+   "use": "Info border"
+  },
+  "orange": {
+   "light": "#ea8a4e",
+   "dark": "#f08a4b",
+   "use": "Dots: in work, NOTAM restriction"
+  },
+  "orange-text": {
+   "light": "#a8460f",
+   "dark": "#f6a26f",
+   "use": "Orange text"
+  },
+  "orange-tint": {
+   "light": "#fdf1e8",
+   "dark": "#2c1a10",
+   "use": "Orange fill"
+  },
+  "neutral": {
+   "light": "#9aa0a8",
+   "dark": "#6b7380",
+   "use": "Dots: not checked, info NOTAM"
+  },
+  "neutral-text": {
+   "light": "#475569",
+   "dark": "#a9b3c2",
+   "use": "Neutral badge text"
+  },
+  "neutral-tint": {
+   "light": "#eef1f5",
+   "dark": "#1e242d",
+   "use": "Neutral badge fill"
+  },
+  "diff": {
+   "light": "#7c3aed",
+   "dark": "#a78bfa",
+   "use": "Changed-from-default marker"
+  },
+  "diff-text": {
+   "light": "#6d28d9",
+   "dark": "#b9a2ff",
+   "use": "Changed-from-default text"
+  },
+  "diff-tint": {
+   "light": "#f3effe",
+   "dark": "#211a38",
+   "use": "Changed cell fill"
+  },
+  "diff-border": {
+   "light": "#d9ccfb",
+   "dark": "#3d2f70",
+   "use": "Changed cell border"
+  },
+  "ink": {
+   "light": "#17181c",
+   "dark": "#eceef2",
+   "use": "Inverse fill: Developer badge, active segmented, tooltip"
+  },
+  "on-ink": {
+   "light": "#ffffff",
+   "dark": "#14181e",
+   "use": "Text on ink"
+  },
+  "skeleton": {
+   "light": "#eceef1",
+   "dark": "#1c2129",
+   "use": "Skeleton block"
+  },
+  "skeleton-shine": {
+   "light": "#f6f7f8",
+   "dark": "#252b34",
+   "use": "Skeleton shimmer highlight"
+  },
+  "shadow-1": {
+   "light": "0 1px 2px rgba(16,18,22,.05)",
+   "dark": "0 1px 2px rgba(0,0,0,.40)",
+   "use": "Cards"
+  },
+  "shadow-2": {
+   "light": "0 1px 2px rgba(16,18,22,.04), 0 12px 28px rgba(16,18,22,.08)",
+   "dark": "0 1px 2px rgba(0,0,0,.30), 0 12px 28px rgba(0,0,0,.35)",
+   "use": "Sticky header, agent panel"
+  },
+  "shadow-pop": {
+   "light": "0 4px 12px rgba(16,18,22,.08), 0 24px 48px rgba(16,18,22,.14)",
+   "dark": "0 4px 12px rgba(0,0,0,.40), 0 24px 48px rgba(0,0,0,.50)",
+   "use": "Menus, modals, toasts"
+  },
+  "show-light": {
+   "light": "block",
+   "dark": "none",
+   "use": "Show element only in light (logo variants)"
+  },
+  "show-dark": {
+   "light": "none",
+   "dark": "block",
+   "use": "Show element only in dark (logo variants)"
+  },
+  "paper": {
+   "light": "#ffffff",
+   "dark": "#ffffff",
+   "use": "PDF page in the document viewer — paper stays white in both themes"
+  },
+  "paper-rule": {
+   "light": "#d6d8dc",
+   "dark": "#c9cdd3",
+   "use": "Placeholder rules on the PDF page while it renders"
+  },
+  "paper-ink": {
+   "light": "#17181c",
+   "dark": "#17181c",
+   "use": "Text on the PDF page (paper)"
+  },
+  "knob": {
+   "light": "#ffffff",
+   "dark": "#ffffff",
+   "use": "Toggle knob"
+  },
+  "primary-wash": {
+   "light": "#dbeafe",
+   "dark": "#1b2c4f",
+   "use": "Added in build: Stronger blue fill: avatars, internal-source chips"
+  },
+  "orange-border": {
+   "light": "#f4d4b8",
+   "dark": "#5a3317",
+   "use": "Added in build: Orange callout border (stopped / in-work states)"
+  },
+  "viewer-canvas": {
+   "light": "#eceef1",
+   "dark": "#0a0c10",
+   "use": "Added in build: Behind the pages in the document viewer"
+  },
+  "paper-scan": {
+   "light": "#fbfaf6",
+   "dark": "#fbfaf6",
+   "use": "Added in build: A scanned PDF page (paper: same in both themes)"
+  },
+  "paper-match": {
+   "light": "#fef3c7",
+   "dark": "#fef3c7",
+   "use": "Added in build: Search match on the PDF page (paper)"
+  },
+  "paper-match-current": {
+   "light": "#fbbf24",
+   "dark": "#fbbf24",
+   "use": "Added in build: Current search match on the PDF page (paper)"
+  },
+  "cite-highlight": {
+   "light": "rgba(37,99,235,.12)",
+   "dark": "rgba(37,99,235,.12)",
+   "use": "Added in build: Cited passage highlighted on the PDF page (paper)"
+  },
+  "cite-outline": {
+   "light": "#93b4f5",
+   "dark": "#93b4f5",
+   "use": "Added in build: Outline of a cited passage on the PDF page (paper)"
+  },
+  "cite-claim": {
+   "light": "rgba(37,99,235,.10)",
+   "dark": "rgba(108,156,255,.16)",
+   "use": "Added in build: A cited claim in an agent answer"
+  },
+  "tier-internal-fg": {
+   "light": "#1d4ed8",
+   "dark": "#86aefc",
+   "use": "Added in build: Source tier Internal: text"
+  },
+  "tier-internal-bg": {
+   "light": "#dbeafe",
+   "dark": "#1b2c4f",
+   "use": "Added in build: Source tier Internal: chip fill"
+  },
+  "tier-internal-line": {
+   "light": "#93b4f5",
+   "dark": "#3d64b8",
+   "use": "Added in build: Source tier Internal: underline"
+  },
+  "tier-internal-strip": {
+   "light": "#2563eb",
+   "dark": "#6c9cff",
+   "use": "Added in build: Source tier Internal: strip"
+  },
+  "tier-company-fg": {
+   "light": "#6d28d9",
+   "dark": "#b9a2ff",
+   "use": "Added in build: Source tier Company: text"
+  },
+  "tier-company-bg": {
+   "light": "#ede9fe",
+   "dark": "#2a2148",
+   "use": "Added in build: Source tier Company: chip fill"
+  },
+  "tier-company-line": {
+   "light": "#c4b5fd",
+   "dark": "#5b4a99",
+   "use": "Added in build: Source tier Company: underline"
+  },
+  "tier-company-strip": {
+   "light": "#7c3aed",
+   "dark": "#a78bfa",
+   "use": "Added in build: Source tier Company: strip"
+  },
+  "tier-company-tint": {
+   "light": "#f5f3ff",
+   "dark": "#211a38",
+   "use": "Added in build: Source tier Company: quoted block fill"
+  },
+  "tier-company-border": {
+   "light": "#ddd6fe",
+   "dark": "#3d2f70",
+   "use": "Added in build: Source tier Company: quoted block border"
+  },
+  "tier-web-fg": {
+   "light": "#b45309",
+   "dark": "#f0b252",
+   "use": "Added in build: Source tier Web: text"
+  },
+  "tier-web-bg": {
+   "light": "#fef3e2",
+   "dark": "#2a1e0d",
+   "use": "Added in build: Source tier Web: chip fill"
+  },
+  "tier-web-line": {
+   "light": "#f3c77e",
+   "dark": "#7a5418",
+   "use": "Added in build: Source tier Web: underline"
+  },
+  "tier-web-claim": {
+   "light": "#fffaf0",
+   "dark": "#221a0e",
+   "use": "Added in build: Source tier Web: claim fill"
+  },
+  "tier-web-strip": {
+   "light": "#d97706",
+   "dark": "#f59e0b",
+   "use": "Added in build: Source tier Web: strip"
+  },
+  "tier-attachment-fg": {
+   "light": "#3a3d44",
+   "dark": "#c3c8d0",
+   "use": "Added in build: Source tier Attachment: text"
+  },
+  "tier-attachment-bg": {
+   "light": "#f0f1f3",
+   "dark": "#1c2129",
+   "use": "Added in build: Source tier Attachment: chip fill"
+  },
+  "tier-attachment-line": {
+   "light": "#c9cdd3",
+   "dark": "#4a5260",
+   "use": "Added in build: Source tier Attachment: underline"
+  },
+  "tier-attachment-strip": {
+   "light": "#6c7079",
+   "dark": "#959ca8",
+   "use": "Added in build: Source tier Attachment: strip"
+  },
+  "wall-accent": {
+   "light": "#6ea0ff",
+   "dark": "#6ea0ff",
+   "use": "Added in build: Voice waveform on the wall's dark surface (same in both themes)"
+  },
+  "shadow-panel": {
+   "light": "-18px 0 40px rgba(16,18,22,.10)",
+   "dark": "-18px 0 40px rgba(0,0,0,.45)",
+   "use": "Added in build: Agent panel overlaying the page (below 1280px)"
+  },
+  "night-a": {
+   "light": "#0a1330",
+   "dark": "#0a1330",
+   "use": "Added in build: Sign-in backdrop gradient, start (dark in both themes)"
+  },
+  "night-b": {
+   "light": "#132a63",
+   "dark": "#132a63",
+   "use": "Added in build: Sign-in backdrop gradient, middle"
+  },
+  "night-c": {
+   "light": "#0c1f4b",
+   "dark": "#0c1f4b",
+   "use": "Added in build: Sign-in backdrop gradient, end"
+  }
+ }
+}

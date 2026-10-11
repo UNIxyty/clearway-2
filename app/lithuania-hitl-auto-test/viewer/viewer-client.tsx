@@ -93,9 +93,9 @@ export default function LithuaniaHitlViewerClient({ noVncUrl, sessionId, closeOn
   }, [sessionId, shouldPoll]);
 
   return (
-    <div className="min-h-dvh bg-background px-4 py-6 md:px-6">
+    <div className="min-h-dvh bg-cw-bg-page px-4 py-6 md:px-6">
       <div className="mx-auto max-w-6xl space-y-6">
-        <button type="button" onClick={backToAirport} className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground cursor-pointer border-none bg-transparent p-0">
+        <button type="button" onClick={backToAirport} className="inline-flex items-center gap-2 text-sm text-cw-text-muted transition-colors hover:text-cw-text cursor-pointer border-none bg-transparent p-0">
           <ArrowLeftIcon className="size-4" />
           Back to the airport
         </button>
@@ -119,11 +119,11 @@ export default function LithuaniaHitlViewerClient({ noVncUrl, sessionId, closeOn
           </CardHeader>
           <CardContent className="space-y-4">
             {autoCloseNotice && (
-              <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm text-green-900 dark:text-green-200">
+              <div className="rounded-lg border border-cw-success/40 bg-cw-success/10 px-3 py-2 text-sm text-cw-success-text">
                 {autoCloseNotice}
               </div>
             )}
-            <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground md:grid-cols-2">
+            <div className="grid gap-3 rounded-lg border bg-cw-bg-hover/20 p-3 text-sm text-cw-text-muted md:grid-cols-2">
               <p>
                 Session: <span className="font-mono text-xs tabular-nums">{sessionId || "not provided"}</span>
               </p>
@@ -132,7 +132,7 @@ export default function LithuaniaHitlViewerClient({ noVncUrl, sessionId, closeOn
               </p>
             </div>
 
-            <div className="overflow-hidden rounded-xl border bg-card">
+            <div className="overflow-hidden rounded-xl border bg-cw-bg-surface">
               {hasValidViewer ? (
                 <iframe
                   src={noVncUrl}
@@ -143,9 +143,9 @@ export default function LithuaniaHitlViewerClient({ noVncUrl, sessionId, closeOn
               ) : (
                 <div className="flex min-h-[52dvh] items-center justify-center px-6 py-10 text-center">
                   <div className="max-w-md space-y-3">
-                    <MonitorIcon className="mx-auto size-8 text-muted-foreground" />
-                    <p className="font-medium text-foreground">Viewer is not ready</p>
-                    <p className="text-sm text-muted-foreground text-pretty">
+                    <MonitorIcon className="mx-auto size-8 text-cw-text-muted" />
+                    <p className="font-medium text-cw-text">Viewer is not ready</p>
+                    <p className="text-sm text-cw-text-muted text-pretty">
                       Start a session from the Lithuania HITL page first. The viewer opens automatically with a valid noVNC URL.
                     </p>
                   </div>

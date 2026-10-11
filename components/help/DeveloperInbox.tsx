@@ -227,42 +227,42 @@ export default function DeveloperInbox() {
     <button
       key={r.id}
       onClick={() => setSelectedId(r.id)}
-      className="flex w-full cursor-pointer gap-[11px] border-x-0 border-b border-t-0 border-solid border-[#f1f2f4] px-[18px] py-3 text-left"
+      className="flex w-full cursor-pointer gap-[11px] border-x-0 border-b border-t-0 border-solid border-cw-divider px-[18px] py-3 text-left"
       style={{
-        background: r.id === selectedId ? "#f2f7ff" : urgentRow ? (r.type === "urgent" ? "#fffafa" : "#fafffb") : "#fff",
+        background: r.id === selectedId ? "var(--cw-primary-tint)" : urgentRow ? (r.type === "urgent" ? "var(--cw-danger-tint)" : "var(--cw-success-tint)") : "var(--cw-bg-surface)",
       }}
     >
       <span
         className="flex h-8 w-8 flex-none items-center justify-center rounded-full font-mono text-[11px] font-bold"
         style={{
-          background: r.type === "urgent" ? "#fdf2f2" : r.type === "chat" ? "#e7f6ec" : r.unread ? "#e8effe" : "#f5f6f7",
-          color: r.type === "urgent" ? "#b42318" : r.type === "chat" ? "#15803d" : r.unread ? "#1d4ed8" : "#6c7079",
+          background: r.type === "urgent" ? "var(--cw-danger-tint)" : r.type === "chat" ? "var(--cw-success-tint)" : r.unread ? "var(--cw-primary-tint)" : "var(--cw-bg-sunken)",
+          color: r.type === "urgent" ? "var(--cw-danger-text)" : r.type === "chat" ? "var(--cw-success-text)" : r.unread ? "var(--cw-text-link)" : "var(--cw-text-muted)",
         }}
       >
         {initialsOf(r.userName || r.userEmail || "??")}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex items-center gap-[7px]">
-          <span className="text-[13.5px] text-cw-ink" style={{ fontWeight: r.unread ? 700 : 500 }}>
+          <span className="text-[13.5px] text-cw-text" style={{ fontWeight: r.unread ? 700 : 500 }}>
             {r.userName || r.userEmail || "Ops"}
           </span>
           <TypeChip type={r.type} size={18} />
           <span
             className="ml-auto font-mono text-[11px]"
-            style={urgentRow ? { color: "#e5484d", fontWeight: 700 } : { color: "#9aa0a8" }}
+            style={urgentRow ? { color: "var(--cw-danger-text)", fontWeight: 700 } : { color: "var(--cw-text-muted)" }}
           >
             {urgentRow ? `waiting ${ageOf(r.lastMessageAt)}` : ageOf(r.lastMessageAt)}
           </span>
         </span>
-        <span className="truncate text-[13px] leading-[1.4]" style={{ color: r.unread ? "#3a3d44" : "#9aa0a8" }}>
+        <span className="truncate text-[13px] leading-[1.4]" style={{ color: r.unread ? "var(--cw-text-body)" : "var(--cw-text-muted)" }}>
           {r.preview}
         </span>
         <span className="flex items-center gap-[7px]">
           <StatusChip status={r.status} size={17} />
-          <span className="truncate font-mono text-[10.5px] text-cw-faint">
+          <span className="truncate font-mono text-[10.5px] text-cw-text-muted">
             {r.type === "chat" && urgentRow ? "wants to chat now" : String(r.context?.page || HELP_TYPE_META[r.type].label.toLowerCase())}
           </span>
-          {r.unread > 0 && <span className="ml-auto h-2 w-2 flex-none rounded-full" style={{ background: urgentRow ? "#e5484d" : "#2563eb" }} />}
+          {r.unread > 0 && <span className="ml-auto h-2 w-2 flex-none rounded-full" style={{ background: urgentRow ? "var(--cw-danger-solid)" : "var(--cw-primary)" }} />}
         </span>
       </span>
     </button>
@@ -270,14 +270,14 @@ export default function DeveloperInbox() {
 
   return (
     <PortalShell crumb="Developer" title="" wide footer={false}>
-      <div className="flex h-[calc(100dvh-54px)] overflow-hidden lg:h-dvh">
+      <div className="flex h-[calc(100dvh-var(--cw-topbar))] overflow-hidden">
         {/* list pane */}
-        <div className="flex w-[372px] flex-none flex-col border-r border-cw-border bg-white">
+        <div className="flex w-[372px] flex-none flex-col border-r border-cw-border bg-cw-bg-surface">
           <div className="flex flex-none flex-col gap-3 border-b border-cw-border px-[18px] pb-3 pt-4">
             <div className="flex items-center gap-2.5">
               <div className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[18px] font-extrabold tracking-[-0.015em] text-cw-ink">Inbox</span>
-                <span className="text-[12px] text-cw-faint">
+                <span className="text-[18px] font-extrabold tracking-[-0.015em] text-cw-text">Inbox</span>
+                <span className="text-[12px] text-cw-text-muted">
                   {threads ? `${openCount} open · ${unreadCount} unread · ${urgentGroup.length} waiting on you` : "loading…"}
                 </span>
               </div>
@@ -286,11 +286,11 @@ export default function DeveloperInbox() {
               <button
                 onClick={() => setFilter("unread")}
                 className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[9px] border-none px-3 text-[13px] font-semibold"
-                style={filter === "unread" ? { background: "#17181c", color: "#fff" } : { background: "#f5f6f7", border: "1px solid #e6e7ea", color: "#3a3d44" }}
+                style={filter === "unread" ? { background: "var(--cw-ink)", color: "var(--cw-on-ink)" } : { background: "var(--cw-bg-sunken)", border: "1px solid var(--cw-border)", color: "var(--cw-text-body)" }}
               >
                 Unread
                 {unreadCount > 0 && (
-                  <span className="rounded-[8px] px-[5px] font-mono text-[10px] font-bold" style={filter === "unread" ? { background: "rgba(255,255,255,.22)" } : { background: "#e6e7ea" }}>
+                  <span className="rounded-[8px] px-[5px] font-mono text-[10px] font-bold" style={filter === "unread" ? { background: "color-mix(in srgb, var(--cw-text-on-primary) 22%, transparent)" } : { background: "var(--cw-border)" }}>
                     {unreadCount}
                   </span>
                 )}
@@ -298,7 +298,7 @@ export default function DeveloperInbox() {
               <button
                 onClick={() => { setFilter("all"); setStatusFilter(null); setTypeFilter(null); }}
                 className="inline-flex h-9 cursor-pointer items-center rounded-[9px] px-3 text-[13px] font-semibold"
-                style={filter === "all" && !statusFilter && !typeFilter ? { background: "#17181c", color: "#fff", border: "none" } : { background: "#f5f6f7", border: "1px solid #e6e7ea", color: "#3a3d44" }}
+                style={filter === "all" && !statusFilter && !typeFilter ? { background: "var(--cw-ink)", color: "var(--cw-on-ink)", border: "none" } : { background: "var(--cw-bg-sunken)", border: "1px solid var(--cw-border)", color: "var(--cw-text-body)" }}
               >
                 All
               </button>
@@ -306,20 +306,20 @@ export default function DeveloperInbox() {
                 <div key={which} className="relative">
                   <button
                     onClick={() => setOpenDropdown(openDropdown === which ? null : which)}
-                    className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-[9px] border border-cw-border bg-cw-sidebar px-3 text-[13px] text-cw-body"
+                    className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-[9px] border border-cw-border bg-cw-bg-sidebar px-3 text-[13px] text-cw-text-body"
                   >
                     {which === "status" ? (statusFilter ? HELP_STATUS_META[statusFilter].label : "Status") : typeFilter ? HELP_TYPE_META[typeFilter as keyof typeof HELP_TYPE_META].label : "Type"} ▾
                   </button>
                   {openDropdown === which && (
-                    <div className="absolute left-0 top-full z-30 mt-1 w-[170px] rounded-[10px] border border-cw-border bg-white p-1 shadow-[0_10px_28px_rgba(16,18,22,.14)]">
-                      <button onClick={() => { (which === "status" ? setStatusFilter : setTypeFilter)(null); setOpenDropdown(null); }} className="block w-full cursor-pointer rounded-[7px] border-none bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-cw-muted hover:bg-cw-page">
+                    <div className="absolute left-0 top-full z-30 mt-1 w-[170px] rounded-[10px] border border-cw-border bg-cw-bg-surface p-1 shadow-cw-2">
+                      <button onClick={() => { (which === "status" ? setStatusFilter : setTypeFilter)(null); setOpenDropdown(null); }} className="block w-full cursor-pointer rounded-[7px] border-none bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-cw-text-muted hover:bg-cw-bg-page">
                         Any
                       </button>
                       {(which === "status" ? HELP_STATUSES : Object.keys(HELP_TYPE_META)).map((v) => (
                         <button
                           key={v}
                           onClick={() => { if (which === "status") setStatusFilter(v as HelpStatus); else setTypeFilter(v); setOpenDropdown(null); }}
-                          className="block w-full cursor-pointer rounded-[7px] border-none bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-cw-body hover:bg-cw-page"
+                          className="block w-full cursor-pointer rounded-[7px] border-none bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-cw-text-body hover:bg-cw-bg-page"
                         >
                           {which === "status" ? HELP_STATUS_META[v as HelpStatus].label : HELP_TYPE_META[v as keyof typeof HELP_TYPE_META].label}
                         </button>
@@ -334,51 +334,51 @@ export default function DeveloperInbox() {
           <div className="flex-1 overflow-y-auto">
             {threads === null &&
               [0, 1, 2].map((i) => (
-                <div key={i} className="flex flex-col gap-2 border-b border-[#f1f2f4] px-[18px] py-3">
-                  <div className="h-3 w-[120px] rounded bg-[#f1f2f4]" />
-                  <div className="h-3 w-full rounded bg-cw-sidebar" />
+                <div key={i} className="flex flex-col gap-2 border-b border-cw-divider px-[18px] py-3">
+                  <div className="h-3 w-[120px] rounded bg-cw-bg-hover" />
+                  <div className="h-3 w-full rounded bg-cw-bg-sidebar" />
                 </div>
               ))}
             {threads !== null && ordered.length === 0 && (
-              <div className="px-[18px] py-8 text-center text-[13px] text-cw-faint">Nothing here — inbox zero.</div>
+              <div className="px-[18px] py-8 text-center text-[13px] text-cw-text-muted">Nothing here — inbox zero.</div>
             )}
             {urgentGroup.length > 0 && (
               <div className="flex items-center gap-2 px-[18px] pb-1.5 pt-[9px]">
-                <span className="font-mono text-[9.5px] font-bold tracking-[0.1em] text-[#b42318]">NEEDS YOU NOW</span>
-                <span className="h-px flex-1 bg-[#f1f2f4]" />
+                <span className="font-mono text-[9.5px] font-bold tracking-[0.1em] text-cw-danger-text">NEEDS YOU NOW</span>
+                <span className="h-px flex-1 bg-cw-bg-hover" />
               </div>
             )}
             {urgentGroup.map((r) => row(r, true))}
             {waitingGroup.length > 0 && (
               <div className="flex items-center gap-2 px-[18px] pb-1.5 pt-2.5">
-                <span className="font-mono text-[9.5px] font-bold tracking-[0.1em] text-cw-faint">WAITING</span>
-                <span className="h-px flex-1 bg-[#f1f2f4]" />
+                <span className="font-mono text-[9.5px] font-bold tracking-[0.1em] text-cw-text-muted">WAITING</span>
+                <span className="h-px flex-1 bg-cw-bg-hover" />
               </div>
             )}
             {waitingGroup.map((r) => row(r, false))}
           </div>
 
-          <div className="flex flex-none items-center gap-2.5 border-t border-cw-border bg-cw-page px-[18px] py-2.5">
-            <span className="flex-1 font-mono text-[10.5px] text-cw-faint">J / K to move · E to mark done · ⌘⏎ to send</span>
+          <div className="flex flex-none items-center gap-2.5 border-t border-cw-border bg-cw-bg-page px-[18px] py-2.5">
+            <span className="flex-1 font-mono text-[10.5px] text-cw-text-muted">J / K to move · E to mark done · ⌘⏎ to send</span>
           </div>
         </div>
 
         {/* thread pane */}
-        <div className="relative flex min-w-0 flex-1 flex-col bg-cw-page">
+        <div className="relative flex min-w-0 flex-1 flex-col bg-cw-bg-page">
           {!t && (
-            <div className="flex flex-1 items-center justify-center text-[13.5px] text-cw-faint">
+            <div className="flex flex-1 items-center justify-center text-[13.5px] text-cw-text-muted">
               {threads?.length ? "Select a conversation — J/K walks the list." : "Reports and chats from ops appear here."}
             </div>
           )}
           {t && statusMeta && detail && (
             <>
-              <div className="flex flex-none items-center gap-3 border-b border-cw-border bg-white px-[22px] py-[13px]">
+              <div className="flex flex-none items-center gap-3 border-b border-cw-border bg-cw-bg-surface px-[22px] py-[13px]">
                 <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
                   <div className="flex items-center gap-[9px]">
-                    <span className="truncate text-[16px] font-extrabold tracking-[-0.015em] text-cw-ink">{t.title}</span>
+                    <span className="truncate text-[16px] font-extrabold tracking-[-0.015em] text-cw-text">{t.title}</span>
                     <TypeChip type={t.type} size={20} />
                   </div>
-                  <span className="truncate font-mono text-[11px] text-cw-faint">
+                  <span className="truncate font-mono text-[11px] text-cw-text-muted">
                     {t.reference} · {t.userName || t.userEmail} · {String(t.context.role || "ops")} · filed {utcTime(t.createdAt)}
                   </span>
                 </div>
@@ -391,16 +391,16 @@ export default function DeveloperInbox() {
                     {statusMeta.chip} <span style={{ fontSize: 10, opacity: 0.6 }}>▾</span>
                   </button>
                   {openDropdown === "setstatus" && (
-                    <div className="absolute right-0 top-full z-30 mt-1 w-[190px] rounded-[10px] border border-cw-border bg-white p-1 shadow-[0_10px_28px_rgba(16,18,22,.14)]">
+                    <div className="absolute right-0 top-full z-30 mt-1 w-[190px] rounded-[10px] border border-cw-border bg-cw-bg-surface p-1 shadow-cw-2">
                       {HELP_STATUSES.map((s) => (
                         <button
                           key={s}
                           onClick={() => void setStatus(s)}
-                          className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] border-none bg-transparent px-2.5 py-2 text-left hover:bg-cw-page"
+                          className="flex w-full cursor-pointer items-center gap-2 rounded-[7px] border-none bg-transparent px-2.5 py-2 text-left hover:bg-cw-bg-page"
                         >
                           <span className="h-2 w-2 rounded-full" style={{ background: HELP_STATUS_META[s].dot }} />
-                          <span className="text-[12.5px] font-semibold text-cw-body">{HELP_STATUS_META[s].label}</span>
-                          {s === "impossible" && <span className="ml-auto text-[10.5px] text-cw-faint">needs a reason</span>}
+                          <span className="text-[12.5px] font-semibold text-cw-text-body">{HELP_STATUS_META[s].label}</span>
+                          {s === "impossible" && <span className="ml-auto text-[10.5px] text-cw-text-muted">needs a reason</span>}
                         </button>
                       ))}
                     </div>
@@ -409,7 +409,7 @@ export default function DeveloperInbox() {
                 {helpThreadHasPresence(t.type) && t.presence !== "present" && (
                   <button
                     onClick={() => helpApi.presence(t.id, "join").then(() => loadDetail(t.id)).catch(() => {})}
-                    className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border border-cw-border bg-white px-[13px] text-[13px] font-semibold text-cw-body"
+                    className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border border-cw-border bg-cw-bg-surface px-[13px] text-[13px] font-semibold text-cw-text-body"
                   >
                     Go live
                   </button>
@@ -417,55 +417,55 @@ export default function DeveloperInbox() {
                 {helpThreadHasPresence(t.type) && t.presence === "present" && (
                   <button
                     onClick={() => helpApi.presence(t.id, "close").then(() => { loadDetail(t.id); loadList(); }).catch(() => {})}
-                    className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border border-cw-border bg-white px-[13px] text-[13px] font-semibold text-cw-body"
+                    className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border border-cw-border bg-cw-bg-surface px-[13px] text-[13px] font-semibold text-cw-text-body"
                   >
                     End chat
                   </button>
                 )}
                 <button
                   onClick={() => void setStatus("done")}
-                  className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-green px-[13px] text-[13px] font-bold text-white"
+                  className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-success px-[13px] text-[13px] font-bold text-cw-text-on-primary"
                 >
                   Mark done
                 </button>
               </div>
 
               {reasonDraft !== null && (
-                <div className="flex flex-none items-center gap-2.5 border-b border-[#f0c9ca] bg-[#fdf2f2] px-[22px] py-2.5">
-                  <span className="text-[12.5px] font-bold text-[#b42318]">Impossible needs a written reason:</span>
+                <div className="flex flex-none items-center gap-2.5 border-b border-cw-danger-border bg-cw-danger-tint px-[22px] py-2.5">
+                  <span className="text-[12.5px] font-bold text-cw-danger-text">Impossible needs a written reason:</span>
                   <input
                     autoFocus
                     value={reasonDraft}
                     onChange={(e) => setReasonDraft(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && reasonDraft.trim().length >= 5 && void setStatus("impossible", reasonDraft.trim())}
                     placeholder="Why it cannot be done — ops will see this"
-                    className="h-8 flex-1 rounded-[8px] border border-[#f0c9ca] bg-white px-2.5 text-[12.5px] outline-none"
+                    className="h-8 flex-1 rounded-[8px] border border-cw-danger-border bg-cw-bg-surface px-2.5 text-[12.5px] outline-none"
                   />
                   <button
                     onClick={() => reasonDraft.trim().length >= 5 && void setStatus("impossible", reasonDraft.trim())}
-                    className="h-8 cursor-pointer rounded-[8px] border-none bg-cw-red px-3 text-[12.5px] font-bold text-white"
+                    className="h-8 cursor-pointer rounded-[8px] border-none bg-cw-danger-solid px-3 text-[12.5px] font-bold text-cw-text-on-primary"
                     style={{ opacity: reasonDraft.trim().length >= 5 ? 1 : 0.5 }}
                   >
                     Save
                   </button>
-                  <button onClick={() => setReasonDraft(null)} className="h-8 cursor-pointer rounded-[8px] border border-[#f0c9ca] bg-white px-3 text-[12.5px] font-bold text-[#b42318]">Cancel</button>
+                  <button onClick={() => setReasonDraft(null)} className="h-8 cursor-pointer rounded-[8px] border border-cw-danger-border bg-cw-bg-surface px-3 text-[12.5px] font-bold text-cw-danger-text">Cancel</button>
                 </div>
               )}
 
               <div className="flex flex-1 flex-col gap-[13px] overflow-y-auto px-[22px] py-[18px]">
                 {/* auto-collected: one horizontal strip, first thing on screen */}
-                <div className="flex items-start gap-[18px] rounded-[12px] border border-cw-border bg-white px-[15px] py-3">
+                <div className="flex items-start gap-[18px] rounded-[12px] border border-cw-border bg-cw-bg-surface px-[15px] py-3">
                   <div className="flex flex-none items-center gap-2 pt-0.5">
-                    <span className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[#f1f2f4] text-[11px] text-cw-muted">⚙</span>
-                    <span className="font-mono text-[9.5px] font-bold tracking-[0.09em] text-cw-faint">AUTO-COLLECTED</span>
+                    <span className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-cw-bg-hover text-[11px] text-cw-text-muted">⚙</span>
+                    <span className="font-mono text-[9.5px] font-bold tracking-[0.09em] text-cw-text-muted">AUTO-COLLECTED</span>
                   </div>
                   <div className="flex min-w-0 flex-1 flex-wrap gap-x-[22px] gap-y-2.5">
                     {HELP_CONTEXT_ORDER.map(({ key, label }) => {
                       const value = String(t.context[key] || "—");
                       return (
                         <div key={key} className="flex flex-none flex-col gap-px">
-                          <span className="font-mono text-[8.5px] font-bold tracking-[0.08em] text-[#a0a5ab]">{label}</span>
-                          <span className="whitespace-nowrap font-mono text-[11.5px] font-semibold" style={{ color: helpContextFieldIsRed(key, value) ? "#b42318" : "#17181c" }}>
+                          <span className="font-mono text-[8.5px] font-bold tracking-[0.08em] text-cw-text-muted">{label}</span>
+                          <span className="whitespace-nowrap font-mono text-[11.5px] font-semibold" style={{ color: helpContextFieldIsRed(key, value) ? "var(--cw-danger-text)" : "var(--cw-text)" }}>
                             {value}
                           </span>
                         </div>
@@ -478,7 +478,7 @@ export default function DeveloperInbox() {
                         HELP_CONTEXT_ORDER.map(({ key, label }) => `${label}: ${t.context[key] || "—"}`).join("\n"),
                       ).catch(() => {})
                     }
-                    className="flex-none cursor-pointer border-none bg-transparent text-[12px] font-bold text-cw-primary"
+                    className="flex-none cursor-pointer border-none bg-transparent text-[12px] font-bold text-cw-text-link"
                   >
                     Copy all
                   </button>
@@ -498,10 +498,10 @@ export default function DeveloperInbox() {
                         : e.kind;
                     return (
                       <div key={e.id} className="flex items-center gap-2.5 pl-[43px]">
-                        <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: e.kind === "status_changed" ? "#2563eb" : "#c3c7ce" }} />
-                        <span className="text-[12px] text-cw-muted">{text}</span>
-                        <span className="font-mono text-[10.5px] text-[#c3c7ce]">{utcTime(e.createdAt)}</span>
-                        <span className="h-px flex-1 bg-[#f1f2f4]" />
+                        <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: e.kind === "status_changed" ? "var(--cw-primary)" : "var(--cw-border-strong)" }} />
+                        <span className="text-[12px] text-cw-text-muted">{text}</span>
+                        <span className="font-mono text-[10.5px] text-cw-text-muted">{utcTime(e.createdAt)}</span>
+                        <span className="h-px flex-1 bg-cw-bg-hover" />
                       </div>
                     );
                   }
@@ -511,18 +511,18 @@ export default function DeveloperInbox() {
                     <div key={m.id} className="flex gap-[11px]">
                       <span
                         className="flex h-8 w-8 flex-none items-center justify-center rounded-full font-mono text-[11px] font-bold"
-                        style={mine ? { background: "#17181c", color: "#fff" } : { background: "#e8effe", color: "#1d4ed8" }}
+                        style={mine ? { background: "var(--cw-ink)", color: "var(--cw-on-ink)" } : { background: "var(--cw-primary-tint)", color: "var(--cw-text-link)" }}
                       >
                         {mine ? "ME" : initialsOf(m.authorName || t.userName || t.userEmail || "??")}
                       </span>
                       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                         <div className="flex items-baseline gap-[9px]">
-                          <span className="text-[13px] font-bold text-cw-ink">{mine ? "You" : m.authorName || t.userName || "Ops"}</span>
-                          <span className="font-mono text-[10.5px] text-cw-faint">{utcTime(m.createdAt)}</span>
+                          <span className="text-[13px] font-bold text-cw-text">{mine ? "You" : m.authorName || t.userName || "Ops"}</span>
+                          <span className="font-mono text-[10.5px] text-cw-text-muted">{utcTime(m.createdAt)}</span>
                         </div>
                         <div
                           className="max-w-[560px] rounded-[12px] border px-4 py-3.5"
-                          style={mine ? { background: "#f2f7ff", borderColor: "#dbe6ff" } : { background: "#fff", borderColor: "#e6e7ea" }}
+                          style={mine ? { background: "var(--cw-primary-tint)", borderColor: "var(--cw-primary-tint-border)" } : { background: "var(--cw-bg-surface)", borderColor: "var(--cw-border)" }}
                         >
                           <BlockRenderer blocks={m.blocks} attachments={attachmentMap} />
                         </div>
@@ -532,8 +532,8 @@ export default function DeveloperInbox() {
                 })}
               </div>
 
-              <div className="relative flex flex-none flex-col gap-2.5 border-t border-cw-border bg-white px-[22px] pb-4 pt-3">
-                <div className="flex flex-col gap-2.5 rounded-[12px] border border-cw-border bg-cw-page px-3.5 py-3">
+              <div className="relative flex flex-none flex-col gap-2.5 border-t border-cw-border bg-cw-bg-surface px-[22px] pb-4 pt-3">
+                <div className="flex flex-col gap-2.5 rounded-[12px] border border-cw-border bg-cw-bg-page px-3.5 py-3">
                   <textarea
                     ref={replyRef}
                     rows={2}
@@ -543,25 +543,25 @@ export default function DeveloperInbox() {
                       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); void send(); }
                     }}
                     placeholder="Reply — plain text; ``` fences make a code block"
-                    className="w-full resize-none border-none bg-transparent p-0 text-[13.5px] leading-[1.55] text-cw-ink outline-none placeholder:text-[#c3c7ce]"
+                    className="w-full resize-none border-none bg-transparent p-0 text-[13.5px] leading-[1.55] text-cw-text outline-none placeholder:text-cw-text-placeholder"
                   />
                   <AttachmentsPanel atts={atts} compact dropzone={false} />
                   <div className="flex items-center gap-[9px]">
                     <AttachButton atts={atts} />
-                    <button onClick={wrapSelectionInCode} title="Wrap selection in a code block" className="flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-white font-mono text-[12px] font-bold text-cw-body">
+                    <button onClick={wrapSelectionInCode} title="Wrap selection in a code block" className="flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-[9px] border border-cw-border bg-cw-bg-surface font-mono text-[12px] font-bold text-cw-text-body">
                       {"{ }"}
                     </button>
                     <span className="relative">
                     <button
                       onClick={() => { setRepliesOpen((v) => !v); setReplyIndex(0); }}
-                      className="inline-flex h-9 cursor-pointer items-center gap-[7px] rounded-[9px] border border-[#dbe6ff] bg-[#f2f7ff] px-3 text-[13px] font-bold text-[#1d4ed8]"
+                      className="inline-flex h-9 cursor-pointer items-center gap-[7px] rounded-[9px] border border-cw-primary-tint-border bg-cw-primary-tint px-3 text-[13px] font-bold text-cw-text-link"
                     >
                       ⚡ Saved replies
                     </button>
                     {repliesOpen && (
-                  <div className="absolute bottom-[calc(100%+8px)] left-0 z-40 w-[360px] overflow-hidden rounded-[13px] border border-cw-border bg-white shadow-[0_14px_36px_rgba(16,18,22,.16)]">
-                    <div className="flex items-center gap-2 border-b border-[#f1f2f4] px-[13px] py-2.5">
-                      <span className="flex-1 text-[12.5px] font-bold text-cw-ink">Saved replies</span>
+                  <div className="absolute bottom-[calc(100%+8px)] left-0 z-40 w-[360px] overflow-hidden rounded-[13px] border border-cw-border bg-cw-bg-surface shadow-cw-pop">
+                    <div className="flex items-center gap-2 border-b border-cw-divider px-[13px] py-2.5">
+                      <span className="flex-1 text-[12.5px] font-bold text-cw-text">Saved replies</span>
                       <input
                         autoFocus
                         value={replyFilter}
@@ -573,7 +573,7 @@ export default function DeveloperInbox() {
                           if (e.key === "Escape") { e.preventDefault(); setRepliesOpen(false); }
                         }}
                         placeholder="type to filter"
-                        className="h-8 w-[140px] rounded-[7px] border border-cw-border bg-cw-page px-2.5 text-[12px] text-cw-body outline-none"
+                        className="h-8 w-[140px] rounded-[7px] border border-cw-border bg-cw-bg-page px-2.5 text-[12px] text-cw-text-body outline-none"
                       />
                     </div>
                     <div className="flex flex-col gap-0.5 p-1.5">
@@ -583,33 +583,33 @@ export default function DeveloperInbox() {
                           onMouseEnter={() => setReplyIndex(i)}
                           onClick={(e) => insertSavedReply(r, e.shiftKey)}
                           className="flex cursor-pointer items-center gap-2.5 rounded-[9px] px-2.5 py-[9px] text-left"
-                          style={i === replyIndex ? { background: "#f2f7ff", border: "1px solid #dbe6ff" } : { background: "transparent", border: "1px solid transparent" }}
+                          style={i === replyIndex ? { background: "var(--cw-primary-tint)", border: "1px solid var(--cw-primary-tint-border)" } : { background: "transparent", border: "1px solid transparent" }}
                         >
                           <span
                             className="flex h-[26px] w-[26px] flex-none items-center justify-center rounded-[7px] text-[12px]"
                             style={
-                              r.setsStatus === "under_process" ? { background: "#f2f7ff", color: "#1d4ed8" }
-                              : r.setsStatus === "done" ? { background: "#e7f6ec", color: "#15803d" }
-                              : r.setsStatus === "impossible" ? { background: "#fdf2f2", color: "#b42318" }
-                              : { background: "#f1f1f2", color: "#3a3d44" }
+                              r.setsStatus === "under_process" ? { background: "var(--cw-primary-tint)", color: "var(--cw-text-link)" }
+                              : r.setsStatus === "done" ? { background: "var(--cw-success-tint)", color: "var(--cw-success-text)" }
+                              : r.setsStatus === "impossible" ? { background: "var(--cw-danger-tint)", color: "var(--cw-danger-text)" }
+                              : { background: "var(--cw-bg-hover)", color: "var(--cw-text-body)" }
                             }
                           >
                             {r.setsStatus === "under_process" ? "◷" : r.setsStatus === "done" ? "✓" : r.setsStatus === "impossible" ? "✕" : "▣"}
                           </span>
                           <span className="flex min-w-0 flex-1 flex-col gap-px">
-                            <span className="text-[12.5px] leading-[1.35] text-cw-ink" style={{ fontWeight: i === replyIndex ? 700 : 500 }}>{r.text}</span>
-                            <span className="text-[11px] text-cw-faint">
+                            <span className="text-[12.5px] leading-[1.35] text-cw-text" style={{ fontWeight: i === replyIndex ? 700 : 500 }}>{r.text}</span>
+                            <span className="text-[11px] text-cw-text-muted">
                               {r.setsStatus ? `sets ${HELP_STATUS_META[r.setsStatus].label} · ` : ""}used {r.useCount}×
                             </span>
                           </span>
                         </button>
                       ))}
-                      {!visibleReplies.length && <div className="px-2.5 py-3 text-[12px] text-cw-faint">No saved reply matches.</div>}
+                      {!visibleReplies.length && <div className="px-2.5 py-3 text-[12px] text-cw-text-muted">No saved reply matches.</div>}
                       <div className="flex items-center gap-3.5 px-2.5 pb-1 pt-[7px]">
                         {[["↑↓", "move"], ["⏎", "insert"], ["⇧⏎", "insert + set status"]].map(([k, v]) => (
                           <span key={k} className="flex items-center gap-1.5">
-                            <span className="rounded-[4px] border border-cw-border bg-cw-sidebar px-[5px] py-px font-mono text-[10px] text-cw-muted">{k}</span>
-                            <span className="text-[11px] text-cw-faint">{v}</span>
+                            <span className="rounded-[4px] border border-cw-border bg-cw-bg-sidebar px-[5px] py-px font-mono text-[10px] text-cw-text-muted">{k}</span>
+                            <span className="text-[11px] text-cw-text-muted">{v}</span>
                           </span>
                         ))}
                       </div>
@@ -617,11 +617,11 @@ export default function DeveloperInbox() {
                   </div>
                 )}
                     </span>
-                    <span className="ml-auto font-mono text-[10.5px] text-cw-faint">⌘⏎ to send</span>
+                    <span className="ml-auto font-mono text-[10.5px] text-cw-text-muted">⌘⏎ to send</span>
                     <button
                       onClick={() => void send()}
                       disabled={sending}
-                      className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-primary px-[15px] text-[13px] font-bold text-white"
+                      className="inline-flex h-9 cursor-pointer items-center rounded-[9px] border-none bg-cw-primary px-[15px] text-[13px] font-bold text-cw-text-on-primary"
                     >
                       {sending ? "Sending…" : "Send reply"}
                     </button>

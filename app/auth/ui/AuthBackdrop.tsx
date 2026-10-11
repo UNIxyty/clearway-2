@@ -16,7 +16,7 @@ export default function AuthBackdrop({ children }: { children: ReactNode }) {
         position: "relative",
         minHeight: "100vh",
         overflow: "hidden",
-        background: "linear-gradient(140deg,#0a1330 0%,#132a63 52%,#0c1f4b 100%)",
+        background: "linear-gradient(140deg,var(--cw-night-a) 0%,var(--cw-night-b) 52%,var(--cw-night-c) 100%)",
         fontFamily: "'Public Sans', system-ui, sans-serif",
       }}
     >
@@ -35,16 +35,16 @@ export default function AuthBackdrop({ children }: { children: ReactNode }) {
         .cw-b3{animation:cwdrift3 27s ease-in-out infinite}
         .cw-b4{animation:cwdrift4 33s ease-in-out infinite}
         .cw-b5{animation:cwdrift2 21s ease-in-out infinite}
-        .cw-sweep{position:absolute;inset:-45%;background:conic-gradient(from 0deg,transparent 0deg,rgba(255,255,255,.07) 55deg,transparent 130deg,rgba(120,180,255,.06) 210deg,transparent 300deg);animation:cwrotate 50s linear infinite;will-change:transform}
+        .cw-sweep{position:absolute;inset:-45%;background:conic-gradient(from 0deg,transparent 0deg,color-mix(in srgb, var(--cw-text-on-primary) 7%, transparent) 55deg,transparent 130deg,color-mix(in srgb, var(--cw-primary) 6%, transparent) 210deg,transparent 300deg);animation:cwrotate 50s linear infinite;will-change:transform}
         .cw-fadeup{animation:cwfadeup .3s ease both}
         .cw-shake{animation:cwshake .4s ease}
         .cw-auth-in{transition:border-color .14s ease, box-shadow .14s ease}
-        .cw-auth-in:focus-within{border-color:#2563eb !important;box-shadow:0 0 0 3px rgba(37,99,235,.16)}
+        .cw-auth-in:focus-within{border-color:var(--cw-primary) !important;box-shadow:0 0 0 3px var(--cw-focus-halo)}
         .cw-auth-btn{transition:background .15s ease, transform .1s ease}
-        .cw-auth-btn:hover:enabled{background:#1d4ed8 !important}
+        .cw-auth-btn:hover:enabled{background:var(--cw-primary-hover) !important}
         .cw-auth-btn:active:enabled{transform:translateY(1px)}
         .cw-auth-link{transition:color .14s ease}
-        .cw-auth-link:hover{color:#1d4ed8}
+        .cw-auth-link:hover{color:var(--cw-text-link)}
         @media (prefers-reduced-motion: reduce){
           .cw-b1,.cw-b2,.cw-b3,.cw-b4,.cw-b5,.cw-sweep,.cw-fadeup,.cw-shake{animation:none !important}
         }
@@ -56,14 +56,14 @@ export default function AuthBackdrop({ children }: { children: ReactNode }) {
       `}</style>
 
       <div style={{ position: "absolute", inset: 0, overflow: "hidden" }} aria-hidden="true">
-        <div className="cw-blob cw-b1" style={{ width: 520, height: 520, left: -90, top: -120, background: "radial-gradient(circle,rgba(37,99,235,.85),transparent 62%)" }} />
-        <div className="cw-blob cw-b2" style={{ width: 560, height: 560, right: -120, top: -80, background: "radial-gradient(circle,rgba(109,40,217,.72),transparent 62%)" }} />
-        <div className="cw-blob cw-b3" style={{ width: 600, height: 600, left: "8%", bottom: -220, background: "radial-gradient(circle,rgba(14,159,110,.6),transparent 62%)" }} />
-        <div className="cw-blob cw-b4" style={{ width: 520, height: 520, right: "2%", bottom: -160, background: "radial-gradient(circle,rgba(56,189,248,.7),transparent 62%)" }} />
-        <div className="cw-blob cw-b5" style={{ width: 440, height: 440, left: "38%", top: "34%", background: "radial-gradient(circle,rgba(139,92,246,.55),transparent 62%)" }} />
+        <div className="cw-blob cw-b1" style={{ width: 520, height: 520, left: -90, top: -120, background: "radial-gradient(circle,color-mix(in srgb, var(--cw-primary) 85%, transparent),transparent 62%)" }} />
+        <div className="cw-blob cw-b2" style={{ width: 560, height: 560, right: -120, top: -80, background: "radial-gradient(circle,color-mix(in srgb, var(--cw-diff) 72%, transparent),transparent 62%)" }} />
+        <div className="cw-blob cw-b3" style={{ width: 600, height: 600, left: "8%", bottom: -220, background: "radial-gradient(circle,color-mix(in srgb, var(--cw-success) 60%, transparent),transparent 62%)" }} />
+        <div className="cw-blob cw-b4" style={{ width: 520, height: 520, right: "2%", bottom: -160, background: "radial-gradient(circle,color-mix(in srgb, var(--cw-info) 70%, transparent),transparent 62%)" }} />
+        <div className="cw-blob cw-b5" style={{ width: 440, height: 440, left: "38%", top: "34%", background: "radial-gradient(circle,color-mix(in srgb, var(--cw-diff) 55%, transparent),transparent 62%)" }} />
         <div className="cw-sweep" />
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at center, rgba(255,255,255,.045) 1px, transparent 1px)", backgroundSize: "26px 26px" }} />
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(6,11,28,.55) 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at center, color-mix(in srgb, var(--cw-text-on-primary) 4.5%, transparent) 1px, transparent 1px)", backgroundSize: "26px 26px" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 45%, transparent 40%, var(--cw-bg-scrim) 100%)" }} />
       </div>
 
       <div

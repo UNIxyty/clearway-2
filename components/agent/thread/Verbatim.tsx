@@ -9,11 +9,12 @@
 // the product uses this ink header.
 
 import { useEffect, useState } from "react";
-import { C, TYPE, mono } from "../ui/tokens";
+import { TYPE, mono } from "../ui/tokens";
 import { Button, Icon, Eyebrow, dateLong } from "../ui/primitives";
 import { RevisionTag } from "./RevisionTag";
 import { AGENT_BASE, type VerbatimRecord } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
+import { cw } from "@/lib/portal-tokens";
 
 type Fetched = { status: "loading" } | { status: "ok"; record: VerbatimRecord } | { status: "error"; message: string };
 
@@ -44,40 +45,40 @@ export function VerbatimFrame({ record, panel = false, notReadAloud = false }: {
   }
 
   return (
-    <div data-verbatim-frame style={{ border: `1.5px solid ${C.ink}`, borderRadius: panel ? 10 : 12, background: C.surface, overflow: "hidden" }}>
-      <div style={{ background: C.ink, color: C.surface, padding: panel ? "7px 11px" : "9px 14px", display: "flex", flexDirection: panel ? "column" : "row", alignItems: panel ? "flex-start" : "center", gap: panel ? 1 : 10 }}>
+    <div data-verbatim-frame style={{ border: `1.5px solid ${cw.text}`, borderRadius: panel ? 10 : 12, background: cw.bgSurface, overflow: "hidden" }}>
+      <div style={{ background: cw.ink, color: cw.onInk, padding: panel ? "7px 11px" : "9px 14px", display: "flex", flexDirection: panel ? "column" : "row", alignItems: panel ? "flex-start" : "center", gap: panel ? 1 : 10 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          {!panel && <Icon name="stamp" size={15} color={C.surface} />}
+          {!panel && <Icon name="stamp" size={15} color={cw.textOnPrimary} />}
           <span style={panel ? TYPE.verbatimHeaderPanel : TYPE.verbatimHeader}>{notReadAloud ? `Verbatim · ${r.reference ?? r.id} · not read aloud` : "Verbatim · approved text"}</span>
         </span>
-        {!panel && <span style={{ fontSize: 12, color: C.disabled }}>Reproduced exactly. Not summarised.</span>}
+        {!panel && <span style={{ fontSize: 12, color: cw.textMuted }}>Reproduced exactly. Not summarised.</span>}
         {!panel && <span style={{ flex: 1 }} />}
-        <span style={{ ...mono({ fontSize: panel ? 10.5 : 11.5 }), color: C.disabled, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{ref}</span>
+        <span style={{ ...mono({ fontSize: panel ? 10.5 : 11.5 }), color: cw.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{ref}</span>
       </div>
       <div style={{ padding: panel ? "10px 11px" : "16px 18px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-        {r.heading && !panel && <div style={{ fontSize: 12.5, fontWeight: 700, color: C.body }}>{r.heading}</div>}
+        {r.heading && !panel && <div style={{ fontSize: 12.5, fontWeight: 700, color: cw.textBody }}>{r.heading}</div>}
         {r.revision && r.revision.state !== "current" && (
-          <div role="note" data-verbatim-revision={r.revision.state} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: panel ? 12 : 12.5, lineHeight: 1.45, color: C.body, background: r.revision.state === "superseded" ? C.warnTint : r.revision.state === "future" ? C.infoTint : C.sidebar, border: `1px solid ${r.revision.state === "superseded" ? C.warnBorder : r.revision.state === "future" ? C.infoBorder : C.border}`, borderRadius: 8, padding: "7px 10px" }}>
+          <div role="note" data-verbatim-revision={r.revision.state} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: panel ? 12 : 12.5, lineHeight: 1.45, color: cw.textBody, background: r.revision.state === "superseded" ? cw.warningTint : r.revision.state === "future" ? cw.infoTint : cw.bgSunken, border: `1px solid ${r.revision.state === "superseded" ? cw.warningBorder : r.revision.state === "future" ? cw.infoBorder : cw.border}`, borderRadius: 8, padding: "7px 10px" }}>
             <RevisionTag revision={r.revision} size={11} />
             <span>{r.revision.state === "superseded" ? "The source document has been superseded — this approved wording may no longer match the current document." : r.revision.state === "future" ? `The source document is not yet effective${r.revision.effectiveFrom ? ` (applies from ${r.revision.effectiveFrom})` : ""}.` : "The source document has no revision data — it is not known whether this wording is current."}</span>
           </div>
         )}
         {state.status === "loading" ? (
           <div aria-busy style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ height: 12, width: "90%", borderRadius: 4, background: C.hover }} /><div style={{ height: 12, width: "70%", borderRadius: 4, background: C.hover }} />
+            <div style={{ height: 12, width: "90%", borderRadius: 4, background: cw.bgHover }} /><div style={{ height: 12, width: "70%", borderRadius: 4, background: cw.bgHover }} />
           </div>
         ) : (
-          <div style={{ ...(panel ? TYPE.verbatimPanel : TYPE.verbatim), color: C.ink, whiteSpace: "pre-wrap", userSelect: "text" }}>{state.record.text}</div>
+          <div style={{ ...(panel ? TYPE.verbatimPanel : TYPE.verbatim), color: cw.text, whiteSpace: "pre-wrap", userSelect: "text" }}>{state.record.text}</div>
         )}
       </div>
-      <div style={{ padding: panel ? "8px 11px" : "10px 18px 12px", borderTop: `1px dashed ${C.borderControl}`, display: "flex", flexDirection: panel ? "column" : "row", flexWrap: "wrap", alignItems: panel ? "flex-start" : "center", gap: panel ? 6 : 14 }}>
+      <div style={{ padding: panel ? "8px 11px" : "10px 18px 12px", borderTop: `1px dashed ${cw.borderControl}`, display: "flex", flexDirection: panel ? "column" : "row", flexWrap: "wrap", alignItems: panel ? "flex-start" : "center", gap: panel ? 6 : 14 }}>
         {(approved || validity) && (
-          <span style={{ fontSize: panel ? 11.5 : 12, color: C.muted }}>
-            {approved && <>{approved.split(" by ")[0]}{r.approvedBy ? <> by <span style={{ fontWeight: 600, color: C.body }}>{r.approvedBy}</span></> : null} · authoritative tier</>}
+          <span style={{ fontSize: panel ? 11.5 : 12, color: cw.textMuted }}>
+            {approved && <>{approved.split(" by ")[0]}{r.approvedBy ? <> by <span style={{ fontWeight: 600, color: cw.textBody }}>{r.approvedBy}</span></> : null} · authoritative tier</>}
             {validity && <> · valid <span style={mono()}>{validity}</span></>}
           </span>
         )}
-        {r.sha256 && !panel && <span style={{ ...mono({ fontSize: 11 }), color: C.faint }}>sha256 {r.sha256.slice(0, 4)}…{r.sha256.slice(-4)}</span>}
+        {r.sha256 && !panel && <span style={{ ...mono({ fontSize: 11 }), color: cw.textMuted }}>sha256 {r.sha256.slice(0, 4)}…{r.sha256.slice(-4)}</span>}
         {!panel && <span style={{ flex: 1 }} />}
         <span style={{ display: "flex", gap: 6 }}>
           <Button variant="secondary" size="xs" icon="copy" onClick={() => void copyExact()} disabled={state.status !== "ok"} style={{ fontSize: panel ? 12 : 12.5 }}>{copied ? "Copied" : panel ? "Copy exact" : "Copy exact text"}</Button>
@@ -91,13 +92,13 @@ export function VerbatimFrame({ record, panel = false, notReadAloud = false }: {
 /** §3 rule 1: the clause could not be fetched — an error, never a fallback. */
 export function VerbatimUnavailable({ id, heading, message, panel }: { id: string; heading: string; message: string; panel: boolean }) {
   return (
-    <div role="alert" style={{ border: `1px solid ${C.dangerBorder}`, borderRadius: panel ? 10 : 12, background: C.surface, padding: panel ? 12 : "14px 16px", display: "flex", gap: 12 }}>
-      <span style={{ width: 30, height: 30, borderRadius: 8, background: C.dangerTint, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="stamp" size={16} color={C.dangerBadge} /></span>
+    <div role="alert" style={{ border: `1px solid ${cw.dangerBorder}`, borderRadius: panel ? 10 : 12, background: cw.bgSurface, padding: panel ? 12 : "14px 16px", display: "flex", gap: 12 }}>
+      <span style={{ width: 30, height: 30, borderRadius: 8, background: cw.dangerTint, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name="stamp" size={16} color={cw.dangerText} /></span>
       <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 700 }}>Approved text unavailable</div>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: C.danger }}>VERBATIM NOT SHOWN</div>
-        <div style={{ fontSize: 13.5, lineHeight: 1.55, color: C.body }}>The stored clause for <span style={mono()}>{id}</span>{heading ? ` (${heading})` : ""} could not be fetched, so it is not shown — nothing here is a paraphrase of it.</div>
-        <div style={{ ...mono({ fontSize: 11.5 }), color: C.faint }}>{message}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: cw.dangerText }}>VERBATIM NOT SHOWN</div>
+        <div style={{ fontSize: 13.5, lineHeight: 1.55, color: cw.textBody }}>The stored clause for <span style={mono()}>{id}</span>{heading ? ` (${heading})` : ""} could not be fetched, so it is not shown — nothing here is a paraphrase of it.</div>
+        <div style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>{message}</div>
       </div>
     </div>
   );
@@ -107,8 +108,8 @@ export function VerbatimUnavailable({ id, heading, message, panel }: { id: strin
 export function AgentsReading({ children, panel = false }: { children: React.ReactNode; panel?: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <Eyebrow small={panel} icon={panel ? undefined : "pen-line"} color={C.faint}>{panel ? "Agent's reading" : "Agent's reading — check against the quoted text"}</Eyebrow>
-      <div style={{ ...(panel ? TYPE.bodyPanel : TYPE.body), color: C.body }}>{children}</div>
+      <Eyebrow small={panel} icon={panel ? undefined : "pen-line"} color={cw.textMuted}>{panel ? "Agent's reading" : "Agent's reading — check against the quoted text"}</Eyebrow>
+      <div style={{ ...(panel ? TYPE.bodyPanel : TYPE.body), color: cw.textBody }}>{children}</div>
     </div>
   );
 }

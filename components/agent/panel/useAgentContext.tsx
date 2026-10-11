@@ -11,17 +11,10 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import type { AgentContext } from "./types";
 
-const PAGE_LABELS: Array<[RegExp, string, string]> = [
-  [/^\/aip\/service-status/, "Service status", "activity"],
-  [/^\/aip$/, "Airport search", "search"],
-  [/^\/admin\/users/, "Users", "users"],
-  [/^\/admin\/debug/, "Debug runner", "terminal"],
-  [/^\/admin\/airports\/deleted/, "Deleted airports", "trash-2"],
-  [/^\/account\/search-stats/, "Search statistics", "chart-bar"],
-  [/^\/developer\/inbox/, "Developer inbox", "inbox"],
-  [/^\/help/, "Help Centre", "life-buoy"],
-];
-
+// Only what the agent can actually use. An airport (from the route or ?icao) is an identifier it looks up; a page name
+// alone is not — the agent receives only the label, never the page's content (tested 2026-10-11 on Permissions), so
+// portal pages no longer claim to be "asked about" (portal redesign, decision 26a). Reading a page's content is its
+// own job (it must keep passenger data on intake and mailbox screens away from the agent).
 /**
  * Reports the query string to the portal frame. The frame lives in the root layout, where a bare useSearchParams()
  * would make every statically rendered page give up server rendering; inside its own Suspense boundary only this
@@ -63,9 +56,6 @@ export function useAgentContext(search = ""): AgentContext | null {
       return { kind: "airport", label: icao, icao, icon: "map-pin" };
     }
 
-    for (const [pattern, label, icon] of PAGE_LABELS) {
-      if (pattern.test(pathname)) return { kind: "page", label, icon };
-    }
     return null;
   }, [pathname, params, mounted]);
 }

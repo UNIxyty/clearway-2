@@ -99,15 +99,15 @@
 /* Hover looks (H1): primary → deep; secondary/ghost → hover surface. */
 .ag-btn-primary:not(:disabled):hover { background: var(--ag-primary-hover) !important; }
 .ag-btn-secondary:not(:disabled):hover, .ag-btn-ghost:not(:disabled):hover, .ag-icon-button:not(:disabled):hover { background: var(--ag-hover) !important; }
-.ag-btn-primary:not(:disabled):hover { background: var(--ag-primary-hover) !important; color: #fff; }
+.ag-btn-primary:not(:disabled):hover { background: var(--ag-primary-hover) !important; color: var(--cw-text-on-primary); }
 .ag-row-hover:hover { background: var(--ag-page); }
 .ag-card-hover:hover { border-color: var(--ag-primary-border) !important; background: var(--ag-suggest-hover) !important; cursor: pointer; }
 
 /* ── Document viewer (spec addendum §V11 animation rows) ─────────────────── */
 @keyframes cw-viewer-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 @keyframes cw-viewer-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(24px); } }
-@keyframes cw-ring { 0% { box-shadow: 0 0 0 0 rgba(37,99,235,.35); } 100% { box-shadow: 0 0 0 8px rgba(37,99,235,0); } }
-@keyframes cw-cite-in { from { background-color: rgba(37,99,235,0); } to { background-color: var(--ag-cite-highlight); } }
+@keyframes cw-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--cw-primary) 35%, transparent); } 100% { box-shadow: 0 0 0 8px var(--cw-focus-halo); } }
+@keyframes cw-cite-in { from { background-color: color-mix(in srgb, var(--cw-primary) 0%, transparent); } to { background-color: var(--ag-cite-highlight); } }
 .cw-viewer-in { animation: cw-viewer-in 200ms var(--ag-ease-out) both; }   /* DV1 */
 .cw-viewer-out { animation: cw-viewer-out 160ms var(--ag-ease-in) both; }  /* DV2 */
 .cw-page-in canvas { animation: ag-fade-in 150ms var(--ag-ease-out) both; } /* DV13 */
@@ -167,8 +167,8 @@
   }
 
 .textLayer .highlight{
-    --highlight-bg-color:rgb(180 0 170 / 0.25);
-    --highlight-selected-bg-color:rgb(0 100 0 / 0.25);
+    --highlight-bg-color:var(--cw-paper-match);
+    --highlight-selected-bg-color:var(--cw-paper-match-current);
     --highlight-backdrop-filter:none;
     --highlight-selected-backdrop-filter:none;
   }
@@ -218,13 +218,11 @@
     }
 
 .textLayer ::-moz-selection{
-    background:rgba(0 0 255 / 0.25);
-    background:color-mix(in srgb, AccentColor, transparent 75%);
+    background:color-mix(in srgb, var(--cw-primary) 25%, transparent);
   }
 
 .textLayer ::selection{
-    background:rgba(0 0 255 / 0.25);
-    background:color-mix(in srgb, AccentColor, transparent 75%);
+    background:color-mix(in srgb, var(--cw-primary) 25%, transparent);
   }
 
 .textLayer br::-moz-selection{
@@ -291,9 +289,9 @@ mark.cw-search-hit { background: var(--ag-search-match); color: transparent; bor
 mark.cw-search-current { background: var(--ag-search-current); box-shadow: 0 0 0 2px var(--ag-search-current); }
 .cw-docx mark.cw-search-hit, pre mark.cw-search-hit { color: inherit; }
 
-.cw-cite-marker { position: absolute; left: -34px; width: 22px; height: 22px; border-radius: 50%; background: var(--ag-primary); color: #fff; font: 700 11px/22px var(--font-sans, inherit); text-align: center; z-index: 2; user-select: none; }
+.cw-cite-marker { position: absolute; left: -34px; width: 22px; height: 22px; border-radius: 50%; background: var(--ag-primary); color: var(--cw-text-on-primary); font: 700 11px/22px var(--font-sans, inherit); text-align: center; z-index: 2; user-select: none; }
 .cw-cite-marker.cw-cite-ring { animation: cw-ring 700ms ease-out 1 both; }  /* DV6 */
-.cw-cite-marker.cw-cite-marker-prev { background: #fff; color: var(--ag-primary-hover); border: 1px solid var(--ag-cite-outline); line-height: 20px; }
+.cw-cite-marker.cw-cite-marker-prev { background: var(--cw-bg-surface); color: var(--ag-primary-hover); border: 1px solid var(--ag-cite-outline); line-height: 20px; }
 .cw-cite-tag { position: absolute; font: 600 11px/1.4 var(--font-sans, inherit); color: var(--ag-primary-hover); background: var(--ag-primary-tint); border-radius: 5px; padding: 2px 7px; z-index: 2; user-select: none; }
 .cw-cite-tag-end { right: 12px; bottom: 8px; }
 .cw-cite-tag-start { left: 12px; top: 8px; }
@@ -307,7 +305,7 @@ mark.cw-search-current { background: var(--ag-search-current); box-shadow: 0 0 0
 
 .ag-doc-name:hover:not(:disabled) { color: var(--ag-primary-hover) !important; text-decoration: underline; text-decoration-color: var(--ag-cite-outline); text-underline-offset: 3px; }
 .ag-thumb-open:hover .ag-thumb-open-chip, .ag-thumb-open:focus-visible .ag-thumb-open-chip { opacity: 1 !important; }
-.ag-sent-chip:hover, .ag-sent-chip:focus-visible { border-color: var(--ag-primary) !important; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+.ag-sent-chip:hover, .ag-sent-chip:focus-visible { border-color: var(--ag-primary) !important; box-shadow: 0 0 0 3px var(--cw-focus-halo); }
 .ag-sent-chip:hover .ag-sent-chip-size, .ag-sent-chip:focus-visible .ag-sent-chip-size { display: none; }
 .ag-sent-chip:hover .ag-sent-chip-open, .ag-sent-chip:focus-visible .ag-sent-chip-open { display: inline-flex !important; }
 button:hover > .ag-kb-open, button:focus-within > * > .ag-kb-open, .ag-kb-open:focus-visible { opacity: 1 !important; }

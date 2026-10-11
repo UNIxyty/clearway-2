@@ -43,7 +43,7 @@ export default function AirportLayout({
         fallback={
           <div className="px-4 py-6 pb-12 sm:px-[30px]">
             <div className="mx-auto w-full max-w-[1600px]">
-              <p className="text-sm text-[#6c7079]">Loading…</p>
+              <p className="text-sm text-cw-text-muted">Loading…</p>
             </div>
           </div>
         }

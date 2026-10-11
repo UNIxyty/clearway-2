@@ -25,8 +25,8 @@ export function AdminRoute({ children }: AdminRouteProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-page flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-bk-blue/30 border-t-bk-blue animate-spin" />
+      <div className="min-h-screen bg-cw-bg-page flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-cw-primary/30 border-t-bk-blue animate-spin" />
       </div>
     );
   }

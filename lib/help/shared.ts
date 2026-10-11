@@ -19,11 +19,11 @@ export const HELP_TYPE_META: Record<
   HelpThreadType,
   { chip: string; bg: string; color: string; border: string; label: string }
 > = {
-  urgent: { chip: "URGENT", bg: "#fdf2f2", color: "#b42318", border: "#f0c9ca", label: "Urgent" },
-  bug: { chip: "BUG", bg: "#fdf6ec", color: "#b45309", border: "#f3e0c4", label: "Bug" },
-  request: { chip: "IDEA", bg: "#f2f7ff", color: "#1d4ed8", border: "#dbe6ff", label: "Suggestion" },
-  question: { chip: "ASK", bg: "#f5f6f7", color: "#3a3d44", border: "#e6e7ea", label: "Question" },
-  chat: { chip: "CHAT", bg: "#e7f6ec", color: "#15803d", border: "#c7ead2", label: "Chat" },
+  urgent: { chip: "URGENT", bg: "var(--cw-danger-tint)", color: "var(--cw-danger-text)", border: "var(--cw-danger-border)", label: "Urgent" },
+  bug: { chip: "BUG", bg: "var(--cw-warning-tint)", color: "var(--cw-warning-text)", border: "var(--cw-warning-border)", label: "Bug" },
+  request: { chip: "IDEA", bg: "var(--cw-primary-tint)", color: "var(--cw-text-link)", border: "var(--cw-primary-tint-border)", label: "Suggestion" },
+  question: { chip: "ASK", bg: "var(--cw-bg-sunken)", color: "var(--cw-text-body)", border: "var(--cw-border)", label: "Question" },
+  chat: { chip: "CHAT", bg: "var(--cw-success-tint)", color: "var(--cw-success-text)", border: "var(--cw-success-border)", label: "Chat" },
 };
 
 // Status chips — same words and colours as the Reports page.
@@ -31,10 +31,10 @@ export const HELP_STATUS_META: Record<
   HelpStatus,
   { chip: string; label: string; bg: string; color: string; border: string; dot: string }
 > = {
-  untouched: { chip: "UNTOUCHED", label: "Untouched", bg: "#f5f6f7", color: "#6c7079", border: "#e6e7ea", dot: "#9aa0a8" },
-  under_process: { chip: "UNDER PROCESS", label: "Under process", bg: "#f2f7ff", color: "#1d4ed8", border: "#dbe6ff", dot: "#2563eb" },
-  done: { chip: "DONE", label: "Done", bg: "#e7f6ec", color: "#15803d", border: "#c7ead2", dot: "#16a34a" },
-  impossible: { chip: "IMPOSSIBLE", label: "Impossible", bg: "#fdf2f2", color: "#b42318", border: "#f0c9ca", dot: "#e5484d" },
+  untouched: { chip: "UNTOUCHED", label: "Untouched", bg: "var(--cw-bg-sunken)", color: "var(--cw-text-muted)", border: "var(--cw-border)", dot: "var(--cw-neutral)" },
+  under_process: { chip: "UNDER PROCESS", label: "Under process", bg: "var(--cw-primary-tint)", color: "var(--cw-text-link)", border: "var(--cw-primary-tint-border)", dot: "var(--cw-primary)" },
+  done: { chip: "DONE", label: "Done", bg: "var(--cw-success-tint)", color: "var(--cw-success-text)", border: "var(--cw-success-border)", dot: "var(--cw-success)" },
+  impossible: { chip: "IMPOSSIBLE", label: "Impossible", bg: "var(--cw-danger-tint)", color: "var(--cw-danger-text)", border: "var(--cw-danger-border)", dot: "var(--cw-danger)" },
 };
 
 // Message content: structured blocks, stored as data, rendered natively on both

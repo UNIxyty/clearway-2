@@ -26,7 +26,7 @@ export default function LoginPage({
             alt="Clearway Handling & Operations"
             style={{ height: 44, display: "block" }}
           />
-          <span style={{ width: 1, height: 30, background: "rgba(255,255,255,.28)" }} />
+          <span style={{ width: 1, height: 30, background: "color-mix(in srgb, var(--cw-text-on-primary) 28%, transparent)" }} />
           <img
             src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/logo.png"
             alt="Verxyl"
@@ -37,16 +37,16 @@ export default function LoginPage({
         <LoginCard />
 
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 13.5, color: "rgba(255,255,255,.85)" }}>
+          <div style={{ fontSize: 13.5, color: "color-mix(in srgb, var(--cw-text-on-primary) 85%, transparent)" }}>
             Don&apos;t have an account?{" "}
             <Link
               href={signupHref}
-              style={{ fontWeight: 700, color: "#fff", textDecoration: "underline", textUnderlineOffset: 2 }}
+              style={{ fontWeight: 700, color: "var(--cw-text-on-primary)", textDecoration: "underline", textUnderlineOffset: 2 }}
             >
               Create account
             </Link>
           </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,.5)", marginTop: 8 }}>
+          <div style={{ fontSize: 12, color: "color-mix(in srgb, var(--cw-text-on-primary) 50%, transparent)", marginTop: 8 }}>
             By continuing, you agree to use this data for operational purposes only.
           </div>
           {next && next !== "/" && (
@@ -56,23 +56,23 @@ export default function LoginPage({
                 alignItems: "center",
                 gap: 9,
                 marginTop: 16,
-                background: "rgba(255,255,255,.1)",
-                border: "1px solid rgba(255,255,255,.2)",
+                background: "color-mix(in srgb, var(--cw-text-on-primary) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--cw-text-on-primary) 20%, transparent)",
                 borderRadius: 999,
                 padding: "8px 15px",
                 backdropFilter: "blur(4px)",
                 maxWidth: "100%",
               }}
             >
-              <CornerDownRight size={15} style={{ color: "rgba(255,255,255,.75)", flexShrink: 0 }} />
-              <span style={{ fontSize: 12.5, color: "rgba(255,255,255,.82)", whiteSpace: "nowrap" }}>
+              <CornerDownRight size={15} style={{ color: "color-mix(in srgb, var(--cw-text-on-primary) 75%, transparent)", flexShrink: 0 }} />
+              <span style={{ fontSize: 12.5, color: "color-mix(in srgb, var(--cw-text-on-primary) 82%, transparent)", whiteSpace: "nowrap" }}>
                 After sign-in you&apos;ll return to
               </span>
               <span
                 style={{
                   fontSize: 12,
                   fontWeight: 700,
-                  color: "#fff",
+                  color: "var(--cw-text-on-primary)",
                   fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
                   overflow: "hidden",
                   textOverflow: "ellipsis",

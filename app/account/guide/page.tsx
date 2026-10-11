@@ -10,15 +10,15 @@ export default function GuidePage() {
     >
       <div className="px-[30px] pb-10 pt-[26px]">
         <PCard className="overflow-hidden">
-          <div className="flex items-center justify-between border-b border-[#eef0f2] px-[18px] py-2.5">
-            <span className="text-[12.5px] font-semibold text-[#6c7079]">
+          <div className="flex items-center justify-between border-b border-cw-divider px-[18px] py-2.5">
+            <span className="text-[12.5px] font-semibold text-cw-text-muted">
               Digital Wall &amp; Console user guide
             </span>
             <a
               href="/digital-wall/guide/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[12.5px] font-semibold text-[#2563eb] hover:underline"
+              className="text-[12.5px] font-semibold text-cw-text-link hover:underline"
             >
               Open full screen
             </a>

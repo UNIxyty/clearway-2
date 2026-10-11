@@ -56,8 +56,8 @@ export default function ChangelogCard() {
             className="cursor-pointer rounded-full border px-3 py-[5px] font-sans text-[12.5px] font-semibold"
             style={
               active
-                ? { color: "#1d4ed8", background: "#eef4ff", borderColor: "#bfd3f8" }
-                : { color: "#6c7079", background: "#fff", borderColor: "#d6d8dc" }
+                ? { color: "var(--cw-text-link)", background: "var(--cw-primary-tint)", borderColor: "var(--cw-primary-tint-border)" }
+                : { color: "var(--cw-text-muted)", background: "var(--cw-bg-surface)", borderColor: "var(--cw-border-control)" }
             }
           >
             {f.label}
@@ -83,7 +83,7 @@ export default function ChangelogCard() {
       ) : error && !data ? (
         <RegionNote
           icon="triangle-alert"
-          iconColor="#e5484d"
+          iconColor="var(--cw-danger-text)"
           title="Couldn't load the changelog"
           body={error}
           action={
@@ -111,26 +111,26 @@ export default function ChangelogCard() {
             return (
               <div
                 key={`${entry.at}-${i}`}
-                className="flex items-start gap-[13px] border-t border-[#f4f5f6] py-3 pr-5"
+                className="flex items-start gap-[13px] border-t border-cw-divider py-3 pr-5"
                 style={
                   isError
-                    ? { background: "#fef8f8", borderLeft: "3px solid #e5484d", paddingLeft: 17 }
+                    ? { background: "var(--cw-danger-tint)", borderLeft: "3px solid var(--cw-danger)", paddingLeft: 17 }
                     : { borderLeft: "3px solid transparent", paddingLeft: 17 }
                 }
               >
                 <span
                   className="mt-px flex h-[26px] w-[26px] flex-none items-center justify-center rounded-lg"
-                  style={{ background: isError ? "#fee2e2" : "#eef1f5" }}
+                  style={{ background: isError ? "var(--cw-danger-tint)" : "var(--cw-neutral-tint)" }}
                 >
                   <MaskIcon
                     name={isError ? "triangle-alert" : SOURCE_ICON[entry.source] ?? "file-text"}
                     size={14}
-                    color={isError ? "#b91c1c" : "#475569"}
+                    color={isError ? "var(--cw-danger-text)" : "var(--cw-neutral-text)"}
                   />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span
-                    className="block text-[13.5px] leading-relaxed text-cw-ink"
+                    className="block text-[13.5px] leading-relaxed text-cw-text"
                     style={{ fontWeight: isError ? 600 : 400 }}
                   >
                     {entry.summary}
@@ -140,21 +140,21 @@ export default function ChangelogCard() {
                       className="rounded-[5px] px-2 py-[3px] text-[11px] font-bold tracking-[0.05em]"
                       style={
                         isError
-                          ? { color: "#b91c1c", background: "#fee2e2" }
-                          : { color: "#475569", background: "#eef1f5" }
+                          ? { color: "var(--cw-danger-text)", background: "var(--cw-danger-tint)" }
+                          : { color: "var(--cw-neutral-text)", background: "var(--cw-neutral-tint)" }
                       }
                     >
                       {isError ? "ERROR" : "EDIT"}
                     </span>
-                    <span className="text-xs text-cw-muted">{entry.source}</span>
+                    <span className="text-xs text-cw-text-muted">{entry.source}</span>
                     {entry.actor && (
-                      <span className="truncate font-mono text-[11.5px] text-cw-faint" title={entry.actor}>
+                      <span className="truncate font-mono text-[11.5px] text-cw-text-muted" title={entry.actor}>
                         {entry.actor}
                       </span>
                     )}
                   </span>
                 </span>
-                <span className="mt-0.5 flex-none font-mono text-[11.5px] text-cw-faint" title={entry.at}>
+                <span className="mt-0.5 flex-none font-mono text-[11.5px] text-cw-text-muted" title={entry.at}>
                   {timeAgo(entry.at)}
                 </span>
               </div>

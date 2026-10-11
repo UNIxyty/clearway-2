@@ -6,11 +6,13 @@
 // this makes it a first-class step instead of a round trip through an editor.
 
 import { useEffect, useRef, useState } from "react";
+import { cw, resolveColour } from "@/lib/portal-tokens";
 
 type Tool = "pen" | "rect" | "arrow";
 type Stroke = { tool: Tool; color: string; points: Array<{ x: number; y: number }> };
 
-const COLORS = ["#e5484d", "#f59e0b", "#2563eb", "#16a34a"];
+// Pen colours are tokens; the canvas draws with the theme's value at the moment of drawing.
+const COLORS = [cw.danger, cw.warning, cw.primary, cw.success];
 const MAX_EDGE = 1600;
 
 export default function ImageAnnotator({
@@ -55,8 +57,8 @@ export default function ImageAnnotator({
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     const lineW = Math.max(3, Math.round(canvas.width / 300));
     for (const s of [...strokes, ...(drawing.current ? [drawing.current] : [])]) {
-      ctx.strokeStyle = s.color;
-      ctx.fillStyle = s.color;
+      ctx.strokeStyle = resolveColour(s.color);
+      ctx.fillStyle = resolveColour(s.color);
       ctx.lineWidth = lineW;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -101,20 +103,20 @@ export default function ImageAnnotator({
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(23,24,28,.55)] p-6" onClick={onCancel}>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-cw-bg-scrim p-6" onClick={onCancel}>
       <div
-        className="flex max-h-full max-w-[min(1000px,94vw)] flex-col gap-3 rounded-[14px] border border-cw-border bg-white p-4 shadow-[0_24px_60px_rgba(16,18,22,.3)]"
+        className="flex max-h-full max-w-[min(1000px,94vw)] flex-col gap-3 rounded-[14px] border border-cw-border bg-cw-bg-surface p-4 shadow-cw-pop"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2">
-          <span className="text-[14px] font-bold text-cw-ink">Annotate</span>
+          <span className="text-[14px] font-bold text-cw-text">Annotate</span>
           <div className="mx-2 h-5 w-px bg-cw-border" />
           {(["pen", "rect", "arrow"] as Tool[]).map((t) => (
             <button
               key={t}
               onClick={() => setTool(t)}
               className="flex h-9 cursor-pointer items-center rounded-[9px] border px-3 text-[13px] font-semibold"
-              style={tool === t ? { background: "#17181c", borderColor: "#17181c", color: "#fff" } : { background: "#fff", borderColor: "#e6e7ea", color: "#3a3d44" }}
+              style={tool === t ? { background: "var(--cw-ink)", borderColor: "var(--cw-text)", color: "var(--cw-on-ink)" } : { background: "var(--cw-bg-surface)", borderColor: "var(--cw-border)", color: "var(--cw-text-body)" }}
             >
               {t === "pen" ? "✎ Pen" : t === "rect" ? "▭ Rectangle" : "→ Arrow"}
             </button>
@@ -126,28 +128,28 @@ export default function ImageAnnotator({
               onClick={() => setColor(c)}
               aria-label={c}
               className="h-9 w-9 cursor-pointer rounded-[9px] border-2"
-              style={{ background: c, borderColor: color === c ? "#17181c" : "transparent" }}
+              style={{ background: c, borderColor: color === c ? "var(--cw-text)" : "transparent" }}
             />
           ))}
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setStrokes((s) => s.slice(0, -1))}
               disabled={!strokes.length}
-              className="h-9 cursor-pointer rounded-[9px] border border-cw-border bg-white px-3 text-[13px] font-semibold text-cw-body disabled:opacity-40"
+              className="h-9 cursor-pointer rounded-[9px] border border-cw-border bg-cw-bg-surface px-3 text-[13px] font-semibold text-cw-text-body disabled:opacity-40"
             >
               Undo
             </button>
             <button
               onClick={() => setStrokes([])}
               disabled={!strokes.length}
-              className="h-9 cursor-pointer rounded-[9px] border border-cw-border bg-white px-3 text-[13px] font-semibold text-cw-body disabled:opacity-40"
+              className="h-9 cursor-pointer rounded-[9px] border border-cw-border bg-cw-bg-surface px-3 text-[13px] font-semibold text-cw-text-body disabled:opacity-40"
             >
               Clear
             </button>
           </div>
         </div>
 
-        <div className="min-h-0 overflow-auto rounded-[10px] border border-cw-border bg-cw-page">
+        <div className="min-h-0 overflow-auto rounded-[10px] border border-cw-border bg-cw-bg-page">
           <canvas
             ref={canvasRef}
             className="block max-w-full cursor-crosshair touch-none"
@@ -176,10 +178,10 @@ export default function ImageAnnotator({
         </div>
 
         <div className="flex items-center gap-2.5">
-          <span className="flex-1 text-[12px] text-cw-faint">
+          <span className="flex-1 text-[12px] text-cw-text-muted">
             The original stays untouched — annotating again always starts from it.
           </span>
-          <button onClick={onCancel} className="h-9 cursor-pointer rounded-[9px] border border-cw-border bg-white px-3.5 text-[13px] font-semibold text-cw-muted">
+          <button onClick={onCancel} className="h-9 cursor-pointer rounded-[9px] border border-cw-border bg-cw-bg-surface px-3.5 text-[13px] font-semibold text-cw-text-muted">
             Discard annotation
           </button>
           <button
@@ -193,7 +195,7 @@ export default function ImageAnnotator({
                 else setSaving(false);
               }, "image/png");
             }}
-            className="h-9 cursor-pointer rounded-[9px] border-none bg-cw-primary px-4 text-[13px] font-bold text-white disabled:opacity-40"
+            className="h-9 cursor-pointer rounded-[9px] border-none bg-cw-primary px-4 text-[13px] font-bold text-cw-text-on-primary disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save annotation"}
           </button>

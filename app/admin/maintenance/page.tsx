@@ -87,7 +87,7 @@ export default function AdminMaintenancePage() {
     <PortalShell title="Maintenance Control" crumb="/admin/maintenance" subtitle="Enable or disable portal-wide maintenance mode.">
       <div className="max-w-3xl space-y-6 px-8 py-6">
 
-        <Card className="border-border/70">
+        <Card className="border-cw-border/70">
           <CardHeader>
             <CardTitle className="text-base">Maintenance Control</CardTitle>
             <CardDescription>
@@ -97,11 +97,11 @@ export default function AdminMaintenancePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <p className="text-sm text-cw-text-muted">Loading…</p>
             ) : (
               <>
                 {error && (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  <div className="rounded-lg border border-cw-danger/30 bg-cw-danger-solid/10 px-3 py-2 text-sm text-cw-danger-text">
                     {error}
                   </div>
                 )}
@@ -139,7 +139,7 @@ export default function AdminMaintenancePage() {
                   </>
                 ) : (
                   <div className="space-y-3">
-                    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                    <div className="rounded-lg border border-cw-border/60 bg-cw-bg-hover/30 px-3 py-2 text-sm text-cw-text-muted">
                       Maintenance mode is currently <strong>{data.enabled ? "enabled" : "disabled"}</strong>.
                       {data.enabled ? " Any admin can turn it off." : " Only Developers can turn it on."}
                     </div>
@@ -161,7 +161,7 @@ export default function AdminMaintenancePage() {
                 </div>
 
                 {data.updated_at && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-cw-text-muted">
                     Last updated: {new Date(data.updated_at).toLocaleString()}
                   </p>
                 )}
@@ -170,7 +170,7 @@ export default function AdminMaintenancePage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/70">
+        <Card className="border-cw-border/70">
           <CardHeader>
             <CardTitle className="text-base">PDF Cache</CardTitle>
             <CardDescription>
@@ -205,8 +205,8 @@ export default function AdminMaintenancePage() {
             </Button>
 
             {clearCacheResult && (
-              <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-3 text-xs space-y-1">
-                <p className="font-medium text-foreground text-sm">
+              <div className="rounded-md border border-cw-border/60 bg-cw-bg-hover/40 px-3 py-3 text-xs space-y-1">
+                <p className="font-medium text-cw-text text-sm">
                   {clearCacheResult.total > 0
                     ? `Deleted ${clearCacheResult.total} file${clearCacheResult.total !== 1 ? "s" : ""}`
                     : "No cached PDF files found."}
@@ -214,15 +214,15 @@ export default function AdminMaintenancePage() {
                 {clearCacheResult.deleted.length > 0 && (
                   <div className="mt-2 max-h-64 overflow-y-auto space-y-0.5">
                     {clearCacheResult.deleted.map((f) => (
-                      <p key={f} className="font-mono text-muted-foreground">{f}</p>
+                      <p key={f} className="font-mono text-cw-text-muted">{f}</p>
                     ))}
                   </div>
                 )}
                 {clearCacheResult.errors.length > 0 && (
                   <div className="mt-2 space-y-0.5">
-                    <p className="font-medium text-destructive">Errors ({clearCacheResult.errors.length}):</p>
+                    <p className="font-medium text-cw-danger-text">Errors ({clearCacheResult.errors.length}):</p>
                     {clearCacheResult.errors.map((e) => (
-                      <p key={e} className="font-mono text-destructive">{e}</p>
+                      <p key={e} className="font-mono text-cw-danger-text">{e}</p>
                     ))}
                   </div>
                 )}

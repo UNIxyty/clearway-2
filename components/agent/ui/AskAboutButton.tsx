@@ -5,9 +5,10 @@
 // shell to open the panel; the shell renders it solely for allowlisted users.
 
 import { useEffect, useState } from "react";
-import { C } from "./tokens";
+
 import { Keycap, RingMark } from "./primitives";
 import { useKeybinds } from "./keybinds";
+import { cw } from "@/lib/portal-tokens";
 
 export default function AskAboutButton({ label, style = {}, gate = false }: { label: string; style?: React.CSSProperties; /** true when the parent has not already checked agent availability */ gate?: boolean }) {
   const [available, setAvailable] = useState(!gate);
@@ -19,8 +20,8 @@ export default function AskAboutButton({ label, style = {}, gate = false }: { la
   if (!available) return null;
   return (
     <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("cw-agent-open"))} title={`Ask the Ops Agent about this · ${kb.label("open")}`} className="ag-hover ag-focus"
-      style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.borderControl}`, background: C.surface, color: C.ink, fontFamily: "inherit", fontSize: 13.5, fontWeight: 600, cursor: "pointer", ...style }}>
-      <RingMark size={14} color={C.primaryHover} dot={5} />
+      style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", borderRadius: 10, border: `1px solid ${cw.borderControl}`, background: cw.bgSurface, color: cw.text, fontFamily: "inherit", fontSize: 13.5, fontWeight: 600, cursor: "pointer", ...style }}>
+      <RingMark size={14} color={cw.textLink} dot={5} />
       <span>Ask about {label}</span>
       <Keycap>{kb.label("open")}</Keycap>
     </button>

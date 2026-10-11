@@ -9,12 +9,13 @@
 // its absence is reported in the manifest rather than faked here.
 
 import { useState, type ReactNode } from "react";
-import { C, TIER, TIER_META } from "../ui/tokens";
+import { TIER, TIER_META } from "../ui/tokens";
 import { RevisionTag } from "./RevisionTag";
 import { Icon, Eyebrow } from "../ui/primitives";
 import type { ClaimSpan, SourceRef, Tier } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
 import { useViewerOptional } from "../viewer/ViewerContext";
+import { cw } from "@/lib/portal-tokens";
 
 const isFile = (s: SourceRef) => Boolean(s.documentSource || (s.href && /^\/files\//.test(s.href)));
 function useCitationState(s: SourceRef) {
@@ -28,7 +29,7 @@ function CiteLink({ s, children, style, className }: { s: SourceRef; children: R
   const st = useCitationState(s);
   const tip = isFile(s) ? `${s.filename ?? s.label}${s.page ? ` · p. ${s.page}` : ""} · click to open at the passage` : s.tier === "web" ? "Opens in a new browser tab" : undefined;
   if (!isFile(s) && !(s.tier === "web" && s.href)) return <span style={style} className={className}>{children}</span>;
-  return <button type="button" title={tip} className={`ag-focus ${className ?? ""}`} onClick={(e) => void od.openCitation(s, null, e.currentTarget)} aria-label={`Source ${s.n}${st.notFound ? " (not found)" : ""}`} style={{ ...style, fontFamily: "inherit", cursor: "pointer", ...(st.notFound ? { background: C.dangerTint, borderColor: C.dangerBorder } : st.active ? { background: C.primaryTint } : {}) }}>{children}{st.notFound && <span style={{ fontSize: 11, fontWeight: 700, color: C.danger }}>not found</span>}</button>;
+  return <button type="button" title={tip} className={`ag-focus ${className ?? ""}`} onClick={(e) => void od.openCitation(s, null, e.currentTarget)} aria-label={`Source ${s.n}${st.notFound ? " (not found)" : ""}`} style={{ ...style, fontFamily: "inherit", cursor: "pointer", ...(st.notFound ? { background: cw.dangerTint, borderColor: cw.dangerBorder } : st.active ? { background: cw.primaryTint } : {}) }}>{children}{st.notFound && <span style={{ fontSize: 11, fontWeight: 700, color: cw.dangerText }}>not found</span>}</button>;
 }
 
 const tierOf = (t: Tier) => (t === "memory" ? null : TIER[t]);
@@ -37,7 +38,7 @@ const tierOf = (t: Tier) => (t === "memory" ? null : TIER[t]);
 export function SourceNumber({ n, tier, size = 18, notFound = false }: { n: number; tier: Tier; size?: number; notFound?: boolean }) {
   const t = tierOf(tier);
   return (
-    <span style={{ minWidth: size, height: size, borderRadius: 4, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size <= 16 ? 10 : 10.5, fontWeight: 700, color: notFound ? C.danger : (t?.fg ?? C.info), background: notFound ? C.dangerTint : (t?.bg ?? C.infoTint), flex: "none", padding: "0 3px" }}>{n}{notFound ? " ?" : ""}</span>
+    <span style={{ minWidth: size, height: size, borderRadius: 4, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size <= 16 ? 10 : 10.5, fontWeight: 700, color: notFound ? cw.dangerText : (t?.fg ?? cw.infoText), background: notFound ? cw.dangerTint : (t?.bg ?? cw.infoTint), flex: "none", padding: "0 3px" }}>{n}{notFound ? " ?" : ""}</span>
   );
 }
 
@@ -58,9 +59,9 @@ export function ClaimedProse({ text, spans, sources, hot, setHot, panel = false 
     const highlight = hot === span.n;
     parts.push(
       <span key={`c${i}`} onMouseEnter={() => setHot(span.n)} onMouseLeave={() => setHot(null)}
-        style={{ borderBottom: `2px solid ${tier?.underline ?? C.border}`, background: highlight ? (tier?.claimBg ?? tier?.bg ?? C.primaryTint2) : (src?.tier === "web" ? TIER.web.claimBg : "transparent"), borderRadius: 2, transition: "background-color 120ms" }}>
+        style={{ borderBottom: `2px solid ${tier?.underline ?? cw.border}`, background: highlight ? (tier?.claimBg ?? tier?.bg ?? cw.primaryWash) : (src?.tier === "web" ? TIER.web.claimBg : "transparent"), borderRadius: 2, transition: "background-color 120ms" }}>
         {text.slice(span.start, span.end)}
-        <sup style={{ fontSize: panel ? 9.5 : 10, fontWeight: 700, color: tier?.fg ?? C.muted, marginLeft: 1, lineHeight: 0 }}>{span.n}</sup>
+        <sup style={{ fontSize: panel ? 9.5 : 10, fontWeight: 700, color: tier?.fg ?? cw.textMuted, marginLeft: 1, lineHeight: 0 }}>{span.n}</sup>
       </span>,
     );
     cursor = span.end;
@@ -74,7 +75,7 @@ export function SourceChips({ sources, hot, setHot }: { sources: SourceRef[]; ho
   if (sources.length === 0) return <NoSource />;
   const single = sources.length === 1;
   return (
-    <div style={{ display: "flex", flexDirection: single ? "row" : "column", alignItems: single ? "center" : "stretch", gap: single ? 10 : 8, borderTop: `1px solid ${C.divider}`, paddingTop: 12 }}>
+    <div style={{ display: "flex", flexDirection: single ? "row" : "column", alignItems: single ? "center" : "stretch", gap: single ? 10 : 8, borderTop: `1px solid ${cw.divider}`, paddingTop: 12 }}>
       <Eyebrow>{single ? "Source" : `${sources.length} sources`}</Eyebrow>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {sources.map((s) => {
@@ -82,14 +83,14 @@ export function SourceChips({ sources, hot, setHot }: { sources: SourceRef[]; ho
           const inner = (
             <>
               {!single && <SourceNumber n={s.n} tier={s.tier} />}
-              <Icon name={meta.icon} size={13} color={t?.fg ?? C.info} />
-              <span style={{ fontWeight: 600, color: t?.fg ?? C.info }}>{meta.label}</span>
-              <span style={{ color: C.body }}>{s.label}</span>
+              <Icon name={meta.icon} size={13} color={t?.fg ?? cw.infoText} />
+              <span style={{ fontWeight: 600, color: t?.fg ?? cw.infoText }}>{meta.label}</span>
+              <span style={{ color: cw.textBody }}>{s.label}</span>
               {(s.documentSource || s.documentId) && <RevisionTag revision={s.revision} />}
-              {s.href && <Icon name="arrow-up-right" size={12} color={C.faint} />}
+              {s.href && <Icon name="arrow-up-right" size={12} color={cw.textMuted} />}
             </>
           );
-          const style = { display: "inline-flex", alignItems: "center", gap: 7, background: hot === s.n ? (t?.bg ?? C.primaryTint) : C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: single ? "5px 9px" : "5px 9px 5px 5px", fontSize: 12.5, color: C.body, textDecoration: "none", transition: "background-color 120ms" } as const;
+          const style = { display: "inline-flex", alignItems: "center", gap: 7, background: hot === s.n ? (t?.bg ?? cw.primaryTint) : cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 8, padding: single ? "5px 9px" : "5px 9px 5px 5px", fontSize: 12.5, color: cw.textBody, textDecoration: "none", transition: "background-color 120ms" } as const;
           return <span key={s.n} onMouseEnter={() => setHot?.(s.n)} onMouseLeave={() => setHot?.(null)} style={{ display: "contents" }}><CiteLink s={s} style={style}>{inner}</CiteLink></span>;
         })}
       </div>
@@ -101,19 +102,19 @@ export function SourceChips({ sources, hot, setHot }: { sources: SourceRef[]; ho
 export function SourceStrip({ sources, hot, setHot }: { sources: SourceRef[]; hot?: number | null; setHot?: (n: number | null) => void }) {
   if (sources.length === 0) return <NoSource small />;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3, borderTop: `1px solid ${C.divider}`, paddingTop: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 3, borderTop: `1px solid ${cw.divider}`, paddingTop: 8 }}>
       <div style={{ display: "flex", gap: 2, height: 4, borderRadius: 2, overflow: "hidden", marginBottom: 4 }}>
-        {sources.map((s) => <span key={s.n} style={{ flex: 1, background: tierOf(s.tier)?.strip ?? C.info }} />)}
+        {sources.map((s) => <span key={s.n} style={{ flex: 1, background: tierOf(s.tier)?.strip ?? cw.info }} />)}
       </div>
       {sources.map((s) => {
         const t = tierOf(s.tier); const meta = TIER_META[s.tier as keyof typeof TIER_META] ?? { label: s.tierLabel ?? "Remembered", icon: "bookmark" };
         const row = (
-          <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: C.body, background: hot === s.n ? (t?.bg ?? C.primaryTint) : "transparent", borderRadius: 4, padding: "1px 2px", transition: "background-color 120ms" }} onMouseEnter={() => setHot?.(s.n)} onMouseLeave={() => setHot?.(null)}>
+          <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: cw.textBody, background: hot === s.n ? (t?.bg ?? cw.primaryTint) : "transparent", borderRadius: 4, padding: "1px 2px", transition: "background-color 120ms" }} onMouseEnter={() => setHot?.(s.n)} onMouseLeave={() => setHot?.(null)}>
             <SourceNumber n={s.n} tier={s.tier} size={16} />
-            <Icon name={meta.icon} size={11} color={t?.fg ?? C.info} />
-            <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><span style={{ fontWeight: 600, color: t?.fg ?? C.info }}>{meta.label}</span> · {s.label}</span>
+            <Icon name={meta.icon} size={11} color={t?.fg ?? cw.infoText} />
+            <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><span style={{ fontWeight: 600, color: t?.fg ?? cw.infoText }}>{meta.label}</span> · {s.label}</span>
             {(s.documentSource || s.documentId) && <RevisionTag revision={s.revision} size={10} />}
-            {s.href && <Icon name="arrow-up-right" size={11} color={C.faint} />}
+            {s.href && <Icon name="arrow-up-right" size={11} color={cw.textMuted} />}
           </span>
         );
         return <CiteLink key={s.n} s={s} style={{ textDecoration: "none", color: "inherit", background: "transparent", border: "none", padding: 0, width: "100%", textAlign: "left" }}>{row}</CiteLink>;
@@ -124,7 +125,7 @@ export function SourceStrip({ sources, hot, setHot }: { sources: SourceRef[]; ho
 
 /** A reply with no source at all (§4.7 A, spec default): an eyebrow in the sources slot. */
 export function NoSource({ small = false }: { small?: boolean }) {
-  return <div style={{ borderTop: `1px solid ${C.divider}`, paddingTop: small ? 8 : 12 }}><Eyebrow small={small} color={C.faint}>No source · agent&apos;s reasoning</Eyebrow></div>;
+  return <div style={{ borderTop: `1px solid ${cw.divider}`, paddingTop: small ? 8 : 12 }}><Eyebrow small={small} color={cw.textMuted}>No source · agent&apos;s reasoning</Eyebrow></div>;
 }
 
 /** Owns the claim↔row hover state for one reply. */

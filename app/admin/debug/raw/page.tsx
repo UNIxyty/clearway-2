@@ -52,9 +52,9 @@ function AdminDebugRawPageClient() {
       <div className="p-4 md:p-6">
         {/* A run's own "raw stream" link opens this with ?run=; on its own there is nothing to show. */}
         {run ? (
-          <pre className="rounded border bg-black p-3 text-xs text-green-300 min-h-[70vh] max-h-[70vh] overflow-auto whitespace-pre-wrap">{content}</pre>
+          <pre className="rounded border bg-cw-night-a p-3 text-xs text-cw-success min-h-[70vh] max-h-[70vh] overflow-auto whitespace-pre-wrap">{content}</pre>
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-cw-text-muted">
             No run selected. Open a run in the <a className="underline" href="/admin/debug">Debug runner</a> and use its raw stream link.
           </p>
         )}
@@ -65,7 +65,7 @@ function AdminDebugRawPageClient() {
 
 export default function AdminDebugRawPage() {
   return (
-    <Suspense fallback={<div className="p-4 md:p-6 text-sm text-muted-foreground">Loading stream…</div>}>
+    <Suspense fallback={<div className="p-4 md:p-6 text-sm text-cw-text-muted">Loading stream…</div>}>
       <AdminDebugRawPageClient />
     </Suspense>
   );

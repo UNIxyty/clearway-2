@@ -49,62 +49,62 @@ export default function AnswerClient() {
   ) : null;
   const summary = peek?.reference ? (
     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-      <dt className="text-muted-foreground">Reference</dt><dd className="font-mono">{peek.reference}</dd>
-      {peek.route ? <><dt className="text-muted-foreground">Route</dt><dd className="font-mono">{peek.route}</dd></> : null}
-      {peek.date ? <><dt className="text-muted-foreground">Date</dt><dd>{peek.date}</dd></> : null}
-      {peek.legs ? <><dt className="text-muted-foreground">Legs</dt><dd>{peek.legs}</dd></> : null}
+      <dt className="text-cw-text-muted">Reference</dt><dd className="font-mono">{peek.reference}</dd>
+      {peek.route ? <><dt className="text-cw-text-muted">Route</dt><dd className="font-mono">{peek.route}</dd></> : null}
+      {peek.date ? <><dt className="text-cw-text-muted">Date</dt><dd>{peek.date}</dd></> : null}
+      {peek.legs ? <><dt className="text-cw-text-muted">Legs</dt><dd>{peek.legs}</dd></> : null}
     </dl>
   ) : null;
 
   let title = "", body: React.ReactNode = null;
-  if (!peek && !error) { title = "One moment"; body = <p className="text-sm text-muted-foreground">Checking the link…</p>; }
-  else if (error) { title = "Not recorded"; body = <p className="text-sm text-destructive">{error}</p>; }
-  else if (peek!.state === "invalid") { title = "This link does not work"; body = <p className="text-sm text-muted-foreground">It may have been cut short by the mail client. Open the email again and use the button, or reply yes or no to it.</p>; }
+  if (!peek && !error) { title = "One moment"; body = <p className="text-sm text-cw-text-muted">Checking the link…</p>; }
+  else if (error) { title = "Not recorded"; body = <p className="text-sm text-cw-danger-text">{error}</p>; }
+  else if (peek!.state === "invalid") { title = "This link does not work"; body = <p className="text-sm text-cw-text-muted">It may have been cut short by the mail client. Open the email again and use the button, or reply yes or no to it.</p>; }
   else if (peek!.state === "open" && cancelQ) {
     title = yes ? "Cancel this flight in Leon?" : "Keep this flight in Leon?";
     body = (
       <div className="space-y-5">
         {summary}{cancelLegs}
-        <p className="text-sm text-muted-foreground">{yes ? "The provider cancelled this flight. The agent cancels each leg listed in Leon. Leon keeps the flights as cancelled; they are not removed, and this cannot be undone from here." : "Nothing is touched in Leon. The request records that the provider's cancellation was declined, with your name."}</p>
-        {peek!.deadlineAt ? <p className="text-xs text-muted-foreground">No answer by {hm(peek!.deadlineAt)}: nothing is cancelled; the request waits on the intake page.</p> : null}
+        <p className="text-sm text-cw-text-muted">{yes ? "The provider cancelled this flight. The agent cancels each leg listed in Leon. Leon keeps the flights as cancelled; they are not removed, and this cannot be undone from here." : "Nothing is touched in Leon. The request records that the provider's cancellation was declined, with your name."}</p>
+        {peek!.deadlineAt ? <p className="text-xs text-cw-text-muted">No answer by {hm(peek!.deadlineAt)}: nothing is cancelled; the request waits on the intake page.</p> : null}
         <Button onClick={answer} disabled={busy} variant={yes ? "destructive" : "outline"} className="w-full" data-testid="answer-button">{busy ? "Recording…" : yes ? "Yes, cancel in Leon" : "No, keep the flights"}</Button>
       </div>
     );
   }
   else if (peek!.state === "recorded" && cancelQ) {
     title = yes ? "Recorded: cancel in Leon" : "Recorded: keep the flights";
-    body = <div className="space-y-4">{summary}<p className="text-sm text-muted-foreground">{yes ? "The agent is cancelling the flights in Leon. You will get an email saying which legs were cancelled and which were not." : "Nothing was touched in Leon."}</p><p className="text-xs text-muted-foreground">You can close this page.</p></div>;
+    body = <div className="space-y-4">{summary}<p className="text-sm text-cw-text-muted">{yes ? "The agent is cancelling the flights in Leon. You will get an email saying which legs were cancelled and which were not." : "Nothing was touched in Leon."}</p><p className="text-xs text-cw-text-muted">You can close this page.</p></div>;
   }
   else if (peek!.state === "expired" && cancelQ) {
     title = "This question has expired";
-    body = <div className="space-y-4">{summary}<p className="text-sm text-muted-foreground">No answer arrived by {hm(peek!.deadlineAt)}. Nothing was cancelled. Anyone signed in can still decide on the intake page.</p></div>;
+    body = <div className="space-y-4">{summary}<p className="text-sm text-cw-text-muted">No answer arrived by {hm(peek!.deadlineAt)}. Nothing was cancelled. Anyone signed in can still decide on the intake page.</p></div>;
   }
   else if (peek!.state === "open") {
     title = yes ? "Process this scheduled flight?" : "Skip this scheduled flight?";
     body = (
       <div className="space-y-5">
         {summary}
-        <p className="text-sm text-muted-foreground">{yes ? "The agent will read the flight's record from the provider's portal and show it on Flight intake for you to confirm. Nothing goes to Leon without that confirmation." : "The request will be closed on Flight intake. Nothing is read from the provider, nothing is created."}</p>
-        {peek!.deadlineAt ? <p className="text-xs text-muted-foreground">No answer by {hm(peek!.deadlineAt)}: the request closes and can still be processed from the intake page.</p> : null}
+        <p className="text-sm text-cw-text-muted">{yes ? "The agent will read the flight's record from the provider's portal and show it on Flight intake for you to confirm. Nothing goes to Leon without that confirmation." : "The request will be closed on Flight intake. Nothing is read from the provider, nothing is created."}</p>
+        {peek!.deadlineAt ? <p className="text-xs text-cw-text-muted">No answer by {hm(peek!.deadlineAt)}: the request closes and can still be processed from the intake page.</p> : null}
         <Button onClick={answer} disabled={busy} variant={yes ? "default" : "outline"} className="w-full" data-testid="answer-button">{busy ? "Recording…" : yes ? "Yes, process it" : "No, skip it"}</Button>
       </div>
     );
   }
   else if (peek!.state === "recorded") {
     title = yes ? "Recorded: process it" : "Recorded: skip it";
-    body = <div className="space-y-4">{summary}<p className="text-sm text-muted-foreground">{yes ? "The agent is reading the record from the provider's portal. You will get an email when it is on Flight intake, ready to confirm." : "The request is closed. Nothing was created."}</p><p className="text-xs text-muted-foreground">You can close this page.</p></div>;
+    body = <div className="space-y-4">{summary}<p className="text-sm text-cw-text-muted">{yes ? "The agent is reading the record from the provider's portal. You will get an email when it is on Flight intake, ready to confirm." : "The request is closed. Nothing was created."}</p><p className="text-xs text-cw-text-muted">You can close this page.</p></div>;
   }
   else if (peek!.state === "already") {
     title = "Already answered";
-    body = <div className="space-y-4">{summary}<p className="text-sm text-muted-foreground">{peek!.answered ? `${peek!.answered.by} answered ${peek!.answered.value} at ${hm(peek!.answered.at)}.` : "Someone already answered this question."} The first answer stands; this tap changed nothing.</p></div>;
+    body = <div className="space-y-4">{summary}<p className="text-sm text-cw-text-muted">{peek!.answered ? `${peek!.answered.by} answered ${peek!.answered.value} at ${hm(peek!.answered.at)}.` : "Someone already answered this question."} The first answer stands; this tap changed nothing.</p></div>;
   }
   else if (peek!.state === "expired") {
     title = "This request has expired";
-    body = <div className="space-y-4">{summary}<p className="text-sm text-muted-foreground">No answer arrived by {hm(peek!.deadlineAt)}, so the request was closed and nothing was created. It is still on the intake page, where anyone signed in can process it.</p></div>;
+    body = <div className="space-y-4">{summary}<p className="text-sm text-cw-text-muted">No answer arrived by {hm(peek!.deadlineAt)}, so the request was closed and nothing was created. It is still on the intake page, where anyone signed in can process it.</p></div>;
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 flex items-center justify-center">
+    <div className="min-h-screen bg-cw-bg-page p-4 sm:p-6 flex items-center justify-center">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardDescription>Clearway Ops Agent · Flight intake</CardDescription>

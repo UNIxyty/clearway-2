@@ -100,15 +100,15 @@ export default function DeletedAirportsPage() {
         <h1 className="m-0 mb-[5px] text-[26px] font-extrabold tracking-[-0.02em]">
           Airports you hid
         </h1>
-        <p className="m-0 mb-5 text-[15px] text-[#6c7079]">
+        <p className="m-0 mb-5 text-[15px] text-cw-text-muted">
           Hiding an airport removes it from your own search and browse lists only — nobody else&apos;s. Restore any of
           yours here.
         </p>
 
         {rows.length > 0 && (
           <div className="mb-4 flex items-center justify-between gap-2">
-            <p className="m-0 text-[12.5px] text-[#6c7079]">
-              <PMono className="font-semibold text-[#17181c]">{selectedIds.length}</PMono> selected
+            <p className="m-0 text-[12.5px] text-cw-text-muted">
+              <PMono className="font-semibold text-cw-text">{selectedIds.length}</PMono> selected
             </p>
             <PButton
               type="button"
@@ -125,20 +125,20 @@ export default function DeletedAirportsPage() {
         )}
 
         {error && (
-          <div className="mb-4 rounded-[10px] border border-[#f0d4d4] bg-[#fdf2f2] px-3.5 py-2.5 text-sm text-[#a12a2e]">
+          <div className="mb-4 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-2.5 text-sm text-cw-danger-text">
             {error}
           </div>
         )}
 
         <PCard className="overflow-hidden">
-          <div className="border-b border-[#eef0f2] px-[18px] py-4">
+          <div className="border-b border-cw-divider px-[18px] py-4">
             <PSectionTitle>Recently deleted</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">
+            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
               Airports hidden by your account. Restore returns airport to your browse menu.
             </p>
           </div>
           {loading ? (
-            <p className="m-0 px-[18px] py-5 text-sm text-[#6c7079]">Loading…</p>
+            <p className="m-0 px-[18px] py-5 text-sm text-cw-text-muted">Loading…</p>
           ) : rows.length === 0 ? (
             <PEmpty icon={<Trash2Icon className="h-5 w-5" />} title="No deleted airports." />
           ) : (
@@ -146,12 +146,12 @@ export default function DeletedAirportsPage() {
               {rows.map((row) => (
                 <div
                   key={row.id}
-                  className="flex items-center gap-3.5 border-b border-[#f2f3f5] px-[18px] py-3.5 last:border-b-0"
+                  className="flex items-center gap-3.5 border-b border-cw-divider px-[18px] py-3.5 last:border-b-0"
                 >
                   <input
                     id={`deleted-airport-${row.id}`}
                     type="checkbox"
-                    className="h-4 w-4 flex-none accent-[#2563eb]"
+                    className="h-4 w-4 flex-none accent-cw-primary"
                     checked={selectedIds.includes(row.id)}
                     onChange={(e) => {
                       setSelectedIds((prev) =>
@@ -160,24 +160,24 @@ export default function DeletedAirportsPage() {
                     }}
                     aria-label={`Select ${row.icao} for restore`}
                   />
-                  <PMono className="w-16 flex-none text-[14.5px] font-semibold text-[#17181c]">
+                  <PMono className="w-16 flex-none text-[14.5px] font-semibold text-cw-text">
                     {row.icao}
                   </PMono>
                   <div className="min-w-0 flex-1">
-                    <p className="m-0 truncate text-[14.5px] text-[#17181c]">
+                    <p className="m-0 truncate text-[14.5px] text-cw-text">
                       {row.airport_snapshot?.name || "Unnamed airport"}
                     </p>
-                    <p className="m-0 mt-0.5 truncate text-xs text-[#6c7079]">
+                    <p className="m-0 mt-0.5 truncate text-xs text-cw-text-muted">
                       {(row.airport_snapshot?.country || "Unknown country") +
                         (row.airport_snapshot?.state ? ` · ${row.airport_snapshot.state}` : "")}
                     </p>
                   </div>
-                  <PMono className="hidden flex-none text-[12.5px] text-[#9aa0a8] sm:block">
+                  <PMono className="hidden flex-none text-[12.5px] text-cw-text-muted sm:block">
                     {new Date(row.deleted_at).toLocaleString()}
                   </PMono>
                   <button
                     type="button"
-                    className="flex-none cursor-pointer rounded-[9px] border-none bg-[#eef4ff] px-3.5 py-2 text-[13px] font-semibold text-[#1d4ed8] hover:bg-[#e0eaff] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex-none cursor-pointer rounded-[9px] border-none bg-cw-primary-tint px-3.5 py-2 text-[13px] font-semibold text-cw-text-link hover:bg-cw-primary-tint disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => {
                       void restore(row);
                     }}

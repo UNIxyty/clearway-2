@@ -17,6 +17,7 @@ import {
   COUNTRY_SERVICE_STATE_META,
   type CountryServiceState,
 } from "@/lib/country-service-status-shared";
+import { cw } from "@/lib/portal-tokens";
 
 type Row = {
   country: string;
@@ -70,13 +71,13 @@ export default function ServiceStatusPage() {
   // Same computation as the old banner: one conic-gradient sweep per state,
   // proportional to its share, in COUNTRY_SERVICE_STATES order.
   const pie = useMemo(() => {
-    if (!total) return "#d6d8dc";
+    if (!total) return cw.borderControl;
     let acc = 0;
     const stops: string[] = [];
     for (const state of COUNTRY_SERVICE_STATES) {
       const share = (counts[state] / total) * 360;
       if (share <= 0) continue;
-      stops.push(`${COUNTRY_SERVICE_STATE_META[state].hex} ${acc}deg ${acc + share}deg`);
+      stops.push(`${COUNTRY_SERVICE_STATE_META[state].colour} ${acc}deg ${acc + share}deg`);
       acc += share;
     }
     return `conic-gradient(${stops.join(",")})`;
@@ -99,15 +100,15 @@ export default function ServiceStatusPage() {
     >
       <div className="max-w-[1560px] px-[30px] pb-10 pt-[26px]">
         {error && !rows && (
-          <PCard className="mb-5 border-[#f6cdcf] bg-[#fdf2f2] px-4 py-3 text-sm text-[#a12a2e]">
+          <PCard className="mb-5 border-cw-danger-border bg-cw-danger-tint px-4 py-3 text-sm text-cw-danger-text">
             {error}
           </PCard>
         )}
 
         {anyDebug && (
-          <PCard className="mb-5 flex items-center gap-3.5 border-l-4 border-l-amber-500 px-[18px] py-3.5">
-            <span className="h-2.5 w-2.5 flex-none animate-pulse rounded-full bg-amber-500" />
-            <div className="flex-1 text-[14.5px] text-[#3a3d44]">
+          <PCard className="mb-5 flex items-center gap-3.5 border-l-4 border-l-cw-warning px-[18px] py-3.5">
+            <span className="h-2.5 w-2.5 flex-none animate-pulse rounded-full bg-cw-warning" />
+            <div className="flex-1 text-[14.5px] text-cw-text-body">
               A debug script is currently running — some countries may briefly report errors while
               it works.
             </div>
@@ -122,9 +123,9 @@ export default function ServiceStatusPage() {
                 className="flex h-[196px] w-[196px] items-center justify-center rounded-full"
                 style={{ background: pie }}
               >
-                <div className="flex h-[132px] w-[132px] flex-col items-center justify-center rounded-full bg-white">
+                <div className="flex h-[132px] w-[132px] flex-col items-center justify-center rounded-full bg-cw-bg-surface">
                   <div className="font-mono text-3xl font-semibold leading-none">{total}</div>
-                  <div className="mt-[5px] text-xs text-[#9aa0a8]">countries</div>
+                  <div className="mt-[5px] text-xs text-cw-text-muted">countries</div>
                 </div>
               </div>
             </div>
@@ -137,11 +138,11 @@ export default function ServiceStatusPage() {
                   <div key={state} className="flex items-center gap-[11px]" title={meta.description}>
                     <span
                       className="h-[11px] w-[11px] flex-none rounded-[3px]"
-                      style={{ background: meta.hex }}
+                      style={{ background: meta.colour }}
                     />
-                    <span className="flex-1 text-[13.5px] text-[#3a3d44]">{meta.label}</span>
+                    <span className="flex-1 text-[13.5px] text-cw-text-body">{meta.label}</span>
                     <span className="font-mono text-[13px] font-semibold">{n}</span>
-                    <span className="w-11 text-right font-mono text-xs text-[#9aa0a8]">{pct}%</span>
+                    <span className="w-11 text-right font-mono text-xs text-cw-text-muted">{pct}%</span>
                   </div>
                 );
               })}
@@ -149,9 +150,9 @@ export default function ServiceStatusPage() {
           </PCard>
 
           <PCard className="min-w-0 flex-[1_1_480px] overflow-hidden">
-            <div className="flex flex-wrap items-center gap-2.5 border-b border-[#eef0f2] px-[18px] py-3.5">
-              <div className="flex h-[38px] min-w-[200px] flex-1 items-center gap-[9px] rounded-[10px] border border-[#d6d8dc] bg-white px-3">
-                <SearchIcon className="h-[15px] w-[15px] text-[#9aa0a8]" />
+            <div className="flex flex-wrap items-center gap-2.5 border-b border-cw-divider px-[18px] py-3.5">
+              <div className="flex h-[38px] min-w-[200px] flex-1 items-center gap-[9px] rounded-[10px] border border-cw-border-control bg-cw-bg-surface px-3">
+                <SearchIcon className="h-[15px] w-[15px] text-cw-text-muted" />
                 <input
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
@@ -164,8 +165,8 @@ export default function ServiceStatusPage() {
                   onClick={() => setStateFilter("all")}
                   className={`inline-flex cursor-pointer items-center gap-[7px] rounded-full border px-3 py-[7px] text-[12.5px] font-semibold ${
                     stateFilter === "all"
-                      ? "border-[#2563eb] bg-[#eef4ff] text-[#1d4ed8]"
-                      : "border-[#e6e7ea] bg-white text-[#6c7079]"
+                      ? "border-cw-primary bg-cw-primary-tint text-cw-text-link"
+                      : "border-cw-border bg-cw-bg-surface text-cw-text-muted"
                   }`}
                 >
                   All
@@ -179,19 +180,19 @@ export default function ServiceStatusPage() {
                       onClick={() => setStateFilter(on ? "all" : state)}
                       className={`inline-flex cursor-pointer items-center gap-[7px] rounded-full border px-3 py-[7px] text-[12.5px] font-semibold ${
                         on
-                          ? "border-[#2563eb] bg-[#eef4ff] text-[#1d4ed8]"
-                          : "border-[#e6e7ea] bg-white text-[#6c7079]"
+                          ? "border-cw-primary bg-cw-primary-tint text-cw-text-link"
+                          : "border-cw-border bg-cw-bg-surface text-cw-text-muted"
                       }`}
                       title={meta.description}
                     >
-                      <span className="h-2 w-2 rounded-full" style={{ background: meta.hex }} />
+                      <span className="h-2 w-2 rounded-full" style={{ background: meta.colour }} />
                       {meta.label}
                     </button>
                   );
                 })}
               </div>
             </div>
-            <div className="grid grid-cols-[1.4fr_1.2fr_1fr] border-b border-[#eef0f2] bg-[#fbfbfc] px-[18px] py-2.5">
+            <div className="grid grid-cols-[1.4fr_1.2fr_1fr] border-b border-cw-divider bg-cw-bg-page px-[18px] py-2.5">
               <PTh>COUNTRY</PTh>
               <PTh>STATUS</PTh>
               <PTh className="text-right">NOTE</PTh>
@@ -202,24 +203,24 @@ export default function ServiceStatusPage() {
                 return (
                   <div
                     key={row.country}
-                    className="grid grid-cols-[1.4fr_1.2fr_1fr] items-center border-b border-[#f2f3f5] px-[18px] py-3"
+                    className="grid grid-cols-[1.4fr_1.2fr_1fr] items-center border-b border-cw-divider px-[18px] py-3"
                   >
                     <div className="text-sm font-medium">{row.country}</div>
                     <div>
                       <span
                         className="inline-flex items-center gap-[7px] rounded-full px-2.5 py-1 text-xs font-semibold"
-                        style={{ color: meta.hex, background: `${meta.hex}1a` }}
+                        style={{ color: meta.text, background: `color-mix(in srgb, ${meta.colour} 10%, transparent)` }}
                       >
-                        <span className="h-[7px] w-[7px] rounded-full" style={{ background: meta.hex }} />
+                        <span className="h-[7px] w-[7px] rounded-full" style={{ background: meta.colour }} />
                         {meta.label}
-                        {row.runningDebug && <span className="text-[10px] text-amber-600">· debug running</span>}
+                        {row.runningDebug && <span className="text-[10px] text-cw-warning-text">· debug running</span>}
                       </span>
                     </div>
                     <div className="text-right">
                       {row.note ? (
                         <span
                           title={row.note}
-                          className="rounded-md bg-[#f0f1f3] px-2 py-[3px] text-[11.5px] text-[#6c7079]"
+                          className="rounded-md bg-cw-bg-hover px-2 py-[3px] text-[11.5px] text-cw-text-muted"
                         >
                           info
                         </span>
@@ -229,12 +230,12 @@ export default function ServiceStatusPage() {
                 );
               })}
               {rows && visible.length === 0 && (
-                <div className="px-[18px] py-8 text-center text-sm text-[#9aa0a8]">
+                <div className="px-[18px] py-8 text-center text-sm text-cw-text-muted">
                   No countries match.
                 </div>
               )}
               {!rows && !error && (
-                <div className="px-[18px] py-8 text-center text-sm text-[#9aa0a8]">Loading…</div>
+                <div className="px-[18px] py-8 text-center text-sm text-cw-text-muted">Loading…</div>
               )}
             </div>
           </PCard>

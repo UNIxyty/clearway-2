@@ -7,7 +7,7 @@
 // one. Every block is drawn from what the backend returned.
 
 import { useMemo } from "react";
-import { C, TYPE, mono } from "../ui/tokens";
+import { TYPE, mono } from "../ui/tokens";
 import { Button, Icon, hmZ, hmsZ, kb } from "../ui/primitives";
 import { AutoConfirmedActions, BuildingFileCard, Thinking, type BuildingFile, type ThinkingBlock } from "./Thinking";
 import { splitStructured } from "./structuredProse";
@@ -21,6 +21,7 @@ import { ConfirmationCard, type ConfirmationOutcome } from "./Confirmation";
 import { ErrorCard, kindFor } from "./ErrorCard";
 import type { AgentMessage, DocumentData, FileData, PendingConfirmation, MonoData, PerformedAction, SentAttachment } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
+import { cw } from "@/lib/portal-tokens";
 
 // A file the agent could not read (or read only in part) is drawn in the
 // warning style with the reason, so a reply that ignored it does not look fine.
@@ -35,9 +36,9 @@ function SentAttachments({ items }: { items: SentAttachment[] }) {
           : a.readStatus === "partial" ? `Partly read · ${a.readReason ?? ""}`
           : partial ? `Read in part · ${(a.truncatedChars ?? 0).toLocaleString("en-GB")} characters not shown to the agent` : null;
         return (
-        <button key={a.id ?? `${a.name}-${i}`} type="button" onClick={(e) => { if (a.id) void od.openAttachment(a.id, a.name, e.currentTarget); }} className="ag-sent-chip ag-focus" title={status ? `${a.name} — ${status}` : `Open ${a.name}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: unread || partial ? C.warnWashSoft : C.surface, border: `1px solid ${unread || partial ? C.warnBorder : C.border}`, borderRadius: 10, padding: "6px 10px 6px 6px", cursor: a.id ? "pointer" : "default", fontFamily: "inherit", textAlign: "left" }}>
-          <span style={{ width: 30, height: 30, borderRadius: 7, background: unread || partial ? C.warnTint : C.hover, display: "inline-flex", alignItems: "center", justifyContent: "center", ...mono({ fontSize: 9, fontWeight: 700 }), color: unread || partial ? C.warn : C.muted }}>{unread ? <Icon name="file-warning" size={14} color={C.warn} /> : (a.name.split(".").pop() ?? "").toUpperCase().slice(0, 4)}</span>
-          <span style={{ display: "flex", flexDirection: "column", gap: 1 }}><span style={{ fontSize: 12, fontWeight: 600, color: C.ink, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>{status && <span role="status" style={{ fontSize: 11, color: C.warn, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{status}</span>}<span className="ag-sent-chip-sub" style={{ fontSize: 11, color: C.muted, display: "inline-flex", alignItems: "center", gap: 4 }}><span className="ag-sent-chip-size">{a.bytes != null ? kb(a.bytes) : "attachment"}</span><span className="ag-sent-chip-open" style={{ display: "none", color: C.primaryHover, fontWeight: 600, alignItems: "center", gap: 4 }}><Icon name="eye" size={11} color={C.primaryHover} />Open</span></span></span>
+        <button key={a.id ?? `${a.name}-${i}`} type="button" onClick={(e) => { if (a.id) void od.openAttachment(a.id, a.name, e.currentTarget); }} className="ag-sent-chip ag-focus" title={status ? `${a.name} — ${status}` : `Open ${a.name}`} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: unread || partial ? cw.warningTint : cw.bgSurface, border: `1px solid ${unread || partial ? cw.warningBorder : cw.border}`, borderRadius: 10, padding: "6px 10px 6px 6px", cursor: a.id ? "pointer" : "default", fontFamily: "inherit", textAlign: "left" }}>
+          <span style={{ width: 30, height: 30, borderRadius: 7, background: unread || partial ? cw.warningTint : cw.bgHover, display: "inline-flex", alignItems: "center", justifyContent: "center", ...mono({ fontSize: 9, fontWeight: 700 }), color: unread || partial ? cw.warningText : cw.textMuted }}>{unread ? <Icon name="file-warning" size={14} color={cw.warningText} /> : (a.name.split(".").pop() ?? "").toUpperCase().slice(0, 4)}</span>
+          <span style={{ display: "flex", flexDirection: "column", gap: 1 }}><span style={{ fontSize: 12, fontWeight: 600, color: cw.text, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>{status && <span role="status" style={{ fontSize: 11, color: cw.warningText, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{status}</span>}<span className="ag-sent-chip-sub" style={{ fontSize: 11, color: cw.textMuted, display: "inline-flex", alignItems: "center", gap: 4 }}><span className="ag-sent-chip-size">{a.bytes != null ? kb(a.bytes) : "attachment"}</span><span className="ag-sent-chip-open" style={{ display: "none", color: cw.textLink, fontWeight: 600, alignItems: "center", gap: 4 }}><Icon name="eye" size={11} color={cw.textLink} />Open</span></span></span>
         </button>
         );
       })}
@@ -51,31 +52,31 @@ export function UserBubble({ message: m, panel = false }: { message: AgentMessag
   return (
     <div style={{ alignSelf: "flex-end", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, maxWidth: panel ? 330 : 560 }} className="ag-user-row">
       {m.blocks?.attachments && m.blocks.attachments.length > 0 && <SentAttachments items={m.blocks.attachments} />}
-      <div style={{ background: C.bubbleUser, borderRadius: panel ? "14px 14px 4px 14px" : "16px 16px 4px 16px", padding: panel ? "9px 13px" : "11px 15px", fontSize: panel ? 14 : 15, lineHeight: 1.55, color: C.ink, whiteSpace: "pre-wrap", display: "inline-flex", gap: 7, alignItems: "flex-start", opacity: m.sending ? 0.6 : 1 }}>
-        {m.voice && <Icon name="mic" size={13} color={C.faint} style={{ marginTop: 3 }} />}
+      <div style={{ background: cw.bgActive, borderRadius: panel ? "14px 14px 4px 14px" : "16px 16px 4px 16px", padding: panel ? "9px 13px" : "11px 15px", fontSize: panel ? 14 : 15, lineHeight: 1.55, color: cw.text, whiteSpace: "pre-wrap", display: "inline-flex", gap: 7, alignItems: "flex-start", opacity: m.sending ? 0.6 : 1 }}>
+        {m.voice && <Icon name="mic" size={13} color={cw.textMuted} style={{ marginTop: 3 }} />}
         <span>
-          {parts.map((p, i) => /^@/.test(p) ? <span key={i} style={{ ...mono({ fontSize: 13.5, fontWeight: 600 }), color: C.primaryHover, background: C.primaryTint2, borderRadius: 6, padding: "0 6px" }}>{p}</span>
-            : /^\/[a-z]+$/.test(p) ? <span key={i} style={{ ...mono({ fontSize: 13.5, fontWeight: 600 }), color: C.surface, background: C.ink, borderRadius: 6, padding: "0 7px" }}>{p}</span> : <span key={i}>{p}</span>)}
+          {parts.map((p, i) => /^@/.test(p) ? <span key={i} style={{ ...mono({ fontSize: 13.5, fontWeight: 600 }), color: cw.textLink, background: cw.primaryWash, borderRadius: 6, padding: "0 6px" }}>{p}</span>
+            : /^\/[a-z]+$/.test(p) ? <span key={i} style={{ ...mono({ fontSize: 13.5, fontWeight: 600 }), color: cw.onInk, background: cw.ink, borderRadius: 6, padding: "0 7px" }}>{p}</span> : <span key={i}>{p}</span>)}
         </span>
       </div>
       {m.failed ? (
-        <span style={{ fontSize: 12, color: C.danger, display: "inline-flex", gap: 8, alignItems: "center" }}>Not sent · {m.failed}</span>
+        <span style={{ fontSize: 12, color: cw.dangerText, display: "inline-flex", gap: 8, alignItems: "center" }}>Not sent · {m.failed}</span>
       ) : (
-        <span className={panel ? "ag-hover-only" : undefined} style={{ ...mono({ fontSize: 11 }), color: C.faint }} suppressHydrationWarning>{m.sending ? "Sending…" : `${m.initials ?? "You"} · ${hmZ(m.createdAt) || ""}`}</span>
+        <span className={panel ? "ag-hover-only" : undefined} style={{ ...mono({ fontSize: 11 }), color: cw.textMuted }} suppressHydrationWarning>{m.sending ? "Sending…" : `${m.initials ?? "You"} · ${hmZ(m.createdAt) || ""}`}</span>
       )}
     </div>
   );
 }
 
 export function StreamingCaret({ panel = false }: { panel?: boolean }) {
-  return <span className="ag-caret" aria-hidden style={{ display: "inline-block", width: panel ? 7 : 8, height: panel ? 15 : 17, background: C.primary, marginLeft: 2, verticalAlign: -3 }} />;
+  return <span className="ag-caret" aria-hidden style={{ display: "inline-block", width: panel ? 7 : 8, height: panel ? 15 : 17, background: cw.primary, marginLeft: 2, verticalAlign: -3 }} />;
 }
 
 export function StoppedRow({ at, finished, cancelled, onContinue, panel = false }: { at: string; finished: number; cancelled: number; onContinue: () => void; panel?: boolean }) {
   return (
-    <div className="ag-fade-150" style={{ borderTop: `1px dashed ${C.borderControl}`, paddingTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
-      <Icon name="square" size={14} color={C.faint} />
-      <span style={{ fontSize: 13, color: C.muted, flex: 1 }}>Stopped by you at <span style={mono()}>{hmsZ(at)}</span>. Partial reply kept; {finished} tool{finished === 1 ? "" : "s"} finished, {cancelled} {cancelled === 1 ? "was" : "were"} cancelled before {cancelled === 1 ? "it" : "they"} ran.</span>
+    <div className="ag-fade-150" style={{ borderTop: `1px dashed ${cw.borderControl}`, paddingTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
+      <Icon name="square" size={14} color={cw.textMuted} />
+      <span style={{ fontSize: 13, color: cw.textMuted, flex: 1 }}>Stopped by you at <span style={mono()}>{hmsZ(at)}</span>. Partial reply kept; {finished} tool{finished === 1 ? "" : "s"} finished, {cancelled} {cancelled === 1 ? "was" : "were"} cancelled before {cancelled === 1 ? "it" : "they"} ran.</span>
       <Button variant="secondary" size={panel ? "xs" : "sm"} onClick={onContinue}>Continue</Button>
     </div>
   );
@@ -112,7 +113,7 @@ export function AgentReply({
   const mdTables = hasComponents ? [] : split.tables;
   const prose = shownText ? (
     b.claims && b.claims.length && !split.tables.length && !split.droppedLines ? <div style={proseStyle}><ClaimedProse text={m.content} spans={b.claims} sources={sources} hot={hot} setHot={setHot} panel={panel} /></div>
-      : <div style={{ ...proseStyle, color: verbatim.length ? C.body : C.ink }}><Markdown text={shownText} />{m.streaming && <StreamingCaret panel={panel} />}</div>
+      : <div style={{ ...proseStyle, color: verbatim.length ? cw.textBody : cw.text }}><Markdown text={shownText} />{m.streaming && <StreamingCaret panel={panel} />}</div>
   ) : null;
   const thinking = (b as { thinking?: ThinkingBlock | null }).thinking ?? null;
   const performed = (b.actions ?? []) as (PerformedAction & { autoConfirmed?: boolean })[];
@@ -122,7 +123,7 @@ export function AgentReply({
       {!panel && <div style={{ width: 28, flex: "none", paddingTop: 2 }}><Orb size={26} state={m.streaming ? "thinking" : "idle"} still title="Ops Agent" /></div>}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: panel ? 10 : 14 }}>
         {!panel && (
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}><span style={{ fontSize: 13.5, fontWeight: 700 }}>Ops Agent</span><span style={{ ...mono({ fontSize: 11 }), color: C.faint }} suppressHydrationWarning>{hmZ(m.createdAt)}</span></div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}><span style={{ fontSize: 13.5, fontWeight: 700 }}>Ops Agent</span><span style={{ ...mono({ fontSize: 11 }), color: cw.textMuted }} suppressHydrationWarning>{hmZ(m.createdAt)}</span></div>
         )}
         {!m.streaming && (m.modelId || m.modelTier) && <ModelLine m={m} panel={panel} />}
 
@@ -164,7 +165,7 @@ export function AgentReply({
         {verbatim.length > 0 && shownText && <AgentsReading panel={panel}><Markdown text={shownText} />{m.streaming && <StreamingCaret panel={panel} />}</AgentsReading>}
 
         {m.streaming && !m.content && !live && (
-          <div aria-busy style={{ display: "flex", flexDirection: "column", gap: 6 }}><div style={{ height: 12, width: "80%", borderRadius: 4, background: C.hover }} /><div style={{ height: 12, width: "60%", borderRadius: 4, background: C.hover }} /></div>
+          <div aria-busy style={{ display: "flex", flexDirection: "column", gap: 6 }}><div style={{ height: 12, width: "80%", borderRadius: 4, background: cw.bgHover }} /><div style={{ height: 12, width: "60%", borderRadius: 4, background: cw.bgHover }} /></div>
         )}
         {m.stopped && onContinue && <StoppedRow at={m.stopped.at} finished={m.stopped.finished} cancelled={m.stopped.cancelled} onContinue={onContinue} panel={panel} />}
 
@@ -186,5 +187,5 @@ function ModelLine({ m, panel }: { m: AgentMessage; panel: boolean }) {
   const short = String(m.modelId ?? "").replace(/^([a-z]{2}\.)?(anthropic|amazon|meta|mistral)\./, "").replace(/-v\d+(:\d+)?$/, "").replace(/-\d{8}$/, "");
   const k = (n: number | null | undefined) => (n == null ? null : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
   const parts = [short || null, m.modelTier ? `${m.modelTier}${routeLabel(m)}` : null, m.inputTokens != null ? `${k(m.inputTokens)} in` : null, m.outputTokens != null ? `${k(m.outputTokens)} out` : null, m.latencyMs != null ? `${(m.latencyMs / 1000).toFixed(1)} s` : null].filter(Boolean);
-  return <div title="Model that produced this reply" style={{ ...mono({ fontSize: panel ? 10.5 : 11 }), color: C.faint, order: 99 }}>{parts.join(" · ")}</div>;
+  return <div title="Model that produced this reply" style={{ ...mono({ fontSize: panel ? 10.5 : 11 }), color: cw.textMuted, order: 99 }}>{parts.join(" · ")}</div>;
 }

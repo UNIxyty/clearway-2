@@ -12,8 +12,8 @@ import {
   type NotificationPrefs,
 } from "@/lib/notifications";
 
-const checkboxClass = "h-4 w-4 accent-[#2563eb]";
-const checkRowClass = "flex items-center gap-3 text-sm text-[#17181c]";
+const checkboxClass = "h-4 w-4 accent-cw-primary";
+const checkRowClass = "flex items-center gap-3 text-sm text-cw-text";
 
 export default function NotificationSettingsPage() {
   const router = useRouter();
@@ -94,7 +94,7 @@ export default function NotificationSettingsPage() {
     return (
       <PortalShell>
         <div className="flex min-h-[320px] items-center justify-center">
-          <div className="text-sm text-[#6c7079]">Loading notification settings…</div>
+          <div className="text-sm text-cw-text-muted">Loading notification settings…</div>
         </div>
       </PortalShell>
     );
@@ -106,33 +106,33 @@ export default function NotificationSettingsPage() {
         <h1 className="m-0 mb-[5px] text-[26px] font-extrabold tracking-[-0.02em]">
           Browser Notifications
         </h1>
-        <p className="m-0 mb-5 text-[15px] text-[#6c7079]">
+        <p className="m-0 mb-5 text-[15px] text-cw-text-muted">
           Choose which events should display native browser notifications.
         </p>
 
         <div className="flex max-w-[680px] flex-col gap-4">
           {error && (
-            <div className="rounded-[10px] border border-[#f0d4d4] bg-[#fdf2f2] px-3.5 py-2.5 text-sm text-[#a12a2e]">
+            <div className="rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-2.5 text-sm text-cw-danger-text">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="rounded-[10px] border border-[#c7ead2] bg-[#e7f6ec] px-3.5 py-2.5 text-sm text-[#15803d]">
+            <div className="rounded-[10px] border border-cw-success-border bg-cw-success-tint px-3.5 py-2.5 text-sm text-cw-success-text">
               Notification settings saved successfully
             </div>
           )}
 
           <PCard className="p-[22px]">
             <PSectionTitle>Notification Preferences</PSectionTitle>
-            <p className="m-0 mt-1 text-[13px] text-[#6c7079]">
+            <p className="m-0 mt-1 text-[13px] text-cw-text-muted">
               Enable browser notifications and control which sync events create alerts.
             </p>
 
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-[10px] bg-[#fbfbfc] px-3.5 py-3">
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-[10px] bg-cw-bg-page px-3.5 py-3">
               <div>
-                <p className="m-0 text-sm font-semibold text-[#17181c]">Permission</p>
-                <p className="m-0 mt-0.5 text-xs text-[#6c7079]">
+                <p className="m-0 text-sm font-semibold text-cw-text">Permission</p>
+                <p className="m-0 mt-0.5 text-xs text-cw-text-muted">
                   Status:{" "}
                   <span className="font-mono">
                     {isNotificationSupported() ? notificationPermission : "unsupported"}

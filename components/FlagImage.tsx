@@ -31,7 +31,7 @@ export const FlagImage = React.memo(function FlagImage({ countryCode, size = 20,
         </span>
       );
     }
-    return <span style={{ width: size, height, display: 'inline-block', background: '#e5e7eb', borderRadius: 2, verticalAlign: 'middle', flexShrink: 0 }} />;
+    return <span style={{ width: size, height, display: 'inline-block', background: 'var(--cw-border)', borderRadius: 2, verticalAlign: 'middle', flexShrink: 0 }} />;
   }
 
   return (

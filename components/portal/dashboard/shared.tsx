@@ -105,11 +105,11 @@ export function RegionCard({
 }) {
   return (
     <PCard className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-cw-borderInner px-5 pb-[13px] pt-[15px]">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-cw-divider px-5 pb-[13px] pt-[15px]">
         <div className="flex min-w-0 items-center gap-2.5">
-          <MaskIcon name={icon} size={16} color="#6c7079" />
-          <span className="text-[15px] font-bold text-cw-ink">{title}</span>
-          {subtitle && <span className="hidden text-[12.5px] text-cw-faint sm:inline">{subtitle}</span>}
+          <MaskIcon name={icon} size={16} color="var(--cw-text-muted)" />
+          <span className="text-[15px] font-bold text-cw-text">{title}</span>
+          {subtitle && <span className="hidden text-[12.5px] text-cw-text-muted sm:inline">{subtitle}</span>}
         </div>
         {headerRight && <div className="flex flex-none items-center gap-2">{headerRight}</div>}
       </div>
@@ -120,7 +120,7 @@ export function RegionCard({
 
 export function RegionNote({
   icon,
-  iconColor = "#9aa0a8",
+  iconColor = "var(--cw-text-muted)",
   title,
   body,
   action,
@@ -134,8 +134,8 @@ export function RegionNote({
   return (
     <div className="flex flex-col items-center gap-[9px] px-5 py-9 text-center">
       <MaskIcon name={icon} size={22} color={iconColor} />
-      <div className="text-[14.5px] font-bold text-cw-ink">{title}</div>
-      {body && <div className="max-w-[430px] text-[13.5px] leading-normal text-cw-muted">{body}</div>}
+      <div className="text-[14.5px] font-bold text-cw-text">{title}</div>
+      {body && <div className="max-w-[430px] text-[13.5px] leading-normal text-cw-text-muted">{body}</div>}
       {action}
     </div>
   );
@@ -145,7 +145,7 @@ export function LoadingRows({ count = 3, height = 44 }: { count?: number; height
   return (
     <div className="flex flex-col gap-2 p-5">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="animate-pulse rounded-[10px] bg-[#f2f3f5]" style={{ height }} />
+        <div key={i} className="animate-pulse rounded-[10px] bg-cw-bg-hover" style={{ height }} />
       ))}
     </div>
   );

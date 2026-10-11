@@ -4,12 +4,12 @@
 // agent's GET /api/service-checks + POST /api/service-checks/recheck.
 // Coded defensively: a 404 (checker not deployed yet) renders a calm
 // "checker offline" note, never an error. State chips use the shared
-// stateChip tokens (shared/design-tokens.json via lib/tokens.ts).
+// state chip tokens (lib/tokens.ts, on the portal --cw-* tokens).
 // Red/amber rows sort first; polls every 30s.
 import { useState } from "react";
 import MaskIcon from "@/components/portal/Icon";
 import { PButton } from "@/components/portal/ui";
-import { T, type StateChipKey } from "@/lib/tokens";
+import { STATE_CHIP, type StateChipKey } from "@/lib/tokens";
 import { LoadingRows, RegionCard, RegionNote, clockTime, timeAgo, usePoll } from "./shared";
 
 type Check = {
@@ -32,8 +32,8 @@ const STATE_LABEL: Record<string, string> = {
 };
 
 function chip(state: string) {
-  const key = (state in T.stateChip ? state : "unknown") as StateChipKey;
-  return T.stateChip[key];
+  const key = (state in STATE_CHIP ? state : "unknown") as StateChipKey;
+  return STATE_CHIP[key];
 }
 
 export default function ServiceStatusCard() {
@@ -63,11 +63,11 @@ export default function ServiceStatusCard() {
 
   const headerRight = (
     <>
-      <span className="font-mono text-[11.5px] text-cw-faint">
+      <span className="font-mono text-[11.5px] text-cw-text-muted">
         checked {clockTime(data?.lastSweep)}
       </span>
       <PButton size="sm" onClick={recheck} disabled={rechecking || offline}>
-        <MaskIcon name="refresh-cw" size={13} color="#6c7079" className={rechecking ? "animate-spin" : undefined} />
+        <MaskIcon name="refresh-cw" size={13} color="var(--cw-text-muted)" className={rechecking ? "animate-spin" : undefined} />
         Re-check
       </PButton>
     </>
@@ -86,7 +86,7 @@ export default function ServiceStatusCard() {
       ) : error && !data ? (
         <RegionNote
           icon="triangle-alert"
-          iconColor="#e5484d"
+          iconColor="var(--cw-danger-text)"
           title="Couldn't reach the checker"
           body={error}
           action={
@@ -99,12 +99,12 @@ export default function ServiceStatusCard() {
         <RegionNote icon="activity" title="No checks configured" body="The checker answered but reported no services yet." />
       ) : (
         <div>
-          <div className="flex flex-wrap items-center gap-3.5 border-b border-cw-borderInner bg-cw-page px-5 py-3.5">
+          <div className="flex flex-wrap items-center gap-3.5 border-b border-cw-divider bg-cw-bg-page px-5 py-3.5">
             <div className="flex items-baseline gap-2">
-              <span className="text-[26px] font-extrabold tracking-[-0.02em] text-cw-ink">
+              <span className="text-[26px] font-extrabold tracking-[-0.02em] text-cw-text">
                 {counts.operational}
               </span>
-              <span className="text-[13px] text-cw-muted">of {checks.length} operational</span>
+              <span className="text-[13px] text-cw-text-muted">of {checks.length} operational</span>
             </div>
             <div className="ml-auto flex flex-wrap gap-[7px]">
               {(["degraded", "down", "unknown"] as const).map((state) =>
@@ -132,16 +132,16 @@ export default function ServiceStatusCard() {
             return (
               <div
                 key={check.id}
-                className="flex min-w-0 items-center gap-3 border-t border-[#f4f5f6] px-5 py-[9px]"
+                className="flex min-w-0 items-center gap-3 border-t border-cw-divider px-5 py-[9px]"
               >
                 <span
                   className="h-2 w-2 flex-none rounded-full"
                   style={{ background: c.dot, boxShadow: `0 0 0 3px ${c.bg}` }}
                 />
-                <span className="min-w-0 flex-none truncate text-[13.5px] font-semibold text-cw-ink">
+                <span className="min-w-0 flex-none truncate text-[13.5px] font-semibold text-cw-text">
                   {check.label}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[12.5px] text-cw-muted" title={note}>
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-cw-text-muted" title={note}>
                   {note}
                 </span>
                 <span
@@ -150,7 +150,7 @@ export default function ServiceStatusCard() {
                 >
                   {STATE_LABEL[check.state] ?? check.state.toUpperCase()}
                 </span>
-                <span className="w-[58px] flex-none text-right font-mono text-[11.5px] text-cw-faint">
+                <span className="w-[58px] flex-none text-right font-mono text-[11.5px] text-cw-text-muted">
                   {check.lastChecked ? timeAgo(check.lastChecked) : "—"}
                 </span>
               </div>

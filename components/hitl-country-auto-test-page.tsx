@@ -333,9 +333,9 @@ export function HitlCountryAutoTestPage({
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen bg-cw-bg-page p-4 md:p-6">
       <div className="mx-auto max-w-3xl space-y-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm text-cw-text-muted hover:text-cw-text">
           <ArrowLeftIcon className="size-4" aria-hidden="true" />
           Back to portal
         </Link>
@@ -379,8 +379,8 @@ export function HitlCountryAutoTestPage({
 
             <div className="rounded border p-3 text-sm">
               <p className="font-medium">Session ID</p>
-              <p className="break-all font-mono text-xs text-muted-foreground tabular-nums">{sessionId || "none"}</p>
-              <p className="mt-2 text-muted-foreground">{statusLine}</p>
+              <p className="break-all font-mono text-xs text-cw-text-muted tabular-nums">{sessionId || "none"}</p>
+              <p className="mt-2 text-cw-text-muted">{statusLine}</p>
               {hasSession && (
                 <Button size="sm" variant="secondary" className="mt-2" onClick={runStatus} disabled={loading === "status"}>
                   {loading === "status" ? "Checking..." : "Refresh status"}
@@ -427,15 +427,15 @@ export function HitlCountryAutoTestPage({
             {result && (
               <div
                 className={`rounded border p-3 text-sm ${
-                  result.ok ? "border-green-500/50 bg-green-500/5" : "border-destructive/50 bg-destructive/5"
+                  result.ok ? "border-cw-success/50 bg-cw-success/5" : "border-cw-danger/50 bg-cw-danger-solid/5"
                 }`}
                 aria-live="polite"
               >
                 {!result.ok && <p className="font-medium">{result.error || "Failed"}</p>}
                 {result.message && <p>{result.message}</p>}
-                {result.detail && <p className="text-muted-foreground">{result.detail}</p>}
+                {result.detail && <p className="text-cw-text-muted">{result.detail}</p>}
                 {result.needsHumanVerification && (
-                  <p className="text-muted-foreground">Solve challenge in viewer, then retry.</p>
+                  <p className="text-cw-text-muted">Solve challenge in viewer, then retry.</p>
                 )}
                 {result.file && <p>Saved: {result.file}</p>}
                 {result.effectiveDate && <p>Effective date: {result.effectiveDate}</p>}

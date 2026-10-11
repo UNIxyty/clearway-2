@@ -53,11 +53,11 @@ type PersistedFailure = {
 };
 
 function stepStatusClass(state: string) {
-  if (state === "passed") return "text-emerald-700 dark:text-emerald-400";
-  if (state === "pending" || state === "running") return "text-amber-700 dark:text-amber-400";
-  if (state === "failed" || state === "timeout") return "text-red-700 dark:text-red-400";
-  if (state === "skipped") return "text-muted-foreground";
-  return "text-foreground";
+  if (state === "passed") return "text-cw-success-text";
+  if (state === "pending" || state === "running") return "text-cw-warning-text";
+  if (state === "failed" || state === "timeout") return "text-cw-danger-text";
+  if (state === "skipped") return "text-cw-text-muted";
+  return "text-cw-text";
 }
 
 const FINAL_STEP_STATES = new Set(["passed", "failed", "timeout", "skipped"]);
@@ -189,7 +189,7 @@ export default function AdminDebugPage() {
   if (isAdmin === false) {
     return (
       <PortalShell title="Debug Runner" crumb="/admin/debug" deepContext={DEBUG_DEEP_CONTEXT}>
-        <div className="p-6 text-sm text-muted-foreground">Admin access required.</div>
+        <div className="p-6 text-sm text-cw-text-muted">Admin access required.</div>
       </PortalShell>
     );
   }
@@ -415,13 +415,13 @@ export default function AdminDebugPage() {
             <button
               key={run.id}
               type="button"
-              className={`w-full rounded border p-2 text-left text-sm ${selectedRunId === run.id ? "border-primary" : "border-border"}`}
+              className={`w-full rounded border p-2 text-left text-sm ${selectedRunId === run.id ? "border-cw-primary" : "border-cw-border"}`}
               onClick={() => setSelectedRunId(run.id)}
             >
               <div className="font-mono text-xs">{run.id}</div>
-              <div className="text-muted-foreground text-xs">
+              <div className="text-cw-text-muted text-xs">
                 {run.persisted ? (
-                  <span className="text-amber-600 dark:text-amber-400">⚠ Persisted (server restarted) — click Redebug to replay failures</span>
+                  <span className="text-cw-warning-text">⚠ Persisted (server restarted) — click Redebug to replay failures</span>
                 ) : (
                   <>Status: {run.status} | Airports: {run.totals.airports} | Failed: {run.totals.failed} | Timeout: {run.totals.timeout}</>
                 )}
@@ -441,13 +441,13 @@ export default function AdminDebugPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <Progress value={progress.percent} aria-label="Debug run progress" />
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex justify-between text-xs text-cw-text-muted">
               <span>{progress.percent}% complete</span>
               <span className="tabular-nums">
                 Failed: {selectedRun.totals.failed} | Timeout: {selectedRun.totals.timeout}
               </span>
             </div>
-            <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap justify-between gap-2 text-xs text-cw-text-muted">
               <span>Elapsed: {progress.elapsedLabel}</span>
               <span className="tabular-nums">
                 {progress.remainingLabel}{progress.etaLabel ? ` | ${progress.etaLabel}` : ""}
@@ -477,12 +477,12 @@ export default function AdminDebugPage() {
                   const state = airport.steps[step];
                   if (state !== "failed" && state !== "timeout") return null;
                   return (
-                    <div key={`${airport.icao}-${step}`} className={`mt-1 rounded border border-red-300 bg-red-50 px-2 py-1 dark:border-red-900/70 dark:bg-red-950/40 ${stepStatusClass(state)}`}>
+                    <div key={`${airport.icao}-${step}`} className={`mt-1 rounded border border-cw-danger-border bg-cw-danger-tint px-2 py-1 ${stepStatusClass(state)}`}>
                       {step.toUpperCase()} {state}: {airport.stepDetails?.[step] || "No detail"}
                     </div>
                   );
                 })}
-                {airport.logs.slice(-4).map((line) => <div key={line} className="mt-1 text-muted-foreground">{line}</div>)}
+                {airport.logs.slice(-4).map((line) => <div key={line} className="mt-1 text-cw-text-muted">{line}</div>)}
               </div>
             ))}
           </CardContent>

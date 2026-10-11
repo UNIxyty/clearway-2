@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PortalShell, { useIdentity } from "@/components/portal/Shell";
-import { C, mono } from "../ui/tokens";
+import { mono } from "../ui/tokens";
 import { Button, HeaderPill, IconButton, Icon, dayTimeZ } from "../ui/primitives";
 import Orb from "../ui/Orb";
 import AgentStyles from "../ui/AgentStyles";
@@ -22,6 +22,7 @@ import { AGENT_BASE, type AgentContext } from "../types";
 import { useKeybinds } from "../ui/keybinds";
 import { useViewerOptional } from "../viewer/ViewerContext";
 import { PANEL, VIEWER } from "../ui/tokens";
+import { cw } from "@/lib/portal-tokens";
 
 function useAvailability() {
   const [state, setState] = useState<"checking" | "yes" | "no">("checking");
@@ -77,7 +78,7 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   };
 
   if (availability !== "yes") {
-    return <PortalShell crumb="" title="Not found" subtitle=""><div style={{ padding: 32, fontSize: 14, color: C.muted }}>{availability === "checking" ? "" : "This page does not exist."}</div></PortalShell>;
+    return <PortalShell crumb="" title="Not found" subtitle=""><div style={{ padding: 32, fontSize: 14, color: cw.textMuted }}>{availability === "checking" ? "" : "This page does not exist."}</div></PortalShell>;
   }
 
   const composerLocked = t.pendingConfirmation ? (/^(send_email|email_document)$/.test(t.pendingConfirmation.toolName) ? "Confirm or cancel the email above to continue" : "Confirm or cancel the change above to continue") : null;
@@ -87,17 +88,17 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   return (
     <PortalShell crumb="Ops Agent" footer={false} wide>
       <AgentStyles />
-      <div data-cw-thread-column={docOpen ? "" : undefined} style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 0px)", minHeight: 0, ...(docOpen ? { position: "fixed", top: 0, right: 0, bottom: 0, width: narrow ? PANEL.minWidth : PANEL.width, zIndex: 31, background: C.surface, borderLeft: `1px solid ${C.border}` } : {}) }}>
+      <div data-cw-thread-column={docOpen ? "" : undefined} style={{ display: "flex", flexDirection: "column", height: docOpen ? "100vh" : "calc(100vh - var(--cw-topbar))", minHeight: 0, ...(docOpen ? { position: "fixed", top: 0, right: 0, bottom: 0, width: narrow ? PANEL.minWidth : PANEL.width, zIndex: 31, background: cw.bgSurface, borderLeft: `1px solid ${cw.border}` } : {}) }}>
         {/* Header 60 (§7.2) */}
-        <div style={{ height: 60, flex: "none", display: "flex", alignItems: "center", gap: docOpen ? 8 : 14, padding: docOpen ? "0 16px" : "0 24px", background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ height: 60, flex: "none", display: "flex", alignItems: "center", gap: docOpen ? 8 : 14, padding: docOpen ? "0 16px" : "0 24px", background: cw.bgSurface, borderBottom: `1px solid ${cw.border}` }}>
           <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
             <span style={{ fontSize: 16, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title ?? (msgCount ? t.messages[0].content.slice(0, 60) : "New chat")}</span>
-            {msgCount > 0 && <span style={{ ...mono({ fontSize: 12 }), color: C.faint }} suppressHydrationWarning>{started ? dayTimeZ(started, { alwaysDate: true }).replace(/ (\d{2}:\d{2}Z)$/, " · started $1") : ""} · {msgCount} message{msgCount === 1 ? "" : "s"}{from ? <> · from <span style={{ color: C.primaryHover }}>{from}</span></> : null}</span>}
+            {msgCount > 0 && <span style={{ ...mono({ fontSize: 12 }), color: cw.textMuted }} suppressHydrationWarning>{started ? dayTimeZ(started, { alwaysDate: true }).replace(/ (\d{2}:\d{2}Z)$/, " · started $1") : ""} · {msgCount} message{msgCount === 1 ? "" : "s"}{from ? <> · from <span style={{ color: cw.textLink }}>{from}</span></> : null}</span>}
           </div>
           {/* As a 420/360 column beside a document (§V10 B5) the pills go and New chat is icon-only — NOT IN DESIGN, spec default. */}
-          {!docOpen && settings?.web && <HeaderPill icon="globe" iconColor={C.warn}>Web search on</HeaderPill>}
+          {!docOpen && settings?.web && <HeaderPill icon="globe" iconColor={cw.warningText}>Web search on</HeaderPill>}
           {!docOpen && <HeaderPill icon="shield-check">Changes: ask first</HeaderPill>}
-          {!docOpen && <span style={{ width: 1, height: 24, background: C.border }} />}
+          {!docOpen && <span style={{ width: 1, height: 24, background: cw.border }} />}
           <IconButton icon="panel-right" title={`Open as side panel · ${kb.label("expand")}`} size={36} bordered onClick={toPanel} />
           {docOpen ? <IconButton icon="plus" title="New chat" size={36} bordered onClick={() => { t.newThread(); router.push("/agent"); }} /> : <Button variant="primary" size="md" icon="plus" onClick={() => { t.newThread(); router.push("/agent"); }}>New chat</Button>}
         </div>
@@ -105,21 +106,21 @@ export default function FullPageChat({ conversationId = null }: { conversationId
         {/* Thread */}
         <div ref={threadRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "32px 24px 8px" }}>
           <div style={{ maxWidth: 800, margin: "0 auto", display: "flex", flexDirection: "column", gap: 30 }}>
-            {t.loadingThread && <div aria-busy style={{ display: "flex", flexDirection: "column", gap: 10 }}>{[0, 1, 2].map((i) => <div key={i} style={{ height: 14, width: `${80 - i * 15}%`, borderRadius: 4, background: C.hover }} />)}</div>}
+            {t.loadingThread && <div aria-busy style={{ display: "flex", flexDirection: "column", gap: 10 }}>{[0, 1, 2].map((i) => <div key={i} style={{ height: 14, width: `${80 - i * 15}%`, borderRadius: 4, background: cw.bgHover }} />)}</div>}
             {!t.loadingThread && msgCount === 0 && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 26, padding: "56px 48px 28px", textAlign: "center" }}>
                 <Orb size={64} state="idle" title="Ops Agent" />
                 <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em" }}>{empty.headline}</div>
-                <div style={{ fontSize: 15, lineHeight: 1.55, color: C.muted, maxWidth: 520 }}>{empty.sub}</div>
+                <div style={{ fontSize: 15, lineHeight: 1.55, color: cw.textMuted, maxWidth: 520 }}>{empty.sub}</div>
                 <div style={{ width: "100%", textAlign: "left" }}><SuggestedQuestions items={empty.items} full onAsk={(q) => void t.send(q)} /></div>
               </div>
             )}
             {t.messages.map((m, i) => m.role === "user"
               ? <UserBubble key={m.id ?? i} message={m} />
               : <AgentReply key={m.id ?? i} message={m} onContinue={m.stopped ? t.continueReply : undefined} onConfirmationSettled={(c, o) => t.onConfirmationSettled(c, o.status, o.at, o.result)} onSendFile={(f) => void t.send(`Email the file ${f.filename} — ask me who to send it to.`)} onEmailDocument={(d) => void t.send(`Email me the document "${d.title}".`)} />)}
-            {t.streaming && t.activity && <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.ink, paddingLeft: 42 }}><span className="ag-pulse-1000"><Icon name="loader-circle" size={13} color={C.primary} /></span><span style={mono()}>{t.activity}</span><span>…</span></div>}
+            {t.streaming && t.activity && <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: cw.text, paddingLeft: 42 }}><span className="ag-pulse-1000"><Icon name="loader-circle" size={13} color={cw.textLink} /></span><span style={mono()}>{t.activity}</span><span>…</span></div>}
             {t.offline && <OfflineCard queued={t.queued} panel={false} />}
-            {t.error && !t.offline && <div role="alert" style={{ border: `1px solid ${C.warnBorder}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 6, background: C.surface }}><div style={{ fontSize: 12, fontWeight: 700, color: C.warn }}>That didn&apos;t work</div><div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{t.error}</div><div><Button variant="primary" size="sm" onClick={() => t.setError(null)}>Dismiss</Button></div></div>}
+            {t.error && !t.offline && <div role="alert" style={{ border: `1px solid ${cw.warningBorder}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 6, background: cw.bgSurface }}><div style={{ fontSize: 12, fontWeight: 700, color: cw.warningText }}>That didn&apos;t work</div><div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{t.error}</div><div><Button variant="primary" size="sm" onClick={() => t.setError(null)}>Dismiss</Button></div></div>}
           </div>
         </div>
 

@@ -5,7 +5,7 @@
 // the confirmation, the drawer. Keys: o drawer, [ ] legs, r raw fold, Esc collapse (§I15).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { C, TONE, mono } from "../ui/tokens";
+import { TONE, mono } from "../ui/tokens";
 import { Button, Icon, dayTimeZ, hmZ } from "../ui/primitives";
 import { Tooltip, TypeChip, useHotkeys } from "./controls";
 import { intakeApi, type Leg, type People, type Prepared, type RequestDetail } from "./api";
@@ -19,6 +19,7 @@ import { OriginalEmailDrawer } from "./intake-drawer";
 import { ConfirmDialog } from "./intake-confirm";
 import type { RevealState } from "./intake-people";
 import type { Def } from "./intake-services";
+import { cw } from "@/lib/portal-tokens";
 
 let defsCache: Def[] | null = null;
 
@@ -139,9 +140,9 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
 
   if (!detail) {
     return (
-      <div style={{ padding: "16px 16px 20px", background: C.sidebar, borderTop: `1px solid ${C.border}` }}>
-        {loadError ? <div role="alert" style={{ fontSize: 13, color: C.danger }}>Could not open this request: {loadError} <Button size="xs" variant="secondary" onClick={() => void load()}>Try again</Button></div>
-          : <div style={{ fontSize: 13, color: C.faint }}>Opening the request…</div>}
+      <div style={{ padding: "16px 16px 20px", background: cw.bgSunken, borderTop: `1px solid ${cw.border}` }}>
+        {loadError ? <div role="alert" style={{ fontSize: 13, color: cw.dangerText }}>Could not open this request: {loadError} <Button size="xs" variant="secondary" onClick={() => void load()}>Try again</Button></div>
+          : <div style={{ fontSize: 13, color: cw.textMuted }}>Opening the request…</div>}
       </div>
     );
   }
@@ -154,16 +155,16 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
   const dupOpen = !!r.duplicate && !r.duplicate.error && !r.duplicateResolution;
 
   return (
-    <div className="cw-expand" style={{ padding: "16px 16px 20px", background: C.sidebar, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 14 }}>
+    <div className="cw-expand" style={{ padding: "16px 16px 20px", background: cw.bgSunken, borderTop: `1px solid ${cw.border}`, display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ ...CARD, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, minWidth: 260 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: C.muted }}><TypeChip type={r.type} long />{r.sender ? `from ${r.sender}` : null}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: cw.textMuted }}><TypeChip type={r.type} long />{r.sender ? `from ${r.sender}` : null}</div>
             <div style={{ ...mono({ fontSize: 22, fontWeight: 600 }), letterSpacing: "0.01em" }}>{r.reference}</div>
-            <div style={{ fontSize: 13, color: C.muted }}>
+            <div style={{ fontSize: 13, color: cw.textMuted }}>
               Received <span style={mono()}>{dayTimeZ(r.receivedAt, { alwaysDate: true })}</span> from {r.fromAddr?.replace(/"/g, "") ?? r.sender ?? "an unknown sender"} · {plural(liveLegs.length || r.legsCount || 0, "leg")}{dateRange(legs) ? ` · ${dateRange(legs)}` : ""}
             </div>
-            {r.referenceBuilt && <div style={{ fontSize: 12.5, color: C.muted }}>The email has no reference. The agent built this one from the callsign and date.</div>}
+            {r.referenceBuilt && <div style={{ fontSize: 12.5, color: cw.textMuted }}>The email has no reference. The agent built this one from the callsign and date.</div>}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 4 }}>
             <Button variant="secondary" size="sm" icon="mail" keycap="o" aria-haspopup="dialog" onClick={() => setDrawer(true)}>Original email · {plural(nAtt, "attachment")}</Button>
@@ -171,11 +172,11 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
         </div>
 
         {r.duplicate?.error && (
-          <div role="alert" style={{ borderRadius: 12, padding: "14px 16px", background: TONE.red.bg, border: `1.5px solid ${C.dangerBadge}`, display: "flex", gap: 12 }}>
-            <Icon name="circle-alert" size={20} color={C.dangerBadge} />
+          <div role="alert" style={{ borderRadius: 12, padding: "14px 16px", background: TONE.red.bg, border: `1.5px solid ${cw.danger}`, display: "flex", gap: 12 }}>
+            <Icon name="circle-alert" size={20} color={cw.dangerText} />
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: C.danger }}>The duplicate check did not run.</div>
-              <div style={{ fontSize: 13.5, lineHeight: 1.55, color: C.body }}>The agent could not ask Leon whether these flights already exist: {r.duplicate.error} Check Leon for the same registration, route and dates before you confirm.</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: cw.dangerText }}>The duplicate check did not run.</div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.55, color: cw.textBody }}>The agent could not ask Leon whether these flights already exist: {r.duplicate.error} Check Leon for the same registration, route and dates before you confirm.</div>
             </div>
           </div>
         )}
@@ -184,14 +185,14 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
         {detail.review?.cancellation && <CancellationPanel detail={detail} answer={async (yes) => { try { setDetail(await intakeApi.cancelAnswer(id, yes)); onChanged(); } catch (e) { setSaveError(e instanceof Error ? e.message : "The answer was not recorded."); } }} />}
         {anySent && <LegChips legs={legs} cancelled={new Set((detail.sent.cancels ?? []).filter((w) => w.state === "cancelled").map((w) => w.leg))} />}
         {r.duplicateResolution && (
-          <div style={{ fontSize: 12.5, color: C.muted }}>
+          <div style={{ fontSize: 12.5, color: cw.textMuted }}>
             {r.duplicateResolution.action === "not_duplicate" ? "Marked not a duplicate" : "Closed as a revision to update in Leon by hand"} by {r.duplicateResolution.by}, <span style={mono()}>{hmZ(r.duplicateResolution.at)}</span>.
           </div>
         )}
         <Actions detail={detail} closed={closed} apply={apply} reprocess={reprocess} reprocessing={reprocessing}
           lookupNow={async () => { try { setDetail(await intakeApi.lookup(id)); onChanged(); } catch (e) { setSaveError(e instanceof Error ? e.message : "The look-up did not run."); } }}
           answer={async (v) => { try { setDetail(await (v === "yes" ? intakeApi.approve(id) : intakeApi.decline(id))); onChanged(); } catch (e) { setSaveError(e instanceof Error ? e.message : "The answer was not recorded."); } }} />
-        {saveError && <div role="alert" style={{ fontSize: 13, color: C.danger, display: "flex", gap: 8, alignItems: "center" }}><Icon name="circle-alert" size={14} color={C.dangerBadge} />Not saved: {saveError}</div>}
+        {saveError && <div role="alert" style={{ fontSize: 13, color: cw.dangerText, display: "flex", gap: 8, alignItems: "center" }}><Icon name="circle-alert" size={14} color={cw.dangerText} />Not saved: {saveError}</div>}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "272px minmax(0,1fr)", gap: 14, alignItems: "start" }}>
@@ -219,13 +220,13 @@ function Banner({ detail, now, closed }: { detail: RequestDetail; now: number; c
   const b = bannerFor(detail, now, closed);
   if (!b) return null;
   const tone = TONE[b.tone];
-  const border = b.tone === "red" ? `1.5px solid ${C.dangerBadge}` : b.tone === "amber" ? `1.5px solid ${tone.ic}` : `1px solid ${tone.bd}`;
+  const border = b.tone === "red" ? `1.5px solid ${cw.danger}` : b.tone === "amber" ? `1.5px solid ${tone.ic}` : `1px solid ${tone.bd}`;
   return (
     <div role={b.tone === "red" ? "alert" : "status"} style={{ borderRadius: 12, padding: "14px 16px", background: tone.bg, border, display: "flex", gap: 12, alignItems: "flex-start" }}>
       <Icon name={b.icon} size={20} color={tone.ic} style={{ marginTop: 1 }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: tone.fg }}>{b.title}</div>
-        {b.body && <div style={{ fontSize: 13.5, lineHeight: 1.55, color: C.body }}>{b.body}</div>}
+        {b.body && <div style={{ fontSize: 13.5, lineHeight: 1.55, color: cw.textBody }}>{b.body}</div>}
       </div>
     </div>
   );
@@ -319,10 +320,10 @@ function LegChips({ legs, cancelled = new Set<number>() }: { legs: Leg[]; cancel
       {legs.filter((l) => !l.removed).map((l) => {
         const k = legKeyOf(l); const not = k === "not";
         return (
-          <div key={l.index} style={{ borderRadius: 10, padding: "10px 12px", background: not ? C.danger : C.surface, border: `1px solid ${not ? C.danger : C.border}`, display: "flex", flexDirection: "column", gap: 5, color: not ? C.surface : C.ink }}>
+          <div key={l.index} style={{ borderRadius: 10, padding: "10px 12px", background: not ? cw.dangerSolid : cw.bgSurface, border: `1px solid ${not ? cw.danger : cw.border}`, display: "flex", flexDirection: "column", gap: 5, color: not ? cw.textOnPrimary : cw.text }}>
             <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}><span style={mono({ fontSize: 11.5, fontWeight: 700 })}>LEG {legNo(l)}</span><span style={mono({ fontSize: 13, fontWeight: 600 })}>{legRoute(l)}</span></div>
             <div><LeonPill k={k} id={l.leon?.flightNid} /></div>
-            {cancelled.has(l.index) && <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>Cancelled in Leon (kept, not removed)</span>}
+            {cancelled.has(l.index) && <span style={{ fontSize: 12, fontWeight: 600, color: cw.textMuted }}>Cancelled in Leon (kept, not removed)</span>}
             {not && l.leon?.error && <span style={{ fontSize: 12 }}>{l.leon.error}</span>}
           </div>
         );
@@ -343,24 +344,24 @@ function DuplicateBox({ detail, apply }: { detail: RequestDetail; apply: (b: Rec
   const why = d.matches[0]?.why;
   const body = `${revised ? "The subject says REVISED, and the" : "The"} ${why ? why : "aircraft, route and dates"} match${ids.length === 1 ? "es" : ""} ${ids.length === 1 ? "flight" : "flights"} ${listWords(ids)}${created ? `, created on ${created}` : ""}${d.tripNumber ? ` (trip ${d.tripNumber})` : ""}. The agent cannot change flights already in Leon. If the revision is real, update those flights in Leon by hand. Creating this request would make the flights exist twice.`;
   const act = async (action: "close" | "not_duplicate") => { setBusy(action); await apply({ op: "duplicate", action }); setBusy(null); };
-  const btn = (primary: boolean) => ({ fontFamily: "inherit", display: "flex", alignItems: "center", gap: 7, fontSize: 13.5, fontWeight: 600, color: primary ? C.surface : C.ink, background: primary ? C.primary : C.surface, border: `1px solid ${primary ? C.primary : C.borderControl}`, borderRadius: 9, padding: "8px 13px", cursor: "pointer" } as const);
+  const btn = (primary: boolean) => ({ fontFamily: "inherit", display: "flex", alignItems: "center", gap: 7, fontSize: 13.5, fontWeight: 600, color: primary ? cw.textOnPrimary : cw.text, background: primary ? cw.primary : cw.bgSurface, border: `1px solid ${primary ? cw.primary : cw.borderControl}`, borderRadius: 9, padding: "8px 13px", cursor: "pointer" } as const);
   return (
-    <div role="alert" style={{ borderRadius: 12, padding: "16px 18px", background: TONE.red.bg, border: `1.5px solid ${C.dangerBadge}`, display: "flex", flexDirection: "column", gap: 12 }}>
+    <div role="alert" style={{ borderRadius: 12, padding: "16px 18px", background: TONE.red.bg, border: `1.5px solid ${cw.danger}`, display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <Icon name="copy" size={22} color={C.dangerBadge} />
+        <Icon name="copy" size={22} color={cw.dangerText} />
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: C.danger }}>{title}</div>
-          <div style={{ fontSize: 13.5, lineHeight: 1.55, color: C.body, maxWidth: 860 }}>{body}</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: cw.dangerText }}>{title}</div>
+          <div style={{ fontSize: 13.5, lineHeight: 1.55, color: cw.textBody, maxWidth: 860 }}>{body}</div>
         </div>
       </div>
       {d.rows.length > 0 && (
-        <div role="table" aria-label="This request compared with Leon" style={{ background: C.surface, border: `1px solid ${TONE.red.bd}`, borderRadius: 10, overflow: "hidden", marginLeft: 34 }}>
-          <div role="row" style={{ display: "grid", gridTemplateColumns: "140px 1fr 1fr 80px", gap: 12, padding: "9px 14px", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", color: C.faint, background: C.page }}>
+        <div role="table" aria-label="This request compared with Leon" style={{ background: cw.bgSurface, border: `1px solid ${TONE.red.bd}`, borderRadius: 10, overflow: "hidden", marginLeft: 34 }}>
+          <div role="row" style={{ display: "grid", gridTemplateColumns: "140px 1fr 1fr 80px", gap: 12, padding: "9px 14px", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", color: cw.textMuted, background: cw.bgPage }}>
             <span role="columnheader">FIELD</span><span role="columnheader">THIS REQUEST · {r.reference}</span><span role="columnheader">IN LEON · {ids.join(", ")}</span><span />
           </div>
           {d.rows.map((x, i) => (
-            <div role="row" key={i} style={{ display: "grid", gridTemplateColumns: "140px 1fr 1fr 80px", gap: 12, padding: "8px 14px", borderTop: `1px solid ${C.dividerRow}`, background: x.differs ? TONE.amber.bg : x.field === "Leg" ? C.page : C.surface, alignItems: "center" }}>
-              <span role="cell" style={{ fontSize: 12.5, color: C.muted }}>{x.field}</span>
+            <div role="row" key={i} style={{ display: "grid", gridTemplateColumns: "140px 1fr 1fr 80px", gap: 12, padding: "8px 14px", borderTop: `1px solid ${cw.divider}`, background: x.differs ? TONE.amber.bg : x.field === "Leg" ? cw.bgPage : cw.bgSurface, alignItems: "center" }}>
+              <span role="cell" style={{ fontSize: 12.5, color: cw.textMuted }}>{x.field}</span>
               <span role="cell" style={mono({ fontSize: 13, fontWeight: 600 })}>{x.mine}</span>
               <span role="cell" style={mono({ fontSize: 13, fontWeight: 600 })}>{x.theirs}</span>
               <span role="cell" style={{ fontSize: 11, fontWeight: 700, color: TONE.amber.fg }}>{x.differs ? "DIFFERS" : ""}</span>
@@ -369,11 +370,11 @@ function DuplicateBox({ detail, apply }: { detail: RequestDetail; apply: (b: Rec
         </div>
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: 34 }}>
-        <button type="button" className="ag-focus" disabled={busy !== null} onClick={() => void act("close")} style={btn(true)}><Icon name="x" size={14} color={C.surface} />{busy === "close" ? "Closing…" : "Close · I will update Leon by hand"}</button>
+        <button type="button" className="ag-focus" disabled={busy !== null} onClick={() => void act("close")} style={btn(true)}><Icon name="x" size={14} color={cw.textOnPrimary} />{busy === "close" ? "Closing…" : "Close · I will update Leon by hand"}</button>
         <Tooltip label="Leon link not configured">
-          {(tp) => <button type="button" className="ag-focus" aria-disabled="true" {...tp} onClick={() => {}} style={{ ...btn(false), cursor: "not-allowed", opacity: 0.5 }}><Icon name="external-link" size={14} color={C.muted} />Open {ids[0] ?? ""} in Leon</button>}
+          {(tp) => <button type="button" className="ag-focus" aria-disabled="true" {...tp} onClick={() => {}} style={{ ...btn(false), cursor: "not-allowed", opacity: 0.5 }}><Icon name="external-link" size={14} color={cw.textMuted} />Open {ids[0] ?? ""} in Leon</button>}
         </Tooltip>
-        <button type="button" className="ag-focus" disabled={busy !== null} onClick={() => void act("not_duplicate")} style={btn(false)}><Icon name="eye" size={14} color={C.muted} />{busy === "not_duplicate" ? "Saving…" : "Not a duplicate · review it"}</button>
+        <button type="button" className="ag-focus" disabled={busy !== null} onClick={() => void act("not_duplicate")} style={btn(false)}><Icon name="eye" size={14} color={cw.textMuted} />{busy === "not_duplicate" ? "Saving…" : "Not a duplicate · review it"}</button>
       </div>
     </div>
   );
@@ -415,10 +416,10 @@ function Actions({ detail, closed, apply, reprocess, reprocessing, lookupNow, an
         {scheduled && r.status === "collecting" && <Button variant="secondary" size="sm" icon="search" disabled={looking} onClick={() => { setLooking(true); void lookupNow().finally(() => setLooking(false)); }}>{looking ? "Looking up…" : "Look up now"}</Button>}
         {!scheduled && !anyInLeon && <Button variant="secondary" size="sm" icon="refresh-cw" disabled={reprocessing !== null} onClick={() => setAsk("reextract")}>Re-extract</Button>}
         <Button variant="secondary" size="sm" icon="check" onClick={() => setAsk("handled_manually")}>Mark handled manually</Button>
-        {!anyInLeon && <Button variant="ghost" size="sm" icon="x" style={{ color: C.danger }} onClick={() => setAsk("cancelled")}>Cancel request</Button>}
+        {!anyInLeon && <Button variant="ghost" size="sm" icon="x" style={{ color: cw.dangerText }} onClick={() => setAsk("cancelled")}>Cancel request</Button>}
       </div>
       {q && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5, color: C.body }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5, color: cw.textBody }}>
           <span>{q}</span>
           <Button size="xs" variant={ask === "cancelled" ? "destructive" : "primary"} disabled={busy} onClick={() => void run()}>{busy ? "Working…" : ask === "reextract" ? "Read again" : ask === "cancelled" ? "Cancel request" : "Close request"}</Button>
           <Button size="xs" variant="secondary" disabled={busy} onClick={() => setAsk(null)}>Keep it open</Button>
@@ -427,8 +428,6 @@ function Actions({ detail, closed, apply, reprocess, reprocessing, lookupNow, an
     </div>
   );
 }
-
-
 
 /** The same change the server will make, applied locally so the control moves on the click. */
 function optimistic(d: RequestDetail, body: Record<string, unknown>): RequestDetail {

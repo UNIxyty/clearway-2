@@ -7,12 +7,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PortalShell, { useIdentity } from "@/components/portal/Shell";
 import AgentStyles from "../ui/AgentStyles";
-import { C, SHADOW, TONE, mono } from "../ui/tokens";
+import { SHADOW, TONE, mono } from "../ui/tokens";
 import { Icon, Keycap, Spinner, hmZ } from "../ui/primitives";
 import { IntakeStyles, Select, TabList, Tooltip, TypeChip, useHotkeys } from "./controls";
 import { intakeApi, type ListRow } from "./api";
 import { CARD, COLHEAD, LegSquare, RowStatusPill, STATUS, ago, ddMon, errText } from "./intake-shared";
 import { RequestDetailView } from "./intake-detail";
+import { cw } from "@/lib/portal-tokens";
 
 const GRID = "116px 106px 112px 124px minmax(0,1.2fr) 76px 84px minmax(0,1.3fr) 76px 16px";
 type Tab = "all" | "needs" | "progress" | "loaded" | "closed";
@@ -133,16 +134,16 @@ export default function IntakePage() {
           <Select<string> prefix="From" aria-label="From" value={from} onChange={setFrom} active={!!from} compact={false}
             options={[{ value: "", label: "All" }, ...froms.map((s) => ({ value: s, label: s }))]} />
           <div style={{ flex: 1 }} />
-          <label style={{ width: 320, height: 36, display: "flex", alignItems: "center", gap: 8, border: `1px solid ${searchFocus ? C.primary : C.borderControl}`, boxShadow: searchFocus ? SHADOW.focus : "none", background: C.surface, borderRadius: 9, padding: "0 8px 0 11px", boxSizing: "border-box" }}>
-            <Icon name="search" size={14} color={C.muted} />
+          <label style={{ width: 320, height: 36, display: "flex", alignItems: "center", gap: 8, border: `1px solid ${searchFocus ? cw.primary : cw.borderControl}`, boxShadow: searchFocus ? SHADOW.focus : "none", background: cw.bgSurface, borderRadius: 9, padding: "0 8px 0 11px", boxSizing: "border-box" }}>
+            <Icon name="search" size={14} color={cw.textMuted} />
             <input ref={search} type="text" value={qInput} onChange={(e) => setQInput(e.target.value)} aria-label="Search reference, route, registration, date" placeholder="Search reference, route, registration, date" spellCheck={false} autoComplete="off" onFocus={() => setSearchFocus(true)} onBlur={() => setSearchFocus(false)}
               onKeyDown={(e) => { if (e.key === "Escape" && qInput) { e.preventDefault(); setQInput(""); } }}
-              style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: 13, color: C.ink }} />
+              style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: 13, color: cw.text }} />
             <Keycap standalone>/</Keycap>
           </label>
         </div>
 
-        {error && <div role="alert" style={{ fontSize: 13, color: C.danger }}>Could not load the requests: {error}</div>}
+        {error && <div role="alert" style={{ fontSize: 13, color: cw.dangerText }}>Could not load the requests: {error}</div>}
 
         {rows === null ? <Skeleton /> : emptyFirstRun ? (
           <Empty icon="inbox" heading="No flight requests yet">Scheduled flights appear here when a provider emails ops@clearway.aero, and handling requests when a dispatcher does. Each shows up within a minute.</Empty>
@@ -151,47 +152,47 @@ export default function IntakePage() {
             : <Empty icon="filter-x" heading="No requests in this view">Nothing here matches the tab and filters. Choose All, or clear the filters, to see every request.</Empty>
         ) : (
           <div style={{ ...CARD, overflow: "hidden" }}>
-            <div aria-hidden style={{ display: "grid", gridTemplateColumns: GRID, gap: 10, padding: "11px 16px", background: C.page, borderBottom: `1px solid ${C.divider}`, ...COLHEAD, fontSize: 10.5 }}>
+            <div aria-hidden style={{ display: "grid", gridTemplateColumns: GRID, gap: 10, padding: "11px 16px", background: cw.bgPage, borderBottom: `1px solid ${cw.divider}`, ...COLHEAD, fontSize: 10.5 }}>
               <span>Status</span><span>Type</span><span>From</span><span>Reference</span><span>Route</span><span>Date</span><span>Legs</span><span>Stage</span><span>Updated</span><span />
             </div>
             {open && !openRow && (
-              <div style={{ borderTop: `1px solid ${C.dividerRow}` }}>
-                <div style={{ padding: "10px 16px", fontSize: 12.5, color: C.muted, display: "flex", gap: 8, alignItems: "center" }}><Icon name="link" size={13} color={C.muted} />This request is not in the current view (opened from a link, or filtered out).</div>
+              <div style={{ borderTop: `1px solid ${cw.divider}` }}>
+                <div style={{ padding: "10px 16px", fontSize: 12.5, color: cw.textMuted, display: "flex", gap: 8, alignItems: "center" }}><Icon name="link" size={13} color={cw.textMuted} />This request is not in the current view (opened from a link, or filtered out).</div>
                 <RequestDetailView key={open} id={open} updatedAt={null} onCollapse={() => setOpenUrl(null)} onChanged={() => void load()} runsAs={display} />
               </div>
             )}
             {shown.map((r, i) => {
               const s = STATUS[r.statusKey] ?? STATUS.in_progress; const isOpen = open === r.id;
-              const stageColor = s.stage === "red" ? TONE.red.fg : s.stage === "amber" ? TONE.amber.fg : C.body;
+              const stageColor = s.stage === "red" ? TONE.red.fg : s.stage === "amber" ? TONE.amber.fg : cw.textBody;
               const legsLabel = `${r.legs.length} legs: ${r.legs.map((l, j) => `leg ${j + 1} ${l.state === "in" ? "In Leon" : l.state === "not" ? "NOT in Leon" : l.state === "unknown" ? "Unknown, checking" : l.state === "removed" ? "removed" : "Not sent"}`).join(", ")}`;
               return (
-                <div key={r.id} style={{ borderTop: `1px solid ${C.dividerRow}` }}>
+                <div key={r.id} style={{ borderTop: `1px solid ${cw.divider}` }}>
                   <button type="button" ref={(el) => { if (el) rowBtns.current.set(r.id, el); else rowBtns.current.delete(r.id); }}
                     aria-expanded={isOpen} aria-controls={isOpen ? `req-${r.id}` : undefined} onClick={() => toggle(r.id, i)} onFocus={() => setCursor(i)}
                     className={`ag-focus cw-row${flash[r.id] ? ` cw-flash-${flash[r.id]}` : ""}`}
-                    style={{ width: "100%", display: "grid", gridTemplateColumns: GRID, gap: 10, padding: "12px 16px", alignItems: "center", cursor: "pointer", border: "none", fontFamily: "inherit", textAlign: "left", color: C.ink, background: isOpen ? C.rowExpanded : C.surface, boxShadow: s.edge ? `inset 3px 0 0 ${s.edge}` : "none" }}>
+                    style={{ width: "100%", display: "grid", gridTemplateColumns: GRID, gap: 10, padding: "12px 16px", alignItems: "center", cursor: "pointer", border: "none", fontFamily: "inherit", textAlign: "left", color: cw.text, background: isOpen ? cw.bgSelected : cw.bgSurface, boxShadow: s.edge ? `inset 3px 0 0 ${s.edge}` : "none" }}>
                     <span style={{ justifySelf: "start" }}><RowStatusPill k={r.statusKey} label={r.statusLabel} /></span>
                     <span style={{ justifySelf: "start" }}><TypeChip type={r.type} /></span>
-                    <span style={{ fontSize: 13, color: C.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.from}</span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, minWidth: 0 }}>{r.statusKey === "in_progress" && <Spinner color={C.primary} size={13} />}<span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), wordBreak: "break-all" }}>{r.reference}</span></span>
-                    <span style={{ ...mono({ fontSize: 12.5 }), color: C.ink, lineHeight: 1.5 }}>{r.route || "—"}</span>
-                    <span style={{ ...mono({ fontSize: 12.5 }), color: C.body }}>{ddMon(r.firstStd) || "—"}</span>
+                    <span style={{ fontSize: 13, color: cw.textBody, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.from}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, minWidth: 0 }}>{r.statusKey === "in_progress" && <Spinner color={cw.textLink} size={13} />}<span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), wordBreak: "break-all" }}>{r.reference}</span></span>
+                    <span style={{ ...mono({ fontSize: 12.5 }), color: cw.text, lineHeight: 1.5 }}>{r.route || "—"}</span>
+                    <span style={{ ...mono({ fontSize: 12.5 }), color: cw.textBody }}>{ddMon(r.firstStd) || "—"}</span>
                     <span role="img" aria-label={legsLabel} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                       <span style={{ ...mono({ fontSize: 12.5 }), minWidth: 10 }}>{r.legs.length}</span>
                       <span style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>{r.legs.map((l, j) => <LegSquare key={j} k={l.state} />)}</span>
                     </span>
                     <span style={{ fontSize: 13, lineHeight: 1.45, color: stageColor, fontWeight: s.stage ? 600 : 400 }}>{r.stage}</span>
                     <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                      <span style={{ ...mono({ fontSize: 12 }), color: C.body }}>{hmZ(r.updatedAt)}</span>
-                      <span style={{ fontSize: 11.5, color: C.faint }}>{ago(r.updatedAt, now)}</span>
+                      <span style={{ ...mono({ fontSize: 12 }), color: cw.textBody }}>{hmZ(r.updatedAt)}</span>
+                      <span style={{ fontSize: 11.5, color: cw.textMuted }}>{ago(r.updatedAt, now)}</span>
                     </span>
-                    <Icon name={isOpen ? "chevron-up" : "chevron-down"} size={16} color={C.faint} />
+                    <Icon name={isOpen ? "chevron-up" : "chevron-down"} size={16} color={cw.textMuted} />
                   </button>
                   {isOpen && <div id={`req-${r.id}`}><RequestDetailView key={r.id} id={r.id} updatedAt={r.updatedAt} onCollapse={() => { setOpenUrl(null); rowBtns.current.get(r.id)?.focus(); }} onChanged={() => void load()} runsAs={display} /></div>}
                 </div>
               );
             })}
-            <div style={{ padding: "11px 16px", borderTop: `1px solid ${C.divider}`, display: "flex", alignItems: "center", gap: 14, fontSize: 12, color: C.faint, flexWrap: "wrap" }}>
+            <div style={{ padding: "11px 16px", borderTop: `1px solid ${cw.divider}`, display: "flex", alignItems: "center", gap: 14, fontSize: 12, color: cw.textMuted, flexWrap: "wrap" }}>
               <span style={{ flex: 1 }}>{shown.length} of {counts?.all ?? shown.length} requests · updates every 15 s{open ? " · order held while a request is open" : ""}</span>
               {[["/", "search"], ["j k", "move"], ["⏎", "open"], ["o", "original email"], ["[ ]", "legs"], ["Esc", "close"]].map(([k, l]) => (
                 <span key={k} style={{ display: "flex", gap: 5, alignItems: "center" }}><Keycap standalone>{k}</Keycap>{l}</span>
@@ -207,13 +208,13 @@ export default function IntakePage() {
 function Health({ overview, failed }: { overview: Overview | null; failed: boolean }) {
   const h = overview?.health;
   const pill = (key: string, label: string, state: "ok" | "down" | "neutral" | "unknown", status: string, tip?: string) => {
-    const dot = state === "ok" ? C.okDot : state === "down" ? C.dangerBadge : state === "neutral" ? TONE.slate.ic : C.disabled;
-    const bd = state === "down" ? TONE.red.bd : C.border;
+    const dot = state === "ok" ? cw.success : state === "down" ? cw.danger : state === "neutral" ? TONE.slate.ic : cw.borderStrong;
+    const bd = state === "down" ? TONE.red.bd : cw.border;
     const inner = (props?: Record<string, unknown>) => (
-      <span {...props} tabIndex={tip ? 0 : undefined} className={tip ? "ag-focus" : undefined} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: C.body, background: C.surface, border: `1px solid ${bd}`, borderRadius: 999, padding: "5px 11px 5px 9px", whiteSpace: "nowrap" }}>
+      <span {...props} tabIndex={tip ? 0 : undefined} className={tip ? "ag-focus" : undefined} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: cw.textBody, background: cw.bgSurface, border: `1px solid ${bd}`, borderRadius: 999, padding: "5px 11px 5px 9px", whiteSpace: "nowrap" }}>
         <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", background: dot }} />
         <span style={{ fontWeight: 600 }}>{label}</span>
-        <span style={{ color: state === "down" ? C.danger : C.muted }}>{status}</span>
+        <span style={{ color: state === "down" ? cw.dangerText : cw.textMuted }}>{status}</span>
       </span>
     );
     return tip ? <Tooltip key={key} label={tip} placement="bottom">{(tp) => inner(tp)}</Tooltip> : <span key={key}>{inner()}</span>;
@@ -233,20 +234,20 @@ function Skeleton() {
   const w = ["62%", "80%", "48%", "70%", "55%", "74%"];
   return (
     <div aria-busy="true" aria-label="Loading requests" style={{ ...CARD, overflow: "hidden" }}>
-      <div style={{ height: 38, background: C.page, borderBottom: `1px solid ${C.divider}` }} />
+      <div style={{ height: 38, background: cw.bgPage, borderBottom: `1px solid ${cw.divider}` }} />
       {w.map((x, i) => (
-        <div key={i} style={{ display: "grid", gridTemplateColumns: GRID, gap: 10, padding: 16, borderTop: `1px solid ${C.dividerRow}`, alignItems: "center" }}>
-          <span style={{ height: 20, borderRadius: 999, background: C.hover, width: 90 }} />
-          {[70, 80, 90].map((p, j) => <span key={j} style={{ height: 10, borderRadius: 5, background: j % 2 ? C.hover : C.divider, width: `${p}%` }} />)}
-          <span style={{ height: 10, borderRadius: 5, background: C.hover, width: x }} />
-          <span style={{ height: 10, borderRadius: 5, background: C.divider, width: "70%" }} />
-          <span style={{ height: 10, borderRadius: 5, background: C.hover, width: "60%" }} />
-          <span style={{ height: 10, borderRadius: 5, background: C.divider, width: w[(i + 2) % 6] }} />
-          <span style={{ height: 10, borderRadius: 5, background: C.hover, width: "70%" }} />
+        <div key={i} style={{ display: "grid", gridTemplateColumns: GRID, gap: 10, padding: 16, borderTop: `1px solid ${cw.divider}`, alignItems: "center" }}>
+          <span style={{ height: 20, borderRadius: 999, background: cw.bgHover, width: 90 }} />
+          {[70, 80, 90].map((p, j) => <span key={j} style={{ height: 10, borderRadius: 5, background: j % 2 ? cw.bgHover : cw.bgHover, width: `${p}%` }} />)}
+          <span style={{ height: 10, borderRadius: 5, background: cw.bgHover, width: x }} />
+          <span style={{ height: 10, borderRadius: 5, background: cw.bgHover, width: "70%" }} />
+          <span style={{ height: 10, borderRadius: 5, background: cw.bgHover, width: "60%" }} />
+          <span style={{ height: 10, borderRadius: 5, background: cw.bgHover, width: w[(i + 2) % 6] }} />
+          <span style={{ height: 10, borderRadius: 5, background: cw.bgHover, width: "70%" }} />
           <span />
         </div>
       ))}
-      <div style={{ padding: "12px 16px", fontSize: 12.5, color: C.faint, borderTop: `1px solid ${C.dividerRow}` }}>Loading requests…</div>
+      <div style={{ padding: "12px 16px", fontSize: 12.5, color: cw.textMuted, borderTop: `1px solid ${cw.divider}` }}>Loading requests…</div>
     </div>
   );
 }
@@ -254,9 +255,9 @@ function Skeleton() {
 function Empty({ icon, heading, children }: { icon: string; heading: string; children: React.ReactNode }) {
   return (
     <div style={{ ...CARD, padding: "64px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center" }}>
-      <Icon name={icon} size={24} color={C.faint} />
+      <Icon name={icon} size={24} color={cw.textMuted} />
       <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.01em" }}>{heading}</div>
-      <div style={{ fontSize: 14, lineHeight: 1.55, color: C.muted, maxWidth: 540 }}>{children}</div>
+      <div style={{ fontSize: 14, lineHeight: 1.55, color: cw.textMuted, maxWidth: 540 }}>{children}</div>
     </div>
   );
 }

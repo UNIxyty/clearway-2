@@ -104,8 +104,8 @@ export default function AgentAccess() {
 
         {/* The kill switch comes first: it overrides every grant below it. */}
         {killSwitch && (
-          <Card style={{ padding: 16, display: "flex", alignItems: "center", gap: 14, borderColor: killSwitch.enabled ? t.greenBorder : t.redBorder, background: killSwitch.enabled ? "#f6fbf8" : t.redTint }}>
-            <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 17, background: killSwitch.enabled ? t.greenTint : "#fbdcdc", color: killSwitch.enabled ? t.greenDeep : t.redDeep }}>
+          <Card style={{ padding: 16, display: "flex", alignItems: "center", gap: 14, borderColor: killSwitch.enabled ? t.greenBorder : t.redBorder, background: killSwitch.enabled ? "var(--cw-success-tint)" : t.redTint }}>
+            <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 17, background: killSwitch.enabled ? t.greenTint : "var(--cw-danger-border)", color: killSwitch.enabled ? t.greenDeep : t.redDeep }}>
               {killSwitch.enabled ? "◉" : "⏻"}
             </span>
             <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -115,7 +115,7 @@ export default function AgentAccess() {
                 </span>
                 <StatusPill
                   color={killSwitch.enabled ? t.greenDeep : t.redDeep}
-                  bg={killSwitch.enabled ? t.greenTint : "#fbdcdc"}
+                  bg={killSwitch.enabled ? t.greenTint : "var(--cw-danger-border)"}
                   dot={killSwitch.enabled ? t.green : t.red}
                 >
                   {killSwitch.enabled ? "LIVE" : "OFF"}
@@ -176,7 +176,7 @@ export default function AgentAccess() {
 
         {rows?.map((r) => (
           <Card key={r.id} className="cw-hover-row" style={{ padding: "13px 16px", display: "flex", alignItems: "center", gap: 13, opacity: r.revokedAt ? 0.62 : 1 }}>
-            <span style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, background: r.revokedAt ? "#f1f1f2" : t.greenTint, color: r.revokedAt ? t.faint : t.greenDeep }}>
+            <span style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, background: r.revokedAt ? "var(--cw-bg-hover)" : t.greenTint, color: r.revokedAt ? t.faint : t.greenDeep }}>
               {r.revokedAt ? "✕" : "✓"}
             </span>
             <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>

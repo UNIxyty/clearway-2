@@ -25,9 +25,9 @@ export default function MaintenancePage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background p-4 sm:p-6 lg:p-10 flex items-center justify-center">
+    <div className="relative min-h-screen overflow-hidden bg-cw-bg-page p-4 sm:p-6 lg:p-10 flex items-center justify-center">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,hsl(var(--primary)/0.14),transparent_40%),radial-gradient(circle_at_80%_20%,hsl(var(--accent)/0.12),transparent_40%),radial-gradient(circle_at_50%_80%,hsl(var(--muted-foreground)/0.08),transparent_50%)]" />
-      <Card className="relative w-full max-w-2xl border-border/70 bg-card/95 backdrop-blur-sm shadow-2xl">
+      <Card className="relative w-full max-w-2xl border-cw-border/70 bg-cw-bg-surface/95 backdrop-blur-sm shadow-2xl">
         <CardHeader className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <img
@@ -42,7 +42,7 @@ export default function MaintenancePage() {
               className="h-8 sm:h-10 w-auto object-contain opacity-90"
             />
           </div>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs text-primary">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-cw-primary/30 bg-cw-primary/10 px-3 py-1 text-xs text-cw-text-link">
             <WrenchIcon className="size-3.5" />
             Scheduled maintenance in progress
           </div>
@@ -52,15 +52,15 @@ export default function MaintenancePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-          <div className="rounded-lg border border-border/60 bg-background/70 p-4">
+          <div className="rounded-lg border border-cw-border/60 bg-cw-bg-page/70 p-4">
             {loading ? (
-              <p className="text-muted-foreground">Loading maintenance details...</p>
+              <p className="text-cw-text-muted">Loading maintenance details...</p>
             ) : (
               <>
                 {data?.message ? (
                   <p>{data.message}</p>
                 ) : (
-                  <p className="text-muted-foreground">
+                  <p className="text-cw-text-muted">
                     Maintenance is currently active for the portal.
                   </p>
                 )}
@@ -70,15 +70,15 @@ export default function MaintenancePage() {
                   </p>
                 )}
                 {data?.updated_at && (
-                  <p className="mt-3 text-xs text-muted-foreground">
+                  <p className="mt-3 text-xs text-cw-text-muted">
                     Last updated: {new Date(data.updated_at).toLocaleString()}
                   </p>
                 )}
               </>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheckIcon className="size-3.5 text-primary" />
+          <div className="flex flex-wrap items-center gap-2 text-xs text-cw-text-muted">
+            <ShieldCheckIcon className="size-3.5 text-cw-text-link" />
             Your account and data remain secure during maintenance windows.
           </div>
           <Button
@@ -94,9 +94,9 @@ export default function MaintenancePage() {
           </Button>
           {/* Portal foundations 1.2: sign-in stays open during maintenance; an admin or developer who signs in lands
               on the page that turns it off. */}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-cw-text-muted">
             Clearway admin?{" "}
-            <a className="underline underline-offset-2 hover:text-foreground" href="/login?next=%2Fadmin%2Fmaintenance">
+            <a className="underline underline-offset-2 hover:text-cw-text" href="/login?next=%2Fadmin%2Fmaintenance">
               Sign in to turn maintenance off
             </a>
           </p>

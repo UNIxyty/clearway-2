@@ -1,64 +1,60 @@
 import type { Config } from "tailwindcss";
-import tokens from "./shared/design-tokens.json";
+import portal from "./shared/portal-tokens.json";
+
+// Portal colours are the --cw-* tokens (shared/portal-tokens.json → shared/portal-tokens.css), one class per token:
+// bg-cw-bg-surface, text-cw-text-muted, border-cw-border … Each resolves to var(--cw-…), so light and dark come from
+// the stylesheet, never from a class. An opacity modifier (bg-cw-primary/10) mixes the token with transparent.
+// shared/design-tokens.json is the Digital Wall's file and is not read here.
+type Alpha = { opacityValue?: string };
+// Tailwind's own opacity variables (--tw-bg-opacity …) are always 1 here (no bg-opacity-* utilities are used), so a
+// plain class is the plain token; only an explicit modifier (/10, /[0.06]) mixes.
+const tokenColour = (name: string) => ({ opacityValue }: Alpha) =>
+  opacityValue === undefined || opacityValue === "1" || opacityValue.startsWith("var(--tw-")
+    ? `var(--cw-${name})`
+    : `color-mix(in srgb, var(--cw-${name}) calc(${opacityValue} * 100%), transparent)`;
+const colourTokens = Object.keys(portal.tokens).filter((k) => !/^(shadow-|show-)/.test(k));
+// Tailwind accepts a function colour (for the opacity modifier); its config type only describes strings.
+const cw = Object.fromEntries(colourTokens.map((k) => [k, tokenColour(k)])) as unknown as Record<string, string>;
 
 export default {
-  darkMode: "class",
+  // Theme switching is data-theme on <html> (set before first paint by the inline script in app/layout.tsx). The
+  // tokens do the work; `dark:` variants are not used.
+  darkMode: ["selector", '[data-theme="dark"]'],
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    // Status tables in lib/ name their classes (bug-report and service-state dots).
+    "./lib/**/*.{ts,tsx}",
   ],
   theme: {
+    // Tailwind's own shadows are hard-coded black; these are the theme's.
+    boxShadow: {
+      none: "none",
+      sm: "var(--cw-shadow-1)",
+      DEFAULT: "var(--cw-shadow-1)",
+      md: "var(--cw-shadow-2)",
+      lg: "var(--cw-shadow-2)",
+      xl: "var(--cw-shadow-pop)",
+      "2xl": "var(--cw-shadow-pop)",
+      inner: "inset 0 1px 2px var(--cw-divider)",
+    },
     extend: {
       fontFamily: {
-        // Console design system: Public Sans UI + IBM Plex Mono for data.
+        // Public Sans UI + IBM Plex Mono for codes, times and numbers (design spec §1.5).
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
       },
-      colors: {
-        // Platform tokens — THE shared source (shared/design-tokens.json).
-        cw: {
-          page: "#fbfbfc",
-          card: "#ffffff",
-          sidebar: "#f5f6f7",
-          border: "#e6e7ea",
-          borderInner: "#eef0f2",
-          ink: "#17181c",
-          body: "#3a3d44",
-          muted: "#6c7079",
-          faint: "#9aa0a8",
-          primary: "#2563eb",
-          primaryDeep: "#1d4ed8",
-          primaryTint: "#eef4ff",
-          green: "#16a34a",
-          amber: "#f59e0b",
-          red: "#e5484d",
-          hover: "#eceef0",
-          // Ops Agent sidebar states (design spec §5) — read from the shared file.
-          navActive: tokens.color.navActive,
-          borderControl: tokens.color.borderControl,
-          amberTint: tokens.color.amberTint,
-          amberDeep: tokens.color.amberDeep,
-        },
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        card: { DEFAULT: "hsl(var(--card))", foreground: "hsl(var(--card-foreground))" },
-        popover: { DEFAULT: "hsl(var(--popover))", foreground: "hsl(var(--popover-foreground))" },
-        primary: { DEFAULT: "hsl(var(--primary))", foreground: "hsl(var(--primary-foreground))" },
-        secondary: { DEFAULT: "hsl(var(--secondary))", foreground: "hsl(var(--secondary-foreground))" },
-        muted: { DEFAULT: "hsl(var(--muted))", foreground: "hsl(var(--muted-foreground))" },
-        accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
-        destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        // Bracket / playoff design tokens
-        page:     '#f5f5f5',
-        navy:     { DEFAULT: '#0f1e3c', light: '#1a2e54' },
-        'bk-blue':   { DEFAULT: '#1a56db', dark: '#1647b8' },
-        'bk-amber':  { DEFAULT: '#f59e0b', dark: '#d97706' },
-        'bk-accent': { DEFAULT: '#f97316', dark: '#ea580c' },
-        pickfill: '#EBF3FF',
+      colors: { cw },
+      // Preflight's default border, ring and placeholder colours are Tailwind greys/blues: make them tokens.
+      borderColor: { DEFAULT: "var(--cw-border)" },
+      ringColor: { DEFAULT: "var(--cw-focus)" },
+      ringOffsetColor: { DEFAULT: "var(--cw-bg-page)" },
+      boxShadow: {
+        "cw-1": "var(--cw-shadow-1)",
+        "cw-2": "var(--cw-shadow-2)",
+        "cw-pop": "var(--cw-shadow-pop)",
+        "cw-panel": "var(--cw-shadow-panel)",
       },
     },
   },

@@ -3,9 +3,10 @@
 // Agent settings → Flight intake (admins). The addresses, notification recipients, mailbox readers and
 // retention live here, not in the server's .env. Each list saves on its own; every save is audited.
 import { useCallback, useEffect, useId, useState } from "react";
-import { C, TONE, mono } from "../ui/tokens";
+import { TONE, mono } from "../ui/tokens";
 import { Button, Eyebrow, Icon, dateLong } from "../ui/primitives";
 import { AGENT_BASE } from "../types";
+import { cw } from "@/lib/portal-tokens";
 
 type Key = "addresses" | "notifyTo" | "mailboxReaders";
 type Settings = { addresses: string[]; notifyTo: string[]; mailboxReaders: string[]; retentionDays: number; source: Record<string, string>; updated: Record<string, { at: string; by: string | null }> };
@@ -36,13 +37,13 @@ export default function IntakeSettingsCard() {
   const save = async (key: string, value: unknown) => { setSaving(key); const ok = await call({ method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [key]: value }) }); setSaving(null); return ok; };
   if (hidden) return null;
   return (
-    <section aria-label="Flight intake" style={{ gridColumn: "1 / -1", minWidth: 0, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
+    <section aria-label="Flight intake" style={{ gridColumn: "1 / -1", minWidth: 0, background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
         <Eyebrow>Flight intake</Eyebrow>
-        <span style={{ fontSize: 12.5, color: C.muted }}>Addresses and recipients for handling requests. Changes apply within 15 seconds and are logged under your name.</span>
+        <span style={{ fontSize: 12.5, color: cw.textMuted }}>Addresses and recipients for handling requests. Changes apply within 15 seconds and are logged under your name.</span>
       </div>
-      {error && <div role="alert" style={{ fontSize: 13, color: C.danger }}>{error}</div>}
-      {!s && !error && <div style={{ fontSize: 13, color: C.muted }}>Loading…</div>}
+      {error && <div role="alert" style={{ fontSize: 13, color: cw.dangerText }}>{error}</div>}
+      {!s && !error && <div style={{ fontSize: 13, color: cw.textMuted }}>Loading…</div>}
       {s && ROWS.map((row) => (
         <ListEditor key={row.key} title={row.title} help={row.help} empty={row.empty} values={s[row.key]} source={s.source[row.key]} updated={s.updated[row.key]} saving={saving === row.key}
           status={row.key === "addresses" ? (a) => health?.addresses.find((h) => h.address === a) ?? null : undefined}
@@ -67,32 +68,32 @@ function ListEditor({ title, help, empty, values, source, updated, saving, statu
   const dirty = draft.join(",") !== values.join(",");
   const add = () => { const parts = text.split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean); if (!parts.length) return; const wrong = parts.filter((p) => !EMAIL.test(p)); if (wrong.length) { setBad(`Not an email address: ${wrong.join(", ")}`); return; } setDraft((d) => [...new Set([...d, ...parts])]); setText(""); setBad(null); };
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,260px) minmax(0,1fr)", gap: 16, paddingTop: 14, borderTop: `1px solid ${C.dividerRow}` }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,260px) minmax(0,1fr)", gap: 16, paddingTop: 14, borderTop: `1px solid ${cw.divider}` }}>
       <div>
-        <div id={`${id}-t`} style={{ fontSize: 13.5, fontWeight: 700, color: C.ink }}>{title}</div>
-        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.muted, marginTop: 3 }}>{help}</div>
-        <div style={{ fontSize: 11.5, color: C.faint, marginTop: 6 }}>{sourceLine(source, updated)}</div>
+        <div id={`${id}-t`} style={{ fontSize: 13.5, fontWeight: 700, color: cw.text }}>{title}</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: cw.textMuted, marginTop: 3 }}>{help}</div>
+        <div style={{ fontSize: 11.5, color: cw.textMuted, marginTop: 6 }}>{sourceLine(source, updated)}</div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
         <ul aria-labelledby={`${id}-t`} style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {draft.length === 0 && <li style={{ fontSize: 12.5, color: C.muted }}>{empty}</li>}
+          {draft.length === 0 && <li style={{ fontSize: 12.5, color: cw.textMuted }}>{empty}</li>}
           {draft.map((a) => { const h = status?.(a); return (
-            <li key={a} style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 6, maxWidth: "100%", minWidth: 0, border: `1px solid ${C.borderControl}`, borderRadius: 14, padding: "3px 4px 3px 10px", background: C.surface }}>
+            <li key={a} style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 6, maxWidth: "100%", minWidth: 0, border: `1px solid ${cw.borderControl}`, borderRadius: 14, padding: "3px 4px 3px 10px", background: cw.bgSurface }}>
               {h && <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: h.ok ? TONE.green.ic : TONE.red.ic }} />}
               <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), overflowWrap: "anywhere", minWidth: 0 }}>{a}</span>
-              {h && !h.ok && h.why && <span style={{ fontSize: 11.5, color: C.danger, overflowWrap: "anywhere", minWidth: 0 }}>{h.why}</span>}
-              <button type="button" className="ag-focus" aria-label={`Remove ${a}`} onClick={() => setDraft((d) => d.filter((x) => x !== a))} style={{ width: 22, height: 22, borderRadius: 999, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="x" size={13} color={C.muted} /></button>
+              {h && !h.ok && h.why && <span style={{ fontSize: 11.5, color: cw.dangerText, overflowWrap: "anywhere", minWidth: 0 }}>{h.why}</span>}
+              <button type="button" className="ag-focus" aria-label={`Remove ${a}`} onClick={() => setDraft((d) => d.filter((x) => x !== a))} style={{ width: 22, height: 22, borderRadius: 999, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="x" size={13} color={cw.textMuted} /></button>
             </li>
           ); })}
         </ul>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input type="text" aria-label={`Add to ${title}`} value={text} placeholder="name@example.com" spellCheck={false} autoComplete="off" onChange={(e) => { setText(e.target.value); setBad(null); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-            className="ag-focus" style={{ ...mono({ fontSize: 13 }), height: 32, width: 300, maxWidth: "100%", borderRadius: 8, border: `1px solid ${bad ? C.dangerBadge : C.borderControl}`, padding: "0 10px", color: C.ink, background: C.surface }} />
+            className="ag-focus" style={{ ...mono({ fontSize: 13 }), height: 32, width: 300, maxWidth: "100%", borderRadius: 8, border: `1px solid ${bad ? cw.danger : cw.borderControl}`, padding: "0 10px", color: cw.text, background: cw.bgSurface }} />
           <Button size="xs" variant="secondary" icon="plus" onClick={add} disabled={!text.trim()}>Add</Button>
           <Button size="xs" variant="primary" onClick={async () => { const ok = await onSave(draft); if (ok === false) setDraft(values); }} disabled={!dirty || saving || (title === "Receiving addresses" && draft.length === 0)}>{saving ? "Saving…" : "Save"}</Button>
           {dirty && !saving && <Button size="xs" variant="ghost" onClick={() => { setDraft(values); setText(""); setBad(null); }}>Cancel</Button>}
         </div>
-        {bad && <div role="alert" style={{ fontSize: 12.5, color: C.danger }}>{bad}</div>}
+        {bad && <div role="alert" style={{ fontSize: 12.5, color: cw.dangerText }}>{bad}</div>}
       </div>
     </div>
   );
@@ -102,18 +103,18 @@ function RetentionEditor({ days, source, updated, saving, onSave }: { days: numb
   const [v, setV] = useState(String(days)); useEffect(() => setV(String(days)), [days]);
   const n = Number(v); const valid = Number.isInteger(n) && n >= 1 && n <= 3650;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,260px) minmax(0,1fr)", gap: 16, paddingTop: 14, borderTop: `1px solid ${C.dividerRow}` }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,260px) minmax(0,1fr)", gap: 16, paddingTop: 14, borderTop: `1px solid ${cw.divider}` }}>
       <div>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: C.ink }}>Keep intake mail</div>
-        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.muted, marginTop: 3 }}>Raw emails, attachments and extracted personal data are deleted this many days after the email arrived or after the request&apos;s last flight, whichever is later. Flights, times and Leon ids stay.</div>
-        <div style={{ fontSize: 11.5, color: C.faint, marginTop: 6 }}>{sourceLine(source, updated)}</div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: cw.text }}>Keep intake mail</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: cw.textMuted, marginTop: 3 }}>Raw emails, attachments and extracted personal data are deleted this many days after the email arrived or after the request&apos;s last flight, whichever is later. Flights, times and Leon ids stay.</div>
+        <div style={{ fontSize: 11.5, color: cw.textMuted, marginTop: 6 }}>{sourceLine(source, updated)}</div>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <input type="text" inputMode="numeric" aria-label="Days to keep intake mail" value={v} onChange={(e) => setV(e.target.value.replace(/[^\d]/g, ""))} className="ag-focus"
-          style={{ ...mono({ fontSize: 13 }), height: 32, width: 90, borderRadius: 8, border: `1px solid ${valid ? C.borderControl : C.dangerBadge}`, padding: "0 10px", color: C.ink, background: C.surface }} />
-        <span style={{ fontSize: 13, color: C.muted }}>days</span>
+          style={{ ...mono({ fontSize: 13 }), height: 32, width: 90, borderRadius: 8, border: `1px solid ${valid ? cw.borderControl : cw.danger}`, padding: "0 10px", color: cw.text, background: cw.bgSurface }} />
+        <span style={{ fontSize: 13, color: cw.textMuted }}>days</span>
         <Button size="xs" variant="primary" disabled={!valid || n === days || saving} onClick={() => void onSave(n)}>{saving ? "Saving…" : "Save"}</Button>
-        {!valid && <span role="alert" style={{ fontSize: 12.5, color: C.danger }}>Between 1 and 3650 days.</span>}
+        {!valid && <span role="alert" style={{ fontSize: 12.5, color: cw.dangerText }}>Between 1 and 3650 days.</span>}
       </div>
     </div>
   );

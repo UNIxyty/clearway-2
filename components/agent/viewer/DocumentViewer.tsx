@@ -4,11 +4,11 @@
 // console page between the sidebar and the agent panel; the page stays
 // mounted underneath, the sidebar is untouched, the panel does not move. One
 // component serves the side panel, the full-page chat and the Knowledge base.
-// The ink frame (#17181c) never appears here — tier is shown in words (§V7).
+// The ink frame never appears here — tier is shown in words (§V7).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AgentStyles from "../ui/AgentStyles";
-import { C, SHADOW, TIER, VIEWER, mono } from "../ui/tokens";
+import { SHADOW, TIER, VIEWER, mono } from "../ui/tokens";
 import { Button, Icon, IconButton, Keycap, RingMark, dateLong, hmZ, kb } from "../ui/primitives";
 import { useKeybinds } from "../ui/keybinds";
 import { useViewer } from "./ViewerContext";
@@ -19,6 +19,7 @@ import { RecordEditor, SelectionActions } from "./RecordTools";
 import { fetchDocRef } from "./ViewerContext";
 import { VIEWABLE, fileKindOf, typeLabel, type Citation, type CitationResult, type DocRef } from "./types";
 import { AGENT_BASE } from "../types";
+import { cw } from "@/lib/portal-tokens";
 
 type Search = { open: boolean; query: string; count: number; current: number; pages: number[] };
 
@@ -162,7 +163,7 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
   const revState: "current" | "future" | "superseded" | "unknown" = ref.revision?.state ?? (ref.revision?.superseded ? "superseded" : ref.revision?.label ? "current" : "unknown");
   const revLabel = ref.revision?.label ?? "revision unknown";
   const superseded = revState === "superseded";
-  const revLook = revState === "superseded" ? { fg: C.warn, bg: C.warnTint, border: C.warnBorder } : revState === "future" ? { fg: C.info, bg: C.infoTint, border: C.infoBorder } : revState === "unknown" ? { fg: C.muted, bg: C.surface, border: C.borderControl } : { fg: C.body, bg: C.hover, border: "transparent" };
+  const revLook = revState === "superseded" ? { fg: cw.warningText, bg: cw.warningTint, border: cw.warningBorder } : revState === "future" ? { fg: cw.infoText, bg: cw.infoTint, border: cw.infoBorder } : revState === "unknown" ? { fg: cw.textMuted, bg: cw.bgSurface, border: cw.borderControl } : { fg: cw.textBody, bg: cw.bgHover, border: "transparent" };
   // §V6 revision mismatch: the answer cited one revision, this copy is another.
   const citedRev = activeCitation?.revision ?? null;
   const revisionMismatch = Boolean(citedRev && ref.revision && citedRev.state !== "unknown" && revState !== "unknown" && (citedRev.revision && ref.revision.revision ? citedRev.revision !== ref.revision.revision : citedRev.label !== ref.revision.label));
@@ -173,103 +174,103 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
 
   return (
     <div ref={root} className={closing ? "cw-viewer-out" : "cw-viewer-in"} role="region" aria-label={`Document viewer · ${ref.filename}`}
-      style={{ position: "fixed", top: 0, bottom: 0, left: cols.left, width: Math.max(320, cols.width), zIndex: 30, background: C.surface, display: "flex", flexDirection: "column", fontFamily: "inherit", color: C.ink, borderRight: `1px solid ${C.border}` }}>
+      style={{ position: "fixed", top: 0, bottom: 0, left: cols.left, width: Math.max(320, cols.width), zIndex: 30, background: cw.bgSurface, display: "flex", flexDirection: "column", fontFamily: "inherit", color: cw.text, borderRight: `1px solid ${cw.border}` }}>
       <AgentStyles />
       <span aria-live="polite" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>{announce}</span>
 
       {/* Tab strip (§V4.1) */}
-      <div role="tablist" aria-label="Open documents" style={{ height: VIEWER.tabStrip, flex: "none", background: C.sidebar, borderBottom: `1px solid ${C.border}`, padding: "0 10px", display: "flex", alignItems: "flex-end", gap: 2, overflow: "hidden" }}>
-        <button type="button" onClick={close} title="Back · Esc" style={{ fontFamily: "inherit", height: 22, alignSelf: "center", display: "inline-flex", alignItems: "center", gap: 6, padding: "0 10px 0 4px", marginRight: 6, border: "none", borderRight: `1px solid ${C.border}`, background: "transparent", fontSize: 12.5, fontWeight: 600, color: C.muted, cursor: "pointer" }}>
-          <Icon name="arrow-left" size={14} color={C.muted} />{v.from ?? "Back"}
+      <div role="tablist" aria-label="Open documents" style={{ height: VIEWER.tabStrip, flex: "none", background: cw.bgSunken, borderBottom: `1px solid ${cw.border}`, padding: "0 10px", display: "flex", alignItems: "flex-end", gap: 2, overflow: "hidden" }}>
+        <button type="button" onClick={close} title="Back · Esc" style={{ fontFamily: "inherit", height: 22, alignSelf: "center", display: "inline-flex", alignItems: "center", gap: 6, padding: "0 10px 0 4px", marginRight: 6, border: "none", borderRight: `1px solid ${cw.border}`, background: "transparent", fontSize: 12.5, fontWeight: 600, color: cw.textMuted, cursor: "pointer" }}>
+          <Icon name="arrow-left" size={14} color={cw.textMuted} />{v.from ?? "Back"}
         </button>
         {v.tabs.map((t) => { const k = fileKindOf(t.ref); const on = t.ref.key === ref.key; return (
           <div key={t.ref.key} role="tab" aria-selected={on} tabIndex={0} onClick={() => v.activate(t.ref.key)} onKeyDown={(e) => { if (e.key === "Enter") v.activate(t.ref.key); }} className={on ? "cw-tab cw-tab-on" : "cw-tab"}
-            style={{ height: 34, borderRadius: "9px 9px 0 0", padding: "0 8px 0 12px", display: "inline-flex", alignItems: "center", gap: 8, maxWidth: 260, minWidth: 0, flex: "0 1 auto", cursor: "pointer", background: on ? C.surface : "transparent", border: on ? `1px solid ${C.border}` : "1px solid transparent", borderBottom: "none", marginBottom: on ? -1 : 0 }}>
-            <Icon name={k === "image" ? "image" : k === "table" ? "table-2" : k === "text" ? "file-code" : k === "unsupported" ? "file-question" : "file-text"} size={13} color={on ? C.body : C.faint} />
-            <span style={{ ...mono({ fontSize: 12, fontWeight: on ? 600 : 500 }), color: on ? C.ink : C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.ref.filename}</span>
-            <button type="button" aria-label={`Close ${t.ref.filename}`} onClick={(e) => { e.stopPropagation(); v.closeTab(t.ref.key); }} className="ag-hover" style={{ width: 18, height: 18, borderRadius: 5, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0 }}><Icon name="x" size={11} color={C.faint} /></button>
+            style={{ height: 34, borderRadius: "9px 9px 0 0", padding: "0 8px 0 12px", display: "inline-flex", alignItems: "center", gap: 8, maxWidth: 260, minWidth: 0, flex: "0 1 auto", cursor: "pointer", background: on ? cw.bgSurface : "transparent", border: on ? `1px solid ${cw.border}` : "1px solid transparent", borderBottom: "none", marginBottom: on ? -1 : 0 }}>
+            <Icon name={k === "image" ? "image" : k === "table" ? "table-2" : k === "text" ? "file-code" : k === "unsupported" ? "file-question" : "file-text"} size={13} color={on ? cw.textBody : cw.textMuted} />
+            <span style={{ ...mono({ fontSize: 12, fontWeight: on ? 600 : 500 }), color: on ? cw.text : cw.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.ref.filename}</span>
+            <button type="button" aria-label={`Close ${t.ref.filename}`} onClick={(e) => { e.stopPropagation(); v.closeTab(t.ref.key); }} className="ag-hover" style={{ width: 18, height: 18, borderRadius: 5, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0 }}><Icon name="x" size={11} color={cw.textMuted} /></button>
           </div>); })}
       </div>
 
       {/* Header (§V4.2) */}
-      <div style={{ flex: "none", padding: "12px 18px", borderBottom: `1px solid ${C.divider}`, display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ flex: "none", padding: "12px 18px", borderBottom: `1px solid ${cw.divider}`, display: "flex", alignItems: "center", gap: 14 }}>
         <span style={{ width: 34, height: 42, borderRadius: 5, background: tile.bg, border: `1px solid ${tile.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 8.5, fontWeight: 800, color: tile.fg, flex: "none" }}>{tile.label}</span>
         <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
             <span style={{ ...mono({ fontSize: 14.5, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ref.filename}</span>
             <span data-revision-state={revState} title={ref.revision?.reason ?? undefined} style={{ ...mono({ fontSize: 11.5, fontWeight: 600 }), color: revLook.fg, background: revLook.bg, border: `1px solid ${revLook.border}`, borderRadius: 5, padding: "2px 7px", whiteSpace: "nowrap", fontStyle: revState === "unknown" ? "italic" : "normal" }}>{revLabel}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.muted, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: cw.textMuted, flexWrap: "wrap" }}>
             <span>{typeLabel(kind, ref)}{scanned ? " · scanned" : ""}{ref.bytes != null ? ` · ${kb(ref.bytes)}` : ""}{pages ? ` · ${pages} page${pages === 1 ? "" : "s"}` : meta.dims ? ` · ${meta.dims}` : meta.rows ? ` · ${meta.rows}` : ""}</span>
-            <span aria-hidden style={{ width: 3, height: 3, borderRadius: "50%", background: C.disabledFill }} />
+            <span aria-hidden style={{ width: 3, height: 3, borderRadius: "50%", background: cw.borderStrong }} />
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name={tierLook.icon} size={12} color={tierLook.fg} /><span style={{ fontWeight: 700, color: tierLook.fg }}>{tierLook.name}</span><span>· {ref.sourceName}</span></span>
-            {ref.fetchedAt && <><span aria-hidden style={{ width: 3, height: 3, borderRadius: "50%", background: C.disabledFill }} /><span style={mono({ fontSize: 11.5 })}>{ref.source === "knowledge" ? "uploaded" : "fetched"} {dateLong(ref.fetchedAt)} {hmZ(ref.fetchedAt)}</span></>}
-            {ref.approval?.status === "authoritative" && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: C.companyDeep, background: C.violetTint2, border: `1px solid ${C.violetBorder}`, borderRadius: 999, padding: "2px 9px 2px 7px" }}><Icon name="badge-check" size={12} color={C.companyDeep} />Authoritative{ref.approval.by ? ` · approved by ${ref.approval.by}` : ""}{ref.approval.at ? ` ${dateLong(ref.approval.at)}` : ""}</span>}
-            {ref.approval?.status === "reference" && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: C.body, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: 999, padding: "2px 9px 2px 7px" }}><Icon name="book-open" size={12} color={C.body} />Reference · cited, not quotable</span>}
-            {ref.approval?.status === "awaiting" && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: C.warn, background: C.warnTint, border: `1px solid ${C.warnBorder}`, borderRadius: 999, padding: "2px 9px 2px 7px" }}><Icon name="clock" size={12} color={C.warn} />Awaiting approval · not quotable</span>}
+            {ref.fetchedAt && <><span aria-hidden style={{ width: 3, height: 3, borderRadius: "50%", background: cw.borderStrong }} /><span style={mono({ fontSize: 11.5 })}>{ref.source === "knowledge" ? "uploaded" : "fetched"} {dateLong(ref.fetchedAt)} {hmZ(ref.fetchedAt)}</span></>}
+            {ref.approval?.status === "authoritative" && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: cw.diffText, background: cw.diffTint, border: `1px solid ${cw.diffBorder}`, borderRadius: 999, padding: "2px 9px 2px 7px" }}><Icon name="badge-check" size={12} color={cw.diffText} />Authoritative{ref.approval.by ? ` · approved by ${ref.approval.by}` : ""}{ref.approval.at ? ` ${dateLong(ref.approval.at)}` : ""}</span>}
+            {ref.approval?.status === "reference" && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: cw.textBody, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: 999, padding: "2px 9px 2px 7px" }}><Icon name="book-open" size={12} color={cw.textBody} />Reference · cited, not quotable</span>}
+            {ref.approval?.status === "awaiting" && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: cw.warningText, background: cw.warningTint, border: `1px solid ${cw.warningBorder}`, borderRadius: 999, padding: "2px 9px 2px 7px" }}><Icon name="clock" size={12} color={cw.warningText} />Awaiting approval · not quotable</span>}
           </div>
         </div>
-        {v.panelClosed && onAskAbout && <button type="button" onClick={() => { v.setPanelClosed(false); onAskAbout(ref, tab.page); }} className="ag-hover ag-focus ag-btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: "7px 11px", borderRadius: 8, border: `1px solid ${C.borderControl}`, background: C.surface, color: C.ink, cursor: "pointer" }}><RingMark size={14} color={C.primaryHover} dot={5} />{compact ? "Ask" : "Ask about this document"}<Keycap>{stepLabel("open")}</Keycap></button>}
+        {v.panelClosed && onAskAbout && <button type="button" onClick={() => { v.setPanelClosed(false); onAskAbout(ref, tab.page); }} className="ag-hover ag-focus ag-btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: "7px 11px", borderRadius: 8, border: `1px solid ${cw.borderControl}`, background: cw.bgSurface, color: cw.text, cursor: "pointer" }}><RingMark size={14} color={cw.textLink} dot={5} />{compact ? "Ask" : "Ask about this document"}<Keycap>{stepLabel("open")}</Keycap></button>}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {ref.source === "knowledge" && ref.canApprove && <HeaderAction icon="pencil" label="Edit record" compact={compact} title="Edit title, version, effective date, tags — the file is not changed" onClick={() => setEditing((e) => !e)} />}
           <HeaderAction icon="paperclip" label="Attach to reply" compact={compact} title="Attach to your next message" disabled={busy} onClick={() => window.dispatchEvent(new CustomEvent("cw-agent-attach-open-doc", { detail: { ref, page: tab.page } }))} />
           <HeaderAction icon="mail" label="Email" compact={compact} title="Send by email · asks first" disabled={busy || offline} onClick={() => window.dispatchEvent(new CustomEvent("cw-agent-email-doc", { detail: { ref } }))} />
           {ref.downloadUrl && <a href={offline ? undefined : ref.downloadUrl} download style={{ textDecoration: "none", pointerEvents: offline ? "none" : undefined }}><HeaderAction icon="download" label="Download" compact={compact} title={`Download · ${stepLabel("open").replace(/J$/, "S")}`} disabled={offline} /></a>}
           {ref.sourceUrl && <a href={offline ? undefined : ref.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", pointerEvents: offline ? "none" : undefined }}><HeaderAction icon="external-link" label="Open source" compact={compact} title={ref.source === "aip" ? "Open in AIP Portal" : "Open in Knowledge base"} disabled={offline} /></a>}
-          <span style={{ width: 1, height: 24, background: C.border, margin: "0 4px" }} />
-          <IconButton icon="x" title="Close · Esc" size={34} iconSize={17} color={C.body} onClick={close} />
+          <span style={{ width: 1, height: 24, background: cw.border, margin: "0 4px" }} />
+          <IconButton icon="x" title="Close · Esc" size={34} iconSize={17} color={cw.textBody} onClick={close} />
         </div>
       </div>
 
       {/* Awaiting-approval strip (§V7) */}
       {ref.approval?.status === "awaiting" && (
-        <div style={{ flex: "none", background: C.warnWash, borderBottom: `1px solid ${C.warnBorder}`, padding: "9px 16px", fontSize: 12.5, lineHeight: 1.5, display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: "none", background: cw.warningTint, borderBottom: `1px solid ${cw.warningBorder}`, padding: "9px 16px", fontSize: 12.5, lineHeight: 1.5, display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ flex: 1 }}>Uploaded by {ref.approval.uploadedBy ?? "—"}{ref.approval.at ? ` ${dateLong(ref.approval.at)}` : ""}. Not approved — the agent won&apos;t quote or rely on this document until an approver approves it.</span>
           {ref.canApprove && <a href="/agent/knowledge" style={{ textDecoration: "none" }}><Button variant="secondary" size="xs">Review in Knowledge base</Button></a>}
         </div>
       )}
 
       {/* Toolbar (§V4.3) */}
-      <div style={{ height: VIEWER.toolbar, flex: "none", padding: "0 14px", borderBottom: `1px solid ${C.divider}`, display: "flex", alignItems: "center", gap: 6, opacity: busy ? 0.4 : 1, pointerEvents: busy ? "none" : undefined }} aria-hidden={busy}>
+      <div style={{ height: VIEWER.toolbar, flex: "none", padding: "0 14px", borderBottom: `1px solid ${cw.divider}`, display: "flex", alignItems: "center", gap: 6, opacity: busy ? 0.4 : 1, pointerEvents: busy ? "none" : undefined }} aria-hidden={busy}>
         {kind === "pdf" && <ToolButton icon="panel-left" title="Thumbnails · T" on={showThumbs} onClick={() => setThumbs(!showThumbs)} />}
         {(kind === "pdf" || kind === "docx") && (<>
-          <span style={{ width: 1, height: 22, background: C.border, margin: "0 4px" }} />
+          <span style={{ width: 1, height: 22, background: cw.border, margin: "0 4px" }} />
           <ToolButton icon="chevron-up" title="Previous page · PgUp" disabled={tab.page <= 1} onClick={() => goPage(tab.page - 1)} />
-          <input ref={pageInput} value={pageField} onChange={(e) => setPageField(e.target.value.replace(/[^0-9]/g, ""))} onFocus={(e) => e.currentTarget.select()} onKeyDown={(e) => { if (e.key === "Enter") { const n = Number(pageField); if (n >= 1 && n <= pages) goPage(n); else { setPageBad(true); setTimeout(() => { setPageBad(false); setPageField(String(tab.page)); }, 1000); } } }} aria-label="Page" style={{ ...mono({ fontSize: 13, fontWeight: 600 }), width: 44, height: 30, border: `1px solid ${pageBad ? C.dangerBadge : C.borderControl}`, borderRadius: 7, textAlign: "center", fontFamily: undefined, outline: "none", color: C.ink, background: C.surface }} />
-          <span style={{ ...mono({ fontSize: 13 }), color: C.muted }}>/ {pages || "…"}</span>
+          <input ref={pageInput} value={pageField} onChange={(e) => setPageField(e.target.value.replace(/[^0-9]/g, ""))} onFocus={(e) => e.currentTarget.select()} onKeyDown={(e) => { if (e.key === "Enter") { const n = Number(pageField); if (n >= 1 && n <= pages) goPage(n); else { setPageBad(true); setTimeout(() => { setPageBad(false); setPageField(String(tab.page)); }, 1000); } } }} aria-label="Page" style={{ ...mono({ fontSize: 13, fontWeight: 600 }), width: 44, height: 30, border: `1px solid ${pageBad ? cw.danger : cw.borderControl}`, borderRadius: 7, textAlign: "center", fontFamily: undefined, outline: "none", color: cw.text, background: cw.bgSurface }} />
+          <span style={{ ...mono({ fontSize: 13 }), color: cw.textMuted }}>/ {pages || "…"}</span>
           <ToolButton icon="chevron-down" title="Next page · PgDn" disabled={tab.page >= pages} onClick={() => goPage(tab.page + 1)} />
         </>)}
         {(kind === "pdf" || kind === "image" || kind === "docx") && (<>
-          <span style={{ width: 1, height: 22, background: C.border, margin: "0 4px" }} />
+          <span style={{ width: 1, height: 22, background: cw.border, margin: "0 4px" }} />
           <ToolButton icon="minus" title="Zoom out · ⌘−" disabled={(tab.zoom === "fit" ? effectiveZoom : tab.zoom) <= (kind === "image" ? IMAGE_ZOOMS[0] : ZOOMS[0])} onClick={() => zoomStep(-1)} />
           <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), width: 52, textAlign: "center" }}>{tab.zoom === "fit" ? effectiveZoom : tab.zoom}%</span>
           <ToolButton icon="plus" title="Zoom in · ⌘+" disabled={(tab.zoom === "fit" ? effectiveZoom : tab.zoom) >= (kind === "image" ? 400 : 200)} onClick={() => zoomStep(1)} />
-          <button type="button" onClick={() => v.patchTab(ref.key, { zoom: "fit" })} title={kind === "image" ? "Fit · ⌘0" : "Fit width · ⌘0"} className="ag-hover ag-focus" style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 9px", borderRadius: 8, border: "none", background: tab.zoom === "fit" ? C.primaryTint : "transparent", color: tab.zoom === "fit" ? C.primaryHover : C.body, cursor: "pointer" }}><Icon name="move-horizontal" size={14} color={tab.zoom === "fit" ? C.primaryHover : C.body} />{kind === "image" ? "Fit" : "Fit width"}</button>
+          <button type="button" onClick={() => v.patchTab(ref.key, { zoom: "fit" })} title={kind === "image" ? "Fit · ⌘0" : "Fit width · ⌘0"} className="ag-hover ag-focus" style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 9px", borderRadius: 8, border: "none", background: tab.zoom === "fit" ? cw.primaryTint : "transparent", color: tab.zoom === "fit" ? cw.textLink : cw.textBody, cursor: "pointer" }}><Icon name="move-horizontal" size={14} color={tab.zoom === "fit" ? cw.textLink : cw.textBody} />{kind === "image" ? "Fit" : "Fit width"}</button>
         </>)}
         {kind === "pdf" && <ToolButton icon="rotate-cw" title="Rotate · R" onClick={() => pdf.current?.rotate()} rotate={tab.rotation} />}
         {tab.citations.length > 0 && (<>
-          <span style={{ width: 1, height: 22, background: C.border, margin: "0 4px" }} />
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: C.primaryTint, border: `1px solid ${C.primaryLine}`, borderRadius: 8, padding: "3px 4px 3px 10px", fontSize: 12.5, fontWeight: 600, color: C.primaryHover }}>
+          <span style={{ width: 1, height: 22, background: cw.border, margin: "0 4px" }} />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: cw.primaryTint, border: `1px solid ${cw.primaryTintBorder}`, borderRadius: 8, padding: "3px 4px 3px 10px", fontSize: 12.5, fontWeight: 600, color: cw.textLink }}>
             Citation {Math.max(1, tab.citations.findIndex((c) => c.k === tab.activeCitation) + 1)} of {tab.citations.length}
-            <button type="button" aria-label="Previous citation · [" onClick={() => stepCitation(-1)} className="ag-hover" style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="chevron-left" size={14} color={C.primaryHover} /></button>
-            <button type="button" aria-label="Next citation · ]" onClick={() => stepCitation(1)} className="ag-hover" style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="chevron-right" size={14} color={C.primaryHover} /></button>
+            <button type="button" aria-label="Previous citation · [" onClick={() => stepCitation(-1)} className="ag-hover" style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="chevron-left" size={14} color={cw.textLink} /></button>
+            <button type="button" aria-label="Next citation · ]" onClick={() => stepCitation(1)} className="ag-hover" style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="chevron-right" size={14} color={cw.textLink} /></button>
           </span>
         </>)}
         <span style={{ flex: 1 }} />
-        {kind !== "unsupported" && <button type="button" disabled={scanned} title={scanned ? "No text layer — search unavailable" : "Search · ⌘F"} onClick={() => { setSearch((s) => ({ ...s, open: !s.open })); setTimeout(() => searchInput.current?.focus(), 30); }} className="ag-hover ag-focus" style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 9px", borderRadius: 8, border: "none", background: search.open ? C.primaryTint : "transparent", color: search.open ? C.primaryHover : C.body, cursor: scanned ? "not-allowed" : "pointer", opacity: scanned ? 0.4 : 1 }}><Icon name="search" size={14} color={search.open ? C.primaryHover : C.body} />Search<span style={{ ...mono({ fontSize: 11 }), opacity: 0.7 }}>⌘F</span></button>}
+        {kind !== "unsupported" && <button type="button" disabled={scanned} title={scanned ? "No text layer — search unavailable" : "Search · ⌘F"} onClick={() => { setSearch((s) => ({ ...s, open: !s.open })); setTimeout(() => searchInput.current?.focus(), 30); }} className="ag-hover ag-focus" style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 9px", borderRadius: 8, border: "none", background: search.open ? cw.primaryTint : "transparent", color: search.open ? cw.textLink : cw.textBody, cursor: scanned ? "not-allowed" : "pointer", opacity: scanned ? 0.4 : 1 }}><Icon name="search" size={14} color={search.open ? cw.textLink : cw.textBody} />Search<span style={{ ...mono({ fontSize: 11 }), opacity: 0.7 }}>⌘F</span></button>}
       </div>
 
       {/* Search row (§V4.4) */}
       {search.open && (
-        <div className="cw-search-row" style={{ height: VIEWER.searchRow, flex: "none", background: C.page, borderBottom: `1px solid ${C.divider}`, padding: "0 14px", display: "flex", alignItems: "center", gap: 8 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, maxWidth: 420, flex: 1, height: 34, background: C.surface, border: `1px solid ${C.primary}`, boxShadow: SHADOW.focus, borderRadius: 9, padding: "0 10px" }}>
-            <Icon name="search" size={14} color={C.faint} />
+        <div className="cw-search-row" style={{ height: VIEWER.searchRow, flex: "none", background: cw.bgPage, borderBottom: `1px solid ${cw.divider}`, padding: "0 14px", display: "flex", alignItems: "center", gap: 8 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, maxWidth: 420, flex: 1, height: 34, background: cw.bgSurface, border: `1px solid ${cw.primary}`, boxShadow: SHADOW.focus, borderRadius: 9, padding: "0 10px" }}>
+            <Icon name="search" size={14} color={cw.textMuted} />
             <input ref={searchInput} value={search.query} onChange={(e) => { const q = e.target.value; setSearch((s) => ({ ...s, query: q })); window.clearTimeout((searchInput.current as unknown as { t?: number })?.t); (searchInput.current as unknown as { t?: number }).t = window.setTimeout(() => pdf.current?.search(q), 200); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); pdf.current?.nextMatch(e.shiftKey ? -1 : 1); } }} placeholder="Search in the document" aria-label="Search in the document" style={{ flex: 1, border: "none", outline: "none", fontFamily: "inherit", fontSize: 13.5, background: "transparent" }} />
-            <span style={{ ...mono({ fontSize: 12 }), color: search.query && search.count === 0 ? C.danger : C.muted, whiteSpace: "nowrap" }}>{search.query ? (search.count ? `${search.current} of ${search.count}` : "No matches") : ""}</span>
+            <span style={{ ...mono({ fontSize: 12 }), color: search.query && search.count === 0 ? cw.dangerText : cw.textMuted, whiteSpace: "nowrap" }}>{search.query ? (search.count ? `${search.current} of ${search.count}` : "No matches") : ""}</span>
           </label>
           <ToolButton icon="chevron-up" title="Previous match · ⇧⏎" bordered onClick={() => pdf.current?.nextMatch(-1)} disabled={!search.count} />
           <ToolButton icon="chevron-down" title="Next match · ⏎" bordered onClick={() => pdf.current?.nextMatch(1)} disabled={!search.count} />
-          {search.pages.length > 0 && <span style={{ fontSize: 12, color: C.muted }}>{search.pages.length > 8 ? `Matches on ${search.pages.length} pages` : <>Matches on pages <span style={mono({ fontSize: 12 })}>{search.pages.join(", ")}</span></>}</span>}
+          {search.pages.length > 0 && <span style={{ fontSize: 12, color: cw.textMuted }}>{search.pages.length > 8 ? `Matches on ${search.pages.length} pages` : <>Matches on pages <span style={mono({ fontSize: 12 })}>{search.pages.join(", ")}</span></>}</span>}
           <span style={{ flex: 1 }} />
           <Button variant="ghost" size="xs" keycap="Esc" onClick={() => { setSearch((s) => ({ ...s, open: false, query: "" })); pdf.current?.search(""); }}>Close</Button>
         </div>
@@ -277,24 +278,24 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
 
       {/* Banners (§V4.5): failed citation → superseded → offline → scanned / rendered preview */}
       {activeResult?.state === "not-found" && activeCitation && (
-        <Banner icon="search-x" fg={C.danger} bg={C.dangerTint} border={C.dangerBorder} lead={activeCitation.verbatim ? "Text differs from the quoted clause." : `Couldn't find cited passage ${activeCitation.k} in this file.`}
+        <Banner icon="search-x" fg={cw.dangerText} bg={cw.dangerTint} border={cw.dangerBorder} lead={activeCitation.verbatim ? "Text differs from the quoted clause." : `Couldn't find cited passage ${activeCitation.k} in this file.`}
           text={activeCitation.verbatim ? `The approved clause quoted in the reply was not found word for word in ${ref.filename}${activeCitation.page ? ` (cited p. ${activeCitation.page})` : ""}. The stored text and the file have diverged — logged as a data error.` : `The agent cited${activeCitation.page ? ` p. ${activeCitation.page}` : " this document"} for “${(activeCitation.span ?? "").slice(0, 160)}${(activeCitation.span ?? "").length > 160 ? "…" : ""}”, but no matching text is on that page or anywhere else in the document. Treat the claim as unverified.`}
           action={!scanned ? { label: "Search the document", onClick: () => { const q = (activeCitation.span ?? activeCitation.verbatim?.text ?? "").split(/\s+/).slice(0, 4).join(" "); setSearch((s) => ({ ...s, open: true, query: q })); pdf.current?.search(q); setTimeout(() => searchInput.current?.focus(), 30); } } : undefined} />
       )}
-      {activeResult?.state === "found" && activeCitation?.verbatim && <div style={{ flex: "none", padding: "6px 16px", borderBottom: `1px solid ${C.divider}`, display: "flex" }}><span style={{ fontSize: 10.5, fontWeight: 600, color: C.companyDeep, background: C.violetTint2, border: `1px solid ${C.violetBorder}`, borderRadius: 5, padding: "2px 7px" }}>Quoted verbatim in the reply · text matches</span></div>}
+      {activeResult?.state === "found" && activeCitation?.verbatim && <div style={{ flex: "none", padding: "6px 16px", borderBottom: `1px solid ${cw.divider}`, display: "flex" }}><span style={{ fontSize: 10.5, fontWeight: 600, color: cw.diffText, background: cw.diffTint, border: `1px solid ${cw.diffBorder}`, borderRadius: 5, padding: "2px 7px" }}>Quoted verbatim in the reply · text matches</span></div>}
       {/* §5: "no span" and "not found" mean opposite things. No span = nothing to check, the claim stands (grey, informational). Not found = the passage is not in the file, treat the claim as unverified (red, above). */}
-      {activeResult?.state === "no-span" && activeCitation && <Banner icon="info" fg={C.body} bg={C.sidebar} border={C.border} lead="Nothing to highlight — not a failed check." text={`The agent cited ${ref.filename}${activeCitation.page ? ` at p. ${activeCitation.page}` : ""} as a whole rather than an exact passage, so there is no sentence to locate. The claim is not in question; read the page to see it in context.`} />}
-      {revisionMismatch && citedRev && <Banner icon="history" fg={C.warn} bg={C.warnTint} border={C.warnBorder} lead={`The answer cited ${citedRev.label}; this copy is ${revLabel}.`} text={citedHeld ? "The cited revision was replaced under the same file, so the current copy is shown. The passage may have moved or changed — check it against the highlight." : "The cited revision is not available, so the current copy is shown. The passage may have moved or changed."} />}
-      {superseded && <Banner icon="history" fg={C.warn} bg={C.warnTint} border={C.warnBorder} lead="Superseded." text={`This is ${revLabel}${ref.revision?.reason ? ` — ${ref.revision.reason}` : ""}. Check the current revision before acting on it.`} action={ref.revision?.currentHref ? { label: "Open current", href: ref.revision.currentHref } : undefined} />}
-      {revState === "future" && <Banner icon="clock" fg={C.info} bg={C.infoTint} border={C.infoBorder} lead="Not yet effective." text={`This is ${revLabel}${ref.revision?.effectiveFrom ? ` — it applies from ${ref.revision.effectiveFrom}` : ""}. It is not in force today.`} />}
-      {revState === "unknown" && <Banner icon="circle-help" fg={C.muted} bg={C.surface} border={C.borderControl} lead="Revision unknown." text={`${ref.revision?.reason ? ref.revision.reason.charAt(0).toUpperCase() + ref.revision.reason.slice(1) : "There is no revision data for this document"}. It is not known whether this copy is current — do not treat it as such.`} />}
-      {offline && <Banner icon="wifi-off" fg={C.body} bg={C.sidebar} border={C.border} lead="You're offline." text="Showing the copy saved on this PC. Search works; Download, Email and Open source need a connection." />}
-      {scanned && <Banner icon="scan-text" fg={C.body} bg={C.sidebar} border={C.border} lead="Scanned document — no text layer." text="Search and citation highlights aren't available, and the agent can only read what it extracted when the file was indexed." />}
-      {kind === "docx" && !otherError && <Banner icon="info" fg={C.body} bg={C.sidebar} border={C.border} lead="Rendered preview." text="Layout may differ from Word. Download for the original file." action={ref.downloadUrl ? { label: "Download original", href: ref.downloadUrl } : undefined} />}
+      {activeResult?.state === "no-span" && activeCitation && <Banner icon="info" fg={cw.textBody} bg={cw.bgSunken} border={cw.border} lead="Nothing to highlight — not a failed check." text={`The agent cited ${ref.filename}${activeCitation.page ? ` at p. ${activeCitation.page}` : ""} as a whole rather than an exact passage, so there is no sentence to locate. The claim is not in question; read the page to see it in context.`} />}
+      {revisionMismatch && citedRev && <Banner icon="history" fg={cw.warningText} bg={cw.warningTint} border={cw.warningBorder} lead={`The answer cited ${citedRev.label}; this copy is ${revLabel}.`} text={citedHeld ? "The cited revision was replaced under the same file, so the current copy is shown. The passage may have moved or changed — check it against the highlight." : "The cited revision is not available, so the current copy is shown. The passage may have moved or changed."} />}
+      {superseded && <Banner icon="history" fg={cw.warningText} bg={cw.warningTint} border={cw.warningBorder} lead="Superseded." text={`This is ${revLabel}${ref.revision?.reason ? ` — ${ref.revision.reason}` : ""}. Check the current revision before acting on it.`} action={ref.revision?.currentHref ? { label: "Open current", href: ref.revision.currentHref } : undefined} />}
+      {revState === "future" && <Banner icon="clock" fg={cw.infoText} bg={cw.infoTint} border={cw.infoBorder} lead="Not yet effective." text={`This is ${revLabel}${ref.revision?.effectiveFrom ? ` — it applies from ${ref.revision.effectiveFrom}` : ""}. It is not in force today.`} />}
+      {revState === "unknown" && <Banner icon="circle-help" fg={cw.textMuted} bg={cw.bgSurface} border={cw.borderControl} lead="Revision unknown." text={`${ref.revision?.reason ? ref.revision.reason.charAt(0).toUpperCase() + ref.revision.reason.slice(1) : "There is no revision data for this document"}. It is not known whether this copy is current — do not treat it as such.`} />}
+      {offline && <Banner icon="wifi-off" fg={cw.textBody} bg={cw.bgSunken} border={cw.border} lead="You're offline." text="Showing the copy saved on this PC. Search works; Download, Email and Open source need a connection." />}
+      {scanned && <Banner icon="scan-text" fg={cw.textBody} bg={cw.bgSunken} border={cw.border} lead="Scanned document — no text layer." text="Search and citation highlights aren't available, and the agent can only read what it extracted when the file was indexed." />}
+      {kind === "docx" && !otherError && <Banner icon="info" fg={cw.textBody} bg={cw.bgSunken} border={cw.border} lead="Rendered preview." text="Layout may differ from Word. Download for the original file." action={ref.downloadUrl ? { label: "Download original", href: ref.downloadUrl } : undefined} />}
       {status.state === "progressive" && (
-        <div style={{ flex: "none", padding: "8px 16px 10px", borderBottom: `1px solid ${C.divider}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}><span className="cw-skel" style={{ width: 8, height: 8, borderRadius: "50%", background: C.primary }} /><span style={{ flex: 1 }}>Loading page {status.page} of {status.pages || "…"}{status.total ? ` · ${(status.loaded / 1048576).toFixed(1)} of ${(status.total / 1048576).toFixed(1)} MB` : ""} · you can read and search the pages already loaded</span></div>
-          <div style={{ height: 3, background: C.border, borderRadius: 2, marginTop: 6, overflow: "hidden" }}><div style={{ width: `${Math.round(loadedFraction * 100)}%`, height: "100%", background: C.primary, transition: "width 200ms linear" }} /></div>
+        <div style={{ flex: "none", padding: "8px 16px 10px", borderBottom: `1px solid ${cw.divider}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}><span className="cw-skel" style={{ width: 8, height: 8, borderRadius: "50%", background: cw.primary }} /><span style={{ flex: 1 }}>Loading page {status.page} of {status.pages || "…"}{status.total ? ` · ${(status.loaded / 1048576).toFixed(1)} of ${(status.total / 1048576).toFixed(1)} MB` : ""} · you can read and search the pages already loaded</span></div>
+          <div style={{ height: 3, background: cw.border, borderRadius: 2, marginTop: 6, overflow: "hidden" }}><div style={{ width: `${Math.round(loadedFraction * 100)}%`, height: "100%", background: cw.primary, transition: "width 200ms linear" }} /></div>
         </div>
       )}
 
@@ -311,8 +312,8 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
         {status.state === "password" && kind === "pdf" && (
           <StateCard icon="lock" tone="neutral" kind="PROTECTED" title="This PDF is password-protected" body="Enter the password to open it here." note="The password is used once to open the file on this PC and isn't stored. The agent can't read protected files.">
             <form onSubmit={(e) => { e.preventDefault(); pdf.current?.submitPassword(password); setPassword(""); }} style={{ display: "flex", gap: 8, flexDirection: "column" }}>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Password" autoFocus style={{ height: 38, border: `1px solid ${status.wrong ? C.dangerBadge : C.primary}`, boxShadow: SHADOW.focus, borderRadius: 9, padding: "0 12px", fontFamily: "inherit", fontSize: 14, outline: "none" }} />
-              {status.wrong && <span style={{ fontSize: 12, color: C.danger }}>Wrong password</span>}
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Password" autoFocus style={{ height: 38, border: `1px solid ${status.wrong ? cw.danger : cw.primary}`, boxShadow: SHADOW.focus, borderRadius: 9, padding: "0 12px", fontFamily: "inherit", fontSize: 14, outline: "none" }} />
+              {status.wrong && <span style={{ fontSize: 12, color: cw.dangerText }}>Wrong password</span>}
               <div><Button variant="primary" size="sm" type="submit">Open</Button></div>
             </form>
           </StateCard>
@@ -326,16 +327,16 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
         {kind === "text" && !otherError && !ref.fileMissing && ref.url && <TextView url={ref.url} query={search.query} citedSpan={activeCitation?.span ?? activeCitation?.verbatim?.text ?? null} onMeta={(m) => { setMeta({ rows: `${m.lines} lines` }); setStatus({ state: "ready", pages: 0, scanned: false }); }} onError={onOtherError} onSearch={onSearchResult} onCitationResult={(found) => { if (activeCitation) onCitationResult({ k: activeCitation.k, state: found ? "found" : "not-found", page: null }); }} />}
         {kind === "docx" && !otherError && !ref.fileMissing && ref.url && <DocxView url={ref.url} query={search.query} onMeta={() => setStatus({ state: "ready", pages: 0, scanned: false })} onError={onOtherError} onSearch={onSearchResult} canvasWidth={cols.width} />}
         {kind === "pdf" && status.state === "loading" && (
-          <div aria-hidden style={{ position: "absolute", inset: 0, background: C.viewerCanvas, display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 28px", pointerEvents: "none" }}>
-            <div style={{ width: Math.min(canvasWidth - 56, VIEWER.pageMax), height: 520, background: C.surface, boxShadow: "0 1px 3px rgba(16,18,22,.12)", padding: "56px 48px", display: "flex", flexDirection: "column", gap: 12 }}>{[92, 88, 95, 70, 90, 86, 94, 60, 80].map((w, i) => <span key={i} className="cw-skel" style={{ height: 10, borderRadius: 3, background: C.hover, width: `${w}%` }} />)}</div>
-            <div style={{ fontSize: 12.5, color: C.muted, marginTop: 12 }}>Opening {ref.filename}{ref.bytes != null ? ` · ${kb(ref.bytes)}` : ""}</div>
+          <div aria-hidden style={{ position: "absolute", inset: 0, background: cw.viewerCanvas, display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 28px", pointerEvents: "none" }}>
+            <div style={{ width: Math.min(canvasWidth - 56, VIEWER.pageMax), height: 520, background: cw.bgSurface, boxShadow: "var(--cw-shadow-1)", padding: "56px 48px", display: "flex", flexDirection: "column", gap: 12 }}>{[92, 88, 95, 70, 90, 86, 94, 60, 80].map((w, i) => <span key={i} className="cw-skel" style={{ height: 10, borderRadius: 3, background: cw.bgHover, width: `${w}%` }} />)}</div>
+            <div style={{ fontSize: 12.5, color: cw.textMuted, marginTop: 12 }}>Opening {ref.filename}{ref.bytes != null ? ` · ${kb(ref.bytes)}` : ""}</div>
           </div>
         )}
       </div>
 
       {v.toast && (
-        <div role="status" style={{ position: "absolute", left: "50%", bottom: 22, transform: "translateX(-50%)", background: C.ink, color: C.surface, fontSize: 13, borderRadius: 10, padding: "9px 12px", boxShadow: SHADOW.menu, display: "flex", alignItems: "center", gap: 12, zIndex: 5 }}>
-          {v.toast.text}{v.toast.undo && <button type="button" onClick={() => { v.toast?.undo?.(); v.dismissToast(); root.current?.querySelector<HTMLElement>('[role="document"]')?.focus(); }} style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: C.surface, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>Undo</button>}
+        <div role="status" style={{ position: "absolute", left: "50%", bottom: 22, transform: "translateX(-50%)", background: cw.ink, color: cw.onInk, fontSize: 13, borderRadius: 10, padding: "9px 12px", boxShadow: SHADOW.menu, display: "flex", alignItems: "center", gap: 12, zIndex: 5 }}>
+          {v.toast.text}{v.toast.undo && <button type="button" onClick={() => { v.toast?.undo?.(); v.dismissToast(); root.current?.querySelector<HTMLElement>('[role="document"]')?.focus(); }} style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: cw.textOnPrimary, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>Undo</button>}
         </div>
       )}
     </div>
@@ -345,20 +346,20 @@ export default function DocumentViewer({ onAskAbout }: { onAskAbout?: (ref: DocR
 function ToolButton({ icon, title, on, disabled, onClick, bordered, rotate }: { icon: string; title: string; on?: boolean; disabled?: boolean; onClick?: () => void; bordered?: boolean; rotate?: number }) {
   return (
     <button type="button" title={title} aria-label={title.split(" · ")[0]} aria-pressed={on} disabled={disabled} onClick={onClick} className="ag-hover ag-focus ag-icon-button"
-      style={{ width: 32, height: 32, borderRadius: 8, border: bordered ? `1px solid ${C.borderControl}` : "none", background: on ? C.primaryTint : C.surface, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.35 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, transform: rotate ? `rotate(${rotate}deg)` : undefined, transition: "transform 200ms" }}>
-      <Icon name={icon} size={16} color={on ? C.primaryHover : C.body} />
+      style={{ width: 32, height: 32, borderRadius: 8, border: bordered ? `1px solid ${cw.borderControl}` : "none", background: on ? cw.primaryTint : cw.bgSurface, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.35 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, transform: rotate ? `rotate(${rotate}deg)` : undefined, transition: "transform 200ms" }}>
+      <Icon name={icon} size={16} color={on ? cw.textLink : cw.textBody} />
     </button>
   );
 }
 // Below 1000 px of viewer width the actions drop their labels (NOT IN DESIGN — spec default) so the header stays one row at 1280 with the panel open.
 function HeaderAction({ icon, label, title, disabled, onClick, compact }: { icon: string; label: string; title: string; disabled?: boolean; onClick?: () => void; compact?: boolean }) {
-  return <button type="button" title={title} aria-label={label} disabled={disabled} onClick={onClick} className="ag-hover ag-focus ag-btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: compact ? "7px 8px" : "7px 11px", borderRadius: 8, border: `1px solid ${C.borderControl}`, background: C.surface, color: C.ink, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1 }}><Icon name={icon} size={14} color={C.body} />{compact ? null : label}</button>;
+  return <button type="button" title={title} aria-label={label} disabled={disabled} onClick={onClick} className="ag-hover ag-focus ag-btn-secondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: compact ? "7px 8px" : "7px 11px", borderRadius: 8, border: `1px solid ${cw.borderControl}`, background: cw.bgSurface, color: cw.text, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1 }}><Icon name={icon} size={14} color={cw.textBody} />{compact ? null : label}</button>;
 }
 function Banner({ icon, fg, bg, border, lead, text, action }: { icon: string; fg: string; bg: string; border: string; lead: string; text: string; action?: { label: string; onClick?: () => void; href?: string } }) {
   return (
-    <div role={fg === C.danger ? "alert" : "status"} data-banner={lead} style={{ flex: "none", padding: "10px 16px", background: bg, borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", gap: 10 }}>
+    <div role={fg === cw.dangerText ? "alert" : "status"} data-banner={lead} style={{ flex: "none", padding: "10px 16px", background: bg, borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", gap: 10 }}>
       <Icon name={icon} size={16} color={fg} />
-      <span style={{ flex: 1, fontSize: 13, lineHeight: 1.5, color: C.body }}><strong style={{ color: fg }}>{lead}</strong> {text}</span>
+      <span style={{ flex: 1, fontSize: 13, lineHeight: 1.5, color: cw.textBody }}><strong style={{ color: fg }}>{lead}</strong> {text}</span>
       {action && (action.href ? <a href={action.href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}><Button variant="secondary" size="xs">{action.label}</Button></a> : <Button variant="secondary" size="xs" onClick={action.onClick}>{action.label}</Button>)}
     </div>
   );

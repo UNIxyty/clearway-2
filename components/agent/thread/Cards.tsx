@@ -6,13 +6,14 @@
 // thing. Codes, times, deltas and raw reports are mono (§3 rule 14).
 
 import { useEffect, useRef, useState } from "react";
-import { C, mono } from "../ui/tokens";
+import { mono } from "../ui/tokens";
 import { Button, Icon, Pill, Tag, Eyebrow, hmZ, kb } from "../ui/primitives";
 import { RevisionTag } from "./RevisionTag";
 import { AGENT_BASE, type AirportData, type DocumentData, type FileData, type FlightCardData, type MonoData, type TableData } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
 import { takeAutoOpen } from "./autoOpen";
 import type { ManifestInfo } from "../types";
+import { cw } from "@/lib/portal-tokens";
 
 // ── §4.9 Flight card ──────────────────────────────────────────────────────────
 const deltaMin = (sched: string | null | undefined, est: string | null | undefined) => {
@@ -21,51 +22,51 @@ const deltaMin = (sched: string | null | undefined, est: string | null | undefin
 };
 function Delta({ minutes }: { minutes: number | null }) {
   if (minutes == null) return null;
-  if (minutes <= 0) return <span style={{ ...mono({ fontSize: 12.5 }), color: C.faint }}>—</span>;
-  return <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), color: C.warn }}>+{minutes}</span>;
+  if (minutes <= 0) return <span style={{ ...mono({ fontSize: 12.5 }), color: cw.textMuted }}>—</span>;
+  return <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), color: cw.warningText }}>+{minutes}</span>;
 }
 
 export function FlightCard({ flight: f, panel = false, onOpen }: { flight: FlightCardData; panel?: boolean; onOpen?: (f: FlightCardData) => void }) {
   const dDep = deltaMin(f.scheduledDeparture, f.estimatedDeparture), dArr = deltaMin(f.scheduledArrival, f.estimatedArrival);
   const delayed = (dDep ?? 0) > 0 || /delay/i.test(String(f.status ?? ""));
   const markers: Array<{ label: React.ReactNode; fg: string; bg: string }> = [];
-  if (f.ctot) markers.push({ label: <>CTOT <span style={mono()}>{hmZ(f.ctot) || f.ctot}</span></>, fg: C.warn, bg: C.warnTint });
-  if (f.notamUnreviewed?.length) markers.push({ label: <>NOTAM unreviewed · <span style={mono()}>{f.notamUnreviewed.join(", ")}</span></>, fg: C.danger, bg: C.dangerTint });
-  if (f.limitationCount) markers.push({ label: `${f.limitationCount} limitation${f.limitationCount > 1 ? "s" : ""}`, fg: C.warn, bg: C.warnTint });
-  if (f.importantCount) markers.push({ label: `${f.importantCount} IMP`, fg: C.warn, bg: C.warnTint });
-  if (f.status && !delayed) markers.push({ label: String(f.status), fg: C.neutral, bg: C.neutralTint });
+  if (f.ctot) markers.push({ label: <>CTOT <span style={mono()}>{hmZ(f.ctot) || f.ctot}</span></>, fg: cw.warningText, bg: cw.warningTint });
+  if (f.notamUnreviewed?.length) markers.push({ label: <>NOTAM unreviewed · <span style={mono()}>{f.notamUnreviewed.join(", ")}</span></>, fg: cw.dangerText, bg: cw.dangerTint });
+  if (f.limitationCount) markers.push({ label: `${f.limitationCount} limitation${f.limitationCount > 1 ? "s" : ""}`, fg: cw.warningText, bg: cw.warningTint });
+  if (f.importantCount) markers.push({ label: `${f.importantCount} IMP`, fg: cw.warningText, bg: cw.warningTint });
+  if (f.status && !delayed) markers.push({ label: String(f.status), fg: cw.neutralText, bg: cw.neutralTint });
 
   if (panel) {
     return (
-      <div role="group" aria-label={`Flight ${f.callsign ?? f.flightId}`} className={onOpen ? "ag-card-hover ag-hover" : undefined} onClick={onOpen ? () => onOpen(f) : undefined} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.dividerRow}` }}>
+      <div role="group" aria-label={`Flight ${f.callsign ?? f.flightId}`} className={onOpen ? "ag-card-hover ag-hover" : undefined} onClick={onOpen ? () => onOpen(f) : undefined} style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${cw.divider}` }}>
           <span style={mono({ fontSize: 15, fontWeight: 600 })}>{f.callsign ?? f.flightId}</span>
-          <span style={{ fontSize: 12, color: C.muted, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[f.operatorId, f.registration ? <span key="r" style={mono()}>{f.registration}</span> : null, f.aircraftType].filter(Boolean).map((x, i) => <span key={i}>{i > 0 ? " · " : ""}{x}</span>)}</span>
-          {dDep != null && dDep > 0 ? <Pill fg={C.warn} bg={C.warnTint} style={{ fontSize: 11.5, padding: "3px 8px" }}><span style={mono()}>+{dDep}</span></Pill> : f.ctot ? <Pill fg={C.warn} bg={C.warnTint} style={{ fontSize: 11.5, padding: "3px 8px" }}>CTOT</Pill> : null}
+          <span style={{ fontSize: 12, color: cw.textMuted, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[f.operatorId, f.registration ? <span key="r" style={mono()}>{f.registration}</span> : null, f.aircraftType].filter(Boolean).map((x, i) => <span key={i}>{i > 0 ? " · " : ""}{x}</span>)}</span>
+          {dDep != null && dDep > 0 ? <Pill fg={cw.warningText} bg={cw.warningTint} style={{ fontSize: 11.5, padding: "3px 8px" }}><span style={mono()}>+{dDep}</span></Pill> : f.ctot ? <Pill fg={cw.warningText} bg={cw.warningTint} style={{ fontSize: 11.5, padding: "3px 8px" }}>CTOT</Pill> : null}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 8, alignItems: "center", padding: "10px 12px", ...mono() }}>
-          <div><div style={{ fontSize: 17, fontWeight: 600 }}>{f.departureIcao ?? "—"}</div><div style={{ fontSize: 11.5, color: C.body }}>{hmZ(f.scheduledDeparture) || "no time"}{f.estimatedDeparture && dDep ? <> → <span style={{ color: C.warn, fontWeight: 600 }}>{hmZ(f.estimatedDeparture)}</span></> : null}</div></div>
-          <Icon name="arrow-right" size={14} color={C.faint} />
-          <div style={{ textAlign: "right" }}><div style={{ fontSize: 17, fontWeight: 600 }}>{f.arrivalIcao ?? "—"}</div><div style={{ fontSize: 11.5, color: C.body }}>{hmZ(f.scheduledArrival) || "no time"}{f.estimatedArrival && dArr ? <> → <span style={{ color: C.warn, fontWeight: 600 }}>{hmZ(f.estimatedArrival)}</span></> : null}</div></div>
+          <div><div style={{ fontSize: 17, fontWeight: 600 }}>{f.departureIcao ?? "—"}</div><div style={{ fontSize: 11.5, color: cw.textBody }}>{hmZ(f.scheduledDeparture) || "no time"}{f.estimatedDeparture && dDep ? <> → <span style={{ color: cw.warningText, fontWeight: 600 }}>{hmZ(f.estimatedDeparture)}</span></> : null}</div></div>
+          <Icon name="arrow-right" size={14} color={cw.textMuted} />
+          <div style={{ textAlign: "right" }}><div style={{ fontSize: 17, fontWeight: 600 }}>{f.arrivalIcao ?? "—"}</div><div style={{ fontSize: 11.5, color: cw.textBody }}>{hmZ(f.scheduledArrival) || "no time"}{f.estimatedArrival && dArr ? <> → <span style={{ color: cw.warningText, fontWeight: 600 }}>{hmZ(f.estimatedArrival)}</span></> : null}</div></div>
         </div>
-        {markers.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 12px", background: C.page, borderTop: `1px solid ${C.dividerRow}` }}>{markers.map((m, i) => <Tag key={i} fg={m.fg} bg={m.bg}>{m.label}</Tag>)}</div>}
+        {markers.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 12px", background: cw.bgPage, borderTop: `1px solid ${cw.divider}` }}>{markers.map((m, i) => <Tag key={i} fg={m.fg} bg={m.bg}>{m.label}</Tag>)}</div>}
       </div>
     );
   }
   return (
-    <div role="group" aria-label={`Flight ${f.callsign ?? f.flightId}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderBottom: `1px solid ${C.divider}` }}>
+    <div role="group" aria-label={`Flight ${f.callsign ?? f.flightId}`} style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderBottom: `1px solid ${cw.divider}` }}>
         <span style={mono({ fontSize: 18, fontWeight: 600, letterSpacing: "0.02em" })}>{f.callsign ?? f.flightId}</span>
-        <span style={{ fontSize: 13.5, color: C.muted, flex: 1 }}>{f.operatorId}{f.registration ? <> · <span style={{ ...mono({ fontSize: 12.5 }), color: C.body }}>{f.registration}</span></> : null}{f.aircraftType ? ` · ${f.aircraftType}` : ""}</span>
-        {delayed && <Pill fg={C.warn} bg={C.warnTint}>Delayed{f.ctot ? " · CTOT" : ""}</Pill>}
-        {f.onWall && <Pill fg={C.ok} bg={C.okTint}>On wall</Pill>}
+        <span style={{ fontSize: 13.5, color: cw.textMuted, flex: 1 }}>{f.operatorId}{f.registration ? <> · <span style={{ ...mono({ fontSize: 12.5 }), color: cw.textBody }}>{f.registration}</span></> : null}{f.aircraftType ? ` · ${f.aircraftType}` : ""}</span>
+        {delayed && <Pill fg={cw.warningText} bg={cw.warningTint}>Delayed{f.ctot ? " · CTOT" : ""}</Pill>}
+        {f.onWall && <Pill fg={cw.successText} bg={cw.successTint}>On wall</Pill>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 1fr", gap: 12, alignItems: "center", padding: "16px 18px" }}>
-        <div><div style={mono({ fontSize: 22, fontWeight: 600 })}>{f.departureIcao ?? "—"}</div>{f.departureCity && <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 8 }}>{f.departureCity}</div>}<div style={{ display: "flex", gap: 16, ...mono({ fontSize: 12.5 }) }}><span><span style={{ color: C.faint }}>STD </span>{hmZ(f.scheduledDeparture) || "—"}</span>{f.estimatedDeparture && <span><span style={{ color: C.faint }}>ETD </span>{hmZ(f.estimatedDeparture)} <Delta minutes={dDep} /></span>}</div></div>
-        <div style={{ position: "relative", height: 1, background: C.borderControl }}><span style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", background: C.surface, padding: "0 2px" }}><Icon name="plane" size={16} color={C.faint} /></span></div>
-        <div style={{ textAlign: "right" }}><div style={mono({ fontSize: 22, fontWeight: 600 })}>{f.arrivalIcao ?? "—"}</div>{f.arrivalCity && <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 8 }}>{f.arrivalCity}</div>}<div style={{ display: "flex", gap: 16, justifyContent: "flex-end", ...mono({ fontSize: 12.5 }) }}><span><span style={{ color: C.faint }}>STA </span>{hmZ(f.scheduledArrival) || "—"}</span>{f.estimatedArrival && <span><span style={{ color: C.faint }}>ETA </span>{hmZ(f.estimatedArrival)} <Delta minutes={dArr} /></span>}</div></div>
+        <div><div style={mono({ fontSize: 22, fontWeight: 600 })}>{f.departureIcao ?? "—"}</div>{f.departureCity && <div style={{ fontSize: 12.5, color: cw.textMuted, marginBottom: 8 }}>{f.departureCity}</div>}<div style={{ display: "flex", gap: 16, ...mono({ fontSize: 12.5 }) }}><span><span style={{ color: cw.textMuted }}>STD </span>{hmZ(f.scheduledDeparture) || "—"}</span>{f.estimatedDeparture && <span><span style={{ color: cw.textMuted }}>ETD </span>{hmZ(f.estimatedDeparture)} <Delta minutes={dDep} /></span>}</div></div>
+        <div style={{ position: "relative", height: 1, background: cw.borderStrong }}><span style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", background: cw.bgSurface, padding: "0 2px" }}><Icon name="plane" size={16} color={cw.textMuted} /></span></div>
+        <div style={{ textAlign: "right" }}><div style={mono({ fontSize: 22, fontWeight: 600 })}>{f.arrivalIcao ?? "—"}</div>{f.arrivalCity && <div style={{ fontSize: 12.5, color: cw.textMuted, marginBottom: 8 }}>{f.arrivalCity}</div>}<div style={{ display: "flex", gap: 16, justifyContent: "flex-end", ...mono({ fontSize: 12.5 }) }}><span><span style={{ color: cw.textMuted }}>STA </span>{hmZ(f.scheduledArrival) || "—"}</span>{f.estimatedArrival && <span><span style={{ color: cw.textMuted }}>ETA </span>{hmZ(f.estimatedArrival)} <Delta minutes={dArr} /></span>}</div></div>
       </div>
-      <div style={{ background: C.page, borderTop: `1px solid ${C.divider}`, padding: "11px 18px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ background: cw.bgPage, borderTop: `1px solid ${cw.divider}`, padding: "11px 18px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         {markers.map((m, i) => <Pill key={i} fg={m.fg} bg={m.bg} style={{ fontWeight: i === 1 && f.notamUnreviewed?.length ? 700 : 600 }}>{m.label}</Pill>)}
         <span style={{ flex: 1 }} />
         <a href={`/digital-wall/console/flights?flight=${encodeURIComponent(f.flightId)}`} style={{ textDecoration: "none" }}><Button variant="secondary" size="sm">Open in Flights</Button></a>
@@ -82,23 +83,23 @@ export function FlightRows({ flights, panel = false }: { flights: FlightCardData
   const shown = showAll ? flights : flights.slice(0, limit);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 12, overflow: "hidden" }}>
         {shown.map((f) => {
           const dDep = deltaMin(f.scheduledDeparture, f.estimatedDeparture), dArr = deltaMin(f.scheduledArrival, f.estimatedArrival);
           return (
             <div key={f.flightId}>
-              <button type="button" className="ag-row-hover ag-focus" onClick={() => setOpen(open === f.flightId ? null : f.flightId)} style={{ width: "100%", textAlign: "left", display: "grid", gridTemplateColumns: "24px 76px minmax(0,1fr) auto", gap: 10, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.dividerRow}`, border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit" }}>
-                <Icon name="plane" size={14} color={C.muted} />
+              <button type="button" className="ag-row-hover ag-focus" onClick={() => setOpen(open === f.flightId ? null : f.flightId)} style={{ width: "100%", textAlign: "left", display: "grid", gridTemplateColumns: "24px 76px minmax(0,1fr) auto", gap: 10, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${cw.divider}`, border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit" }}>
+                <Icon name="plane" size={14} color={cw.textMuted} />
                 <span style={mono({ fontSize: 13, fontWeight: 600 })}>{f.callsign ?? f.flightId}</span>
-                <span style={{ ...mono({ fontSize: 12 }), color: C.body, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.departureIcao ?? "—"} {hmZ(f.estimatedDeparture ?? f.scheduledDeparture)} {dDep ? <span style={{ color: C.warn }}>+{dDep}</span> : null} → {f.arrivalIcao ?? "—"} {hmZ(f.estimatedArrival ?? f.scheduledArrival)} {dArr ? <span style={{ color: C.warn }}>+{dArr}</span> : null}{f.registration ? ` · ${f.registration}` : ""}</span>
-                <span style={{ display: "flex", gap: 4 }}>{f.ctot && <Tag fg={C.warn} bg={C.warnTint} style={{ fontSize: 10.5, borderRadius: 4, padding: "2px 6px" }}>CTOT</Tag>}{f.notamUnreviewed?.length ? <Tag fg={C.danger} bg={C.dangerTint} style={{ fontSize: 10.5, borderRadius: 4, padding: "2px 6px" }}>NOTAM</Tag> : null}{f.limitationCount ? <Tag fg={C.warn} bg={C.warnTint} style={{ fontSize: 10.5, borderRadius: 4, padding: "2px 6px" }}>LIM</Tag> : null}</span>
+                <span style={{ ...mono({ fontSize: 12 }), color: cw.textBody, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.departureIcao ?? "—"} {hmZ(f.estimatedDeparture ?? f.scheduledDeparture)} {dDep ? <span style={{ color: cw.warningText }}>+{dDep}</span> : null} → {f.arrivalIcao ?? "—"} {hmZ(f.estimatedArrival ?? f.scheduledArrival)} {dArr ? <span style={{ color: cw.warningText }}>+{dArr}</span> : null}{f.registration ? ` · ${f.registration}` : ""}</span>
+                <span style={{ display: "flex", gap: 4 }}>{f.ctot && <Tag fg={cw.warningText} bg={cw.warningTint} style={{ fontSize: 10.5, borderRadius: 4, padding: "2px 6px" }}>CTOT</Tag>}{f.notamUnreviewed?.length ? <Tag fg={cw.dangerText} bg={cw.dangerTint} style={{ fontSize: 10.5, borderRadius: 4, padding: "2px 6px" }}>NOTAM</Tag> : null}{f.limitationCount ? <Tag fg={cw.warningText} bg={cw.warningTint} style={{ fontSize: 10.5, borderRadius: 4, padding: "2px 6px" }}>LIM</Tag> : null}</span>
               </button>
-              {open === f.flightId && <div style={{ padding: 10, background: C.page }}><FlightCard flight={f} panel={panel} /></div>}
+              {open === f.flightId && <div style={{ padding: 10, background: cw.bgPage }}><FlightCard flight={f} panel={panel} /></div>}
             </div>
           );
         })}
       </div>
-      {flights.length > limit && !showAll && <button type="button" className="ag-focus" onClick={() => setShowAll(true)} style={{ alignSelf: "flex-start", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: C.primaryHover, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>+{flights.length - limit} more flights</button>}
+      {flights.length > limit && !showAll && <button type="button" className="ag-focus" onClick={() => setShowAll(true)} style={{ alignSelf: "flex-start", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: cw.textLink, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>+{flights.length - limit} more flights</button>}
     </div>
   );
 }
@@ -107,43 +108,43 @@ export function FlightRows({ flights, panel = false }: { flights: FlightCardData
 function CategoryBadge({ category }: { category: string | null | undefined }) {
   if (!category) return null;
   const c = category.toUpperCase();
-  const look = c === "VFR" ? { fg: C.ok, bg: C.okTint } : c === "MVFR" ? { fg: C.info, bg: C.infoTint } : { fg: C.danger, bg: C.dangerTint };
+  const look = c === "VFR" ? { fg: cw.successText, bg: cw.successTint } : c === "MVFR" ? { fg: cw.infoText, bg: cw.infoTint } : { fg: cw.dangerText, bg: cw.dangerTint };
   return <span style={{ fontSize: 11, fontWeight: 700, color: look.fg, background: look.bg, borderRadius: 6, padding: "3px 8px" }}>{c}</span>;
 }
 export function AirportSummary({ airport: a, panel = false }: { airport: AirportData; panel?: boolean }) {
   if (panel) {
     return (
-      <div role="group" aria-label={`Airport ${a.icao}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${C.dividerRow}` }}>
+      <div role="group" aria-label={`Airport ${a.icao}`} style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${cw.divider}` }}>
           <span style={mono({ fontSize: 15, fontWeight: 600 })}>{a.icao}</span>
-          <span style={{ fontSize: 12, color: C.muted, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name ?? a.country ?? ""}</span>
+          <span style={{ fontSize: 12, color: cw.textMuted, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name ?? a.country ?? ""}</span>
           <CategoryBadge category={a.category} />
-          {a.metarAt && <span style={{ ...mono({ fontSize: 11.5 }), color: C.faint }}>METAR {hmZ(a.metarAt)}</span>}
+          {a.metarAt && <span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>METAR {hmZ(a.metarAt)}</span>}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "78px 1fr", rowGap: 6, columnGap: 8, padding: "9px 12px", fontSize: 12.5 }}>
-          {a.metar && <><span style={{ color: C.muted }}>Weather</span><span style={{ ...mono({ fontSize: 12 }), lineHeight: 1.5, overflowWrap: "anywhere" }}>{a.metar}</span></>}
-          {a.notamCount != null && <><span style={{ color: C.muted }}>NOTAM</span><span><span style={mono()}>{a.notamCount}</span> active{a.notamNew ? <> · <span style={{ color: C.danger, fontWeight: 600 }}>{a.notamNew} new</span></> : null}</span></>}
-          {a.limitationCount != null && <><span style={{ color: C.muted }}>Limitations</span><span>{a.limitationCount}</span></>}
-          {a.caa && <><span style={{ color: C.muted }}>CAA</span><span>{a.caa.name}{a.caa.phone ? <> · <span style={mono()}>{a.caa.phone}</span></> : null}</span></>}
-          {a.aipUrl && <><span style={{ color: C.muted }}>AIP</span><a href={a.aipUrl} target="_blank" rel="noopener noreferrer" style={{ color: C.primaryHover, fontWeight: 600, textDecoration: "none" }}>Open{a.aipCached === false ? " (not cached)" : ""} ↗</a></>}
+          {a.metar && <><span style={{ color: cw.textMuted }}>Weather</span><span style={{ ...mono({ fontSize: 12 }), lineHeight: 1.5, overflowWrap: "anywhere" }}>{a.metar}</span></>}
+          {a.notamCount != null && <><span style={{ color: cw.textMuted }}>NOTAM</span><span><span style={mono()}>{a.notamCount}</span> active{a.notamNew ? <> · <span style={{ color: cw.dangerText, fontWeight: 600 }}>{a.notamNew} new</span></> : null}</span></>}
+          {a.limitationCount != null && <><span style={{ color: cw.textMuted }}>Limitations</span><span>{a.limitationCount}</span></>}
+          {a.caa && <><span style={{ color: cw.textMuted }}>CAA</span><span>{a.caa.name}{a.caa.phone ? <> · <span style={mono()}>{a.caa.phone}</span></> : null}</span></>}
+          {a.aipUrl && <><span style={{ color: cw.textMuted }}>AIP</span><a href={a.aipUrl} target="_blank" rel="noopener noreferrer" style={{ color: cw.textLink, fontWeight: 600, textDecoration: "none" }}>Open{a.aipCached === false ? " (not cached)" : ""} ↗</a></>}
         </div>
       </div>
     );
   }
   return (
-    <div role="group" aria-label={`Airport ${a.icao}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px 18px", display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 20 }}>
+    <div role="group" aria-label={`Airport ${a.icao}`} style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, padding: "16px 18px", display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr", gap: 20 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <Eyebrow>Weather{a.metarAt ? ` · ${hmZ(a.metarAt)}` : ""}</Eyebrow>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={mono({ fontSize: 16, fontWeight: 600 })}>{a.icao}</span><CategoryBadge category={a.category} /></div>
-        {a.decoded ? <div style={{ fontSize: 13.5, lineHeight: 1.55, color: C.body }}>{a.decoded}</div> : a.metar ? <div style={{ ...mono({ fontSize: 12.5 }), lineHeight: 1.6, color: C.body, overflowWrap: "anywhere" }}>{a.metar}</div> : <div style={{ fontSize: 13, color: C.faint }}>No weather returned.</div>}
+        {a.decoded ? <div style={{ fontSize: 13.5, lineHeight: 1.55, color: cw.textBody }}>{a.decoded}</div> : a.metar ? <div style={{ ...mono({ fontSize: 12.5 }), lineHeight: 1.6, color: cw.textBody, overflowWrap: "anywhere" }}>{a.metar}</div> : <div style={{ fontSize: 13, color: cw.textMuted }}>No weather returned.</div>}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <Eyebrow>NOTAM</Eyebrow>
-        {a.notamCount != null ? <><div><span style={{ fontSize: 22, fontWeight: 800 }}>{a.notamCount}</span> <span style={{ fontSize: 13, fontWeight: 500, color: C.muted }}>active</span></div>{a.notamNew ? <div style={{ fontSize: 13, fontWeight: 600, color: C.dangerBadge }}>{a.notamNew} new since last check</div> : null}</> : <div style={{ fontSize: 13, color: C.faint }}>Not checked in this reply.</div>}
+        {a.notamCount != null ? <><div><span style={{ fontSize: 22, fontWeight: 800 }}>{a.notamCount}</span> <span style={{ fontSize: 13, fontWeight: 500, color: cw.textMuted }}>active</span></div>{a.notamNew ? <div style={{ fontSize: 13, fontWeight: 600, color: cw.dangerText }}>{a.notamNew} new since last check</div> : null}</> : <div style={{ fontSize: 13, color: cw.textMuted }}>Not checked in this reply.</div>}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <Eyebrow>CAA contact</Eyebrow>
-        {a.caa ? <><div style={{ fontSize: 13.5, fontWeight: 600 }}>{a.caa.name}</div>{a.caa.phone && <div style={{ ...mono({ fontSize: 12.5 }), color: C.body }}>{a.caa.phone}</div>}{a.caa.email && <a href={`mailto:${a.caa.email}`} style={{ fontSize: 12.5, color: C.primary }}>{a.caa.email}</a>}</> : <div style={{ fontSize: 13, color: C.faint }}>{a.country ?? "—"}{a.aipUrl ? <> · <a href={a.aipUrl} target="_blank" rel="noopener noreferrer" style={{ color: C.primaryHover, fontWeight: 600, textDecoration: "none" }}>AIP ↗</a></> : null}</div>}
+        {a.caa ? <><div style={{ fontSize: 13.5, fontWeight: 600 }}>{a.caa.name}</div>{a.caa.phone && <div style={{ ...mono({ fontSize: 12.5 }), color: cw.textBody }}>{a.caa.phone}</div>}{a.caa.email && <a href={`mailto:${a.caa.email}`} style={{ fontSize: 12.5, color: cw.textLink }}>{a.caa.email}</a>}</> : <div style={{ fontSize: 13, color: cw.textMuted }}>{a.country ?? "—"}{a.aipUrl ? <> · <a href={a.aipUrl} target="_blank" rel="noopener noreferrer" style={{ color: cw.textLink, fontWeight: 600, textDecoration: "none" }}>AIP ↗</a></> : null}</div>}
       </div>
     </div>
   );
@@ -151,7 +152,7 @@ export function AirportSummary({ airport: a, panel = false }: { airport: Airport
 
 // ── §4.11 Document result ─────────────────────────────────────────────────────
 function PdfTile({ small = false }: { small?: boolean }) {
-  return <span style={{ width: small ? 34 : 44, height: small ? 42 : 54, borderRadius: small ? 5 : 7, background: C.dangerTint, border: `1px solid ${C.dangerBorder}`, display: "inline-flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: small ? 5 : 7, flex: "none" }}><span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", color: C.dangerBadge }}>PDF</span></span>;
+  return <span style={{ width: small ? 34 : 44, height: small ? 42 : 54, borderRadius: small ? 5 : 7, background: cw.dangerTint, border: `1px solid ${cw.dangerBorder}`, display: "inline-flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: small ? 5 : 7, flex: "none" }}><span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", color: cw.dangerText }}>PDF</span></span>;
 }
 export function DocumentResult({ doc, panel = false, onEmail }: { doc: DocumentData; panel?: boolean; onEmail?: (doc: DocumentData) => void }) {
   const name = doc.title;
@@ -166,18 +167,18 @@ export function DocumentResult({ doc, panel = false, onEmail }: { doc: DocumentD
     </>
   );
   return (
-    <div role="group" aria-label={name} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: panel ? 12 : 14, padding: panel ? 12 : "14px 16px", display: "flex", flexDirection: panel ? "column" : "row", alignItems: panel ? "stretch" : "center", gap: panel ? 10 : 14 }}>
+    <div role="group" aria-label={name} style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: panel ? 12 : 14, padding: panel ? 12 : "14px 16px", display: "flex", flexDirection: panel ? "column" : "row", alignItems: panel ? "stretch" : "center", gap: panel ? 10 : 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: panel ? 10 : 14, minWidth: 0, flex: 1 }}>
         <PdfTile small={panel} />
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-          <button type="button" disabled={!openable} onClick={(e) => void od.openDocumentResult(doc, e.currentTarget)} className="ag-doc-name ag-focus" style={{ ...mono({ fontSize: panel ? 13 : 14, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: openable ? "pointer" : "default", color: C.ink, fontFamily: undefined }}>{name}</button>
-          <span style={{ fontSize: panel ? 12 : 13, color: C.muted, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" disabled={!openable} onClick={(e) => void od.openDocumentResult(doc, e.currentTarget)} className="ag-doc-name ag-focus" style={{ ...mono({ fontSize: panel ? 13 : 14, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: openable ? "pointer" : "default", color: cw.text, fontFamily: undefined }}>{name}</button>
+          <span style={{ fontSize: panel ? 12 : 13, color: cw.textMuted, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {doc.subtitle}
             <RevisionTag revision={doc.revision} showCurrent />
-            {doc.stale && <Tag fg={C.warn} bg={C.warnTint}>Cached · {doc.stale}</Tag>}
-            {!doc.cached && !doc.stale && <span style={{ color: C.faint }}>· not cached yet</span>}
+            {doc.stale && <Tag fg={cw.warningText} bg={cw.warningTint}>Cached · {doc.stale}</Tag>}
+            {!doc.cached && !doc.stale && <span style={{ color: cw.textMuted }}>· not cached yet</span>}
           </span>
-          {doc.note && !panel && <span style={{ fontSize: 12, color: C.faint }}>{doc.note}</span>}
+          {doc.note && !panel && <span style={{ fontSize: 12, color: cw.textMuted }}>{doc.note}</span>}
         </div>
       </div>
       <div style={{ display: panel ? "grid" : "flex", gridTemplateColumns: panel ? "1fr 1fr 1fr" : undefined, gap: 6 }}>{actions}</div>
@@ -197,22 +198,22 @@ export function GeneratedFile({ file, panel = false, onSend }: { file: FileData;
     if (file.openInViewer && od.hasViewer && takeAutoOpen(file.id)) void od.openGenerated(file, openRef.current);
   }, [file, od]);
   return (
-    <div role="group" aria-label={`Generated file ${file.filename}`} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: panel ? 12 : 14, overflow: "hidden", display: "flex" }}>
+    <div role="group" aria-label={`Generated file ${file.filename}`} style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: panel ? 12 : 14, overflow: "hidden", display: "flex" }}>
       {!panel && (
-        <button type="button" aria-label={`Open ${file.filename}`} onClick={(e) => void od.openGenerated(file, e.currentTarget)} className="ag-thumb-open ag-focus" style={{ width: 132, background: C.sidebar, borderRight: `1px solid ${C.divider}`, padding: 14, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", border: "none", cursor: "pointer", position: "relative", fontFamily: "inherit" }}>
+        <button type="button" aria-label={`Open ${file.filename}`} onClick={(e) => void od.openGenerated(file, e.currentTarget)} className="ag-thumb-open ag-focus" style={{ width: 132, background: cw.bgSunken, borderRight: `1px solid ${cw.divider}`, padding: 14, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", border: "none", cursor: "pointer", position: "relative", fontFamily: "inherit" }}>
           {isPdf
-            ? <object data={`${file.downloadPath}?inline=1#page=1&toolbar=0&navpanes=0`} type="application/pdf" aria-label="Page 1 preview" style={{ width: 84, height: 110, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, boxShadow: "0 2px 6px rgba(16,18,22,.06)", pointerEvents: "none" }} />
-            : <span style={{ width: 84, height: 110, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, boxShadow: "0 2px 6px rgba(16,18,22,.06)", display: "flex", alignItems: "center", justifyContent: "center", ...mono({ fontSize: 12, fontWeight: 700 }), color: C.muted }}>{ext}</span>}
-          <span className="ag-thumb-open-chip" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: C.surface, background: "rgba(23,24,28,.78)", borderRadius: 6, padding: "4px 7px", opacity: 0, pointerEvents: "none" }}><Icon name="eye" size={11} color={C.surface} />Open</span>
+            ? <object data={`${file.downloadPath}?inline=1#page=1&toolbar=0&navpanes=0`} type="application/pdf" aria-label="Page 1 preview" style={{ width: 84, height: 110, background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 4, boxShadow: "var(--cw-shadow-2)", pointerEvents: "none" }} />
+            : <span style={{ width: 84, height: 110, background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 4, boxShadow: "var(--cw-shadow-2)", display: "flex", alignItems: "center", justifyContent: "center", ...mono({ fontSize: 12, fontWeight: 700 }), color: cw.textMuted }}>{ext}</span>}
+          <span className="ag-thumb-open-chip" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, color: cw.textOnPrimary, background: "var(--cw-bg-scrim)", borderRadius: 6, padding: "4px 7px", opacity: 0, pointerEvents: "none" }}><Icon name="eye" size={11} color={cw.textOnPrimary} />Open</span>
         </button>
       )}
       <div style={{ padding: panel ? 12 : "14px 16px", display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: 1 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Eyebrow color={C.okDot}>Generated file</Eyebrow>
-          <span style={{ ...mono({ fontSize: 11.5 }), color: C.faint }}>{[file.generatedAt ? hmZ(file.generatedAt) : null, file.pages ? `${file.pages} page${file.pages > 1 ? "s" : ""}` : null, kb(file.bytes)].filter(Boolean).join(" · ")}</span>
+          <Eyebrow color={cw.successText}>Generated file</Eyebrow>
+          <span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>{[file.generatedAt ? hmZ(file.generatedAt) : null, file.pages ? `${file.pages} page${file.pages > 1 ? "s" : ""}` : null, kb(file.bytes)].filter(Boolean).join(" · ")}</span>
         </div>
         <span style={{ ...mono({ fontSize: 14, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.filename}</span>
-        {file.summary && <span style={{ fontSize: 13, lineHeight: 1.5, color: C.muted }}>{file.summary}</span>}
+        {file.summary && <span style={{ fontSize: 13, lineHeight: 1.5, color: cw.textMuted }}>{file.summary}</span>}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <span ref={openRef as never} style={{ display: "contents" }}><Button variant="primary" size="sm" icon="eye" onClick={(e) => void od.openGenerated(file, e.currentTarget)}>Open</Button></span>
           <a href={file.downloadPath} download={file.filename} style={{ textDecoration: "none" }}><Button variant="secondary" size="sm" icon="download">Download</Button></a>
@@ -249,36 +250,36 @@ export function ManifestNotice({ manifest: m, panel = false, notePath = null }: 
   const counts = `${m.passengerCount} passenger${m.passengerCount === 1 ? "" : "s"}${m.crewCount != null ? ` · ${m.crewCount} crew` : ""}${m.personsOnBoard != null ? ` · ${m.personsOnBoard} on board` : ""}${m.pageCount ? ` · ${m.pageCount} page${m.pageCount === 1 ? "" : "s"}` : ""}`;
   const warnCount = items.filter((i) => i.tone === "warn").length;
   return (
-    <div role="region" aria-label="Passenger manifest — read before sending" style={{ background: warnCount ? C.warnWash : C.surface, border: `1px solid ${warnCount ? C.warnBorder : C.border}`, borderRadius: panel ? 12 : 14, padding: panel ? 12 : "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+    <div role="region" aria-label="Passenger manifest — read before sending" style={{ background: warnCount ? cw.warningTint : cw.bgSurface, border: `1px solid ${warnCount ? cw.warningBorder : cw.border}`, borderRadius: panel ? 12 : 14, padding: panel ? 12 : "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <Eyebrow color={warnCount ? C.warn : C.okDot}>{warnCount ? `Read before sending · ${warnCount} warning${warnCount === 1 ? "" : "s"}` : "Passenger manifest · no warnings"}</Eyebrow>
+        <Eyebrow color={warnCount ? cw.warningText : cw.successText}>{warnCount ? `Read before sending · ${warnCount} warning${warnCount === 1 ? "" : "s"}` : "Passenger manifest · no warnings"}</Eyebrow>
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
         <span style={mono({ fontSize: 14, fontWeight: 600 })}>{head}</span>
-        <span style={{ ...mono({ fontSize: 12 }), color: C.muted }}>{counts}</span>
+        <span style={{ ...mono({ fontSize: 12 }), color: cw.textMuted }}>{counts}</span>
       </div>
-      {!m.blank && m.passengerSource && <span style={{ fontSize: 12.5, color: C.muted }}>Passenger rows: <b style={{ color: C.ink }}>{m.passengerSource.kind === "leon" ? "Leon's passenger records" : m.passengerSource.kind === "intake" ? `the flight intake record ${m.passengerSource.reference ?? ""}`.trim() : "none — Leon holds no passenger records"}</b>{m.passengerSource.kind === "intake" ? " (Leon has none; the passengers a person confirmed on the intake review)." : "."}</span>}
-      {m.operator?.name && m.operator.source && <span style={{ fontSize: 12.5, color: C.muted }}>Owner or Operator: <b style={{ color: C.ink }}>{m.operator.name}</b> — from {m.operator.source}.</span>}
+      {!m.blank && m.passengerSource && <span style={{ fontSize: 12.5, color: cw.textMuted }}>Passenger rows: <b style={{ color: cw.text }}>{m.passengerSource.kind === "leon" ? "Leon's passenger records" : m.passengerSource.kind === "intake" ? `the flight intake record ${m.passengerSource.reference ?? ""}`.trim() : "none — Leon holds no passenger records"}</b>{m.passengerSource.kind === "intake" ? " (Leon has none; the passengers a person confirmed on the intake review)." : "."}</span>}
+      {m.operator?.name && m.operator.source && <span style={{ fontSize: 12.5, color: cw.textMuted }}>Owner or Operator: <b style={{ color: cw.text }}>{m.operator.name}</b> — from {m.operator.source}.</span>}
       {items.length > 0 && (
         <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
           {items.map((it, i) => (
-            <li key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, lineHeight: 1.5, color: C.ink }}>
-              <span style={{ marginTop: 3, flex: "none" }}><Icon name={it.tone === "warn" ? "circle-alert" : "info"} size={13} color={it.tone === "warn" ? C.warn : C.muted} /></span>
+            <li key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, lineHeight: 1.5, color: cw.text }}>
+              <span style={{ marginTop: 3, flex: "none" }}><Icon name={it.tone === "warn" ? "circle-alert" : "info"} size={13} color={it.tone === "warn" ? cw.warningText : cw.textMuted} /></span>
               <span>{it.text}</span>
             </li>
           ))}
         </ul>
       )}
       {m.hasPaxNote && (
-        <div aria-label={m.passengerSource?.kind === "intake" ? "Leon's text passenger list" : "The operator's own passenger note in Leon"} style={{ border: `1px dashed ${C.warnBorder}`, borderRadius: 9, background: C.surface, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: C.warn }}>{m.passengerSource?.kind === "intake" ? "LEON'S TEXT PASSENGER LIST · VERBATIM · COMPARE IT WITH THE ROWS — NOT MERGED" : "THE OPERATOR'S OWN NOTE IN LEON · VERBATIM · NOT CHECKED, NOT PARSED INTO ROWS"}</span>
+        <div aria-label={m.passengerSource?.kind === "intake" ? "Leon's text passenger list" : "The operator's own passenger note in Leon"} style={{ border: `1px dashed ${cw.warningBorder}`, borderRadius: 9, background: cw.bgSurface, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: cw.warningText }}>{m.passengerSource?.kind === "intake" ? "LEON'S TEXT PASSENGER LIST · VERBATIM · COMPARE IT WITH THE ROWS — NOT MERGED" : "THE OPERATOR'S OWN NOTE IN LEON · VERBATIM · NOT CHECKED, NOT PARSED INTO ROWS"}</span>
           {showNote ? (
             <>
-              <pre data-pax-note="" style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", ...mono({ fontSize: 12.5 }), color: C.ink }}>{note ?? "Loading the note…"}</pre>
-              <button type="button" className="ag-focus" onClick={() => setShowNote(false)} style={{ alignSelf: "flex-start", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: C.ink, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}><Icon name="eye-off" size={13} color={C.muted} />Hide now · hides after 60 s</button>
+              <pre data-pax-note="" style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", ...mono({ fontSize: 12.5 }), color: cw.text }}>{note ?? "Loading the note…"}</pre>
+              <button type="button" className="ag-focus" onClick={() => setShowNote(false)} style={{ alignSelf: "flex-start", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: cw.text, background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}><Icon name="eye-off" size={13} color={cw.textMuted} />Hide now · hides after 60 s</button>
             </>
           ) : (
-            <button type="button" className="ag-focus" onClick={() => setShowNote(true)} disabled={!notePath} style={{ alignSelf: "flex-start", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: C.ink, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}><Icon name="eye" size={13} color={C.muted} />Show personal data</button>
+            <button type="button" className="ag-focus" onClick={() => setShowNote(true)} disabled={!notePath} style={{ alignSelf: "flex-start", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: cw.text, background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}><Icon name="eye" size={13} color={cw.textMuted} />Show personal data</button>
           )}
         </div>
       )}
@@ -297,12 +298,12 @@ export function TableResult({ table: t, panel = false }: { table: TableData; pan
   const inline = panel ? 4 : 10;
   const rows = showAll || full ? t.rows : t.rows.slice(0, inline);
   const monoCols = new Set(t.monoColumns ?? []);
-  const cell = (v: string, c: number) => <span style={monoCols.has(c) || looksMono(v) ? mono() : undefined}>{/^\d+ new$/i.test(v) ? <Tag fg={C.danger} bg={C.dangerTint} style={{ borderRadius: 999, padding: "3px 9px", fontSize: 12 }}>{v}</Tag> : v}</span>;
+  const cell = (v: string, c: number) => <span style={monoCols.has(c) || looksMono(v) ? mono() : undefined}>{/^\d+ new$/i.test(v) ? <Tag fg={cw.dangerText} bg={cw.dangerTint} style={{ borderRadius: 999, padding: "3px 9px", fontSize: 12 }}>{v}</Tag> : v}</span>;
   const grid = `repeat(${t.columns.length}, minmax(0, 1fr))`;
   const fullTable = (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-      <div style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "9px 14px", background: C.page, borderBottom: `1px solid ${C.divider}` }}>{t.columns.map((h) => <span key={h} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: C.faint, textTransform: "uppercase" }}>{h}</span>)}</div>
-      {(full ? t.rows : rows).map((r, i) => <div key={i} style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "11px 14px", borderBottom: `1px solid ${C.dividerRow}`, fontSize: 13.5, alignItems: "center" }}>{r.map((v, c) => <span key={c} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cell(v, c)}</span>)}</div>)}
+    <div style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 12, overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "9px 14px", background: cw.bgPage, borderBottom: `1px solid ${cw.divider}` }}>{t.columns.map((h) => <span key={h} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: cw.textMuted, textTransform: "uppercase" }}>{h}</span>)}</div>
+      {(full ? t.rows : rows).map((r, i) => <div key={i} style={{ display: "grid", gridTemplateColumns: grid, gap: 12, padding: "11px 14px", borderBottom: `1px solid ${cw.divider}`, fontSize: 13.5, alignItems: "center" }}>{r.map((v, c) => <span key={c} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cell(v, c)}</span>)}</div>)}
       {(t.footer?.openHref || t.rows.length > inline) && (
         <div style={{ padding: "9px 14px", display: "flex", gap: 8, alignItems: "center" }}>
           {t.footer?.openHref && <a href={t.footer.openHref} style={{ textDecoration: "none" }}><Button variant="secondary" size="sm">{t.footer.openLabel ?? "Open"}</Button></a>}
@@ -318,22 +319,22 @@ export function TableResult({ table: t, panel = false }: { table: TableData; pan
   const needsFullView = t.rows.length > 4 || t.columns.length > 5;
   return (
     <>
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: C.page, borderBottom: `1px solid ${C.divider}` }}>
+      <div style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: cw.bgPage, borderBottom: `1px solid ${cw.divider}` }}>
           <span style={{ fontSize: 12, fontWeight: 700, flex: 1 }}>{t.title ?? `${t.rows.length} rows`}</span>
-          {needsFullView && <button type="button" className="ag-focus" onClick={() => setFull(true)} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: C.primaryHover, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}><Icon name="maximize-2" size={12} color={C.primaryHover} />Full view</button>}
+          {needsFullView && <button type="button" className="ag-focus" onClick={() => setFull(true)} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: cw.textLink, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}><Icon name="maximize-2" size={12} color={cw.textLink} />Full view</button>}
         </div>
         {t.rows.slice(0, 4).map((r, i) => (
-          <div key={i} style={{ padding: "9px 12px", borderBottom: `1px solid ${C.dividerRow}`, display: "flex", flexDirection: "column", gap: 3 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={mono({ fontSize: 13.5, fontWeight: 600 })}>{r[0]}</span><span style={{ ...mono({ fontSize: 12 }), color: C.body, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r[1]}</span>{r.slice(2).find((v) => /^\d+ new$/i.test(v)) && <Tag fg={C.danger} bg={C.dangerTint} style={{ borderRadius: 999 }}>{r.find((v) => /^\d+ new$/i.test(v))}</Tag>}</div>
-            <div style={{ ...mono({ fontSize: 11.5 }), color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.columns.slice(2).map((h, c) => (/^\d+ new$/i.test(r[c + 2] ?? "") ? null : `${h.toLowerCase()} ${r[c + 2] ?? "—"}`)).filter(Boolean).join(" · ")}</div>
+          <div key={i} style={{ padding: "9px 12px", borderBottom: `1px solid ${cw.divider}`, display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={mono({ fontSize: 13.5, fontWeight: 600 })}>{r[0]}</span><span style={{ ...mono({ fontSize: 12 }), color: cw.textBody, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r[1]}</span>{r.slice(2).find((v) => /^\d+ new$/i.test(v)) && <Tag fg={cw.dangerText} bg={cw.dangerTint} style={{ borderRadius: 999 }}>{r.find((v) => /^\d+ new$/i.test(v))}</Tag>}</div>
+            <div style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.columns.slice(2).map((h, c) => (/^\d+ new$/i.test(r[c + 2] ?? "") ? null : `${h.toLowerCase()} ${r[c + 2] ?? "—"}`)).filter(Boolean).join(" · ")}</div>
           </div>
         ))}
-        {t.rows.length > 4 && <div style={{ padding: "8px 12px", fontSize: 12, color: C.muted, display: "flex", gap: 8 }}>+{t.rows.length - 4} more · <button type="button" onClick={() => setFull(true)} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: C.primaryHover, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>Show all</button>{t.footer?.filterHint && <><span>·</span><a href={t.footer.openHref ?? "#"} style={{ fontWeight: 600, color: C.primaryHover, textDecoration: "none" }}>{t.footer.filterHint}</a></>}</div>}
+        {t.rows.length > 4 && <div style={{ padding: "8px 12px", fontSize: 12, color: cw.textMuted, display: "flex", gap: 8 }}>+{t.rows.length - 4} more · <button type="button" onClick={() => setFull(true)} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: cw.textLink, background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>Show all</button>{t.footer?.filterHint && <><span>·</span><a href={t.footer.openHref ?? "#"} style={{ fontWeight: 600, color: cw.textLink, textDecoration: "none" }}>{t.footer.filterHint}</a></>}</div>}
       </div>
       {full && (
-        <div role="dialog" aria-label="Full view" style={{ position: "fixed", top: 0, bottom: 0, right: 420, width: 900, maxWidth: "calc(100vw - 420px)", background: C.surface, borderLeft: `1px solid ${C.border}`, boxShadow: "-18px 0 40px rgba(16,18,22,.10)", zIndex: 50, display: "flex", flexDirection: "column" }}>
-          <div style={{ height: 52, display: "flex", alignItems: "center", gap: 10, padding: "0 16px", borderBottom: `1px solid ${C.divider}` }}><span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{t.title ?? "Full view"}</span><Button variant="ghost" size="sm" onClick={() => setFull(false)} keycap="Esc">Close</Button></div>
+        <div role="dialog" aria-label="Full view" style={{ position: "fixed", top: 0, bottom: 0, right: 420, width: 900, maxWidth: "calc(100vw - 420px)", background: cw.bgSurface, borderLeft: `1px solid ${cw.border}`, boxShadow: "var(--cw-shadow-panel)", zIndex: 50, display: "flex", flexDirection: "column" }}>
+          <div style={{ height: 52, display: "flex", alignItems: "center", gap: 10, padding: "0 16px", borderBottom: `1px solid ${cw.divider}` }}><span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{t.title ?? "Full view"}</span><Button variant="ghost" size="sm" onClick={() => setFull(false)} keycap="Esc">Close</Button></div>
           <div style={{ padding: 16, overflow: "auto" }}>{fullTable}</div>
         </div>
       )}
@@ -348,19 +349,19 @@ export function MonoBlock({ block, panel = false, onShowOnPage }: { block: MonoD
   async function copy() { try { await navigator.clipboard.writeText(block.text); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch { /* clipboard blocked */ } }
   const lines = block.text.split("\n");
   return (
-    <div role="group" aria-label={block.title} style={{ background: C.sidebar, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: panel ? 8 : 10, padding: panel ? "6px 10px" : "7px 12px", borderBottom: `1px solid ${C.border}` }}>
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>{block.title}</span>
-        {block.meta && <span style={{ ...mono({ fontSize: 11.5 }), color: C.faint }}>{block.meta}</span>}
+    <div role="group" aria-label={block.title} style={{ background: cw.bgSunken, border: `1px solid ${cw.border}`, borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: panel ? 8 : 10, padding: panel ? "6px 10px" : "7px 12px", borderBottom: `1px solid ${cw.border}` }}>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, textTransform: "uppercase" }}>{block.title}</span>
+        {block.meta && <span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>{block.meta}</span>}
         <span style={{ flex: 1 }} />
-        {panel && <button type="button" onClick={() => setWrap((w) => !w)} style={{ fontFamily: "inherit", fontSize: 11.5, fontWeight: 600, border: "none", background: "transparent", cursor: "pointer", color: wrap ? C.ink : C.faint }}>Wrap</button>}
-        {panel && onShowOnPage && <button type="button" onClick={() => onShowOnPage(block)} style={{ fontFamily: "inherit", fontSize: 11.5, fontWeight: 600, border: "none", background: "transparent", cursor: "pointer", color: C.primaryHover }}>Show on page ↖</button>}
-        <button type="button" onClick={() => void copy()} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "inherit", fontSize: 12, fontWeight: 600, border: "none", background: "transparent", cursor: "pointer", color: C.body }}><Icon name="copy" size={13} color={C.body} />{copied ? "Copied" : "Copy"}</button>
+        {panel && <button type="button" onClick={() => setWrap((w) => !w)} style={{ fontFamily: "inherit", fontSize: 11.5, fontWeight: 600, border: "none", background: "transparent", cursor: "pointer", color: wrap ? cw.text : cw.textMuted }}>Wrap</button>}
+        {panel && onShowOnPage && <button type="button" onClick={() => onShowOnPage(block)} style={{ fontFamily: "inherit", fontSize: 11.5, fontWeight: 600, border: "none", background: "transparent", cursor: "pointer", color: cw.textLink }}>Show on page ↖</button>}
+        <button type="button" onClick={() => void copy()} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "inherit", fontSize: 12, fontWeight: 600, border: "none", background: "transparent", cursor: "pointer", color: cw.textBody }}><Icon name="copy" size={13} color={cw.textBody} />{copied ? "Copied" : "Copy"}</button>
       </div>
       {/* Full page: `pre`, no reflow. Panel: wrap only at spaces, hanging indent, ↳ marks a wrapped line. */}
-      <div style={{ ...mono({ fontSize: panel ? 12 : 13.5 }), lineHeight: panel ? 1.7 : 1.75, padding: panel ? "9px 10px 9px 22px" : "12px 14px", textIndent: panel ? -12 : 0, whiteSpace: panel && wrap ? "pre-wrap" : "pre", overflowX: panel && wrap ? "hidden" : "auto", wordBreak: "normal", overflowWrap: "normal", color: C.ink }}>
+      <div style={{ ...mono({ fontSize: panel ? 12 : 13.5 }), lineHeight: panel ? 1.7 : 1.75, padding: panel ? "9px 10px 9px 22px" : "12px 14px", textIndent: panel ? -12 : 0, whiteSpace: panel && wrap ? "pre-wrap" : "pre", overflowX: panel && wrap ? "hidden" : "auto", wordBreak: "normal", overflowWrap: "normal", color: cw.text }}>
         {lines.map((line, i) => (
-          <div key={i} style={line.trim() === "—" ? { color: C.faint } : undefined}>{line}{panel && wrap && line.length > 46 ? <span aria-hidden style={{ color: C.faint }}> ↳</span> : null}</div>
+          <div key={i} style={line.trim() === "—" ? { color: cw.textMuted } : undefined}>{line}{panel && wrap && line.length > 46 ? <span aria-hidden style={{ color: cw.textMuted }}> ↳</span> : null}</div>
         ))}
       </div>
     </div>

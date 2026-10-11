@@ -51,7 +51,7 @@ export default function GenPopover({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="rounded-[14px] border border-[#e6e7ea] bg-white p-3.5 shadow-[0_16px_44px_rgba(16,18,22,.16)]">
+      <div className="rounded-[14px] border border-cw-border bg-cw-bg-surface p-3.5 shadow-cw-pop">
         {children}
       </div>
     </div>,

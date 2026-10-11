@@ -13,7 +13,7 @@
 // for and goes through the same pipeline as anything typed.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { C, SHADOW, mono } from "../ui/tokens";
+import { SHADOW, mono } from "../ui/tokens";
 import { Icon, IconButton, Keycap } from "../ui/primitives";
 import Orb from "../ui/Orb";
 import { useKeybinds } from "../ui/keybinds";
@@ -24,6 +24,7 @@ import { whenLabel as whenLabelFor } from "./manifestSearch";
 import { useVoiceSession, type VoiceThread } from "./useVoiceSession";
 import { AGENT_BASE, type AgentContext } from "../types";
 import ATTACH from "@/agent/config/attachments.json";
+import { cw } from "@/lib/portal-tokens";
 
 // ── Attachments ───────────────────────────────────────────────────────────────
 export type ReadStatus = "read" | "partial" | "unreadable";
@@ -68,10 +69,10 @@ function uploadWithProgress(file: File, onProgress: (p: number) => void): Promis
 
 function AttachmentChipView({ a, onRemove, onRetry }: { a: AttachmentChip; onRemove: () => void; onRetry: () => void }) {
   const unread = a.state === "uploaded" && (a.readStatus === "unreadable" || a.readStatus === "partial");
-  const look = a.state === "uploading" ? { border: C.primaryLine, bg: C.surface, tileBg: C.primaryTint, tileIcon: "file-text", tileFg: C.primary }
-    : a.state === "failed" ? { border: C.dangerBorder, bg: C.dangerWashSoft, tileBg: C.dangerTint, tileIcon: "rotate-cw", tileFg: C.dangerBadge }
-    : a.state === "too-large" || unread ? { border: C.warnBorder, bg: C.warnWashSoft, tileBg: C.warnTint, tileIcon: "file-warning", tileFg: C.warn }
-    : { border: C.border, bg: C.surface, tileBg: C.primaryTint, tileIcon: "file-text", tileFg: C.primary };
+  const look = a.state === "uploading" ? { border: cw.primaryTintBorder, bg: cw.bgSurface, tileBg: cw.primaryTint, tileIcon: "file-text", tileFg: cw.textLink }
+    : a.state === "failed" ? { border: cw.dangerBorder, bg: cw.dangerTint, tileBg: cw.dangerTint, tileIcon: "rotate-cw", tileFg: cw.dangerText }
+    : a.state === "too-large" || unread ? { border: cw.warningBorder, bg: cw.warningTint, tileBg: cw.warningTint, tileIcon: "file-warning", tileFg: cw.warningText }
+    : { border: cw.border, bg: cw.bgSurface, tileBg: cw.primaryTint, tileIcon: "file-text", tileFg: cw.textLink };
   return (
     <div title={a.error ?? (unread ? `${a.readStatus === "partial" ? "Partly read" : "Can't be read"}: ${a.readReason ?? "no content could be extracted"}` : a.readNote ?? undefined)} style={{ position: "relative", width: 170, borderRadius: 10, padding: 8, display: "flex", gap: 9, alignItems: "center", background: look.bg, border: `1px solid ${look.border}` }}>
       <button type="button" onClick={a.state === "failed" ? onRetry : undefined} title={a.state === "failed" ? "Retry" : undefined} style={{ width: 38, height: 38, borderRadius: 6, background: look.tileBg, border: "none", padding: 0, flex: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: a.state === "failed" ? "pointer" : "default", overflow: "hidden" }}>
@@ -79,14 +80,14 @@ function AttachmentChipView({ a, onRemove, onRetry }: { a: AttachmentChip; onRem
       </button>
       <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
         <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
-        {a.state === "uploading" && <><span style={{ fontSize: 11.5, color: C.primaryHover }}>Uploading · {a.progress}%</span><span style={{ height: 3, borderRadius: 2, background: C.border, marginTop: 3, overflow: "hidden" }}><span style={{ display: "block", height: "100%", width: `${a.progress}%`, background: C.primary, transition: "width 120ms linear" }} /></span></>}
+        {a.state === "uploading" && <><span style={{ fontSize: 11.5, color: cw.textLink }}>Uploading · {a.progress}%</span><span style={{ height: 3, borderRadius: 2, background: cw.border, marginTop: 3, overflow: "hidden" }}><span style={{ display: "block", height: "100%", width: `${a.progress}%`, background: cw.primary, transition: "width 120ms linear" }} /></span></>}
         {a.state === "uploaded" && (unread
-          ? <span style={{ fontSize: 11.5, color: C.warn, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.readStatus === "partial" ? "Partly read" : "Can't be read"}{a.readReason ? ` · ${a.readReason}` : ""}</span>
-          : <span style={{ fontSize: 11.5, color: C.muted }}>{fmtSize(a.bytes)}{a.readMode === "pdf" ? " · scanned, read as pages" : ""}</span>)}
-        {a.state === "failed" && <button type="button" onClick={onRetry} style={{ textAlign: "left", fontFamily: "inherit", fontSize: 11.5, color: C.danger, background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>Failed · Retry</button>}
-        {a.state === "too-large" && <span style={{ fontSize: 11.5, color: C.warn, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.error ?? `${fmtSize(a.bytes)} · too large`}</span>}
+          ? <span style={{ fontSize: 11.5, color: cw.warningText, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.readStatus === "partial" ? "Partly read" : "Can't be read"}{a.readReason ? ` · ${a.readReason}` : ""}</span>
+          : <span style={{ fontSize: 11.5, color: cw.textMuted }}>{fmtSize(a.bytes)}{a.readMode === "pdf" ? " · scanned, read as pages" : ""}</span>)}
+        {a.state === "failed" && <button type="button" onClick={onRetry} style={{ textAlign: "left", fontFamily: "inherit", fontSize: 11.5, color: cw.dangerText, background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>Failed · Retry</button>}
+        {a.state === "too-large" && <span style={{ fontSize: 11.5, color: cw.warningText, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.error ?? `${fmtSize(a.bytes)} · too large`}</span>}
       </div>
-      <button type="button" onClick={onRemove} title="Remove" aria-label={`Remove ${a.name}`} className="ag-focus" style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: C.surface, border: `1px solid ${C.borderControl}`, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={10} color={C.muted} /></button>
+      <button type="button" onClick={onRemove} title="Remove" aria-label={`Remove ${a.name}`} className="ag-focus" style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={10} color={cw.textMuted} /></button>
     </div>
   );
 }
@@ -96,8 +97,8 @@ type MentionType = "flight" | "airport" | "operator" | "aircraft" | "limitation"
 export type Mention = { type: MentionType; id: string; primary: string; secondary: string; tag?: "SELECTED" | "VISIBLE" | null };
 const TYPES: MentionType[] = ["flight", "airport", "operator", "aircraft", "limitation", "document"];
 const TYPE_LOOK: Record<MentionType, { icon: string; bg: string; fg: string }> = {
-  airport: { icon: "map-pin", bg: C.primaryTint2, fg: C.primaryHover }, flight: { icon: "plane", bg: C.primaryTint2, fg: C.primaryHover }, aircraft: { icon: "plane-takeoff", bg: C.primaryTint2, fg: C.primaryHover },
-  document: { icon: "file-text", bg: C.hover, fg: C.body }, limitation: { icon: "triangle-alert", bg: "#ede9fe", fg: "#6d28d9" }, operator: { icon: "building-2", bg: C.hover, fg: C.body },
+  airport: { icon: "map-pin", bg: cw.primaryWash, fg: cw.textLink }, flight: { icon: "plane", bg: cw.primaryWash, fg: cw.textLink }, aircraft: { icon: "plane-takeoff", bg: cw.primaryWash, fg: cw.textLink },
+  document: { icon: "file-text", bg: cw.bgHover, fg: cw.textBody }, limitation: { icon: "triangle-alert", bg: "var(--cw-diff-tint)", fg: "var(--cw-diff-text)" }, operator: { icon: "building-2", bg: cw.bgHover, fg: cw.textBody },
 };
 const invoke = async (name: string, input: Record<string, unknown>) => { try { const r = await fetch(`${AGENT_BASE}/api/tools/invoke`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, input }) }); return await r.json(); } catch { return null; } };
 
@@ -157,7 +158,7 @@ async function resolveMentions(q: string, type: MentionType | "all", context: Ag
 
 function Highlight({ text, prefix }: { text: string; prefix: string }) {
   if (!prefix || !text.toLowerCase().startsWith(prefix.toLowerCase())) return <>{text}</>;
-  return <><span style={{ background: C.highlight, borderRadius: 2 }}>{text.slice(0, prefix.length)}</span>{text.slice(prefix.length)}</>;
+  return <><span style={{ background: cw.warningTint, borderRadius: 2 }}>{text.slice(0, prefix.length)}</span>{text.slice(prefix.length)}</>;
 }
 
 // ── / commands ────────────────────────────────────────────────────────────────
@@ -165,7 +166,7 @@ type Need = "icao" | "flight" | "to" | "text" | "tier" | "operator" | "country" 
 type Command = { cmd: string; description: string; args: string; icon: string; kind: string; kindColor: string; needs: Need[]; optional?: string; template: string; ask: (args: string[]) => string };
 // Item 10: the list is CONFIG (agent/config/commands.json + an admin override), served per user by
 // GET /api/commands — a user only sees commands whose tools their role has. Fetched once per page load.
-const KIND_COLOR: Record<string, string> = { READ: C.faint, CHANGES: C.warn, "ASKS FIRST": C.primaryHover, "MAKES A FILE": C.okDot, SETTING: C.info };
+const KIND_COLOR: Record<string, string> = { READ: cw.textMuted, CHANGES: cw.warningText, "ASKS FIRST": cw.textLink, "MAKES A FILE": cw.successText, SETTING: cw.infoText };
 /** {0} {1} args; {1|default} when empty; {1?text $} only when present ($ = the argument). */
 export function renderTemplate(template: string, args: string[]): string {
   return template
@@ -176,7 +177,7 @@ export function renderTemplate(template: string, args: string[]): string {
 }
 let commandCache: Promise<Command[]> | null = null;
 function loadCommands(): Promise<Command[]> {
-  commandCache ??= fetch(`${AGENT_BASE}/api/commands`, { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : { commands: [] })).then((b) => ((b?.commands ?? []) as Omit<Command, "ask" | "kindColor">[]).map((c) => ({ ...c, kindColor: KIND_COLOR[c.kind] ?? C.faint, ask: (a: string[]) => renderTemplate(c.template, a) }))).catch(() => { commandCache = null; return []; });
+  commandCache ??= fetch(`${AGENT_BASE}/api/commands`, { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : { commands: [] })).then((b) => ((b?.commands ?? []) as Omit<Command, "ask" | "kindColor">[]).map((c) => ({ ...c, kindColor: KIND_COLOR[c.kind] ?? cw.textMuted, ask: (a: string[]) => renderTemplate(c.template, a) }))).catch(() => { commandCache = null; return []; });
   return commandCache;
 }
 export type ActiveCommand = { command: Command; args: string[]; slot: number; pickerQuery?: string };
@@ -395,39 +396,39 @@ export default function Composer({
   const boxRadius = panel ? 14 : 16;
 
   return (
-    <div data-cw-agent-composer="" style={{ padding: panel ? "10px 14px 14px" : "16px 24px 20px", borderTop: panel ? `1px solid ${C.divider}` : "none", background: panel ? C.surface : `linear-gradient(rgba(251,251,252,0), ${C.page} 30%)`, position: "relative" }}>
+    <div data-cw-agent-composer="" style={{ padding: panel ? "10px 14px 14px" : "16px 24px 20px", borderTop: panel ? `1px solid ${cw.divider}` : "none", background: panel ? cw.bgSurface : `linear-gradient(color-mix(in srgb, var(--cw-bg-page) 0%, transparent), ${cw.bgPage} 30%)`, position: "relative" }}>
       <div style={{ maxWidth: panel ? "none" : 800, margin: "0 auto", position: "relative" }}>
         {dragging && (
-          <div className="ag-dropzone-in" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); setDragging(false); }} style={{ position: "absolute", left: 0, right: 0, bottom: "100%", marginBottom: 8, height: 150, border: `2px dashed ${C.primary}`, background: C.primaryTint3, borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, zIndex: 5 }}>
-            <Icon name="file-up" size={24} color={C.primary} />
-            <span style={{ fontSize: 15, fontWeight: 700, color: C.primaryHover }}>Drop to attach</span>
-            <span style={{ fontSize: 12.5, color: C.primaryOnTint }}>{ACCEPT_LABEL} · up to {fmtSize(ATTACH.maxUploadBytes)} each, images {fmtSize(KINDS.image.maxBytes)} · the whole thread is the drop target</span>
+          <div className="ag-dropzone-in" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); setDragging(false); }} style={{ position: "absolute", left: 0, right: 0, bottom: "100%", marginBottom: 8, height: 150, border: `2px dashed ${cw.primary}`, background: cw.primaryTint, borderRadius: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, zIndex: 5 }}>
+            <Icon name="file-up" size={24} color={cw.textLink} />
+            <span style={{ fontSize: 15, fontWeight: 700, color: cw.textLink }}>Drop to attach</span>
+            <span style={{ fontSize: 12.5, color: cw.textBody }}>{ACCEPT_LABEL} · up to {fmtSize(ATTACH.maxUploadBytes)} each, images {fmtSize(KINDS.image.maxBytes)} · the whole thread is the drop target</span>
           </div>
         )}
         {menu === "mention" && (
-          <div className="ag-menu-in" role="listbox" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: panel ? 12 : 14, boxShadow: panel ? SHADOW.menuPanel : SHADOW.menu, zIndex: 20, overflow: "hidden" }}>
-            <div style={{ display: "flex", gap: 4, padding: "8px 8px 0", borderBottom: `1px solid ${C.divider}`, overflowX: "auto" }}>
-              {(["all", ...TYPES] as const).map((t) => <button key={t} type="button" onClick={() => setMentionType(t)} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: mentionType === t ? 700 : 500, color: mentionType === t ? C.ink : C.muted, background: "transparent", border: "none", borderBottom: `2px solid ${mentionType === t ? C.ink : "transparent"}`, padding: "6px 9px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>{t === "all" ? "All" : `@${t}`}</button>)}
+          <div className="ag-menu-in" role="listbox" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: panel ? 12 : 14, boxShadow: panel ? SHADOW.menuPanel : SHADOW.menu, zIndex: 20, overflow: "hidden" }}>
+            <div style={{ display: "flex", gap: 4, padding: "8px 8px 0", borderBottom: `1px solid ${cw.divider}`, overflowX: "auto" }}>
+              {(["all", ...TYPES] as const).map((t) => <button key={t} type="button" onClick={() => setMentionType(t)} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: mentionType === t ? 700 : 500, color: mentionType === t ? cw.text : cw.textMuted, background: "transparent", border: "none", borderBottom: `2px solid ${mentionType === t ? cw.text : "transparent"}`, padding: "6px 9px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>{t === "all" ? "All" : `@${t}`}</button>)}
             </div>
             <div style={{ padding: "6px 6px 2px", maxHeight: 280, overflowY: "auto" }}>
-              {!query && mentions.some((m) => m.tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: C.faint, padding: "4px 10px" }}>ON THIS PAGE</div>}
+              {!query && mentions.some((m) => m.tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: cw.textMuted, padding: "4px 10px" }}>ON THIS PAGE</div>}
 
               {mentions.length === 0 && (
-                <div style={{ padding: "10px 10px 8px", fontSize: 13, color: C.muted }}>
+                <div style={{ padding: "10px 10px 8px", fontSize: 13, color: cw.textMuted }}>
                   {searching ? "Searching…" : query.length < 2 ? "Type a callsign, ICAO, registration, limitation ID or document name…" : `No ${mentionType === "all" ? "matches" : `${mentionType}s`} for “${query}”`}
                 </div>
               )}
               {mentions.map((m, i) => (<Fragment key={`${m.type}:${m.id}`}>
-                {mentionType === "all" && !m.tag && (i === 0 || mentions[i - 1].type !== m.type || mentions[i - 1].tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: C.faint, padding: "6px 10px 2px" }}>{m.type.toUpperCase()}S</div>}
-                <button type="button" role="option" aria-selected={i === highlight} onMouseEnter={() => setHighlight(i)} onClick={() => pickMention(m)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: panel ? "7px 8px" : "8px 10px", borderRadius: 8, border: "none", background: i === highlight || m.tag === "SELECTED" ? C.primaryTint : "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left", marginTop: m.tag === "VISIBLE" && mentions[i - 1]?.tag === "SELECTED" ? 6 : 0 }}>
+                {mentionType === "all" && !m.tag && (i === 0 || mentions[i - 1].type !== m.type || mentions[i - 1].tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: cw.textMuted, padding: "6px 10px 2px" }}>{m.type.toUpperCase()}S</div>}
+                <button type="button" role="option" aria-selected={i === highlight} onMouseEnter={() => setHighlight(i)} onClick={() => pickMention(m)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: panel ? "7px 8px" : "8px 10px", borderRadius: 8, border: "none", background: i === highlight || m.tag === "SELECTED" ? cw.primaryTint : "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left", marginTop: m.tag === "VISIBLE" && mentions[i - 1]?.tag === "SELECTED" ? 6 : 0 }}>
                   <span style={{ width: panel ? 24 : 26, height: panel ? 24 : 26, borderRadius: 7, background: TYPE_LOOK[m.type].bg, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}><Icon name={TYPE_LOOK[m.type].icon} size={14} color={TYPE_LOOK[m.type].fg} /></span>
                   <span style={m.type === "limitation" ? { fontSize: 13.5, fontWeight: 600 } : mono({ fontSize: 13.5, fontWeight: 600 })}><Highlight text={m.primary} prefix={query} /></span>
-                  <span style={{ fontSize: 13, color: C.muted, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.secondary}</span>
-                  <span style={{ fontSize: m.tag ? 10.5 : 11.5, fontWeight: m.tag ? 700 : 400, color: m.tag === "SELECTED" ? C.primaryHover : C.faint }}>{m.tag ?? `@${m.type}`}</span>
+                  <span style={{ fontSize: 13, color: cw.textMuted, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.secondary}</span>
+                  <span style={{ fontSize: m.tag ? 10.5 : 11.5, fontWeight: m.tag ? 700 : 400, color: m.tag === "SELECTED" ? cw.textLink : cw.textMuted }}>{m.tag ?? `@${m.type}`}</span>
                 </button>
               </Fragment>))}
             </div>
-            <div style={{ display: "flex", gap: 14, padding: "8px 16px", borderTop: `1px solid ${C.divider}`, background: C.page, fontSize: 12, color: C.faint }}><span>↑↓ move</span><span>⏎ insert</span><span>Tab next type</span><span>Esc close</span><span style={{ flex: 1 }} /><span>Flights search Leon live</span></div>
+            <div style={{ display: "flex", gap: 14, padding: "8px 16px", borderTop: `1px solid ${cw.divider}`, background: cw.bgPage, fontSize: 12, color: cw.textMuted }}><span>↑↓ move</span><span>⏎ insert</span><span>Tab next type</span><span>Esc close</span><span style={{ flex: 1 }} /><span>Flights search Leon live</span></div>
           </div>
         )}
         {command?.command.needs[0] === "manifest-flight" && (
@@ -440,41 +441,41 @@ export default function Composer({
           />
         )}
         {menu === "command" && commands.length > 0 && (
-          <div className="ag-menu-in" role="listbox" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: C.surface, border: `1px solid ${C.borderControl}`, borderRadius: 14, boxShadow: SHADOW.menu, padding: 6, zIndex: 20 }}>
+          <div className="ag-menu-in" role="listbox" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: 14, boxShadow: SHADOW.menu, padding: 6, zIndex: 20 }}>
             {commands.map((c, i) => (
-              <button key={c.cmd} type="button" role="option" aria-selected={i === highlight} onMouseEnter={() => setHighlight(i)} onClick={() => pickCommand(c)} style={{ width: "100%", display: "grid", gridTemplateColumns: "30px 90px minmax(0,1fr) auto", gap: 10, alignItems: "center", padding: "9px 10px", borderRadius: 8, border: "none", background: i === highlight ? C.primaryTint : "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-                <span style={{ width: 28, height: 28, borderRadius: 7, background: i === highlight ? C.ink : C.hover, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name={c.icon} size={14} color={i === highlight ? C.surface : C.body} /></span>
+              <button key={c.cmd} type="button" role="option" aria-selected={i === highlight} onMouseEnter={() => setHighlight(i)} onClick={() => pickCommand(c)} style={{ width: "100%", display: "grid", gridTemplateColumns: "30px 90px minmax(0,1fr) auto", gap: 10, alignItems: "center", padding: "9px 10px", borderRadius: 8, border: "none", background: i === highlight ? cw.primaryTint : "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                <span style={{ width: 28, height: 28, borderRadius: 7, background: i === highlight ? cw.ink : cw.bgHover, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name={c.icon} size={14} color={i === highlight ? cw.onInk : cw.textBody} /></span>
                 <span style={mono({ fontSize: 13.5, fontWeight: 600 })}>{c.cmd}</span>
-                <span style={{ minWidth: 0 }}><span style={{ fontSize: 13.5 }}>{c.description}</span> <span style={{ ...mono({ fontSize: 12 }), color: C.faint }}>{c.args}</span></span>
+                <span style={{ minWidth: 0 }}><span style={{ fontSize: 13.5 }}>{c.description}</span> <span style={{ ...mono({ fontSize: 12 }), color: cw.textMuted }}>{c.args}</span></span>
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: c.kindColor }}>{c.kind}</span>
               </button>
             ))}
           </div>
         )}
 
-        {nextTier && <div data-next-tier style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.info, padding: "0 4px 6px" }}><Icon name="cpu" size={12} color={C.info} />Next message: <b>{nextTier}</b> tier<button type="button" onClick={() => { setNextTier(null); setHint(null); }} style={{ fontFamily: "inherit", fontSize: 12, color: C.muted, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>clear</button></div>}
-            {hint && !(nextTier && hint.startsWith("Your next message")) && <div role="alert" style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>{hint}</div>}
-        {tooLarge.length > 0 && !uploading && <div style={{ fontSize: 12, color: C.warn, padding: "0 4px 6px" }}>Sending waits for the upload · {tooLarge.map((a) => a.name).join(", ")} won&apos;t be sent</div>}
+        {nextTier && <div data-next-tier style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: cw.infoText, padding: "0 4px 6px" }}><Icon name="cpu" size={12} color={cw.infoText} />Next message: <b>{nextTier}</b> tier<button type="button" onClick={() => { setNextTier(null); setHint(null); }} style={{ fontFamily: "inherit", fontSize: 12, color: cw.textMuted, background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}>clear</button></div>}
+            {hint && !(nextTier && hint.startsWith("Your next message")) && <div role="alert" style={{ fontSize: 12, color: cw.warningText, padding: "0 4px 6px" }}>{hint}</div>}
+        {tooLarge.length > 0 && !uploading && <div style={{ fontSize: 12, color: cw.warningText, padding: "0 4px 6px" }}>Sending waits for the upload · {tooLarge.map((a) => a.name).join(", ")} won&apos;t be sent</div>}
 
         {(vs === "permission" || vs === "blocked") && <MicPermissionCard v={voice.voice} panel={panel} keyLabel={voice.keyLabel} onTypeInstead={() => inputRef.current?.focus()} />}
         <DockedSpeaking s={voice} panel={panel} />
-        {voice.reply.phase === "notice" && <div role="alert" style={{ fontSize: 12.5, fontWeight: 600, color: C.warn, padding: "0 4px 6px" }}>{voice.reply.text}</div>}
-        <div style={{ background: locked && !voiceActive ? C.sidebar : C.surface, border: `1px solid ${voiceActive && vs !== "error" ? C.primary : C.borderControl}`, borderRadius: boxRadius, boxShadow: voiceActive && vs !== "error" ? SHADOW.focus : panel ? "none" : SHADOW.composer }} className="ag-composer">
+        {voice.reply.phase === "notice" && <div role="alert" style={{ fontSize: 12.5, fontWeight: 600, color: cw.warningText, padding: "0 4px 6px" }}>{voice.reply.text}</div>}
+        <div style={{ background: locked && !voiceActive ? cw.bgSunken : cw.bgSurface, border: `1px solid ${voiceActive && vs !== "error" ? cw.primary : cw.borderControl}`, borderRadius: boxRadius, boxShadow: voiceActive && vs !== "error" ? SHADOW.focus : panel ? "none" : SHADOW.composer }} className="ag-composer">
           {attachments.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 12px 0" }}>{attachments.map((a) => <AttachmentChipView key={a.localId} a={a} onRemove={() => setAttachments((l) => l.filter((x) => x.localId !== a.localId))} onRetry={() => { setAttachments((l) => l.map((x) => (x.localId === a.localId ? { ...x, state: "uploading", progress: 0 } : x))); startUpload(a); }} />)}</div>}
           {command && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: panel ? "10px 12px 0" : "12px 16px 0", flexWrap: "wrap" }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: C.ink, color: C.surface, ...mono({ fontSize: 13.5, fontWeight: 600 }), borderRadius: 7, padding: "3px 6px 3px 8px" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: cw.ink, color: cw.onInk, ...mono({ fontSize: 13.5, fontWeight: 600 }), borderRadius: 7, padding: "3px 6px 3px 8px" }}>
                 {command.command.cmd}
-                <button type="button" onClick={() => setCommand(null)} aria-label="Remove command" style={{ width: 15, height: 15, borderRadius: 4, background: "rgba(255,255,255,.14)", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={9} color={C.surface} /></button>
+                <button type="button" onClick={() => setCommand(null)} aria-label="Remove command" style={{ width: 15, height: 15, borderRadius: 4, background: "color-mix(in srgb, var(--cw-text-on-primary) 14%, transparent)", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}><Icon name="x" size={9} color={cw.textOnPrimary} /></button>
               </span>
-              {command.command.needs[0] === "manifest-flight" && <span style={{ fontSize: 13, color: C.muted }}>Pick the flight above — or the blank form</span>}
+              {command.command.needs[0] === "manifest-flight" && <span style={{ fontSize: 13, color: cw.textMuted }}>Pick the flight above — or the blank form</span>}
               {command.command.needs[0] !== "manifest-flight" && command.args.map((arg, i) => (
                 <input key={i} name={`command-arg-${i}`} ref={(el) => { slotRefs.current[i] = el; }} value={arg} placeholder={i === 0 ? (command.command.args.split(" ")[0] || "optional") : `${command.command.optional} · optional`} aria-label={`Argument ${i + 1}`}
                   onChange={(e) => setCommand((c) => c ? { ...c, args: c.args.map((a, j) => (j === i ? e.target.value : a)) } : c)}
                   onKeyDown={(e) => { if (e.key === "Tab" && i < command.args.length - 1) { e.preventDefault(); slotRefs.current[i + 1]?.focus(); } if (e.key === "Backspace" && !arg && i === 0) { e.preventDefault(); setCommand(null); inputRef.current?.focus(); } if (e.key === "Enter") { e.preventDefault(); submit(); } if (e.key === "Escape") { setCommand(null); inputRef.current?.focus(); } }}
-                  style={{ ...mono({ fontSize: 13.5 }), color: i === 0 || arg ? C.primaryHover : C.faint, background: i === 0 || arg ? C.primaryTint3 : "transparent", border: i === 0 || arg ? `1px solid ${C.primary}` : `1px dashed ${C.borderControl}`, borderRadius: 7, padding: "2px 8px", outline: "none", minWidth: 90 }} />
+                  style={{ ...mono({ fontSize: 13.5 }), color: i === 0 || arg ? cw.textLink : cw.textMuted, background: i === 0 || arg ? cw.primaryTint : "transparent", border: i === 0 || arg ? `1px solid ${cw.primary}` : `1px dashed ${cw.borderControl}`, borderRadius: 7, padding: "2px 8px", outline: "none", minWidth: 90 }} />
               ))}
-              <span style={{ fontSize: 12, color: C.faint, marginLeft: "auto" }}>Tab next argument · ⌫ on empty removes command</span>
+              <span style={{ fontSize: 12, color: cw.textMuted, marginLeft: "auto" }}>Tab next argument · ⌫ on empty removes command</span>
             </div>
           )}
           {voiceActive ? (
@@ -483,10 +484,10 @@ export default function Composer({
               <VoiceNote v={voice.voice} panel={panel} />
             </>
           ) : locked ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: panel ? "11px 13px" : "14px 16px", fontSize: panel ? 13.5 : 14, color: C.muted }}><Icon name="lock" size={14} color={C.faint} />{locked}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: panel ? "11px 13px" : "14px 16px", fontSize: panel ? 13.5 : 14, color: cw.textMuted }}><Icon name="lock" size={14} color={cw.textMuted} />{locked}</div>
           ) : (
             <textarea name="message" ref={inputRef} rows={1} value={value} disabled={streaming && false} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey} placeholder={placeholder} aria-label="Message"
-              style={{ width: "100%", border: "none", outline: "none", resize: "none", padding: panel ? "11px 13px 4px" : "14px 16px 6px", fontFamily: "inherit", fontSize: panel ? 14 : 15, lineHeight: panel ? 1.5 : 1.6, color: C.ink, background: "transparent", minHeight: panel ? 38 : 48, maxHeight: 8 * 24, boxSizing: "border-box", overflowY: "auto" }} />
+              style={{ width: "100%", border: "none", outline: "none", resize: "none", padding: panel ? "11px 13px 4px" : "14px 16px 6px", fontFamily: "inherit", fontSize: panel ? 14 : 15, lineHeight: panel ? 1.5 : 1.6, color: cw.text, background: "transparent", minHeight: panel ? 38 : 48, maxHeight: 8 * 24, boxSizing: "border-box", overflowY: "auto" }} />
           )}
           <div style={{ display: "flex", alignItems: "center", gap: panel ? 2 : 4, padding: panel ? "4px 6px 6px" : "6px 8px 8px" }}>
             <input name="attachments" ref={fileRef} type="file" accept={ACCEPT} multiple style={{ display: "none" }} onChange={(e) => { addFiles(e.target.files); if (fileRef.current) fileRef.current.value = ""; }} />
@@ -494,22 +495,22 @@ export default function Composer({
             <IconButton icon="at-sign" title="Mention" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}@`); inputRef.current?.focus(); }} disabled={Boolean(locked)} />
             <IconButton icon="slash" title="Command" size={panel ? 30 : 34} iconSize={panel ? 15 : 17} onClick={() => { setValue((v) => `${v}${v && !v.endsWith(" ") ? " " : ""}/`); inputRef.current?.focus(); }} disabled={Boolean(locked) || Boolean(command)} />
             <span style={{ flex: 1 }} />
-            <span style={{ fontSize: panel ? 11 : 12, color: C.faint, marginRight: 8, display: panel ? undefined : "inline-flex", gap: 10 }}>{panel ? <><span style={mono()}>{kb.label("voice")}</span> talk · again to send</> : <><span><span style={mono()}>⏎</span> send</span><span><span style={mono()}>⇧⏎</span> new line</span><span><span style={mono()}>{kb.label("voice")}</span> talk · again to send</span></>}</span>
+            <span style={{ fontSize: panel ? 11 : 12, color: cw.textMuted, marginRight: 8, display: panel ? undefined : "inline-flex", gap: 10 }}>{panel ? <><span style={mono()}>{kb.label("voice")}</span> talk · again to send</> : <><span><span style={mono()}>⏎</span> send</span><span><span style={mono()}>⇧⏎</span> new line</span><span><span style={mono()}>{kb.label("voice")}</span> talk · again to send</span></>}</span>
             {voiceOn && !offline && (
               <button type="button" title={vs === "listening" ? `Send · ${voice.keyLabel}` : `Talk · ${voice.keyLabel} · again to send`} aria-label={vs === "listening" ? "Send what you said" : "Talk"} aria-pressed={vs === "listening"} className="ag-hover ag-focus"
                 onClick={(e) => voice.toggle(e.shiftKey)}
-                style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${vs === "listening" ? C.primary : C.border}`, background: vs === "listening" ? C.primaryTint : C.surface, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
+                style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${vs === "listening" ? cw.primary : cw.border}`, background: vs === "listening" ? cw.primaryTint : cw.bgSurface, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
                 {/* The composer voice button's orb: idle breathing (O1), live states while voice is active (O2–O5). */}
                 <Orb size={22} state={vs === "error" ? "error" : vs === "listening" || vs === "check" ? "listening" : voice.speaker.playing ? "speaking" : vs === "finalizing" || voice.working ? "thinking" : "idle"} level={vs === "listening" ? Math.max(0, ...voice.voice.levels) : voice.speaker.playing ? voice.speaker.level : 0} title="Voice" />
               </button>
             )}
             {streaming ? (
-              <button type="button" onClick={onStop} className="ag-focus" style={{ fontFamily: "inherit", fontSize: panel ? 12.5 : 13.5, fontWeight: 600, color: C.stop, background: C.stopTint, border: `1px solid ${C.stopBorder}`, borderRadius: panel ? 8 : 9, padding: panel ? "5px 10px" : "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: C.stopSquare }} />{panel ? "Stop · Esc" : <>Stop<Keycap>Esc</Keycap></>}
+              <button type="button" onClick={onStop} className="ag-focus" style={{ fontFamily: "inherit", fontSize: panel ? 12.5 : 13.5, fontWeight: 600, color: cw.orangeText, background: cw.orangeTint, border: `1px solid ${cw.orangeBorder}`, borderRadius: panel ? 8 : 9, padding: panel ? "5px 10px" : "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: cw.orange }} />{panel ? "Stop · Esc" : <>Stop<Keycap>Esc</Keycap></>}
               </button>
             ) : (
-              <button type="button" onClick={submit} disabled={!canSend} title="Send" aria-label="Send" className="ag-focus" style={{ width: panel ? 32 : 36, height: panel ? 32 : 36, borderRadius: panel ? 9 : 10, border: "none", background: locked ? C.disabledFill : canSend ? C.primary : C.sendEmpty, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: canSend ? "pointer" : "default", padding: 0 }}>
-                <Icon name="arrow-up" size={panel ? 15 : 17} color={C.surface} />
+              <button type="button" onClick={submit} disabled={!canSend} title="Send" aria-label="Send" className="ag-focus" style={{ width: panel ? 32 : 36, height: panel ? 32 : 36, borderRadius: panel ? 9 : 10, border: "none", background: locked ? cw.borderStrong : canSend ? cw.primary : cw.primaryWash, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: canSend ? "pointer" : "default", padding: 0 }}>
+                <Icon name="arrow-up" size={panel ? 15 : 17} color={cw.textOnPrimary} />
               </button>
             )}
           </div>

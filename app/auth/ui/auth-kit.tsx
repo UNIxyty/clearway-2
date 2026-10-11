@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { AlertCircle, Eye, EyeOff, type LucideIcon } from "lucide-react";
+import { cw } from "@/lib/portal-tokens";
 
 // Shared presentational pieces for the redesigned auth flow (design:
 // Auth Flow.dc.html). Purely visual — every page keeps its own mechanics.
 // Sits on AuthBackdrop; same card idiom as the shipped Sign In page.
 
-export const authInk = "#17181c";
-export const authMuted = "#6c7079";
-export const authFaint = "#9aa0a8";
+export const authInk = cw.text;
+export const authMuted = cw.textMuted;
+export const authFaint = cw.textMuted;
 
 export function AuthLogos() {
   return (
@@ -19,7 +20,7 @@ export function AuthLogos() {
         alt="Clearway Handling & Operations"
         style={{ height: 44, display: "block" }}
       />
-      <span style={{ width: 1, height: 30, background: "rgba(255,255,255,.28)" }} />
+      <span style={{ width: 1, height: 30, background: "color-mix(in srgb, var(--cw-text-on-primary) 28%, transparent)" }} />
       <img
         src="https://qdeioktxzarjonlqgznt.supabase.co/storage/v1/object/public/storage/logo.png"
         alt="Verxyl"
@@ -34,9 +35,9 @@ export function AuthCard({ shake = false, children }: { shake?: boolean; childre
     <div
       className={shake ? "cw-shake" : undefined}
       style={{
-        background: "#fff",
+        background: "var(--cw-bg-surface)",
         borderRadius: 22,
-        boxShadow: "0 30px 80px rgba(6,11,28,.45), 0 2px 6px rgba(0,0,0,.1)",
+        boxShadow: "var(--cw-shadow-pop)",
         padding: "34px 40px 28px",
         color: authInk,
       }}
@@ -60,15 +61,15 @@ export function AuthHeading({ title, sub, center = false }: { title: string; sub
 export function AuthAlert({ tone = "error", children }: { tone?: "error" | "info"; children: React.ReactNode }) {
   if (tone === "info") {
     return (
-      <div style={{ fontSize: 13, lineHeight: 1.45, color: authMuted, background: "#fbfbfc", border: "1px solid #e6e7ea", borderRadius: 11, padding: "11px 13px", marginBottom: 16 }}>
+      <div style={{ fontSize: 13, lineHeight: 1.45, color: authMuted, background: "var(--cw-bg-page)", border: "1px solid var(--cw-border)", borderRadius: 11, padding: "11px 13px", marginBottom: 16 }}>
         {children}
       </div>
     );
   }
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, background: "#fdf0f0", border: "1px solid #f4cdcd", borderRadius: 11, padding: "11px 13px", marginBottom: 16 }}>
-      <AlertCircle size={17} style={{ color: "#e5484d", flexShrink: 0, marginTop: 1 }} />
-      <span style={{ fontSize: 13, lineHeight: 1.45, color: "#b3383c" }}>{children}</span>
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, background: "var(--cw-danger-tint)", border: "1px solid var(--cw-danger-border)", borderRadius: 11, padding: "11px 13px", marginBottom: 16 }}>
+      <AlertCircle size={17} style={{ color: "var(--cw-danger-text)", flexShrink: 0, marginTop: 1 }} />
+      <span style={{ fontSize: 13, lineHeight: 1.45, color: "var(--cw-danger-text)" }}>{children}</span>
     </div>
   );
 }
@@ -112,11 +113,11 @@ export function AuthField({
           display: "flex",
           alignItems: "center",
           gap: 10,
-          border: `1px solid ${error ? "#e5484d" : "#d6d8dc"}`,
+          border: `1px solid ${error ? "var(--cw-danger)" : "var(--cw-border-control)"}`,
           borderRadius: 11,
           padding: "0 13px",
           height: 47,
-          background: error ? "#fffafa" : "#fff",
+          background: error ? "var(--cw-danger-tint)" : "var(--cw-bg-surface)",
         }}
       >
         <FieldIcon size={17} style={{ color: authFaint, flexShrink: 0 }} />
@@ -145,14 +146,14 @@ export function PasswordStrength({ value }: { value: string }) {
   if (/[0-9]/.test(value)) score += 1;
   if (/[^A-Za-z0-9]/.test(value)) score += 1;
   if (value.length === 0) score = 0;
-  const paint = score >= 3 ? "#16a34a" : score === 2 ? "#d97706" : "#e5484d";
+  const paint = score >= 3 ? cw.success : score === 2 ? cw.warning : cw.danger;
   const labels = ["Enter a password", "Weak — add length & a number", "Fair — add a capital or symbol", "Strong · 8+ chars, mixed case", "Very strong"];
-  const labelColors = [authFaint, "#e5484d", "#d97706", "#15803d", "#15803d"];
+  const labelColors = [authFaint, cw.dangerText, cw.warningText, cw.successText, cw.successText];
   return (
     <div style={{ marginTop: 8 }}>
       <div style={{ display: "flex", gap: 5, marginBottom: 6 }}>
         {[0, 1, 2, 3].map((i) => (
-          <span key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < score ? paint : "#e6e7ea" }} />
+          <span key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < score ? paint : cw.border }} />
         ))}
       </div>
       <div style={{ fontSize: 11.5, color: labelColors[score] }}>{labels[score]}</div>
@@ -184,9 +185,9 @@ export function AuthButton({
         fontFamily: "inherit",
         fontSize: 15,
         fontWeight: primary ? 700 : 600,
-        color: primary ? "#fff" : authInk,
-        background: primary ? (loading ? "#9db8f2" : "#2563eb") : "#fff",
-        border: primary ? "none" : "1px solid #d6d8dc",
+        color: primary ? "var(--cw-text-on-primary)" : authInk,
+        background: primary ? (loading ? "var(--cw-primary-wash)" : "var(--cw-primary)") : "var(--cw-bg-surface)",
+        border: primary ? "none" : "1px solid var(--cw-border-control)",
         borderRadius: 11,
         padding: 13,
         cursor: loading || disabled ? "default" : "pointer",
@@ -200,7 +201,7 @@ export function AuthButton({
       {...rest}
     >
       {loading && (
-        <span style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(255,255,255,.5)", borderTopColor: "#fff", animation: "cwspin .7s linear infinite" }} />
+        <span style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid color-mix(in srgb, var(--cw-text-on-primary) 50%, transparent)", borderTopColor: "var(--cw-bg-surface)", animation: "cwspin .7s linear infinite" }} />
       )}
       {loading ? loadingLabel || children : children}
     </button>
@@ -221,7 +222,7 @@ export function AuthLink({ children, ...rest }: React.ButtonHTMLAttributes<HTMLB
     <button
       type="button"
       className="cw-auth-link"
-      style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: "#2563eb", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+      style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: "var(--cw-text-link)", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
       {...rest}
     >
       {children}

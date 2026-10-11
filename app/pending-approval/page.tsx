@@ -55,9 +55,9 @@ export default function PendingApprovalPage() {
   }
 
   const rows = [
-    { icon: <Check size={13} style={{ color: "#15803d" }} />, bg: "#e7f6ec", label: "Email verified", color: "#15803d", weight: 600 },
-    { spin: true, bg: "#fef3e2", label: "Admin review · in progress", color: "#b45309", weight: 700 },
-    { icon: <Lock size={13} style={{ color: authFaint }} />, bg: "#f0f1f3", label: "Access granted", color: authFaint, weight: 600 },
+    { icon: <Check size={13} style={{ color: "var(--cw-success-text)" }} />, bg: "var(--cw-success-tint)", label: "Email verified", color: "var(--cw-success-text)", weight: 600 },
+    { spin: true, bg: "var(--cw-warning-tint)", label: "Admin review · in progress", color: "var(--cw-warning-text)", weight: 700 },
+    { icon: <Lock size={13} style={{ color: authFaint }} />, bg: "var(--cw-bg-hover)", label: "Access granted", color: authFaint, weight: 600 },
   ];
 
   return (
@@ -66,7 +66,7 @@ export default function PendingApprovalPage() {
         <AuthLogos />
         <AuthCard>
           <div style={{ textAlign: "center" }}>
-            <MessageIcon icon={UserRoundCheck} bg="#fef3e2" color="#c2703b" />
+            <MessageIcon icon={UserRoundCheck} bg="var(--cw-warning-tint)" color="var(--cw-orange-text)" />
             <AuthHeading
               center
               title="Request received"
@@ -74,12 +74,12 @@ export default function PendingApprovalPage() {
             />
           </div>
 
-          <div style={{ textAlign: "left", border: "1px solid #eef0f2", borderRadius: 12, padding: 14, marginBottom: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ textAlign: "left", border: "1px solid var(--cw-divider)", borderRadius: 12, padding: 14, marginBottom: 16, display: "flex", flexDirection: "column", gap: 12 }}>
             {rows.map((row) => (
               <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ width: 22, height: 22, borderRadius: "50%", background: row.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   {row.spin ? (
-                    <span style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid #e9b872", borderTopColor: "#b45309", animation: "cwspin .8s linear infinite" }} />
+                    <span style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid var(--cw-warning)", borderTopColor: "var(--cw-warning)", animation: "cwspin .8s linear infinite" }} />
                   ) : (
                     row.icon
                   )}

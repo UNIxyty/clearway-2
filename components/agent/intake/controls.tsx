@@ -5,8 +5,9 @@
 // arrow keys, visible focus (.ag-focus), and it stays still under prefers-reduced-motion.
 
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
-import { C, INTAKE, SHADOW, TONE, mono, type Tone } from "../ui/tokens";
+import { INTAKE, SHADOW, TONE, mono, type Tone } from "../ui/tokens";
 import { Icon } from "../ui/primitives";
+import { cw } from "@/lib/portal-tokens";
 
 // ── Styles: pulse, transitions, hatch, reduced motion ───────────────────────────────────────────────────
 export function IntakeStyles() {
@@ -27,10 +28,10 @@ export function IntakeStyles() {
       .cw-flash-red { animation: cwflashr 1200ms cubic-bezier(.4,0,1,1); }
       @keyframes cwflashr { from { background-color: ${INTAKE.flashRed} } }
       .cw-hatch { background: repeating-linear-gradient(135deg, ${INTAKE.hatchA} 0 6px, ${INTAKE.hatchB} 6px 12px); }
-      .cw-row:hover { background: ${C.hover}; }
-      .cw-input:focus-within { border-color: ${C.primary} !important; box-shadow: ${SHADOW.focus}; }
-      .cw-opt[aria-selected="true"], .cw-opt:hover, .cw-opt[data-active="true"] { background: ${C.hover}; }
-      .cw-img-blocked { display: inline-block; border: 1.5px dashed ${C.disabledFill}; border-radius: 6px; padding: 6px 9px; color: ${C.muted}; font-size: 12px; }
+      .cw-row:hover { background: ${cw.bgHover}; }
+      .cw-input:focus-within { border-color: ${cw.primary} !important; box-shadow: ${SHADOW.focus}; }
+      .cw-opt[aria-selected="true"], .cw-opt:hover, .cw-opt[data-active="true"] { background: ${cw.bgHover}; }
+      .cw-img-blocked { display: inline-block; border: 1.5px dashed ${cw.borderControl}; border-radius: 6px; padding: 6px 9px; color: ${cw.textMuted}; font-size: 12px; }
       @media (prefers-reduced-motion: reduce) {
         .cw-pulse { animation: none; opacity: 1; }
         .cw-t-field, .cw-fade, .cw-expand, .cw-drawer, .cw-scrim, .cw-flash-blue, .cw-flash-red { animation: none !important; transition: none !important; }
@@ -57,8 +58,8 @@ export function StatusPill({ tone, icon, pulse, children, size = "md" }: { tone:
 /** Type chip (§I1): neutral on purpose — type is not urgency. */
 export function TypeChip({ type, long = false }: { type: "handling" | "scheduled"; long?: boolean }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: C.body, border: `1px solid ${C.borderControl}`, borderRadius: 6, padding: "2px 7px 2px 5px", background: C.surface, whiteSpace: "nowrap" }}>
-      <Icon name={type === "scheduled" ? "calendar-clock" : "clipboard-list"} size={12} color={C.muted} />
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: cw.textBody, border: `1px solid ${cw.borderControl}`, borderRadius: 6, padding: "2px 7px 2px 5px", background: cw.bgSurface, whiteSpace: "nowrap" }}>
+      <Icon name={type === "scheduled" ? "calendar-clock" : "clipboard-list"} size={12} color={cw.textMuted} />
       {type === "scheduled" ? (long ? "Scheduled flight" : "Scheduled") : long ? "Handling request" : "Handling"}
     </span>
   );
@@ -83,7 +84,7 @@ export function Tooltip({ label, children, placement = "top" }: { label: ReactNo
     <span style={{ position: "relative", display: "inline-flex" }}>
       {children({ "aria-describedby": id, onMouseEnter: () => setOpen(true), onMouseLeave: () => setOpen(false), onFocus: () => setOpen(true), onBlur: () => setOpen(false) })}
       {/* Always in the DOM for aria-describedby, but takes no space while hidden (display none). */}
-      <span ref={tip} role="tooltip" id={id} style={{ position: "absolute", [placement === "top" ? "bottom" : "top"]: "calc(100% + 6px)", left: "50%", transform: `translateX(calc(-50% + ${shift}px))`, background: C.ink, color: C.surface, fontSize: 12, fontWeight: 500, lineHeight: 1.4, padding: "5px 8px", borderRadius: 6, width: "max-content", maxWidth: 320, whiteSpace: "normal", pointerEvents: "none", zIndex: 60, display: open ? "block" : "none" }}>{label}</span>
+      <span ref={tip} role="tooltip" id={id} style={{ position: "absolute", [placement === "top" ? "bottom" : "top"]: "calc(100% + 6px)", left: "50%", transform: `translateX(calc(-50% + ${shift}px))`, background: cw.ink, color: cw.onInk, fontSize: 12, fontWeight: 500, lineHeight: 1.4, padding: "5px 8px", borderRadius: 6, width: "max-content", maxWidth: 320, whiteSpace: "normal", pointerEvents: "none", zIndex: 60, display: open ? "block" : "none" }}>{label}</span>
     </span>
   );
 }
@@ -111,19 +112,19 @@ export function Select<T extends string>({ label, value, options, onChange, acti
     <div style={{ position: "relative", display: "inline-block" }}>
       <button ref={btn} type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-label={ariaLabel ?? label} className="ag-focus" onClick={() => setOpen((v) => !v)}
         onKeyDown={(e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setOpen(true); } }}
-        style={{ height: compact ? 30 : 34, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 10px", borderRadius: 8, border: `1px solid ${active ? C.citeOutline : C.borderControl}`, background: active ? C.suggestHover : C.surface, fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: C.body, cursor: disabled ? "not-allowed" : "pointer", width, opacity: disabled ? 0.5 : 1 }}>
-        {prefix && <span style={{ color: C.muted, fontWeight: 500 }}>{prefix} ·</span>}
+        style={{ height: compact ? 30 : 34, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 10px", borderRadius: 8, border: `1px solid ${active ? cw.citeOutline : cw.borderControl}`, background: active ? cw.primaryTint : cw.bgSurface, fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: cw.textBody, cursor: disabled ? "not-allowed" : "pointer", width, opacity: disabled ? 0.5 : 1 }}>
+        {prefix && <span style={{ color: cw.textMuted, fontWeight: 500 }}>{prefix} ·</span>}
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cur?.label ?? label}</span>
-        <Icon name="chevron-down" size={13} color={C.muted} style={{ marginLeft: "auto" }} />
+        <Icon name="chevron-down" size={13} color={cw.textMuted} style={{ marginLeft: "auto" }} />
       </button>
       {open && (
         <ul ref={list} role="listbox" id={id} tabIndex={-1} aria-activedescendant={`${id}-${idx}`} aria-label={ariaLabel ?? label} onKeyDown={onListKey}
-          style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, minWidth: Math.max(width ?? 0, 180), maxHeight: 320, overflowY: "auto", margin: 0, padding: 4, listStyle: "none", background: C.surface, border: `1px solid ${C.border}`, borderRadius: 11, boxShadow: SHADOW.menuPanel, zIndex: 50, outline: "none" }}>
+          style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, minWidth: Math.max(width ?? 0, 180), maxHeight: 320, overflowY: "auto", margin: 0, padding: 4, listStyle: "none", background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 11, boxShadow: SHADOW.menuPanel, zIndex: 50, outline: "none" }}>
           {options.map((o, i) => (
             <li key={o.value} id={`${id}-${i}`} role="option" aria-selected={o.value === value} data-active={i === idx} className="cw-opt" onMouseEnter={() => setIdx(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(i)}
-              style={{ padding: "7px 10px", borderRadius: 7, fontSize: 13, fontWeight: o.value === value ? 700 : 500, color: C.ink, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 14, display: "inline-flex" }}>{o.value === value && <Icon name="check" size={13} color={C.primary} />}</span>
-              <span style={{ flex: 1 }}>{o.label}</span>{o.hint && <span style={{ fontSize: 11.5, color: C.faint }}>{o.hint}</span>}
+              style={{ padding: "7px 10px", borderRadius: 7, fontSize: 13, fontWeight: o.value === value ? 700 : 500, color: cw.text, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 14, display: "inline-flex" }}>{o.value === value && <Icon name="check" size={13} color={cw.textLink} />}</span>
+              <span style={{ flex: 1 }}>{o.label}</span>{o.hint && <span style={{ fontSize: 11.5, color: cw.textMuted }}>{o.hint}</span>}
             </li>
           ))}
         </ul>
@@ -138,16 +139,16 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
   const i = Math.max(0, options.findIndex((o) => o.value === value));
   const move = (d: number) => { const n = (i + d + options.length) % options.length; onChange(options[n].value); refs.current[n]?.focus(); };
   return (
-    <div role="radiogroup" aria-label={label} style={{ display: "inline-flex", background: C.hover, borderRadius: 9, padding: 3, gap: 2 }}
+    <div role="radiogroup" aria-label={label} style={{ display: "inline-flex", background: cw.bgHover, borderRadius: 9, padding: 3, gap: 2 }}
       onKeyDown={(e) => { if (disabled) return; if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); move(1); } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); move(-1); } else if (e.key === "Home") { e.preventDefault(); onChange(options[0].value); refs.current[0]?.focus(); } else if (e.key === "End") { e.preventDefault(); onChange(options[options.length - 1].value); refs.current[options.length - 1]?.focus(); } }}>
       {options.map((o, k) => {
         const on = o.value === value; const col = colors?.[o.value];
         return (
           <button key={o.value} ref={(el) => { refs.current[k] = el; }} type="button" role="radio" aria-checked={on} tabIndex={on ? 0 : -1} disabled={disabled} className="ag-focus" onClick={() => onChange(o.value)}
             style={{ fontFamily: "inherit", fontSize: size === "sm" ? 12.5 : 13, fontWeight: on ? 700 : 600, padding: size === "sm" ? "5px 10px" : "6px 12px", borderRadius: 7, border: "none", cursor: disabled ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
-              background: on ? (col?.bg ?? C.surface) : "transparent", color: on ? (col?.fg ?? C.ink) : C.muted, boxShadow: on ? (col ? `inset 0 0 0 1.5px ${col.inset}` : SHADOW.composer) : "none" }}>
+              background: on ? (col?.bg ?? cw.bgSurface) : "transparent", color: on ? (col?.fg ?? cw.text) : cw.textMuted, boxShadow: on ? (col ? `inset 0 0 0 1.5px ${col.inset}` : SHADOW.composer) : "none" }}>
             {o.label}
-            {o.count != null && <span style={{ ...mono({ fontSize: 11, fontWeight: 700 }), color: o.countTone === "red" ? C.surface : C.muted, background: o.countTone === "red" ? C.dangerBadge : "transparent", borderRadius: 999, padding: o.countTone === "red" ? "0 6px" : 0 }}>{o.count}</span>}
+            {o.count != null && <span style={{ ...mono({ fontSize: 11, fontWeight: 700 }), color: o.countTone === "red" ? cw.textOnPrimary : cw.textMuted, background: o.countTone === "red" ? cw.dangerSolid : "transparent", borderRadius: 999, padding: o.countTone === "red" ? "0 6px" : 0 }}>{o.count}</span>}
           </button>
         );
       })}
@@ -159,8 +160,8 @@ export function Segmented<T extends string>({ options, value, onChange, label, c
 export function Checkbox({ checked, onChange, children, disabled }: { checked: boolean; onChange: (v: boolean) => void; children: ReactNode; disabled?: boolean }) {
   return (
     <span role="checkbox" aria-checked={checked} aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : 0} className="ag-focus" onClick={() => !disabled && onChange(!checked)} onKeyDown={(e) => { if (!disabled && (e.key === " " || e.key === "Enter")) { e.preventDefault(); onChange(!checked); } }}
-      style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: disabled ? "not-allowed" : "pointer", fontSize: 12.5, color: C.body, borderRadius: 6, userSelect: "none", opacity: disabled ? 0.6 : 1 }}>
-      <span aria-hidden style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? C.primary : C.disabledFill}`, background: checked ? C.primary : C.surface, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}>{checked && <Icon name="check" size={12} color={C.surface} />}</span>
+      style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: disabled ? "not-allowed" : "pointer", fontSize: 12.5, color: cw.textBody, borderRadius: 6, userSelect: "none", opacity: disabled ? 0.6 : 1 }}>
+      <span aria-hidden style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked ? cw.primary : cw.borderControl}`, background: checked ? cw.primary : cw.bgSurface, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}>{checked && <Icon name="check" size={12} color={cw.textOnPrimary} />}</span>
       {children}
     </span>
   );
@@ -173,13 +174,13 @@ export function TabList<T extends string>({ tabs, value, onChange, label, underl
   const go = (n: number) => { const k = (n + tabs.length) % tabs.length; onChange(tabs[k].value); refs.current[k]?.focus(); };
   return (
     <div role="tablist" aria-label={label} onKeyDown={(e) => { if (e.key === "ArrowRight") { e.preventDefault(); go(i + 1); } else if (e.key === "ArrowLeft") { e.preventDefault(); go(i - 1); } else if (e.key === "Home") { e.preventDefault(); go(0); } else if (e.key === "End") { e.preventDefault(); go(tabs.length - 1); } }}
-      style={underline ? { display: "flex", gap: 22 } : { display: "inline-flex", background: C.hover, borderRadius: 10, padding: 3, gap: 2 }}>
+      style={underline ? { display: "flex", gap: 22 } : { display: "inline-flex", background: cw.bgHover, borderRadius: 10, padding: 3, gap: 2 }}>
       {tabs.map((t, k) => { const on = t.value === value; return (
         <button key={t.value} ref={(el) => { refs.current[k] = el; }} type="button" role="tab" aria-selected={on} tabIndex={on ? 0 : -1} className="ag-focus" onClick={() => onChange(t.value)}
-          style={underline ? { fontFamily: "inherit", fontSize: 14.5, fontWeight: 700, color: on ? C.ink : C.muted, background: "none", border: "none", borderBottom: `2px solid ${on ? C.ink : "transparent"}`, padding: "6px 0 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7 }
-            : { fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: on ? C.surface : "transparent", color: on ? C.ink : C.muted, boxShadow: on ? SHADOW.composer : "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+          style={underline ? { fontFamily: "inherit", fontSize: 14.5, fontWeight: 700, color: on ? cw.text : cw.textMuted, background: "none", border: "none", borderBottom: `2px solid ${on ? cw.text : "transparent"}`, padding: "6px 0 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7 }
+            : { fontFamily: "inherit", fontSize: 13, fontWeight: 600, padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: on ? cw.bgSurface : "transparent", color: on ? cw.text : cw.textMuted, boxShadow: on ? SHADOW.composer : "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
           {t.label}
-          {t.count != null && (t.countTone === "red" && t.count > 0 ? <span style={{ ...mono({ fontSize: 11, fontWeight: 700 }), color: C.surface, background: C.dangerBadge, borderRadius: 999, padding: "0 6px" }}>{t.count}</span> : <span style={{ ...mono({ fontSize: 11.5, fontWeight: 600 }), color: C.faint }}>{t.count.toLocaleString("en-GB")}</span>)}
+          {t.count != null && (t.countTone === "red" && t.count > 0 ? <span style={{ ...mono({ fontSize: 11, fontWeight: 700 }), color: cw.textOnPrimary, background: cw.dangerSolid, borderRadius: 999, padding: "0 6px" }}>{t.count}</span> : <span style={{ ...mono({ fontSize: 11.5, fontWeight: 600 }), color: cw.textMuted }}>{t.count.toLocaleString("en-GB")}</span>)}
         </button>
       ); })}
     </div>
@@ -218,7 +219,7 @@ export function Dialog({ open, onClose, labelledBy, width = 560, children, accen
   return (
     <div className="cw-scrim" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }} style={{ position: "fixed", inset: 0, background: INTAKE.scrimDialog, zIndex: 100, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "10vh" }}>
       <div ref={box} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1} className="cw-fade"
-        style={{ width, maxWidth: "calc(100vw - 32px)", maxHeight: "80vh", overflowY: "auto", background: C.surface, borderRadius: 14, border: `1.5px solid ${accent === "primary" ? C.primary : C.borderControl}`, boxShadow: SHADOW.modalLight, outline: "none" }}>
+        style={{ width, maxWidth: "calc(100vw - 32px)", maxHeight: "80vh", overflowY: "auto", background: cw.bgSurface, borderRadius: 14, border: `1.5px solid ${accent === "primary" ? cw.primary : cw.borderControl}`, boxShadow: SHADOW.modalLight, outline: "none" }}>
         {children}
       </div>
     </div>
@@ -234,7 +235,7 @@ export function Drawer({ open, onClose, labelledBy, children, width = 600 }: { o
     <div role="presentation" style={{ position: "fixed", inset: 0, zIndex: 90 }}>
       <div className="cw-scrim" onMouseDown={onClose} style={{ position: "absolute", inset: 0, background: INTAKE.scrimDrawer }} />
       <aside ref={box} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1} className="cw-drawer"
-        style={{ position: "absolute", top: 0, right: 0, bottom: 0, width, maxWidth: "100vw", background: C.surface, boxShadow: INTAKE.drawerShadow, overflowY: "auto", outline: "none" }}>
+        style={{ position: "absolute", top: 0, right: 0, bottom: 0, width, maxWidth: "100vw", background: cw.bgSurface, boxShadow: INTAKE.drawerShadow, overflowY: "auto", outline: "none" }}>
         {children}
       </aside>
     </div>
@@ -264,17 +265,17 @@ export function TextInput({ value, onCommit, placeholder, monoText = true, suffi
   const [v, setV] = useState(value); useEffect(() => setV(value), [value]);
   const commit = useCallback(() => { if (v !== value) onCommit(v); }, [v, value, onCommit]);
   return (
-    <span className="cw-t-field cw-input" style={{ display: "inline-flex", alignItems: "stretch", height, width: width ?? "100%", borderRadius: 7, border: `${invalid || dashed ? 1.5 : 1}px ${dashed ? "dashed" : "solid"} ${borderColor ?? (invalid ? C.dangerBadge : C.borderControl)}`, background: background ?? (readOnly ? C.page : C.surface), overflow: "hidden", ...style }}>
+    <span className="cw-t-field cw-input" style={{ display: "inline-flex", alignItems: "stretch", height, width: width ?? "100%", borderRadius: 7, border: `${invalid || dashed ? 1.5 : 1}px ${dashed ? "dashed" : "solid"} ${borderColor ?? (invalid ? cw.danger : cw.borderControl)}`, background: background ?? (readOnly ? cw.bgPage : cw.bgSurface), overflow: "hidden", ...style }}>
       <input type="text" aria-label={ariaLabel} aria-invalid={invalid || undefined} value={v} readOnly={readOnly} placeholder={placeholder} spellCheck={false} autoComplete="off"
         onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } else if (e.key === "Escape") { setV(value); } onKeyDown?.(e); }}
-        style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", padding: "0 10px", fontFamily: monoText ? "var(--font-mono, 'IBM Plex Mono', monospace)" : "inherit", ...(monoText ? mono({ fontSize: 13.5, fontWeight: 600 }) : { fontSize: 13.5, fontWeight: 500 }), color: C.ink }} />
-      {suffix && <span aria-hidden style={{ display: "inline-flex", alignItems: "center", padding: "0 8px", fontSize: 11, fontWeight: 700, ...mono(), background: suffix.tone === "tz" ? TONE.red.ic : C.neutralTint, color: suffix.tone === "tz" ? C.surface : C.neutral }}>{suffix.text}</span>}
+        style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", padding: "0 10px", fontFamily: monoText ? "var(--font-mono, 'IBM Plex Mono', monospace)" : "inherit", ...(monoText ? mono({ fontSize: 13.5, fontWeight: 600 }) : { fontSize: 13.5, fontWeight: 500 }), color: cw.text }} />
+      {suffix && <span aria-hidden style={{ display: "inline-flex", alignItems: "center", padding: "0 8px", fontSize: 11, fontWeight: 700, ...mono(), background: suffix.tone === "tz" ? TONE.red.ic : cw.neutralTint, color: suffix.tone === "tz" ? cw.textOnPrimary : cw.neutralText }}>{suffix.text}</span>}
     </span>
   );
 }
 
 /** Link-styled button (no anchor unless it navigates). */
-export function LinkButton({ children, onClick, icon, color = C.primary, disabled }: { children: ReactNode; onClick: () => void; icon?: string; color?: string; disabled?: boolean }) {
+export function LinkButton({ children, onClick, icon, color = cw.textLink, disabled }: { children: ReactNode; onClick: () => void; icon?: string; color?: string; disabled?: boolean }) {
   return (
     <button type="button" className="ag-focus" disabled={disabled} onClick={onClick} style={{ background: "none", border: "none", padding: 0, fontFamily: "inherit", fontSize: 13, fontWeight: 600, color, cursor: disabled ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", gap: 5, opacity: disabled ? 0.5 : 1 }}>
       {icon && <Icon name={icon} size={14} color={color} />}{children}

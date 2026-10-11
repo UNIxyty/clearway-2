@@ -13,7 +13,7 @@ export function InlineText({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         p.startsWith("`") && p.endsWith("`") && p.length > 2 ? (
-          <span key={i} className="rounded-[4px] border border-cw-border bg-cw-sidebar px-[5px] py-px font-mono text-[0.92em]">
+          <span key={i} className="rounded-[4px] border border-cw-border bg-cw-bg-sidebar px-[5px] py-px font-mono text-[0.92em]">
             {p.slice(1, -1)}
           </span>
         ) : (
@@ -32,7 +32,7 @@ export function AttachmentView({ att }: { att: AttachmentMeta }) {
     return (
       <a href={href} target="_blank" rel="noreferrer" className="block w-[150px] overflow-hidden rounded-[9px] border border-cw-border">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={href} alt={att.name} className="h-[74px] w-full bg-[#eceef1] object-cover" loading="lazy" />
+        <img src={href} alt={att.name} className="h-[74px] w-full bg-cw-bg-hover object-cover" loading="lazy" />
       </a>
     );
   }
@@ -41,11 +41,11 @@ export function AttachmentView({ att }: { att: AttachmentMeta }) {
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex h-9 items-center gap-2 self-start rounded-[9px] border border-cw-border bg-cw-page px-3 no-underline"
+      className="inline-flex h-9 items-center gap-2 self-start rounded-[9px] border border-cw-border bg-cw-bg-page px-3 no-underline"
     >
-      <span className="font-mono text-[9.5px] font-bold text-cw-muted">{att.mime.split("/")[1]?.toUpperCase().slice(0, 4) || "FILE"}</span>
-      <span className="text-[12.5px] text-cw-body">{att.name}</span>
-      <span className="font-mono text-[11px] text-cw-faint">{kb(att.size)}</span>
+      <span className="font-mono text-[9.5px] font-bold text-cw-text-muted">{att.mime.split("/")[1]?.toUpperCase().slice(0, 4) || "FILE"}</span>
+      <span className="text-[12.5px] text-cw-text-body">{att.name}</span>
+      <span className="font-mono text-[11px] text-cw-text-muted">{kb(att.size)}</span>
     </a>
   );
 }
@@ -78,28 +78,28 @@ export default function BlockRenderer({
     flushAtts(`atts-${i}`);
     switch (b.type) {
       case "heading":
-        out.push(<div key={i} className="text-[14.5px] font-bold text-cw-ink">{b.text}</div>);
+        out.push(<div key={i} className="text-[14.5px] font-bold text-cw-text">{b.text}</div>);
         break;
       case "subheading":
-        out.push(<div key={i} className="text-[13.5px] font-bold text-cw-body">{b.text}</div>);
+        out.push(<div key={i} className="text-[13.5px] font-bold text-cw-text-body">{b.text}</div>);
         break;
       case "paragraph":
         out.push(
-          <div key={i} className="text-[14px] leading-[1.6] text-cw-ink">
+          <div key={i} className="text-[14px] leading-[1.6] text-cw-text">
             <InlineText text={b.text} />
           </div>,
         );
         break;
       case "quote":
         out.push(
-          <div key={i} className="border-l-2 border-cw-border pl-3 text-[14px] italic leading-[1.6] text-cw-body">
+          <div key={i} className="border-l-2 border-cw-border pl-3 text-[14px] italic leading-[1.6] text-cw-text-body">
             <InlineText text={b.text} />
           </div>,
         );
         break;
       case "code":
         out.push(
-          <div key={i} className="whitespace-pre overflow-x-auto rounded-[9px] border border-cw-border bg-cw-page px-[13px] py-[11px] font-mono text-[12px] leading-[1.7] text-cw-ink">
+          <div key={i} className="whitespace-pre overflow-x-auto rounded-[9px] border border-cw-border bg-cw-bg-page px-[13px] py-[11px] font-mono text-[12px] leading-[1.7] text-cw-text">
             {b.text}
           </div>,
         );
@@ -110,8 +110,8 @@ export default function BlockRenderer({
           <div key={i} className="flex flex-col gap-[5px]">
             {b.items.map((it, j) => (
               <div key={j} className="flex items-start gap-2.5">
-                <span className="text-[14px] leading-[1.6] text-cw-faint">{b.type === "bullet" ? "•" : `${j + 1}.`}</span>
-                <span className="text-[14px] leading-[1.6] text-cw-ink"><InlineText text={it} /></span>
+                <span className="text-[14px] leading-[1.6] text-cw-text-muted">{b.type === "bullet" ? "•" : `${j + 1}.`}</span>
+                <span className="text-[14px] leading-[1.6] text-cw-text"><InlineText text={it} /></span>
               </div>
             ))}
           </div>,
@@ -124,18 +124,18 @@ export default function BlockRenderer({
               <div key={j} className="flex items-start gap-2.5">
                 <span
                   className="mt-[3px] flex h-[15px] w-[15px] flex-none items-center justify-center rounded-[4px] border text-[10px] font-bold"
-                  style={it.checked ? { background: "#2563eb", borderColor: "#2563eb", color: "#fff" } : { borderColor: "#c3c7ce", color: "transparent" }}
+                  style={it.checked ? { background: "var(--cw-primary)", borderColor: "var(--cw-primary)", color: "var(--cw-text-on-primary)" } : { borderColor: "var(--cw-border-strong)", color: "transparent" }}
                 >
                   ✓
                 </span>
-                <span className="text-[14px] leading-[1.6] text-cw-ink"><InlineText text={it.text} /></span>
+                <span className="text-[14px] leading-[1.6] text-cw-text"><InlineText text={it.text} /></span>
               </div>
             ))}
           </div>,
         );
         break;
       case "divider":
-        out.push(<div key={i} className="my-1 h-px bg-cw-borderInner" />);
+        out.push(<div key={i} className="my-1 h-px bg-cw-bg-hover" />);
         break;
       case "image": {
         // Inline, in its position in the flow — never detached into a list.
@@ -144,9 +144,9 @@ export default function BlockRenderer({
           <figure key={i} className="m-0 flex flex-col gap-1">
             <a href={href} target="_blank" rel="noreferrer" className="inline-block max-w-[440px] self-start overflow-hidden rounded-[11px] border border-cw-border">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={href} alt={b.caption || "image"} className="block max-h-[320px] max-w-full bg-[#eceef1] object-contain" loading="lazy" />
+              <img src={href} alt={b.caption || "image"} className="block max-h-[320px] max-w-full bg-cw-bg-hover object-contain" loading="lazy" />
             </a>
-            {b.caption && <figcaption className="text-[12.5px] italic text-cw-muted">{b.caption}</figcaption>}
+            {b.caption && <figcaption className="text-[12.5px] italic text-cw-text-muted">{b.caption}</figcaption>}
           </figure>,
         );
         break;

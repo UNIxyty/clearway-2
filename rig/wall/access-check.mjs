@@ -69,6 +69,10 @@ const USER_OK = [
 
 const user = await account("rig-access-user@rig.invalid", false);
 const admin = await account("rig-access-admin@rig.invalid", true);
+// The wall caches the permission grants and picks up a change within 10 s. A suite that ran just before (the
+// permissions grid grants and takes back "Delete an aircraft" for User) may still be in that cache: wait until the
+// wall answers with the defaults the database holds, so this check starts from a settled state.
+for (let i = 0; i < 30; i += 1) { if ((await call(user, "GET", "/api/auth/me")).body?.user?.can?.["wall.aircraft.delete"] === false) break; await new Promise((r) => setTimeout(r, 500)); }
 
 const me = await call(user, "GET", "/api/user");
 const meA = await call(admin, "GET", "/api/user");

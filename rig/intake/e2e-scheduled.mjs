@@ -9,6 +9,9 @@ import { createHmac, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import path from "node:path";
 if (!/127\.0\.0\.1|localhost/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")) { console.error("rig only"); process.exit(78); }
+// The sign-in rig's agent (:5176) shares this database and runs the look-up ticker with no CNAIR portal: it would take
+// the retries this test waits for and record them as "switched off". It must be stopped (rig/signin-agent.sh stop).
+try { if (execSync("lsof -tiTCP:5176 -sTCP:LISTEN || true").toString().trim()) { console.error("refusing: the sign-in rig's agent on :5176 is running and would take this test's portal retries. Run rig/signin-agent.sh stop first (and rig/signin-agent.sh to start it again)."); process.exit(2); } } catch { /* lsof missing: carry on */ }
 const AGENT = process.env.RIG_AGENT_URL || "http://127.0.0.1:5175"; const SCR = path.resolve("rig/.scratch/scheduled"); mkdirSync(SCR, { recursive: true });
 const MOCKLOG = path.resolve("rig/.scratch/cnair-mock-log.jsonl");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -41,6 +44,10 @@ const tokenOf = (url) => new URL(url).searchParams.get("t");
 // ── reset ────────────────────────────────────────────────────────────────────────────────────────────────────
 execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events cascade;"`, { stdio: "ignore" });
 rmSync(MOCKLOG, { force: true }); rmSync(MOCKLOG + ".break", { force: true }); rmSync(MOCKLOG + ".hide", { force: true });
+// A fresh mock Leon, as the other e2e suites start with: flights this suite created on an earlier run would otherwise
+// be "possible duplicates" of this run's (it passed only when it ran straight after rig/intake/e2e.mjs).
+execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${path.resolve("rig/.scratch")}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
+await sleep(1500);
 ok((await api("/api/health")).json?.ok, "agent up");
 ok((await fetch("http://127.0.0.1:3994/").then((r) => r.status).catch(() => 0)) > 0, "mock CNAIR portal up on :3994");
 

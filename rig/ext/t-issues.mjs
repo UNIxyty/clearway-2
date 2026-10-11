@@ -9,3 +9,4 @@ await cdp.send("Audits.enable"); await sleep(3000);
 await panel.getByRole("button", { name: "Talk", exact: false }).first().click().catch(() => {}); await sleep(1500);
 console.log(issues.length ? issues.join("\n") : "no issues");
 await context.close();
+process.exit(issues.length ? 1 : 0);   // any DevTools issue is a finding (rig/README.md, Verification rule)

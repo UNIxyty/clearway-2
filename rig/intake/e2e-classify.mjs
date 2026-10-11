@@ -9,6 +9,9 @@ import { createHmac, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 if (!/127\.0\.0\.1|localhost/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")) { console.error("rig only"); process.exit(78); }
+// The sign-in rig's agent (:5176) shares this database and runs the look-up ticker with no CNAIR portal: it would take
+// the retries this test waits for and record them as "switched off". It must be stopped (rig/signin-agent.sh stop).
+try { if (execSync("lsof -tiTCP:5176 -sTCP:LISTEN || true").toString().trim()) { console.error("refusing: the sign-in rig's agent on :5176 is running and would take this test's portal retries. Run rig/signin-agent.sh stop first (and rig/signin-agent.sh to start it again)."); process.exit(2); } } catch { /* lsof missing: carry on */ }
 const AGENT = process.env.RIG_AGENT_URL || "http://127.0.0.1:5175"; const SCR = path.resolve("rig/.scratch/classify"); mkdirSync(SCR, { recursive: true });
 const FX = "rig/fixtures/cnair/"; const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0; const ok = (c, what, detail = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${detail ? `  · ${String(detail).slice(0, 230)}` : ""}`); if (!c) failures += 1; };

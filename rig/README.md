@@ -68,6 +68,13 @@ After any change to the extension or the agent UI, `rig/ext/t-console.mjs` (side
 consoles; exits 1 on any error, warning, CSP violation or failed request) and `rig/ext/t-issues.mjs` (DevTools
 Issues) must both be clean. Any message is a finding.
 
+## All suites
+
+`rig/run-all-suites.sh` runs every suite in an order where each finds or makes its data (summary in
+`rig/.scratch/suites/summary.log`). `docs/rig-suites.md` holds the state of each: no suite stays red — it passes,
+or its failure is written there as a known bug with a date and a reason. Update it whenever a suite is touched.
+The sign-in-on agent (:5176) is started and stopped with `rig/signin-agent.sh`.
+
 ## Passenger manifest
 
 `rig/manifest/start.sh` (after `rig/start.sh`) restarts the agent against a per-operator mock Leon (:3993, fake

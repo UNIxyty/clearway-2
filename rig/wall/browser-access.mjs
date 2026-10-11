@@ -34,7 +34,7 @@ await user.goto(`${BASE}/console/settings`, { waitUntil: "load" });
 await user.waitForTimeout(2500);
 await user.getByText("Main wall (ops room)").click();
 await user.waitForTimeout(2500);
-ok(await user.getByText(/The big screen's settings are an admin's to change/).count() === 1, "Settings → Main wall (ordinary user): locked, with the reason");
+ok(await user.getByText(/You don't have permission to change the big screen's settings/).count() === 1, "Settings → Main wall (ordinary user): locked, with the reason");
 ok(await user.locator("fieldset[disabled] input").count() > 0, "…its sliders and inputs are disabled");
 await user.screenshot({ path: `${OUT}/access-settings-bigscreen-user.png` });
 await user.getByText("rig-access-user@rig.invalid", { exact: true }).click();
@@ -42,7 +42,9 @@ await user.waitForTimeout(2500);
 ok(await user.locator("fieldset[disabled]").count() === 0, "Settings → My view (ordinary user): editable");
 await user.getByRole("button", { name: "Wall content" }).click();
 await user.waitForTimeout(600);
-ok(await user.getByText("These settings apply to every wall; only an admin can change them.").count() === 1, "Settings → Wall content (ordinary user): locked, with the reason");
+// Since d35554e (2026-10-10) every locked group carries its own note, so the reason sits beside each one.
+{ const notes = await user.getByText("This applies to every wall, and you don't have permission to change it.").count(), locked = await user.locator("fieldset[disabled]").count();
+  ok(notes >= 1 && notes === locked, "Settings → Wall content (ordinary user): locked, with the reason beside every locked group", `${notes} notes, ${locked} locked groups`); }
 await user.screenshot({ path: `${OUT}/access-settings-wall-user.png` });
 
 const admin = await as("rig-access-admin@rig.invalid");

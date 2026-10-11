@@ -19,6 +19,9 @@ await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-tok
 const page = await ctx.newPage();
 await page.goto(`${BASE}/dashboard`, { waitUntil: "load" });
 await page.waitForSelector("[data-cw-sidebar]"); await sleep(2500);
+// The role-gated groups and the account line are skeletons until the account is known (Shell §4.1): wait for that,
+// not a fixed time — on a busy machine 2.5 s was not always enough, and the check then read a half-drawn nav.
+await page.waitForFunction(() => !document.querySelector("[data-cw-sidebar] .bg-cw-skeleton"), null, { timeout: 30000 }).catch(() => {});
 
 // Tag the sidebar and two nav rows, and watch every animation frame for the sidebar ever being absent.
 await page.evaluate(() => {

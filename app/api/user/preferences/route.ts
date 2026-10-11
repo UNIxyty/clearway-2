@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
+import { sanitizeLayout } from "@/lib/dashboard-layout";
 
 const PREF_SELECT =
   "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, captcha_consent_dismissed, is_admin, created_at, updated_at";
@@ -10,7 +11,12 @@ const PREF_POST_SELECT =
   "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, captcha_consent_dismissed, updated_at";
 
 const THEMES = ["system", "light", "dark"];
-const missingThemeColumn = (e: { message?: string; code?: string }) => /theme/.test(e.message ?? "") && (e.code === "42703" || e.code === "PGRST204" || /does not exist|schema cache/.test(e.message ?? ""));
+// Columns added by the portal redesign. Until their SQL has run (docs/supabase-portal-theme.sql,
+// docs/supabase-portal-dashboard.sql) a read or write leaves them out instead of failing the rest.
+const OPTIONAL = ["theme", "dashboard_layout"] as const;
+type Optional = (typeof OPTIONAL)[number];
+const missingColumn = (e: { message?: string; code?: string }, col: string) => (e.message ?? "").includes(col) && (e.code === "42703" || e.code === "PGRST204" || /does not exist|schema cache/.test(e.message ?? ""));
+const missingOptional = (e: { message?: string; code?: string } | null, cols: readonly Optional[]) => (e ? cols.find((c) => missingColumn(e, c)) ?? null : null);
 
 export async function GET() {
   try {
@@ -47,14 +53,11 @@ export async function GET() {
 
     const admin = createSupabaseServiceRoleClient();
     const db = admin ?? supabase;
-    let { data, error } = await db
-      .from("user_preferences")
-      .select(`${PREF_SELECT}, theme`)
-      .eq("user_id", userId!)
-      .maybeSingle();
-    // Before docs/supabase-portal-theme.sql has run there is no theme column: read the rest as before.
-    if (error && missingThemeColumn(error)) {
-      ({ data, error } = await db.from("user_preferences").select(PREF_SELECT).eq("user_id", userId!).maybeSingle());
+    let cols: Optional[] = [...OPTIONAL];
+    let { data, error } = await db.from("user_preferences").select([PREF_SELECT, ...cols].join(", ")).eq("user_id", userId!).maybeSingle();
+    for (let miss = missingOptional(error, cols); miss; miss = missingOptional(error, cols)) {
+      cols = cols.filter((c) => c !== miss);
+      ({ data, error } = await db.from("user_preferences").select([PREF_SELECT, ...cols].join(", ")).eq("user_id", userId!).maybeSingle());
     }
 
     if (error && error.code !== "PGRST116") {
@@ -109,6 +112,7 @@ export async function POST(request: Request) {
       notify_gen?: boolean;
       captcha_consent_dismissed?: boolean;
       theme?: string;
+      dashboard_layout?: unknown;
     };
 
     const admin = createSupabaseServiceRoleClient();
@@ -133,26 +137,37 @@ export async function POST(request: Request) {
       updates.theme = body.theme;
     }
 
+    // The dashboard's blocks and their sizes (lib/dashboard-layout); null goes back to the default layout.
+    if (body.dashboard_layout !== undefined) {
+      const layout = body.dashboard_layout === null ? null : sanitizeLayout(body.dashboard_layout);
+      if (body.dashboard_layout !== null && !layout) return NextResponse.json({ error: "dashboard_layout must be a list of known blocks, each sized S, M or L" }, { status: 400 });
+      updates.dashboard_layout = layout;
+    }
+
     const db = admin ?? supabase;
-    let { data, error } = await db
-      .from("user_preferences")
-      .upsert(updates, { onConflict: "user_id" })
-      .select(updates.theme !== undefined ? `${PREF_POST_SELECT}, theme` : PREF_POST_SELECT)
-      .single();
-    // No theme column yet (docs/supabase-portal-theme.sql not run): the choice still holds on this device
-    // (localStorage); say it was not saved to the account rather than failing the other fields.
-    let themeSaved = updates.theme !== undefined;
-    if (error && missingThemeColumn(error)) {
-      delete updates.theme;
-      themeSaved = false;
-      ({ data, error } = await db.from("user_preferences").upsert(updates, { onConflict: "user_id" }).select(PREF_POST_SELECT).single());
+    let cols = OPTIONAL.filter((c) => updates[c] !== undefined);
+    const write = () => db.from("user_preferences").upsert(updates, { onConflict: "user_id" }).select([PREF_POST_SELECT, ...cols].join(", ")).single();
+    let { data, error } = await write();
+    // A column whose SQL has not run yet: the choice still holds on this device (localStorage); say it was not saved
+    // to the account rather than failing the other fields.
+    const unsaved = new Set<Optional>();
+    for (let miss = missingOptional(error, cols); miss; miss = missingOptional(error, cols)) {
+      delete updates[miss];
+      unsaved.add(miss);
+      cols = cols.filter((c) => c !== miss);
+      ({ data, error } = await write());
     }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, preferences: data, ...(body.theme !== undefined ? { themeSaved } : {}) });
+    return NextResponse.json({
+      ok: true,
+      preferences: data,
+      ...(body.theme !== undefined ? { themeSaved: !unsaved.has("theme") } : {}),
+      ...(body.dashboard_layout !== undefined ? { dashboardSaved: !unsaved.has("dashboard_layout") } : {}),
+    });
   } catch (e: unknown) {
     return NextResponse.json(
       { error: (e as { message?: string })?.message || "Failed" },

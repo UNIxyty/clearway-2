@@ -228,3 +228,9 @@ body {
 @media (min-width: 900px) { .cw-narrow-only { display: none !important; } }
 /* Skeleton shimmer (§1.5: 1400ms linear). */
 .cw-shimmer { background: linear-gradient(90deg, var(--cw-skeleton) 0, var(--cw-skeleton-shine) 50%, var(--cw-skeleton) 100%); background-size: 640px 100%; animation: cw-shimmer 1400ms linear infinite; }
+/* Dashboard (stage 3): a 12-column grid; each block spans --span columns (S 4, M 6, L 8). Below 900px every block is
+   full width; between 900 and 1199 an S block takes half the row so it is not squeezed. */
+.cw-dash-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.cw-dash-block { grid-column: span var(--span, 12) / span var(--span, 12); min-width: 0; }
+@media (max-width: 1199px) { .cw-dash-block { grid-column: span var(--span-md, 12) / span var(--span-md, 12); } }
+@media (max-width: 899px) { .cw-dash-block { grid-column: 1 / -1; } }

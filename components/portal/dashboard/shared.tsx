@@ -1,12 +1,9 @@
 "use client";
 
-// Shared plumbing for the dashboard regions (platform redesign Phase 3):
-// a defensive polling hook (the service-checker / metrics endpoints may not
-// be deployed yet — a 404 means "offline", never a crash), relative-time
-// formatting, and the common card/header framing from the platform design.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import MaskIcon from "@/components/portal/Icon";
-import { PCard } from "@/components/portal/ui";
+// Shared plumbing for the dashboard blocks: a defensive polling hook (the service-checker / metrics endpoints may not
+// be deployed yet — a 404 means "offline", never a crash) and time / size formatting.
+import { useCallback, useEffect, useRef, useState } from "react";
+import { errorDetail } from "@/components/kit";
 
 export type PollState<T> = {
   data: T | null;
@@ -35,7 +32,11 @@ export function usePoll<T>(url: string, intervalMs: number): PollState<T> {
         setLoading(false);
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        setError(errorDetail(res.status, "GET", url.split("?")[0]));
+        setLoading(false);
+        return;
+      }
       const json = (await res.json()) as T;
       if (urlRef.current !== requested) return;
       setData(json);
@@ -44,7 +45,7 @@ export function usePoll<T>(url: string, intervalMs: number): PollState<T> {
       setLoading(false);
     } catch (e) {
       if (urlRef.current !== requested) return;
-      setError(e instanceof Error ? e.message : "Request failed");
+      setError(errorDetail(e instanceof Error && e.name === "SyntaxError" ? "bad JSON" : "network", "GET", url.split("?")[0]));
       setLoading(false);
     }
   }, [url]);
@@ -74,13 +75,6 @@ export function timeAgo(isoString: string): string {
   return new Date(t).toLocaleDateString();
 }
 
-export function clockTime(isoString: string | null | undefined): string {
-  if (!isoString) return "—";
-  const dt = new Date(isoString);
-  if (Number.isNaN(dt.getTime())) return "—";
-  return dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 GB";
   const gb = bytes / 1024 ** 3;
@@ -88,65 +82,4 @@ export function formatBytes(bytes: number): string {
   if (gb >= 10) return `${Math.round(gb)} GB`;
   if (gb >= 1) return `${gb.toFixed(1)} GB`;
   return `${Math.round(bytes / 1024 ** 2)} MB`;
-}
-
-export function RegionCard({
-  icon,
-  title,
-  subtitle,
-  headerRight,
-  children,
-}: {
-  icon: string;
-  title: string;
-  subtitle?: string;
-  headerRight?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <PCard className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-cw-divider px-5 pb-[13px] pt-[15px]">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <MaskIcon name={icon} size={16} color="var(--cw-text-muted)" />
-          <span className="text-[15px] font-bold text-cw-text">{title}</span>
-          {subtitle && <span className="hidden text-[12.5px] text-cw-text-muted sm:inline">{subtitle}</span>}
-        </div>
-        {headerRight && <div className="flex flex-none items-center gap-2">{headerRight}</div>}
-      </div>
-      {children}
-    </PCard>
-  );
-}
-
-export function RegionNote({
-  icon,
-  iconColor = "var(--cw-text-muted)",
-  title,
-  body,
-  action,
-}: {
-  icon: string;
-  iconColor?: string;
-  title: string;
-  body?: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-[9px] px-5 py-9 text-center">
-      <MaskIcon name={icon} size={22} color={iconColor} />
-      <div className="text-[14.5px] font-bold text-cw-text">{title}</div>
-      {body && <div className="max-w-[430px] text-[13.5px] leading-normal text-cw-text-muted">{body}</div>}
-      {action}
-    </div>
-  );
-}
-
-export function LoadingRows({ count = 3, height = 44 }: { count?: number; height?: number }) {
-  return (
-    <div className="flex flex-col gap-2 p-5">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="animate-pulse rounded-[10px] bg-cw-bg-hover" style={{ height }} />
-      ))}
-    </div>
-  );
 }

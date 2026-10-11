@@ -1,23 +1,22 @@
 "use client";
 
-// The airport view (audit §5.2): the entire per-airport experience — detail
-// header + actions (Download PDF / GEN PDF / Web AIP / Report a problem),
-// the document card + PDF viewer, the right-rail map/NOTAM/weather cards,
-// the Web AIP & bug modals, the GEN popover and every fetch/cache/SSE flow —
-// extracted VERBATIM from the old app/page.tsx monolith. State that used to
-// key off the in-page `viewingAirport` selection now keys off the `icao`
-// prop, which comes from the /aip/<ICAO> URL. Everything renders on ONE
-// page: document card + GEN section in the main column, map/NOTAM/weather
-// cards in the right rail (the sub-tabs were removed; no capability was).
+// The airport view (audit §5.2; portal redesign, stage 3 — "Page Airport"): the entire per-airport experience on one
+// page — the header (the airport, its location, Download PDF / Re-sync / Web AIP / ask the agent / ⋯ for GEN and
+// "Report a problem"), the document viewer with AD 2 and GEN tabs (components/portal/airport/DocViewer), NOTAMs
+// coloured by the wall's categories and weather in the right column (components/portal/airport/AirportSide), the
+// Web AIP and bug modals, and every fetch/cache/SSE flow, extracted verbatim from the old app/page.tsx. State keys
+// off the `icao` prop, which comes from the /aip/<ICAO> URL. NOTAMs, weather and the document each load and fail on
+// their own, so one source being down leaves the rest of the page usable.
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import dynamic from "next/dynamic";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Spinner } from "@/components/ui/spinner";
-import { ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, FileWarningIcon, RefreshCwIcon, XIcon, GlobeIcon, Download, MapPinIcon, CloudSunIcon, ScrollTextIcon } from "lucide-react";
-import GenPopover from "@/components/portal/GenPopover";
+import { useSearchParams } from "next/navigation";
+import { ChevronDownIcon, ChevronUpIcon, GlobeIcon } from "lucide-react";
 import AskAboutButton from "@/components/agent/ui/AskAboutButton";
-import { PButton, PCard, PMono, PSectionTitle } from "@/components/portal/ui";
+import MaskIcon from "@/components/portal/Icon";
+import { Badge, Button, Callout, Card, ErrorState, IconButton, Menu, Modal, Skeleton, Spinner as KitSpinner, type MenuItem } from "@/components/kit";
+import DocViewer, { type DocTab } from "@/components/portal/airport/DocViewer";
+import { NotamsCard, WeatherCard } from "@/components/portal/airport/AirportSide";
+import { PMono, PSectionTitle } from "@/components/portal/ui";
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { formatTimesInAipText } from "@/lib/format-aip-time";
 import { useBackgroundSearch } from "@/lib/search-context";
@@ -50,10 +49,6 @@ type WeatherItem = {
   updatedAt?: string | null;
 };
 
-const AirportMap = dynamic(() => import("@/components/AirportMap"), {
-  ssr: false,
-  loading: () => <div className="bg-cw-bg-hover/30 rounded-lg flex items-center justify-center min-h-[240px] text-sm text-cw-text-muted">Loading map…</div>,
-});
 
 export type RecentEntry = { icao: string; name: string; country: string; ts: number };
 export const RECENTS_STORAGE_KEY = "portal-recents";
@@ -594,7 +589,6 @@ function emptyAirportForIcao(icao: string): AIPAirport {
 
 export default function AirportView({ icao }: { icao: string }) {
   const { bgList, updateStage, finishBackground } = useBackgroundSearch();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [airport, setAirport] = useState<AIPAirport | null>(null);
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
@@ -626,6 +620,8 @@ export default function AirportView({ icao }: { icao: string }) {
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [genPdfDownloadError, setGenPdfDownloadError] = useState<string | null>(null);
+  // The GEN 1.2 PDF opened in the viewer's GEN tab, per airport (a blob URL, revoked when replaced).
+  const [genView, setGenView] = useState<Record<string, { url: string; filename: string }>>({});
   const [genPdfDownloading, setGenPdfDownloading] = useState(false);
   const [genPdfExistsOnServer, setGenPdfExistsOnServer] = useState<Record<string, boolean>>({});
   type GenPart = { raw: string; rewritten: string };
@@ -634,7 +630,6 @@ export default function AirportView({ icao }: { icao: string }) {
   const [genLoadingPrefix, setGenLoadingPrefix] = useState<string | null>(null);
   const [genSyncingPrefix, setGenSyncingPrefix] = useState<string | null>(null);
   const [genSyncSteps, setGenSyncSteps] = useState<string[]>([]);
-  const [showGenSyncOverlay, setShowGenSyncOverlay] = useState(false);
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
   const [webAipConsent, setWebAipConsent] = useState<{ url: string; label: string } | null>(null);
@@ -777,7 +772,6 @@ export default function AirportView({ icao }: { icao: string }) {
   // are async, so a fast second click could start a second run without this.
   const resyncInFlightRef = useRef<Set<string>>(new Set());
   const requestControllersRef = useRef<Map<string, AbortController>>(new Map());
-  const genPopoverAnchorRef = useRef<HTMLDivElement | null>(null);
 
   const beginRequest = useCallback((key: string) => {
     const prev = requestControllersRef.current.get(key);
@@ -811,7 +805,6 @@ export default function AirportView({ icao }: { icao: string }) {
   useEffect(() => {
     setPdfDownloadError(null);
     setGenPdfDownloadError(null);
-    setShowGenSyncOverlay(false);
     setGenSyncSteps([]);
   }, [viewingAirport?.icao]);
 
@@ -1131,9 +1124,26 @@ export default function AirportView({ icao }: { icao: string }) {
     closeCaptchaConsentDialog();
   }, [closeCaptchaConsentDialog]);
 
-  const downloadGenPdfWithSync = useCallback(async (icao: string, forceAsecna = false, forceScraper = false) => {
+  // deliver "download" saves the file (the GEN 1.2 PDF item in the ⋯ menu); "view" hands it to the GEN tab of the
+  // document viewer as a blob URL. Same sync and source in both cases.
+  const downloadGenPdfWithSync = useCallback(async (icao: string, forceAsecna = false, forceScraper = false, deliver: "download" | "view" = "download") => {
     const allow = await requestConsentForIcao(icao);
     if (!allow) return;
+    const hand = (blob: Blob, filename: string) => {
+      const url = URL.createObjectURL(blob);
+      if (deliver === "view") {
+        setGenView((prev) => {
+          if (prev[icao]) URL.revokeObjectURL(prev[icao].url);
+          return { ...prev, [icao]: { url, filename } };
+        });
+        return;
+      }
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
 
     if (isUsaAipIcao(icao)) {
       setGenPdfDownloadError(null);
@@ -1148,14 +1158,8 @@ export default function AirportView({ icao }: { icao: string }) {
           const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
           throw new Error(data.detail || data.error || "Failed to load USA GEN PDF");
         }
-        const blob = await pdfRes.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${icao}_USA_GEN_1.2.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setGenSyncSteps((prev) => [...prev, "Download ready."]);
+        hand(await pdfRes.blob(), `${icao}_USA_GEN_1.2.pdf`);
+        setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Ready." : "Download ready."]);
       } catch (err) {
         setGenPdfDownloadError(
           err instanceof Error ? err.message : "USA GEN PDF download failed",
@@ -1180,14 +1184,8 @@ export default function AirportView({ icao }: { icao: string }) {
           const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
           throw new Error(data.detail || data.error || "Failed to load scraper GEN PDF");
         }
-        const blob = await pdfRes.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${icao}_SCRAPER_GEN_1.2.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setGenSyncSteps((prev) => [...prev, "Download ready."]);
+        hand(await pdfRes.blob(), `${icao}_SCRAPER_GEN_1.2.pdf`);
+        setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Ready." : "Download ready."]);
       } catch (err) {
         setGenPdfDownloadError(
           err instanceof Error ? err.message : "Scraper GEN PDF download failed",
@@ -1213,14 +1211,8 @@ export default function AirportView({ icao }: { icao: string }) {
           const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
           throw new Error(data.detail || data.error || "Failed to load ASECNA GEN PDF");
         }
-        const blob = await pdfRes.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${icao}_ASECNA_GEN_1.2.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setGenSyncSteps((prev) => [...prev, "Download ready."]);
+        hand(await pdfRes.blob(), `${icao}_ASECNA_GEN_1.2.pdf`);
+        setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Ready." : "Download ready."]);
       } catch (err) {
         setGenPdfDownloadError(
           err instanceof Error ? err.message : "ASECNA GEN PDF download failed",
@@ -1280,20 +1272,14 @@ export default function AirportView({ icao }: { icao: string }) {
         }
       }
 
-      setGenSyncSteps((prev) => [...prev, "Preparing GEN PDF download…"]);
+      setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Opening the GEN PDF…" : "Preparing GEN PDF download…"]);
       const pdfRes = await fetch(`/api/aip/gen/pdf?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
       if (!pdfRes.ok) {
         const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
         throw new Error(data.detail || data.error || "Failed to load GEN PDF");
       }
-      const blob = await pdfRes.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${prefix}_GEN_1.2.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setGenSyncSteps((prev) => [...prev, "Download ready."]);
+      hand(await pdfRes.blob(), `${prefix}_GEN_1.2.pdf`);
+      setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Ready." : "Download ready."]);
     } catch (err) {
       setGenPdfDownloadError(err instanceof Error ? err.message : "GEN PDF download failed");
     } finally {
@@ -1875,985 +1861,293 @@ export default function AirportView({ icao }: { icao: string }) {
     }
   }, [bgList, notamsLoadingIcao, aipEadLoadingIcao, genLoadingPrefix, finishBackground]);
 
-  const showMap = !!viewingAirport;
+  // ── Render (portal redesign, stage 3 — "Page Airport", §3.9) ─────────────────────────────────────────────────────
+  // Header: the airport on one line, where it is on the next, the actions on the right. Below, the document viewer
+  // (AD 2 and GEN tabs) beside NOTAMs and weather; each of those loads and fails on its own.
+  const [docTab, setDocTab] = useState<"ad2" | "gen">("ad2");
+  useEffect(() => setDocTab("ad2"), [viewingAirport?.icao]);
+
+  const pdfRouteFor = (icao: string, a: AIPAirport | null) =>
+    isAsecnaIcao(icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(icao, a) ? "/api/aip/scraper/pdf" : isUsaAipIcao(icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf";
+  const sourceTag = (icao: string, a: AIPAirport | null) =>
+    isAsecnaIcao(icao) ? "ASECNA" : isUsaAipIcao(icao) ? "FAA" : isBahrainScraperIcao(icao, a) ? "Web AIP" : isRussiaIcao(icao) ? "CAICA" : "EAD";
+  const genApplicable = (a: AIPAirport) =>
+    (isEadIcao(a.icao) || isRussiaIcao(a.icao) || isAsecnaIcao(a.icao) || isBahrainScraperIcao(a.icao, a) || isUsaAipIcao(a.icao)) &&
+    !isJapanScraperIcao(a.icao) && !(isAsecnaAirport(a) && !hasAsecnaGen12(a.icao));
+  const webAipFor = (a: AIPAirport) =>
+    a.webAipUrl || getAsecnaAirportByIcao(a.icao)?.webAipUrl || getScraperWebAipUrlByCountryOrIcao(a.country, a.icao) || getEadWebAipUrlForAirport(a) || (isUsaAipIcao(a.icao) ? USA_WEB_AIP_URL : null);
+  const utc = (d: Date) => `${String(d.getUTCDate()).padStart(2, "0")} ${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}Z`;
+
+  // The GEN tab opens a GEN 1.2 PDF already in storage by itself; one that has to be fetched from the source waits
+  // for "Get GEN 1.2" (it is an outside request and can be slow).
+  const genPrefixNow = viewingAirport && !isAsecnaIcao(viewingAirport.icao) && !isUsaAipIcao(viewingAirport.icao) && !isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? resolveGenPrefix(viewingAirport.icao) : null;
+  useEffect(() => {
+    const a = viewingAirport;
+    if (!a || docTab !== "gen" || genView[a.icao] || genPdfDownloading || genPdfDownloadError) return;
+    if (genPrefixNow && genPdfExistsOnServer[genPrefixNow]) void downloadGenPdfWithSync(a.icao, isAsecnaAirport(a), isBahrainScraperAirport(a), "view");
+  }, [docTab, viewingAirport, genView, genPdfDownloading, genPdfDownloadError, genPrefixNow, genPdfExistsOnServer, downloadGenPdfWithSync]);
+
+  async function downloadAd2(a: AIPAirport) {
+    const icao = a.icao;
+    if (getCaptchaCountryByIcao(icao)) {
+      setPdfDownloadError(null);
+      setAipEadSyncSteps(["Captcha verification required. Opened embedded noVNC viewer. Complete it before downloading this AIP PDF."]);
+      void openCaptchaNoVncPopup(icao);
+      return;
+    }
+    const pushPdfStep = (step: string) => setAipEadSyncSteps((prev) => (prev[prev.length - 1] === step ? prev : [...prev, step]));
+    setPdfDownloadError(null);
+    setPdfDownloading(true);
+    setAipEadSyncSteps(["Checking PDF cache on server…"]);
+    let slowHintTimer: number | null = null;
+    try {
+      const pdfRoute = isAsecnaIcao(icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(icao, a) ? "/api/aip/scraper/pdf" : "/api/aip/ead/pdf";
+      const pdfSource = isAsecnaIcao(icao) ? "asecna" : isBahrainScraperIcao(icao, a) ? "scraper" : isUsaAipIcao(icao) ? "usa" : "ead";
+      const estimateData = await fetch(`/api/aip/download-estimate?icao=${encodeURIComponent(icao)}&source=${pdfSource}`, { cache: "no-store" })
+        .then((r) => r.json()).catch(() => null) as { estimate: number | null } | null;
+      const estimateMs = estimateData?.estimate ?? null;
+      const fmtEstimate = (ms: number) => {
+        if (ms < 60_000) return `~${Math.round(ms / 1000)}s`;
+        const m = Math.floor(ms / 60_000);
+        const s = Math.round((ms % 60_000) / 1000);
+        return s > 0 ? `~${m}m ${s}s` : `~${m}m`;
+      };
+      const headRes = await fetch(`${pdfRoute}?icao=${encodeURIComponent(icao)}`, { method: "HEAD", cache: "no-store" }).catch(() => null);
+      pushPdfStep(headRes?.ok ? "Cached PDF found in storage." : "PDF missing in cache. Triggering source download…");
+      slowHintTimer = window.setTimeout(() => pushPdfStep("Still fetching PDF from source… this may take up to 1-2 minutes."), 12000);
+      pushPdfStep(estimateMs !== null ? `Downloading PDF bytes… (estimated ${fmtEstimate(estimateMs)})` : "Downloading PDF bytes…");
+      const downloadStart = Date.now();
+      const res = await fetch(`${pdfRoute}?icao=${encodeURIComponent(icao)}&download=1`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg = data.detail || data.error || "Failed to load PDF";
+        pushPdfStep(`Failed: ${msg}`);
+        setPdfDownloadError(msg);
+        return;
+      }
+      pushPdfStep("Preparing file for browser download…");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${icao}_${isAsecnaIcao(icao) ? "ASECNA" : isBahrainScraperIcao(icao, a) ? "SCRAPER" : "AIP"}_AD2.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
+      setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
+      pushPdfStep(`Download started (took ${fmtEstimate(Date.now() - downloadStart)}).`);
+    } catch (err) {
+      pushPdfStep("Failed to download PDF.");
+      setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");
+    } finally {
+      if (slowHintTimer != null) window.clearTimeout(slowHintTimer);
+      setPdfDownloading(false);
+      window.setTimeout(() => setAipEadSyncSteps((prev) => (prev.length ? [] : prev)), 900);
+    }
+  }
+
+  const steps = (title: string, list: string[], foot?: string) => (
+    <div role="status" className="flex w-full max-w-[440px] flex-col gap-3 rounded-[12px] border border-cw-border bg-cw-bg-surface p-5">
+      <div className="text-[14px] font-bold text-cw-text">{title}</div>
+      <ol className="m-0 flex list-none flex-col gap-2 p-0">
+        {(list.length ? list : ["Checking the cache…"]).map((s, i, arr) => {
+          const last = i === arr.length - 1;
+          return (
+            <li key={`${s}-${i}`} className={`flex items-start gap-2.5 text-[13.5px] ${last ? "text-cw-text" : "text-cw-text-body"}`}>
+              <span className="mt-0.5 flex h-[18px] w-[18px] flex-none items-center justify-center">{last ? <KitSpinner size={14} /> : <MaskIcon name="circle-check" size={16} color="var(--cw-success)" />}</span>
+              <span className="min-w-0 break-words">{s}</span>
+            </li>
+          );
+        })}
+      </ol>
+      {foot && <div className="text-[12.5px] leading-normal text-cw-text-muted">{foot}</div>}
+    </div>
+  );
 
   return (
-    <div className="px-4 py-6 pb-12 sm:px-[30px]">
+    <div style={{ padding: "24px var(--cw-page-pad) 40px" }}>
       {!viewingAirport ? (
-        <div className="mx-auto w-full max-w-[1600px]">
-          <p className="text-sm text-cw-text-muted">Loading…</p>
+        <div className="flex flex-col gap-5" aria-busy="true">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <span className="font-mono text-[30px] font-semibold text-cw-text">{icao}</span>
+            <span className="self-center"><Skeleton w={260} h={18} round={5} /></span>
+          </div>
+          <div className="grid gap-5 min-[1100px]:grid-cols-[minmax(0,1.5fr)_minmax(340px,1fr)]">
+            <div className="h-[520px] rounded-[14px] border border-cw-border bg-cw-bg-surface shadow-cw-1" />
+            <div className="flex flex-col gap-5"><div className="h-[240px] rounded-[14px] border border-cw-border bg-cw-bg-surface shadow-cw-1" /><div className="h-[160px] rounded-[14px] border border-cw-border bg-cw-bg-surface shadow-cw-1" /></div>
+          </div>
         </div>
       ) : (
         (() => {
-            const detailIcao = viewingAirport.icao;
-            const detailFlagUrl = getCountryFlagUrl(viewingAirport.country);
-            const detailSynced = supportsSyncedAipIcao(detailIcao);
-            const detailCacheEntry = aipEadCache[detailIcao];
+          const a = viewingAirport;
+          const detailIcao = a.icao;
+          const detailFlagUrl = getCountryFlagUrl(a.country);
+          const detailSynced = supportsSyncedAipIcao(detailIcao);
+          const detailCacheEntry = aipEadCache[detailIcao];
+          const hasLiveSync = !isUsaAipIcao(detailIcao);
+          const loadingAd2 = aipEadLoadingIcao === detailIcao;
+          const pdfThere = Boolean(aipPdfReady[detailIcao] || aipPdfExistsOnServer[detailIcao]);
+          const canDownload = Boolean(pdfThere || detailCacheEntry?.updatedAt);
+          const webAip = webAipFor(a);
+          const pdfUrl = `${pdfRouteFor(detailIcao, a)}?icao=${encodeURIComponent(detailIcao)}&inline=1`;
+          const ad2Name = `${detailIcao}_${isAsecnaIcao(detailIcao) ? "ASECNA" : isBahrainScraperIcao(detailIcao, a) ? "SCRAPER" : "AIP"}_AD2.pdf`;
+          const genOk = detailSynced && genApplicable(a);
+          const gen = genView[detailIcao];
+          const fetched = detailCacheEntry?.updatedAt ? new Date(detailCacheEntry.updatedAt) : null;
+          const expires = fetched ? new Date(fetched.getTime() + (detailCacheEntry?.cache?.ttlMs ?? 24 * 60 * 60 * 1000)) : null;
 
-            const documentCard = detailSynced ? (
-                      <PCard className={`overflow-hidden ${aipEadSyncingIcao === viewingAirport.icao ? "ring-2 ring-cw-primary/70" : ""}`}>
-                        <div className="flex flex-wrap items-center gap-3.5 border-b border-cw-divider px-[18px] py-3.5">
-                          <span className="text-[13.5px] font-semibold text-cw-text">PDF Viewer</span>
-                          <PMono className="text-[12.5px] text-cw-text-muted">
-                            AIP ({isAsecnaIcao(viewingAirport.icao) ? "ASECNA" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "Scraper" : isRussiaIcao(viewingAirport.icao) ? "Russia" : "EAD"}) · {viewingAirport.icao}
-                          </PMono>
-                        </div>
-                        <div className="border-b border-cw-primary-tint-border bg-cw-primary-tint px-[18px] py-[11px] text-[13.5px] text-cw-text-body">
-                          Source:{" "}
-                          <strong className="font-bold text-cw-text-link">
-                            {isAsecnaIcao(viewingAirport.icao)
-                              ? "ASECNA Web AIP (dynamically updated)"
-                              : isUsaAipIcao(viewingAirport.icao)
-                                ? "FAA USA AIP (hard-coded source PDF set)"
-                              : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
-                                ? `${viewingAirport.country || "Scraper"} Web AIP (dynamically updated)`
-                              : isRussiaIcao(viewingAirport.icao)
-                                ? "CAICA Russia AIP"
-                                : "Eurocontrol (EAD)"}
-                          </strong>.
-                          {" "}
-                          {isAsecnaIcao(viewingAirport.icao)
-                            ? "PDF is fetched from live ASECNA source and stored to S3."
-                            : isUsaAipIcao(viewingAirport.icao)
-                              ? "PDF is loaded from hard-coded FAA USA AIP files stored in S3."
-                            : isBahrainScraperIcao(viewingAirport.icao, viewingAirport)
-                              ? "PDF is fetched from live scraper source and stored to S3."
-                            : "PDF is fetched automatically."}
-                          {isBahrainScraperIcao(viewingAirport.icao, viewingAirport) && viewingAirport.effectiveDate
-                            ? ` Effective: ${viewingAirport.effectiveDate}.`
-                            : ""}
-                        </div>
-                        <div className="p-[18px]">
-                          {isKuwaitScraperIcao(viewingAirport.icao) && (
-                            <div className="mb-3 rounded-[10px] border border-cw-warning-border bg-cw-warning-tint px-3 py-2 text-xs text-cw-warning-text">
-                              Kuwait AIP access is now paid. Review the subscription terms and pricing in the official order form before requesting files.
-                              {" "}
-                              <a
-                                href="https://dgcawebappstg.blob.core.windows.net/upload/AIPItemSub/live/627/AIP%20Subscription%20order%20form%202026.pdf"
-                                target="_blank"
-                                rel="noreferrer"
-                                className="underline underline-offset-2 font-medium"
-                              >
-                                Open 2026 AIP subscription order form (PDF)
-                              </a>
-                              {" "}·{" "}
-                              <a
-                                href="https://dgca.gov.kw/AIP"
-                                target="_blank"
-                                rel="noreferrer"
-                                className="underline underline-offset-2 font-medium"
-                              >
-                                Open DGCA Kuwait AIP page
-                              </a>
-                              .
-                            </div>
-                          )}
-                          {isUsaAipIcao(viewingAirport.icao) && (
-                            <div className="mb-3 rounded-[10px] border border-cw-warning-border bg-cw-warning-tint px-3 py-2 text-xs text-cw-warning-text">
-                              USA AIP here uses hard-coded PDF files extracted from an FAA multi-page document released on 10.11.2016.
-                              {" "}
-                              <a
-                                href={USA_WEB_AIP_URL}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="underline underline-offset-2 font-medium"
-                              >
-                                Open FAA AIP web publication
-                              </a>
-                              .
-                            </div>
-                          )}
-                          {pdfDownloadError && (
-                            <p className="mb-2 text-sm text-cw-danger-text">{pdfDownloadError}</p>
-                          )}
-                          {aipEadLoadingIcao !== viewingAirport.icao && (
-                            <div className="mb-3 rounded-[10px] border border-cw-border bg-cw-bg-page p-2">
-                              {aipPdfReady[viewingAirport.icao] ||
-                              aipPdfExistsOnServer[viewingAirport.icao] ? (
-                                <object
-                                  data={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
-                                  type="application/pdf"
-                                  className="h-[520px] w-full rounded-md border border-cw-border bg-cw-bg-surface"
-                                  aria-label={`AIP PDF ${viewingAirport.icao}`}
-                                >
-                                  <div className="p-3 text-sm text-cw-text-muted">
-                                    Native PDF preview is not available in this browser.
-                                    {" "}
-                                    <a
-                                      href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&inline=1`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="underline underline-offset-2"
-                                    >
-                                      Open PDF in new tab
-                                    </a>
-                                    {" "}or{" "}
-                                    <a
-                                      href={`${isAsecnaIcao(viewingAirport.icao) ? "/api/aip/asecna/pdf" : isBahrainScraperIcao(viewingAirport.icao, viewingAirport) ? "/api/aip/scraper/pdf" : isUsaAipIcao(viewingAirport.icao) ? "/api/aip/usa/pdf" : "/api/aip/ead/pdf"}?icao=${encodeURIComponent(viewingAirport.icao)}&download=1`}
-                                      className="underline underline-offset-2"
-                                    >
-                                      download it
-                                    </a>
-                                    .
-                                  </div>
-                                </object>
-                              ) : aipEadLoadingIcao === viewingAirport.icao ? null : (
-                                <div className="rounded-md border border-cw-warning-border bg-cw-warning-tint p-3 text-xs text-cw-warning-text space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <Spinner className="size-4 shrink-0 text-cw-warning-text" />
-                                    <span className="font-medium">
-                                      PDF is still loading from the source website.
-                                    </span>
-                                  </div>
-                                  <p>
-                                    Some airports serve large files slowly. The sync is still running unless an error appears.
-                                  </p>
-                                  {aipEadSyncSteps.length > 0 && (
-                                    <div className="rounded border border-cw-warning-border/60 bg-cw-warning-tint/40 p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
-                                      {aipEadSyncSteps.map((step, i) => (
-                                        <div key={`${step}-${i}`}>{step}</div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {aipEadLoadingIcao === viewingAirport.icao && (
-                            <div className="flex flex-col gap-4 py-4 animate-fade-in">
-                              {aipEadSyncingIcao === viewingAirport.icao ? (
-                                <div
-                                  className={`space-y-2 rounded-xl border-2 p-4 ${
-                                    aipPdfSlowIcao === viewingAirport.icao
-                                      ? "border-cw-warning-border bg-cw-warning-tint text-cw-warning-text"
-                                      : "border-cw-border bg-cw-bg-page text-cw-text"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Spinner className={`size-4 shrink-0 ${aipPdfSlowIcao === viewingAirport.icao ? "text-cw-warning-text" : "text-cw-text-link"}`} />
-                                    <span className="text-sm font-medium">
-                                      {resyncingIcao === viewingAirport.icao ? "Re-sync — refetching from source…" : "Fetching AIP PDF…"}
-                                    </span>
-                                  </div>
-                                  <p className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-cw-warning-text" : "text-cw-text-muted"}`}>
-                                    Live status · elapsed {aipSyncElapsedSec}s
-                                  </p>
-                                  {aipPdfSlowIcao === viewingAirport.icao && (
-                                    <p className="text-xs text-cw-warning-text">
-                                      Source is still responding. Sync is running; large files can take extra time.
-                                    </p>
-                                  )}
-                                  {aipEadSyncSteps.length > 0 && (
-                                    <div
-                                      className={`rounded p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap ${
-                                        aipPdfSlowIcao === viewingAirport.icao
-                                          ? "border border-cw-warning-border bg-cw-bg-surface/80 text-cw-warning-text"
-                                          : "border border-cw-border bg-cw-bg-surface text-cw-text-muted"
-                                      }`}
-                                    >
-                                      {aipEadSyncSteps.map((step, i) => (
-                                        <div key={i}>{step}</div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {aipEadSyncSteps.length === 0 && (
-                                    <span className={`text-xs ${aipPdfSlowIcao === viewingAirport.icao ? "text-cw-warning-text" : "text-cw-text-muted"}`}>
-                                      Checking cache first, then fetching live PDF if needed…
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="space-y-3">
-                                  <div className="flex items-center gap-2 text-sm text-cw-text-muted">
-                                    <Spinner className="size-4 shrink-0 text-cw-text-link" />
-                                    <span>Loading AIP cache…</span>
-                                  </div>
-                                  <div className="space-y-2 section-loading-skeleton rounded-lg border border-cw-border bg-cw-bg-page p-4">
-                                    <div className="h-4 w-24 rounded bg-cw-bg-hover" />
-                                    <div className="h-3 w-full rounded bg-cw-bg-hover" />
-                                    <div className="h-3 w-5/6 rounded bg-cw-bg-hover" />
-                                    <div className="h-3 w-4/5 rounded bg-cw-bg-hover mt-3" />
-                                    <div className="h-3 w-full rounded bg-cw-bg-hover" />
-                                    <div className="h-3 w-2/3 rounded bg-cw-bg-hover mt-3" />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {aipEadLoadingIcao !== viewingAirport.icao && aipEadCache[viewingAirport.icao]?.error && (
-                            <p className="py-2 text-sm text-cw-danger-text">{aipEadCache[viewingAirport.icao].error}</p>
-                          )}
-                        </div>
-                      </PCard>
-                    ) : (
-                      <PCard className="overflow-hidden">
-                        <div className="border-b border-cw-divider px-[18px] py-3.5">
-                          <div className="text-base font-bold">AIP — {viewingAirport.icao}</div>
-                          <p className="mt-0.5 text-sm text-cw-text-muted">
-                            Stored AIP data from portal. For EAD/Russia airports, search an ICAO like EDQA or UUEE to use the PDF flow.
-                          </p>
-                        </div>
-                        <div className="p-[18px]">
-                          <div className="mb-3 rounded-[10px] border border-cw-warning-border bg-cw-warning-tint px-3 py-2 text-xs text-cw-warning-text">
-                            Source:{" "}
-                            <strong>
-                              {viewingAirport.sourceType === "ASECNA_DYNAMIC"
-                                ? "ASECNA (Dynamically Updated)"
-                                : "Hard Coded (PDF Based)"}
-                            </strong>.
-                            {" "}
-                            {viewingAirport.sourceType === "ASECNA_DYNAMIC"
-                              ? "Data is refreshed from live Web AIP sync."
-                              : "This information may be old and inaccurate."}
-                          </div>
-                          <AIPResultCard airport={viewingAirport} />
-                        </div>
-                      </PCard>
-            );
+          const ad2Body = loadingAd2
+            ? steps(resyncingIcao === detailIcao ? `Re-syncing the AD 2 PDF from ${aipSyncSourceName(detailIcao, a)}` : `Getting the AD 2 PDF from ${aipSyncSourceName(detailIcao, a)}`,
+                aipEadSyncingIcao === detailIcao ? aipEadSyncSteps : ["Loading the AIP cache…"],
+                aipEadSyncingIcao === detailIcao ? `${aipPdfSlowIcao === detailIcao ? "The source is still responding — large files take longer. " : "Some sources serve large files slowly. "}This keeps going unless an error appears here. ${aipSyncElapsedSec}s so far.` : undefined)
+            : detailCacheEntry?.error
+              ? <ErrorState title="Couldn't get the AD 2 PDF" detail={detailCacheEntry.error} onRetry={hasLiveSync ? () => void forceResyncAip(detailIcao) : undefined} />
+              : steps(`Getting the AD 2 PDF from ${aipSyncSourceName(detailIcao, a)}`, aipEadSyncSteps, "Some sources serve large files slowly. This keeps going unless an error appears here.");
 
-            const genCard = (
-              <PCard className="overflow-hidden">
-                <div className="flex flex-wrap items-center gap-3.5 border-b border-cw-divider px-[18px] py-3.5">
-                  <span className="text-[13.5px] font-semibold text-cw-text">GEN PDF</span>
-                  <PMono className="text-[12.5px] text-cw-text-muted">GEN (General — {viewingAirport.country}) · {viewingAirport.icao}</PMono>
+          const genBody = genSyncingPrefix
+            ? steps(`Getting GEN 1.2 for ${a.country || detailIcao}`, genSyncSteps, "GEN is fetched from the same source as the AIP and kept for next time.")
+            : genPdfDownloadError
+              ? <ErrorState title="Couldn't get GEN 1.2" detail={genPdfDownloadError} onRetry={() => { setGenPdfDownloadError(null); void downloadGenPdfWithSync(detailIcao, isAsecnaAirport(a), isBahrainScraperAirport(a), "view"); }} />
+              : (
+                <div className="flex max-w-[400px] flex-col items-center gap-2 text-center">
+                  <MaskIcon name="file-text" size={22} color="var(--cw-text-muted)" />
+                  <div className="text-[15px] font-bold text-cw-text">GEN 1.2 for {a.country || detailIcao}</div>
+                  <div className="text-[13.5px] leading-normal text-cw-text-muted">Entry, transit and departure rules for the country. It is fetched from {aipSyncSourceName(detailIcao, a)} the first time, which can take a minute.</div>
+                  <Button variant="primary" icon="download" className="mt-1.5" onClick={() => void downloadGenPdfWithSync(detailIcao, isAsecnaAirport(a), isBahrainScraperAirport(a), "view")}>Get GEN 1.2</Button>
                 </div>
-                <div className="p-[18px]">
-                  {isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao) ? (
-                    <>
-                      <PSectionTitle className="mb-1.5">
-                        Not Available
-                      </PSectionTitle>
-                      <p className="text-xs text-cw-text-body">
-                        GEN 1.2 is not published on the ASECNA eAIP for this country.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <PSectionTitle className="mb-1.5">
-                        GEN loading steps
-                      </PSectionTitle>
-                      <ul className="space-y-1 text-xs text-cw-text-body">
-                        {(genSyncSteps.length > 0
-                          ? genSyncSteps
-                          : [
-                              "Checking GEN PDF cache…",
-                              "Downloading GEN PDF from source…",
-                              "Uploading to storage…",
-                              "Preparing download…",
-                            ]).map((step, i) => (
-                          <li key={`${step}-${i}`} className="flex items-start gap-1.5">
-                            <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-cw-primary/70" />
-                            <span>{step}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </div>
-              </PCard>
-            );
+              );
 
-            const locationCard = (
-                      <PCard className="overflow-hidden">
-                        <div className="flex items-center gap-2 border-b border-cw-divider px-[15px] py-3">
-                          <MapPinIcon className="size-[15px] text-cw-text-muted" />
-                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-cw-text-muted">LOCATION</span>
-                          {viewingAirport.lat != null && viewingAirport.lon != null && (
-                            <PMono className="text-[11.5px] text-cw-text-muted">
-                              {viewingAirport.lat.toFixed(4)} {viewingAirport.lon.toFixed(4)}
-                            </PMono>
-                          )}
-                        </div>
-                        <div className="isolate h-[240px]">
-                          {viewingAirport.lat != null && viewingAirport.lon != null ? (
-                            <AirportMap
-                              lat={viewingAirport.lat}
-                              lon={viewingAirport.lon}
-                              icao={viewingAirport.icao}
-                              name={viewingAirport.name}
-                              className="w-full h-full"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-cw-bg-sunken p-4 text-center text-sm text-cw-text-muted">
-                              Coordinates will appear after AIP sync or when available from data.
-                            </div>
-                          )}
-                        </div>
-                      </PCard>
-            );
+          const tabs: DocTab[] = [
+            { id: "ad2", label: `AD 2 · ${detailIcao}`, meta: sourceTag(detailIcao, a), pdf: pdfThere && !loadingAd2 ? { url: pdfUrl, filename: ad2Name } : null, body: ad2Body, onDownload: () => void downloadAd2(a), downloading: pdfDownloading },
+            ...(genOk ? [{ id: "gen", label: `GEN · ${a.country || "Country"}`, pdf: gen && !genSyncingPrefix ? { url: gen.url, filename: gen.filename } : null, body: genBody, onDownload: () => void downloadGenPdfWithSync(detailIcao, isAsecnaAirport(a), isBahrainScraperAirport(a)), downloading: genPdfDownloading } as DocTab] : []),
+          ];
 
-            const notamsCard = (
-                      <PCard className="overflow-hidden">
-                        <div className="flex items-center gap-2 border-b border-cw-divider px-[15px] py-3">
-                          <ScrollTextIcon className="size-[15px] text-cw-text-muted" />
-                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-cw-text-muted">NOTAMS — {viewingAirport.icao}</span>
-                          <button
-                            type="button"
-                            className="flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-cw-text-muted hover:bg-cw-bg-hover hover:text-cw-text disabled:cursor-not-allowed disabled:opacity-50"
-                            onClick={() => requestSyncNotams(viewingAirport.icao)}
-                            disabled={notamsLoading}
-                            title="Refresh NOTAMs"
-                          >
-                            <RefreshCwIcon className={`size-3.5 ${notamsLoading ? "animate-spin" : ""}`} />
-                          </button>
-                        </div>
-                        {!notamsLoading && notamsUpdatedAt && (
-                          <div className="border-b border-cw-divider px-[15px] py-2">
-                            <PMono className="text-[11.5px] text-cw-text-muted">
-                              updated {new Date(notamsUpdatedAt).toLocaleString()}
-                            </PMono>
-                          </div>
-                        )}
-                        <div className="max-h-[340px] overflow-auto px-[15px] py-3">
-                          {notamsLoading && (
-                            <div className="flex flex-col gap-4 py-2 animate-fade-in">
-                              {notamsSyncing ? (
-                                <div className="space-y-3 rounded-lg border border-cw-border bg-cw-bg-page p-4">
-                                  <div className="flex items-center gap-2">
-                                    <Spinner className="size-4 shrink-0 text-cw-text-muted" />
-                                    <span className="text-sm font-medium">Loading steps…</span>
-                                  </div>
-                                  {notamsSyncSteps.length > 0 && (
-                                    <ul className="list-disc space-y-1 pl-5 text-xs text-cw-text-muted">
-                                      {notamsSyncSteps.map((step, i) => (
-                                        <li key={i}>{step}</li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                  {notamsSyncSteps.length === 0 && (
-                                    <span className="text-xs text-cw-text-muted">Starting loading steps · can take 1–2 min</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="space-y-3">
-                                  <div className="flex items-center gap-2 text-sm text-cw-text-muted">
-                                    <Spinner className="size-4 shrink-0 text-cw-text-muted" />
-                                    <span>Loading NOTAMs…</span>
-                                  </div>
-                                  <div className="space-y-2 section-loading-skeleton">
-                                    <div className="h-3 w-full rounded bg-cw-bg-hover" />
-                                    <div className="h-3 w-4/5 rounded bg-cw-bg-hover" />
-                                    <div className="h-3 w-3/4 rounded bg-cw-bg-hover" />
-                                    <div className="mt-2 h-12 w-full rounded bg-cw-bg-hover" />
-                                    <div className="h-3 w-2/3 rounded bg-cw-bg-hover" />
-                                    <div className="mt-2 h-12 w-full rounded bg-cw-bg-hover" />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {!notamsLoading && notamsError && (
-                            <div className="space-y-2 py-2">
-                              <p className="text-sm font-medium text-cw-danger-text">NOTAMs unavailable</p>
-                              <p className="break-words text-xs text-cw-text-muted">{notamsError}</p>
-                              <p className="text-xs text-cw-text-muted">Run locally: <code className="rounded bg-cw-bg-hover px-1">node scripts/skylink-notams.mjs --json {viewingAirport?.icao}</code> to verify SkyLink NOTAM retrieval.</p>
-                            </div>
-                          )}
-                          {!notamsLoading && !notamsError && notams && notams.length === 0 && (
-                            <p className="py-2 text-sm text-cw-text-muted">No NOTAMs returned.</p>
-                          )}
-                          {!notamsLoading && !notamsError && notams && notams.length > 0 && (
-                            <ul className="space-y-3">
-                              {notams.slice(0, 50).map((n, i) => (
-                                <li key={`${n.number}-${i}`} className="border-b border-cw-divider pb-2 text-xs last:border-0">
-                                  <div className="mb-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-semibold text-cw-text">
-                                    <span className="font-mono">{n.number}</span>
-                                    <span className="text-cw-text-muted">{n.class}</span>
-                                    {(n.startDateUtc || n.endDateUtc) && (
-                                      <span className="font-mono font-normal text-cw-text-muted">
-                                        {[n.startDateUtc, n.endDateUtc].filter(Boolean).join(" → ")}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="whitespace-pre-wrap break-words leading-snug text-cw-text-body">
-                                    {n.condition
-                                      .split("\n")
-                                      .filter((line) => !/^\|#\d+\|[-\s]+/.test(line) && !/^[A-Z]\d+\/\d+\s+NOTAM[A-Z]?\s/.test(line))
-                                      .join("\n")
-                                      .trim()}
-                                  </p>
-                                </li>
-                              ))}
-                              {notams.length > 50 && (
-                                <li className="pt-1 text-xs text-cw-text-muted">
-                                  +{notams.length - 50} more NOTAMs
-                                </li>
-                              )}
-                            </ul>
-                          )}
-                        </div>
-                      </PCard>
-            );
-
-            const weatherCard = (
-                      <PCard className="overflow-hidden">
-                        <div className="flex items-center gap-2 border-b border-cw-divider px-[15px] py-3">
-                          <CloudSunIcon className="size-[15px] text-cw-text-muted" />
-                          <span className="flex-1 text-[11px] font-bold tracking-[0.12em] text-cw-text-muted">WEATHER — {viewingAirport.icao}</span>
-                          <button
-                            type="button"
-                            className="flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-cw-text-muted hover:bg-cw-bg-hover hover:text-cw-text disabled:cursor-not-allowed disabled:opacity-50"
-                            onClick={() => requestSyncWeather(viewingAirport.icao)}
-                            disabled={weatherLoading}
-                            title="Refresh weather"
-                          >
-                            <RefreshCwIcon className={`size-3.5 ${weatherLoading ? "animate-spin" : ""}`} />
-                          </button>
-                        </div>
-                        {!weatherLoading && cachedWeather?.updatedAt && (
-                          <div className="border-b border-cw-divider px-[15px] py-2">
-                            <PMono className="text-[11.5px] text-cw-text-muted">
-                              updated {new Date(cachedWeather.updatedAt).toLocaleString()}
-                            </PMono>
-                          </div>
-                        )}
-                        <div className="max-h-[340px] overflow-auto px-[15px] py-3">
-                          {weatherLoading && (
-                            <div className="space-y-3 rounded-lg border border-cw-border bg-cw-bg-page p-4">
-                              <div className="flex items-center gap-2">
-                                <Spinner className="size-4 shrink-0 text-cw-text-muted" />
-                                <span className="text-sm font-medium">
-                                  {weatherSyncing ? "Loading steps…" : "Loading weather..."}
-                                </span>
-                              </div>
-                              {weatherSyncing && weatherSyncSteps.length > 0 && (
-                                <ul className="list-disc space-y-1 pl-5 text-xs text-cw-text-muted">
-                                  {weatherSyncSteps.map((step, i) => (
-                                    <li key={i}>{step}</li>
-                                  ))}
-                                </ul>
-                              )}
-                              {weatherSyncing && weatherSyncSteps.length === 0 && (
-                                <div className="space-y-2 section-loading-skeleton">
-                                  <div className="h-3 w-full rounded bg-cw-bg-hover" />
-                                  <div className="h-3 w-4/5 rounded bg-cw-bg-hover" />
-                                  <div className="h-3 w-3/4 rounded bg-cw-bg-hover" />
-                                  <div className="mt-2 h-12 w-full rounded bg-cw-bg-hover" />
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {!weatherLoading && cachedWeather?.error && (
-                            <p className="break-words text-xs text-cw-danger-text">{cachedWeather.error}</p>
-                          )}
-                          {!weatherLoading && !cachedWeather?.error && (
-                            <>
-                              {weatherDisplay.bullets.length > 0 ? (
-                                <div className="space-y-3">
-                                  {weatherDisplay.airportLine && (
-                                    <p className="whitespace-pre-wrap break-words text-xs text-cw-text-muted">
-                                      {weatherDisplay.airportLine}
-                                    </p>
-                                  )}
-                                  <ul className="space-y-3">
-                                    {weatherDisplay.bullets.map((b, i) => (
-                                      <li key={`${b.kind}-${b.id}-${i}`} className="text-xs">
-                                        <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                          <PMono className="text-[12.5px] font-semibold text-cw-text">{b.id}</PMono>
-                                          <span className="text-[11px] font-bold tracking-[0.06em] text-cw-text-muted">{b.kind}</span>
-                                        </div>
-                                        <p className="whitespace-pre-wrap break-words rounded-lg bg-cw-bg-sunken px-[11px] py-[9px] font-mono text-[12.5px] leading-relaxed text-cw-text-body">
-                                          {b.body}
-                                        </p>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              ) : weatherDisplay.strippedPlain.trim() ? (
-                                <pre className="whitespace-pre-wrap break-words rounded-lg bg-cw-bg-sunken px-[11px] py-[9px] font-mono text-[12px] leading-5 text-cw-text-body">
-                                  {weatherDisplay.strippedPlain}
-                                </pre>
-                              ) : (
-                                <p className="py-2 text-sm text-cw-text-muted">No weather text returned yet.</p>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </PCard>
-            );
+          const more: MenuItem[] = [
+            ...(genOk ? [{ id: "gen", label: "Download GEN 1.2 PDF", icon: "download", onSelect: () => void downloadGenPdfWithSync(detailIcao, isAsecnaAirport(a), isBahrainScraperAirport(a)) }] : []),
+            { id: "report", label: "Report a problem…", icon: "file-warning", onSelect: () => { setBugReportError(null); setBugModalOpen(true); } },
+          ];
 
           return (
-            <div className="mx-auto w-full max-w-[1600px]">
-                {/* Breadcrumb */}
-                <div className="mb-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => router.push("/aip")}
-                    className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-semibold text-cw-text-muted hover:text-cw-text"
-                  >
-                    Search
-                  </button>
-                  <ChevronRightIcon className="size-3.5 text-cw-text-muted" />
-                  <PMono className="text-[13px] text-cw-text">{detailIcao}</PMono>
-                </div>
-
-                {/* Header */}
-                <div className="mb-[18px] flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-3">
-                      {detailFlagUrl ? (
-                        <span className="inline-flex w-[24px] flex-none items-center justify-center self-center">
-                          <img
-                            src={detailFlagUrl}
-                            alt=""
-                            width={24}
-                            height={18}
-                            className="rounded-sm border border-cw-border object-cover"
-                          />
-                        </span>
-                      ) : null}
-                      <h1 className="m-0 whitespace-nowrap font-mono text-[30px] font-semibold tracking-[0.01em]">{detailIcao}</h1>
-                      {viewingAirport.name ? (
-                        <span className="text-[22px] font-bold tracking-[-0.01em]">{viewingAirport.name}</span>
-                      ) : null}
-                      {viewingAirport.country ? (
-                        <span className="text-[15px] text-cw-text-muted">{viewingAirport.country}</span>
-                      ) : null}
-                    </div>
-                    {detailSynced && (
-                      <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
-                        {detailCacheEntry?.updatedAt ? (
-                          (() => {
-                            const cached = new Date(detailCacheEntry.updatedAt!);
-                            const ttlMs = detailCacheEntry.cache?.ttlMs ?? 24 * 60 * 60 * 1000;
-                            const expires = new Date(cached.getTime() + ttlMs);
-                            const isExpired = expires <= new Date();
-                            return (
-                              <>
-                                <PMono className="text-[12.5px] text-cw-text-muted">
-                                  Cached {cached.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · expires {expires.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
-                                </PMono>
-                                {isExpired && (
-                                  <span className="rounded-full bg-cw-warning-tint px-2.5 py-1 text-xs font-semibold text-cw-warning-text">
-                                    PDF expired — will refresh on next sync.
-                                  </span>
-                                )}
-                              </>
-                            );
-                          })()
-                        ) : (
-                          <span className="text-[13px] text-cw-text-muted">
-                            {isAsecnaIcao(detailIcao)
-                              ? "AD 2 PDF is fetched dynamically from ASECNA. GEN 1.2 is synced separately."
-                              : isBahrainScraperIcao(detailIcao, viewingAirport)
-                                ? "AD 2 PDF is fetched dynamically from scraper Web AIP. GEN 1.2 is synced from scraper source."
-                              : "PDF is fetched automatically."}
-                          </span>
-                        )}
-                      </div>
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="min-w-[300px] flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    {detailFlagUrl && <img src={detailFlagUrl} alt="" width={24} height={18} className="self-center rounded-sm border border-cw-border object-cover" />}
+                    <h1 className="m-0 font-mono text-[30px] font-semibold tracking-[-0.01em] text-cw-text">{detailIcao}</h1>
+                    {a.name && <span className="text-[20px] font-bold text-cw-text">{a.name}</span>}
+                    {a.country && <span className="text-[15px] text-cw-text-muted">{a.country}</span>}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[13px] text-cw-text-muted">
+                    {a.lat != null && a.lon != null && (
+                      <span className="flex items-center gap-1.5">
+                        <MaskIcon name="map-pin" size={13} />
+                        <span className="font-mono">{a.lat.toFixed(4)} {a.lon.toFixed(4)}</span>
+                        <a href={`https://www.openstreetmap.org/?mlat=${a.lat}&mlon=${a.lon}#map=14/${a.lat}/${a.lon}`} target="_blank" rel="noreferrer" className="font-semibold text-cw-text-link no-underline hover:text-cw-primary-hover">Map</a>
+                      </span>
                     )}
+                    {detailSynced && fetched && expires && (
+                      <span>AIP fetched <span className="font-mono">{utc(fetched)}</span> · expires <span className="font-mono">{utc(expires)}</span>{expires <= new Date() && <span className="ml-2"><Badge tone="warning">Expired — refreshes on the next sync</Badge></span>}</span>
+                    )}
+                    {pdfDownloading && aipEadSyncSteps.length > 0 && <span role="status" className="flex items-center gap-1.5 text-cw-text-body"><KitSpinner size={12} />{aipEadSyncSteps[aipEadSyncSteps.length - 1]}</span>}
                   </div>
-                  {detailSynced && (
-                    <div className="flex flex-none flex-wrap items-center gap-2">
-                      <PButton
-                        type="button"
-                        variant="primary"
-                        disabled={
-                          pdfDownloading ||
-                          !(
-                            aipPdfReady[viewingAirport.icao] ||
-                            aipEadCache[viewingAirport.icao]?.updatedAt ||
-                            aipPdfExistsOnServer[viewingAirport.icao]
-                          )
-                        }
-                        title={
-                          aipPdfReady[viewingAirport.icao] ||
-                          aipEadCache[viewingAirport.icao]?.updatedAt ||
-                          aipPdfExistsOnServer[viewingAirport.icao]
-                            ? "Download current AIP PDF (AD 2)"
-                            : "Sync this airport first to download the PDF"
-                        }
-                        onClick={async () => {
-                          if (!viewingAirport?.icao) return;
-                          const icao = viewingAirport.icao;
-                          if (getCaptchaCountryByIcao(icao)) {
-                            setPdfDownloadError(null);
-                            setAipEadSyncSteps([
-                              "Captcha verification required. Opened embedded noVNC viewer. Complete it before downloading this AIP PDF.",
-                            ]);
-                            void openCaptchaNoVncPopup(icao);
-                            return;
-                          }
-                          const pushPdfStep = (step: string) => {
-                            setAipEadSyncSteps((prev) => (prev[prev.length - 1] === step ? prev : [...prev, step]));
-                          };
-                          setPdfDownloadError(null);
-                          setPdfDownloading(true);
-                          setAipEadLoadingIcao(icao);
-                          setAipEadSyncingIcao(icao);
-                          setAipEadSyncRequestedIcao(null);
-                          setAipEadSyncSteps(["Checking PDF cache on server…"]);
-                          let slowHintTimer: number | null = null;
-                          try {
-                            const pdfRoute = isAsecnaIcao(icao)
-                              ? "/api/aip/asecna/pdf"
-                              : isBahrainScraperIcao(icao, viewingAirport)
-                                ? "/api/aip/scraper/pdf"
-                                : "/api/aip/ead/pdf";
-                            const pdfSource = isAsecnaIcao(icao) ? "asecna"
-                              : isBahrainScraperIcao(icao, viewingAirport) ? "scraper"
-                              : isUsaAipIcao(icao) ? "usa"
-                              : "ead";
-
-                            // Fetch download time estimate (fire-and-forget, non-blocking)
-                            const estimateData = await fetch(
-                              `/api/aip/download-estimate?icao=${encodeURIComponent(icao)}&source=${pdfSource}`,
-                              { cache: "no-store" }
-                            ).then((r) => r.json()).catch(() => null) as { estimate: number | null } | null;
-                            const estimateMs = estimateData?.estimate ?? null;
-                            const fmtEstimate = (ms: number) => {
-                              if (ms < 60_000) return `~${Math.round(ms / 1000)}s`;
-                              const m = Math.floor(ms / 60_000);
-                              const s = Math.round((ms % 60_000) / 1000);
-                              return s > 0 ? `~${m}m ${s}s` : `~${m}m`;
-                            };
-
-                            const headRes = await fetch(`${pdfRoute}?icao=${encodeURIComponent(icao)}`, {
-                              method: "HEAD",
-                              cache: "no-store",
-                            }).catch(() => null);
-                            if (headRes?.ok) {
-                              pushPdfStep("Cached PDF found in storage.");
-                            } else {
-                              pushPdfStep("PDF missing in cache. Triggering source download…");
-                            }
-                            slowHintTimer = window.setTimeout(() => {
-                              pushPdfStep("Still fetching PDF from source… this may take up to 1-2 minutes.");
-                            }, 12000);
-                            pushPdfStep(estimateMs !== null
-                              ? `Downloading PDF bytes… (estimated ${fmtEstimate(estimateMs)})`
-                              : "Downloading PDF bytes…");
-                            const downloadStart = Date.now();
-                            const res = await fetch(
-                              `${pdfRoute}?icao=${encodeURIComponent(icao)}&download=1`
-                            );
-                            if (!res.ok) {
-                              const data = await res.json().catch(() => ({}));
-                              const msg = data.detail || data.error || "Failed to load PDF";
-                              pushPdfStep(`Failed: ${msg}`);
-                              setPdfDownloadError(msg);
-                              return;
-                            }
-                            pushPdfStep("Preparing file for browser download…");
-                            const blob = await res.blob();
-                            const downloadDurationMs = Date.now() - downloadStart;
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = `${icao}_${isAsecnaIcao(icao) ? "ASECNA" : isBahrainScraperIcao(icao, viewingAirport) ? "SCRAPER" : "AIP"}_AD2.pdf`;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                            setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
-                            setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
-                            pushPdfStep(`Download started (took ${fmtEstimate(downloadDurationMs)}).`);
-                          } catch (err) {
-                            pushPdfStep("Failed to download PDF.");
-                            setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");
-                          } finally {
-                            if (slowHintTimer != null) window.clearTimeout(slowHintTimer);
-                            setPdfDownloading(false);
-                            window.setTimeout(() => {
-                              setAipEadLoadingIcao((prev) => (prev === icao ? null : prev));
-                              setAipEadSyncingIcao((prev) => (prev === icao ? null : prev));
-                              setAipEadSyncSteps((prev) => (prev.length ? [] : prev));
-                            }, 900);
-                          }
-                        }}
-                      >
-                        <Download className={`size-4 shrink-0 ${pdfDownloading ? "animate-pulse" : ""}`} />
-                        Download PDF
-                      </PButton>
-                      {(() => {
-                        // Manual force re-sync (Phase 4). USA is a hard-coded
-                        // static PDF set — it has no live sync, so disabled.
-                        const hasLiveSync = !isUsaAipIcao(detailIcao);
-                        const resyncBusy = resyncingIcao === detailIcao;
-                        return (
-                          <PButton
-                            type="button"
-                            variant="secondary"
-                            className="!border-cw-warning-border !bg-cw-warning-tint !text-cw-warning-text hover:!bg-cw-warning-tint"
-                            disabled={!hasLiveSync || resyncBusy || aipEadLoadingIcao === detailIcao}
-                            title={
-                              hasLiveSync
-                                ? `Bypasses the cache and refetches the AIP from ${aipSyncSourceName(detailIcao, viewingAirport)}. Slow — makes an external request.`
-                                : "This source has no live sync"
-                            }
-                            onClick={() => {
-                              void forceResyncAip(detailIcao);
-                            }}
-                          >
-                            <RefreshCwIcon className={`size-4 shrink-0 ${resyncBusy ? "animate-spin" : ""}`} />
-                            Re-sync from source
-                          </PButton>
-                        );
-                      })()}
-                      {(isEadIcao(viewingAirport.icao) || isRussiaIcao(viewingAirport.icao) || isAsecnaIcao(viewingAirport.icao) || isBahrainScraperIcao(viewingAirport.icao, viewingAirport) || isUsaAipIcao(viewingAirport.icao)) && (
-                        <div
-                          ref={genPopoverAnchorRef}
-                          className="relative"
-                          onMouseEnter={() => setShowGenSyncOverlay(true)}
-                          onMouseLeave={() => setShowGenSyncOverlay(false)}
-                        >
-                          <PButton
-                            type="button"
-                            variant="secondary"
-                            onClick={() => downloadGenPdfWithSync(viewingAirport.icao, isAsecnaAirport(viewingAirport), isBahrainScraperAirport(viewingAirport))}
-                            disabled={
-                              genPdfDownloading ||
-                              isJapanScraperIcao(viewingAirport.icao) ||
-                              (isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao))
-                            }
-                            title={
-                              isJapanScraperIcao(viewingAirport.icao)
-                                ? "No GEN files to scrape for Japan"
-                                : isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao)
-                                ? "GEN 1.2 is not available for this ASECNA country"
-                                : "Instantly fetch and download GEN PDF"
-                            }
-                          >
-                            <Download className={`size-4 shrink-0 ${genPdfDownloading ? "animate-pulse" : ""}`} />
-                            GEN PDF
-                          </PButton>
-                          <GenPopover
-                            open={showGenSyncOverlay && !isJapanScraperIcao(viewingAirport.icao)}
-                            anchorRef={genPopoverAnchorRef}
-                            onMouseEnter={() => setShowGenSyncOverlay(true)}
-                            onMouseLeave={() => setShowGenSyncOverlay(false)}
-                          >
-                              {isAsecnaAirport(viewingAirport) && !hasAsecnaGen12(viewingAirport.icao) ? (
-                                <>
-                                  <PSectionTitle className="mb-1.5">
-                                    Not Available
-                                  </PSectionTitle>
-                                  <p className="text-xs text-cw-text-body">
-                                    GEN 1.2 is not published on the ASECNA eAIP for this country.
-                                  </p>
-                                </>
-                              ) : (
-                                <>
-                                  <PSectionTitle className="mb-1.5">
-                                    GEN loading steps
-                                  </PSectionTitle>
-                                  <ul className="space-y-1 text-xs text-cw-text-body">
-                                    {(genSyncSteps.length > 0
-                                      ? genSyncSteps
-                                      : [
-                                          "Checking GEN PDF cache…",
-                                          "Downloading GEN PDF from source…",
-                                          "Uploading to storage…",
-                                          "Preparing download…",
-                                        ]).map((step, i) => (
-                                      <li key={`${step}-${i}`} className="flex items-start gap-1.5">
-                                        <span className="mt-0.5 size-1.5 shrink-0 rounded-full bg-cw-primary/70" />
-                                        <span>{step}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </>
-                              )}
-                          </GenPopover>
-                        </div>
-                      )}
-                      {Boolean(
-                        viewingAirport.webAipUrl ||
-                        getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
-                        getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
-                        getEadWebAipUrlForAirport(viewingAirport) ||
-                        isUsaAipIcao(viewingAirport.icao)
-                      ) && (
-                        <button
-                          type="button"
-                          className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-cw-primary-tint-border bg-cw-primary-tint px-4 py-[10px] text-sm font-semibold text-cw-text-link transition-colors hover:bg-cw-primary-tint disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={() => {
-                            const isUsa = isUsaAipIcao(viewingAirport.icao);
-                            const isRussia = isRussiaIcao(viewingAirport.icao);
-                            const webAip =
-                              viewingAirport.webAipUrl ||
-                              getAsecnaAirportByIcao(viewingAirport.icao)?.webAipUrl ||
-                              getScraperWebAipUrlByCountryOrIcao(viewingAirport.country, viewingAirport.icao) ||
-                              getEadWebAipUrlForAirport(viewingAirport) ||
-                              (isUsa ? USA_WEB_AIP_URL : null);
-                            if (webAip) {
-                              if (isUsa || isRussia) {
-                                window.open(webAip, "_blank", "noopener,noreferrer");
-                                return;
-                              }
-                              setWebAipConsent({
-                                url: webAip,
-                                label: viewingAirport.country || viewingAirport.icao || "this airport",
-                              });
-                            }
-                          }}
-                          title={
-                            isAsecnaIcao(viewingAirport.icao)
-                              ? "Open ASECNA Web AIP"
-                              : isUsaAipIcao(viewingAirport.icao)
-                                ? "Open FAA USA AIP"
-                              : `Open ${viewingAirport.country || "Airport"} Web AIP`
-                          }
-                        >
-                          <GlobeIcon className="size-4 shrink-0" />
-                          Web AIP
-                        </button>
-                      )}
-                      <span className="hidden h-[26px] w-px bg-cw-border sm:block" />
-                      <button
-                        type="button"
-                        className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-4 py-[10px] text-sm font-semibold text-cw-danger-text transition-colors hover:bg-cw-danger-border disabled:cursor-not-allowed disabled:opacity-50"
-                        title="Report a bug for this airport"
-                        onClick={() => {
-                          setBugReportError(null);
-                          setBugModalOpen(true);
-                        }}
-                      >
-                        <FileWarningIcon className="size-4 shrink-0" />
-                        Report a problem
-                      </button>
-                      {/* Ops Agent entry for this record (design spec §6.1); renders only for allowlisted users. */}
-                      <AskAboutButton label={viewingAirport.icao} gate />
-                    </div>
-                  )}
                 </div>
-
-                {/* Force re-sync failure banner: LOUD, persistent until dismissed
-                    or a successful re-sync. The cached document below is untouched. */}
-                {detailSynced && resyncError[detailIcao] && (
-                  <div
-                    role="alert"
-                    className="mb-[18px] flex items-start gap-3 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-4 py-3 text-cw-danger-text"
-                  >
-                    <FileWarningIcon className="mt-0.5 size-4 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">
-                        Re-sync failed — the document shown below is the previous cached copy from{" "}
-                        {resyncError[detailIcao].cachedAt
-                          ? new Date(resyncError[detailIcao].cachedAt!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-                          : "an earlier sync (timestamp unknown)"}
-                        .
-                      </p>
-                      <p className="mt-1 break-words font-mono text-[12.5px] leading-5">
-                        {resyncError[detailIcao].message}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      title="Dismiss"
-                      className="flex h-[26px] w-[26px] flex-none cursor-pointer items-center justify-center rounded-[7px] border-none bg-transparent text-cw-danger-text hover:bg-cw-danger-border"
-                      onClick={() =>
-                        setResyncError((prev) => {
-                          const next = { ...prev };
-                          delete next[detailIcao];
-                          return next;
-                        })
-                      }
-                    >
-                      <XIcon className="size-4" />
-                    </button>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-start gap-5">
-                  {/* Document column — the AIP document card, then the always-visible GEN section */}
-                  <div className="min-w-0 flex-1 basis-[560px] space-y-5">
-                    {documentCard}
-                    {genCard}
-                  </div>
-
-                  {/* Right rail — canonical home of the map + NOTAM + weather cards.
-                      Stacks below the document column on small screens (the removed
-                      sub-tabs were the only mobile path to NOTAMs/weather). */}
-                  {showMap && (
-                    <div className="flex w-full flex-none flex-col gap-3.5 lg:w-[min(380px,36vw)]">
-                      {locationCard}
-                      {notamsCard}
-                      {weatherCard}
-                    </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {detailSynced && <Button variant="primary" icon="download" loading={pdfDownloading} loadingLabel="Downloading…" disabled={!canDownload} title={canDownload ? "Download the AD 2 PDF" : "The PDF appears once it has been fetched"} onClick={() => void downloadAd2(a)}>Download PDF</Button>}
+                  {detailSynced && hasLiveSync && (
+                    <Button icon="refresh-cw" loading={resyncingIcao === detailIcao} loadingLabel="Re-syncing…" disabled={loadingAd2 && resyncingIcao !== detailIcao}
+                      title={`Bypasses the cache and fetches the AIP again from ${aipSyncSourceName(detailIcao, a)}. Slow — it makes an outside request.`} onClick={() => void forceResyncAip(detailIcao)}>Re-sync</Button>
                   )}
+                  {webAip && (
+                    <Button icon="globe" onClick={() => {
+                      if (isUsaAipIcao(detailIcao) || isRussiaIcao(detailIcao)) { window.open(webAip, "_blank", "noopener,noreferrer"); return; }
+                      setWebAipConsent({ url: webAip, label: a.country || detailIcao || "this airport" });
+                    }}>Web AIP</Button>
+                  )}
+                  {/* Ops Agent entry for this record (design spec §6.1); renders only for allowlisted users. */}
+                  <AskAboutButton label={detailIcao} gate />
+                  <Menu items={more} label={`More for ${detailIcao}`} />
                 </div>
               </div>
-            );
+
+              {detailSynced && resyncError[detailIcao] && (
+                <Callout tone="danger" icon="file-warning" title={`Re-sync failed — the document shown is the previous copy from ${resyncError[detailIcao].cachedAt ? utc(new Date(resyncError[detailIcao].cachedAt!)) : "an earlier sync (time unknown)"}.`}
+                  action={<IconButton icon="x" label="Dismiss" size="sm" onClick={() => setResyncError((prev) => { const next = { ...prev }; delete next[detailIcao]; return next; })} />}>
+                  <span className="break-words font-mono text-[12.5px]">{resyncError[detailIcao].message}</span>
+                </Callout>
+              )}
+              {pdfDownloadError && <Callout tone="danger" title="Couldn't download the PDF">{pdfDownloadError}</Callout>}
+              {isKuwaitScraperIcao(detailIcao) && (
+                <Callout tone="warning" title="Kuwait's AIP is paid">
+                  Review the subscription terms in the official order form before requesting files.{" "}
+                  <a href="https://dgcawebappstg.blob.core.windows.net/upload/AIPItemSub/live/627/AIP%20Subscription%20order%20form%202026.pdf" target="_blank" rel="noreferrer" className="font-semibold text-cw-text-link">2026 subscription order form (PDF)</a>{" · "}
+                  <a href="https://dgca.gov.kw/AIP" target="_blank" rel="noreferrer" className="font-semibold text-cw-text-link">DGCA Kuwait AIP page</a>
+                </Callout>
+              )}
+              {isUsaAipIcao(detailIcao) && (
+                <Callout tone="warning" title="A fixed set of FAA files">
+                  The USA AIP here is PDF files extracted from an FAA document released on 10.11.2016.{" "}
+                  <a href={USA_WEB_AIP_URL} target="_blank" rel="noreferrer" className="font-semibold text-cw-text-link">FAA AIP web publication</a>
+                </Callout>
+              )}
+
+              <div className="grid items-start gap-5 min-[1100px]:grid-cols-[minmax(0,1.5fr)_minmax(340px,1fr)]">
+                {detailSynced ? (
+                  <DocViewer tabs={tabs} active={docTab} onTab={(id) => setDocTab(id === "gen" ? "gen" : "ad2")} />
+                ) : (
+                  <Card title={`AIP — ${detailIcao}`} icon="file-text" description="Stored AIP data">
+                    <div className="mb-3">
+                      <Callout tone="warning" title={a.sourceType === "ASECNA_DYNAMIC" ? "ASECNA (dynamically updated)" : "Hard coded (PDF based)"}>
+                        {a.sourceType === "ASECNA_DYNAMIC" ? "Data is refreshed from live Web AIP sync." : "This information may be old and inaccurate."}
+                      </Callout>
+                    </div>
+                    <AIPResultCard airport={a} />
+                  </Card>
+                )}
+                <div className="flex min-w-0 flex-col gap-5">
+                  <NotamsCard icao={detailIcao} notams={notams} loading={notamsLoading} steps={notamsSyncing ? notamsSyncSteps : []} error={notamsError} updatedAt={notamsUpdatedAt} onRefresh={() => requestSyncNotams(detailIcao)} />
+                  <WeatherCard icao={detailIcao} loading={weatherLoading} steps={weatherSyncing ? weatherSyncSteps : []} error={cachedWeather?.error ?? null} updatedAt={cachedWeather?.updatedAt ?? null}
+                    airportLine={weatherDisplay.airportLine ?? null} bullets={weatherDisplay.bullets} plain={weatherDisplay.strippedPlain} onRefresh={() => requestSyncWeather(detailIcao)} />
+                </div>
+              </div>
+            </div>
+          );
         })()
       )}
 
-        {/* Web AIP consent modal */}
-        {webAipConsent && (
-          <div className="fixed inset-0 z-[2200] flex items-end justify-center bg-cw-bg-scrim p-3 sm:items-center sm:p-8">
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Web AIP access notice"
-              className="w-full max-w-[520px] rounded-2xl bg-cw-bg-surface p-5 shadow-cw-pop sm:p-6"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-bold sm:text-lg">Before opening Web AIP</h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-cw-text-muted sm:text-sm">
-                    These links are from official websites and can be paid or inaccessible due to geographical position.
-                    If this source is not working, you can always find actual new and free information on{" "}
-                    <a
-                      href={EAD_BASIC_LOGIN_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-medium underline underline-offset-2"
-                    >
-                      EUROCONTROL EAD Basic
-                    </a>
-                    .
-                  </p>
-                  <p className="mt-2 text-[11px] text-cw-text-muted sm:text-xs">
-                    Target source: <span className="font-medium text-cw-text">{webAipConsent.label}</span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="flex h-[30px] w-[30px] flex-none cursor-pointer items-center justify-center rounded-lg border-none bg-transparent text-cw-text-muted hover:bg-cw-bg-hover"
-                  onClick={() => setWebAipConsent(null)}
-                >
-                  <XIcon className="size-4" />
-                </button>
-              </div>
-              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <PButton type="button" variant="secondary" onClick={() => setWebAipConsent(null)}>
-                  Cancel
-                </PButton>
-                <PButton
-                  type="button"
-                  variant="primary"
-                  onClick={() => {
-                    window.open(webAipConsent.url, "_blank", "noopener,noreferrer");
-                    setWebAipConsent(null);
-                  }}
-                >
-                  I understand, open Web AIP
-                </PButton>
-              </div>
-            </div>
-          </div>
-        )}
+      <Modal open={Boolean(webAipConsent)} onClose={() => setWebAipConsent(null)} title="Before opening Web AIP" icon="globe"
+        actions={<>
+          <Button onClick={() => setWebAipConsent(null)}>Cancel</Button>
+          <Button variant="primary" onClick={() => { if (webAipConsent) window.open(webAipConsent.url, "_blank", "noopener,noreferrer"); setWebAipConsent(null); }}>I understand, open Web AIP</Button>
+        </>}>
+        <p className="m-0">
+          These links go to official websites, which can be paid or unreachable from some countries. If this source does not work, current information is free on{" "}
+          <a href={EAD_BASIC_LOGIN_URL} target="_blank" rel="noreferrer" className="font-semibold text-cw-text-link">EUROCONTROL EAD Basic</a>.
+        </p>
+        {webAipConsent && <p className="m-0 mt-2 text-[13px] text-cw-text-muted">Opens: <span className="font-medium text-cw-text">{webAipConsent.label}</span></p>}
+      </Modal>
 
-        <CaptchaConsentDialog
-          open={captchaConsentDialog.open}
-          country={captchaConsentDialog.country}
-          onContinue={handleCaptchaConsentContinue}
-          onDontShowAgain={handleCaptchaConsentDontShowAgain}
-          onClose={handleCaptchaConsentClose}
-        />
+      <CaptchaConsentDialog
+        open={captchaConsentDialog.open}
+        country={captchaConsentDialog.country}
+        onContinue={handleCaptchaConsentContinue}
+        onDontShowAgain={handleCaptchaConsentDontShowAgain}
+        onClose={handleCaptchaConsentClose}
+      />
 
-        <BugReportModal
-          open={bugModalOpen}
-          initialIcao={viewingAirport?.icao || null}
-          submitting={bugReportSubmitting}
-          error={bugReportError}
-          onClose={() => setBugModalOpen(false)}
-          onSubmit={submitBugReport}
-        />
+      <BugReportModal
+        open={bugModalOpen}
+        initialIcao={viewingAirport?.icao || null}
+        submitting={bugReportSubmitting}
+        error={bugReportError}
+        onClose={() => setBugModalOpen(false)}
+        onSubmit={submitBugReport}
+      />
 
-        <BugReportsHoverBanner
-          reports={bugReports}
-          onDeleteFixed={deleteFixedBugReport}
-          deletingReportId={deletingBugReportId}
-        />
+      <BugReportsHoverBanner
+        reports={bugReports}
+        onDeleteFixed={deleteFixedBugReport}
+        deletingReportId={deletingBugReportId}
+      />
     </div>
   );
 }

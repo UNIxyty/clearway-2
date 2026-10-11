@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireDeveloper } from "@/lib/admin-auth";
 import { requirePermission } from "@/lib/permissions/server";
 import { listDebugRuns, startDebugRun, listPersistedRunIds } from "@/lib/debug-runner";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 export async function GET(request: NextRequest) {
   if (!hasInternalDebugAccess(request)) {
-    const auth = await requireAdmin();
+    const auth = await requireDeveloper(); // the debug runner is a developer tool (reachable by URL only)
     if ("error" in auth) return auth.error;
   }
 

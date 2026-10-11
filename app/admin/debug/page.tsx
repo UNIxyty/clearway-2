@@ -12,11 +12,10 @@ import { Checkbox } from "@/components/kit";
 const DEBUG_DEEP_CONTEXT: DeepContext = {
   icon: "terminal",
   code: "Debug runner",
-  sub: "admin tooling",
+  sub: "developer tooling",
   backHref: "/",
   items: [
     { id: "dbg-run", label: "Run a check", icon: "play", href: "/admin/debug" },
-    { id: "dbg-logs", label: "Email logs", icon: "inbox", href: "/admin/email/logs" },
   ],
 };
 
@@ -114,7 +113,7 @@ export default function AdminDebugPage() {
   useEffect(() => {
     fetch("/api/admin/status", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data) => setIsAdmin(Boolean(data?.isAdmin)))
+      .then((data) => setIsAdmin(Boolean(data?.isDeveloper))) // developer only (the layout checks first, on the server)
       .catch(() => setIsAdmin(false));
   }, []);
 
@@ -190,7 +189,7 @@ export default function AdminDebugPage() {
   if (isAdmin === false) {
     return (
       <PortalShell title="Debug Runner" crumb="/admin/debug" deepContext={DEBUG_DEEP_CONTEXT}>
-        <div className="p-6 text-sm text-cw-text-muted">Admin access required.</div>
+        <div className="p-6 text-sm text-cw-text-muted">The debug runner is for developers.</div>
       </PortalShell>
     );
   }

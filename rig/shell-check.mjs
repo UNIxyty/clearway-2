@@ -79,16 +79,26 @@ const panel = await page.evaluate(() => ({ same: document.querySelector("[data-c
 ok(panel.open && panel.same, "the agent panel stays open, the same panel, across two navigations");
 await page.screenshot({ path: `${OUT}/shell-3-panel-still-open.png` });
 
-// A page with its own nav (deep context) and back.
-await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await sleep(2000);
-await page.evaluate(() => { window.__sidebar = document.querySelector("[data-cw-sidebar]"); window.__gone = 0; });
-await nav("Debug runner", /\/admin\/debug$/, ["Admin", "Developer"]);
-const deep = await page.locator("[data-cw-sidebar]").innerText();
-s = await same();
-ok(/All services/.test(deep) && s.sidebar && s.gone === 0, "a page with its own nav (Debug runner): the sidebar switches to it in place", deep.split("\n").slice(0, 3).join(" | "));
-await page.locator("[data-cw-sidebar]").getByRole("button", { name: "All services" }).click();
-await page.waitForURL(/\/$|\/dashboard$/, { timeout: 15000 }); await sleep(1500);
-ok(!/All services/.test(await page.locator("[data-cw-sidebar]").innerText()) && (await same()).sidebar, "…and back: the normal nav, the same sidebar");
+// A page with its own nav (deep context) and back. The only such page is the debug runner, a developer tool reached
+// by URL only (Part B1): so as the developer, moving there in the app (the router, as a link would) — no reload.
+{
+  const dctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const dsess = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: "rig-access-dev@rig.invalid", password: "rig-access-check-only" }) })).json();
+  await dctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(dsess)).toString("base64")}`, url: BASE }]);
+  const dp = await dctx.newPage();
+  await dp.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await dp.waitForSelector("[data-cw-sidebar]"); await sleep(2000);
+  await dp.evaluate(() => { const w = window; w.__sidebar = document.querySelector("[data-cw-sidebar]"); w.__gone = 0; const tick = () => { if (!document.querySelector("[data-cw-sidebar]")) w.__gone += 1; requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
+  const dsame = () => dp.evaluate(() => ({ sidebar: document.querySelector("[data-cw-sidebar]") === window.__sidebar, gone: window.__gone }));
+  await dp.evaluate(() => window.next.router.push("/admin/debug"));
+  await dp.waitForURL(/\/admin\/debug$/, { timeout: 20000 }); await sleep(1500);
+  const deep = await dp.locator("[data-cw-sidebar]").innerText();
+  const ds = await dsame();
+  ok(/All services/.test(deep) && ds.sidebar && ds.gone === 0, "a page with its own nav (the debug runner, by URL): the sidebar switches to it in place", deep.split("\n").slice(0, 3).join(" | "));
+  await dp.locator("[data-cw-sidebar]").getByRole("button", { name: "All services" }).click();
+  await dp.waitForURL(/\/$|\/dashboard$/, { timeout: 15000 }); await sleep(1500);
+  ok(!/All services/.test(await dp.locator("[data-cw-sidebar]").innerText()) && (await dsame()).sidebar, "…and back: the normal nav, the same sidebar");
+  await dctx.close();
+}
 
 // Full-screen routes stay bare.
 const bare = await ctx.newPage();

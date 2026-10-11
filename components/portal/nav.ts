@@ -39,6 +39,9 @@ export type NavTopic = {
   keycap?: string; // shortcut shown at the right of the topic row (Ops Agent ⌘J)
 };
 
+// The nav is for the people who use the product. A page that exists only to help us build or debug (the debug runner,
+// the component sheet) has no entry here: it has a URL, a role check, and a line in docs/portal-inventory.md saying
+// it is reachable by URL on purpose.
 export const NAV_TOPICS: NavTopic[] = [
   { id: "dashboard", label: "Dashboard", icon: "layout-grid", roles: ["admin", "user"], href: "/dashboard" },
   {
@@ -92,17 +95,6 @@ export const NAV_TOPICS: NavTopic[] = [
     ],
   },
   {
-    id: "reports",
-    label: "Reports & Issues",
-    icon: "flag",
-    roles: ["admin", "user"],
-    items: [
-      // Bug reports are filed and followed in Help & support (developers answer them in the Inbox).
-      { id: "rep-bugs", label: "Bug reports", icon: "bug", href: "/help" },
-      { id: "rep-console", label: "Console reports", icon: "clipboard-list", href: "/digital-wall/console/reports", external: true },
-    ],
-  },
-  {
     id: "admin",
     label: "Admin",
     icon: "shield",
@@ -113,7 +105,6 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "adm-perms", label: "Permissions", icon: "key-round", href: "/admin/permissions" }, // what each role may do (docs/permissions.md)
       { id: "adm-maint", label: "Maintenance", icon: "power", href: "/admin/maintenance" },
       { id: "adm-logs", label: "Email logs", icon: "inbox", href: "/admin/email/logs" },
-      { id: "adm-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
       { id: "adm-status", label: "Service status editor", icon: "activity", href: "/admin/service-status" },
     ],
   },
@@ -127,8 +118,6 @@ export const NAV_TOPICS: NavTopic[] = [
       { id: "dev-inbox", label: "Inbox", icon: "inbox", href: "/developer/inbox" },
       { id: "dev-replies", label: "Saved replies", icon: "message-square", href: "/developer/saved-replies" },
       { id: "dev-agent", label: "Agent access", icon: "key", href: "/developer/agent-access" },
-      { id: "dev-components", label: "Component sheet", icon: "layout-grid", href: "/developer/components" }, // the portal kit, every state, both themes
-      { id: "dev-debug", label: "Debug runner", icon: "terminal", href: "/admin/debug", deep: "debug" },
     ],
   },
   {
@@ -138,8 +127,6 @@ export const NAV_TOPICS: NavTopic[] = [
     roles: ["admin", "user", "guest"],
     items: [
       { id: "acc-profile", label: "Profile", icon: "circle-user", href: "/account/profile" },
-      { id: "acc-notify", label: "Notification settings", icon: "bell", href: "/account/notifications" },
-      { id: "acc-stats", label: "Search statistics", icon: "chart-bar", href: "/account/search-stats" },
       { id: "acc-guide", label: "Guide", icon: "book-open", href: "/account/guide" },
       { id: "acc-signout", label: "Sign out", icon: "log-out", href: "/login" },
     ],
@@ -148,8 +135,6 @@ export const NAV_TOPICS: NavTopic[] = [
   { id: "settings", label: "Settings", icon: "settings", roles: ["admin", "user", "guest"], href: "/settings" },
 ];
 
-// The reduced account dropdown = identity + exactly these five.
-export const ACCOUNT_MENU_IDS = ["acc-profile", "acc-notify", "acc-stats", "acc-guide", "acc-signout"];
 
 export type Role = "admin" | "user" | "guest";
 

@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireDeveloper } from "@/lib/admin-auth";
 import { getDebugRun, subscribeDebugRun } from "@/lib/debug-runner";
 
 type Params = { params: { id: string } };
 
 export async function GET(_request: NextRequest, { params }: Params) {
-  const auth = await requireAdmin();
+  const auth = await requireDeveloper(); // the debug runner is a developer tool (reachable by URL only)
   if ("error" in auth) return auth.error;
   const run = getDebugRun(params.id);
   if (!run) return new Response(JSON.stringify({ error: "Run not found" }), { status: 404 });

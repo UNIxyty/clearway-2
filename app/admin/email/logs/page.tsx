@@ -2,18 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { AdminRoute } from '@/components/AdminRoute';
-import PortalShell, { type DeepContext } from '@/components/portal/Shell';
-
-const DEBUG_DEEP_CONTEXT: DeepContext = {
-  icon: 'terminal',
-  code: 'Debug runner',
-  sub: 'admin tooling',
-  backHref: '/',
-  items: [
-    { id: 'dbg-run', label: 'Run a check', icon: 'play', href: '/admin/debug' },
-    { id: 'dbg-logs', label: 'Email logs', icon: 'inbox', href: '/admin/email/logs' },
-  ],
-};
+import PortalShell from '@/components/portal/Shell';
 
 interface EmailLog {
   id: string;
@@ -71,7 +60,6 @@ function EmailLogsContent() {
       title="Email Logs"
       crumb="/admin/email/logs"
       subtitle="Most recent 200 email send attempts."
-      deepContext={DEBUG_DEEP_CONTEXT}
       headerRight={
         <button
           onClick={() => void load()}

@@ -33,14 +33,15 @@ for (const email of ["rig-access-user@rig.invalid", "rig-access-admin@rig.invali
   await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(await session(email))).toString("base64")}`, url: AUTH }]);
   const p = await ctx.newPage();
   await p.goto(`${AUTH}/dashboard`, { waitUntil: "load" }); await sleep(2500);
-  for (const t of ["Admin", "Reports & Issues"]) await p.getByRole("button", { name: t, exact: true }).first().click().catch(() => {});
+  for (const t of ["Admin"]) await p.getByRole("button", { name: t, exact: true }).first().click().catch(() => {});
   await sleep(500);
   const nav = await p.evaluate(() => [...document.querySelectorAll("button, a")].map((e) => e.textContent.trim()).join(" | "));
   ok(!/Pickem|Pick'em|Email tools|Email console/.test(nav), `${email.split("@")[0]}: no Pickem section, no Email tools / Email console entry — gone, not a dead link`);
   if (email.includes("admin")) {
+    // Part B1: the debug runner (and its raw stream) is developer only; an admin is refused. rig/partB-check.mjs opens
+    // it as the developer and checks the raw page explains itself without a run.
     await p.goto(`${AUTH}/admin/debug/raw`, { waitUntil: "load" }); await sleep(2000);
-    const raw = await p.locator("body").innerText();
-    ok(/No run selected/.test(raw) && !/Raw stream/.test(raw), "the raw stream page explains itself without a run; the menu no longer offers an empty one");
+    ok(/\/forbidden/.test(p.url()), "the debug runner's raw stream refuses an admin (developer only)", p.url());
     await p.goto(`${AUTH}/agent/doc`, { waitUntil: "load" }); await sleep(2500);
     ok(/could not be opened/.test(await p.locator("body").innerText()), "/agent/doc with nothing to open says so (no endless 'Opening…')");
   }

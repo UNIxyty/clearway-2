@@ -158,7 +158,7 @@ await ctx.close();
 
 // ── 6. Pages: no native control in the DOM, no page error ────────────────────────────────────────────────────────────
 const PAGES = [["admin", "/dashboard"], ["admin", "/admin/users"], ["admin", "/admin/permissions"], ["admin", "/admin/agent-sites"], ["admin", "/admin/airports/deleted"],
-  ["admin", "/admin/service-status"], ["admin", "/admin/debug"], ["admin", "/account/notifications"], ["admin", "/aip"], ["admin", "/aip/service-status"], ["admin", "/help"],
+  ["admin", "/admin/service-status"], ["dev", "/admin/debug"], ["admin", "/aip"], ["admin", "/aip/service-status"], ["admin", "/help"],
   ["dev", "/agent/settings"], ["dev", "/agent/intake"], ["dev", "/agent/knowledge"], ["dev", "/developer/inbox"]];
 for (const who of ["admin", "dev"]) {
   const c = await signedIn(who);

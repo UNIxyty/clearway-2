@@ -106,7 +106,7 @@ insert into public.permission_grants (role, action, allowed, updated_by_email) s
   ('admin', 'portal.maintenance.disable', true),
   ('developer', 'portal.maintenance.disable', true),
   ('user', 'portal.debug.run', false),
-  ('admin', 'portal.debug.run', true),
+  ('admin', 'portal.debug.run', false),
   ('developer', 'portal.debug.run', true),
   ('user', 'portal.aip.clear-cache', false),
   ('admin', 'portal.aip.clear-cache', true),

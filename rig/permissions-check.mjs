@@ -63,6 +63,13 @@ const BEFORE = "0c64a15";
 const expectFor = (src) => /requireDeveloper\(\)/.test(src) ? ["developer"] : /requireAuthenticatedUser\(\)/.test(src) ? ["user", "admin", "developer"] : /requireAdmin\(\)|is_admin/.test(src) ? ["admin", "developer"] : ["user", "admin", "developer"];
 let portalSame = 0; const portalDiff = [];
 const added = [];
+// Defaults changed on purpose since Group 1, each with the decision. They are listed, not failed; any other difference
+// still fails.
+const DELIBERATE = {
+  "POST /api/admin/debug/runs": "Part B1, 2026-10-11: the debug runner is a developer tool (URL only), developer only",
+  "POST /api/admin/debug/runs/[id]": "Part B1, 2026-10-11: the same",
+};
+const deliberate = [];
 for (const e of ENDPOINTS.portal.filter((x) => !x.public && x.route !== "/api/admin/permissions")) {
   // An endpoint added after Group 1 has no "before" to match (its default is its own decision, in the catalogue).
   let old;
@@ -73,9 +80,11 @@ for (const e of ENDPOINTS.portal.filter((x) => !x.public && x.route !== "/api/ad
   const want = expectFor(body).sort().join(",");
   const acts = e.any ?? [e.action];
   const have = [...new Set(acts.flatMap((a) => ACTIONS.get(a).default))].sort().join(",");
-  if (want === have) portalSame += 1; else portalDiff.push(`${e.method} ${e.route}: before ${want}, now ${have}`);
+  if (want === have) portalSame += 1;
+  else if (DELIBERATE[`${e.method} ${e.route}`]) deliberate.push(`${e.method} ${e.route} (${want} → ${have}: ${DELIBERATE[`${e.method} ${e.route}`]})`);
+  else portalDiff.push(`${e.method} ${e.route}: before ${want}, now ${have}`);
 }
-ok(portalDiff.length === 0, `portal: every write endpoint's default roles equal what its code allowed before (${portalSame} endpoints${added.length ? `; ${added.length} added since, with their own defaults: ${added.join(", ")}` : ""})`, portalDiff.join(" | "));
+ok(portalDiff.length === 0, `portal: every write endpoint's default roles equal what its code allowed before (${portalSame} endpoints${added.length ? `; ${added.length} added since, with their own defaults: ${added.join(", ")}` : ""}${deliberate.length ? `; ${deliberate.length} changed on purpose: ${deliberate.join("; ")}` : ""})`, portalDiff.join(" | "));
 const g1 = execFileSync("node", ["--env-file=.env.rig", "rig/wall/access-check.mjs"]).toString();
 ok(/ALL PASSED/.test(g1), "wall: Group 1's own check passes unchanged against the seeded defaults (every write as user and admin)", g1.split("\n").filter((l) => l.startsWith("FAIL")).join(" | "));
 

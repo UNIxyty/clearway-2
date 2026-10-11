@@ -32,8 +32,13 @@ const navTarget = async (p, label, topic) => {
   const to = new URL(p.url()).pathname + new URL(p.url()).search; await p.goto(before, { waitUntil: "load" }); await sleep(1200);
   return to;
 };
-const bug = await navTarget(user.page, "Bug reports", "Reports & Issues");
-ok(bug?.startsWith("/help"), "Reports & Issues → Bug reports opens Help & support, where reports are filed and followed", bug);
+// Part B3: no Reports & Issues section; bug reports are filed and followed in Help & support (the sidebar's foot).
+ok(!(await user.page.locator("[data-cw-sidebar]").getByRole("button", { name: "Reports & Issues", exact: true }).count()), "no Reports & Issues section in the nav");
+const helpBtn = user.page.locator("[data-cw-sidebar]").getByText("Help & support", { exact: true }).first();
+await helpBtn.click(); await sleep(1500);
+const bug = new URL(user.page.url()).pathname;
+ok(bug.startsWith("/help") && await user.page.getByText("Something is broken").isVisible(), "Help & support opens where bug reports are filed and followed (not the debug runner)", bug);
+await user.page.goto(`${AUTH}/dashboard`, { waitUntil: "load" }); await sleep(1200);
 const hidden = await navTarget(user.page, "Hidden airports", "AIP & Documents");
 ok(hidden === "/admin/airports/deleted", "AIP & Documents → Hidden airports is there for an ordinary user", hidden);
 await user.page.goto(`${AUTH}/admin/airports/deleted`, { waitUntil: "load" });

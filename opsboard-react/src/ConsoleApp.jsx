@@ -219,8 +219,6 @@ function UserBadge({ user, collapsed }) {
           </div>
           <div style={{ height: 1, background: '#eef0f2', margin: '2px 4px 7px' }} />
           {item('Profile', 'user', go('/account/profile'))}
-          {item('Notification settings', 'bell', go('/account/notifications'))}
-          {item('Search statistics', 'bar-chart-3', go('/account/search-stats'))}
           {item('Guide', 'book-open', () => window.open('/digital-wall/guide/', '_blank', 'noopener,noreferrer'))}
           {item('Sign out', 'log-out', signOut)}
         </div>

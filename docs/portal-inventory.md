@@ -6,6 +6,22 @@ code and `docs-inventory-draft.md` disagree, the code is what is described here;
 
 ---
 
+## Reachable by URL only, on purpose (updated 2026-10-11, Part B)
+
+These have no nav entry by design. The nav is for the people who use the product; a tool that exists to help us build
+or debug has a URL, a role check and a line here, so nobody later files it as a lost page.
+
+- **`/admin/debug`** (and `/admin/debug/raw`) — the debug runner. Developer role only, checked on the server
+  (`app/admin/debug/layout.tsx`); starting a run is `portal.debug.run`, developer only. Run notifications link here.
+- **`/developer/components`** — the component sheet: the kit in every state, light and dark. Developer role only
+  (`app/developer/layout.tsx`). The design reference is `Portal Components.dc.html` in the design project.
+
+Deleted in Part B, with nothing moved: the Reports & Issues section (its Bug reports item was a link to Help & support;
+Console reports is in the wall console), and the Search statistics and Notification settings pages (with their nav
+items, the wall console's account-menu links, and the old `/stats` and `/settings/notifications` redirects).
+
+---
+
 ## What surprised me
 
 1. **The portal is four applications behind one hostname, joined by a Cloudflare tunnel — not by nginx.** The host's
@@ -93,8 +109,9 @@ runs).
 | `/admin/maintenance` | Admin · Maintenance | page ungated; GET admin, toggle developer | live | |
 | `/admin/email-tools` | Admin · Email tools | admin (target) | redirect | → Pickem email console |
 | `/admin/email/logs` | Admin · Email logs | admin (client `AdminRoute`) | live | Hides the whole shell while checking |
-| `/admin/debug` | Admin · Debug runner; Developer · Debug runner; **Reports & Issues · Bug reports** | admin (client check) | live | "Bug reports" label is wrong; users are refused |
-| `/admin/debug/raw` | — (link from debug run) | page ungated; stream admin | URL only | Empty without `?run=` |
+| `/admin/debug` | — URL only, on purpose (see the top) | developer (server) | live | Was in the nav twice and under Reports & Issues; removed 2026-10-11 |
+| `/admin/debug/raw` | — (link from debug run) | developer (server) | URL only | Empty without `?run=` |
+| `/developer/components` | — URL only, on purpose (see the top) | developer (server) | live | The kit sheet; off the nav 2026-10-11 |
 | `/admin/service-status` | Admin · Service status editor | page ungated; API admin | live | |
 | `/admin/airports/deleted` | Admin · Deleted airports | **any signed-in user** | live | Per-user hidden airports, not an admin tool |
 | `/admin/playoffs/bracket-setup`, `/results` | — | — | redirect | → Pickem console sections |
@@ -104,8 +121,8 @@ runs).
 | `/developer/agent-access` | Developer · Agent access | developer | live | |
 | `/developer/knowledge` | — | developer | redirect | → `/agent/knowledge` |
 | `/account/profile` | Account · Profile | signed in | live | |
-| `/account/notifications` | Account · Notification settings | signed in | live | |
-| `/account/search-stats` | Account · Search statistics | signed in | live | Read-only |
+| ~~`/account/notifications`~~ | — | — | deleted 2026-10-11 | Columns `user_preferences.notify_*` kept; see Part B |
+| ~~`/account/search-stats`~~ | — | — | deleted 2026-10-11 | Table `search_events` still feeds the dashboard's Recently used |
 | `/account/guide` | Account · Guide | signed in | live | Iframe of `/digital-wall/guide/` |
 | `/profile`, `/settings/notifications`, `/stats` | — | — | dead | Config redirects to `/account/*`; page files never run |
 | `/help` | sidebar "Help & support" (not a nav topic), `?` key | signed in | live | |

@@ -21,11 +21,12 @@ let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : 
 // Not the portal's pages: they keep their own look, by design.
 const NOT_PORTAL = {
   "/telegram/support": "the Telegram mini app takes Telegram's theme",
-  "/login": "sign-in sits on its own dark backdrop in either theme", "/signup": "the same backdrop as sign-in",
-  "/auth/confirm": "the sign-in backdrop", "/auth/reset": "the sign-in backdrop",
   "/greece-hitl-auto-test/viewer": "a test harness for a scraper, not a product page", "/lithuania-hitl-auto-test/viewer": "the same", "/netherlands-hitl-auto-test/viewer": "the same",
-  "/admin/debug/raw": "raw debug output (text/plain)", "/agent/panel": "the agent panel's embed for the extension", "/intake/answer": "needs a token from an intake email",
+  "/admin/debug/raw": "raw debug output (text/plain)",
 };
+// Pages people see signed out: audited in a signed-out browser. Sign-in sits on a dark backdrop in both themes (the
+// night-* tokens); its card, fields and text follow the theme like any page.
+const SIGNED_OUT = new Set(["/login", "/signup", "/auth/confirm", "/auth/reset", "/intake/answer"]);
 
 const pages = [];
 const walk = (d) => { for (const f of readdirSync(d)) { const p = path.join(d, f); if (statSync(p).isDirectory()) walk(p); else if (f === "page.tsx") pages.push("/" + path.relative("app", d).split(path.sep).join("/")); } };
@@ -34,7 +35,7 @@ const srv = { apikey: KEY, authorization: `Bearer ${KEY}` };
 const first = async (q) => (await (await fetch(`${SB}/rest/v1/${q}`, { headers: srv })).json())[0];
 const thread = await first("help_threads?select=reference&limit=1").catch(() => null);
 const conv = await first("agent_conversations?select=id&limit=1").catch(() => null);
-const routes = pages.map((p) => p === "/" ? "/" : p).flatMap((p) => {
+const routes = pages.map((p) => p === "/" ? "/" : p).filter((p) => !SIGNED_OUT.has(p)).flatMap((p) => {
   if (p === "/aip/[icao]/[[...tab]]") return ["/aip/EVRA"];
   if (p === "/help/[ref]") return thread ? [`/help/${thread.reference}`] : [];
   if (p === "/agent/t/[id]") return conv ? [`/agent/t/${conv.id}`] : [];
@@ -48,9 +49,13 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, 
 await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(sess)).toString("base64")}`, url: BASE }]);
 await ctx.addInitScript(() => { try { localStorage.setItem("cw-theme", "dark"); } catch { /* */ } });
 const page = await ctx.newPage();
+const anon = await browser.newContext({ viewport: { width: 1440, height: 1000 }, colorScheme: "dark" });
+await anon.addInitScript(() => { try { localStorage.setItem("cw-theme", "dark"); } catch { /* */ } });
+const anonPage = await anon.newPage();
 
 const report = [];
-for (const route of routes) {
+const visits = [...routes.map((r) => [page, r]), ...[...SIGNED_OUT].map((r) => [anonPage, r === "/intake/answer" ? "/intake/answer?t=not-a-real-token" : r])];
+for (const [page, route] of visits) {
   await page.goto(`${BASE}${route}`, { waitUntil: "load" }).catch(() => {});
   await page.waitForTimeout(2500);
   const r = await page.evaluate(() => {
@@ -83,7 +88,7 @@ for (const route of routes) {
     return { theme, ...found };
   });
   const n = r.surfaces.length + r.borders.length + r.text.length;
-  report.push({ route, theme: r.theme, n, r });
+  report.push({ route: route + (page === anonPage ? " (signed out)" : ""), theme: r.theme, n, r });
 }
 await browser.close();
 

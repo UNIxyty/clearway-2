@@ -14,6 +14,7 @@ rig/manifest/start.sh > $OUT/manifest-start.out 2>&1 < /dev/null
 $E rig/manifest/operators.mjs seed >> $LOG 2>&1
 
 # ── code-only and local tests
+run no-real-passenger-data node rig/check-no-real-passenger-data.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
 run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/intake/test-timezones.mjs

@@ -8,50 +8,51 @@ number of checks passed in the last full run.
 
 ## Known failures
 
-None. Every suite below passed on 2026-10-11.
+None. Every suite below passed on 2026-10-12 (after the disk clean-up and the narrower standalone build).
 
 ## Suites
 
 | Suite | Last passing | Date |
 |---|---|---|
-| intake/test-classify | 46 | 2026-10-11 |
-| intake/test-leon-payload | 10 | 2026-10-11 |
-| intake/test-timezones | 30 | 2026-10-11 |
-| intake/test-no-calendar-response | 17 | 2026-10-11 |
-| intake/test-retention | 9 | 2026-10-11 |
-| intake/test-webhook | 10 | 2026-10-11 |
-| intake/settings-check | 10 | 2026-10-11 |
-| intake/e2e | 60 | 2026-10-11 |
-| intake/e2e-scheduled | 61 | 2026-10-11 |
-| intake/e2e-classify | 36 | 2026-10-11 |
-| intake/e2e-cancel | 31 | 2026-10-11 |
-| intake/e2e-people | 34 | 2026-10-11 |
-| intake/browser-check | 41 | 2026-10-11 |
-| intake/browser-people | 25 | 2026-10-11 |
-| intake/browser-cancel | 11 | 2026-10-11 |
-| intake/browser-flows | 22 | 2026-10-11 |
-| intake/browser-edits | 9 | 2026-10-11 |
-| manifest/test-generator | 47 | 2026-10-11 |
-| manifest/browser | 36 | 2026-10-11 |
-| permissions-check | 43 | 2026-10-11 |
-| permissions-browser | 13 | 2026-10-11 |
-| wall/access-check | 65 | 2026-10-11 |
-| wall/browser-access | 9 | 2026-10-11 |
-| group2-check | 13 | 2026-10-11 |
-| group4-check | 33 | 2026-10-11 |
-| shell-check | 10 | 2026-10-11 |
-| stage1-check | 19 | 2026-10-11 |
-| portal-foundations-check | 30 | 2026-10-11 |
-| stage2-check | 58 | 2026-10-11 |
-| stage3-batch1-check | 39 | 2026-10-11 |
-| stage3-batch2-check | 53 | 2026-10-11 |
-| stage3-batch3-check | 33 | 2026-10-11 |
-| stage4-check | 25 | 2026-10-11 |
-| overlay-check | 4 | 2026-10-11 |
-| dark-audit | 2 (46 pages) | 2026-10-11 |
-| partB-check | 31 | 2026-10-11 |
-| ext/t-console | clean (no messages) | 2026-10-11 |
-| ext/t-issues | clean (no issues) | 2026-10-11 |
+| check-no-real-passenger-data | 838 files, none | 2026-10-12 |
+| intake/test-classify | 46 | 2026-10-12 |
+| intake/test-leon-payload | 10 | 2026-10-12 |
+| intake/test-timezones | 30 | 2026-10-12 |
+| intake/test-no-calendar-response | 17 | 2026-10-12 |
+| intake/test-retention | 9 | 2026-10-12 |
+| intake/test-webhook | 10 | 2026-10-12 |
+| intake/settings-check | 10 | 2026-10-12 |
+| intake/e2e | 60 | 2026-10-12 |
+| intake/e2e-scheduled | 61 | 2026-10-12 |
+| intake/e2e-classify | 36 | 2026-10-12 |
+| intake/e2e-cancel | 31 | 2026-10-12 |
+| intake/e2e-people | 34 | 2026-10-12 |
+| intake/browser-check | 41 | 2026-10-12 |
+| intake/browser-people | 25 | 2026-10-12 |
+| intake/browser-cancel | 11 | 2026-10-12 |
+| intake/browser-flows | 22 | 2026-10-12 |
+| intake/browser-edits | 9 | 2026-10-12 |
+| manifest/test-generator | 47 | 2026-10-12 |
+| manifest/browser | 36 | 2026-10-12 |
+| permissions-check | 43 | 2026-10-12 |
+| permissions-browser | 13 | 2026-10-12 |
+| wall/access-check | 65 | 2026-10-12 |
+| wall/browser-access | 9 | 2026-10-12 |
+| group2-check | 13 | 2026-10-12 |
+| group4-check | 33 | 2026-10-12 |
+| shell-check | 10 | 2026-10-12 |
+| stage1-check | 19 | 2026-10-12 |
+| portal-foundations-check | 30 | 2026-10-12 |
+| stage2-check | 58 | 2026-10-12 |
+| stage3-batch1-check | 39 | 2026-10-12 |
+| stage3-batch2-check | 53 | 2026-10-12 |
+| stage3-batch3-check | 33 | 2026-10-12 |
+| stage4-check | 25 | 2026-10-12 |
+| overlay-check | 4 | 2026-10-12 |
+| dark-audit | 2 (46 pages) | 2026-10-12 |
+| partB-check | 31 | 2026-10-12 |
+| ext/t-console | clean (no messages) | 2026-10-12 |
+| ext/t-issues | clean (no issues) | 2026-10-12 |
 
 ## Red until 2026-10-11, and why
 
@@ -76,6 +77,17 @@ These had been failing for days without being written down. Each is fixed; the r
   waits for the wall to report the defaults.
 - **shell-check**: read the nav before the account had loaded (a fixed 2.5 s wait). It now waits for the
   skeletons to go.
+
+- **No check for real passenger data** (until 2026-10-12): a real, unredacted handling request (an Outlook message
+  with its GenDecs) sat in `rig/.scratch/fwd-msg-yulsa.eml` from 2026-09-30, dropped there by a one-off
+  `wrap-forward` run; nothing read it. It was never committed, and `rig/.scratch` is ignored by git and never
+  reaches the server. Deleted 2026-10-12. `rig/check-no-real-passenger-data.mjs` now fails on any file under
+  `rig/` holding passenger-shaped data without a redaction mark (it caught this one before the delete).
+
+- **stage3-batch2** (2026-10-12, one full run): read the saved dashboard layout a fixed 1.2 s after Done, while the
+  account copy is saved 500 ms after the last change. On a busy machine it read one change behind. It now waits
+  for the save. Product note, not fixed: Done does not send the pending save at once, so closing the page within
+  half a second of the last edit leaves the account copy one change behind (the browser's own copy is complete).
 
 ## Not suites
 

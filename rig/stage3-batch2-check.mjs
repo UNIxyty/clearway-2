@@ -121,9 +121,12 @@ const order = (page) => page.locator("[data-block]").evaluateAll((els) => els.ma
   await lib.getByRole("checkbox", { name: "Show Today" }).click(); await sleep(200);
   ok((await order(page)).at(-1) === "today", "ticking it adds it back at the end");
   await page.screenshot({ path: `${OUT}/s3b2-dashboard-edit.png`, fullPage: true });
-  await page.getByRole("button", { name: "Done" }).click(); await sleep(1200);
-  const saved = await layoutOf(adminId);
+  await page.getByRole("button", { name: "Done" }).click(); await sleep(600);
+  // The account copy is saved 500 ms after the last change: wait for it (up to 8 s) rather than a fixed time, which
+  // was too short on a busy machine (a full run, 2026-10-12).
   const expected = await order(page);
+  let saved = null;
+  for (let i = 0; i < 32; i += 1) { saved = await layoutOf(adminId); if (Array.isArray(saved) && JSON.stringify(saved.map((b) => b.id)) === JSON.stringify(expected)) break; await sleep(250); }
   ok(Array.isArray(saved) && JSON.stringify(saved.map((b) => b.id)) === JSON.stringify(expected) && saved.find((b) => b.id === "links")?.size === "L", "the layout is saved on the account as it is changed", JSON.stringify(saved));
   await page.reload({ waitUntil: "load" }); await page.waitForSelector("[data-block]"); await sleep(1500);
   ok(JSON.stringify(await order(page)) === JSON.stringify(expected), "and comes back after a reload");

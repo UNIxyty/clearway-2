@@ -20,3 +20,5 @@ migrations/
 *.pdf
 !usa-aip/GEN1.2.pdf
 *.tgz
+# rig/.scratch is the rig's scratch space (logs, captured mail, test output): never part of an image
+rig/.scratch/

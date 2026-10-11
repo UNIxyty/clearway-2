@@ -2,9 +2,9 @@
 
 // The airport view (audit §5.2; portal redesign, stage 3 — "Page Airport"): the entire per-airport experience on one
 // page — the header (the airport, its location, Download PDF / Re-sync / Web AIP / ask the agent / ⋯ for GEN and
-// "Report a problem"), the document viewer with AD 2 and GEN tabs (components/portal/airport/DocViewer), NOTAMs
+// "Report a problem", which opens Help & support), the document viewer with AD 2 and GEN tabs (components/portal/airport/DocViewer), NOTAMs
 // coloured by the wall's categories and weather in the right column (components/portal/airport/AirportSide), the
-// Web AIP and bug modals, and every fetch/cache/SSE flow, extracted verbatim from the old app/page.tsx. State keys
+// Web AIP modal, and every fetch/cache/SSE flow, extracted verbatim from the old app/page.tsx. State keys
 // off the `icao` prop, which comes from the /aip/<ICAO> URL. NOTAMs, weather and the document each load and fail on
 // their own, so one source being down leaves the rest of the page usable.
 
@@ -25,13 +25,10 @@ import { parseOpmetBullets, stripWxSearchPreamble } from "@/lib/format-opmet-wea
 import { getAsecnaAirportsSet, getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { getScraperCountryByIcao, isScraperCountryName, getScraperWebAipUrlByCountryOrIcao } from "@/lib/scraper-country-config";
 import { CaptchaConsentDialog } from "@/components/captcha-consent-dialog";
-import BugReportModal from "@/components/bug-report-modal";
-import BugReportsHoverBanner from "@/components/bug-reports-hover-banner";
 import { getCaptchaCountryByIcao, useCaptchaConsent } from "@/lib/captcha-consent";
 import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import { USA_WEB_AIP_URL, isUsaAipIcao } from "@/lib/usa-aip";
-import type { BugReportRow } from "@/lib/bug-reports-shared";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
 
 export type NotamItem = {
@@ -633,12 +630,7 @@ export default function AirportView({ icao }: { icao: string }) {
   const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
   const [webAipConsent, setWebAipConsent] = useState<{ url: string; label: string } | null>(null);
-  const [bugReports, setBugReports] = useState<BugReportRow[]>([]);
-  const [bugModalOpen, setBugModalOpen] = useState(false);
-  const [bugReportSubmitting, setBugReportSubmitting] = useState(false);
   const [recents, setRecents] = useState<RecentEntry[]>([]);
-  const [bugReportError, setBugReportError] = useState<string | null>(null);
-  const [deletingBugReportId, setDeletingBugReportId] = useState<string | null>(null);
   const [pendingCaptchaIcao, setPendingCaptchaIcao] = useState<string | null>(null);
   const {
     dismissed: captchaConsentDismissed,
@@ -703,69 +695,6 @@ export default function AirportView({ icao }: { icao: string }) {
       return next;
     });
   }, [recentIcao, recentName, recentCountry]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadBugReports = async () => {
-      try {
-        const res = await fetch("/api/bug-reports", { cache: "no-store" });
-        if (!res.ok) return;
-        const payload = (await res.json().catch(() => ({}))) as { reports?: BugReportRow[] };
-        if (!cancelled) setBugReports(Array.isArray(payload.reports) ? payload.reports : []);
-      } catch {
-        // best effort
-      }
-    };
-    loadBugReports();
-    const id = window.setInterval(loadBugReports, 10_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
-
-  const submitBugReport = useCallback(async (payload: { airportIcao: string; description: string }) => {
-    setBugReportSubmitting(true);
-    setBugReportError(null);
-    try {
-      const res = await fetch("/api/bug-reports", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const body = (await res.json().catch(() => ({}))) as { error?: string; report?: BugReportRow };
-      if (!res.ok || !body.report) {
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
-      setBugReports((prev) => [body.report!, ...prev]);
-      setBugModalOpen(false);
-    } catch (err) {
-      setBugReportError(err instanceof Error ? err.message : "Failed to send bug report");
-    } finally {
-      setBugReportSubmitting(false);
-    }
-  }, []);
-
-  const deleteFixedBugReport = useCallback(async (reportId: string) => {
-    if (!reportId) return;
-    setDeletingBugReportId(reportId);
-    try {
-      const res = await fetch(`/api/bug-reports/${encodeURIComponent(reportId)}`, {
-        method: "DELETE",
-      });
-      const body = (await res.json().catch(() => ({}))) as { error?: string; deleted?: boolean };
-      if (!res.ok) {
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
-      if (body.deleted) {
-        setBugReports((prev) => prev.filter((report) => report.id !== reportId));
-      }
-    } catch (err) {
-      setBugReportError(err instanceof Error ? err.message : "Failed to delete fixed bug report");
-    } finally {
-      setDeletingBugReportId(null);
-    }
-  }, []);
 
   const aipEadInFlightRef = useRef<Set<string>>(new Set());
   // Synchronous double-click guard for the force re-sync button: state updates
@@ -2024,7 +1953,8 @@ export default function AirportView({ icao }: { icao: string }) {
 
           const more: MenuItem[] = [
             ...(genOk ? [{ id: "gen", label: "Download GEN 1.2 PDF", icon: "download", onSelect: () => void downloadGenPdfWithSync(detailIcao, isAsecnaAirport(a), isBahrainScraperAirport(a)) }] : []),
-            { id: "report", label: "Report a problem…", icon: "file-warning", onSelect: () => { setBugReportError(null); setBugModalOpen(true); } },
+            // Bug reports are filed in Help & support (the developers' inbox), with this airport as the page.
+            { id: "report", label: "Report a problem…", icon: "file-warning", onSelect: () => { window.location.assign(`/help/new?type=bug&page=${encodeURIComponent(`/aip/${detailIcao}`)}`); } },
           ];
 
           return (
@@ -2134,20 +2064,6 @@ export default function AirportView({ icao }: { icao: string }) {
         onClose={handleCaptchaConsentClose}
       />
 
-      <BugReportModal
-        open={bugModalOpen}
-        initialIcao={viewingAirport?.icao || null}
-        submitting={bugReportSubmitting}
-        error={bugReportError}
-        onClose={() => setBugModalOpen(false)}
-        onSubmit={submitBugReport}
-      />
-
-      <BugReportsHoverBanner
-        reports={bugReports}
-        onDeleteFixed={deleteFixedBugReport}
-        deletingReportId={deletingBugReportId}
-      />
     </div>
   );
 }

@@ -122,7 +122,9 @@ export function Tooltip({ label, shortcut, children, side = "top" }: { label: Re
     const r = a.getBoundingClientRect();
     const up = side === "top" ? r.top > t.offsetHeight + 10 : r.bottom + t.offsetHeight + 10 > window.innerHeight;
     const left = Math.max(6, Math.min(r.left + r.width / 2 - t.offsetWidth / 2, window.innerWidth - t.offsetWidth - 6));
-    setPos({ left, top: up ? r.top - t.offsetHeight - 6 : r.bottom + 6 });
+    // Inside the window whichever side it opens on.
+    const top = up ? r.top - t.offsetHeight - 6 : r.bottom + 6;
+    setPos({ left, top: Math.max(6, Math.min(top, window.innerHeight - t.offsetHeight - 6)) });
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);

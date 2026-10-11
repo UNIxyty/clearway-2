@@ -17,8 +17,6 @@ import { PButton, PCard, PMono, PSectionTitle, PTh } from "@/components/portal/u
 import { getCountryFlagUrl } from "@/lib/country-flags";
 import { useBackgroundSearch, type SyncStage } from "@/lib/search-context";
 import { sendNotification, type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@/lib/notifications";
-import BugReportsHoverBanner from "@/components/bug-reports-hover-banner";
-import type { BugReportRow } from "@/lib/bug-reports-shared";
 import {
   type AIPAirport,
   type RecentEntry,
@@ -89,11 +87,8 @@ function AIPSearchPageInner() {
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseLoadingStepIndex, setBrowseLoadingStepIndex] = useState(0);
   const [browseCountrySearch, setBrowseCountrySearch] = useState("");
-  const [bugReports, setBugReports] = useState<BugReportRow[]>([]);
   const [recents, setRecents] = useState<RecentEntry[]>([]);
 
-  const [bugReportError, setBugReportError] = useState<string | null>(null);
-  const [deletingBugReportId, setDeletingBugReportId] = useState<string | null>(null);
 
   // Load "Recently opened" entries once on mount (client-only localStorage list).
   useEffect(() => {
@@ -106,47 +101,6 @@ function AIPSearchPageInner() {
       }
     } catch {
       // corrupt or unavailable localStorage — start with an empty list
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadBugReports = async () => {
-      try {
-        const res = await fetch("/api/bug-reports", { cache: "no-store" });
-        if (!res.ok) return;
-        const payload = (await res.json().catch(() => ({}))) as { reports?: BugReportRow[] };
-        if (!cancelled) setBugReports(Array.isArray(payload.reports) ? payload.reports : []);
-      } catch {
-        // best effort
-      }
-    };
-    loadBugReports();
-    const id = window.setInterval(loadBugReports, 10_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
-
-  const deleteFixedBugReport = useCallback(async (reportId: string) => {
-    if (!reportId) return;
-    setDeletingBugReportId(reportId);
-    try {
-      const res = await fetch(`/api/bug-reports/${encodeURIComponent(reportId)}`, {
-        method: "DELETE",
-      });
-      const body = (await res.json().catch(() => ({}))) as { error?: string; deleted?: boolean };
-      if (!res.ok) {
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
-      if (body.deleted) {
-        setBugReports((prev) => prev.filter((report) => report.id !== reportId));
-      }
-    } catch (err) {
-      setBugReportError(err instanceof Error ? err.message : "Failed to delete fixed bug report");
-    } finally {
-      setDeletingBugReportId(null);
     }
   }, []);
 
@@ -1367,11 +1321,6 @@ function AIPSearchPageInner() {
             )}
         </div>
 
-        <BugReportsHoverBanner
-          reports={bugReports}
-          onDeleteFixed={deleteFixedBugReport}
-          deletingReportId={deletingBugReportId}
-        />
       </div>
     </PortalShell>
   );

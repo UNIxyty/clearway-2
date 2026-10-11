@@ -43,8 +43,20 @@ inactive controls.
    block applies.
 3. A change applies at once, with no transition and no re-render (every colour is a CSS variable).
 
+## Deliberate differences from the design specs
+
+- **Source-tier colours change in dark mode.** The agent design spec says the four source tiers (internal, company,
+  attachment, web — the `tier-*` tokens) are never themed. They are: in dark each takes the dark value of its own colour
+  family, so the four stay distinct and readable. A tier colour unreadable in dark is worse than one that moves.
+  Accepted on 2026-10-11. Do not "fix" it back to fixed values.
+
 ## Checks (rig)
 
 `node --env-file=.env.rig rig/stage1-check.mjs` (sign-in-on services behind the proxy on :3989): no flash in either
 setting (app scripts held back 3 s), JavaScript off, switching and saving, another device adopting it, the boot
 second, contrast measured on 28 views in both themes, and the wall unchanged.
+
+`scripts/check-portal-colours.mjs` reads the source (every file in `app/`, `components/`, `lib/`) for literal
+colours; it cannot see how a page looks. `rig/dark-audit.mjs` opens every page (the list is `app/**/page.tsx`) in dark
+and flags pale surfaces, pale borders and dark text — what the source check cannot. Neither can judge layout: a page
+built from correct tokens can still be arranged with light-theme logic (Help & support's header was, until Part A3).

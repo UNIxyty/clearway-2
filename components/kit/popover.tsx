@@ -31,20 +31,34 @@ export function Popover({
   minWidth?: number;
 }) {
   const panel = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; width?: number; up: boolean } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; width?: number; up: boolean; maxHeight?: number } | null>(null);
 
+  // Never past the window (A2): open below when the whole panel fits there, else above when it fits there; when it fits
+  // neither way, take the roomier side and scroll inside the panel. Re-placed on scroll, resize and when its content
+  // changes size.
   const place = useCallback(() => {
     const a = anchor.current; const p = panel.current;
     if (!a || !p) return;
     const r = a.getBoundingClientRect();
-    const h = p.offsetHeight; const w = Math.max(p.offsetWidth, matchWidth ? r.width : 0, minWidth ?? 0);
-    const below = window.innerHeight - r.bottom - 8; const up = below < h && r.top > below;
+    const EDGE = 8, GAP = 6;
+    const natural = p.scrollHeight; const w = Math.max(p.offsetWidth, matchWidth ? r.width : 0, minWidth ?? 0);
+    const below = window.innerHeight - r.bottom - GAP - EDGE; const above = r.top - GAP - EDGE;
+    const up = natural > below && (natural <= above || above > below);
+    const room = Math.max(0, up ? above : below);
+    const h = Math.min(natural, room);
     let left = placement === "bottom-end" ? r.right - w : r.left;
-    left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
-    setPos({ left, top: up ? r.top - h - 6 : r.bottom + 6, width: matchWidth ? r.width : undefined, up });
+    left = Math.max(EDGE, Math.min(left, window.innerWidth - w - EDGE));
+    const top = up ? Math.max(EDGE, r.top - GAP - h) : Math.min(r.bottom + GAP, window.innerHeight - EDGE - h);
+    setPos({ left, top, width: matchWidth ? r.width : undefined, up, maxHeight: natural > room ? room : undefined });
   }, [anchor, placement, matchWidth, minWidth]);
 
   useLayoutEffect(() => { if (open) place(); else setPos(null); }, [open, place]);
+  useEffect(() => {
+    if (!open || !panel.current || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => place());
+    for (const child of Array.from(panel.current.children)) ro.observe(child);
+    return () => ro.disconnect();
+  }, [open, place, children]);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -74,12 +88,24 @@ export function Popover({
       role={role}
       aria-label={label}
       className={clsx("fixed z-[80] rounded-[10px] border border-cw-border bg-cw-bg-raised p-1 text-cw-text shadow-cw-pop", className)}
-      style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, width: pos?.width, minWidth, visibility: pos ? "visible" : "hidden" }}
+      style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, width: pos?.width, minWidth, maxHeight: pos?.maxHeight, overflowY: pos?.maxHeight ? "auto" : undefined, overscrollBehavior: "contain", visibility: pos ? "visible" : "hidden" }}
     >
       {children}
     </div>,
     themedRoot(anchor.current),
   );
+}
+
+/** Keeps the option the arrow keys reached in view when the list scrolls inside its popover (options' ids: `${listId}-${i}`). */
+export function useScrollActive(open: boolean, listId: string, active: number) {
+  // After the popover has placed itself (and capped its height, if it had to), not before: on opening, the chosen option
+  // must be in view too.
+  useEffect(() => {
+    if (!open || active < 0) return;
+    let r2 = 0;
+    const r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => document.getElementById(`${listId}-${active}`)?.scrollIntoView({ block: "nearest" })); });
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
+  }, [open, listId, active]);
 }
 
 /** Arrow-key movement through a list of options (skipping disabled ones), with Home/End and type-ahead. */

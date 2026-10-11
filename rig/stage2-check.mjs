@@ -9,6 +9,8 @@
 //   5. Filters: active chips, the "Showing N of M" strip, Clear all.
 //   6. No native <select>, checkbox, radio or date input in the rendered DOM of the portal's pages, and no page error.
 //   7. Contrast measured on the sheet, both halves (AA; disabled controls exempt).
+//   8. Floating pieces stay in the window: a select, a multi-select, the date picker, the ⋯ menu and a tooltip opened
+//      at the window's edge sit wholly inside it; in a window too short either way the list scrolls inside itself.
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
@@ -172,6 +174,54 @@ for (const who of ["admin", "dev"]) {
     }
     await p.close();
   }
+  await c.close();
+}
+
+// ── 8. Floating pieces stay in the window (A2) ───────────────────────────────────────────────────────────────────────
+{
+  const inside = (r, vh, vw) => r && r.top >= 0 && r.bottom <= vh && r.left >= 0 && r.right <= vw && r.height > 0;
+  const rectOf = (p, sel) => p.evaluate((q) => { const e = document.querySelector(q); if (!e) return null; const b = e.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, height: b.height, scrolls: e.scrollHeight > e.clientHeight + 1 }; }, sel);
+  // Put the element `gap` px from the bottom (or top) edge of the window by scrolling the page.
+  const atEdge = (loc, edge, gap = 24) => loc.evaluate((el, [edge, gap]) => { const r = el.getBoundingClientRect(); window.scrollBy(0, edge === "bottom" ? r.bottom - (innerHeight - gap) : r.top - gap); }, [edge, gap]);
+  for (const [w, h] of [[1600, 1000], [1280, 640]]) {
+    const c = await signedIn("dev", { viewport: { width: w, height: h } });
+    const p = await c.newPage();
+    await p.goto(`${BASE}/developer/components`, { waitUntil: "load" }); await p.waitForSelector('[data-theme="light"] [role="combobox"][aria-label="Default model"]'); await sleep(800);
+    const S = p.locator('div[data-theme="light"]');
+    const checks = [
+      ["select", S.getByRole("combobox", { name: "Default model", exact: true }), '[role="listbox"][aria-label="Default model"]'],
+      ["multi-select", S.getByRole("combobox", { name: "Roles" }), '[role="listbox"][aria-label="Roles"]'],
+      ["date picker", S.getByRole("button", { name: /^Flight date/ }), '[role="dialog"]'],
+      ["⋯ row menu", S.getByRole("button", { name: "Row actions" }).nth(1), '[role="menu"]'],
+    ];
+    for (const [name, trigger, panel] of checks) {
+      await atEdge(trigger, "bottom"); await sleep(150);
+      await trigger.click(); await sleep(350);
+      const r = await rectOf(p, panel);
+      ok(inside(r, h, w), `${w}×${h}: a ${name} opened at the bottom of the window is wholly inside it`, JSON.stringify(r));
+      await p.keyboard.press("Escape"); await sleep(150);
+    }
+    const tipBtn = S.getByRole("button", { name: "Open the agent" });
+    await atEdge(tipBtn, "top", 60); await sleep(150); await tipBtn.hover(); await sleep(700);
+    const tip = await rectOf(p, '[role="tooltip"]');
+    ok(inside(tip, h, w), `${w}×${h}: a tooltip near the top of the window is wholly inside it`, JSON.stringify(tip));
+    await c.close();
+  }
+  // Too short either way: the list takes the roomier side and scrolls inside itself.
+  const c = await signedIn("dev", { viewport: { width: 1280, height: 230 } });
+  const p = await c.newPage();
+  await p.goto(`${BASE}/developer/components`, { waitUntil: "load" }); await p.waitForSelector('[data-theme="light"] [role="combobox"][aria-label="Default model"]'); await sleep(800);
+  const sel2 = p.locator('div[data-theme="light"]').getByRole("combobox", { name: "Default model", exact: true });
+  await sel2.evaluate((el) => { const r = el.getBoundingClientRect(); window.scrollBy(0, r.top - (innerHeight / 2 - r.height / 2)); }); await sleep(150);
+  await sel2.click(); await sleep(350);
+  const r = await rectOf(p, '[role="listbox"][aria-label="Default model"]');
+  ok(inside(r, 230, 1280) && r.scrolls, "a window too short either way: the list stays inside it and scrolls inside itself", JSON.stringify(r));
+  await p.keyboard.press("End"); await sleep(200);
+  const last = await p.evaluate(() => { const l = document.querySelector('[role="listbox"][aria-label="Default model"]'); const o = [...l.querySelectorAll('[role="option"]')].pop(); const a = l.getBoundingClientRect(), b = o.getBoundingClientRect(); return b.top >= a.top - 1 && b.bottom <= a.bottom + 1; });
+  ok(last, "…and the chosen option (here the last) is scrolled into view");
+  await p.keyboard.press("Home"); await sleep(250);
+  const firstIn = await p.evaluate(() => { const l = document.querySelector('[role="listbox"][aria-label="Default model"]'); const o = l.querySelector('[role="option"]'); const a = l.getBoundingClientRect(), b = o.getBoundingClientRect(); return b.top >= a.top - 1 && b.bottom <= a.bottom + 1; });
+  ok(firstIn, "…and the arrow keys bring the option they reach into view (Home → the first)");
   await c.close();
 }
 

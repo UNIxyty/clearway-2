@@ -6,7 +6,7 @@
 import { forwardRef, useId, useMemo, useRef, useState, type InputHTMLAttributes, type KeyboardEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { clsx } from "clsx";
 import MaskIcon from "@/components/portal/Icon";
-import { Popover, useListKeys } from "./popover";
+import { Popover, useListKeys, useScrollActive } from "./popover";
 
 const FOCUS_RING = "focus-visible:border-cw-focus focus-visible:shadow-[0_0_0_3px_var(--cw-focus-halo)]";
 const FIELD = "h-9 w-full rounded-[8px] border bg-cw-bg-surface px-3 font-sans text-[14px] text-cw-text outline-none transition-[border-color,box-shadow] duration-[120ms] placeholder:text-cw-text-placeholder";
@@ -117,6 +117,7 @@ export function Select<T extends string>({ value, onChange, options, placeholder
   const listId = useId();
   const current = options.find((o) => o.value === value) ?? null;
   const keys = useListKeys(options, { isDisabled: (o) => Boolean(o.disabled), text: optText });
+  useScrollActive(open, listId, keys.active);
   const openList = () => { setOpen(true); keys.setActive(Math.max(0, options.findIndex((o) => o.value === value))); };
   const choose = (o: Option<T>) => { if (o.disabled) return; onChange(o.value); setOpen(false); btn.current?.focus(); };
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -156,6 +157,7 @@ export function MultiSelect<T extends string>({ values, onChange, options, place
   const box = useRef<HTMLDivElement>(null);
   const listId = useId();
   const keys = useListKeys(options, { isDisabled: (o) => Boolean(o.disabled), text: optText });
+  useScrollActive(open, listId, keys.active);
   const toggle = (v: T) => onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v]);
   const onKeyDown = (e: KeyboardEvent) => {
     if (!open) { if (["ArrowDown", "Enter", " "].includes(e.key)) { e.preventDefault(); setOpen(true); keys.setActive(0); } return; }

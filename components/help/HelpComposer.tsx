@@ -285,7 +285,7 @@ export default function HelpComposer() {
           {type === "question" && !asking && (
             <div className="flex flex-col gap-2.5">
               {guideResults.map((g, i) => (
-                <a key={i} href={g.href} target="_blank" rel="noreferrer" className="flex flex-col gap-1 rounded-[12px] border border-cw-border bg-cw-bg-page px-4 py-3 no-underline hover:bg-cw-bg-sidebar">
+                <a key={i} href={g.href} target="_blank" rel="noreferrer" className="flex flex-col gap-1 rounded-[12px] border border-cw-border bg-cw-bg-surface px-4 py-3 no-underline hover:bg-cw-bg-hover">
                   <span className="text-[13.5px] font-bold text-cw-text">{g.title}</span>
                   <span className="text-[12.5px] leading-normal text-cw-text-muted">{g.snippet}</span>
                   <span className="text-[12px] font-semibold text-cw-text-link">Open in the guide →</span>
@@ -294,7 +294,7 @@ export default function HelpComposer() {
               {title.trim().length >= 3 && (
                 <button
                   onClick={() => setAsking(true)}
-                  className="flex cursor-pointer items-center justify-between rounded-[12px] border border-cw-border bg-cw-bg-surface px-4 py-3 text-left hover:bg-cw-bg-page"
+                  className="flex cursor-pointer items-center justify-between rounded-[12px] border border-cw-border bg-cw-bg-surface px-4 py-3 text-left hover:bg-cw-bg-hover"
                 >
                   <span className="text-[13.5px] font-semibold text-cw-text">
                     {guideResults.length ? "None of these help? Ask it as a question" : "Ask it as a question"}
@@ -315,7 +315,7 @@ export default function HelpComposer() {
               {type === "bug" && (
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[16px] font-bold text-cw-text">Which screen</span>
-                  <div className="inline-flex h-[34px] items-center gap-2 self-start rounded-[9px] border border-cw-border bg-cw-bg-sidebar px-[11px]">
+                  <div className="inline-flex h-[34px] items-center gap-2 self-start rounded-[9px] border border-cw-border bg-cw-bg-sunken px-[11px]">
                     {editingScreen ? (
                       <input
                         autoFocus

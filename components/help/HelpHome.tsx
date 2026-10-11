@@ -50,25 +50,20 @@ export default function HelpHome() {
   const visible = threads ? (showAll ? threads : threads.slice(0, 4)) : null;
 
   return (
-    <PortalShell crumb="Help" title="" wide>
-      <div className="mx-auto max-w-[1100px] px-[30px] pb-12">
-        <div className="flex items-start gap-5 border-b border-cw-border bg-cw-bg-surface px-0 pb-5 pt-2">
-          <div className="flex flex-1 flex-col gap-1.5">
-            <h1 className="m-0 text-[24px] font-extrabold tracking-[-0.02em] text-cw-text">Help &amp; support</h1>
-            <span className="text-[14px] text-cw-text-muted">
-              Reports go to the developer who builds Clearway. They are read between 06:00 and 22:00Z.
-            </span>
-          </div>
-          <div className="flex flex-none items-center gap-[9px] rounded-[11px] border border-cw-border bg-cw-bg-page px-[13px] py-[9px]">
-            <span className="h-[9px] w-[9px] rounded-full" style={{ background: available ? "var(--cw-success)" : "var(--cw-neutral)" }} />
-            <div className="flex flex-col gap-px">
-              <span className="text-[12.5px] font-bold text-cw-text">{available ? "Developer available" : "Outside reading hours"}</span>
-              <span className="font-mono text-[11px] text-cw-text-muted">{available ? `reads until 22:00Z · now ${utcTime()}` : `reads again from 06:00Z`}</span>
-            </div>
+    <PortalShell crumb="Help" title="Help & support" subtitle="Reports go to the developer who builds Clearway. They are read between 06:00 and 22:00Z."
+      headerRight={
+        // The status card is a raised surface on the page, like every card in the portal (it used to be page-coloured
+        // inside a surface-coloured band — invisible in light, a dark hole in a pale band in dark).
+        <div aria-label="Developer availability" className="flex flex-none items-center gap-[9px] rounded-[11px] border border-cw-border bg-cw-bg-surface px-[13px] py-[9px] shadow-cw-1">
+          <span aria-hidden className="h-[9px] w-[9px] rounded-full" style={{ background: available ? "var(--cw-success)" : "var(--cw-neutral)" }} />
+          <div className="flex flex-col gap-px">
+            <span className="text-[12.5px] font-bold text-cw-text">{available ? "Developer available" : "Outside reading hours"}</span>
+            <span className="font-mono text-[11px] text-cw-text-muted">{available ? `reads until 22:00Z · now ${utcTime()}` : `reads again from 06:00Z`}</span>
           </div>
         </div>
-
-        <div className="flex flex-col gap-6 pt-6 lg:flex-row">
+      }>
+      <div className="max-w-[1100px]" style={{ padding: "0 var(--cw-page-pad) 48px" }}>
+        <div className="flex flex-col gap-6 lg:flex-row">
           <div className="flex min-w-0 flex-1 flex-col gap-3.5">
             <span className="font-mono text-[10.5px] font-bold tracking-[0.11em] text-cw-text-muted">WHAT DO YOU NEED?</span>
 
@@ -96,7 +91,7 @@ export default function HelpHome() {
                 <button
                   key={s.type}
                   onClick={() => compose(s.type)}
-                  className="flex cursor-pointer items-center gap-4 rounded-[14px] border border-cw-border bg-cw-bg-surface px-5 py-4 text-left hover:bg-cw-bg-page"
+                  className="flex cursor-pointer items-center gap-4 rounded-[14px] border border-cw-border bg-cw-bg-surface px-5 py-4 text-left hover:bg-cw-bg-hover"
                 >
                   <span
                     className="flex h-10 w-10 flex-none items-center justify-center rounded-[11px] border text-[17px]"
@@ -120,9 +115,9 @@ export default function HelpHome() {
             {visible === null &&
               [0, 1, 2].map((i) => (
                 <div key={i} className="flex flex-col gap-[9px] rounded-[13px] border border-cw-border bg-cw-bg-surface px-3.5 py-[13px]">
-                  <div className="h-3 w-[110px] rounded bg-cw-bg-hover" />
-                  <div className="h-3 w-full rounded bg-cw-bg-sidebar" />
-                  <div className="h-3 w-2/3 rounded bg-cw-bg-sidebar" />
+                  <div className="h-3 w-[110px] rounded bg-cw-skeleton" />
+                  <div className="h-3 w-full rounded bg-cw-skeleton" />
+                  <div className="h-3 w-2/3 rounded bg-cw-skeleton" />
                 </div>
               ))}
 
@@ -139,7 +134,7 @@ export default function HelpHome() {
               <Link
                 key={t.id}
                 href={`/help/${t.reference}`}
-                className="flex flex-col gap-2 rounded-[13px] border border-cw-border bg-cw-bg-surface px-3.5 py-[13px] no-underline hover:bg-cw-bg-page"
+                className="flex flex-col gap-2 rounded-[13px] border border-cw-border bg-cw-bg-surface px-3.5 py-[13px] no-underline hover:bg-cw-bg-hover"
               >
                 <div className="flex items-center gap-2">
                   <StatusChip status={t.status} />

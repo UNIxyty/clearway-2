@@ -13,7 +13,7 @@ export function InlineText({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         p.startsWith("`") && p.endsWith("`") && p.length > 2 ? (
-          <span key={i} className="rounded-[4px] border border-cw-border bg-cw-bg-sidebar px-[5px] py-px font-mono text-[0.92em]">
+          <span key={i} className="rounded-[4px] border border-cw-border bg-cw-bg-sunken px-[5px] py-px font-mono text-[0.92em]">
             {p.slice(1, -1)}
           </span>
         ) : (

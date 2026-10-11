@@ -410,7 +410,7 @@ export default function Composer({
             <div style={{ display: "flex", gap: 4, padding: "8px 8px 0", borderBottom: `1px solid ${cw.divider}`, overflowX: "auto" }}>
               {(["all", ...TYPES] as const).map((t) => <button key={t} type="button" onClick={() => setMentionType(t)} style={{ fontFamily: "inherit", fontSize: 12.5, fontWeight: mentionType === t ? 700 : 500, color: mentionType === t ? cw.text : cw.textMuted, background: "transparent", border: "none", borderBottom: `2px solid ${mentionType === t ? cw.text : "transparent"}`, padding: "6px 9px 9px", cursor: "pointer", whiteSpace: "nowrap" }}>{t === "all" ? "All" : `@${t}`}</button>)}
             </div>
-            <div style={{ padding: "6px 6px 2px", maxHeight: 280, overflowY: "auto" }}>
+            <div style={{ padding: "6px 6px 2px", maxHeight: "min(280px, calc(100vh - 220px))", overflowY: "auto" }}>
               {!query && mentions.some((m) => m.tag) && <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", color: cw.textMuted, padding: "4px 10px" }}>ON THIS PAGE</div>}
 
               {mentions.length === 0 && (
@@ -441,7 +441,7 @@ export default function Composer({
           />
         )}
         {menu === "command" && commands.length > 0 && (
-          <div className="ag-menu-in" role="listbox" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: 14, boxShadow: SHADOW.menu, padding: 6, zIndex: 20 }}>
+          <div className="ag-menu-in" role="listbox" style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: 14, boxShadow: SHADOW.menu, padding: 6, zIndex: 20, maxHeight: "min(360px, calc(100vh - 160px))", overflowY: "auto" }}>
             {commands.map((c, i) => (
               <button key={c.cmd} type="button" role="option" aria-selected={i === highlight} onMouseEnter={() => setHighlight(i)} onClick={() => pickCommand(c)} style={{ width: "100%", display: "grid", gridTemplateColumns: "30px 90px minmax(0,1fr) auto", gap: 10, alignItems: "center", padding: "9px 10px", borderRadius: 8, border: "none", background: i === highlight ? cw.primaryTint : "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
                 <span style={{ width: 28, height: 28, borderRadius: 7, background: i === highlight ? cw.ink : cw.bgHover, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name={c.icon} size={14} color={i === highlight ? cw.onInk : cw.textBody} /></span>

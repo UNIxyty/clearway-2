@@ -257,8 +257,8 @@ export default function HelpThread({ reference }: { reference: string }) {
         <div className="mx-auto max-w-[860px] px-[30px] pt-8">
           <div className="flex flex-col gap-[9px] rounded-[13px] border border-cw-border bg-cw-bg-surface px-3.5 py-[13px]">
             <div className="h-3 w-[110px] rounded bg-cw-bg-hover" />
-            <div className="h-3 w-full rounded bg-cw-bg-sidebar" />
-            <div className="h-3 w-2/3 rounded bg-cw-bg-sidebar" />
+            <div className="h-3 w-full rounded bg-cw-skeleton" />
+            <div className="h-3 w-2/3 rounded bg-cw-skeleton" />
           </div>
         </div>
       </PortalShell>
@@ -339,7 +339,7 @@ export default function HelpThread({ reference }: { reference: string }) {
                   <div className="flex items-baseline gap-[9px]">
                     <span className="text-[13.5px] font-bold text-cw-text">{mine ? "You" : isDev ? DEVELOPER_NAME : m.authorName || "Ops"}</span>
                     {isDev && (
-                      <span className="inline-flex h-[18px] items-center rounded-[4px] bg-cw-bg-sidebar px-1.5 text-[10px] font-bold tracking-[0.05em] text-cw-text-muted">DEVELOPER</span>
+                      <span className="inline-flex h-[18px] items-center rounded-[4px] bg-cw-bg-sunken px-1.5 text-[10px] font-bold tracking-[0.05em] text-cw-text-muted">DEVELOPER</span>
                     )}
                     <span className="font-mono text-[11px] text-cw-text-muted">{utcTime(m.createdAt)}</span>
                   </div>

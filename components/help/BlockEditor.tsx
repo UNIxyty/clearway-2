@@ -831,7 +831,7 @@ export default function BlockEditor({
                   <div className="flex items-center gap-4 px-2.5 pb-2 pt-1">
                     {[["↑↓", "move"], ["⏎", "insert"], ["esc", "dismiss"]].map(([k, v]) => (
                       <span key={k} className="flex items-center gap-1.5">
-                        <span className="rounded-[4px] border border-cw-border bg-cw-bg-sidebar px-[5px] py-px font-mono text-[10.5px] text-cw-text-muted">{k}</span>
+                        <span className="rounded-[4px] border border-cw-border bg-cw-bg-sunken px-[5px] py-px font-mono text-[10.5px] text-cw-text-muted">{k}</span>
                         <span className="text-[11.5px] text-cw-text-muted">{v}</span>
                       </span>
                     ))}
@@ -865,7 +865,7 @@ export function ShortcutStrip({ trailing }: { trailing?: string }) {
     <div className="flex items-center gap-3.5">
       {[["/", "commands"], ["#", "heading"], ["-", "bullet"], ["`", "code"]].map(([k, v]) => (
         <span key={k} className="flex items-center gap-[7px]">
-          <span className="rounded-[4px] border border-cw-border bg-cw-bg-sidebar px-[5px] py-px font-mono text-[11px] text-cw-text-muted">{k}</span>
+          <span className="rounded-[4px] border border-cw-border bg-cw-bg-sunken px-[5px] py-px font-mono text-[11px] text-cw-text-muted">{k}</span>
           <span className="text-[12px] text-cw-text-muted">{v}</span>
         </span>
       ))}

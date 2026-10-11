@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { clsx } from "clsx";
 import MaskIcon from "@/components/portal/Icon";
 import { Button, IconButton } from "./Button";
-import { Popover, themedRoot, useListKeys } from "./popover";
+import { Popover, themedRoot, useListKeys, useScrollActive } from "./popover";
 
 // ── Card ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 /** Card (§2.6): 52px header (icon, title, description, meta or actions), 20px body, optional 48px footer on bg-sunken. */
@@ -144,6 +144,7 @@ export function Menu({ items, label, trigger = "ellipsis", align = "end", button
   const btn = useRef<HTMLButtonElement>(null);
   const id = useId();
   const keys = useListKeys(items, { isDisabled: (i) => Boolean(i.disabled), text: (i) => i.text ?? (typeof i.label === "string" ? i.label : i.id) });
+  useScrollActive(open, id, keys.active);
   const run = (i: MenuItem) => { if (i.disabled) return; setOpen(false); btn.current?.focus(); i.onSelect(); };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (!open) { if (["ArrowDown", "Enter", " "].includes(e.key)) { e.preventDefault(); setOpen(true); keys.setActive(items.findIndex((i) => !i.disabled)); } return; }
@@ -161,7 +162,7 @@ export function Menu({ items, label, trigger = "ellipsis", align = "end", button
       )}
       <Popover anchor={btn} open={open} onClose={() => setOpen(false)} placement={align === "end" ? "bottom-end" : "bottom-start"} role="menu" label={label} id={id} minWidth={220}>
         {items.map((i, n) => (
-          <div key={i.id} role="menuitem" aria-disabled={i.disabled || undefined} tabIndex={-1}
+          <div key={i.id} id={`${id}-${n}`} role="menuitem" aria-disabled={i.disabled || undefined} tabIndex={-1}
             onMouseEnter={() => keys.setActive(n)} onMouseDown={(e) => { e.preventDefault(); run(i); }}
             className={clsx("flex h-8 cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 text-[14px]",
               i.disabled ? "cursor-not-allowed text-cw-text-disabled" : i.danger ? "text-cw-danger-text" : "text-cw-text",

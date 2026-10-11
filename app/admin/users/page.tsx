@@ -1,208 +1,196 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeftIcon } from "lucide-react";
+// Admin → Users (portal redesign, stage 3 — "Page Users"): approve new accounts, manage roles, send a password reset.
+// Role tabs and the filter bar narrow the list; whenever anything is filtered the strip says how many are hidden. The
+// table scrolls with the page. Each action is offered only to someone allowed to do it (the API says, from
+// Admin → Permissions) and checked again on the server: nobody changes their own role, and an admin cannot act on a
+// developer's account.
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
-import { PCard, PButton, PChip, PMono, PTh } from "@/components/portal/ui";
+import {
+  Button, ConfirmDialog, DataTable, EmptyState, FilterBar, FilteredStrip, RoleBadge, TableCard, errorDetail, filterReasons, useToast, type Column, type MenuItem,
+} from "@/components/kit";
 
-type AdminUserRow = {
-  id: string;
-  email: string | null;
-  displayName: string | null;
-  isAdmin: boolean;
-  isDeveloper: boolean;
-  isApproved: boolean;
-  createdAt: string | null;
-};
+type UserRow = { id: string; email: string | null; displayName: string | null; isAdmin: boolean; isDeveloper: boolean; isApproved: boolean; createdAt: string | null; lastSignInAt: string | null };
+type Can = { approve: boolean; setAdmin: boolean; setDeveloper: boolean; passwordReset: boolean };
+type Role = "developer" | "admin" | "pending" | "user";
+type Patch = { isAdmin?: boolean; isDeveloper?: boolean; isApproved?: boolean };
 
-const ROLE_BADGE: Record<string, { color: string; bg: string }> = {
-  developer: { color: "var(--cw-diff-text)", bg: "var(--cw-diff-tint)" },
-  admin: { color: "var(--cw-text-link)", bg: "var(--cw-primary-tint)" },
-  user: { color: "var(--cw-neutral-text)", bg: "var(--cw-neutral-tint)" },
-  pending: { color: "var(--cw-orange-text)", bg: "var(--cw-orange-tint)" },
-};
-
-function RoleBadge({ label }: { label: string }) {
-  const c = ROLE_BADGE[label] ?? ROLE_BADGE.user;
-  return (
-    <PChip color={c.color} bg={c.bg} className="uppercase tracking-wide text-[10px]">
-      {label}
-    </PChip>
-  );
+const roleOf = (u: UserRow): Role => (u.isDeveloper ? "developer" : u.isAdmin ? "admin" : !u.isApproved ? "pending" : "user");
+const ORDER: Record<Role, number> = { developer: 0, admin: 1, pending: 2, user: 3 };
+const nameOf = (u: UserRow) => u.displayName || u.email || "Unknown user";
+const initials = (u: UserRow) => nameOf(u).split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+const DAY = 86400000;
+function signedIn(iso: string | null) {
+  if (!iso) return "never";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60000) return "now";
+  if (ms < 3600000) return `${Math.floor(ms / 60000)} min ago`;
+  if (ms < DAY) return `${Math.floor(ms / 3600000)}h ago`;
+  if (ms < 2 * DAY) return "yesterday";
+  if (ms < 7 * DAY) return `${Math.floor(ms / DAY)} days ago`;
+  const d = new Date(iso);
+  return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}${d.getUTCFullYear() !== new Date().getUTCFullYear() ? ` ${d.getUTCFullYear()}` : ""}`;
 }
+const recency = (iso: string | null) => { if (!iso) return "never"; const ms = Date.now() - new Date(iso).getTime(); return ms < DAY ? "day" : ms < 7 * DAY ? "week" : ms < 30 * DAY ? "month" : "older"; };
 
-function roleLabel(u: AdminUserRow) {
-  if (u.isDeveloper) return "developer";
-  if (u.isAdmin) return "admin";
-  if (!u.isApproved) return "pending";
-  return "user";
-}
+const TABS: Array<{ id: string; label: string; roles: Role[] }> = [
+  { id: "all", label: "All", roles: [] },
+  { id: "pending", label: "Pending", roles: ["pending"] },
+  { id: "admins", label: "Admins", roles: ["admin", "developer"] },
+  { id: "users", label: "Users", roles: ["user"] },
+];
 
 export default function AdminUsersPage() {
-  const router = useRouter();
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const toast = useToast();
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [can, setCan] = useState<Can>({ approve: false, setAdmin: false, setDeveloper: false, passwordReset: false });
   const [callerIsDeveloper, setCallerIsDeveloper] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [callerId, setCallerId] = useState<string | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [forbidden, setForbidden] = useState(false);
+  const [loadError, setLoadError] = useState<string>("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [roles, setRoles] = useState<string[]>([]);
+  const [seen, setSeen] = useState<string[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirm, setConfirm] = useState<{ user: UserRow; patch: Patch; title: string; body: string; label: string } | null>(null);
 
-  useEffect(() => {
-    fetch("/api/admin/users", { cache: "no-store" })
-      .then(async (res) => {
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(payload?.error || "Failed to load users");
-        setUsers(payload.users ?? []);
-        setCallerIsDeveloper(Boolean(payload.callerIsDeveloper));
-      })
-      .catch((e) => setError((e as Error).message || "Failed to load users"))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setState("loading");
+    const res = await fetch("/api/admin/users", { cache: "no-store" }).catch(() => null);
+    const payload = res ? await res.json().catch(() => ({})) : {};
+    if (res?.status === 403) { setForbidden(true); setState("ready"); return; }
+    if (!res || !res.ok) { setLoadError(errorDetail(res?.status ?? "network", "GET", "/api/admin/users") + (payload?.error ? ` · ${payload.error}` : "")); setState("error"); return; }
+    setUsers(payload.users ?? []);
+    setCallerIsDeveloper(Boolean(payload.callerIsDeveloper));
+    setCallerId(payload.callerId ?? null);
+    setCan({ approve: false, setAdmin: false, setDeveloper: false, passwordReset: false, ...(payload.can ?? {}) });
+    setState("ready");
   }, []);
+  useEffect(() => { void load(); }, [load]);
 
-  async function updateRole(
-    target: AdminUserRow,
-    patch: { isAdmin?: boolean; isDeveloper?: boolean; isApproved?: boolean }
-  ) {
-    setUpdatingUserId(target.id);
-    setError(null);
+  async function update(target: UserRow, patch: Patch, undoable = true) {
+    setBusy(target.id);
     try {
-      const res = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: target.id, ...patch }),
-      });
+      const res = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: target.id, ...patch }) });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload?.error || "Failed to update");
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === target.id
-            ? {
-                ...u,
-                isAdmin: patch.isAdmin !== undefined ? patch.isAdmin : u.isAdmin,
-                isDeveloper: patch.isDeveloper !== undefined ? patch.isDeveloper : u.isDeveloper,
-                isApproved: patch.isApproved !== undefined ? patch.isApproved : u.isApproved,
-              }
-            : u,
-        ).sort((a, b) => {
-          if (a.isDeveloper !== b.isDeveloper) return a.isDeveloper ? -1 : 1;
-          if (a.isAdmin !== b.isAdmin) return a.isAdmin ? -1 : 1;
-          if (a.isApproved !== b.isApproved) return a.isApproved ? 1 : -1;
-          return String(a.email || "").localeCompare(String(b.email || ""), undefined, { sensitivity: "base" });
-        }),
-      );
-    } catch (e) {
-      setError((e as Error).message || "Failed to update");
-    } finally {
-      setUpdatingUserId(null);
-    }
+      if (!res.ok) { toast.show({ tone: "danger", title: `Couldn't update ${nameOf(target)}`, body: payload?.error || `The server said ${res.status}.` }); return; }
+      const before = { isAdmin: target.isAdmin, isDeveloper: target.isDeveloper, isApproved: target.isApproved };
+      setUsers((prev) => prev.map((u) => (u.id === target.id ? { ...u, ...patch } : u)));
+      const what = patch.isApproved ? "is approved" : patch.isAdmin === true ? "is now an Admin" : patch.isAdmin === false ? "is no longer an Admin" : patch.isDeveloper === true ? "is now a Developer" : patch.isDeveloper === false ? "is no longer a Developer" : "was updated";
+      const undo: Patch = Object.fromEntries(Object.keys(patch).map((k) => [k, before[k as keyof Patch]]));
+      toast.show({ tone: "success", title: `${nameOf(target)} ${what}`, body: "Takes effect within 10 seconds.", ...(undoable ? { action: { label: "Undo", onClick: () => void update({ ...target, ...patch }, undo, false) } } : {}) });
+    } finally { setBusy(null); }
   }
 
+  async function sendReset(targets: UserRow[]) {
+    let sent = 0; const failed: string[] = [];
+    setBusy("reset");
+    for (const u of targets) {
+      const res = await fetch("/api/admin/users/password-reset", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userId: u.id }) }).catch(() => null);
+      const body = res ? await res.json().catch(() => ({})) : {};
+      if (res?.ok) sent += 1; else failed.push(`${nameOf(u)}: ${body.error ?? `failed (${res?.status ?? "network"})`}`);
+    }
+    setBusy(null);
+    if (sent) toast.show({ tone: "success", title: sent === 1 && targets.length === 1 ? `Password reset sent to ${targets[0].email}` : `Password reset sent to ${sent} ${sent === 1 ? "person" : "people"}`, body: "The email links to a page where they choose a new password." });
+    if (failed.length) toast.show({ tone: "danger", title: `Couldn't send ${failed.length} reset email${failed.length === 1 ? "" : "s"}`, body: failed.slice(0, 2).join(" · "), action: { label: "Retry", onClick: () => void sendReset(targets.filter((t) => failed.some((f) => f.startsWith(`${nameOf(t)}:`)))) } });
+    if (sent && !failed.length) setSelected(new Set());
+  }
+
+  const protectedRow = (u: UserRow) => u.isDeveloper && !callerIsDeveloper;
+  const menuFor = (u: UserRow): MenuItem[] => {
+    const r = roleOf(u); const me = u.id === callerId; const items: MenuItem[] = [];
+    if (!protectedRow(u) && !me) {
+      if (can.setAdmin && r === "user") items.push({ id: "admin", label: "Make admin", icon: "shield", onSelect: () => void update(u, { isAdmin: true }) });
+      if (can.setDeveloper && callerIsDeveloper && (r === "user" || r === "admin")) items.push({ id: "dev", label: "Make developer", icon: "terminal", onSelect: () => void update(u, { isDeveloper: true }) });
+    }
+    if (can.passwordReset && !protectedRow(u) && u.email) items.push({ id: "reset", label: "Send password reset", icon: "key-round", onSelect: () => void sendReset([u]) });
+    items.push({ id: "copy", label: "Copy user ID", icon: "copy", onSelect: () => { void navigator.clipboard?.writeText(u.id); toast.show({ tone: "info", title: "User ID copied", body: u.id }); } });
+    if (!protectedRow(u) && !me) {
+      if (can.setAdmin && r === "admin") items.push({ id: "rm-admin", label: "Remove admin…", icon: "shield-off", danger: true, onSelect: () => setConfirm({ user: u, patch: { isAdmin: false }, title: `Remove Admin from ${nameOf(u)}?`, body: "They keep their account and can still sign in as a User. They lose Admin pages straight away.", label: "Remove Admin" }) });
+      if (can.setDeveloper && callerIsDeveloper && r === "developer") items.push({ id: "rm-dev", label: "Remove developer…", icon: "shield-off", danger: true, onSelect: () => setConfirm({ user: u, patch: { isDeveloper: false }, title: `Remove Developer from ${nameOf(u)}?`, body: "They keep their account and any Admin role. They lose the Developer pages and can no longer manage permissions unless their role allows it.", label: "Remove Developer" }) });
+    }
+    return items;
+  };
+
+  // Filters
+  const query = q.trim().toLowerCase();
+  const shown = useMemo(() => users.filter((u) => (!query || `${u.displayName ?? ""} ${u.email ?? ""}`.toLowerCase().includes(query)) && (!roles.length || roles.includes(roleOf(u))) && (!seen.length || seen.includes(recency(u.lastSignInAt)))), [users, query, roles, seen]);
+  const filtered = Boolean(query) || roles.length > 0 || seen.length > 0;
+  const clearAll = () => { setQ(""); setRoles([]); setSeen([]); };
+  const counts = useMemo(() => Object.fromEntries(TABS.map((t) => [t.id, t.roles.length ? users.filter((u) => t.roles.includes(roleOf(u))).length : users.length])), [users]);
+  const activeTab = TABS.find((t) => t.roles.length === roles.length && t.roles.every((r) => roles.includes(r)))?.id ?? null;
+
+  const columns: Column<UserRow>[] = [
+    { id: "user", header: "User", sortValue: (u) => nameOf(u).toLowerCase(), cell: (u) => (
+      <span className="flex min-w-0 items-center gap-2.5">
+        <span aria-hidden className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-cw-border bg-cw-bg-sunken text-[11px] font-bold text-cw-text-body">{initials(u)}</span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate font-semibold">{nameOf(u)}{u.id === callerId && <span className="font-medium text-cw-text-muted"> · you</span>}</span>
+          <span className="truncate font-mono text-[12px] text-cw-text-muted">{u.email || "No email"}</span>
+        </span>
+      </span>
+    ) },
+    { id: "role", header: "Role", width: "130px", sortValue: (u) => ORDER[roleOf(u)], cell: (u) => <RoleBadge role={roleOf(u)} /> },
+    { id: "status", header: "Status", width: "190px", cell: (u) => (u.isApproved || u.isAdmin || u.isDeveloper
+      ? <span className="flex items-center gap-1.5 text-[13px] text-cw-text-body"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-cw-success" />Active</span>
+      : <span className="flex items-center gap-1.5 text-[13px] text-cw-warning-text"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-cw-warning" />Waiting for approval</span>) },
+    { id: "seen", header: "Last sign-in", width: "130px", sortValue: (u) => (u.lastSignInAt ? -new Date(u.lastSignInAt).getTime() : Number.MAX_SAFE_INTEGER), cell: (u) => <span className="font-mono text-[12.5px] text-cw-text-body" title={u.lastSignInAt ?? "Never signed in"}>{signedIn(u.lastSignInAt)}</span> },
+    { id: "approve", header: <span className="sr-only">Approve</span>, width: "110px", align: "right", cell: (u) => (roleOf(u) === "pending" && can.approve ? <Button size="sm" variant="primary" icon="check" loading={busy === u.id} loadingLabel="Approving…" onClick={() => void update(u, { isApproved: true })}>Approve</Button> : null) },
+  ];
+
   return (
-    <PortalShell>
-      <div className="max-w-[1560px] px-[30px] pb-10 pt-[26px]">
-        <div className="mb-4">
-          <PButton
-            type="button"
-            variant="quiet"
-            size="sm"
-            onClick={() => router.push("/admin/maintenance")}
-          >
-            <ArrowLeftIcon className="h-4 w-4" />
-            Back
-          </PButton>
+    <PortalShell title="Users" subtitle="Approve new accounts and manage roles. Admins can grant or remove Admin. Only Developers can grant or remove Developer."
+      headerRight={state === "ready" && !forbidden ? (
+        <div role="tablist" aria-label="Show" className="flex flex-wrap gap-2">
+          {TABS.map((t) => {
+            const on = activeTab === t.id;
+            return (
+              <button key={t.id} type="button" role="tab" aria-selected={on} onClick={() => setRoles(t.roles)}
+                className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-[8px] border px-3 font-sans text-[13px] font-semibold outline-none focus-visible:shadow-[0_0_0_2px_var(--cw-focus)] ${on ? "border-cw-ink bg-cw-ink text-cw-on-ink" : "border-cw-border-control bg-cw-bg-surface text-cw-text-body hover:bg-cw-bg-hover"}`}>
+                {t.label}<span className="font-mono text-[11.5px] font-medium opacity-85">{counts[t.id]}</span>
+              </button>
+            );
+          })}
         </div>
-
-        <h1 className="m-0 mb-[5px] text-[26px] font-extrabold tracking-[-0.02em]">Users</h1>
-        <p className="m-0 mb-5 text-[15px] text-cw-text-muted">
-          Approve new accounts and manage roles. Admins can grant/revoke Admin. Only Developers can grant/revoke Developer.
-        </p>
-
-        {error && (
-          <div className="mb-4 rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-3.5 py-2.5 text-sm text-cw-danger-text">
-            {error}
-          </div>
+      ) : undefined}>
+      <div className="pb-10" style={{ padding: "0 var(--cw-page-pad) 40px" }}>
+        {forbidden ? <TableCard><EmptyState icon="lock" title="Users is for Admins">Your role can't approve accounts or change roles. An admin can, under Admin → Users.</EmptyState></TableCard> : (
+        <TableCard>
+          <DataTable
+            label="Users"
+            columns={columns}
+            rows={shown}
+            rowKey={(u) => u.id}
+            state={state}
+            error={{ title: "Couldn't load users", detail: loadError, onRetry: () => void load() }}
+            defaultSort={{ id: "role", dir: "asc" }}
+            selectable={can.passwordReset}
+            selected={selected}
+            onSelectedChange={setSelected}
+            bulkActions={(keys) => <Button size="sm" icon="key-round" loading={busy === "reset"} loadingLabel="Sending…" onClick={() => void sendReset(users.filter((u) => keys.includes(u.id) && !protectedRow(u) && u.email))}>Send password reset</Button>}
+            rowMenu={menuFor}
+            filtered={filtered}
+            onClearFilters={clearAll}
+            noMatchTitle={query ? <>No users match “{q.trim()}”</> : "No users match these filters"}
+            noMatchBody="Search looks at names and email addresses."
+            empty={{ icon: "users", title: "No accounts yet", body: "People appear here when they sign up; new accounts wait for approval." }}
+            toolbar={<>
+              <FilterBar search={q} onSearch={setQ} searchPlaceholder="Search name or email" count={<>Sorted by <strong className="font-semibold text-cw-text">role</strong>, then name</>}
+                filters={[
+                  { id: "role", label: "Role", icon: "shield", options: [{ value: "developer", label: "Developer" }, { value: "admin", label: "Admin" }, { value: "user", label: "User" }, { value: "pending", label: "Pending" }], values: roles, onChange: setRoles, counts: { developer: users.filter((u) => roleOf(u) === "developer").length, admin: users.filter((u) => roleOf(u) === "admin").length, user: users.filter((u) => roleOf(u) === "user").length, pending: users.filter((u) => roleOf(u) === "pending").length } },
+                  { id: "seen", label: "Last sign-in", icon: "clock", options: [{ value: "day", label: "Today" }, { value: "week", label: "This week" }, { value: "month", label: "This month" }, { value: "older", label: "Earlier" }, { value: "never", label: "Never" }], values: seen, onChange: setSeen },
+                ]} />
+              {filtered && state === "ready" && <FilteredStrip shown={shown.length} total={users.length} reasons={filterReasons((roles.length ? 1 : 0) + (seen.length ? 1 : 0), Boolean(query))} onClear={clearAll} noun={users.length - shown.length === 1 ? "person" : "people"} />}
+            </>}
+          />
+        </TableCard>
         )}
-
-        <PCard className="overflow-hidden">
-          {loading ? (
-            <p className="m-0 px-[18px] py-5 text-sm text-cw-text-muted">Loading users…</p>
-          ) : users.length === 0 ? (
-            <p className="m-0 px-[18px] py-5 text-sm text-cw-text-muted">No users found.</p>
-          ) : (
-            <>
-              <div className="hidden grid-cols-[110px_1.2fr_1.4fr_auto] items-center gap-3.5 border-b border-cw-divider bg-cw-bg-page px-[18px] py-2.5 md:grid">
-                <PTh>ROLE</PTh>
-                <PTh>USER</PTh>
-                <PTh>EMAIL</PTh>
-                <PTh className="text-right">ACTIONS</PTh>
-              </div>
-              <div>
-                {users.map((u) => {
-                  const busy = updatingUserId === u.id;
-                  const isDevProtected = u.isDeveloper && !callerIsDeveloper;
-                  return (
-                    <div
-                      key={u.id}
-                      className="grid grid-cols-1 items-center gap-2 border-b border-cw-divider px-[18px] py-3 last:border-b-0 md:grid-cols-[110px_1.2fr_1.4fr_auto] md:gap-3.5"
-                    >
-                      <div>
-                        <RoleBadge label={roleLabel(u)} />
-                      </div>
-                      <p className="m-0 min-w-0 truncate text-sm font-semibold text-cw-text">
-                        {u.displayName || u.email || "Unknown user"}
-                      </p>
-                      <PMono className="min-w-0 truncate text-[12.5px] text-cw-text-muted">
-                        {u.email || "No email"}
-                      </PMono>
-
-                      <div className="flex shrink-0 justify-end gap-1.5">
-                        {/* Approve button — shown for pending users */}
-                        {!u.isApproved && !u.isDeveloper && !u.isAdmin && (
-                          <PButton
-                            type="button"
-                            size="sm"
-                            variant="primary"
-                            disabled={busy}
-                            onClick={() => updateRole(u, { isApproved: true })}
-                          >
-                            {busy ? "…" : "Approve"}
-                          </PButton>
-                        )}
-
-                        {/* Admin toggle — available to admins and devs, blocked if target is dev and caller isn't */}
-                        {!u.isDeveloper && u.isApproved && (
-                          <PButton
-                            type="button"
-                            size="sm"
-                            variant={u.isAdmin ? "secondary" : "primary"}
-                            disabled={busy || isDevProtected}
-                            onClick={() => updateRole(u, { isAdmin: !u.isAdmin })}
-                          >
-                            {busy ? "…" : u.isAdmin ? "Remove admin" : "Make admin"}
-                          </PButton>
-                        )}
-
-                        {/* Developer toggle — only shown to developers */}
-                        {callerIsDeveloper && (
-                          <PButton
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            disabled={busy}
-                            onClick={() => updateRole(u, { isDeveloper: !u.isDeveloper })}
-                          >
-                            {busy ? "…" : u.isDeveloper ? "Remove dev" : "Make dev"}
-                          </PButton>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </PCard>
       </div>
+      <ConfirmDialog open={Boolean(confirm)} danger icon="user-x" title={confirm?.title ?? ""} body={confirm?.body} confirmLabel={confirm?.label ?? ""} busy={Boolean(confirm && busy === confirm.user.id)} busyLabel="Removing…"
+        onCancel={() => setConfirm(null)} onConfirm={async () => { const c = confirm!; await update(c.user, c.patch); setConfirm(null); }} />
     </PortalShell>
   );
 }

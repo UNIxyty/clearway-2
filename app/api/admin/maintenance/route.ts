@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { holds, refused, requirePermission } from "@/lib/permissions/server";
+import { currentPerson, holds, refused, requirePermission } from "@/lib/permissions/server";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
@@ -9,17 +10,38 @@ export async function GET() {
     if ("error" in auth) return auth.error;
     const { supabase } = auth;
 
-    const { data, error } = await supabase
+    // Every switch is a row; the latest is the state now. The history says since when, by whom, and when the last
+    // maintenance ended (portal redesign §3.3).
+    const { data: rows, error } = await supabase
       .from("maintenance")
-      .select("id, enabled, message, eta_text, updated_at")
+      .select("id, enabled, message, eta_text, updated_at, updated_by")
       .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error || !data) {
-      return NextResponse.json({ enabled: false, message: null, eta_text: null, updated_at: null });
+      .limit(50);
+    const me = await currentPerson();
+    const role = "error" in me ? "user" : me.role;
+    const [enable, disable, clearCache] = await Promise.all(["portal.maintenance.enable", "portal.maintenance.disable", "portal.aip.clear-cache"].map((a) => holds(role, a)));
+    const can = { enable, disable, clearCache };
+    if (error || !rows?.length) {
+      return NextResponse.json({ enabled: false, message: null, eta_text: null, updated_at: null, since: null, by: null, lastEnded: null, can });
     }
-    return NextResponse.json(data);
+    const current = rows[0] as { enabled: boolean; message: string | null; eta_text: string | null; updated_at: string; updated_by: string | null };
+    // When the current state began: the oldest row of the run of rows with the same state at the top.
+    let start = current;
+    for (const r of rows as typeof current[]) { if (r.enabled !== current.enabled) break; start = r; }
+    const ended = current.enabled ? (rows as typeof current[]).find((r) => !r.enabled) ?? null : start;
+    const emails = new Map<string, string | null>();
+    const service = createSupabaseServiceRoleClient();
+    for (const id of new Set([start.updated_by, ended?.updated_by].filter((x): x is string => Boolean(x)))) {
+      const { data } = service ? await service.auth.admin.getUserById(id) : { data: null };
+      emails.set(id, data?.user?.email ?? null);
+    }
+    const who = (id: string | null) => (id ? emails.get(id) ?? null : null);
+    return NextResponse.json({
+      enabled: Boolean(current.enabled), message: current.message, eta_text: current.eta_text, updated_at: current.updated_at,
+      since: start.updated_at, by: who(start.updated_by),
+      lastEnded: ended ? { at: ended.updated_at, by: who(ended.updated_by) } : null,
+      can,
+    });
   } catch (e) {
     return NextResponse.json({ error: (e as { message?: string })?.message || "Failed" }, { status: 500 });
   }

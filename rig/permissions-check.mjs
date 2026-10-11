@@ -62,8 +62,11 @@ const BEFORE = "0c64a15";
 // (A handler that falls back to requireAuthenticatedUser after requireAdmin — "an admin, or your own" — was open to everyone.)
 const expectFor = (src) => /requireDeveloper\(\)/.test(src) ? ["developer"] : /requireAuthenticatedUser\(\)/.test(src) ? ["user", "admin", "developer"] : /requireAdmin\(\)|is_admin/.test(src) ? ["admin", "developer"] : ["user", "admin", "developer"];
 let portalSame = 0; const portalDiff = [];
+const added = [];
 for (const e of ENDPOINTS.portal.filter((x) => !x.public && x.route !== "/api/admin/permissions")) {
-  const old = execFileSync("git", ["show", `${BEFORE}:app${e.route}/route.ts`]).toString();
+  // An endpoint added after Group 1 has no "before" to match (its default is its own decision, in the catalogue).
+  let old;
+  try { old = execFileSync("git", ["show", `${BEFORE}:app${e.route}/route.ts`], { stdio: ["ignore", "pipe", "ignore"] }).toString(); } catch { added.push(`${e.method} ${e.route}`); continue; }
   const m = new RegExp(String.raw`export\s+(?:async\s+)?function\s+${e.method}\b`).exec(old);
   const rest = old.slice(m.index + 10); const end = rest.search(/\nexport\s/);
   const body = end < 0 ? rest : rest.slice(0, end);
@@ -72,7 +75,7 @@ for (const e of ENDPOINTS.portal.filter((x) => !x.public && x.route !== "/api/ad
   const have = [...new Set(acts.flatMap((a) => ACTIONS.get(a).default))].sort().join(",");
   if (want === have) portalSame += 1; else portalDiff.push(`${e.method} ${e.route}: before ${want}, now ${have}`);
 }
-ok(portalDiff.length === 0, `portal: every write endpoint's default roles equal what its code allowed before (${portalSame} endpoints)`, portalDiff.join(" | "));
+ok(portalDiff.length === 0, `portal: every write endpoint's default roles equal what its code allowed before (${portalSame} endpoints${added.length ? `; ${added.length} added since, with their own defaults: ${added.join(", ")}` : ""})`, portalDiff.join(" | "));
 const g1 = execFileSync("node", ["--env-file=.env.rig", "rig/wall/access-check.mjs"]).toString();
 ok(/ALL PASSED/.test(g1), "wall: Group 1's own check passes unchanged against the seeded defaults (every write as user and admin)", g1.split("\n").filter((l) => l.startsWith("FAIL")).join(" | "));
 

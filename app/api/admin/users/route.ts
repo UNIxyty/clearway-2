@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-auth";
-import { holds, refused, requirePermission } from "@/lib/permissions/server";
+import { currentPerson, holds, refused, requirePermission } from "@/lib/permissions/server";
 
 export async function GET() {
   try {
@@ -37,6 +37,7 @@ export async function GET() {
           id: u.id,
           email: u.email ?? null,
           createdAt: u.created_at ?? null,
+          lastSignInAt: u.last_sign_in_at ?? null,
           displayName: pref?.display_name ?? null,
           isAdmin: Boolean(pref?.is_admin),
           isDeveloper: Boolean(pref?.is_developer),
@@ -49,7 +50,13 @@ export async function GET() {
         return String(a.email || "").localeCompare(String(b.email || ""), undefined, { sensitivity: "base" });
       });
 
-    return NextResponse.json({ users: rows, callerIsDeveloper: auth.isDeveloper });
+    // What the caller may do here, so the page offers only actions that will work (each is checked again on POST).
+    const me = await currentPerson();
+    const role = "error" in me ? "user" : me.role;
+    const [approve, setAdmin, setDeveloper, passwordReset] = await Promise.all(
+      ["portal.users.approve", "portal.users.set-admin", "portal.users.set-developer", "portal.users.password-reset"].map((a) => holds(role, a)),
+    );
+    return NextResponse.json({ users: rows, callerIsDeveloper: auth.isDeveloper, callerId: "error" in me ? null : me.user.id, can: { approve, setAdmin, setDeveloper, passwordReset } });
   } catch (e) {
     return NextResponse.json({ error: (e as { message?: string })?.message || "Failed to load users." }, { status: 500 });
   }

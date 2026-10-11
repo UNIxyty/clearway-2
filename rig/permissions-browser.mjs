@@ -25,6 +25,8 @@ async function page(email, base) {
 const admin = await page("rig-access-admin@rig.invalid", PORTAL);
 await admin.goto(`${PORTAL}/admin/permissions`, { waitUntil: "load" });
 await admin.waitForSelector('table[aria-label^="Permissions"]', { timeout: 30000 });
+// Groups start folded (§3.1): open the three this test works in.
+for (const g of ["Permissions", "Operators", "Aircraft"]) await admin.locator(`tbody[aria-label='${g}']`).getByRole("button", { expanded: false }).first().click();
 ok(await admin.getByText("Exactly the defaults").count() === 1, "the screen opens on exactly the defaults");
 ok(await admin.locator('[role="checkbox"][aria-label="Manage permissions (this screen) — Developer"]').isDisabled(), "Developer's Manage permissions is locked on");
 ok(await admin.locator('[role="checkbox"][aria-label="Manage permissions (this screen) — Admin"]').isDisabled(), "…and so is your own role's (you cannot take it from yourself)");
@@ -49,12 +51,12 @@ await sleep(1200);
 await admin.locator('[role="checkbox"][aria-label="Delete an aircraft from the wall — User"]').click();
 await admin.locator('[role="dialog"]').getByRole("button", { name: "Grant" }).click(); // hard to undo: confirmed
 await sleep(1500);
-await admin.getByRole("checkbox", { name: "Show only what changed" }).check();
+await admin.getByRole("radio", { name: /Differs from default/ }).click();
 await sleep(400);
 await admin.screenshot({ path: `${OUT}/perm-drift.png`, fullPage: false });
 const history = await admin.locator('table[aria-label="Permission history"]').innerText();
 ok(/rig-access-admin@rig\.invalid\s+granted\s+Delete an aircraft from the wall\s+to User/.test(history), "the history names who granted what to whom", history.split("\n").slice(0, 3).join(" | "));
-await admin.getByRole("checkbox", { name: "Show only what changed" }).uncheck();
+await admin.getByRole("radio", { name: /^All/ }).click();
 await admin.locator('table[aria-label="Permission history"]').scrollIntoViewIfNeeded();
 await admin.screenshot({ path: `${OUT}/perm-history.png` });
 

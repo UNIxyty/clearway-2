@@ -54,8 +54,9 @@ await open("RIGPAX19", "split-and-warning", async (page, text) => {
   // Portal foundations 1.4: passengers' names are masked with the rest until a person shows personal data.
   ok(/Surname/i.test(t) && /Given names/i.test(t) && /•{8} · edited by/.test(t) && !/SAMPLE|EXAMPLE|SPECIMEN/.test(t), "review screen: Surname and Given names masked like the rest; the person's edit still marked, with who", t.split("\n").slice(0, 4).join(" | "));
   ok(!/ALICE|BRUNO|CARLA|SAMPLE DOUBLE/.test(await page.evaluate(() => document.body.innerText)), "no passenger name anywhere on the page before Show personal data");
-  ok(await table.getByRole("button", { name: /Correct the surname and given names of passenger 1$/ }).count() === 1, "each passenger's split can be corrected (✎)");
-  await table.getByRole("button", { name: /Correct the surname and given names of passenger 1$/ }).click();
+  // Masked, ✎'s name says what it does first (the hint is not a hover-only tooltip).
+  ok(await table.getByRole("button", { name: /Correct the surname and given names of passenger 1 \(shows personal data first\)$/ }).count() === 1, "each passenger's split can be corrected (✎), and its name says it shows personal data first");
+  await table.getByRole("button", { name: /Correct the surname and given names of passenger 1 \(shows personal data first\)$/ }).click();
   ok(await page.getByRole("button", { name: "Show for 60 s" }).count() >= 1 && await page.getByRole("group", { name: "Name split, passenger 1" }).count() === 0, "…while masked, ✎ asks to show personal data first (no names in an editor)");
   await page.getByRole("button", { name: "Show for 60 s" }).first().click();
   await page.waitForTimeout(800);
@@ -71,6 +72,33 @@ await open("RIGPAX20", "unknown", async (page, text) => {
   ok(/Passengers: The service stopped during the write; the result was never recorded/.test(text), "after a restart: the passengers' write is shown as unknown, in red");
   ok(await page.getByRole("button", { name: "Send passengers to Leon" }).count() >= 1, "…with \"Send passengers to Leon\" for a person to decide");
 });
+// ✎ (correct a surname) only for someone who can show personal data; the hint is on the page, never a title tooltip.
+// Signed in, behind the sign-in proxy (:3989): the rig's User (no reveal by default) and Admin.
+{
+  const SIGNED = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989", SB = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const id = (await db("intake_requests?select=id&reference=eq.RIGPAX16"))[0]?.id;
+  for (const who of ["user", "admin"]) {
+    const sess = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, "content-type": "application/json" }, body: JSON.stringify({ email: `rig-access-${who}@rig.invalid`, password: "rig-access-check-only" }) })).json();
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+    await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(sess)).toString("base64")}`, url: SIGNED }]);
+    const page = await ctx.newPage();
+    await page.goto(`${SIGNED}/agent/intake?r=${id}`, { waitUntil: "load" });
+    await page.waitForSelector('section[aria-label^="Passengers, leg"]', { timeout: 30000 }); await page.waitForTimeout(1500);
+    const pencils = page.getByRole("button", { name: /Correct the surname/ });
+    const titles = await page.locator('section[aria-label^="Passengers, leg"] [title]').count();
+    const text = await page.locator('section[aria-label^="Passengers, leg"]').first().innerText();
+    if (who === "user") {
+      ok((await pencils.count()) === 0 && /your role cannot do/.test(text) && !/correct it with ✎/.test(text), "User (cannot show personal data): no ✎ at all, and the page says who corrects the names", `${await pencils.count()} ✎`);
+    } else {
+      ok((await pencils.count()) > 0 && /✎ asks to show personal data first/.test(text), "Admin: ✎ on each passenger, and the page says the names are shown first");
+      await pencils.first().click(); await page.waitForTimeout(800);
+      ok(/Showing passengers' names/.test(await page.locator('section[aria-label^="Passengers, leg"]').first().innerText()), "Admin: ✎ on masked names asks to show personal data (it does something)");
+      await page.screenshot({ path: `${OUT}/people-pencil-admin.png` });
+    }
+    ok(titles === 0, `${who}: no title tooltip in the passenger section`, `${titles}`);
+    await ctx.close();
+  }
+}
 await browser.close();
 
 // The email reader (mailbox) masks passengers' names too, until "Show personal data in this message"; crew names stay

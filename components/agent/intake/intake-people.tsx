@@ -79,7 +79,9 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
     body = (
       <>
         {copied && <div style={{ margin: "0 18px 8px", display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, color: TONE.amber.fg, background: TONE.amber.bg, borderRadius: 8, padding: "7px 10px" }}><span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", background: cw.bgSurface, borderRadius: 4, padding: "2px 6px" }}>LOW CONFIDENCE</span>Copied from another leg: the request says the list is the same.</div>}
-        {kind === "pax" && <div style={{ margin: "0 18px 8px", fontSize: 12.5, color: unsure ? TONE.amber.fg : cw.textMuted, background: unsure ? TONE.amber.bg : "transparent", borderRadius: 8, padding: unsure ? "7px 10px" : 0 }}>{order} Check each surname (a double surname, a name written surname-first) and correct it with ✎ before sending: Leon gets the surname and given names exactly as shown.</div>}
+        {kind === "pax" && <div style={{ margin: "0 18px 8px", fontSize: 12.5, color: unsure ? TONE.amber.fg : cw.textMuted, background: unsure ? TONE.amber.bg : "transparent", borderRadius: 8, padding: unsure ? "7px 10px" : 0 }}>{order} {canReveal
+          ? <>Check each surname (a double surname, a name written surname-first) and correct it with ✎ before sending: Leon gets the surname and given names exactly as shown.{!revealed && " The names are masked: ✎ asks to show personal data first."}</>
+          : <>Leon gets the surname and given names exactly as shown. Checking and correcting them needs the names shown, which your role cannot do: someone who can show personal data corrects them.</>}</div>}
         <div role="table" aria-label={`${word}, leg ${n}`} style={{ margin: "0 18px 12px", border: `1px solid ${cw.border}`, borderRadius: 10, overflow: "hidden" }}>
           <div role="row" style={{ display: "grid", gridTemplateColumns: grid, gap: 10, padding: "7px 12px", background: cw.bgPage, ...COLHEAD }}>
             {cols.map((c) => <span role="columnheader" key={c.key} style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>{c.label}{c.pii && <Icon name="lock" size={10} color={cw.textMuted} />}{c.pii && <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>, personal data</span>}</span>)}
@@ -102,9 +104,10 @@ function Group({ kind, leg, rows, loaded, error, reveal, setReveal, doReveal, pu
               })}
               {editPeople && (
                 <span role="cell" style={{ justifySelf: "end", display: "inline-flex", gap: 2 }}>
-                  {kind === "pax" && r.idx != null && (
-                    <button type="button" className="ag-focus" aria-label={`Correct the surname and given names of passenger ${i + 1}`} title={revealed ? undefined : "Shows personal data first: the names are masked until then"}
-                      onClick={() => { if (!revealed) { if (canReveal) setReveal({ phase: "ask", section }); return; } setSplitting(splitting === r.idx ? null : r.idx ?? null); }}
+                  {/* Only for someone who can show the names: correcting one needs them shown. Masked, the click asks first. */}
+                  {kind === "pax" && r.idx != null && canReveal && (
+                    <button type="button" className="ag-focus" aria-label={`Correct the surname and given names of passenger ${i + 1}${revealed ? "" : " (shows personal data first)"}`}
+                      onClick={() => { if (!revealed) { setReveal({ phase: "ask", section }); return; } setSplitting(splitting === r.idx ? null : r.idx ?? null); }}
                       style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: splitting === r.idx ? cw.primaryTint : "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: cw.textMuted }}>✎</button>
                   )}
                   {r.added && r.id ? (

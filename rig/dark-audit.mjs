@@ -78,7 +78,10 @@ for (const [page, route] of visits) {
       const s = getComputedStyle(e); if (s.visibility === "hidden" || s.display === "none" || +s.opacity === 0) continue;
       const b = e.getBoundingClientRect(); if (b.width < 2 || b.height < 2) continue;
       const bg = parse(s.backgroundColor);
-      if (bg && bg.a > 0.5 && neutral(bg) && lum(bg) > 0.45 && b.width * b.height > 300) found.surfaces.push(`${s.backgroundColor} ${label(e)}`);
+      // A mask icon (components/portal/Icon) paints its glyph with background: currentColor, so its "background" is the
+      // icon's colour, not a surface (e.g. the white icon on the docs' red cannot-be-undone band, white in both themes).
+      const masked = (s.maskImage && s.maskImage !== "none") || (s.webkitMaskImage && s.webkitMaskImage !== "none");
+      if (bg && !masked && bg.a > 0.5 && neutral(bg) && lum(bg) > 0.45 && b.width * b.height > 300) found.surfaces.push(`${s.backgroundColor} ${label(e)}`);
       for (const side of ["Top", "Right", "Bottom", "Left"]) {
         const w = parseFloat(s[`border${side}Width`]); const c = parse(s[`border${side}Color`]);
         if (w >= 1 && s[`border${side}Style`] !== "none" && c && c.a > 0.5 && neutral(c) && lum(c) > 0.45 && s[`border${side}Color`] !== INK) { found.borders.push(`${s[`border${side}Color`]} ${label(e)}`); break; }

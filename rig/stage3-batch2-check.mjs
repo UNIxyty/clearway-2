@@ -141,8 +141,12 @@ const order = (page) => page.locator("[data-block]").evaluateAll((els) => els.ma
   await page.getByRole("button", { name: "Done" }).click(); await sleep(300);
   ok(await page.getByText("Your dashboard has no blocks").isVisible() && await page.getByRole("button", { name: "Use the default layout" }).isVisible() && await page.getByRole("button", { name: "Add blocks" }).isVisible(), "the empty dashboard offers Add blocks and the default layout");
   await page.screenshot({ path: `${OUT}/s3b2-dashboard-empty.png` });
-  await page.getByRole("button", { name: "Use the default layout" }).click(); await sleep(1200);
-  ok((await order(page)).length === 6 && (await layoutOf(adminId)) === null, "Use the default layout puts the six back and clears the saved layout");
+  await page.getByRole("button", { name: "Use the default layout" }).click(); await sleep(600);
+  // Cleared on the account after the same 500 ms save delay: wait for it (up to 8 s), as above (failed once at a
+  // fixed 1.2 s in a full run, 2026-10-12).
+  let cleared;
+  for (let i = 0; i < 32; i += 1) { cleared = await layoutOf(adminId); if (cleared === null) break; await sleep(250); }
+  ok((await order(page)).length === 6 && cleared === null, "Use the default layout puts the six back and clears the saved layout", `${(await order(page)).length} blocks, saved ${JSON.stringify(cleared)}`);
   // Full changelog
   await page.locator('[data-block="changelog"]').getByRole("link", { name: "Full changelog" }).click();
   await page.waitForURL(/\/dashboard\/changelog$/); await page.waitForSelector("section li", { timeout: 20000 });

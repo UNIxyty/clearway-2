@@ -8,13 +8,15 @@ number of checks passed in the last full run.
 
 ## Known failures
 
-None. Every suite below passed on 2026-10-12 (after the disk clean-up and the narrower standalone build).
+None. Every suite below passed on 2026-10-12 (the full run after the image-secrets and docs stage 1 changes; two
+suites re-run alone after a test fix, see below).
 
 ## Suites
 
 | Suite | Last passing | Date |
 |---|---|---|
 | check-no-real-passenger-data | 838 files, none | 2026-10-12 |
+| docs-check | 13 | 2026-10-12 |
 | intake/test-classify | 46 | 2026-10-12 |
 | intake/test-leon-payload | 10 | 2026-10-12 |
 | intake/test-timezones | 30 | 2026-10-12 |
@@ -49,10 +51,22 @@ None. Every suite below passed on 2026-10-12 (after the disk clean-up and the na
 | stage3-batch3-check | 33 | 2026-10-12 |
 | stage4-check | 25 | 2026-10-12 |
 | overlay-check | 4 | 2026-10-12 |
-| dark-audit | 2 (46 pages) | 2026-10-12 |
+| dark-audit | 2 (49 pages) | 2026-10-12 |
 | partB-check | 31 | 2026-10-12 |
+| docs-browser | 37 | 2026-10-12 |
 | ext/t-console | clean (no messages) | 2026-10-12 |
 | ext/t-issues | clean (no issues) | 2026-10-12 |
+
+## Red on 2026-10-12, and why (fixed the same night)
+
+- **Four suites after 49-80 minute stalls** (manifest/browser, intake/e2e, e2e-scheduled, e2e-classify): the Mac
+  idle-slept mid-run (power log; Chrome logged ERR_NETWORK_IO_SUSPENDED). Each passed alone. `run-all-suites.sh` now
+  keeps the Mac awake (`caffeinate -i`), and the next full run had none of them.
+- **stage3-batch2** ("Use the default layout … clears the saved layout"): a fixed 1.2 s wait for a save that happens
+  500 ms after the change; the same fault as the other wait in that file, fixed the night before. It now waits for
+  the save (up to 8 s).
+- **dark-audit** on `/docs/digital-wall/operators`: counted the white icon on the red "cannot be undone" band as a
+  light surface. A mask icon's background is its glyph colour, so masked elements are no longer counted as surfaces.
 
 ## Red until 2026-10-11, and why
 

@@ -113,6 +113,7 @@
   .dx-head { height: 56px; padding: 0 12px; }
   .dx-logo { height: 22px; }
   .dx-portal-link { display: none; }
+  .dx-head-mid { justify-content: flex-end; }
   .dx-body, .dx-body.no-toc { grid-template-columns: minmax(0, 1fr); }
   .dx-toc { display: none; }
   .dx-tocbar { position: sticky; top: 56px; z-index: 25; height: 48px; display: flex; align-items: center; gap: 10px; width: 100%; padding: 0 16px 0 20px; border: 0; border-bottom: 1px solid var(--cw-border); background: var(--cw-bg-page); color: var(--cw-text); font-family: inherit; text-align: left; cursor: pointer; }

@@ -8,11 +8,12 @@ let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await chromium.launch();
 const errors = [];
-async function open(path, { width = 1440, height = 900, theme = null } = {}) {
+async function open(path, { width = 1440, height = 900, theme = null, expect404 = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height } });
   if (theme) await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch { /* */ } }, theme);
   const page = await ctx.newPage();
-  page.on("console", (m) => { if (m.type() === "error") errors.push(`${path}: ${m.text().slice(0, 160)}`); });
+  // On a page that should be 404, the browser logs the 404 of the page itself; that one is expected.
+  page.on("console", (m) => { if (m.type() === "error" && !(expect404 && /status of 404/.test(m.text()))) errors.push(`${path}: ${m.text().slice(0, 160)}`); });
   page.on("pageerror", (e) => errors.push(`${path}: ${e.message.slice(0, 160)}`));
   const res = await page.goto(`${BASE}${path}`, { waitUntil: "load" });
   await sleep(800);
@@ -126,7 +127,7 @@ const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operator
 {
   const { ctx, page } = await open("/docs");
   const hrefs = new Set();
-  for (const p of ["/docs", "/docs/digital-wall", LONG, SHORT]) {
+  for (const p of ["/docs", "/docs/digital-wall", LONG, SHORT, "/docs/glossary", "/docs/search?q=zzqxv"]) {
     await page.goto(`${BASE}${p}`, { waitUntil: "load" });
     for (const h of await page.locator("a[href^='/']").evaluateAll((as) => as.map((a) => a.getAttribute("href")))) hrefs.add(h.split("#")[0]);
   }
@@ -137,6 +138,103 @@ const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operator
   ok(nf.status === 404, "a page that does not exist answers 404", nf.status);
   await page.goto(`${BASE}/help`, { waitUntil: "load" }); await sleep(1500);
   ok(await page.locator('a[href="/docs"]').filter({ hasText: "Read the docs" }).count() === 1, "Help & support (where ? and the sidebar link go) leads into the docs");
+  await ctx.close();
+}
+
+// ── home: two ways in, who uses it, the map ──
+{
+  const { ctx, page, status } = await open("/docs");
+  ok(status === 200 && /How to use/.test(await page.locator("h1").innerText()), "the home page answers, with its title from home.md");
+  ok(await page.locator(".dx-home .map a").count() >= 1 && await page.locator(".dx-home .role").count() === 3, "home: the map of sections and the three kinds of reader");
+  const start = await page.locator(".dx-home .dx-primary").getAttribute("href").catch(() => null);
+  ok(start === "/docs/digital-wall", "home: 'Start with …' goes to the section home.md names", start);
+  ok(/Start reading/.test(await page.locator(".dx-pn").innerText()), "home: previous/next reads 'Start reading'");
+  await page.screenshot({ path: `${OUT}/docs-home.png`, fullPage: true });
+  await ctx.close();
+}
+
+// ── search: ⌘K, "/", keys, empty, all results ──
+{
+  const idx = await fetch(`${BASE}/docs/search-index.json`);
+  const rows = idx.ok ? await idx.json() : [];
+  const kinds = [...new Set(rows.map((r) => r.kind))].sort().join(",");
+  ok(idx.status === 200 && kinds === "page,section,task,term", "the search index is served, with sections, pages, tasks and terms", `${idx.status} ${rows.length} rows ${kinds}`);
+
+  const { ctx, page } = await open(SHORT);
+  ok(await page.locator(".dx-searchfield .dx-kbd").innerText() === "⌘K", "the header's search field shows ⌘K");
+  await page.keyboard.press("Meta+k"); await sleep(300);
+  ok(await page.locator(".dx-search").isVisible() && await page.evaluate(() => document.activeElement?.getAttribute("aria-label")) === "Search the docs", "⌘K opens search with the cursor in the box");
+  ok(await page.locator(".dx-search-try button").count() >= 1, "before typing, it offers words to try");
+  await page.keyboard.type("operator"); await sleep(500);
+  const groups = await page.locator('.dx-search [role="group"]').count();
+  const marks = await page.locator(".dx-search .dx-mark").count();
+  ok(groups >= 1 && marks >= 1 && await page.locator(".dx-search-row.on").count() === 1, "results are grouped by section, the match is marked, the first is selected", `${groups} groups, ${marks} marks`);
+  await page.keyboard.press("ArrowDown"); await sleep(100);
+  const sel = await page.locator(".dx-search-row.on").getAttribute("href");
+  ok(sel && (await page.locator(".dx-search-row").nth(1).getAttribute("href")) === sel, "↓ moves to the next result", sel);
+  await page.keyboard.press("Enter"); await page.waitForLoadState("load"); await sleep(400);
+  ok(page.url().endsWith(sel) && await page.locator(".dx-search").count() === 0, "↵ opens it, and search closes (even for a task on this page)", page.url());
+  // "/" opens search, but not while typing in a field.
+  await page.keyboard.press("/"); await sleep(300);
+  ok(await page.locator(".dx-search").isVisible(), "'/' opens search when the focus is not in a field");
+  await page.keyboard.type("x/y"); await sleep(200);
+  ok(await page.locator(".dx-search input").inputValue() === "x/y", "'/' typed inside the search box is a character, not a shortcut");
+  await page.keyboard.press("Escape"); await sleep(200);
+  ok(await page.locator(".dx-search").count() === 0, "Esc closes search");
+  await page.keyboard.press("Meta+k"); await page.keyboard.type("zzqxv"); await sleep(400);
+  ok(/Nothing matches “zzqxv”/.test(await page.locator(".dx-search").innerText()) && await page.locator('.dx-search-empty a[href="/docs/glossary"]').count() === 1, "no match: says so, with the glossary and support");
+  await page.locator(".dx-search input").fill("delete operator"); await sleep(400);
+  ok(/Cannot be undone/.test(await page.locator(".dx-search-row").first().innerText()), "a task that cannot be undone is tagged in results");
+  await page.locator(".dx-search input").fill("notam"); await sleep(300);
+  await page.keyboard.press("Shift+Enter"); await page.waitForLoadState("load"); await sleep(800);
+  ok(/\/docs\/search\?q=notam$/.test(page.url()) && /\d+ results?/.test(await page.locator("h1").innerText()), "⇧↵ opens every result on its own page", page.url());
+  ok(await page.locator(".dx-chips button").count() >= 2 && await page.locator(".dx-results-row").count() >= 1, "the results page has a chip per section and the results");
+  await page.screenshot({ path: `${OUT}/docs-search-page.png`, fullPage: true });
+  // On the results page the box is a field: "/" types.
+  await page.locator(".dx-results-field input").fill(""); await page.locator(".dx-results-field input").type("a/b"); await sleep(200);
+  ok(await page.locator(".dx-results-field input").inputValue() === "a/b" && await page.locator(".dx-search").count() === 0, "'/' in the results page's field types, and does not open the dialog");
+  await page.goto(`${BASE}/docs/search?q=zzqxv`, { waitUntil: "load" }); await sleep(800);
+  ok(/Nothing matches/.test(await page.locator("h1").innerText()) && await page.locator(".dx-results-none .card a").count() >= 4, "results page with no match: common tasks and the glossary");
+  await ctx.close();
+}
+
+// ── search at 390: an icon, full screen ──
+{
+  const { ctx, page } = await open(LONG, { width: 390, height: 844 });
+  ok(!(await page.locator(".dx-searchfield").isVisible()) && await page.locator(".dx-searchicon").isVisible(), "at 390 search is an icon");
+  await page.locator(".dx-searchicon").click(); await sleep(300);
+  const box = await page.locator(".dx-search").boundingBox();
+  ok(box && box.width >= 389 && box.y === 0, "at 390 search is full screen", JSON.stringify(box));
+  await page.screenshot({ path: `${OUT}/docs-390-search.png` });
+  await ctx.close();
+}
+
+// ── section landing, glossary, not found ──
+{
+  const { ctx, page, status } = await open("/docs/digital-wall");
+  ok(status === 200 && await page.locator(".dx-pagelist a").count() === 2, "the section landing lists its pages");
+  const toc = await page.locator(".dx-toc .dx-toc-item").allInnerTexts();
+  ok(toc.length >= 2 && /Overview/.test(toc[0]) && /Pages in this section/.test(toc[1]), "its task list covers the landing's parts", toc.join(" | "));
+  await page.screenshot({ path: `${OUT}/docs-section.png`, fullPage: true });
+  await ctx.close();
+}
+{
+  const { ctx, page, status } = await open("/docs/glossary#term-notam");
+  ok(status === 200 && await page.locator(".dx-glossary .term").count() >= 5 && await page.locator(".dx-letters a").count() >= 3, "the glossary answers, with its terms and a letter row");
+  const top = await page.evaluate(() => document.getElementById("term-notam")?.getBoundingClientRect().top ?? -1);
+  ok(top >= 0 && top < 200, "a link to a term lands on it", Math.round(top));
+  ok(await page.locator(".dx-nav-row.on").innerText() === "Glossary", "the left nav marks Glossary");
+  await page.screenshot({ path: `${OUT}/docs-glossary.png`, fullPage: true });
+  await ctx.close();
+}
+for (const p of ["/docs/no-such-section", "/docs/digital-wall/no-such-page", "/docs/a/b/c"]) {
+  const { ctx, page, status } = await open(p, { expect404: true });
+  ok(status === 404 && /This page isn’t here/.test(await page.locator("h1:visible").first().innerText()) && await page.locator(".dx-nav").count() === 1, `${p} answers 404 with the docs' own not-found page`, status);
+  if (p === "/docs/no-such-section") {
+    await page.locator(".dx-searchopener").click(); await sleep(300);
+    ok(await page.locator(".dx-search").isVisible(), "not found: its search field opens search");
+    await page.screenshot({ path: `${OUT}/docs-404.png` });
+  }
   await ctx.close();
 }
 
@@ -176,6 +274,14 @@ const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operator
   ok(await page.locator(".dx-sheet-problems").count() === 0, "sheet.md parses with no problems");
   await page.screenshot({ path: `${OUT}/docs-sheet.png`, fullPage: true });
   await ctx.close();
+}
+
+// The portal loads none of the docs' styles (the brief: the docs must not slow down or change the portal).
+{
+  const html = await (await fetch(`${BASE}/dashboard`)).text();
+  const css = [...new Set(html.match(/\/_next\/static\/css\/[a-z0-9]+\.css/g) ?? [])];
+  let dx = 0; for (const c of css) dx += ((await (await fetch(`${BASE}${c}`)).text()).match(/\.dx-[a-z]/g) ?? []).length;
+  ok(css.length > 0 && dx === 0, "a portal page loads none of the docs' styles", `${css.length} stylesheets, ${dx} docs rules`);
 }
 
 ok(errors.length === 0, "no browser console errors on any docs page", errors.slice(0, 4).join(" | "));

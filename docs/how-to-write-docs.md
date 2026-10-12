@@ -6,7 +6,9 @@ a page is adding a file. This is everything you need.
 ## Where things are
 
 ```
-content/docs/site.json                       the name, logo, support link, and whether the docs are public
+content/docs/site.json                       the name, logo, support link, search words, and whether the docs are public
+content/docs/home.md                         the home page's words
+content/docs/glossary.md                     the glossary
 content/docs/04-digital-wall/                a section (the number puts it in order, the rest is its address)
 content/docs/04-digital-wall/_section.md     the section's title, icon and one-line summary
 content/docs/04-digital-wall/04-operators.md a page, shown at /docs/digital-wall/operators
@@ -136,11 +138,28 @@ pictures later.
 - Videos: `public/docs-media/videos/<name>.mp4`, with a still picture for before it plays as `<name>.jpg` next to it.
   The page's header line `video: operators | 30 seconds` names it. A video that is not there shows "Video to come".
 
+## The home page, the glossary and search
+
+**Home** (`content/docs/home.md`): the header holds the big title (`title`), the paragraph under it (`summary`), the
+line under the search box (`on-shift`), the line for newcomers (`new`) and where "Start with …" goes (`start`, a
+section or `section/page`). Each `## ` below is one kind of reader, with a line about what they do and a `Uses:` line.
+The map of sections is made from the section folders by itself.
+
+**Glossary** (`content/docs/glossary.md`): one term per `## `, in alphabetical order. The line under the term says
+what it stands for; then the definition; then, if useful, `Example:` and `Where:` (where it shows in the portal).
+Link to a term from any page with `[NOTAM](glossary#notam)`.
+
+**Search** finds sections, pages, tasks (by their title and summary) and glossary terms. It is made when the site is
+built, so a new page is in search after the next deploy, with nothing else to do. Good task titles are what makes
+search work: start with the verb a person would type ("Add an operator", not "Operator creation"). The words offered
+under "Try", and the common tasks shown when nothing matches, are in `site.json` (`searchSuggestions`,
+`commonTasks`); the check makes sure each one still finds something.
+
 ## Checking your work
 
 Ask a developer to run `node --no-warnings rig/docs-check.mjs` (it also runs with every test run). It says, in plain
 words and with the file name, if a page has a line it doesn't understand, a link that goes nowhere, a missing section
-title, or a picture file no page uses. Missing pictures are fine; it only counts them.
+title, a glossary link to a term that is not there, or a picture file no page uses. Missing pictures are fine; it only counts them.
 
 Your changes appear on the site with the next deploy of the portal.
 

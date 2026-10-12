@@ -8,6 +8,18 @@
   "supportEmail": "",
   "supportLink": "/help",
   "supportLabel": "Help & support",
+  "searchSuggestions": [
+    "operator",
+    "NOTAM",
+    "check",
+    "phone"
+  ],
+  "commonTasks": [
+    "digital-wall/the-wall#mark-a-section-checked",
+    "digital-wall/the-wall#read-the-notam-sign",
+    "digital-wall/operators#add-an-operator",
+    "digital-wall/operators#check-that-the-wall-is-getting-flights"
+  ],
   "credit": {
     "name": "Verxyl",
     "logoLight": "/brand/verxyl-footer.png",

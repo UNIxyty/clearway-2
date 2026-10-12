@@ -3,18 +3,22 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import MaskIcon from "@/components/portal/Icon";
 import ThemeMenu from "@/components/portal/ThemeMenu";
+import { SearchDialog, SearchField, useSearchKeys } from "./Search";
+import { OPEN_SEARCH } from "./SearchOpener";
 
 // The docs shell (design: Docs Screen): header, left nav (a drawer below 1280px), the article, the task list on the
-// right ("On this page", a bar with a bottom sheet below 900px), breadcrumb, previous/next and footer.
+// right ("On this page", a bar with a bottom sheet below 900px), breadcrumb, previous/next, footer, and search
+// (⌘K anywhere, "/" when not typing; components/docs/Search.tsx).
 // Everything that names the product comes from content/docs/site.json through `brand`.
 
 export type NavRow = { title: string; href: string; icon?: string; count?: number; on?: boolean; open?: boolean; sub?: boolean };
-export type TocEntry = { head: string } | { n: number; id: string; title: string; danger?: boolean };
+export type TocEntry = { head: string } | { n: number; id: string; title: string; danger?: boolean; plain?: boolean };
 export type Crumb = { title: string; href?: string };
-export type PrevNext = { kind: "prev" | "next"; title: string; sub: string; href: string };
+export type PrevNext = { kind: "prev" | "next"; title: string; sub: string; href: string; label?: string };
 export type Brand = {
   product: string; docsName: string; portalUrl: string; portalHref: string; logo: string;
   supportHref: string; supportText: string; creditName: string; creditLight: string; creditDark: string;
+  supportLabel: string; suggestions: string[]; glossaryHref: string | null;
 };
 
 function NavList({ rows }: { rows: NavRow[] }) {
@@ -64,7 +68,7 @@ function TocList({ toc, active, onPick }: { toc: TocEntry[]; active: number; onP
         : (
           <a key={i} href={`#fn-${x.id}`} className={`dx-toc-item${x.n === active ? " on" : ""}`} aria-current={x.n === active ? "location" : undefined}
             onClick={(e) => { e.preventDefault(); onPick(x.n, x.id); }}>
-            <span className="num">{String(x.n).padStart(2, "0")}</span><span>{x.title}</span>
+            {!x.plain && <span className="num">{String(x.n).padStart(2, "0")}</span>}<span>{x.title}</span>
             {x.danger && <MaskIcon name="octagon-alert" size={13} className="dx-danger-ic" />}
           </a>
         )))}
@@ -92,7 +96,7 @@ export function PrevNextNav({ items }: { items: PrevNext[] }) {
     <nav aria-label="Previous and next" className="dx-pn">
       {items.map((p) => (
         <a key={p.kind} href={p.href} className={p.kind}>
-          <span className="k"><MaskIcon name={p.kind === "prev" ? "arrow-left" : "arrow-right"} size={14} />{p.kind === "prev" ? "Previous" : "Next"}</span>
+          <span className="k"><MaskIcon name={p.kind === "prev" ? "arrow-left" : "arrow-right"} size={14} />{p.label ?? (p.kind === "prev" ? "Previous" : "Next")}</span>
           <span className="t">{p.title}</span><span className="s">{p.sub}</span>
         </a>
       ))}
@@ -100,11 +104,20 @@ export function PrevNextNav({ items }: { items: PrevNext[] }) {
   );
 }
 
-export default function DocsFrame({ brand, nav, toc, crumbs, prevNext, children, wide = false }: {
+export default function DocsFrame({ brand, nav, toc, crumbs, prevNext, children, wide = false, tocBar = true }: {
   brand: Brand; nav: NavRow[]; toc: TocEntry[] | null; crumbs: Crumb[]; prevNext: PrevNext[]; children: ReactNode; wide?: boolean;
+  /** Below 900px, show the task list as a bar under the header (pages); off for a section landing. */
+  tocBar?: boolean;
 }) {
   const [drawer, setDrawer] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const openSearch = useCallback(() => { setDrawer(false); setSheet(false); setSearching(true); }, []);
+  useSearchKeys(openSearch);
+  useEffect(() => {
+    window.addEventListener(OPEN_SEARCH, openSearch);
+    return () => window.removeEventListener(OPEN_SEARCH, openSearch);
+  }, [openSearch]);
   const items = useMemo(() => (toc ?? []).filter((x): x is { n: number; id: string; title: string } => "n" in x), [toc]);
   const [active, setActive] = useActiveTask(items);
   const current = items.find((x) => x.n === active) ?? items[0];
@@ -135,12 +148,12 @@ export default function DocsFrame({ brand, nav, toc, crumbs, prevNext, children,
           <span className="dx-brand-sep" />
           <span className="dx-brand-name">{brand.docsName}</span>
         </a>
-        <div className="dx-head-mid" />
+        <div className="dx-head-mid"><SearchField onOpen={openSearch} /></div>
         <a href={brand.portalHref} className="dx-portal-link">Open the portal<MaskIcon name="arrow-up-right" size={15} /></a>
         <ThemeMenu />
       </header>
 
-      {hasToc && current && (
+      {hasToc && current && tocBar && (
         <button type="button" className="dx-tocbar" aria-label={`On this page: ${current.title}. Open the task list`} onClick={() => setSheet(true)}>
           <span className="num">{String(current.n).padStart(2, "0")}</span><span className="t">{current.title}</span>
           <span className="pos">{active} / {items.length}</span><MaskIcon name="chevrons-up-down" size={16} />
@@ -184,6 +197,10 @@ export default function DocsFrame({ brand, nav, toc, crumbs, prevNext, children,
             <div className="dx-drawer-body"><NavList rows={nav} /></div>
           </div>
         </>
+      )}
+      {searching && (
+        <SearchDialog onClose={() => setSearching(false)} suggestions={brand.suggestions} glossaryHref={brand.glossaryHref}
+          supportHref={brand.supportHref} supportLabel={brand.supportLabel} />
       )}
       {sheet && hasToc && (
         <>

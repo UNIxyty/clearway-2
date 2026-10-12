@@ -7,11 +7,15 @@
 //     empty state); no file in public/docs-media is left unreferenced
 //   · the furniture names nothing: no product or builder name in app/docs or components/docs (brand is site.json)
 //   · site.json: support goes to the portal's Help & support while supportEmail is empty; public is a boolean
+//   · glossary and home.md parse; glossary links name a real term; every "Try" word finds something; every
+//     common task in site.json is a written task; no section takes an address the site uses itself
 //   · contrast: every pair in shared/docs-contrast.json recomputed from the token files, ≥ 4.5:1 in both themes
 import fs from "node:fs";
 import path from "node:path";
 import { parsePage, splitFrontMatter, blocks as parseBlocks, walkBlocks, walkInline } from "../lib/docs/parse.ts";
 import { resolveLink } from "../lib/docs/links.ts";
+import { parseGlossary } from "../lib/docs/glossary.ts";
+import { search } from "../lib/docs/search.ts";
 
 const ROOT = "content/docs";
 let failures = 0;
@@ -43,6 +47,7 @@ for (const dir of fs.readdirSync(ROOT, { withFileTypes: true }).filter((d) => d.
 }
 const glossaryFile = path.join(ROOT, "glossary.md");
 const hasGlossary = fs.existsSync(glossaryFile);
+const glossary = hasGlossary ? parseGlossary(fs.readFileSync(glossaryFile, "utf8"), "content/docs/glossary.md") : null;
 const nPages = sections.reduce((a, s) => a + s.pages.length, 0);
 const nFns = sections.reduce((a, s) => a + s.pages.reduce((b, p) => b + p.fns.length, 0), 0);
 ok(problems.length === 0, `every file in content/docs parses (${sections.length} sections, ${nPages} pages, ${nFns} tasks)`, problems.join(" | "));
@@ -57,7 +62,7 @@ ok(dupes.length === 0, "no two sections or pages share an address", dupes.join("
 const target = (raw) => {
   const l = resolveLink(raw);
   if (!l.internal) return null;
-  if (l.section === "glossary") return hasGlossary ? null : "the glossary does not exist";
+  if (l.section === "glossary") return !glossary ? "the glossary does not exist" : l.task && !glossary.terms.some((t) => t.id === `term-${l.task}`) ? `no term "${l.task}" in the glossary` : null;
   const s = sections.find((x) => x.slug === l.section);
   if (!s) return `no section "${l.section}"`;
   if (!l.page) return l.task ? "a task needs a page (section/page#task)" : null;
@@ -77,6 +82,9 @@ for (const s of sections) for (const p of s.pages) {
     if (x.href.startsWith("/") && !x.href.startsWith("/docs") && !portalPages.has(x.href.split(/[?#]/)[0])) broken.push(`${p.file}: [${x.href}] is not a portal page`);
   }
   for (const r of (p.meta.related ?? "").split(",").map((x) => x.trim()).filter(Boolean)) { nLinks += 1; const why = target(r); if (why) broken.push(`${p.file}: related "${r}" ${why}`); }
+}
+if (glossary) for (const t of glossary.terms) for (const x of walkInline([{ kind: "p", text: [...t.definition, ...t.where, ...t.example] }])) if (x.kind === "link") {
+  nLinks += 1; const why = target(x.href); if (why) broken.push(`glossary.md › ${t.term}: [${x.href}] ${why}`);
 }
 ok(broken.length === 0, `every internal link resolves (${nLinks} links and related entries)`, broken.join(" | "));
 
@@ -122,6 +130,35 @@ const named = furniture.flatMap((f) => names.filter((n) => new RegExp(`\\b${n}\\
 ok(named.length === 0, `the docs shell names no product or builder (${furniture.length} files; names come from content/docs/site.json)`, named.join(", "));
 ok(typeof site.public === "boolean", `site.json "public" is true or false (now: ${site.public}; false = behind the portal's sign-in)`);
 ok(site.supportEmail || (site.supportLink && site.supportLink.startsWith("/")), "with no support email, support goes to a portal page", site.supportLink);
+
+// ── glossary, home and search (stage 3) ──
+const reserved = sections.filter((s) => ["glossary", "search", "search-index.json", "404.css"].includes(s.slug)).map((s) => s.dir);
+ok(reserved.length === 0, "no section takes an address the site uses itself (glossary, search)", reserved.join(", "));
+if (glossary) ok(glossary.problems.length === 0, `the glossary parses (${glossary.terms.length} terms)`, glossary.problems.join(" | "));
+const homeFile = path.join(ROOT, "home.md");
+if (fs.existsSync(homeFile)) {
+  const fm = splitFrontMatter(fs.readFileSync(homeFile, "utf8"));
+  const start = fm.meta.start ?? "";
+  const [hs, hp] = start.split("/");
+  const sec = sections.find((s) => s.slug === hs);
+  ok(fm.problems.length === 0 && (!start || (sec && (!hp || sec.pages.some((p) => p.slug === hp)))), `home.md parses and its start (${start || "none"}) exists`, fm.problems.join(" | "));
+}
+// The index the site builds (lib/docs/content.ts searchIndex), rebuilt here from the same files.
+const index = [];
+for (const s of sections) {
+  const st = s.meta.title || s.slug;
+  index.push({ kind: "section", title: st, section: st, page: "", href: `/docs/${s.slug}`, summary: s.meta.summary ?? "" });
+  for (const p of s.pages) {
+    const href = `/docs/${s.slug}/${p.slug}`; const draft = p.meta.status !== "written";
+    index.push({ kind: "page", title: p.meta.title || p.slug, section: st, page: "", href, summary: p.meta.summary ?? "" });
+    for (const f of p.fns) index.push({ kind: "task", title: f.title, section: st, page: p.meta.title || p.slug, href: draft ? href : `${href}#fn-${f.id}`, summary: "" });
+  }
+}
+if (glossary) for (const t of glossary.terms) index.push({ kind: "term", title: t.term, section: glossary.title, page: "", href: `/docs/glossary#${t.id}`, summary: "", also: t.expansion });
+const dry = (site.searchSuggestions ?? []).filter((w) => search(index, w).length === 0);
+ok(dry.length === 0, `every "Try" word in site.json finds something (${(site.searchSuggestions ?? []).join(", ")})`, dry.join(", "));
+const lost = (site.commonTasks ?? []).filter((a) => { const h = resolveLink(a).href; return !index.some((r) => r.kind === "task" && r.href === h); });
+ok(lost.length === 0, `every common task in site.json is a written task (${(site.commonTasks ?? []).length})`, lost.join(", "));
 
 // ── contrast, recomputed ──
 function tokens(file) {

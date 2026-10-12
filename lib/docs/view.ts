@@ -15,10 +15,12 @@ export function brand(): Brand {
     supportHref: s.supportEmail ? `mailto:${s.supportEmail}` : s.supportLink,
     supportText: s.supportEmail ? `Write to ${s.supportEmail}` : `Tell us in ${s.supportLabel}`,
     creditName: s.credit?.name ?? "", creditLight: s.credit?.logoLight ?? "", creditDark: s.credit?.logoDark ?? "",
+    supportLabel: s.supportLabel, suggestions: s.searchSuggestions ?? [], glossaryHref: glossaryHref(),
   };
 }
 
 export const hasGlossary = () => fs.existsSync(path.join(process.cwd(), "content", "docs", "glossary.md"));
+export const glossaryHref = () => (hasGlossary() ? "/docs/glossary" : null);
 
 /** Left nav: Home and Glossary on top, then the sections; only the current section opens to its pages. */
 export function navRows(docs: Docs, here: { home?: boolean; glossary?: boolean; section?: string; page?: string }): NavRow[] {

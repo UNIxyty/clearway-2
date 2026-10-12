@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@/shared/docs-tokens.css";
 import "./docs.css";
 import "./blocks.css";
+import "./pages.css";
 import { SITE } from "@/lib/docs/content";
 
 // The docs site: its own shell (components/docs/DocsFrame), not the portal's — components/portal/Shell.tsx leaves

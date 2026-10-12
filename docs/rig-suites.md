@@ -8,15 +8,21 @@ number of checks passed in the last full run.
 
 ## Known failures
 
-None. Every suite below passed on 2026-10-12 (the full run after the image-secrets and docs stage 1 changes; two
-suites re-run alone after a test fix, see below).
+- **manifest/browser, one check: "voice reaches the same picker"** (since about 22:30 UTC on 2026-10-12). The
+  speech-to-text service (ElevenLabs realtime) opens each session and then returns no transcript at all, so the
+  picker never opens. The same code passed at 21:52 the same night, and no agent or voice code changed in between.
+  The rig's key is valid. Outside the code; check the ElevenLabs account's speech-to-text allowance (free tier).
+  The other 35 checks pass.
+
+Every other suite below passed on 2026-10-12/13 (three full runs: after the image-secrets and docs stage 1
+changes, after docs stage 2, after docs stage 3; two suites re-run alone after a test fix, see below).
 
 ## Suites
 
 | Suite | Last passing | Date |
 |---|---|---|
 | check-no-real-passenger-data | 838 files, none | 2026-10-12 |
-| docs-check | 13 | 2026-10-12 |
+| docs-check | 21 | 2026-10-13 |
 | intake/test-classify | 46 | 2026-10-12 |
 | intake/test-leon-payload | 10 | 2026-10-12 |
 | intake/test-timezones | 30 | 2026-10-12 |
@@ -35,7 +41,7 @@ suites re-run alone after a test fix, see below).
 | intake/browser-flows | 22 | 2026-10-12 |
 | intake/browser-edits | 9 | 2026-10-12 |
 | manifest/test-generator | 47 | 2026-10-12 |
-| manifest/browser | 36 | 2026-10-12 |
+| manifest/browser | 36 (35 since the speech service stopped answering, above) | 2026-10-12 |
 | permissions-check | 43 | 2026-10-12 |
 | permissions-browser | 13 | 2026-10-12 |
 | wall/access-check | 65 | 2026-10-12 |
@@ -53,7 +59,7 @@ suites re-run alone after a test fix, see below).
 | overlay-check | 4 | 2026-10-12 |
 | dark-audit | 2 (49 pages) | 2026-10-12 |
 | partB-check | 31 | 2026-10-12 |
-| docs-browser | 37 | 2026-10-12 |
+| docs-browser | 77 | 2026-10-13 |
 | ext/t-console | clean (no messages) | 2026-10-12 |
 | ext/t-issues | clean (no issues) | 2026-10-12 |
 

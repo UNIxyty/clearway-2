@@ -72,6 +72,34 @@ function TocList({ toc, active, onPick }: { toc: TocEntry[]; active: number; onP
   );
 }
 
+export function Breadcrumb({ crumbs }: { crumbs: Crumb[] }) {
+  if (!crumbs.length) return null;
+  return (
+    <nav aria-label="Breadcrumb" className="dx-crumb">
+      {crumbs.map((c, i) => (
+        <span key={i} style={{ display: "contents" }}>
+          {i > 0 && <MaskIcon name="chevron-right" size={13} />}
+          {c.href && i < crumbs.length - 1 ? <a href={c.href}>{c.title}</a> : <span className={i === crumbs.length - 1 ? "here" : ""} aria-current={i === crumbs.length - 1 ? "page" : undefined}>{c.title}</span>}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+export function PrevNextNav({ items }: { items: PrevNext[] }) {
+  if (!items.length) return null;
+  return (
+    <nav aria-label="Previous and next" className="dx-pn">
+      {items.map((p) => (
+        <a key={p.kind} href={p.href} className={p.kind}>
+          <span className="k"><MaskIcon name={p.kind === "prev" ? "arrow-left" : "arrow-right"} size={14} />{p.kind === "prev" ? "Previous" : "Next"}</span>
+          <span className="t">{p.title}</span><span className="s">{p.sub}</span>
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 export default function DocsFrame({ brand, nav, toc, crumbs, prevNext, children, wide = false }: {
   brand: Brand; nav: NavRow[]; toc: TocEntry[] | null; crumbs: Crumb[]; prevNext: PrevNext[]; children: ReactNode; wide?: boolean;
 }) {
@@ -123,27 +151,9 @@ export default function DocsFrame({ brand, nav, toc, crumbs, prevNext, children,
         <nav className="dx-nav" aria-label="Docs sections"><NavList rows={nav} /></nav>
         <main className="dx-main" id="dx-content">
           <div className={`dx-article${wide ? " wide" : ""}`}>
-            {crumbs.length > 0 && (
-              <nav aria-label="Breadcrumb" className="dx-crumb">
-                {crumbs.map((c, i) => (
-                  <span key={i} style={{ display: "contents" }}>
-                    {i > 0 && <MaskIcon name="chevron-right" size={13} />}
-                    {c.href && i < crumbs.length - 1 ? <a href={c.href}>{c.title}</a> : <span className={i === crumbs.length - 1 ? "here" : ""} aria-current={i === crumbs.length - 1 ? "page" : undefined}>{c.title}</span>}
-                  </span>
-                ))}
-              </nav>
-            )}
+            <Breadcrumb crumbs={crumbs} />
             {children}
-            {prevNext.length > 0 && (
-              <nav aria-label="Previous and next" className="dx-pn">
-                {prevNext.map((p) => (
-                  <a key={p.kind} href={p.href} className={p.kind}>
-                    <span className="k"><MaskIcon name={p.kind === "prev" ? "arrow-left" : "arrow-right"} size={14} />{p.kind === "prev" ? "Previous" : "Next"}</span>
-                    <span className="t">{p.title}</span><span className="s">{p.sub}</span>
-                  </a>
-                ))}
-              </nav>
-            )}
+            <PrevNextNav items={prevNext} />
             <footer className="dx-foot">
               <span>Something wrong or missing? <a href={brand.supportHref}>{brand.supportText}</a></span>
               {brand.creditName && (

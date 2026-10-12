@@ -100,6 +100,18 @@ ok(true, `videos: ${videos.size} referenced, ${vidHave.length} present, ${videos
 const orphan = ["screenshots", "videos"].flatMap((d) => (fs.existsSync(`public/docs-media/${d}`) ? fs.readdirSync(`public/docs-media/${d}`) : [])
   .filter((f) => !/^README/.test(f)).map((f) => [d, f])).filter(([d, f]) => !(d === "screenshots" ? shots : videos).has(f.replace(/\.[a-z0-9]+$/i, "").toLowerCase()) && !(d === "videos" && /\.(png|jpe?g|webp)$/i.test(f) && videos.has(f.replace(/\.[a-z0-9]+$/i, ""))));
 ok(orphan.length === 0, "no file in public/docs-media that no page uses", orphan.map(([d, f]) => `${d}/${f}`).join(", "));
+// The component sheet's stand-in: one picture, in its own folder, which no page can reach.
+const sheetImgs = fs.existsSync("public/docs-media/sheet") ? fs.readdirSync("public/docs-media/sheet").filter((f) => /\.(png|jpe?g|webp|gif)$/i.test(f)) : [];
+ok(sheetImgs.length <= 1, "at most one stand-in picture, in public/docs-media/sheet (component sheet only)", sheetImgs.join(", "));
+const pagesUsingSheet = [...shots.entries()].filter(([n]) => n.startsWith("sheet-")).map(([n, w]) => `${w.join(", ")} uses ${n}`);
+ok(pagesUsingSheet.length === 0, "no docs page uses the component sheet's pictures", pagesUsingSheet.join(" | "));
+
+// ── the component sheet shows every block, written in the page format ──
+const sheet = parsePage(fs.readFileSync("app/developer/docs-components/sheet.md", "utf8"), "sheet.md");
+const kinds = new Set();
+for (const b of walkBlocks([...sheet.intro, ...sheet.fns.flatMap((f) => f.blocks)])) kinds.add(b.kind === "callout" ? `callout:${b.tone}` : b.kind);
+const wanted = ["p", "list", "steps", "callout:note", "callout:warning", "callout:irreversible", "example", "how", "code", "table", "statuses", "news", "history"];
+ok(sheet.problems.length === 0 && wanted.every((k) => kinds.has(k)), "the component sheet (sheet.md) parses and uses every block", [...sheet.problems, ...wanted.filter((k) => !kinds.has(k)).map((k) => `missing ${k}`)].join(" | "));
 
 // ── the furniture names nothing ──
 const site = JSON.parse(fs.readFileSync(path.join(ROOT, "site.json"), "utf8"));

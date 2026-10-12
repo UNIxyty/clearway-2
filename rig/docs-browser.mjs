@@ -140,6 +140,44 @@ const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operator
   await ctx.close();
 }
 
+// ── the component sheet: every block, both themes, the states held still ──
+{
+  // Developer only, checked by the server: a real developer session on the sign-in-on rig (as stage2-check does).
+  const SHELL = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
+  const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const sess = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: "rig-access-dev@rig.invalid", password: "rig-access-check-only" }) })).json();
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1200 } });
+  await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(sess)).toString("base64")}`, url: SHELL }]);
+  const page = await ctx.newPage();
+  page.on("console", (m) => { if (m.type() === "error") errors.push(`sheet: ${m.text().slice(0, 160)}`); });
+  page.on("pageerror", (e) => errors.push(`sheet: ${e.message.slice(0, 160)}`));
+  const res = await page.goto(`${SHELL}/developer/docs-components`, { waitUntil: "load" }); await sleep(2500);
+  const status = new URL(page.url()).pathname === "/developer/docs-components" ? res?.status() : `${res?.status()} at ${new URL(page.url()).pathname}`;
+  ok(status === 200, "the docs component sheet answers 200 for a developer", status);
+  const themes = await page.locator("[data-sheet-theme]").evaluateAll((els) => els.map((e) => [e.getAttribute("data-sheet-theme"), getComputedStyle(e).backgroundColor]));
+  ok(themes.length === 2 && themes[0][1] !== themes[1][1], "it renders twice, light and dark, from the same markup", JSON.stringify(themes));
+  const dark = page.locator('[data-sheet-theme="dark"]');
+  const count = async (sel) => dark.locator(sel).count();
+  const have = { tasks: await count("article[data-fn]"), steps: await count(".dx-steps"), notes: await count(".dx-callout.note"), warnings: await count(".dx-callout.warning"),
+    irrev: await count(".dx-irrev"), example: await count(".dx-example"), how: await count(".dx-how"), code: await count(".dx-codeblock"), table: await count(".dx-table:not(.dx-statuses)"),
+    statuses: await count(".dx-statuses .dx-badge"), news: await count(".dx-news .dx-tag"), history: await count(".dx-history .row"), crumb: await count(".dx-crumb"), related: await count(".dx-related a"), pn: await count(".dx-pn a"), written: await count('[data-docs-state="being-written"]') };
+  ok(Object.values(have).every((n) => n > 0) && have.statuses === 5 && have.news === 3 && have.history === 3 && have.written === 2, "every block from the design's sheet is there", JSON.stringify(have));
+  const states = await dark.locator("[data-media-state]").evaluateAll((els) => els.map((e) => e.getAttribute("data-media-state")));
+  ok(["missing", "loading", "failed"].every((s) => states.includes(s)) && await dark.locator(".dx-video-poster").count() === 1 && await dark.locator(".dx-media-failed.video").count() === 1,
+    "screenshot and video: there, to come, loading and failed, each shown", states.join(","));
+  const pics = await page.locator(".dx-media img").evaluateAll((els) => [...new Set(els.map((e) => new URL(e.src).pathname))]);
+  ok(pics.length <= 1 && pics.every((p) => p.startsWith("/docs-media/sheet/")), "the one stand-in picture, from the sheet's own folder", pics.join(", "));
+  await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: SHELL });
+  await dark.locator(".dx-codecopy").first().click(); await sleep(200);
+  const clip = await page.evaluate(() => navigator.clipboard.readText()).catch(() => "");
+  ok(clip === "SCHED EXA123 EVRA-EGLF 14OCT 1420Z" && /Copied/.test(await dark.locator(".dx-codecopy").first().innerText()), "Copy on a code block copies the text without its # explanation lines", JSON.stringify(clip));
+  const muted = await dark.locator(".dx-codeblock pre .note").evaluate((e) => [getComputedStyle(e).color, getComputedStyle(e.closest("pre")).color]);
+  ok(muted[0] !== muted[1], "the # line is muted", muted.join(" vs "));
+  ok(await page.locator(".dx-sheet-problems").count() === 0, "sheet.md parses with no problems");
+  await page.screenshot({ path: `${OUT}/docs-sheet.png`, fullPage: true });
+  await ctx.close();
+}
+
 ok(errors.length === 0, "no browser console errors on any docs page", errors.slice(0, 4).join(" | "));
 await browser.close();
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED · screenshots in rig/.scratch/shots/docs-*.png");

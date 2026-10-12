@@ -32,3 +32,26 @@ export function CopyValue({ value }: { value: string }) {
     </span>
   );
 }
+
+// A block of text to copy (design 2.5): a title bar with Copy; lines starting with # explain the text, are shown muted
+// and are left out of what is copied.
+export function CodeBlock({ title, text }: { title: string; text: string }) {
+  const [done, setDone] = useState(false);
+  const lines = text.split("\n");
+  const isNote = (l: string) => /^\s*#/.test(l);
+  const toCopy = lines.filter((l) => !isNote(l)).join("\n").replace(/\n+$/, "");
+  return (
+    <div className="dx-codeblock">
+      <div className="bar">
+        <span className="t">{title}</span>
+        <button type="button" className={`dx-codecopy${done ? " done" : ""}`} aria-label={done ? "Copied" : `Copy${title ? ` ${title}` : ""}`}
+          onClick={async () => { if (await copy(toCopy)) { setDone(true); setTimeout(() => setDone(false), 2000); } }}>
+          <MaskIcon name={done ? "check" : "copy"} size={13} /><span role={done ? "status" : undefined}>{done ? "Copied" : "Copy"}</span>
+        </button>
+      </div>
+      <pre className="dx-mono"><code>{lines.map((l, i) => (
+        <span key={i} className={isNote(l) ? "note" : undefined}>{l}{i < lines.length - 1 ? "\n" : ""}</span>
+      ))}</code></pre>
+    </div>
+  );
+}

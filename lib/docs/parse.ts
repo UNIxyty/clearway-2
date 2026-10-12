@@ -11,12 +11,18 @@
 //   Roles: Admin                     optional, first line under a task
 //   One-sentence summary.            the first paragraph of a task
 //   :::warning Title … :::           note | warning | cannot-be-undone | example | how-it-works
+//   :::statuses … :::                "Name (colour): what it means" per line; green, blue, amber, red or grey
+//   :::whats-new 3.4 · 2026-10-02    "New: …", "Changed: …", "Fixed: …" per line
+//   :::history … :::                 "3.3 · 2026-09-20: what changed" per line
 //   1. A step                        numbered steps; indented lines under a step:
 //      [screenshot: name | caption]    a screenshot
 //      Note: …                         a note under the step
 //   [screenshot: name | caption]     a screenshot on its own
 //   [video: name | 0:30]             a video on its own
+//   ```Title … ```                   a block of text to copy; lines starting with # are explanations, shown muted
+//                                    and left out of what Copy copies
 //   **Button**  `value`  [text](section/page#task)
+//   <!-- … -->                       a note to other writers; not shown
 
 export type Inline =
   | { kind: "text"; t: string }
@@ -27,6 +33,10 @@ export type Inline =
 export type Shot = { name: string; caption: string };
 export type Step = { text: Inline[]; shot?: Shot; note?: Inline[] };
 export type ExampleRow = { key: string; value: Inline[]; copy: string | null };
+export type Tone = "success" | "info" | "warning" | "danger" | "neutral";
+export type StatusRow = { label: string; tone: Tone; text: Inline[] };
+export type NewsTag = "New" | "Changed" | "Fixed";
+export type HistoryRow = { version: string; date: string; text: Inline[] };
 
 export type Block =
   | { kind: "p"; text: Inline[] }
@@ -39,7 +49,10 @@ export type Block =
   | { kind: "shot"; shot: Shot }
   | { kind: "video"; name: string; length: string }
   | { kind: "code"; title: string; text: string }
-  | { kind: "table"; head: Inline[][]; rows: Inline[][][] };
+  | { kind: "table"; head: Inline[][]; rows: Inline[][][] }
+  | { kind: "statuses"; title: string; rows: StatusRow[] }
+  | { kind: "news"; version: string; date: string; items: { tag: NewsTag; text: Inline[] }[] }
+  | { kind: "history"; rows: HistoryRow[] };
 
 export type Fn = {
   id: string;
@@ -63,11 +76,14 @@ export type Parsed = {
 export const slugify = (s: string) =>
   s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
+// <!-- a note to other writers --> never reaches the page (kept line count, so problems still name the right place).
+const stripComments = (s: string) => s.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, ""));
+
 // ── front matter ────────────────────────────────────────────────────────────────────────────────────────────────
 export function splitFrontMatter(src: string): { meta: Record<string, string>; body: string; problems: string[] } {
   const text = src.replace(/\r\n?/g, "\n");
   const meta: Record<string, string> = {}; const problems: string[] = [];
-  if (!text.startsWith("---\n")) return { meta, body: text, problems };
+  if (!text.startsWith("---\n")) return { meta, body: stripComments(text), problems };
   const end = text.indexOf("\n---", 4);
   if (end < 0) return { meta, body: text, problems: ["the header starts with --- but never ends with a second ---"] };
   for (const line of text.slice(4, end).split("\n")) {
@@ -76,7 +92,7 @@ export function splitFrontMatter(src: string): { meta: Record<string, string>; b
     if (!m) { problems.push(`header line not understood: "${line.trim()}" (it should be "name: value")`); continue; }
     meta[m[1].toLowerCase()] = m[2].trim().replace(/^["']|["']$/g, "");
   }
-  return { meta, body: text.slice(text.indexOf("\n", end + 1) + 1), problems };
+  return { meta, body: stripComments(text.slice(text.indexOf("\n", end + 1) + 1)), problems };
 }
 
 // ── inline: **UI label**, `value`, [text](target) ───────────────────────────────────────────────────────────────
@@ -100,6 +116,11 @@ const SHOT = /^\[screenshot:\s*([a-z0-9][a-z0-9-]*)\s*(?:\|\s*(.*?))?\s*\]$/i;
 const VIDEO = /^\[video:\s*([a-z0-9][a-z0-9-]*)\s*(?:\|\s*(.*?))?\s*\]$/i;
 const CONTAINER = /^:::\s*([a-z-]+)\s*(.*)$/i;
 const TONES: Record<string, "note" | "warning" | "irreversible"> = { note: "note", warning: "warning", "cannot-be-undone": "irreversible", irreversible: "irreversible" };
+// Status colours in words a writer would use.
+const COLOURS: Record<string, Tone> = { green: "success", blue: "info", amber: "warning", yellow: "warning", orange: "warning", red: "danger", grey: "neutral", gray: "neutral" };
+const NEWS: Record<string, NewsTag> = { new: "New", changed: "Changed", fixed: "Fixed" };
+// "3.4 · 2026-10-02", "v3.4 2026-10-02", "3.4"
+const VERSION = /^v?(\d+(?:\.\d+)*)\s*(?:[·|,–-]\s*)?(\d{4}-\d{2}-\d{2})?\s*$/i;
 
 // ── blocks ──────────────────────────────────────────────────────────────────────────────────────────────────────
 export function blocks(lines: string[], problems: string[], where: string): Block[] {
@@ -142,8 +163,38 @@ export function blocks(lines: string[], problems: string[], where: string): Bloc
         out.push({ kind: "example", title, rows });
       } else if (kind === "how-it-works" || kind === "how") {
         out.push({ kind: "how", body: blocks(body, problems, where) });
+      } else if (kind === "statuses") {
+        const rows: StatusRow[] = [];
+        for (const l of body) {
+          if (!l.trim()) continue;
+          const m = /^\s*(.+?)\s*\(\s*([a-z]+)\s*\)\s*:\s*(.*)$/i.exec(l);
+          const tone = m ? COLOURS[m[2].toLowerCase()] : undefined;
+          if (!m || !tone) { problems.push(`${where}: status line not understood: "${l.trim()}" (it should be "Name (green): what it means"; colours are green, blue, amber, red, grey)`); continue; }
+          rows.push({ label: m[1], tone, text: inline(m[3]) });
+        }
+        out.push({ kind: "statuses", title, rows });
+      } else if (kind === "whats-new") {
+        const v = VERSION.exec(title);
+        if (!v) problems.push(`${where}: ":::whats-new" needs a version, and can have a date: ":::whats-new 3.4 · 2026-10-02"`);
+        const items: { tag: NewsTag; text: Inline[] }[] = [];
+        for (const l of body) {
+          if (!l.trim()) continue;
+          const m = /^\s*([a-z]+)\s*:\s*(.*)$/i.exec(l); const tag = m ? NEWS[m[1].toLowerCase()] : undefined;
+          if (!m || !tag) { problems.push(`${where}: what's-new line not understood: "${l.trim()}" (it should start with New:, Changed: or Fixed:)`); continue; }
+          items.push({ tag, text: inline(m[2]) });
+        }
+        out.push({ kind: "news", version: v?.[1] ?? "", date: v?.[2] ?? "", items });
+      } else if (kind === "history") {
+        const rows: HistoryRow[] = [];
+        for (const l of body) {
+          if (!l.trim()) continue;
+          const m = /^\s*(.+?)\s*:\s+(.*)$/.exec(l); const v = m ? VERSION.exec(m[1]) : null;
+          if (!m || !v) { problems.push(`${where}: history line not understood: "${l.trim()}" (it should be "3.3 · 2026-09-20: what changed")`); continue; }
+          rows.push({ version: v[1], date: v[2] ?? "", text: inline(m[2]) });
+        }
+        out.push({ kind: "history", rows });
       } else {
-        problems.push(`${where}: unknown block ":::${kind}" (use note, warning, cannot-be-undone, example or how-it-works)`);
+        problems.push(`${where}: unknown block ":::${kind}" (use note, warning, cannot-be-undone, example, how-it-works, statuses, whats-new or history)`);
         out.push(...blocks(body, problems, where));
       }
       continue;
@@ -247,5 +298,8 @@ export function* walkInline(bs: Block[]): Generator<Inline> {
     else if (b.kind === "steps") for (const s of b.steps) { yield* each(s.text); if (s.note) yield* each(s.note); }
     else if (b.kind === "example") for (const r of b.rows) yield* each(r.value);
     else if (b.kind === "table") for (const r of [b.head, ...b.rows]) for (const c of r) yield* each(c);
+    else if (b.kind === "statuses") for (const r of b.rows) yield* each(r.text);
+    else if (b.kind === "news") for (const it of b.items) yield* each(it.text);
+    else if (b.kind === "history") for (const r of b.rows) yield* each(r.text);
   }
 }

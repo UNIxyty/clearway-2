@@ -19,6 +19,29 @@ function relatedCards(docs: Docs, page: DocPage) {
   }).filter((x): x is { where: string; title: string; href: string } => !!x);
 }
 
+export function RelatedCards({ items }: { items: { where: string; title: string; href: string }[] }) {
+  if (!items.length) return null;
+  return (
+    <section className="dx-related">
+      <h2>Related</h2>
+      <div className="cards">{items.map((r) => <a key={r.href} href={r.href}><span className="w">{r.where}</span><span className="t">{r.title}</span></a>)}</div>
+    </section>
+  );
+}
+
+/** A page not marked written: what it will cover, and where to ask meanwhile. */
+export function BeingWritten({ tasks, long }: { tasks: string[]; long: boolean }) {
+  return (
+    <div className="dx-empty" data-docs-state="being-written">
+      <div className="top"><MaskIcon name="pen-line" size={20} className="ic" />
+        <div><span className="t">This page is being written</span>
+          <span className="b">{tasks.length ? "These are the tasks it will cover." : "What it will cover is still being decided."} Until then, ask in <a href={SITE.supportLink}>{SITE.supportLabel}</a>.</span></div>
+      </div>
+      {tasks.length > 0 && <ol className={long ? "cols" : ""}>{tasks.map((t, i) => <li key={i}>{t}</li>)}</ol>}
+    </div>
+  );
+}
+
 export default function PageView({ docs, section, page }: { docs: Docs; section: DocSection; page: DocPage }) {
   const written = page.status === "written";
   const long = page.groups.length > 0 || page.fns.length >= 8;
@@ -40,13 +63,7 @@ export default function PageView({ docs, section, page }: { docs: Docs; section:
       </header>
 
       {!written ? (
-        <div className="dx-empty" data-docs-state="being-written">
-          <div className="top"><MaskIcon name="pen-line" size={20} className="ic" />
-            <div><span className="t">This page is being written</span>
-              <span className="b">{page.fns.length ? "These are the tasks it will cover." : "What it will cover is still being decided."} Until then, ask in <a href={SITE.supportLink}>{SITE.supportLabel}</a>.</span></div>
-          </div>
-          {page.fns.length > 0 && <ol className={long ? "cols" : ""}>{page.fns.map((f) => <li key={f.id}>{f.title}</li>)}</ol>}
-        </div>
+        <BeingWritten tasks={page.fns.map((f) => f.title)} long={long} />
       ) : (
         <>
           {page.video && <Video src={v?.src ?? null} poster={v?.poster ?? null} title={`${page.title} in ${page.video.length || "a minute"}`} length={page.video.length} />}
@@ -73,12 +90,7 @@ export default function PageView({ docs, section, page }: { docs: Docs; section:
               {page.fns.filter((f) => f.group === g).map((f) => <FunctionBlock key={f.id} fn={f} />)}
             </section>
           ))}
-          {rel.length > 0 && (
-            <section className="dx-related">
-              <h2>Related</h2>
-              <div className="cards">{rel.map((r) => <a key={r.href} href={r.href}><span className="w">{r.where}</span><span className="t">{r.title}</span></a>)}</div>
-            </section>
-          )}
+          <RelatedCards items={rel} />
         </>
       )}
     </div>

@@ -3,12 +3,15 @@ import { screenshotSrc, videoSrc } from "@/lib/docs/content";
 import MaskIcon from "@/components/portal/Icon";
 import { InlineText } from "./Inline";
 import { Shot, Video } from "./Media";
-import { CopyTaskLink, CopyValue } from "./Copy";
+import { CodeBlock, CopyTaskLink, CopyValue } from "./Copy";
+import { fmtDate } from "@/lib/docs/view";
 
 // The content blocks (design: Docs Components / Docs Function). Server components: they know which screenshot and
 // video files exist, so a missing one is drawn as "to come" without the browser ever asking for it.
 
-type Fig = { next: () => string };
+// `shot` finds a screenshot's file by name. Pages use public/docs-media/screenshots/; only the component sheet passes
+// its own, for its one stand-in picture, which no page can reach.
+type Fig = { next: () => string; shot?: (name: string) => string | null };
 
 function Callout({ tone, title, body, fig }: { tone: "note" | "warning" | "irreversible"; title: string; body: Block[]; fig: Fig }) {
   if (tone === "irreversible") {
@@ -29,6 +32,7 @@ function Callout({ tone, title, body, fig }: { tone: "note" | "warning" | "irrev
 
 export function Blocks({ blocks, fig }: { blocks: Block[]; fig?: Fig }) {
   const f: Fig = fig ?? { next: () => "" };
+  const shotSrc = f.shot ?? screenshotSrc;
   return (
     <>
       {blocks.map((b, i) => {
@@ -43,7 +47,7 @@ export function Blocks({ blocks, fig }: { blocks: Block[]; fig?: Fig }) {
                   <div className="rail"><span className="num dx-mono">{k + 1}</span>{k < b.steps.length - 1 && <span className="line" />}</div>
                   <div className="body">
                     <p className="dx-step-text"><InlineText text={s.text} /></p>
-                    {s.shot && <Shot src={screenshotSrc(s.shot.name)} caption={s.shot.caption} fig={f.next()} />}
+                    {s.shot && <Shot src={shotSrc(s.shot.name)} caption={s.shot.caption} fig={f.next()} />}
                     {s.note && <div className="dx-step-note"><MaskIcon name="info" size={14} /><span><InlineText text={s.note} /></span></div>}
                   </div>
                 </li>
@@ -62,19 +66,35 @@ export function Blocks({ blocks, fig }: { blocks: Block[]; fig?: Fig }) {
           case "how": return (
             <div key={i} className="dx-how"><span className="lab">How it works</span><Blocks blocks={b.body} fig={f} /></div>
           );
-          case "shot": return <Shot key={i} src={screenshotSrc(b.shot.name)} caption={b.shot.caption} fig={f.next()} />;
+          case "shot": return <Shot key={i} src={shotSrc(b.shot.name)} caption={b.shot.caption} fig={f.next()} />;
           case "video": { const v = videoSrc(b.name); return <Video key={i} src={v?.src ?? null} poster={v?.poster ?? null} title="Watch" length={b.length} />; }
-          case "code": return (
-            <div key={i} className="dx-codeblock">
-              {b.title && <div className="bar"><span>{b.title}</span></div>}
-              <pre className="dx-mono"><code>{b.text}</code></pre>
-            </div>
-          );
+          case "code": return <CodeBlock key={i} title={b.title} text={b.text} />;
           case "table": return (
             <div key={i} className="dx-table-wrap"><table className="dx-table">
               {b.head.length > 0 && <thead><tr>{b.head.map((c, k) => <th key={k}><InlineText text={c} /></th>)}</tr></thead>}
               <tbody>{b.rows.map((r, k) => <tr key={k}>{r.map((c, j) => <td key={j}><InlineText text={c} /></td>)}</tr>)}</tbody>
             </table></div>
+          );
+          case "statuses": return (
+            <div key={i} className="dx-table-wrap"><table className="dx-table dx-statuses">
+              <thead><tr><th>{b.title || "Status"}</th><th>What it means</th></tr></thead>
+              <tbody>{b.rows.map((r, k) => (
+                <tr key={k}><td><span className={`dx-badge tone-${r.tone}`}><span className="dot" />{r.label}</span></td><td><InlineText text={r.text} /></td></tr>
+              ))}</tbody>
+            </table></div>
+          );
+          case "news": return (
+            <section key={i} className="dx-news" aria-label={`What’s new${b.version ? ` in ${b.version}` : ""}`}>
+              <div className="head"><span className="t">What’s new</span><span className="v dx-mono">{[b.version && `v${b.version}`, b.date && fmtDate(b.date)].filter(Boolean).join(" · ")}</span></div>
+              <ul>{b.items.map((it, k) => <li key={k}><span className={`dx-tag tag-${it.tag.toLowerCase()}`}>{it.tag}</span><span className="x"><InlineText text={it.text} /></span></li>)}</ul>
+            </section>
+          );
+          case "history": return (
+            <div key={i} className="dx-history" role="list" aria-label="Earlier versions">
+              {b.rows.map((r, k) => (
+                <div key={k} role="listitem" className="row"><span className="v dx-mono">v{r.version}</span><span className="d dx-mono">{r.date ? fmtDate(r.date) : ""}</span><span className="x"><InlineText text={r.text} /></span></div>
+              ))}
+            </div>
           );
         }
       })}
@@ -85,9 +105,9 @@ export function Blocks({ blocks, fig }: { blocks: Block[]; fig?: Fig }) {
 const roleIcon = (roles: string) => (/admin|developer/i.test(roles) ? "shield" : "users");
 
 /** One task (design 2.1): number, line, role chip, copy link · title · summary · then its blocks in the file's order. */
-export function FunctionBlock({ fn }: { fn: Fn }) {
+export function FunctionBlock({ fn, shot }: { fn: Fn; shot?: (name: string) => string | null }) {
   let figN = 0;
-  const fig: Fig = { next: () => `${fn.n}.${++figN}` };
+  const fig: Fig = { next: () => `${fn.n}.${++figN}`, shot };
   return (
     <article id={`fn-${fn.id}`} data-fn={fn.n} className="dx-fn">
       <header>

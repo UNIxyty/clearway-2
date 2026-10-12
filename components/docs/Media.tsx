@@ -7,6 +7,7 @@ import MaskIcon from "@/components/portal/Icon";
 // image or an empty player); a file that fails in the browser → "didn't load" with Try again.
 // Screenshots are taken at 2x and shown at half their natural width, capped at the column and 520px high, so a whole
 // screen fills the column and a single button sits at its real size. Nothing depends on what is in the picture.
+// `demo` holds a state still, for the component sheet (/developer/docs-components); pages never pass it.
 
 function Missing({ video, title, body }: { video: boolean; title: string; body: string }) {
   return (
@@ -17,8 +18,9 @@ function Missing({ video, title, body }: { video: boolean; title: string; body: 
   );
 }
 
-export function Shot({ src, caption, fig }: { src: string | null; caption: string; fig: string }) {
-  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+export function Shot({ src, caption, fig, demo }: { src: string | null; caption: string; fig: string; demo?: "loading" | "failed" }) {
+  const [live, setState] = useState<"loading" | "ready" | "failed">("loading");
+  const state = demo ?? live;
   const [w, setW] = useState(0);
   const [attempt, setAttempt] = useState(0);
   if (!src) return <figure className="dx-media"><Missing video={false} title="Screenshot to come" body={caption || "The steps describe what you will see."} /></figure>;
@@ -34,8 +36,8 @@ export function Shot({ src, caption, fig }: { src: string | null; caption: strin
       ) : (
         <div className={`dx-media-stage${state === "loading" ? " loading" : ""}`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- the natural width decides the size (half of it) */}
-          <img key={attempt} src={attempt ? `${src}?retry=${attempt}` : src} alt={caption} style={{ width: w ? Math.round(w / 2) : undefined }}
-            onLoad={(e) => { setW((e.target as HTMLImageElement).naturalWidth); setState("ready"); }} onError={() => setState("failed")} />
+          {demo !== "loading" && <img key={attempt} src={attempt ? `${src}?retry=${attempt}` : src} alt={caption} style={{ width: w ? Math.round(w / 2) : undefined }}
+            onLoad={(e) => { setW((e.target as HTMLImageElement).naturalWidth); setState("ready"); }} onError={() => setState("failed")} />}
         </div>
       )}
       {caption && state !== "failed" && <figcaption>{fig && <span className="fig">Fig. {fig}</span>}<span>{caption}</span></figcaption>}
@@ -43,8 +45,9 @@ export function Shot({ src, caption, fig }: { src: string | null; caption: strin
   );
 }
 
-export function Video({ src, poster, title, length }: { src: string | null; poster: string | null; title: string; length: string }) {
-  const [state, setState] = useState<"idle" | "loading" | "playing" | "failed">("idle");
+export function Video({ src, poster, title, length, demo }: { src: string | null; poster: string | null; title: string; length: string; demo?: "idle" | "loading" | "failed" }) {
+  const [live, setState] = useState<"idle" | "loading" | "playing" | "failed">("idle");
+  const state = demo ?? live;
   if (!src) return <figure className="dx-media"><Missing video title={`Video to come${length ? ` · about ${length}` : ""}`} body="Everything it will show is written out below." /></figure>;
   if (state === "failed") {
     return (
@@ -59,7 +62,7 @@ export function Video({ src, poster, title, length }: { src: string | null; post
   if (state === "idle") {
     return (
       <figure className="dx-media">
-        <button type="button" className="dx-video-poster" onClick={() => setState("loading")} aria-label={`Play: ${title}`}>
+        <button type="button" className="dx-video-poster" onClick={() => { if (!demo) setState("loading"); }} aria-label={`Play: ${title}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {poster && <img src={poster} alt="" />}
           <span className="scrim" />
@@ -72,7 +75,7 @@ export function Video({ src, poster, title, length }: { src: string | null; post
   return (
     <figure className="dx-media">
       <div className={`dx-video-frame${state === "loading" ? " loading" : ""}`}>
-        <video src={src} poster={poster ?? undefined} controls autoPlay playsInline onPlaying={() => setState("playing")} onError={() => setState("failed")} />
+        {!demo && <video src={src} poster={poster ?? undefined} controls autoPlay playsInline onPlaying={() => setState("playing")} onError={() => setState("failed")} />}
         {state === "loading" && <span className="dx-video-spin"><MaskIcon name="loader-circle" size={20} /></span>}
       </div>
     </figure>

@@ -1,8 +1,9 @@
 # Portal inventory, navigation, and what is Clearway-specific
 
 Read from the code at commit `467c12a` (2026-10-08), plus a read-only look at the production server on 2026-10-09
-(running containers, the Cloudflare tunnel's ingress). Nothing was changed. File references are `path:line`. Where the
-code and `docs-inventory-draft.md` disagree, the code is what is described here; §1.5 lists the differences.
+(running containers, the Cloudflare tunnel's ingress). Brought up to date with the code at `dd81c104` and a read-only
+look at the server on 2026-10-12. Nothing was changed. File references are `path:line`. Where the code and
+`docs-inventory-draft.md` disagree, the code is what is described here; §1.6 lists the differences.
 
 ---
 
@@ -24,45 +25,50 @@ items, the wall console's account-menu links, and the old `/stats` and `/setting
 
 ## What surprised me
 
-1. **The portal is four applications behind one hostname, joined by a Cloudflare tunnel — not by nginx.** The host's
+1. **The portal is three applications behind one hostname, joined by a Cloudflare tunnel — not by nginx.** The host's
    nginx serves only its default page. `/etc/cloudflared/config.yml` on the server routes by path: `^/digital-wall/.*`
-   → the wall gateway (:8088), `^/agent/.*` → agent-service (:8089), `/pickem` and `/pickem/.*` → the Pickem container
-   (:3010), everything else → the Next portal (:3000). The repo only has an example of this file
-   (`deploy/digital-wall/cloudflared-config.example.yml`), and it has no `/pickem` rule.
-2. **Every Ops Agent page takes two hops.** The tunnel's `^/agent/.*` rule was meant for `/agent/api`, but it also
-   catches the portal's own `/agent/history`, `/agent/intake`, … pages. agent-service passes anything that is not an
-   API call back to the portal (`agent/server.mjs:225-245`, `passToPortal`). It works, at the cost of an extra hop on
-   every page load and every client navigation inside the agent.
-3. **Inside the Next portal, navigation is client-side — but it looks like a reload because every page mounts its own
-   copy of the shell.** The root layout renders no shell (`app/layout.tsx:46-52`). Sixteen pages wrap themselves in
-   `<PortalShell>`, so the sidebar unmounts and remounts on every click. The root `app/loading.tsx` replaces the whole
-   shell with a skeleton during the transition. The remounted shell then refetches identity, so the Admin and Ops Agent
-   groups appear late on every page. `components/portal/Shell.tsx:160-163` says so itself: "The shell still mounts
-   per-page."
-4. **Pickem is not gone.** The draft says it is off the nav, its containers stopped and archived. In fact the
-   `clearway-2-pickem-1` container is running, the tunnel routes `/pickem` to it, and the nav still has a Pickem topic
-   (`components/portal/nav.ts:131-140`). Two portal entries also lead into it:
-   - **Admin → Email tools** redirects to `/pickem/admin?section=email-tools`, the World Cup email console
-     (`app/admin/email-tools/page.tsx:2`).
-   - **`/admin`** redirects to `/pickem/admin` (`app/admin/page.tsx:11`).
+   → the wall gateway (:8088), `^/agent/api(/.*)?$` → agent-service (:8089), everything else → the Next portal (:3000).
+   The repo only has an example of this file (`deploy/digital-wall/cloudflared-config.example.yml`). Until Pick'em was
+   retired there was a fourth: the tunnel sent `/pickem` to a Pickem container (:3010). `scripts/pickem-retire.sh` has
+   run (checked 2026-10-12): the tunnel has no `/pickem` rule and the container is gone. The portal answers 410 for
+   `/pickem` and `/playoffs` (`middleware.ts:114-118`).
+2. **Every Ops Agent page took two hops, until 2026-10-12.** The tunnel's `^/agent/.*` rule was meant for `/agent/api`,
+   but it also caught the portal's own `/agent/history`, `/agent/intake`, … pages. agent-service passed anything that is
+   not an API call back to the portal (`agent/server.mjs:229-243`, `passToPortal`, called at :276), at the cost of an
+   extra hop on every page load inside the agent. `scripts/tunnel-agent-api.sh` narrowed the rule to
+   `^/agent/api(/.*)?$` (checked 2026-10-12), so agent pages now go straight to the portal. `passToPortal` is still in
+   the code but no longer used by the tunnel.
+3. **Inside the Next portal, navigation is client-side and the frame stays.** `<PortalFrame>` in the root layout
+   (`app/layout.tsx:61`, `components/portal/Shell.tsx:718-722`) mounts the sidebar, top bar, identity, badges, agent
+   panel and document viewer once. Pages still render `<PortalShell>`. Inside the frame it draws only the page's header,
+   content and footer (`Shell.tsx:698-707`). The loading skeleton covers only the content. Sign-in and system pages,
+   `/intake/answer`, `/telegram/*`, `/agent/panel`, `/docs` and the HITL viewers have no frame (`Shell.tsx:712`).
+4. **Pick'em is retired.** Every `/pickem` and `/playoffs` path, page or API, answers 410 Gone, signed in or not
+   (`middleware.ts:114-118`). Its pages, APIs, admin console, the World Cup email console (once "Admin → Email tools")
+   and its nav section are removed. `/admin` opens Users (`app/admin/page.tsx:8`). The tables are kept; see
+   `docs/pickem-archive.md`.
 5. **There is no "clearway" role.** Roles come from `ADMIN_EMAILS` / `DEVELOPER_EMAILS` and user metadata or preferences
-   (`lib/admin-auth.ts:41-69`). Nothing grants anything to `@clearway.aero`.
-6. **Access control is thinner than the nav suggests.**
-   - Most Admin pages have no page-level gate. They only fail when their API call fails, so a non-admin who types the
-     URL gets the shell with an error box, not `/forbidden`.
-   - The Digital Wall console has no role checks at all. Any signed-in person can delete an operator, approve a kiosk,
-     or edit the big screen (`digital-wall/server.mjs:240-249`).
-   - The dashboard changelog shows every signed-in user data drawn from all users' activity: agent audit rows, email
-     logs and bug reports (`app/api/dashboard/changelog/route.ts:10`, "admin NOT required").
-7. **Maintenance mode locks out sign-in.** The maintenance redirect runs before the login page is considered
-   (`middleware.ts:148-171`). A developer who is not already signed in cannot reach `/login` to turn maintenance off.
-8. **Several nav entries mislead.**
-   - **Reports & Issues → Bug reports** is shown to every user but goes to the admin-only **debug runner**
-     (`nav.ts:98`). Regular users see "Admin access required."
-   - **Admin → Deleted airports** is not an admin tool. It lists the airports *you* hid from your own search; every
-     user's hides are separate.
-   - In the console, **Sign out** does not sign out. It navigates to `/login`, which sends a signed-in user straight
-     back to the dashboard (`opsboard-react/src/ConsoleApp.jsx:216`, `middleware.ts:196-203`).
+   (`lib/role-resolve.ts:16-61`). Nothing grants anything to `@clearway.aero`. What each role may do is a separate
+   table, `permission_grants`, set on Admin → Permissions.
+6. **Pages gate unevenly; writes are gated everywhere.**
+   - Every write in the portal, the agent and the wall must be an action in `lib/permissions/catalogue.mjs`, and the
+     person's role must hold it (`middleware.ts:279-291`, `digital-wall/server.mjs:842-856`). An endpoint not in the
+     list is refused. Admin → Permissions changes who holds what.
+   - Users, Agent sites, Maintenance and Permissions show a locked card to someone without access. Email logs and the
+     debug runner send them to `/forbidden`. The Service status editor still shows the shell with an "HTTP 403" box
+     (`app/admin/service-status/page.tsx:34, 117`).
+   - Anyone signed in can view every Digital Wall console page. Writes on Operators, Aircraft, Limitations, Important,
+     CAA details and Webhooks are admin by default; others see those pages view-only
+     (`opsboard-react/src/ConsoleApp.jsx:419-435`).
+   - The dashboard changelog shows each user their own entries. Admins and developers see everyone's, labelled
+     (`app/api/dashboard/changelog/route.ts:10-13`).
+7. **Maintenance mode keeps sign-in open.** `/login` and `/auth/*` stay reachable. An admin or developer who signs in is
+   sent to `/admin/maintenance`. Everyone else sees `/maintenance`, which links to sign-in (`middleware.ts:154-210`).
+   From the server, `MAINTENANCE_FORCE_OFF=true` or `scripts/maintenance-off.sh` turns it off (`docs/maintenance.md`).
+8. **The nav entries that misled are fixed.**
+   - Reports & Issues is gone (Part B).
+   - Deleted airports is now AIP & Documents → Hidden airports, for everyone (`nav.ts:56`).
+   - Console → Sign out ends the session (`POST /auth/sign-out`, `opsboard-react/src/ConsoleApp.jsx:125-133`).
 9. **No tenant column exists anywhere.** None of the ~45 tables has an organisation id.
 10. **There is no demo dataset for the portal**, and the existing guide screenshots were taken against production
     (`docs/guide-shots/INDEX.md:3-6`).
@@ -74,48 +80,57 @@ items, the wall console's account-menu links, and the old `/stats` and `/setting
 ### 1.0 How access works (read once; the tables refer to it)
 
 - **Signed in**: `middleware.ts` requires a Supabase session for every page except `/login`, `/signup`, `/auth/*`,
-  `/maintenance`, `/intake/answer`, `/telegram/support` (`middleware.ts:89-214`). An account with
-  `is_approved === false` goes to `/pending-approval` (:216-226). A **temporary** user (metadata `temporary`) can only
-  reach Pickem/Playoffs and the auth pages (:7-35, :228-236).
-- **admin**: `requireAdmin()` lets in admin **or developer** (`lib/admin-auth.ts:109-125`). Admin comes from
+  `/maintenance`, `/intake/answer`, `/telegram/support`, and `/docs` when `content/docs/site.json` says
+  `"public": true` (it says `false` today) (`middleware.ts:55-255`). An account with `is_approved === false` goes to
+  `/pending-approval` (:257-267). A **temporary** user (metadata `temporary`) reaches only the auth pages,
+  `/pending-approval`, `/access-blocked` and `/maintenance`. Anything else sends them to `/access-blocked`, which says
+  Pick'em was retired (:12-36, :269-277).
+- **admin**: `requireAdmin()` lets in admin **or developer** (`lib/admin-auth.ts:53-70`). Admin comes from
   `ADMIN_EMAILS`, metadata or `user_preferences.is_admin`.
 - **developer**: a flag, not a tier (`DEVELOPER_EMAILS`, metadata, `user_preferences.is_developer`). An admin does not
   see Developer items. `app/developer/layout.tsx:12-21` gates on the server and sends others to `/forbidden`.
+- **permissions**: every write is an action in `lib/permissions/catalogue.mjs`. Which role holds it is data
+  (`permission_grants`), changed on Admin → Permissions (`/admin/permissions`, needs `permissions.manage`, admin and
+  developer by default). Defaults: `U` everyone, `A` admin and developer, `D` developer (`catalogue.mjs:20-22`).
 - **agent**: the Ops Agent topic appears only for people on the agent allowlist (`agent_access`) while the global
   kill switch is on (`agent/lib/access.mjs:19-43`; nav `agentOnly`). Every agent API call checks it again.
 - **mailbox**: admins, developers and the emails in the intake setting "Agent mailbox access"
   (`agent/lib/intake/api.mjs:33`).
-- **"guest"** is never assigned by the sidebar (`Shell.tsx:65,69`), so the Pickem topic (`roles: admin, guest`) shows
-  only to admins and developers.
-- **Digital Wall console**: any valid portal session; no role checks (`digital-wall/lib/auth.mjs:113-216`). The wall
-  display also accepts an approved **device token** (kiosk).
+- **"guest"** is never assigned by the sidebar (`Shell.tsx:100`). Account and Settings list it, but no topic depends
+  on it.
+- **Digital Wall console**: any valid portal session can view (`digital-wall/lib/auth.mjs:114-224`). Writes need the
+  permission for their action, with the role worked out the portal's way (`digital-wall/lib/roles.mjs`,
+  `digital-wall/server.mjs:842-856`). The wall display also accepts an approved **device token** (kiosk), read-only.
 
 **Status** below: *live* · *URL only* (works, nothing in the nav links to it) · *redirect* · *dead* (code that never
-runs).
+runs) · *deleted* (404) · *410 Gone* (retired).
 
 ### 1.1 Next portal (`app/`, served at `/` by the portal container)
 
 | Route | Section · nav label | Role | Status | Notes |
 |---|---|---|---|---|
-| `/` | — | signed in | redirect | → `/dashboard`, or `/aip?icao=` (`app/page.tsx:15-16`) |
-| `/dashboard` | Dashboard | signed in | live | Server health card admin-only |
+| `/` | — | signed in | redirect | → the start page chosen in Settings, default `/dashboard` (`middleware.ts:293-311`); `/?icao=` → `/aip?icao=` (`app/page.tsx:14-15`) |
+| `/dashboard` | Dashboard | signed in | live | Server health block admin-only |
+| `/dashboard/changelog` | from the dashboard's Changelog block | signed in | live | Own entries; everyone's for admins |
+| `/settings` | Settings (last in the sidebar) | signed in | live | Appearance, Customisation (pinned tabs, dashboard blocks), Preferences (density, start page, motion) |
 | `/aip` | AIP & Documents · Airport search | signed in | live | |
 | `/aip/[ICAO]` (+ legacy `/gen` `/notam` `/weather`) | from search, recents | signed in | live | Legacy tabs redirect |
 | `/aip/service-status` | AIP & Documents · Service status | signed in | live | Read-only |
 | `/status` | — | signed in | redirect | → `/aip/service-status` |
-| `/admin` | — | signed in | redirect | → `/pickem/admin` (Pickem console) |
-| `/admin/users` | Admin · Users | page ungated; API admin | live | Non-admin: shell + error |
-| `/admin/agent-sites` | Admin · Agent sites | page ungated; API admin | live | |
-| `/admin/maintenance` | Admin · Maintenance | page ungated; GET admin, toggle developer | live | |
-| `/admin/email-tools` | Admin · Email tools | admin (target) | redirect | → Pickem email console |
-| `/admin/email/logs` | Admin · Email logs | admin (client `AdminRoute`) | live | Hides the whole shell while checking |
+| `/admin` | — | signed in | redirect | → `/admin/users` |
+| `/admin/users` | Admin · Users | locked card on 403; API admin | live | Approve, roles, password reset (single and bulk), copy ID |
+| `/admin/agent-sites` | Admin · Agent sites | locked card on 403; API admin | live | |
+| `/admin/permissions` | Admin · Permissions | `permissions.manage` (admin, developer) | live | Grid of role × action, change log |
+| `/admin/maintenance` | Admin · Maintenance | locked card on 403; GET admin; turn on developer, turn off admin (permissions) | live | |
+| ~~`/admin/email-tools`~~ | — | — | deleted (Pick'em retired) | 404 |
+| `/admin/email/logs` | Admin · Email logs | admin (client `AdminRoute`) | live | Spinner in the content area while checking (`components/AdminRoute.tsx:26-31`); non-admins go to `/forbidden` |
 | `/admin/debug` | — URL only, on purpose (see the top) | developer (server) | live | Was in the nav twice and under Reports & Issues; removed 2026-10-11 |
-| `/admin/debug/raw` | — (link from debug run) | developer (server) | URL only | Empty without `?run=` |
+| `/admin/debug/raw` | — (link from debug run) | developer (server) | URL only | Without `?run=` it says no run is selected and links to the runner |
 | `/developer/components` | — URL only, on purpose (see the top) | developer (server) | live | The kit sheet; off the nav 2026-10-11 |
-| `/admin/service-status` | Admin · Service status editor | page ungated; API admin | live | |
-| `/admin/airports/deleted` | Admin · Deleted airports | **any signed-in user** | live | Per-user hidden airports, not an admin tool |
-| `/admin/playoffs/bracket-setup`, `/results` | — | — | redirect | → Pickem console sections |
-| `/admin/country-service-status`, `/admin/debug/email-logs` | — | — | dead | `next.config.mjs:6-10` redirects first; the page files never run |
+| `/admin/service-status` | Admin · Service status editor | page ungated; API admin | live | Non-admin: shell + "HTTP 403" box |
+| `/admin/airports/deleted` | AIP & Documents · Hidden airports | **any signed-in user** | live | "Airports you hid"; also linked from the search browse panel |
+| ~~`/admin/playoffs/*`~~ | — | — | deleted | 404 |
+| `/admin/country-service-status`, `/admin/debug/email-logs` | — | — | redirect | `next.config.mjs:19-20` → `/admin/service-status`, `/admin/email/logs` (the page files were removed) |
 | `/developer/inbox` | Developer · Inbox | developer | live | |
 | `/developer/saved-replies` | Developer · Saved replies | developer | live | |
 | `/developer/agent-access` | Developer · Agent access | developer | live | |
@@ -124,23 +139,20 @@ runs).
 | ~~`/account/notifications`~~ | — | — | deleted 2026-10-11 | Columns `user_preferences.notify_*` kept; see Part B |
 | ~~`/account/search-stats`~~ | — | — | deleted 2026-10-11 | Table `search_events` still feeds the dashboard's Recently used |
 | `/account/guide` | Account · Guide | signed in | live | Iframe of `/digital-wall/guide/` |
-| `/profile`, `/settings/notifications`, `/stats` | — | — | dead | Config redirects to `/account/*`; page files never run |
+| `/profile` | — | — | redirect | → `/account/profile` (`next.config.mjs:18`). `/settings/notifications` and `/stats` were removed in Part B (404) |
 | `/help` | sidebar "Help & support" (not a nav topic), `?` key | signed in | live | |
 | `/help/new` | from `/help`, ⌘? / Ctrl+? | signed in | live | |
 | `/help/[ref]` | from `/help` history | owner or developer | live | |
-| `/pickem` | Pickem · Play | signed in (incl. temporary) | live | Pickem container in production |
-| `/pickem/admin` | Pickem · Admin | admin | live | 9 sections by `?section=` |
-| `/pickem/admin/legacy` | — | admin | URL only | Only home of Dev Mode |
-| `/playoffs`, `/playoffs/bracket` | Pickem app nav; email link | `PlayoffsGate` | live | |
-| `/playoffs/champion` | — | `PlayoffsGate` | URL only | Duplicates a `/playoffs` tab |
-| `/login`, `/signup`, `/auth/confirm`, `/auth/reset` | — | public | live | |
+| `/docs`, `/docs/[section]`, `/docs/[section]/[page]` | linked from Help & support | signed in unless `content/docs/site.json` says `"public": true` | live | Own frame (`components/docs/DocsFrame`), not the portal shell. Pages from `content/docs/` |
+| `/pickem/**`, `/playoffs/**` (and `/api/…`) | — | everyone | 410 Gone | Retired; `middleware.ts:114-118`, `docs/pickem-archive.md` |
+| `/login`, `/signup`, `/auth/confirm`, `/auth/reset` | — | public | live | Also `/auth/sign-out` (POST, ends the session; used by the console) |
 | `/maintenance`, `/pending-approval`, `/access-blocked`, `/forbidden` | — | middleware targets | live | |
 | `/telegram/support` | — (Telegram mini-app URL) | public page; API checks Telegram ids | live | Developer support inbox inside Telegram |
 | `/intake/answer` | — (email link) | public; single-use token | live | One-tap answer page (E1) |
-| `/greece-hitl-auto-test/viewer`, `/lithuania-…/viewer`, `/netherlands-…/viewer` | — (popup from AirportView) | signed in | live, test-named | Their "Back to … test" links 404 (no parent page) |
+| `/greece-hitl-auto-test/viewer`, `/lithuania-…/viewer`, `/netherlands-…/viewer` | — (popup from AirportView) | signed in | live, test-named | Back closes the popup and returns to the airport (`components/hitl-country-viewer-client.tsx:13`) |
 | `app/debug_run_1.md` | — | — | stray file | Not a page |
 
-### 1.2 Ops Agent (`/agent/*` — Next pages reached through agent-service)
+### 1.2 Ops Agent (`/agent/*` — Next pages; only `/agent/api/*` goes to agent-service)
 
 | Route | Nav label | Role | Status | Notes |
 |---|---|---|---|---|
@@ -148,12 +160,12 @@ runs).
 | `/agent/t/[id]` | — (Chat stays highlighted) | agent | URL only | A thread's permalink: History rows, Activity, "Expand" |
 | `/agent/history` | Ops Agent · History | agent | live | |
 | `/agent/knowledge` | Ops Agent · Knowledge base (badge) | agent; upload/approve **developer** | live | |
-| `/agent/intake` | Ops Agent · Flight intake (badge) | agent | live | No further role check: any agent user can send to Leon |
+| `/agent/intake` | Ops Agent · Flight intake (badge) | agent | live | Sending to Leon is `intake.send` (everyone by default). Showing passengers' personal data is `intake.people.reveal` (admins by default) |
 | `/agent/mailbox` | Ops Agent · Mailbox (badge, lock) | agent + mailbox | live | |
 | `/agent/activity` | Ops Agent · Activity log | agent (users see their own rows) | live | |
 | `/agent/settings` | Ops Agent · Settings | agent; organisation sections admin/developer | live | |
 | `/agent/panel` | — | agent | URL only | The side panel as an iframe page for the wall console (`opsboard-react/src/hooks/useAgentDock.jsx:120`) |
-| `/agent/doc` | — | (viewer needs agent) | URL only | Standalone document viewer for the console panel and the Chrome extension; a non-agent user sees "Opening the document…" forever |
+| `/agent/doc` | — | (viewer needs agent) | URL only | Standalone document viewer for the console panel and the Chrome extension; says when the document cannot be opened (`components/agent/viewer/StandaloneDocument.tsx:41`) |
 
 Related, outside `/agent`: **Agent access** is `/developer/agent-access` and **Agent sites** is `/admin/agent-sites`.
 The **Chrome extension** (`extension/`) is a separate client of the agent service.
@@ -169,32 +181,35 @@ The **Chrome extension** (`extension/`) is a separate client of the agent servic
 | `/digital-wall/console` | — | — | redirect | → `/console/flights` |
 | `/digital-wall/console/flights` | Flights | any session | live | Default page |
 | `/digital-wall/console/notam-check` | NOTAM Check | any session | live | |
-| `/digital-wall/console/operators` | Operators | any session | live | |
-| `/digital-wall/console/aircraft` | Aircraft | any session | live | |
-| `/digital-wall/console/limitations` | Limitations | any session | live | |
-| `/digital-wall/console/important` | Important | any session | live | |
-| `/digital-wall/console/caa` | CAA details | any session | live | |
-| `/digital-wall/console/webhooks` | Webhooks | any session | live | |
-| `/digital-wall/console/reports` | Reports (also portal "Console reports") | any session | live | |
+| `/digital-wall/console/operators` | Operators | any session views; writes admin by default (view-only note for others) | live | |
+| `/digital-wall/console/aircraft` | Aircraft | any session views; writes admin by default (view-only note for others) | live | |
+| `/digital-wall/console/limitations` | Limitations | any session views; writes admin by default (view-only note for others) | live | |
+| `/digital-wall/console/important` | Important | any session views; writes admin by default (view-only note for others) | live | |
+| `/digital-wall/console/caa` | CAA details | any session views; writes admin by default (view-only note for others) | live | |
+| `/digital-wall/console/webhooks` | Webhooks | any session views; writes admin by default (view-only note for others) | live | |
+| `/digital-wall/console/reports` | Reports | any session | live | |
 | `/digital-wall/console/settings` | Settings | any session | live | 5 sections, not linkable by URL |
 | `/digital-wall/console/<anything else>` | — | — | — | Silently shows Flights; never 404s |
 | `/digital-wall/(operators\|aircrafts\|limitations)` | — | — | redirect | Old URLs → console pages |
 | `/digital-wall/leon/webhook/*` | — | Leon (signed JWT) | live | Webhook receiver, not a page |
-| other `/digital-wall/<path>` | — | — | **dead, still served** | The backend's catch-all serves an old copied site (`digital-wall/server.mjs:51-63, 2363-2420`), injecting fake admin tokens into localStorage and `wall-menu.js`, whose only link (`/timeline`) is dead. The copied site's directory is not in git |
+| other `/digital-wall/<path>` | — | — | 404 | The backend answers "Not found." The old copied site is gone (`digital-wall/server.mjs:2394-2405`) |
 
-The console has **no** Users, Airports or Devices page. Devices live inside Settings. `digital-wall/src/`,
-`digital-wall/index.html` and `digital-wall/dist/` are an old prototype that nothing builds or serves.
+The console has **no** Users, Airports or Devices page. Devices live inside Settings. The old prototype
+(`digital-wall/src/`, `digital-wall/index.html`) was removed in portal foundations 4.2. A leftover `digital-wall/dist/`
+may exist locally; it is git-ignored.
 
 ### 1.4 Actions, page by page
 
 Written at manual level. "Admin" includes developers. Every page in the portal shell also has: open or close the agent
 panel (⌘J, agent users), Help & support (`?`), report a bug about this page (⌘?), collapse the sidebar, sign out.
+The top bar adds page search (⌘K), the theme menu and pinned tabs.
 
 #### Dashboard — `/dashboard`
-- Re-check all services.
-- Retry a card: Recents, Service status, Changelog, Server health.
-- Filter the changelog: All / Edits / Errors.
+- Six blocks: Today, Recently used, Service monitors (Re-check now), Server health (admins), Quick links, Changelog.
+  Each retries on its own.
 - Open a recently used item.
+- Customise: move, resize (S / M / L), add, remove, reset. Saved to the account.
+- Changelog: the full list is at `/dashboard/changelog`.
 - Server health is view-only and admin-only.
 
 #### AIP & Documents
@@ -203,15 +218,15 @@ panel (⌘J, agent users), Help & support (`?`), report a bug about this page (�
 - Browse region → country → (US) state → pick airports → open them.
 - Hide an airport from your own search, and close a result tab.
 - Open a result or a recent airport.
-- Admins only: go to "Restore deleted airports", and delete a fixed bug report from the banner.
+- "Airports you hid" (everyone) opens Hidden airports.
 
 **Airport page — `/aip/[ICAO]`**
 - Download the AD 2 PDF, and re-sync it from the source (not the USA).
-- Download the GEN PDF.
+- Open GEN 1.2 in the viewer's GEN tab (⋯ menu).
 - Open the official Web AIP (after a consent dialog).
 - Refresh NOTAMs; refresh weather.
 - Start a captcha verification for a blocked country. This opens the HITL viewer popup.
-- Report a problem for this airport.
+- Report a problem (⋯ menu). This opens Help & support's bug form with the airport as the page.
 - "Ask about" with the agent.
 - Back to search.
 
@@ -269,7 +284,7 @@ There is no charts view.
 - Search. Filter: With changes, With files, Voice.
 - Open a thread. Start a new chat.
 
-"Mine" is shown but does nothing (`HistoryPage.tsx:29`).
+"Mine" is shown but does nothing (`HistoryPage.tsx:30`).
 
 **Knowledge base — `/agent/knowledge`**
 - Upload a document (developers): file, title, source, version, effective date, country, ICAO.
@@ -296,9 +311,9 @@ There is no charts view.
   - Edit any field. Mark a value as looking right. Resend a value Leon refused. Choose between differing sources.
   - Services: Provide / To confirm / Decline (keys 1/2/3), our answer, add a missed service.
   - Crew and passengers:
-    - Show personal data for 60 s (audited).
+    - Show personal data for 60 s (audited; `intake.people.reveal`, admins by default). Names are masked too.
     - Add a crew member or passenger, or remove a hand-added one.
-    - Correct a passenger's surname/given-name split (✎).
+    - Correct a passenger's surname/given-name split (✎). Shown only to those who can show personal data.
   - Confirm: "Review and create in Leon" → the confirm dialog → **Create / Send / Resend to Leon**.
 - What was sent to Leon:
   - Send passengers to Leon (per leg, with confirmation).
@@ -325,16 +340,17 @@ There is no charts view.
 - Export CSV. Expand a row. Open its thread. Load more.
 
 **Settings — `/agent/settings`**
-- Everyone: default model tier; skip confirmation for low-risk actions.
-- Admins and developers:
-  - **Routing**: model per tier, escalation rules, lock "skip confirmation" for everyone.
+- Five tabs. Each shows only to people the agent allows (`components/agent/pages/SettingsPage.tsx:26-31, 100`).
+  `?tab=` opens one.
+- **Your preferences** (everyone): default model tier; skip confirmation for low-risk actions.
+- Admins and developers by default:
+  - **Model tiers**: model per tier, escalation rules, lock "skip confirmation" for everyone. Edits collect in a draft
+    with a save bar.
   - **Capabilities**: web search, voice, write actions, send email, auto-approve reference uploads, high-knowledge
-    model.
-  - **Keyboard shortcuts**, organisation-wide.
-  - Who can do what (read-only), Usage (read-only), Sites summary.
+    model; the organisation's keyboard shortcuts.
+  - **Access & sites**: who can do what (read-only), sites summary.
   - **Flight intake**: receiving addresses, intake recipients, mailbox readers, mail retention.
-
-Non-admin agent users see an empty "Who can do what" and an empty Usage card (`SettingsPage.tsx:49-50,147`).
+- Usage this month is in the page header, when the person may see it.
 
 **One-tap answer — `/intake/answer`** (public, from email)
 - Yes, process it / No, skip it.
@@ -343,7 +359,7 @@ Non-admin agent users see an empty "Who can do what" and an empty Usage card (`S
 #### Digital Wall
 **The wall — `/digital-wall/timeline/`**
 - Click a flight to open its info. Mark sections checked, or Check all.
-  - On a kiosk device token the check fails: tokens are read-only (`digital-wall/server.mjs:551-576`).
+  - On a kiosk device token the check fails: tokens are read-only (`digital-wall/server.mjs:548-579`).
 - Expand a limitation.
 - Open IMP attachments.
 - Phone: Now / Attention / Timeline, with zoom 2H / 6H / DAY.
@@ -358,7 +374,7 @@ Non-admin agent users see an empty "Who can do what" and an empty Usage card (`S
 
 **Console (every page)**
 - Switch pages, collapse the sidebar, open the wall in a new tab, All services.
-- User menu: Profile, Notification settings, Search statistics, Guide, Sign out — which does not sign out.
+- User menu: Profile, Guide, Sign out.
 - Approve or postpone a new screen from the pop-up.
 
 **Flights**
@@ -438,11 +454,19 @@ Non-admin agent users see an empty "Who can do what" and an empty Usage card (`S
 
 #### Admin
 **Users — `/admin/users`**
+- Tabs by role, search, Role and Last sign-in filters.
 - Approve a pending account.
 - Make admin / remove admin.
 - Make developer / remove developer (developers only).
+- Send a password reset; bulk password reset.
+- Copy a user ID.
 
-There is no invite, remove, password-reset or filter action.
+There is no invite or remove action.
+
+**Permissions — `/admin/permissions`**
+- Grant or take away an action per role.
+- Filter "Differs from default". Expand or collapse groups.
+- Read the change log.
 
 **Agent sites — `/admin/agent-sites`**
 - Approve or decline an extension site request.
@@ -450,7 +474,7 @@ There is no invite, remove, password-reset or filter action.
 - Revoke a site.
 
 **Maintenance — `/admin/maintenance`**
-- Turn maintenance on or off with a message and ETA (developers).
+- Turn maintenance on (developers) or off (admins), with a message and ETA. Turning it off asks you to type OFF.
 - Clear all cached AIP PDFs (admin).
 
 **Email logs — `/admin/email/logs`**
@@ -464,11 +488,8 @@ There is no invite, remove, password-reset or filter action.
 **Service status editor — `/admin/service-status`**
 - Set a country's status and note.
 
-**Deleted airports — `/admin/airports/deleted`**
+**Hidden airports — `/admin/airports/deleted`** (under AIP & Documents)
 - Restore one or several of your own hidden airports.
-
-**Email tools**
-- These are the Pickem console's tools; see Pickem.
 
 #### Developer
 **Inbox — `/developer/inbox`**
@@ -494,66 +515,48 @@ There is no invite, remove, password-reset or filter action.
 
 #### Account
 - **Profile**: display name, change email, change password (by reset email), sign out.
-- **Notification settings**: browser notifications, on/off overall and per event.
-- **Search statistics**: view only.
 - **Guide**: the wall guide, full screen.
 
-#### Pickem (still live — see the summary)
-- **`/pickem`**: predict scores, submit or resubmit picks, confirmation email, standings, view others' picks.
-- **`/playoffs`**: bracket picks, world champion pick; admins get Admin tools (open playoffs, deadline).
-- **`/pickem/admin`**, nine sections:
-  - Bracket setup (set matches, load from groups, confirm R32 and email).
-  - Results (live / publish).
-  - **Email tools** (send test, to admins, to all; custom broadcast) and Email logs.
-  - Guide.
-  - Group standings, group matches.
-  - Pick locks (per-user unlocks, early playoff access).
-- **`/pickem/admin/legacy`**: the same actions as tabs, plus **Dev Mode** (simulate the group stage, fill R32, clear).
+#### Settings — `/settings`
+- **Appearance**: match this device, light or dark.
+- **Customisation**: pinned tabs (up to five pages or airports, beside search in the top bar); the dashboard's blocks.
+- **Preferences**: table density, start page, motion.
+
+#### Pick'em — retired
+- Every `/pickem` and `/playoffs` path answers 410. See `docs/pickem-archive.md`.
 
 #### Sign-in and system pages
 - **Login**: sign in, forgot password, create account.
 - **Signup**: request access (name, work email), resend.
 - **`/auth/confirm`**: set a password.
 - **`/auth/reset`**: set a new password.
-- **Maintenance**: try again.
+- **Maintenance**: try again; sign in to turn maintenance off.
 - **Pending approval**: sign out; it moves on automatically once approved.
-- **Access blocked**: open Pickem, sign out.
+- **Access blocked**: says Pick'em was retired; sign out.
 - **Forbidden** and **404**: go home.
 
 ### 1.5 Flags
 
 **Reachable by URL but not linked from the nav**
 - `/agent/t/[id]`, `/agent/panel`, `/agent/doc` — by design (permalinks, iframe pages).
-- `/pickem/admin/legacy` (the only home of Dev Mode).
-- `/playoffs/champion`.
-- `/playoffs/bracket` (email link only).
-- `/admin/debug/raw`.
+- `/admin/debug`, `/admin/debug/raw`, `/developer/components` — by design (see the top).
 - `/telegram/support`, `/intake/answer` — by design.
 - `/digital-wall/timeline/?debug=viewport`.
-- Redirect stubs nothing links to: `/status`, `/admin`, `/admin/playoffs/*`, `/developer/knowledge`.
+- Redirect stubs nothing links to: `/status`, `/admin` (→ Users), `/developer/knowledge`, `/profile`,
+  `/admin/country-service-status`, `/admin/debug/email-logs`.
 
 **Nobody can reach at all (dead code)**
-- Page files shadowed by `next.config.mjs` redirects:
-  - `app/profile/page.tsx`, `app/settings/notifications/page.tsx`, `app/stats/page.tsx`
-  - `app/admin/country-service-status/page.tsx`, `app/admin/debug/email-logs/page.tsx`
-- `digital-wall/src/`, `digital-wall/index.html`, `digital-wall/dist/`, `digital-wall/current.html.save`.
-- `components/clearway-clone/*`, which holds real staff names and emails.
+- A local, git-ignored `digital-wall/dist/`.
 - `components/hitl-country-auto-test-page.tsx`.
-- In the agent: `ConfirmationModal` (`thread/Confirmation.tsx:235`, never used) and the History "Mine" chip.
-- In Pickem: the in-app "playoffs" view (`components/pickem/pickem-app.tsx:1802`).
-- The wall backend's catch-all serving an old copied site (§1.3). Unreachable from any nav, but it still answers.
+- In the agent: `ConfirmationModal` (`thread/Confirmation.tsx:236`, never used) and the History "Mine" chip.
 
 **In the nav and misleading, erroring or 404-ing**
-- **Reports & Issues → Bug reports** (all users) goes to the admin-only debug runner. Users get "Admin access required".
-  Admins get a debug runner, not bug triage.
-- **Admin → Email tools** leaves the portal for the World Cup Pickem email console.
-- **Admin → Deleted airports** is per-user, not an admin tool.
-- **Console → Sign out** does not sign out.
-- **"Open in Flights"** on an agent flight card adds `?flight=`, which the console ignores. It lands on an unselected
-  Flights page.
-- **HITL viewer "Back to … test"** links 404 (no parent page).
-- **Open … in Leon** (intake duplicate box) is always disabled: "Leon link not configured".
+- **Open … in Leon** (intake duplicate box) is always disabled: "Leon link not configured"
+  (`components/agent/intake/intake-detail.tsx:374`).
 - Nothing in the nav points at a page that does not exist.
+- Fixed in portal foundations Group 2 and Part B: Bug reports (went to the debug runner), Admin → Email tools (Pick'em),
+  Deleted airports (now Hidden airports), Console → Sign out, "Open in Flights" (`?flight=` is now read), and the HITL
+  viewer's Back link.
 
 ### 1.6 Against `docs-inventory-draft.md`
 
@@ -561,22 +564,22 @@ There is no invite, remove, password-reset or filter action.
 
 | Draft | The code |
 |---|---|
-| Pickem: off the nav, containers stopped, archived | The Pickem topic is still in the nav (admins and developers). The container runs. The tunnel routes `/pickem`. Admin → Email tools and `/admin` lead into it |
+| Pickem: off the nav, containers stopped, archived | True since portal foundations 4.1: paths answer 410, the nav section, compose service, container and tunnel route are gone, the tables are archived (`docs/pickem-archive.md`). `/admin` opens Users |
 | Users: "the new automatic **clearway** role for `@clearway.aero`" | No such role or rule exists |
-| Users: inviting and removing a user | There is no invite or remove. Sign-up is self-service and an admin **approves** it. Actions are approve, make/remove admin, make/remove developer |
-| Admin: "Email tools" as portal email tools | They are the Pickem World Cup email tools |
-| Reports & Issues | Its "Bug reports" item is the debug runner. Real bug reports arrive through Help & support and the developer inbox |
+| Users: inviting and removing a user | There is no invite or remove. Sign-up is self-service and an admin **approves** it. Actions are approve, make/remove admin, make/remove developer, and send a password reset (single or bulk) |
+| Admin: "Email tools" as portal email tools | They were the Pickem World Cup email tools, and were removed with Pick'em |
+| Reports & Issues | Deleted in Part B. Bug reports are filed in Help & support and worked from the developer inbox |
 | Help Center → Saved replies "moved from Developer" | Help & support exists (`/help`, `/help/new`, `/help/[ref]`, the ⌘? bug report). Saved replies are still under Developer |
 | Digital Wall → "Airports ?" | There is no airports page in the console |
-| Console reports "stays here" | It does, but it is also linked from the portal's Reports & Issues |
-| Aircraft → "Aircraft type and ICAO mapping ✓" | There is no type editing in the console. The only ICAO type mapping is the intake's aircraft-name table (`agent/lib/intake/notification.mjs:35`) |
+| Console reports "stays here" | It does. The portal links it only from the Digital Wall group |
+| Aircraft → "Aircraft type and ICAO mapping ✓" | There is no type editing in the console. The only ICAO type mapping is the intake's aircraft-name table (`agent/lib/intake/notification.mjs:36`) |
 | Wall → "The voice readout ✓" | It exists, but it is read-only: it shows a console's agent voice session to the room. The wall does not speak |
 | AIP → "Charts ?" | There is no charts view |
 | OPS Agent → History "Pinning a chat" | Does not exist (listed as →, i.e. not built) |
-| Developer → "This section may not need to exist" | It holds four items: Inbox, Saved replies, Agent access (incl. the global agent kill switch), Debug runner |
+| Developer → "This section may not need to exist" | It holds three nav items: Inbox, Saved replies, Agent access (incl. the global agent kill switch). The debug runner and the component sheet are reachable by URL only |
 | Agent settings → "Agent access (moved from Developer)", "Agent sites (moved from Admin)" | Not moved. Agent access is at `/developer/agent-access`; Agent sites at `/admin/agent-sites` (Settings shows only a summary) |
-| Settings section (Customisation, Appearance) | No portal Settings page exists |
-| Dashboard → choosing and rearranging blocks | Not built. The dashboard has four fixed cards |
+| Settings section (Customisation, Appearance) | Built in redesign stage 4: `/settings` with Appearance, Customisation and Preferences |
+| Dashboard → choosing and rearranging blocks | Built: six blocks on a 12-column grid, customisable, saved to the account |
 
 **What the draft missed**
 
@@ -592,7 +595,7 @@ There is no invite, remove, password-reset or filter action.
   - Agent settings in full: Routing, Capabilities, Keyboard shortcuts, Usage, Who can do what, Flight intake
     (addresses, recipients, mailbox readers, retention).
 - **Admin**
-  - Service status editor; Deleted airports; Debug runner (still under Admin as well as Developer).
+  - Service status editor; Hidden airports (now under AIP & Documents); Debug runner (developer only, by URL).
   - Maintenance's "Clear all cached AIP PDFs".
 - **Developer**
   - Agent access's global kill switch.
@@ -607,8 +610,6 @@ There is no invite, remove, password-reset or filter action.
 - **AIP**
   - Re-sync from source, the Web AIP consent dialog, the HITL captcha verification for blocked countries.
   - Hiding airports from your own search, and restoring them.
-- **Account**
-  - Notification settings and Search statistics are still live.
 - **System pages**
   - Signup with admin approval, password reset, pending approval, access blocked, maintenance, forbidden.
 - **Telegram mini-app**
@@ -618,7 +619,7 @@ There is no invite, remove, password-reset or filter action.
 - **Answers to the draft's questions**
   1. Help Center today: report urgent / bug / suggestion / question / chat, thread history, the ⌘? bug report. The
      developer works it from the Developer inbox and Telegram.
-  2. Developer still holds four things.
+  2. Developer holds three nav items.
   3. The console has no airports, users or device-management pages; devices are in Settings.
   4. External APIs: the agent service's API is used by the Chrome extension. The wall receives Leon webhooks
      (`/digital-wall/leon/webhook/*`). Kiosks use the device-token API. No public API is offered to customers.
@@ -631,65 +632,52 @@ There is no invite, remove, password-reset or filter action.
 
 | # | Application | Serves | Code | Process |
 |---|---|---|---|---|
-| 1 | **Portal** (Next 14, React 18) | `/`, `/dashboard`, `/aip/**`, `/admin/**`, `/account/**`, `/help/**`, `/developer/**`, `/playoffs/**`, `/api/**`, `/files/**`, and the `/agent/*` *pages* | `app/`, `components/` | container `clearway-2-portal-1`, :3000 |
-| 2 | **Pickem** (the same Next build, second container) | `/pickem`, `/pickem/**` | same repo | container `clearway-2-pickem-1`, :3010 |
+| 1 | **Portal** (Next 14, React 18) | `/`, `/dashboard`, `/aip/**`, `/admin/**`, `/account/**`, `/help/**`, `/developer/**`, `/settings`, `/docs/**`, `/api/**`, `/files/**`, and the `/agent/*` *pages*; the 410 for `/pickem` and `/playoffs` | `app/`, `components/` | container `clearway-2-portal-1`, :3000 |
+| 2 | **Pickem** — retired. `scripts/pickem-retire.sh` has run: no container, no tunnel route (checked 2026-10-12) | — | removed from the repo; archive in `docs/pickem-archive.md` | — |
 | 3 | **Digital Wall**: gateway (nginx) → frontend (`opsboard-react`, Vite SPA, React 19) and backend (Node) | `/digital-wall/**` | `deploy/digital-wall/nginx-gateway.conf`, `opsboard-react/`, `digital-wall/server.mjs` | containers `digital-wall-gateway` :8088, `digital-wall-frontend`, `digital-wall-backend` |
-| 4 | **agent-service** (Node) | `/agent/api/**`; passes other `/agent/*` to the portal | `agent/server.mjs` | container `agent-service`, :8089 |
+| 4 | **agent-service** (Node) | `/agent/api/**` (it would pass other `/agent/*` to the portal, but the tunnel no longer sends them) | `agent/server.mjs` | container `agent-service`, :8089 |
 
-**Stitched by the Cloudflare tunnel** (`/etc/cloudflared/config.yml` on the server; the host's nginx is unused):
+**Stitched by the Cloudflare tunnel** (`/etc/cloudflared/config.yml` on the server; the host's nginx is unused; checked
+2026-10-12):
 - `^/digital-wall/.*` → :8088
-- `^/agent/.*` → :8089
-- `/pickem`, `/pickem/.*` → :3010
-- everything else → :3000
+- `^/agent/api(/.*)?$` → :8089 (was `^/agent/.*` until `scripts/tunnel-agent-api.sh`)
+- everything else → :3000 (the `/pickem` → :3010 routes were removed by `scripts/pickem-retire.sh`)
 
 There are no Next rewrites (`next.config.mjs` has only redirects). The wall's gateway then splits `/digital-wall/**`
-between the SPA and the backend (`nginx-gateway.conf:16-118`). The console embeds the agent panel as a same-origin
+between the SPA and the backend (`nginx-gateway.conf:16-113`). The console embeds the agent panel as a same-origin
 iframe of `/agent/panel`.
 
 ### 2.2 Does the nav link across applications?
 
-Yes, for the Digital Wall and Pickem groups.
-- Every Digital Wall item, Reports & Issues → Console reports, and both Pickem items are `external: true`
-  (`nav.ts:60-70, 99, 137-138`). The shell sends them with `window.location.assign` (`Shell.tsx:286-290`).
+Yes, for the Digital Wall group.
+- Every Digital Wall item is `external: true` (`nav.ts:65-75`), and so is a pinned tab under `/digital-wall`
+  (`Shell.tsx:581`). The shell sends them with `window.location.assign` (`Shell.tsx:308-313`).
 - From the console, every way back to the portal is also a full load:
-  - All services: `location.assign('/')` (`ConsoleApp.jsx:79, 621, 793`).
+  - All services: `location.assign('/')` (`ConsoleApp.jsx:79, 651, 825`).
   - The user menu items (`:124`).
   - The sign-in links.
-- Admin → Email tools looks internal (a client push) but redirects into the Pickem container. That is a different
-  application, so it ends in a full load.
 
 A hop between two applications is a document load. No per-page work removes it.
 
-### 2.3 Within the portal: client-side navigation that looks like a reload
+### 2.3 Within the portal: client-side navigation, one frame
 
-The sidebar does use client-side navigation. Rows are buttons calling `router.push` (`Shell.tsx:286-290`). `Link` is
-imported but unused (`:13`).
+Changed in portal foundations Group 3 (5b329cda). Before it, every page mounted its own shell, so the sidebar flashed,
+identity and badges refetched, and the agent panel closed on every click.
 
-What makes it look and feel like a reload:
+- Sidebar rows are buttons calling `router.push` inside a transition, which drives a slim progress bar
+  (`Shell.tsx:308-313`). `Link` is used only for the logo (`:377, 380`).
+- The frame is mounted once in the root layout and survives navigation (`app/layout.tsx:61`, `Shell.tsx:718-722`). The
+  sidebar, badges and agent panel stay. Its open state lives in the frame (`Shell.tsx:264`).
+- The identity is cached per tab, so role-gated groups do not pop in after the first page (`Shell.tsx:64-120`).
+- `loading.tsx` draws only the content (`components/portal/RouteSkeleton.tsx`).
+- The extra hop through agent-service for `/agent/*` pages is gone: the tunnel sends only `/agent/api` there (checked
+  2026-10-12).
 
-1. **No shared layout: each page mounts its own shell.**
-   - `app/layout.tsx:46-52` renders only `<Providers>`.
-   - Sixteen pages (and about nineteen components) render `<PortalShell>` themselves, e.g. `app/dashboard/page.tsx:13`,
-     `app/aip/page.tsx:673`, `app/admin/users/page.tsx:101`.
-   - On every route change the whole sidebar and header unmount and mount again (`Shell.tsx:160-163`).
-   - The only exception is `/aip/[ICAO]` → `/aip/[ICAO]`, which shares `app/aip/[icao]/layout.tsx:40-54`.
-2. **The loading skeleton replaces the shell.**
-   - `app/loading.tsx` (and `app/aip/loading.tsx`, `app/dashboard/loading.tsx`) sit above the page.
-   - While a navigation is pending, the sidebar is swapped for an empty sidebar-shaped spacer
-     (`components/portal/RouteSkeleton.tsx:26-32`).
-   - That is the visible flash.
-3. **Identity and badges refetch on every mount.**
-   - `useIdentity` (`Shell.tsx:43-87`) starts each page as role `user` without the agent, then fetches four endpoints.
-     So **Admin and Ops Agent pop in late on every page**, and the name changes from email to display name.
-   - Help threads, knowledge-base stats and intake/mailbox counts refetch too (`:189-267`).
-4. **The agent panel closes on every navigation.** Its open state lives in the remounted shell
-   (`components/agent/panel/AgentPanel.tsx:29-30`).
-5. **No prefetch.**
-   - Nothing calls `<Link>` or `router.prefetch`, so every click waits for the server round trip behind the skeleton.
-   - `force-dynamic` on the developer layout, all agent pages and help.
-   - `/agent/*` page requests take the extra hop through agent-service.
-6. **`AdminRoute`** renders a full-screen spinner without the shell while it checks (`components/AdminRoute.tsx:26-31`).
-   So on `/admin/email/logs` the sidebar disappears entirely.
+What is left:
+1. **No prefetch.** Nothing calls `<Link>` or `router.prefetch` on sidebar rows, so a click waits for the server.
+2. **`force-dynamic`** on the developer and debug layouts and on every agent page.
+3. **`AdminRoute`** still shows a spinner while it checks, now only in the content area
+   (`components/AdminRoute.tsx:26-31`).
 
 ### 2.4 What the Digital Wall console does differently
 
@@ -701,13 +689,16 @@ What makes it look and feel like a reload:
   - A `popstate` listener handles back and forward.
   - The `/digital-wall` base is detected at runtime (`:20-23`).
 - `App.jsx:9-20` always renders `ConsoleApp` for the console. `ConsoleApp` draws the sidebar and top bar **once**. Only
-  the content area switches (`renderPage()`, `ConsoleApp.jsx:408-432`), inside `<div key={page}>`.
+  the content area switches (`renderPage()`, `ConsoleApp.jsx:437-461`), inside `<div key={page}>` (:585, :961).
 - So the chrome, SSE subscriptions, the agent iframe and toasts persist. Each page refetches its own data. URLs carry
-  only the page, never a selection or filter.
+  the page; Flights also keeps `?flight=`.
 
 **In Next terms, the pattern is one shared `layout.tsx` that owns the shell, with pages that render only content.**
 
 ### 2.5 Options and their real cost
+
+Status 2026-10-12: A is done, as one frame in the root layout (`PortalFrame`) rather than a route group. A+ is done
+except prefetch. B is done (`scripts/tunnel-agent-api.sh`, run on the server). The table is kept as it was costed.
 
 | Option | What it fixes | What it leaves | Rough size |
 |---|---|---|---|
@@ -734,16 +725,15 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
   prompts and emails, and about 42 times in the wall guide.
 - "Verxyl" (the builder) appears 142 times across UI, emails and footers.
 - Most visible:
-  - The page title "Clearway AIP Data Lookup Portal" (`app/layout.tsx:23`).
+  - The page title "Clearway AIP Data Lookup Portal" (`app/layout.tsx:26`).
   - Login and auth logos with alt "Clearway Handling & Operations" (`app/login/page.tsx:25-26`,
-    `app/auth/ui/auth-kit.tsx:18-19`).
+    `app/auth/ui/auth-kit.tsx:18-20`).
   - "Request access to the Clearway suite" (`app/signup/page.tsx:114`).
-  - "States are set by the Clearway team" (`app/aip/service-status/page.tsx:98`).
-  - "Sends to the Clearway team" (`components/bug-report-modal.tsx:44`).
-  - "Reports go to the developer who builds Clearway…" (`components/help/HelpHome.tsx:59`).
+  - "States are set by the Clearway team" (`app/aip/service-status/page.tsx:102`).
+  - "Reports go to the developer who builds Clearway…" (`components/help/HelpHome.tsx:54`).
   - Console `<title>` "Clearway Display Console" (`opsboard-react/index.html:11`).
-  - "Digital Wall · Riga ops room" (`ConsoleApp.jsx:525, 821`).
-  - "available to signed-in Clearway users only" (`AuthGate.jsx:231`).
+  - "Digital Wall · Riga ops room" (`ConsoleApp.jsx:555, 853`).
+  - "available to signed-in Clearway users only" (`AuthGate.jsx:240`).
   - The extension name "Clearway Ops Agent", "Ask Clearway about…" (`extension/manifest.template.json`).
   - "Clearway Ops Agent · Flight intake" (`app/intake/answer/client.tsx:110`).
 
@@ -756,29 +746,30 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
 - Verxyl footers on the shell, console, emails and auth pages.
 
 **Colours**
-- The values are generic, but the token source is named for Clearway (`shared/design-tokens.json:2`).
-- The Tailwind namespace is `cw-*` (about 290 uses).
+- The values are generic, but the portal's token source is named for Clearway (`shared/portal-tokens.json:2`).
+  `shared/design-tokens.json` is the wall's.
+- The Tailwind namespace is `cw-*` (about 2,000 uses in `app/`, `components/` and `lib/`).
 - The wall font "CW Slashed Sans" is described as "Clearway build" (`opsboard-react/src/theme/wallFont.js:39-40`).
 
 **Domains and hosts**
-- `https://clearway.verxyl.com` as a default in Pickem pages and emails, the wall's public / webhook / mailer URLs
+- `https://clearway.verxyl.com` as a default in `/api/unsubscribe` (`app/api/unsubscribe/route.ts:21`), the docs site
+  (`content/docs/site.json`), the wall's public / webhook / mailer URLs
   (`digital-wall/server.mjs:1060`, `lib/leon-webhooks.mjs:224`, `lib/mailer.mjs:30`), and the extension build
   (`extension/src/shared/config.ts:4`).
 - `https://console.clearway.aero` in intake emails (`agent/lib/intake/notify.mjs:21`).
 - `handling@agent.verxyl.com`, the default intake address (`agent/lib/intake/settings.mjs:29`).
 - Clearway's Supabase project host for email and auth images (`agent/lib/email/template.mjs:40`,
   `digital-wall/templates/*.html`, login and auth pages).
-- The server IP `164.92.164.35` (`digital-wall/server.mjs:52, 2419`; a directory of that name at the repo root).
+- A directory named after the server IP `164.92.164.35` at the repo root (untracked; excluded in `.dockerignore`).
 - `cnair.efficens.es` (`agent/lib/intake/providers/cnair.mjs:17`).
 - `n8n.verxyl.com`.
 
 **Email addresses and senders**
 - `ops@clearway.aero`:
-  - **The main wall account** (`digital-wall/server.mjs:250`, `opsboard-react/.../SettingsPage.jsx:28`).
-  - The intake empty-state text (`IntakePage.tsx:148`).
-- `local@clearway.aero` (`server.mjs:539`).
-- Senders: "Clearway AI Agent <agent@verxyl.com>", "Clearway Digital Wall <no-reply@clearway.verxyl.com>", "Clearway
-  Pickem".
+  - **The main wall account** (`digital-wall/server.mjs:252`, `opsboard-react/.../SettingsPage.jsx:28`).
+  - The intake empty-state text (`IntakePage.tsx:149`).
+- `local@clearway.aero` (`server.mjs:541`).
+- Senders: "Clearway AI Agent <agent@verxyl.com>", "Clearway Digital Wall <no-reply@clearway.verxyl.com>".
 - Footers:
   - Agent emails: "Sent by the Clearway Ops Agent", "Built by Verxyl" (`agent/lib/email/template.mjs:217-270`).
   - Wall emails: "Riga, Latvia · Operational flight-data services" (`digital-wall/templates/*.html`).
@@ -794,11 +785,10 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
 - The CrewBriefing NOTAMs come from Clearway's account with its "company policy" applied (`app/api/notams/route.ts:20`).
 
 **Home base: Riga / EVRA**
-- Default wall clocks (`digital-wall/server.mjs:193-199`, `opsboard-react/src/components/Header.jsx:12-15`).
+- Default wall clocks (`digital-wall/server.mjs:195-201`, `opsboard-react/src/components/Header.jsx:12-15`).
 - Station time zone and NOTAM check at 10:00 Riga (`server.mjs:206`, `digital-wall/lib/notam-check.mjs:3,45`).
 - The service checker probes EVRA (`lib/service-checker.ts:48`).
 - Agent prompts and examples ("Riga's runway layout", EVRA, BTI472, KLJ7350).
-- Pickem shows times in Riga.
 
 **The agent's identity**
 - "You are the Clearway Ops Agent … inside the Clearway console" (`agent/config/system-prompt.md:1-2`).
@@ -812,8 +802,6 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
 - `digital-wall/data/caa.json` (e.g. "FOR CWY FLIGHTS: USE ops@…").
 - `digital-wall/data/important.json` and `seeds/important-seed.json`: 65 bulletin entries from Clearway's internal
   "IMPORTANT.docx", naming operators.
-- `components/clearway-clone/mockData.ts`: real staff names, emails and Riga office addresses (dead code).
-- `extension/clearway-ops-agent.zip`.
 
 ### 3.2 Single-tenant assumptions
 
@@ -828,7 +816,7 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
 **Portal auth**
 - Roles come from global env lists. Every admin is admin of everything.
 - The developer flag is the **vendor's** super-user: help inbox, agent access and kill switch, maintenance toggle.
-- Signup approvals go to one Telegram chat (`app/api/auth/email/confirm/route.ts:72-95`).
+- Signup approvals go to one Telegram chat (`app/api/auth/email/confirm/route.ts:72-124`).
 - One global maintenance row.
 
 **AIP / NOTAM**
@@ -870,10 +858,9 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
 
 ### 3.3 Internal-only pages a customer must never see
 
-- **Pickem and Playoffs, entirely:**
-  - Pages, the Pickem nav topic, `/admin` → Pickem, Admin → Email tools.
-  - The Pickem APIs and email templates, about 40 migrations, the demo users seed.
-  - The public `public/wc2026-*` files.
+- **Pick'em leftovers** (the game itself is retired):
+  - Its Supabase tables and about 40 migrations.
+  - `/api/unsubscribe`, `public/wc2026-logo.png`, and old Pick'em types in `email_logs`.
 - **Developer:**
   - Inbox, Saved replies, Agent access and the kill switch.
   - The Telegram mini-app `/telegram/support`.
@@ -885,16 +872,14 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
   - `app/api/aip-test/*`, `rus-aip-test/*`, `textract-benchmark`, `aip-meta-compare`, `ead-extracted`,
     `lithuania-hitl-*`, `blocked-hitl-vnc`.
   - The `*-eaip-package-root` routes.
-- **Static files served without a session** (middleware treats any path with an extension as an asset,
-  `middleware.ts:68-69,103`):
-  - `public/bug-report.html`, `public/country-scraper-tracker.html`, `public/ead-countries-web-aip.html`,
-    `public/wc2026-*`.
-- **The dashboard changelog**: all users see Clearway-wide audit, email-log and bug-report activity
+- **Static files served without a session**: only images, fonts, styles and scripts (`middleware.ts:69-72, 104`), e.g.
+  `public/wc2026-logo.png`. `public/bug-report.html`, `country-scraper-tracker.html` and `ead-countries-web-aip.html`
+  now need sign-in.
+- **The dashboard changelog** for admins: Clearway-wide audit, email-log and bug-report activity
   (`app/api/dashboard/changelog/route.ts`).
-- **The wall backend's old copied site**, which injects fake admin tokens (§1.3).
 - **Not to ship:**
   - Tooling: `rig/`, `opsboard-react/rig`, `opsboard-react/tools`, `scripts/agent-verify-*`, the benchmarks.
-  - Archives and dumps: `digital-wall/investigations.tar.gz`, `extension/clearway-ops-agent.zip`,
+  - Archives and dumps on disk, not in git: `digital-wall/investigations.tar.gz`, `extension/clearway-ops-agent.zip`,
     `cursor-chat-export/`, `brag-output*/`.
   - The n8n service.
 
@@ -933,9 +918,9 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
 **What would make scripted, re-runnable capture against another data source hard** (seen now):
 - **The portal build bakes in the Supabase URL** (`NEXT_PUBLIC_*`). Capture against another source needs its own build
   (`rig/build-portal.sh`).
-- **The rig's proxy does not serve the console SPA** (`rig/proxy.mjs:11-15`). A cross-app capture needs a gateway that
-  serves all four applications, like production's tunnel.
-- **The wall's Leon client always calls the real Leon** (`digital-wall/leon-sync.mjs:909-911`). There is no base-URL
+- **The rig's proxy does not serve the console SPA** (`rig/proxy.mjs:13-17`). A cross-app capture needs a gateway that
+  serves all three applications, like production's tunnel.
+- **The wall's Leon client always calls the real Leon** (`digital-wall/leon-sync.mjs:838-840`). There is no base-URL
   override, unlike the agent's `LEON_OPERATOR_API_BASE`. Any live wall capture shows real flights unless syncing is
   off and the stores are seeded.
 - **The wall backend calls the portal for NOTAMs, AIP and PDFs** (`digital-wall/lib/portal-client.mjs`). Data-source
@@ -957,10 +942,10 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
   - console presence avatars and NOTAM acknowledgement names
   - Help and Developer inbox threads
   - agent conversations, the mailbox
-  - intake crew and passenger tables (names readable; documents and dates masked until "Show personal data")
+  - intake crew and passenger tables (names, dates of birth and document numbers masked until "Show personal data")
   - passenger manifests
 
-  **Passenger names are visible on the intake review screen even before "Show personal data".** Only dates of birth and
-  document numbers are masked. Any capture of an intake request must use invented people.
+  Passenger names are masked with the rest of their personal data until shown (portal foundations 1.4). A capture
+  that reveals them must use invented people.
 - **Earlier guide screenshots were taken on production** with real data (`docs/guide-shots/INDEX.md:3-6`), so they must
   be re-captured before the docs go public.

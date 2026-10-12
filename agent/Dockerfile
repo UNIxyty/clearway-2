@@ -63,6 +63,9 @@ COPY digital-wall/lib/flight-record.mjs /digital-wall/lib/flight-record.mjs
 COPY lib/rig-guard.mjs /lib/rig-guard.mjs
 # Permissions (docs/permissions.md): the catalogue and grants shared with the portal and the wall (../lib/permissions).
 COPY lib/permissions /lib/permissions
+# No secret in the image, or no image (docs/security-image-secrets.md).
+COPY scripts/check-image-secrets.mjs /tmp/check-image-secrets.mjs
+RUN node /tmp/check-image-secrets.mjs /app && node /tmp/check-image-secrets.mjs /lib && node /tmp/check-image-secrets.mjs /digital-wall && rm /tmp/check-image-secrets.mjs
 
 EXPOSE 5175
 

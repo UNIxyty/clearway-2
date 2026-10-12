@@ -1,3 +1,11 @@
 node_modules
 dist
 npm-debug.log
+
+# Secrets and the wall's runtime state never enter an image (scripts/check-image-secrets.mjs checks it)
+.env
+.env.*
+!.env.example
+*.bak
+*.bak-*
+data/

@@ -6,6 +6,12 @@ services:
       target: runner
       args:
         ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
+        # The build compiles these public values into the browser bundle. They come from the server's .env by
+        # name; the .env file itself never enters the build (.dockerignore; scripts/check-image-secrets.mjs).
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_AGENT_BASE_URL: ${NEXT_PUBLIC_AGENT_BASE_URL:-}
     image: clearway-selfhosted:latest
     command: node server.js
     env_file:
@@ -28,6 +34,9 @@ services:
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage
+      # The wall's data, read-only, for the dashboard changelog (app/api/dashboard/changelog). Live files instead of
+      # a copy frozen into the image at build time.
+      - ./digital-wall/data:/wall-data:ro
     depends_on:
       - lithuania-browser
 
@@ -50,6 +59,12 @@ services:
       target: worker-runner
       args:
         ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
+        # The build compiles these public values into the browser bundle. They come from the server's .env by
+        # name; the .env file itself never enters the build (.dockerignore; scripts/check-image-secrets.mjs).
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_AGENT_BASE_URL: ${NEXT_PUBLIC_AGENT_BASE_URL:-}
     image: clearway-selfhosted-worker:latest
     command: node scripts/notam-sync-server.mjs
     env_file:
@@ -71,6 +86,12 @@ services:
       target: worker-runner
       args:
         ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
+        # The build compiles these public values into the browser bundle. They come from the server's .env by
+        # name; the .env file itself never enters the build (.dockerignore; scripts/check-image-secrets.mjs).
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_AGENT_BASE_URL: ${NEXT_PUBLIC_AGENT_BASE_URL:-}
     image: clearway-selfhosted-worker:latest
     command: sh -c "SYNC_SERVER_MODE=weather node scripts/notam-sync-server.mjs"
     env_file:
@@ -92,6 +113,12 @@ services:
       target: worker-runner
       args:
         ALLOW_NON_MAIN_BUILD: ${ALLOW_NON_MAIN_BUILD:-0}
+        # The build compiles these public values into the browser bundle. They come from the server's .env by
+        # name; the .env file itself never enters the build (.dockerignore; scripts/check-image-secrets.mjs).
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_AGENT_BASE_URL: ${NEXT_PUBLIC_AGENT_BASE_URL:-}
     image: clearway-selfhosted-worker:latest
     command: node scripts/aip-sync-server.mjs
     env_file:

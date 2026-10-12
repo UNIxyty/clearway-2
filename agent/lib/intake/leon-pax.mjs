@@ -93,10 +93,21 @@ export function contactPlan(p, nameOrder) {
 export const paxPlanHash = (plans) => sha(JSON.stringify(plans.map((x) => [x.given, x.surname, x.gender, x.dob, x.passport, x.expiry, x.nationality])));
 
 // ── the mapping: passport (HMAC) + country → Leon contact ───────────────────────────────────────────────────────────
+// INTAKE_PEOPLE_KEY is PERMANENT: every stored mapping is an HMAC under it, so a new key makes every mapping
+// unfindable (each traveller would get a second Leon contact). It has its own name so that no other key's rotation
+// can touch it. There is deliberately no fallback to another key, and the agent refuses to start without it
+// (server.mjs, mappingKeyProblem). Changing it means rebuilding the mapping: docs/intake.md, "Personal data".
+/** Why the mapping cannot work, or null when it can. */
+export function mappingKeyProblem() {
+  const key = String(process.env.INTAKE_PEOPLE_KEY ?? "").trim();
+  if (!key) return "INTAKE_PEOPLE_KEY is not set";
+  if (key.length < 32) return `INTAKE_PEOPLE_KEY is too short (${key.length} characters; at least 32)`;
+  return null;
+}
 function mapKey() {
-  const secret = process.env.INTAKE_PEOPLE_KEY || process.env.LEON_REFRESH_TOKEN_ENCRYPTION_KEY;
-  if (!secret) throw new Error("no key for the passenger mapping (INTAKE_PEOPLE_KEY or LEON_REFRESH_TOKEN_ENCRYPTION_KEY)");
-  return createHash("sha256").update(`intake-passport-map:${secret}`).digest();
+  const problem = mappingKeyProblem();
+  if (problem) throw new Error(`no key for the passenger mapping: ${problem}`);
+  return createHash("sha256").update(`intake-passport-map:${process.env.INTAKE_PEOPLE_KEY.trim()}`).digest();
 }
 export const passportHmac = (number, country) => createHmac("sha256", mapKey()).update(`${String(number).toUpperCase().replace(/[\s-]+/g, "")}|${country}`).digest("hex");
 async function mapped(hmac, country) { return (await rest(`intake_leon_contacts?select=contact_nid,passport_nid&opr_id=eq.${encodeURIComponent(leonOperator())}&passport_hmac=eq.${hmac}&issuing_country=eq.${country}`))?.[0] ?? null; }

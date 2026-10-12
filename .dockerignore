@@ -22,3 +22,34 @@ migrations/
 *.tgz
 # rig/.scratch is the rig's scratch space (logs, captured mail, test output): never part of an image
 rig/.scratch/
+
+# ── Never in an image (docs/security-image-secrets.md, 2026-10-12) ──
+# Secrets and copies of them. Services get their configuration at run time (env_file in docker-compose.yml); the build
+# gets the three public NEXT_PUBLIC_* values as build arguments. scripts/check-image-secrets.mjs fails the build if any
+# of these still reaches an image.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.bak
+*.bak-*
+**/*.bak
+**/*.bak-*
+**/display-device-auth.json
+digital-wall/data/
+# Development folders and local state
+.claude/
+.agents/
+.deploy-state/
+rig/**
+# ...except the one rig file the agent image runs at build time (agent/Dockerfile: the time-zone self-test)
+!rig/intake/test-timezones.mjs
+.venv/
+**/__pycache__/
+brag-output*/
+cursor-chat-export/
+out/
+design_handoff_*/
+164.92.164.35/

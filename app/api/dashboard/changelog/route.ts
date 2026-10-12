@@ -5,7 +5,7 @@
 // the kill switch, and agent failures — agent CHAT traffic is deliberately
 // excluded: it is per-user content, not a platform change, and would drown
 // everything else).
-// Wall JSON stores (read via fs, absent files skipped silently in dev):
+// Wall JSON stores (read from the wall's data folder, mounted read-only at /wall-data; absent files are skipped):
 // important.json, reports.json, webhook-log.json (failures → ERROR).
 // Who sees what (portal foundations 1.3): an ordinary user sees only THEIR OWN entries — what they did, and what
 // happened to their own things (their bug reports, emails to them). System entries with no person behind them (debug
@@ -41,10 +41,14 @@ function byActor(actor: string | null | undefined): string {
   return actor ? ` by ${actor}` : "";
 }
 
-async function readWallJson<T>(file: string): Promise<T | null> {
-  const dir = process.env.DIGITAL_WALL_DATA_DIR || "./digital-wall/data";
+// The wall's data folder, mounted read-only into the portal at run time (docker-compose.yml: /wall-data). Never a
+// path under the working directory: a cwd-relative read made Next's file tracing copy the WHOLE working folder into
+// the build (and so into the portal image, with the wall's device keys and .env files), and production then read
+// the copy frozen at build time instead of the live files.
+const WALL_DATA_DIR = process.env.DIGITAL_WALL_DATA_DIR || "/wall-data";
+async function readWallJson<T>(file: "important.json" | "reports.json" | "webhook-log.json"): Promise<T | null> {
   try {
-    const raw = await fs.readFile(path.resolve(process.cwd(), dir, file), "utf8");
+    const raw = await fs.readFile(path.join(WALL_DATA_DIR, file), "utf8");
     return JSON.parse(raw) as T;
   } catch {
     return null; // absent in dev — skip silently

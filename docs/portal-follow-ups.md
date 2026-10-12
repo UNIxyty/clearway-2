@@ -17,3 +17,10 @@ Things decided as "later", so they are not lost. Each line says what it is and w
   (`search_events` still feeds the dashboard's Recently used, so it stays).
 - **Old bug reports in Telegram.** `/api/telegram/debug` still acts on rows of the old `bug_reports` table (empty in
   production). It can go when the Telegram bot's old buttons are retired.
+- **`digital-wall/backend/` needs real secrets if it is ever deployed.** It reads `LEON_WEBHOOK_SECRET` and
+  `LEON_SYNC_CRON_SECRET`. Their production values were slices of the public Supabase anon key and protected
+  nothing, so they were deleted from the server's `.env` on 2026-10-12. The live wall (`digital-wall/server.mjs`)
+  does not read them; it verifies Leon's own signed webhook tokens. Deploying the backend means generating new
+  values (`scripts/rotate-secret.sh NAME --generate`), never reusing anything.
+- **`/account/guide` goes when the docs are written** (decided 2026-10-12). It overlaps with the docs site. It stays
+  until step 10 (the writing) is done; then it is deleted and the Account → Guide nav item points into `/docs`.

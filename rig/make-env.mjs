@@ -29,6 +29,8 @@ const lines = [
   "PORTAL_BASE_URL=http://127.0.0.1:3999",
   "APP_BASE_URL=http://127.0.0.1:3999",
   "DIGITAL_WALL_INTERNAL_URL=http://127.0.0.1:5199",
+  // the wall's data folder for the dashboard changelog (production mounts it read-only at /wall-data)
+  `DIGITAL_WALL_DATA_DIR=${path.join(here, ".scratch", "wall", "data")}`,
   "AGENT_WALL_EVENTS_SECRET=rig-local-wall-events-secret",
   `STORAGE_ROOT=${path.join(here, ".scratch", "storage")}`,
   `CACHE_ROOT=${path.join(here, ".scratch", "cache")}`,
@@ -50,7 +52,7 @@ function intakeLines() {
     "RESEND_API_BASE=http://127.0.0.1:3996", "RESEND_API_KEY=rig-mock-resend-key", "INTAKE_MAIL_MODE=capture",
     "INTAKE_NOTIFY_TO=ops@intake.rig.invalid", "INTAKE_ADDRESSES=handling@intake.rig.invalid", `AGENT_EMAIL_FROM="Clearway AI Agent <agent@intake.rig.invalid>"`,
     `INTAKE_ROOT=${path.join(here, ".scratch", "intake")}`, "INTAKE_CHECKLIST_RETRY_MS=2000", "INTAKE_LEON_TRIP_STATUS=OPTION", "INTAKE_LEON_TIMEOUT_MS=8000",
-    // the passport → contact mapping's HMAC key (rig-only, random; production uses LEON_REFRESH_TOKEN_ENCRYPTION_KEY)
+    // the passport → contact mapping's HMAC key (rig-only, random; production has its own, permanent: docs/intake.md)
     `INTAKE_PEOPLE_KEY=${Buffer.from(execSync("head -c 32 /dev/urandom")).toString("hex")}`];
 }
 // Leon (cwy-cwy) is PRODUCTION. The rig gets its key only when a PERSON types this phrase, for a run that is

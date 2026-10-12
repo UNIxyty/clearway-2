@@ -10,7 +10,15 @@ COPY . .
 # Permissions (docs/permissions.md): no write endpoint without an entry in lib/permissions/catalogue.mjs, in the portal,
 # the agent or the wall — or the image is not built.
 RUN node lib/permissions/check.mjs --code
-RUN npm run build
+# The build context has no .env (.dockerignore): the only values the build needs are the public ones Next compiles into
+# the browser bundle, passed as build arguments (docker-compose.yml). They are declared in this stage only, so they
+# appear in no final image's settings or history. Everything else is configuration at run time (env_file).
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_AGENT_BASE_URL=""
+RUN NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+    NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" NEXT_PUBLIC_AGENT_BASE_URL="$NEXT_PUBLIC_AGENT_BASE_URL" npm run build
 
 FROM node:20-bookworm-slim AS base-runtime
 WORKDIR /app
@@ -61,6 +69,9 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+# No secret in the image, or no image (docs/security-image-secrets.md).
+COPY scripts/check-image-secrets.mjs /tmp/check-image-secrets.mjs
+RUN node /tmp/check-image-secrets.mjs /app && rm /tmp/check-image-secrets.mjs
 EXPOSE 3000
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "server.js"]
@@ -72,5 +83,6 @@ ENV STORAGE_ROOT=/storage
 ENV CACHE_ROOT=/cache
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=builder /app ./
+RUN node scripts/check-image-secrets.mjs /app
 RUN npx playwright install chromium
 ENTRYPOINT ["dumb-init", "--"]

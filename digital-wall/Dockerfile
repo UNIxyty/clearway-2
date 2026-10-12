@@ -16,6 +16,10 @@ COPY . .
 # Permissions (docs/permissions.md): the catalogue and grants shared with the portal and the agent, at the path the
 # server imports them from (../lib/permissions from /app).
 COPY --from=repo lib/permissions /lib/permissions
+# No secret in the image, or no image: the wall's .env and data/ (device keys) stay out (.dockerignore, compose mounts
+# data/ at run time). docs/security-image-secrets.md.
+COPY --from=repo scripts/check-image-secrets.mjs /tmp/check-image-secrets.mjs
+RUN node /tmp/check-image-secrets.mjs /app && rm /tmp/check-image-secrets.mjs
 
 EXPOSE 5173
 

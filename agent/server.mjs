@@ -26,6 +26,7 @@ import { resumeWaiting as resumeIntakeQueue } from "./lib/intake/pipeline.mjs";
 import { startTzWatch, tzStatus } from "./lib/tzdata.mjs";
 import { startLookupTicker, peekAnswer, answerByToken } from "./lib/intake/notification.mjs";
 import { sweep as sweepIntakeRetention } from "./lib/intake/retention.mjs";
+import { mappingKeyProblem } from "./lib/intake/leon-pax.mjs";
 import { issueExtensionToken, notePath, TOKEN_TTL_MS } from "./lib/extension-session.mjs";
 assertRigSafe("agent");
 import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
@@ -1676,6 +1677,13 @@ const MANIFEST_FONT = (() => {
 // Intake: a Leon send interrupted by a restart is UNKNOWN (a person checks Leon; nothing retries), messages
 // still waiting are read again, and retention runs daily.
 if (storeConfigured()) {
+  // No passenger-mapping key, no start. Without it every passport sent to Leon would become a new contact, and until
+  // 2026-10-12 a silent fallback to LEON_REFRESH_TOKEN_ENCRYPTION_KEY hid that the key was missing in production.
+  const mappingProblem = mappingKeyProblem();
+  if (mappingProblem) {
+    process.stderr.write(`[intake] REFUSING TO START: ${mappingProblem}. It is the permanent key for the passenger mapping (docs/intake.md, "Personal data"); set it in the server's .env.\n`);
+    process.exit(1);
+  }
   recoverIntakeSends().then((n) => { if (n) process.stderr.write(`[intake] ${n} Leon send(s) interrupted by a restart are now UNKNOWN — a person must check Leon.\n`); }).catch(() => {});
   startTzWatch();   // before anything is read: stale tz data must be said out loud, and blocks local → UTC conversion
   resumeIntakeQueue().catch(() => {});

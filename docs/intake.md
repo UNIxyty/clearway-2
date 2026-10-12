@@ -198,6 +198,19 @@ understood blocks, stage notes, emails, dialogs, audit rows or logs. The API mas
 endpoints return values for 60 s and are audited. Search text is built without any identity line; a search that looks
 like a passport number or a date of birth returns the "not searchable" state.
 
+**The passenger mapping key (`INTAKE_PEOPLE_KEY`) is permanent.** `intake_leon_contacts` stores no passport number:
+each row is keyed by an HMAC of the number and issuing country under this key, so the same traveller is found again
+and reuses their Leon contact. A different key makes every stored row unfindable, and each traveller would get a
+second contact in Leon. So:
+- it has its own name and is never rotated together with any other key (it used to fall back to
+  `LEON_REFRESH_TOKEN_ENCRYPTION_KEY`; that fallback was removed on 2026-10-12, when production first got its own key,
+  with 0 mappings stored);
+- the agent refuses to start without it (`mappingKeyProblem` in `leon-pax.mjs`, checked in `server.mjs`);
+- **changing it means rebuilding the mapping**: delete the `intake_leon_contacts` rows, set the new key, restart the
+  agent. On the next send each traveller is looked up in Leon by name and confirmed by the passport (step 2 under
+  "Duplicates" in the Leon write path below), so most are found again; where that fails a person decides or a new
+  contact is made. Only do it if the key itself was exposed.
+
 ## Leon write path (cwy-cwy)
 
 - Per leg: the attempt row is written BEFORE the call (`intake_leon_writes.state = 'sending'`, payload + sha256), then

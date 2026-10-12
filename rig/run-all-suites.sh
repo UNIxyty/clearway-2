@@ -4,6 +4,9 @@
 # Needs the rig up: rig/start.sh, the sign-in-on services (portal :3992, proxy :3989, wall :5198, rig/signin-agent.sh)
 # and the built console (opsboard-react/dist). Local mocks only; nothing reaches Leon, CNAIR or production.
 cd "$(dirname "$0")/.."
+# Keep the Mac awake for the whole run: idle sleep mid-run stalls the agent and the browsers (2026-10-12: suites that
+# pass alone failed after 49-80 minute stalls, and Chrome logged ERR_NETWORK_IO_SUSPENDED).
+[ -z "$RIG_AWAKE" ] && command -v caffeinate >/dev/null && exec env RIG_AWAKE=1 caffeinate -i "$0" "$@"
 OUT=rig/.scratch/suites; mkdir -p $OUT; LOG=$OUT/summary.log; : > $LOG
 SCR="$PWD/rig/.scratch"; E="node --env-file=.env.rig"
 run() { local name="$1"; shift; local out="$OUT/$(echo "$name" | tr '/ ' '__').out"; local t0=$(date +%s); "$@" > "$out" 2>&1 < /dev/null; local rc=$?; echo "$name rc=$rc $(( $(date +%s) - t0 ))s $(grep -cE '^(PASS|ok)' "$out") pass $(grep -cE '^(FAIL|not ok)' "$out") fail :: $(tail -1 "$out" | cut -c1-140)" >> $LOG; }
@@ -15,6 +18,7 @@ $E rig/manifest/operators.mjs seed >> $LOG 2>&1
 
 # ── code-only and local tests
 run no-real-passenger-data node rig/check-no-real-passenger-data.mjs
+run docs-check node --no-warnings rig/docs-check.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
 run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/intake/test-timezones.mjs
@@ -67,4 +71,5 @@ run stage4 $E rig/stage4-check.mjs
 run overlay-check $E rig/overlay-check.mjs
 run dark-audit $E rig/dark-audit.mjs
 run partB-check $E rig/partB-check.mjs
+run docs-browser $E rig/docs-browser.mjs
 echo DONE >> $LOG

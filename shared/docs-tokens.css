@@ -1,0 +1,124 @@
+/* Docs additions on top of shared/portal-tokens.css. Load portal-tokens.css first.
+   Only tokens the portal has no equivalent for. Brand aliases (--dx-brand-*) are the one place a rebrand changes colour.
+   From the design project (Docs Site, shared/docs-tokens.css), unchanged, plus the no-JavaScript dark block at the end,
+   which mirrors portal-tokens.css (the theme script sets data-theme before the first paint; without JavaScript the
+   device's own setting decides). */
+:root, [data-theme="light"] {
+  --dx-brand: var(--cw-primary);
+  --dx-brand-hover: var(--cw-primary-hover);
+  --dx-brand-text: var(--cw-text-link);
+  --dx-brand-tint: var(--cw-primary-tint);
+
+  --dx-code-bg: #f3f4f6;
+  --dx-code-border: #e3e5e9;
+  --dx-code-text: #1f2937;
+  --dx-code-muted: #5b6270;
+  --dx-codeblock-bg: #f7f8fa;
+
+  --dx-kbd-bg: #ffffff;
+  --dx-kbd-border: #cfd3d9;
+  --dx-kbd-text: #3a3d44;
+
+  --dx-mark-bg: #fff1b8;
+  --dx-mark-text: #3d2c00;
+
+  --dx-media-stage: #eef0f3;
+  --dx-media-frame: #dfe2e7;
+  --dx-media-hatch: rgba(23,24,28,.045);
+  --dx-media-text: #4f5560;
+  --dx-video-scrim: rgba(13,16,21,.42);
+  --dx-video-ctl-bg: rgba(13,16,21,.72);
+  --dx-video-ctl-text: #ffffff;
+
+  --dx-step-num-bg: var(--cw-ink);
+  --dx-step-num-text: var(--cw-on-ink);
+  --dx-step-rail: #e1e4e8;
+
+  --dx-example-bg: #f4f7f5;
+  --dx-example-border: #d7e3dc;
+  --dx-example-label: #2f6b4a;
+
+  --dx-irrev-band: var(--cw-danger-solid);
+  --dx-irrev-band-text: #ffffff;
+  --dx-irrev-body: var(--cw-danger-tint);
+  --dx-irrev-border: var(--cw-danger-border);
+
+  --dx-search-scrim: rgba(16,18,22,.32);
+  --dx-search-bg: var(--cw-bg-raised);
+  --dx-search-row-active: var(--cw-bg-selected);
+
+  --dx-toc-rail: var(--cw-border);
+  --dx-toc-active: var(--cw-text-link);
+}
+[data-theme="dark"] {
+  --dx-brand: var(--cw-primary);
+  --dx-brand-hover: var(--cw-primary-hover);
+  --dx-brand-text: var(--cw-text-link);
+  --dx-brand-tint: var(--cw-primary-tint);
+
+  --dx-code-bg: #1c2129;
+  --dx-code-border: #2a313c;
+  --dx-code-text: #e3e7ee;
+  --dx-code-muted: #9aa2ae;
+  --dx-codeblock-bg: #11151b;
+
+  --dx-kbd-bg: #1a1f27;
+  --dx-kbd-border: #3a4250;
+  --dx-kbd-text: #c3c8d0;
+
+  --dx-mark-bg: #4a3a0c;
+  --dx-mark-text: #ffe9a6;
+
+  --dx-media-stage: #11151b;
+  --dx-media-frame: #262d37;
+  --dx-media-hatch: rgba(236,238,242,.035);
+  --dx-media-text: #a3aab5;
+  --dx-video-scrim: rgba(0,0,0,.50);
+  --dx-video-ctl-bg: rgba(0,0,0,.72);
+  --dx-video-ctl-text: #ffffff;
+
+  --dx-step-num-bg: var(--cw-ink);
+  --dx-step-num-text: var(--cw-on-ink);
+  --dx-step-rail: #262d37;
+
+  --dx-example-bg: #111a15;
+  --dx-example-border: #1f3a2b;
+  --dx-example-label: #6fcf97;
+
+  --dx-irrev-band: var(--cw-danger-solid);
+  --dx-irrev-band-text: #ffffff;
+  --dx-irrev-body: var(--cw-danger-tint);
+  --dx-irrev-border: var(--cw-danger-border);
+
+  --dx-search-scrim: rgba(0,0,0,.55);
+  --dx-search-bg: var(--cw-bg-raised);
+  --dx-search-row-active: var(--cw-bg-selected);
+
+  --dx-toc-rail: var(--cw-border);
+  --dx-toc-active: var(--cw-text-link);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --dx-code-bg: #1c2129;
+    --dx-code-border: #2a313c;
+    --dx-code-text: #e3e7ee;
+    --dx-code-muted: #9aa2ae;
+    --dx-codeblock-bg: #11151b;
+    --dx-kbd-bg: #1a1f27;
+    --dx-kbd-border: #3a4250;
+    --dx-kbd-text: #c3c8d0;
+    --dx-mark-bg: #4a3a0c;
+    --dx-mark-text: #ffe9a6;
+    --dx-media-stage: #11151b;
+    --dx-media-frame: #262d37;
+    --dx-media-hatch: rgba(236,238,242,.035);
+    --dx-media-text: #a3aab5;
+    --dx-video-scrim: rgba(0,0,0,.50);
+    --dx-video-ctl-bg: rgba(0,0,0,.72);
+    --dx-step-rail: #262d37;
+    --dx-example-bg: #111a15;
+    --dx-example-border: #1f3a2b;
+    --dx-example-label: #6fcf97;
+    --dx-search-scrim: rgba(0,0,0,.55);
+  }
+}

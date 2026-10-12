@@ -7,6 +7,7 @@ import { resolveRole } from "@/lib/role-resolve";
 import { endpointFor, isWriteMethod } from "@/lib/permissions/catalogue.mjs";
 import { can, canAny, REFUSED, roleKey } from "@/lib/permissions/grants.mjs";
 import { DEFAULT_START, isStartPage } from "@/lib/user-settings";
+import docsSite from "@/content/docs/site.json";
 
 function isTemporaryUser(user: {
   app_metadata?: Record<string, unknown> | null;
@@ -212,7 +213,9 @@ export async function middleware(request: NextRequest) {
   // handled below so an already-signed-in user bounces straight to `next`.
   if (
     pathname.startsWith("/auth/") ||
-    pathname.startsWith("/api/auth/")  // Auth API routes used during signup/password-reset (unauthenticated)
+    pathname.startsWith("/api/auth/") ||  // Auth API routes used during signup/password-reset (unauthenticated)
+    // The docs: behind sign-in until content/docs/site.json says "public": true (the one setting; docs/how-to-write-docs.md).
+    (docsSite.public === true && (pathname === "/docs" || pathname.startsWith("/docs/")))
     // Health probes and /maintenance are allowed earlier, before the Supabase
     // env check, so they keep answering while auth is misconfigured.
   ) {

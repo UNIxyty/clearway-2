@@ -20,6 +20,7 @@ import {
   type ThreadWithMeta,
 } from "@/components/help/helpApi";
 import { HELP_TYPE_META } from "@/lib/help/shared";
+import MaskIcon from "@/components/portal/Icon";
 
 const SCENARIOS: Array<{ type: string; glyph: string; title: string; sub: string }> = [
   { type: "bug", glyph: "⌗", title: "Something is broken", sub: "A bug report. We will ask which screen and what you expected." },
@@ -84,6 +85,22 @@ export default function HelpHome() {
               </span>
               <span className="inline-flex h-10 flex-none items-center rounded-[10px] bg-cw-danger-solid px-4 text-[13.5px] font-bold text-cw-text-on-primary">Report it</span>
             </button>
+
+            {/* The docs site (/docs): every section and task of the portal, step by step. Help & support and the ?
+                key both land here, so this is the way into the docs from anywhere in the portal. */}
+            <a
+              href="/docs"
+              className="flex cursor-pointer items-center gap-4 rounded-[14px] border border-cw-border bg-cw-bg-surface px-5 py-4 text-left no-underline hover:bg-cw-bg-hover"
+            >
+              <span className="flex h-10 w-10 flex-none items-center justify-center rounded-[11px] border border-cw-border bg-cw-bg-sunken text-cw-text-muted">
+                <MaskIcon name="book-open" size={18} />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                <span className="text-[15px] font-bold tracking-[-0.01em] text-cw-text">Read the docs</span>
+                <span className="text-[13.5px] leading-normal text-cw-text-muted">Every section of the portal and what you can do in it, step by step.</span>
+              </span>
+              <span className="flex-none text-[17px] text-cw-text-muted">›</span>
+            </a>
 
             {SCENARIOS.map((s) => {
               const meta = HELP_TYPE_META[s.type as keyof typeof HELP_TYPE_META];

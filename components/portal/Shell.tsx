@@ -708,7 +708,8 @@ export default function PortalShell(props: PageProps) {
 // Routes that are whole screens of their own, with no portal chrome: sign-in and its flows, the maintenance and
 // access screens, the one-tap intake answer, the Telegram mini app, the agent panel framed by the wall console, and
 // the captcha (HITL) viewer popups. Everything else gets the frame.
-const BARE = /^\/(login|signup|auth|maintenance|pending-approval|access-blocked|forbidden|intake\/answer|telegram|agent\/panel|[a-z]+-hitl-auto-test)(\/|$)/;
+// /docs has its own shell (components/docs/DocsFrame): two left navs on one screen is a bad page.
+const BARE = /^\/(login|signup|auth|maintenance|pending-approval|access-blocked|forbidden|intake\/answer|telegram|agent\/panel|docs|[a-z]+-hitl-auto-test)(\/|$)/;
 export function isBareRoute(pathname: string) {
   return BARE.test(pathname);
 }

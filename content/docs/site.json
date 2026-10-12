@@ -1,0 +1,17 @@
+{
+  "$comment": "The docs site's settings. Everything that names the product or decides who can read the docs lives here, so a rebrand is this file plus the four --dx-brand-* colours in shared/docs-tokens.css. docs/how-to-write-docs.md explains each line.",
+  "product": "Clearway",
+  "docsName": "Docs",
+  "portalName": "ops portal",
+  "portalUrl": "https://clearway.verxyl.com",
+  "logo": "/brand/clearway-logo.svg",
+  "supportEmail": "",
+  "supportLink": "/help",
+  "supportLabel": "Help & support",
+  "credit": {
+    "name": "Verxyl",
+    "logoLight": "/brand/verxyl-footer.png",
+    "logoDark": "/brand/verxyl-footer-white.png"
+  },
+  "public": false
+}

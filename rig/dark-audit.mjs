@@ -40,6 +40,8 @@ const routes = pages.map((p) => p === "/" ? "/" : p).filter((p) => !SIGNED_OUT.h
   if (p === "/help/[ref]") return thread ? [`/help/${thread.reference}`] : [];
   if (p === "/agent/t/[id]") return conv ? [`/agent/t/${conv.id}`] : [];
   if (p === "/agent/doc") return [];
+  if (p === "/docs/[section]") return ["/docs/digital-wall"];
+  if (p === "/docs/[section]/[page]") return ["/docs/digital-wall/the-wall", "/docs/digital-wall/operators"];
   return [p];
 }).filter((p) => !NOT_PORTAL[p]);
 

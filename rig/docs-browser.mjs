@@ -212,7 +212,8 @@ const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operator
 // ── section landing, glossary, not found ──
 {
   const { ctx, page, status } = await open("/docs/digital-wall");
-  ok(status === 200 && await page.locator(".dx-pagelist a").count() === 2, "the section landing lists its pages");
+  const files = (await import("node:fs")).readdirSync("content/docs/04-digital-wall").filter((f) => /^\d+-.*\.md$/.test(f)).length;
+  ok(status === 200 && await page.locator(".dx-pagelist a").count() === files, "the section landing lists its pages, one per page file", `${await page.locator(".dx-pagelist a").count()} of ${files}`);
   const toc = await page.locator(".dx-toc .dx-toc-item").allInnerTexts();
   ok(toc.length >= 2 && /Overview/.test(toc[0]) && /Pages in this section/.test(toc[1]), "its task list covers the landing's parts", toc.join(" | "));
   await page.screenshot({ path: `${OUT}/docs-section.png`, fullPage: true });

@@ -80,6 +80,13 @@ const adminId = (sessions.admin ??= await (await fetch(`${SB}/auth/v1/token?gran
 const savedLayout = await layoutOf(adminId);
 await setLayout(adminId, null);
 const order = (page) => page.locator("[data-block]").evaluateAll((els) => els.map((e) => e.getAttribute("data-block")));
+// One block failing on purpose: Recently used reads search_events, so the check takes that table away for this load
+// and puts it back straight after (the rig had no such table until 2026-10-13; the check used to rely on that gap).
+const { execSync } = await import("node:child_process");
+const searchEvents = (on) => execSync(`docker exec supabase_db_rig psql -U postgres -qc "alter table public.${on ? "search_events_off rename to search_events" : "search_events rename to search_events_off"}"`, { stdio: "ignore" });
+let searchEventsOff = false;
+try { searchEvents(false); searchEventsOff = true; } catch { /* no table: the block fails anyway */ }
+process.on("exit", () => { if (searchEventsOff) { try { searchEvents(true); } catch { /* reported by the next run */ } } });
 {
   const { ctx, page } = await as("admin");
   await page.goto(`${BASE}/dashboard`, { waitUntil: "load" });
@@ -88,7 +95,8 @@ const order = (page) => page.locator("[data-block]").evaluateAll((els) => els.ma
   ok(JSON.stringify(await order(page)) === JSON.stringify(["today", "recent", "monitors", "health", "links", "changelog"]), "the default layout: Today, Recently used, monitors, Server health, Quick links, Changelog", (await order(page)).join(","));
   const recent = norm(await page.locator('[data-block="recent"]').innerText());
   ok(/Couldn't load your recent activity/.test(recent) && /500 · GET \/api\/dashboard\/recents/.test(recent) && await page.locator('[data-block="recent"]').getByRole("button", { name: "Retry" }).isVisible(),
-    "one block failing shows its own error and retry (the rig has no search_events table)…", recent.slice(0, 120));
+    "one block failing shows its own error and retry (its table taken away for this load)…", recent.slice(0, 120));
+  if (searchEventsOff) { searchEvents(true); searchEventsOff = false; }
   ok(await page.locator('[data-block="changelog"] li').count() > 0 && await page.locator('[data-block="links"] a').count() === 5, "…while the others render");
   const today = norm(await page.locator('[data-block="today"]').innerText());
   ok(/Flights today — Couldn't load/.test(today) && /NOTAM checks left \d/.test(today) && /Open reports \d/.test(today), "Today: a counter whose source fails says so, the others still count (no Leon on the rig)", today);

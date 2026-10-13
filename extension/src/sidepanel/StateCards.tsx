@@ -1,7 +1,7 @@
 // The panel's special states (§E12): first run, signed out, site not on the list, requesting, approved →
 // enable, loading, offline, page changed, long selection, capture failed, and the quick-action explanation.
 import { useState } from "react";
-import { C, mono } from "@/components/agent/ui/tokens";
+import { C, mono } from "~/shared/tokens";
 import { Button, Icon } from "@/components/agent/ui/primitives";
 import { CONSOLE_HOST, CONSOLE_ORIGIN, LIMITS, SHORTCUTS } from "~/shared/config";
 import { hmZ } from "~/shared/api";

@@ -1,6 +1,6 @@
 // Extension settings (§E13): only what belongs to this browser. Everything organisation-wide stays in the console.
 import { useEffect, useState } from "react";
-import { C, mono } from "@/components/agent/ui/tokens";
+import { C, mono } from "~/shared/tokens";
 import { Button, Icon, IconButton, Keycap, Toggle } from "@/components/agent/ui/primitives";
 import { CONSOLE_ORIGIN } from "~/shared/config";
 import type { SessionState, Settings as SettingsT } from "~/shared/protocol";

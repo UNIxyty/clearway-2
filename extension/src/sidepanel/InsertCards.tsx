@@ -1,7 +1,8 @@
 // Insert into page (§E9): proposal → review (confirmation look) → inserted (with Undo) → undone / cancelled.
 // The word on the first button is Review, not Insert. Nothing here touches the page: the worker does.
 import { useEffect, useState } from "react";
-import { C, SHADOW, mono } from "@/components/agent/ui/tokens";
+import { SHADOW } from "@/components/agent/ui/tokens";
+import { C, mono } from "~/shared/tokens";
 import { Button, Icon, hmsZ } from "@/components/agent/ui/primitives";
 import { useKeybinds } from "@/components/agent/ui/keybinds";
 import type { InsertState } from "~/shared/protocol";

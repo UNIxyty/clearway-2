@@ -2,7 +2,7 @@
 // our header, the tab bar, the extension's states, drafts from the page, inserts, and settings.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AgentStyles from "@/components/agent/ui/AgentStyles";
-import { C, mono } from "@/components/agent/ui/tokens";
+import { C, mono } from "~/shared/tokens";
 import { Button, Icon, IconButton, RingMark, dayTimeZ, hmZ } from "@/components/agent/ui/primitives";
 import Composer from "@/components/agent/thread/Composer";
 import { AgentReply, UserBubble } from "@/components/agent/thread/Message";

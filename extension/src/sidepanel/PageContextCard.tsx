@@ -1,7 +1,7 @@
 // The attachment card (§E6): what was sent from the page, its kind and size — above the message in the
 // thread, and above the composer while drafting (with ✕). It is a record of what left the browser.
 import { useState } from "react";
-import { C, mono } from "@/components/agent/ui/tokens";
+import { C, mono } from "~/shared/tokens";
 import { Icon } from "@/components/agent/ui/primitives";
 import type { PageContext } from "~/shared/protocol";
 import { LIMITS } from "~/shared/config";

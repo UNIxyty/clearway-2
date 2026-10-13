@@ -1,7 +1,7 @@
 // The tab bar (§E5): which site, its status, what can be sent from it — and the line that says nothing is
 // shared until the user sends it. Replaces the console's context chip, which would be untrue here.
 import { useEffect, useState } from "react";
-import { C, mono } from "@/components/agent/ui/tokens";
+import { C, mono } from "~/shared/tokens";
 import { Icon } from "@/components/agent/ui/primitives";
 import type { QuickAction, SiteStatus, TabInfo } from "~/shared/protocol";
 import { hmZ } from "~/shared/api";

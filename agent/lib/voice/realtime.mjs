@@ -17,7 +17,10 @@
 
 import { keytermsFor } from "./keyterms.mjs";
 
-const TOKEN_ENDPOINT = "https://api.elevenlabs.io/v1/single-use-token/realtime_scribe";
+// ELEVENLABS_API_BASE points the agent at another ElevenLabs-compatible address (the rig's stand-in,
+// rig/voice/mock-elevenlabs.mjs). Unset in production: the real service.
+const API_BASE = (process.env.ELEVENLABS_API_BASE || "https://api.elevenlabs.io").replace(/\/+$/, "");
+const TOKEN_ENDPOINT = `${API_BASE}/v1/single-use-token/realtime_scribe`;
 const WS_BASE = process.env.ELEVENLABS_REALTIME_URL || "wss://api.elevenlabs.io/v1/speech-to-text/realtime";
 const MODEL = process.env.ELEVENLABS_REALTIME_MODEL || "scribe_v2_realtime";
 export const SAMPLE_RATE = 16_000;

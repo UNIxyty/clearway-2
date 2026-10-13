@@ -3,7 +3,10 @@
 // comes back whole. Audio is transcribed and discarded — nothing is written to
 // disk and nothing but the text is kept (§8.4 is a promise in the copy).
 
-const ENDPOINT = "https://api.elevenlabs.io/v1/speech-to-text";
+// ELEVENLABS_API_BASE points the agent at another ElevenLabs-compatible address (the rig's stand-in,
+// rig/voice/mock-elevenlabs.mjs). Unset in production: the real service.
+const API_BASE = (process.env.ELEVENLABS_API_BASE || "https://api.elevenlabs.io").replace(/\/+$/, "");
+const ENDPOINT = `${API_BASE}/v1/speech-to-text`;
 const MODEL = process.env.ELEVENLABS_STT_MODEL || "scribe_v1";
 const TIMEOUT_MS = Number(process.env.VOICE_STT_TIMEOUT_MS || 45_000);
 

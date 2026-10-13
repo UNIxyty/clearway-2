@@ -24,7 +24,7 @@ const ok = (cond, what) => { results.push(`${cond ? "PASS" : "FAIL"}  ${what}`);
 // Every fake passenger value the fixtures can produce — none may appear in the chat or the conversation record.
 const PII = /TEST\d{5}|Testville|Sampleton|Exampleburg|Mockford|Demotown|Fakesby|\bEXAMPLE\b|\bSPECIMEN\b|PLACEHOLDER|Example|Specimen|Alice|Bruno|Carla|Dmitri|Elena|Felix|Greta/;
 
-const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-audio-capture=${new URL("../.scratch/voice-pax-manifest.wav", import.meta.url).pathname}`] });
+const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--disable-audio-output", `--use-file-for-fake-audio-capture=${new URL("../.scratch/voice-pax-manifest.wav", import.meta.url).pathname}`] });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ["microphone"] });
 const page = await ctx.newPage();
 const consoleErrors = [];
@@ -86,8 +86,17 @@ await picker().screenshot({ path: `${SHOTS}06-picker-search-route.png` });
 rows = await search("KlasJet");
 ok(rows.slice(1).length >= 2 && rows.slice(1).every((r) => r.includes("KlasJet")), `operator search "KlasJet" → ${rows.slice(1).map((r) => r.slice(0, 40)).join(" | ")}`);
 await picker().screenshot({ path: `${SHOTS}06b-picker-search-operator.png` });
-rows = await search("the Riga one this evening");
-ok(rows.slice(1).length >= 1 && rows.slice(1).every((r) => /EVRA/.test(r)), `"the Riga one this evening" → ${rows.slice(1).map((r) => r.slice(0, 50)).join(" | ")}`);
+// The mock puts KLJ7350 (into Riga) at 19:40Z today, or half an hour after its own start once that has passed — so a
+// mock started in the half hour before midnight UTC puts it after midnight, and "this evening" rightly finds nothing
+// (failed once, 2026-10-13 00:00Z). Say it the way a person would at this hour: the period and day it really has.
+const k7350 = (await search("KLJ7350")).slice(1).find((r) => r.includes("KLJ7350")) ?? "";
+const [, dd, hh] = /\b(\d{2}) [A-Z][a-z]{2} · (\d{2}):\d{2}Z/.exec(k7350) ?? [];
+const nowUtc = new Date(); const tomorrow = new Date(Date.now() + 86_400_000);
+const day = Number(dd) === nowUtc.getUTCDate() ? "today" : Number(dd) === tomorrow.getUTCDate() ? "tomorrow" : null;
+const h = Number(hh); const period = h >= 17 ? "evening" : h >= 12 ? "afternoon" : h >= 5 ? "morning" : null;
+const phrase = day === "today" && period ? `the Riga one this ${period}` : `the Riga one ${day ?? ""}${period ? ` ${period}` : ""}`.replace(/\s+/g, " ").trim();
+rows = await search(phrase);
+ok(Boolean(day) && rows.slice(1).length >= 1 && rows.slice(1).every((r) => /EVRA/.test(r)), `"${phrase}" → ${rows.slice(1).map((r) => r.slice(0, 50)).join(" | ")}`);
 await picker().screenshot({ path: `${SHOTS}07-picker-search-riga-evening.png` });
 rows = await search("zzz9");
 ok(/No flight matches/.test(await picker().innerText()), "no-matches state is drawn");
@@ -176,7 +185,10 @@ ok(await picker().count() === 1 && rows.slice(1).length >= 1 && rows.slice(1).ev
 await picker().screenshot({ path: `${SHOTS}14-typed-phrase-picker.png` });
 await page.keyboard.press("Escape");
 
-// ── Voice: speak it (fake microphone plays "Pax manifest for KLJ 7350"); real speech-to-text; same picker
+// ── Voice: speak it (fake microphone plays "Pax manifest for KLJ 7350"); the rig's ElevenLabs stand-in transcribes it
+// once real voiced audio has arrived (rig/voice/mock-elevenlabs.mjs), so this proves capture and streaming; same picker.
+// --disable-audio-output: the browser's audio clock runs on a fake output, not the Mac's speakers (which stop it when
+// the display sleeps: the 2026-10-12 failure).
 await page.getByRole("button", { name: "Talk", exact: true }).click(); await sleep(5500);
 await page.getByRole("button", { name: /Send what you said|Talk/ }).first().click().catch(() => {}); await sleep(9000);
 const voicePicker = await picker().count();

@@ -7,7 +7,10 @@
 // never with arbitrary client text — so rule 10 is enforced here, on the
 // server, and not by the page.
 
-const BASE = "https://api.elevenlabs.io/v1/text-to-speech";
+// ELEVENLABS_API_BASE points the agent at another ElevenLabs-compatible address (the rig's stand-in,
+// rig/voice/mock-elevenlabs.mjs). Unset in production: the real service.
+const API_BASE = (process.env.ELEVENLABS_API_BASE || "https://api.elevenlabs.io").replace(/\/+$/, "");
+const BASE = `${API_BASE}/v1/text-to-speech`;
 // "George" — a premade voice, usable on every plan (library voices are not on
 // the free tier: the live API returns 402 paid_plan_required for them).
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";

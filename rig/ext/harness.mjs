@@ -10,7 +10,7 @@ export async function launch({ profile = "ext-profile", fresh = false, audioFile
   const dir = path.join(S, profile); if (fresh) fs.rmSync(dir, { recursive: true, force: true });
   const context = await chromium.launchPersistentContext(dir, {
     headless: false, viewport: null,
-    args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`, "--no-first-run", "--no-default-browser-check", "--window-size=1400,900", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required", ...(audioFile ? [`--use-file-for-fake-audio-capture=${audioFile}`] : [])],
+    args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`, "--no-first-run", "--no-default-browser-check", "--window-size=1400,900", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required", "--disable-audio-output", ...(audioFile ? [`--use-file-for-fake-audio-capture=${audioFile}`] : [])],
   });
   let [sw] = context.serviceWorkers();
   if (!sw) sw = await context.waitForEvent("serviceworker", { timeout: 15000 });

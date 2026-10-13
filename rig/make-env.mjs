@@ -30,19 +30,24 @@ const lines = [
   "APP_BASE_URL=http://127.0.0.1:3999",
   "DIGITAL_WALL_INTERNAL_URL=http://127.0.0.1:5199",
   // the wall's data folder for the dashboard changelog (production mounts it read-only at /wall-data)
-  `DIGITAL_WALL_DATA_DIR=${path.join(here, ".scratch", "wall", "data")}`,
+  `DIGITAL_WALL_DATA_DIR=${path.join(here, ".scratch", "wall", "data", "portal")}`,
   "AGENT_WALL_EVENTS_SECRET=rig-local-wall-events-secret",
   `STORAGE_ROOT=${path.join(here, ".scratch", "storage")}`,
   `CACHE_ROOT=${path.join(here, ".scratch", "cache")}`,
   "NODE_ENV=production",
+  // Voice: the rig's ElevenLabs stand-in (rig/voice/mock-elevenlabs.mjs), never the real service. Until 2026-10-13 the
+  // rig copied production's ElevenLabs key, so every test run spent the production account's allowance.
+  "ELEVENLABS_API_KEY=rig-stand-in-not-a-key",
+  "ELEVENLABS_API_BASE=http://127.0.0.1:3986",
+  "ELEVENLABS_REALTIME_URL=ws://127.0.0.1:3999/__elevenlabs/v1/speech-to-text/realtime",
 ];
-const MODEL_KEYS = ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "BEDROCK_REGION", "BEDROCK_GUARDRAIL_ID", "BEDROCK_GUARDRAIL_VERSION", "ELEVENLABS_API_KEY", "TAVILY_API_KEY", "CHECKWX_API_KEY"];
+const MODEL_KEYS = ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "BEDROCK_REGION", "BEDROCK_GUARDRAIL_ID", "BEDROCK_GUARDRAIL_VERSION", "TAVILY_API_KEY", "CHECKWX_API_KEY"];
 const PHRASE = "yes, copy model keys into the rig";
 if (process.env.RIG_COPY_MODEL_KEYS === PHRASE && fs.existsSync(path.join(root, ".env"))) {
   const src = Object.fromEntries(fs.readFileSync(path.join(root, ".env"), "utf8").split("\n").filter((l) => /^[A-Z_]+=/.test(l)).map((l) => { const i = l.indexOf("="); return [l.slice(0, i), l.slice(i + 1)]; }));
   for (const k of MODEL_KEYS) if (src[k]) lines.push(`${k}=${src[k]}`);
   lines.push("# model keys above copied from .env (service keys, not the database)");
-} else lines.push(`# no model keys: run with RIG_COPY_MODEL_KEYS="${PHRASE}" to copy Bedrock/ElevenLabs keys from .env`);
+} else lines.push(`# no model keys: run with RIG_COPY_MODEL_KEYS="${PHRASE}" to copy the Bedrock keys from .env`);
 lines.push(...intakeLines(), ...leonLines());
 // Intake (Resend inbound, the mailbox, the Leon write path). Resend is a LOCAL MOCK (rig/intake/mock-resend.mjs):
 // the webhook secret is generated here, mail is captured instead of sent, and the addresses are .invalid.

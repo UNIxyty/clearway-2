@@ -2,7 +2,10 @@
 // Extension test switches: a file `rig-401` next to this script makes every /agent/api request answer 401
 // (simulates a signed-out console); every request to /agent/api/extension/session and /agent/api/chat is
 // logged (method, path, origin, whether a Cookie header arrived, x-clearway-* headers) to rig-proxy3.log.
+// WebSockets under /__elevenlabs/ go to the rig's ElevenLabs stand-in (rig/voice/mock-elevenlabs.mjs, :3986): the live
+// transcript is reached at the console's own origin, which the extension's content policy already allows.
 import http from "node:http";
+import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
 const here = path.dirname(new URL(import.meta.url).pathname); // rig/
@@ -15,7 +18,7 @@ function route(url) {
   if (url.startsWith("/digital-wall/api")) return [T.wall, url.slice("/digital-wall".length)];
   return [T.portal, url];
 }
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   const [target, p] = route(req.url);
   if (req.url.startsWith("/agent/api")) {
     // A file `rig-strip-ext-cookie` drops the Cookie header from the EXTENSION's requests only (identified by
@@ -35,4 +38,14 @@ http.createServer((req, res) => {
   });
   up.on("error", (e) => { res.writeHead(502); res.end(String(e)); });
   req.pipe(up);
-}).listen(port("RIG_PROXY_PORT", 3999), () => console.log(`rig proxy on :${port("RIG_PROXY_PORT", 3999)}`));
+});
+server.on("upgrade", (req, socket, head) => {
+  if (!req.url.startsWith("/__elevenlabs/")) { socket.destroy(); return; }
+  const up = net.connect(port("RIG_ELEVENLABS_PORT", 3986), "127.0.0.1", () => {
+    up.write(`${req.method} ${req.url} HTTP/1.1\r\n${Object.entries(req.headers).map(([k, v]) => `${k}: ${v}`).join("\r\n")}\r\n\r\n`);
+    if (head?.length) up.write(head);
+    socket.pipe(up).pipe(socket);
+  });
+  up.on("error", () => socket.destroy()); socket.on("error", () => up.destroy());
+});
+server.listen(port("RIG_PROXY_PORT", 3999), () => console.log(`rig proxy on :${port("RIG_PROXY_PORT", 3999)}`));

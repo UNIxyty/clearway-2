@@ -63,6 +63,13 @@ cpSync(path.join(here, "public"), dist, { recursive: true });
 const manifest = JSON.parse(readFileSync(path.join(here, "manifest.template.json"), "utf8").replaceAll("__CONSOLE_ORIGIN__", ORIGIN));
 // CW_TEST_HOSTS: extra origins granted at install for the automated rig (never set for a release build).
 for (const h of String(process.env.CW_TEST_HOSTS || "").split(",").map((x) => x.trim()).filter(Boolean)) manifest.host_permissions.push(h);
+// A local console (http://, the rig) carries the live transcript on its own origin (the rig's ElevenLabs stand-in,
+// rig/voice/mock-elevenlabs.mjs). Chrome does not count ws:// as covered by http://, so name it. A production build
+// (https://) is unchanged: its transcript goes to wss://api.elevenlabs.io only.
+if (ORIGIN.startsWith("http://")) {
+  const csp = manifest.content_security_policy;
+  csp.extension_pages = csp.extension_pages.replace(`connect-src ${ORIGIN} `, `connect-src ${ORIGIN} ${ORIGIN.replace(/^http:/, "ws:")} `);
+}
 writeFileSync(path.join(dist, "manifest.json"), JSON.stringify(manifest, null, 2));
 
 // Nothing remote, nothing eval'd: fail the build if a bundle references a script URL or eval.

@@ -10,15 +10,17 @@ number of checks passed in the last full run.
 
 None.
 
-Every suite below passed on 2026-10-12/13 (three full runs: after the image-secrets and docs stage 1
-changes, after docs stage 2, after docs stage 3; two suites re-run alone after a test fix, see below).
+Every suite below passed in the full run of 2026-10-13 (43 suites, after the wall folder, the voice stand-in,
+the extension fix, the airport-sheets rule and docs stage 4). Two earlier runs that day were stopped: the machine
+was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failures were load, not code.
 
 ## Suites
 
 | Suite | Last passing | Date |
 |---|---|---|
 | check-no-real-passenger-data | 838 files, none | 2026-10-12 |
-| wall/test-portal-folder | 8 | 2026-10-13 |
+| wall/test-portal-folder | 7 | 2026-10-13 |
+| airport-sheets-check | 8 | 2026-10-13 |
 | docs-check | 21 | 2026-10-13 |
 | intake/test-classify | 46 | 2026-10-12 |
 | intake/test-leon-payload | 10 | 2026-10-12 |

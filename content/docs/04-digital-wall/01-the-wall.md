@@ -4,157 +4,298 @@ summary: Today's flights as a timeline, one row per aircraft. The same wall runs
 status: written
 roles: All roles
 video: the-wall | 30 seconds
-updated: 2026-10-12
-related: digital-wall/operators
+updated: 2026-10-14
+related: digital-wall/flights, digital-wall/notam-check, digital-wall/settings
 ---
 
-Open it from the portal's sidebar: **Digital Wall** › **Open wall**. It picks its layout from the screen: the full board on a big screen (1920 pixels wide or more), a reduced timeline on a tablet, and tabs on a phone. Flights come from Leon, through the operators set up in [Operators](digital-wall/operators); nothing on the wall changes Leon.
+<!-- Rewritten 2026-10-14 from the code (opsboard-react/src: DisplayApp, Board, FlightPill, FlightInfoTab,
+     FlightOverlay, components/mobile/*) and by doing each task on the test system, as a User and as an Admin, with
+     the test system's own Leon stand-in (rig/wall/mock-leon.mjs: invented flights TST101–TST402). -->
+
+Open it from the portal's sidebar: **Digital Wall** › **Open wall**. The wall reads its flights from Leon. Nothing on
+the wall changes Leon.
+
+The wall picks its layout from the screen:
+
+| Screen | Layout |
+|---|---|
+| 1920 pixels wide or more, or 1280 or more with a mouse or trackpad | The full board |
+| A phone held upright | Three tabs: **Now**, **Attention** and **Timeline** |
+| A phone turned sideways | A full-screen timeline |
+| A tablet, or any other touch screen | A reduced timeline |
 
 # On the ops-room screen
 
 ## Read the board
-Every row is an aircraft; every flight is a pill on its row, placed by its times.
+Each row is an aircraft. Each flight is a pill on its row, placed by its times.
 
-1. Read the clocks along the top: UTC and the local times set for this wall.
-2. Find the aircraft's row. Its flights sit on the timeline as pills, earlier on the left.
-3. Read the markers on a pill. Each marker is something still to look at for that flight: **IMP** (an important notice), **CAA**, **NTM** (NOTAMs) or **WX** (weather). Numbered circles are its limitations.
-   [screenshot: wall-pill-markers | A flight pill with its markers and two limitation circles.]
+1. Read the clocks at the top. **UTC** is blue. The local clock for this station is amber.
+2. Read the date under the logo, on the left. It is today's date in UTC.
+3. Find the aircraft's row. The registration is on the left, with the operator under it.
+4. Read the pill. Its colour says where the flight is. The **TIMELINE AGENDA**, on the left, says what each colour
+   means.
+5. Read the times under the pill. A late time has a plus, for example `+45`. An early time has a minus.
+6. Read the airport codes on the pill. Their colour is the weather at that airport, as in the **WX AGENDA**.
+7. Read the markers before and after the pill. The table below says what each one means.
+
+| Marker | What it means |
+|---|---|
+| A number in a circle, before the callsign | A limitation applies. The number is its number in the list on the left. |
+| **!** | An important notice applies. |
+| **CAA** | Civil aviation authority details apply. |
+| **NTM** | The airport has NOTAMs that nobody has checked today. |
+| A callsign in italics, with a red outline | The flight is not confirmed in Leon. |
+| Black and white stripes at the end of a pill | The gap between the planned time and the real or expected time. |
+
+:::statuses
+Not departed (grey): The flight has not left.
+Airborne (blue): The flight has taken off.
+Delayed (amber): The flight is late and has not left.
+CTOT (blue): The flight waits for its take-off slot.
+Arrived (grey): The flight has landed.
+:::
+
+:::example One aircraft's row
+Row: LY-TST · Sample Aviation
+Pill: TST103 · EVRA → EYVI · 23:05 → 00:05
+Markers: 1 · ! · CAA · NTM
+:::
 
 :::how-it-works
-The wall updates by itself: it reads the latest flights every minute, and changes in Leon arrive as they happen. There is nothing to refresh.
+The wall asks for new flights every minute, and Leon tells it about changes as they happen. There is nothing to
+refresh. The view moves back to the present 10 seconds after anyone touches it.
 :::
 
 ## Read the NOTAM sign
-Shows whether today's NOTAM check has been done.
+The sign at the top right shows whether today's NOTAM check is done.
 
-1. Look at the sign on the wall. **!!! CHECK NOTAM !!!** means today's check is still open; **NOTAM CHECKED** means it is done.
-   [screenshot: wall-notam-sign | The NOTAM sign while the check is open.]
+1. Look at the top right of the wall.
+2. Read the sign. **!!! CHECK NOTAM !!!**, in red, means some airports are not checked yet. **NOTAM CHECKED**, in
+   green, means every airport is checked.
+
+:::note When there is no sign
+Before the day's check has run, the wall shows no sign.
+:::
+
+:::how-it-works
+The sign changes when the last airport is checked on the [NOTAM Check](digital-wall/notam-check) page.
+:::
 
 ## Open a flight's details
-Shows what a flight's markers are about: its important notices, NOTAMs, weather, CAA details and limitations.
+See what a flight's markers are about: its limitations, important notices, NOTAMs, weather and CAA details.
 
-1. Click a pill that has markers. Its details open in a tab on the wall.
-   Note: A pill with nothing to look at has no details to open.
-2. Read each section.
-3. Press **✕** to close the tab.
+1. Press the flight's pill. Its details open under the aircraft's row.
+2. Read each part: **LIMITATIONS**, **IMPORTANT**, **NOTAM**, **WEATHER** and **CAA**. The number after a name says
+   how many items it has.
+3. To close the details, press **✕**. Or press the pill again.
 
-## Mark a section checked
-Tells everyone that a part of a flight has been looked at. The marker for that part disappears from the pill.
+:::how-it-works
+Only one flight's details are open at a time. They close by themselves after 3 minutes.
+:::
+
+## Mark a part of a flight checked
+Roles: User, Admin and Developer by default
+Tell everyone that you have read one part of a flight's details.
+
+:::warning There is no undo
+A check cannot be taken back. It stays until the next daily check resets it.
+:::
 
 1. Open the flight's details.
-2. Press **Checked ✓** under the section you have read.
-   [screenshot: wall-info-tab-checked | A flight's details with Checked under each section.]
+2. Find the part you have read, for example **IMPORTANT**.
+3. Press **Checked ✓**, at the right of that part's name.
 
-:::note Checks start again every day
-A check lasts until the next daily NOTAM check, at 10:00 Riga time unless the wall's settings say otherwise. After that the markers show again for that day's flights.
+What changes:
+
+- **IMPORTANT**, **NOTAM** and **CAA**: the part leaves the details, and its marker leaves the pill.
+- **LIMITATIONS**: the part stays, marked **✓ checked**. The number on the pill turns pale.
+- **WEATHER**: the part stays, marked **✓ checked**. The airport codes keep their weather colour.
+
+:::how-it-works
+Checks are for everyone: once you check a part, it is checked on every wall. They reset every day at the daily NOTAM
+check time, 10:00 Riga time unless [Settings](digital-wall/settings#set-the-notam-digest) say otherwise.
 :::
 
 ## Check everything on a flight at once
-Marks every section of a flight checked in one press.
+Roles: User, Admin and Developer by default
+Mark every part of a flight checked in one press.
+
+:::warning There is no undo
+The checks cannot be taken back. They stay until the next daily check resets them.
+:::
 
 1. Open the flight's details.
-2. Press **Check all ✓**.
+2. Press **Check all ✓**, at the top right of the details.
 
 ## See who checked a flight
-Each check keeps who pressed it and when.
+Each check keeps who made it and when.
 
 1. Open the flight's details.
-2. Read the **Checked:** line: each checked part, with the person and the time.
+2. Read the **Checked:** line at the bottom. It lists each checked part, with the person and the time in UTC.
+
+:::example A Checked line
+Checked: Important ✓ a.dispatcher 21:04 · NOTAM ✓ a.dispatcher 21:04
+:::
+
+:::note The person is shown by their email
+The line shows the first part of the person's email address, before the @.
+:::
 
 ## Read a limitation
-Limitations are the airport and aircraft restrictions that apply to flights, numbered as they are on the pills.
+Limitations are listed on the left of the wall, numbered as they are on the pills.
 
-1. Find the limitations list at the side of the wall.
-2. Click a limitation's title to open its full description. Click it again to close it.
+1. Find **PERMANENT:** on the left. Every limitation in force today is listed under it.
+2. Press a limitation's title. Its full text opens under it.
+3. Press the title again to close it.
+
+:::note None in force
+If no limitation is in force, the list says **None active**.
+:::
 
 ## Put a flight on the big screen
-Shows one flight's details large on the ops-room screen, for everyone in the room. It is done from the console, not the wall.
+Roles: User, Admin and Developer by default
+Show one flight's details large on the ops-room screen. You do this from the console.
 
-1. In the portal's sidebar, open **Digital Wall** › **Flights**, and select the flight.
-2. Press **Show on wall**. The flight opens over the wall, and a banner on the Flights page says what is on the wall and who opened it.
-3. Press **Close on wall** to take it off.
+1. In the portal's sidebar, open **Digital Wall** › **Flights**.
+2. Press the flight.
+3. Press **Show on wall**. The flight's details open on the right of the wall.
+4. To take it off, press **Close on wall**.
 
-:::note One flight at a time
-Showing another flight replaces the one on the wall.
+The steps are on the [Flights](digital-wall/flights#show-a-flight-on-the-wall) page.
+
+## Bring a new screen onto the wall
+A screen with nobody signed in can show the wall after an admin approves it.
+
+1. On the new screen, open the wall's address. The screen says **Waiting to be approved** and shows a code of four
+   letters and numbers.
+2. Ask an admin to approve the screen. They check that the code matches.
+3. Wait a few seconds. The wall appears on the screen.
+
+To sign in as yourself instead, press **…or sign in as a user instead**.
+
+:::how-it-works
+An approved screen can only show the wall. It cannot check anything or change anything. Admins approve and remove
+screens in [Settings](digital-wall/settings#approve-a-new-screen). The code changes after 15 minutes.
 :::
 
 # On a phone
 
 ## See what is happening now
-The **Now** tab: what is in the air and what leaves next.
+The **Now** tab lists the flights in the air and the next ones out.
 
-1. Open the wall on your phone and choose **Now**.
-2. Read the airborne flights, each with its progress, and the next departures under them.
-3. Press **See the whole day** or **Open timeline →** to go to the timeline.
-   [screenshot: phone-now-tab | The Now tab on a phone.]
+1. Open the wall on your phone. The **Now** tab opens.
+2. Read the line at the top, for example **1 airborne · 1 depart within the hour · 5 need attention**.
+3. Read **AIRBORNE**: each flight in the air, with its take-off time and when it lands.
+4. Read **NEXT OUT**: the next flights, earliest first, with how long until each leaves.
+
+:::note When nothing is flying
+The tab says **Nothing in the air**. Press **See the whole day** to open the day's timeline.
+:::
+
+Unverified: The empty tab (Nothing in the air, See the whole day). The test system always had flights. The rest was checked.
 
 ## See what needs attention
-The **Attention** tab gathers what still needs someone.
+The **Attention** tab lists what someone should look at.
 
-1. Choose **Attention**.
-2. Read the lists: airports whose NOTAMs are not reviewed yet, flights whose movement message is overdue, flights that are not confirmed, and the limitations in force.
+1. Press **Attention**. The number next to it counts the airports and flights that need someone.
+2. Read each part. The table below says what each one lists.
+   Unverified: MVT OVERDUE never showed: no test flight was overdue.
+
+| Part | What it lists |
+|---|---|
+| **UNREVIEWED NOTAMS** | Airports whose NOTAMs nobody has checked today, and the flights they affect |
+| **MVT OVERDUE** | Flights with no movement message when one was expected |
+| **UNCONFIRMED** | Flights the operator has not confirmed |
+| **ACTIVE LIMITATIONS** | The limitations in force |
+
+If there is nothing, the tab says **Nothing needs attention right now.**
+
+Unverified: MVT OVERDUE and the empty tab. Neither happened on the test system. The other three parts were checked.
 
 ## Review an airport's NOTAMs from the phone
-Takes you from the Attention tab to the airport's NOTAM check.
+Open the NOTAM Check page from the Attention tab.
 
-1. On the **Attention** tab, find the airport under the NOTAMs still to review.
-2. Press **CHECK** next to it. The console's NOTAM Check page opens for that airport.
+1. Press **Attention**.
+2. Under **UNREVIEWED NOTAMS**, press **CHECK** next to the airport. The **NOTAM Check** page opens.
+3. Check the airport there, as on the [NOTAM Check](digital-wall/notam-check) page.
+
+:::note The page opens at the top
+The page opens with all of today's airports. Find the airport in the list.
+:::
 
 ## Look at the day's timeline
-The **Timeline** tab: the same board as the wall, sized for a phone.
+See the flights on a timeline that you scroll sideways.
 
-1. Choose **Timeline**.
-2. Choose how much to show: **2H**, **6H** or **DAY**.
-3. Scroll sideways to move through the day.
+1. Press **Timeline**.
+2. Choose how much time to see: **2H**, **6H** or **DAY**. The line above says how many hours are in view.
+3. Scroll sideways to move in time.
 
-:::note The choice is not kept
-The tab and the zoom start again from the default when the page reloads.
-:::
+The tab opens at **2H** each time.
 
 ## Open a flight on the phone
-Shows one flight's details in a sheet: route, times, notices, NOTAMs, weather, limitations and CAA details.
+See one flight's times and the notices that apply to it.
 
-1. Tap a flight's pill or card.
-2. Read the sheet. Scheduled times are shown with estimated or actual times and the difference.
-3. Close it with **✕**, or tap the dimmed page behind it.
+1. Press the flight, on **Now**, **Attention** or **Timeline**. Its details open from the bottom of the screen.
+2. Read the times, then the notices: important notices, NOTAMs, weather, limitations and CAA.
+3. To close the details, press **✕**. Or press the dimmed part of the screen.
 
 ## Mark a flight checked on the phone
-Checks every part of a flight at once, the same as Check all on the wall.
+Roles: User, Admin and Developer by default
+Check everything on a flight at once, from the phone.
 
-1. Open the flight.
-2. Press **Mark checked**.
-
-:::note Not while the wall is out of date
-When the phone has lost contact with the wall's data, **Mark checked** is switched off, so nothing is confirmed against old information.
+:::warning There is no undo
+The checks cannot be taken back. They stay until the next daily check resets them.
 :::
 
-## Get the wall back when it stops updating
-A banner says when the phone has not heard from the wall for a while.
+1. Open the flight.
+2. Press **Mark checked**, at the bottom.
+3. Read the **Checked:** line. It lists each part, with your name and the time.
 
-1. Read the banner: it says how long ago the last update was.
-2. Press **Retry**. If it keeps happening, check the phone's connection.
+## Get the wall back when it stops updating
+When the phone has not heard from the wall for 3 minutes, the wall says so.
+
+1. Read the banner at the top: **STALE**, with how many minutes old the data is, and **Last update** with the time.
+   The times below it may be out of date.
+2. Press **Retry**.
+3. Wait. When the wall answers, the banner goes away and the clock says **LIVE** again.
+
+:::note While the wall is stale
+**Mark checked** does not work, so that nothing is checked against old data.
+:::
 
 ## Turn the phone sideways
-Shows a full-screen timeline of the next three hours.
+See the full timeline on a phone.
 
-1. Turn the phone to landscape.
-2. Tap a pill to open the flight.
+1. Turn the phone sideways. The timeline fills the screen, with the next 3 hours in view.
+2. Scroll sideways to move in time.
+3. Turn the phone upright to go back to the tabs. A flight you had open stays open.
 
 # On a tablet
 
 ## Zoom the tablet's timeline
-1. Choose **3H**, **6H** or **DAY** at the top.
-2. Scroll sideways to move through the day.
+Choose how much time the tablet shows.
+
+1. Press **3H**, **6H** or **DAY**, at the top.
+2. Scroll sideways to move in time.
 
 ## Open the legend and limitations
-The side panel that the big screen shows permanently, folded away on a tablet.
+See what the colours mean, and the limitations in force.
 
-1. Press **Legend & limits**. A dot on it means there are limitations you have not opened.
-2. Close the panel with **✕**, or tap the dimmed page behind it.
+1. Press **Legend & limits**, at the top right. A panel opens on the right.
+2. Read **WX AGENDA**, **TIMELINE AGENDA**, and the limitations under **PERMANENT:**, each with its full text.
+3. Press **✕** to close the panel.
 
 ## Open a flight on the tablet
-1. Tap a flight's pill. Its details open in a sheet, the same as on a phone.
-2. Close it with **✕**, or tap the dimmed page behind it.
+See one flight's times and notices, and mark it checked.
+
+1. Press the flight's pill. Its details open.
+2. Read the times and the notices.
+3. To check everything on the flight, press **Mark checked**.
+4. To close the details, press **✕**.
 
 ## Open the wall's settings from a tablet
-1. Press **Settings** in the rail on the left. The console's Settings page opens.
+Open the console's Settings page from the tablet.
+
+1. Press **⚙**, in the bar on the left. The console's **Settings** page opens.
+
+A screen that an admin approved without anyone signed in cannot open Settings. It asks someone to sign in first.

@@ -49,6 +49,7 @@ export function Blocks({ blocks, fig }: { blocks: Block[]; fig?: Fig }) {
                     <p className="dx-step-text"><InlineText text={s.text} /></p>
                     {s.shot && <Shot src={shotSrc(s.shot.name)} caption={s.shot.caption} fig={f.next()} />}
                     {s.note && <div className="dx-step-note"><MaskIcon name="info" size={14} /><span><InlineText text={s.note} /></span></div>}
+                    {s.unverified && <div className="dx-step-unverified" data-unverified-step><MaskIcon name="flask-conical" size={14} /><span><span className="t">Not tried on the test system.</span> <InlineText text={s.unverified} /></span></div>}
                   </div>
                 </li>
               ))}

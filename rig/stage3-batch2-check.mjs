@@ -89,6 +89,9 @@ try { searchEvents(false); searchEventsOff = true; } catch { /* no table: the bl
 process.on("exit", () => { if (searchEventsOff) { try { searchEvents(true); } catch { /* reported by the next run */ } } });
 {
   const { ctx, page } = await as("admin");
+  // The wall's flights fail on purpose for this load (the rig's wall has flights since 2026-10-14), so Today shows
+  // one counter failing while the others count.
+  await page.route(/\/digital-wall\/api\/flights\/normalized/, (r) => r.fulfill({ status: 502, contentType: "application/json", body: "{\"ok\":false}" }));
   await page.goto(`${BASE}/dashboard`, { waitUntil: "load" });
   await page.waitForSelector('[data-block="changelog"] li', { timeout: 30000 });
   await sleep(1500);
@@ -99,7 +102,8 @@ process.on("exit", () => { if (searchEventsOff) { try { searchEvents(true); } ca
   if (searchEventsOff) { searchEvents(true); searchEventsOff = false; }
   ok(await page.locator('[data-block="changelog"] li').count() > 0 && await page.locator('[data-block="links"] a').count() === 5, "…while the others render");
   const today = norm(await page.locator('[data-block="today"]').innerText());
-  ok(/Flights today — Couldn't load/.test(today) && /NOTAM checks left \d/.test(today) && /Open reports \d/.test(today), "Today: a counter whose source fails says so, the others still count (no Leon on the rig)", today);
+  ok(/Flights today — Couldn't load/.test(today) && /NOTAM checks left \d/.test(today) && /Open reports \d/.test(today), "Today: a counter whose source fails says so, the others still count (the wall's flights failed on purpose)", today);
+  await page.unroute(/\/digital-wall\/api\/flights\/normalized/);
   ok(/checked \d\d:\d\d:\d\dZ/.test(norm(await page.locator('[data-block="monitors"] header').innerText())), "times are UTC");
   ok(/Full changelog/.test(await page.locator('[data-block="changelog"] header').innerText()), "the Changelog block links to the full list");
   await page.screenshot({ path: `${OUT}/s3b2-dashboard.png`, fullPage: true });

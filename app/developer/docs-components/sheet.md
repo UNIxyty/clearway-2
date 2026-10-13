@@ -8,8 +8,9 @@ roles: Admin, Developer
      writes them (docs/how-to-write-docs.md). Everything here is invented: Example Air, EXA123, the version numbers. -->
 
 ## Add an operator
-Roles: Admin, Developer
+Roles: Admin and Developer by default
 Connects one airline's flight system to the wall. A task: number, role, copy-link button, title, one-sentence summary.
+Unverified: The task's own line, counted by the docs check: what could not be done on the test system, and why.
 
 :::warning The wall stops updating
 While an operator is paused, its flights do not reach the wall.
@@ -21,6 +22,7 @@ While an operator is paused, its flights do not reach the wall.
    Note: A note under a step: smaller, muted, with an icon.
 3. Press **Save operator**.
    [screenshot: sheet-not-taken | A screenshot that has not been taken yet.]
+   Unverified: A step that was not done on the test system, marked where the reader meets it.
 
 :::example An operator called Example Air
 Operator name: Example Air

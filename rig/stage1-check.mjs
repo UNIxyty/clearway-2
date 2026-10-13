@@ -166,6 +166,8 @@ for (const theme of ["light", "dark"]) for (const who of ["admin", "dev"]) {
         const s = getComputedStyle(el); if (s.visibility === "hidden" || Number(s.opacity) < 0.95) continue;
         if (el.closest("[disabled],[aria-disabled=true],.cw-shimmer,[aria-hidden=true]")) continue;
         const fg = parse(s.color); if (!fg) continue; const bg = bgOf(el); if (!bg) continue;
+        // Fully transparent text is not seen: the PDF viewer's selectable text layer over the drawn page.
+        if ((fg[3] ?? 1) === 0) continue;
         const a = fg[3] ?? 1; const fgc = fg.slice(0, 3).map((v, i) => v * a + bg[i] * (1 - a));
         const size = parseFloat(s.fontSize), bold = Number(s.fontWeight) >= 700; const min = size >= 24 || (bold && size >= 18.66) ? 3 : 4.5;
         const r2 = ratio(fgc, bg); if (r2 < min) out.push({ text: n.textContent.trim().slice(0, 40), ratio: Math.round(r2 * 100) / 100, min, color: s.color, bg: `rgb(${bg.map(Math.round).join(", ")})` });

@@ -62,6 +62,18 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | ext/t-console | clean (no messages) | 2026-10-12 |
 | ext/t-issues | clean (no issues) | 2026-10-12 |
 
+## Red on 2026-10-14, and why (each fixed)
+
+The rig's wall got flights (its own Leon stand-in, `rig/wall/mock-leon.mjs`) and the portal got invented NOTAMs and
+AIP stand-ins (`rig/wall/seed-portal.mjs`). Three suites had relied on the rig having none:
+
+- **stage3-batch2**: "a counter whose source fails" expected Flights today to fail because there was no Leon. The
+  wall's flights request now fails on purpose for that one load (`page.route`), as `search_events` does for its block.
+- **stage1-check**: the contrast pass counted the PDF viewer's selectable text layer (fully transparent text over the
+  drawn page) on `/aip/EVRA`, which now has a document. Fully transparent text is skipped: nobody can see it.
+- **docs-browser**: it hard-coded the old wall page (20 tasks, four screenshots, an "exampleair" example). It now reads
+  the task and group counts from the page's source, and waits for smooth scrolling to settle before reading the list.
+
 ## Red on 2026-10-12/13, and why (each fixed)
 
 - **manifest/browser, "voice reaches the same picker"** (from about 22:30 UTC on 2026-10-12). Not ElevenLabs, which
@@ -125,7 +137,9 @@ These had been failing for days without being written down. Each is fixed; the r
 These are tools, not suites; nothing is judged from their output:
 
 - **Fixture makers and mocks:** `rig/intake/make-*`, `deliver`, `wrap-forward`, `mock-*`, `rig/manifest/fixtures`
-  and `operators`.
+  and `operators`; `rig/wall/mock-leon.mjs` (the walls' Leon, :3985: invented flights in every state, webhook
+  subscriptions in memory) and `rig/wall/seed-portal.mjs` (invented NOTAMs and AIP stand-ins in the portal's
+  storage). `rig/intake/mock-resend.mjs` also takes sends (`POST /emails`, listed at `/_rig/sent`).
 - **Run only by a person:** `try-extract` uses the model on a file. `leon-snapshot` and `leon-disposable-flight`
   touch real Leon and need a person-typed phrase.
 - **Probes against live systems, never run from the rig:** `rig/cnair/*` (the real provider portal),

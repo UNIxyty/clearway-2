@@ -18,6 +18,8 @@
 //   1. A step                        numbered steps; indented lines under a step:
 //      [screenshot: name | caption]    a screenshot
 //      Note: …                         a note under the step
+//      Unverified: …                   this step was not tried on the test system (a short mark on the step; the task
+//                                      still needs its own Unverified: line, which is what is counted)
 //   [screenshot: name | caption]     a screenshot on its own
 //   [video: name | 0:30]             a video on its own
 //   ```Title … ```                   a block of text to copy; lines starting with # are explanations, shown muted
@@ -32,7 +34,7 @@ export type Inline =
   | { kind: "link"; href: string; label: Inline[] };
 
 export type Shot = { name: string; caption: string };
-export type Step = { text: Inline[]; shot?: Shot; note?: Inline[] };
+export type Step = { text: Inline[]; shot?: Shot; note?: Inline[]; unverified?: Inline[] };
 export type ExampleRow = { key: string; value: Inline[]; copy: string | null };
 export type Tone = "success" | "info" | "warning" | "danger" | "neutral";
 export type StatusRow = { label: string; tone: Tone; text: Inline[] };
@@ -231,6 +233,7 @@ export function blocks(lines: string[], problems: string[], where: string): Bloc
           const shot = SHOT.exec(x);
           if (shot) cur.shot = { name: shot[1].toLowerCase(), caption: shot[2] ?? "" };
           else if (/^note\s*:/i.test(x)) cur.note = inline(x.replace(/^note\s*:\s*/i, ""));
+          else if (/^unverified\s*:/i.test(x)) cur.unverified = inline(x.replace(/^unverified\s*:\s*/i, ""));
           else cur.text = [...cur.text, { kind: "text", t: " " }, ...inline(x)];
           i += 1; continue;
         }
@@ -277,6 +280,8 @@ export function parsePage(src: string, where = "page"): Parsed {
     const ls = [...ch.lines];
     const first = ls.findIndex((l) => l.trim());
     if (first >= 0 && /^roles?\s*:/i.test(ls[first].trim())) { roles = ls[first].trim().replace(/^roles?\s*:\s*/i, ""); ls.splice(first, 1); }
+    // A Roles line anywhere else would show as text and leave the task on the page's roles: say so.
+    if (ls.some((l) => /^roles?\s*:/i.test(l))) problems.push(`${lw}: "Roles:" must be the first line under the task's title`);
     const unverified: string[] = [];
     for (let k = ls.length - 1; k >= 0; k -= 1) {
       const m = /^unverified\s*:\s*(.*)$/i.exec(ls[k]);
@@ -303,7 +308,7 @@ export function* walkInline(bs: Block[]): Generator<Inline> {
   for (const b of walkBlocks(bs)) {
     if (b.kind === "p" || b.kind === "h3") yield* each(b.text);
     else if (b.kind === "list") for (const it of b.items) yield* each(it);
-    else if (b.kind === "steps") for (const s of b.steps) { yield* each(s.text); if (s.note) yield* each(s.note); }
+    else if (b.kind === "steps") for (const s of b.steps) { yield* each(s.text); if (s.note) yield* each(s.note); if (s.unverified) yield* each(s.unverified); }
     else if (b.kind === "example") for (const r of b.rows) yield* each(r.value);
     else if (b.kind === "table") for (const r of [b.head, ...b.rows]) for (const c of r) yield* each(c);
     else if (b.kind === "statuses") for (const r of b.rows) yield* each(r.text);

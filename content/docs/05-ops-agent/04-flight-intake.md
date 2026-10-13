@@ -18,6 +18,8 @@ Two kinds of request come in:
 - A **handling request**. A client emails the request. The agent reads the email and its attachments.
 - A **scheduled flight**. The provider (CNAIR) sends a flight notice. The agent asks ops by email whether to process it. On a yes, it reads the flight from the provider's portal.
 
+A handling request is complete when it arrives. A scheduled flight only tells you where to look.
+
 Nothing goes to Leon until a person checks the request and confirms it.
 
 # Find a request
@@ -77,11 +79,14 @@ Labels at the top of the page show whether the agent can reach the mailbox, Leon
 
 1. Look at the top of the page, under the title.
 2. Read **Intake mailbox**. **Reachable** means new emails arrive. **Not responding since** a time means they do not.
+   Unverified: Not responding was never shown: the mailbox was reachable.
 3. Read **Leon API**. **Reachable** means the agent can create flights. **Not responding** means it cannot.
+   Unverified: Not responding was never shown: Leon was reachable.
 4. Read **CNAIR portal**. **Read after approval** means the agent reads a scheduled flight after ops say yes. **Look-up
    off** means it does not read the portal on this server.
 5. If you see **Time zones**, read it. **Out of date · local times not converted** means the agent cannot change local
    times to UTC.
+   Unverified: This label never showed: the time zone data was up to date.
 
 :::note When a label is red
 Tell a developer.
@@ -152,11 +157,11 @@ yet**, at the bottom, lists what must be fixed before the request can go to Leon
 Change a value the agent read, or fill in one the request did not give. Your change is marked with your name.
 
 1. Choose the leg.
-2. Press the value.
+2. Press the value you want to change.
 3. Type the new value.
 4. Press Enter. The row is marked **EDITED**, with the old value, your name and the time.
-
-If a value is marked **LOW CONFIDENCE** and it is right, press **Looks right** in its row.
+5. If a value is marked **LOW CONFIDENCE** and it is right, press **Looks right** in its row.
+   Unverified: No value was marked LOW CONFIDENCE, so Looks right was never pressed.
 
 :::example A corrected passenger count
 Field: Pax
@@ -276,6 +281,7 @@ When the agent could read no values, enter the flight yourself.
 
 1. Open the request. The review says **No values could be read, so there is nothing to review yet.**
 2. Press **Enter details by hand**. An empty leg opens.
+   Unverified: This button never showed: the agent always found at least one value.
 3. Fill in each value, as in [Correct a value](ops-agent/flight-intake#correct-a-value).
 
 Unverified: Enter details by hand. On the test system the agent always found at least one value, so the button never showed. Written from the code.
@@ -381,11 +387,19 @@ Created: 14:58Z, as flights 90000012 and 90000013
 :::how-it-works
 The window expires 5 minutes after it opens. For each flight, Leon gets:
 
-- the client's request, word for word, in the flight's OPS notes, marked **NOT ACTIONED**. No checklist status is set.
-- the passengers, as contacts in Leon's address book with their passports. A passenger already in Leon (same passport, or same name and date of birth) is reused and not changed.
+- the client's request, word for word, in the flight's OPS notes, marked **NOT ACTIONED**. No checklist status is set: every item stays at Leon's **?**.
+- the passengers, as contacts in Leon's address book with their passports. A passenger already in Leon is reused and not changed. The agent looks first for the same passport, then for the same name and date of birth.
 - the crew, as a note in the OPS notes. They are not assigned to the flight in Leon.
 
 The agent then emails ops that the request is loaded.
+
+**Why no checklist item is set.** The checklist is your record of what you did. The agent did none of it: it wrote
+down what the client asked for. Nobody has arranged the catering or confirmed the fuel yet. Marking an item would
+claim work that has not happened. You set each item as you do the work.
+
+**Why the crew are a note.** Leon assigns crew only from its own crew records, by crew member. The agent cannot make
+crew records for another operator's people, and Leon has no field for a crew count. So the OPS notes are the only
+place this can go.
 :::
 
 ## Fix a value Leon refused
@@ -441,6 +455,7 @@ If you mark a leg as not in Leon while it is there, the next send creates it twi
 1. Under **What was sent to Leon**, find the leg marked **Unknown · checking**.
 2. Press **Check Leon for this leg**. The agent looks for the leg in Leon.
 3. Read the answer. If it says **Not found in Leon**, go on.
+   Unverified: Only the Not found answer was seen. The leg was never in Leon.
 4. Open Leon. Look for the flight yourself.
 5. If it is not in Leon, press **I checked: it is not in Leon**.
 6. Send it again, as in [Create the flights in Leon](ops-agent/flight-intake#create-the-flights-in-leon).
@@ -488,14 +503,22 @@ After a request is sent, see what Leon got, and the emails the agent sent about 
 
 Step 6 needs access to the agent mailbox.
 
+:::note When a passenger has no passport in Leon
+If a passenger's name and date of birth match a contact in Leon, but the passport does not, the agent reuses the
+contact and attaches no passport. The leg then has a line for that passenger: **Passenger 3: the existing contact
+holds no passport with this number: none attached (the contact was not edited).** The request still says **Loaded**.
+That passenger's passport is not on the flight in Leon.
+:::
+
 # Scheduled flights
 
 ## Process or skip a scheduled flight
 When the provider sends a flight notice, ops decide whether to process it. You can answer on this page.
 
-:::warning The portal is read once
+:::warning The agent reads the portal once, and does not see later changes
 After ops say yes, the agent reads the flight from the provider's portal once. If the provider changes the flight
-after that, nobody is told. Check the portal yourself before and after you confirm.
+after that, nothing tells you. This is a limit of the agent today. Check the portal yourself before you confirm, and
+again after.
 :::
 
 1. Open the request marked **Awaiting approval**.
@@ -509,7 +532,11 @@ after that, nobody is told. Check the portal yourself before and after you confi
 If you press **Skip it**, the request closes as **Declined**. Nothing is read and nothing goes to Leon.
 
 If nobody answers before the time in the email, the request closes as **Expired · no answer**. To process it after
-that, open it and press **Process anyway**.
+that:
+
+1. Open the request, in **Closed**.
+2. Press **Process anyway**.
+   Unverified: No question expired on the test system.
 
 :::note When it says "portal look-up is off on this server"
 The agent does not read the portal on this server. Read the reference in the provider's portal yourself.
@@ -524,16 +551,28 @@ Passengers: leg 1: 2
 :::
 
 :::how-it-works
-The notice's own lines only tell the agent which record to read. The flight's times, legs and aircraft come from the
-provider's portal. The arrival time is worked out from the portal's estimated hours. The crew count comes from the
-notice. Passenger names and services are not in the portal: enter them on the page.
+A scheduled flight is the provider telling us that a flight exists in their system. The notice points to the flight;
+it is not the flight. So ops are asked first: acting on it means reading another company's system, and not every
+notice is one we handle. Then the flight is read from the portal, which holds the operator's own data.
+
+The notice is written for a person to read. It comes in three different layouts, some characters arrive broken (the
+º in `#1º`), and its times are local without always saying which local time. The portal record has none of these
+problems. So the notice tells the agent which flight; the portal tells it what the flight is.
+
+The crew count is the one value taken from the notice, because the portal does not have it. The arrival time is
+worked out from the portal's estimated hours. Passenger names and services are not in the portal: enter them on the
+page.
 :::
 
 Unverified: Process anyway. No question expired during the test. Written from the code.
 
 ## Answer a scheduled flight from the email
-Roles: The people the agent emails about requests
 The agent emails ops to ask whether to process a scheduled flight. You answer from the email.
+
+:::note Who gets this email
+The addresses in **Send intake emails to**, in the agent's settings. You do not need to sign in to the portal to
+answer.
+:::
 
 1. Open the email **Process?**, with the reference, route and date in its subject.
 2. Read it.
@@ -559,6 +598,7 @@ If the agent has not found the flight in the provider's portal yet, ask it to lo
 
 1. Open the request marked **Collecting**.
 2. Press **Look up now**.
+   Unverified: This button never showed: no request stayed in Collecting.
 3. Wait. The button says **Looking up…**. The request then shows what the agent found.
 
 Unverified: Look up now. On the test system no request stayed in Collecting with the button shown. Written from the code.
@@ -575,11 +615,13 @@ When the provider cancels a flight that is in Leon, the agent asks whether to ca
 1. Open the request marked **Needs you**. The box says **The provider cancelled this flight. Cancel it in Leon?**
 2. Read **Cancellation from the provider**: each leg, its Leon flight number and its time.
 3. Press **Cancel in Leon**, or press **Keep the flights**.
+   Unverified: Keep the flights was not pressed. Cancel in Leon was.
 4. Read the leg. **Cancelled in Leon** means it is done.
 
 A leg that has already departed is not cancelled by the agent. It says **Already departed** and a person decides.
 
-You can also answer from the email the agent sends: **Yes, cancel in Leon** or **No, keep the flights**.
+You can also answer from the email the agent sends: **Yes, cancel in Leon** or **No, keep the flights**. This was not
+tried on the test system.
 
 :::example A leg after Cancel in Leon
 Leg: 1 · EYVI → LSGG

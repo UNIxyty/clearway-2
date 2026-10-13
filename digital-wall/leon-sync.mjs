@@ -836,6 +836,10 @@ export class LeonTimelineService {
   }
 
   getBaseUrl(oprId = this.operatorId) {
+    // LEON_OPERATOR_API_BASE is set ONLY by the rig (its mock Leon; "{opr}" is replaced by the operator id), the same
+    // setting the agent reads (agent/lib/leon-operators.mjs). Production leaves it unset.
+    const rig = String(process.env.LEON_OPERATOR_API_BASE || "").trim();
+    if (rig) return rig.replace("{opr}", oprId).replace(/\/+$/, "");
     const domain = process.env.LEON_SANDBOX === "true" ? "sandbox.leon.aero" : "leon.aero";
     return `https://${oprId}.${domain}`;
   }

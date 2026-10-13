@@ -74,6 +74,12 @@ Connects one Leon account to the wall, so its flights start to appear.
 - If you could not do a task (or part of it) on the test system — no data, no credentials, an outside service — add
   a line `Unverified: what, and why` under it. The page then says so to the reader, and the docs check counts these
   per page. A task written only from the code is a guess until someone has done it.
+- If one step is the part you could not do, also put an indented `Unverified: why` under that step, so the reader
+  meets it there. The task still needs its own `Unverified:` line: that is what is counted, and the check fails
+  without it.
+- A `Roles:` line names roles, and says "by default" (`Roles: Admin and Developer by default`): permissions can be
+  changed, so a bare list is wrong the first time an admin changes them. Who gets an email is not a role: say it in a
+  `:::note` under the summary.
 - The first sentence is the task's summary. Keep it to one.
 - Steps are numbered `1.` `2.` `3.`. Lines indented under a step belong to it: a screenshot, or a `Note:`.
 - On a long page, group tasks with a single `#` line (`# On a phone`). The page then opens with "What you can do

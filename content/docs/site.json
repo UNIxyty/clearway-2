@@ -15,7 +15,7 @@
     "phone"
   ],
   "commonTasks": [
-    "digital-wall/the-wall#mark-a-section-checked",
+    "digital-wall/the-wall#mark-a-part-of-a-flight-checked",
     "digital-wall/the-wall#read-the-notam-sign",
     "digital-wall/operators#add-an-operator",
     "digital-wall/operators#check-that-the-wall-is-getting-flights"

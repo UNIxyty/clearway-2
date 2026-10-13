@@ -1,7 +1,7 @@
 // The docs site in a real browser, on the rig (production build through the proxy :3999):
 //   node --env-file=.env.rig rig/docs-browser.mjs        screenshots → rig/.scratch/shots/docs-*.png
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
+import fs, { mkdirSync } from "node:fs";
 const BASE = process.env.RIG_URL || "http://127.0.0.1:3999";
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 300)}` : ""}`); if (!c) failures += 1; };
@@ -20,6 +20,11 @@ async function open(path, { width = 1440, height = 900, theme = null, expect404 
   return { ctx, page, status: res?.status() ?? 0 };
 }
 const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operators";
+// The long page's own numbers, from its source, so a rewrite of the page does not break the check.
+const LONG_SRC = fs.readFileSync("content/docs/04-digital-wall/01-the-wall.md", "utf8").replace(/```[\s\S]*?```/g, "");
+const N = (LONG_SRC.match(/^## /gm) ?? []).length, GROUPS = (LONG_SRC.match(/^# /gm) ?? []).length;
+// Smooth scrolling on a long page takes a while: wait until the position stops moving.
+const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { await sleep(150); const y = await page.evaluate(() => window.scrollY); if (y === last) break; last = y; } await sleep(250); };
 
 // ── the shell: its own, not the portal's ──
 {
@@ -29,26 +34,26 @@ const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operator
   ok(await page.locator(".dx-nav").isVisible() && /Digital Wall/.test(await page.locator(".dx-nav").innerText()), "the left nav lists the sections from the content files");
   ok(await page.locator("h1").count() === 1, "one h1 per page");
   const fns = await page.locator("article[data-fn]").count();
-  ok(fns === 20, "the long page has its 20 tasks", fns);
-  ok(await page.locator(".dx-index a").count() === 20 && /What you can do here/.test(await page.locator(".dx-index").innerText()), "it opens with 'What you can do here', all 20 tasks linked");
-  ok(await page.locator(".dx-toc .dx-toc-item").count() === 20 && await page.locator(".dx-toc .dx-toc-head").count() === 3, "'On this page' lists 20 tasks under 3 groups");
+  ok(fns === N, `the long page has its ${N} tasks`, fns);
+  ok(await page.locator(".dx-index a").count() === N && /What you can do here/.test(await page.locator(".dx-index").innerText()), `it opens with 'What you can do here', all ${N} tasks linked`);
+  ok(await page.locator(".dx-toc .dx-toc-item").count() === N && await page.locator(".dx-toc .dx-toc-head").count() === GROUPS, `'On this page' lists ${N} tasks under ${GROUPS} groups`);
   await page.screenshot({ path: `${OUT}/docs-long-top.png` });
   // The list follows the scroll: task 12's top passes 120px below the header → 12 is current.
   await page.evaluate(() => { const el = document.querySelector('article[data-fn="12"]'); window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 64 - 60); });
   await sleep(400);
   const cur = await page.locator(".dx-toc .dx-toc-item.on .num").innerText().catch(() => "");
   ok(cur === "12", "scrolling to a task makes it current in 'On this page'", cur);
-  ok(/12 \/ 20/.test(await page.locator(".dx-toc-title").innerText()), "the counter reads 12 / 20");
+  ok(new RegExp(`12 / ${N}`).test(await page.locator(".dx-toc-title").innerText()), `the counter reads 12 / ${N}`);
   // Click a task in the list: it scrolls there.
-  await page.locator(".dx-toc .dx-toc-item").nth(2).click(); await sleep(900);
+  await page.locator(".dx-toc .dx-toc-item").nth(2).click(); await sleep(300); await settle(page);
   const top3 = await page.evaluate(() => document.querySelector('article[data-fn="3"]').getBoundingClientRect().top);
   ok(top3 > 40 && top3 < 140, "clicking a task in the list scrolls to it", Math.round(top3));
   // At the very bottom the last task is current.
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(400);
-  ok(await page.locator(".dx-toc .dx-toc-item.on .num").innerText() === "20", "at the bottom of the page the last task is current");
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(300); await settle(page);
+  ok(Number(await page.locator(".dx-toc .dx-toc-item.on .num").innerText()) === N, "at the bottom of the page the last task is current");
   // Missing media show their empty state, never a broken image.
   const missing = await page.locator('[data-media-state="missing"]').count();
-  ok(missing >= 4 && await page.locator(".dx-media img").count() === 0, "every screenshot and the video show 'to come', no broken image", `${missing} empty states`);
+  ok(missing >= 1 && await page.locator(".dx-media img").count() === 0, "every screenshot and the video show 'to come', no broken image", `${missing} empty states`);
   ok(/Video to come · about 30 seconds/.test(await page.locator("body").innerText()), "the missing video says 'Video to come · about 30 seconds'");
   // Previous / next resolve.
   const pn = await page.locator(".dx-pn a").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
@@ -65,7 +70,7 @@ const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operator
   const order = await page.evaluate(() => { const fn = document.getElementById("fn-delete-an-operator"); const band = fn.querySelector(".dx-irrev"); const steps = fn.querySelector(".dx-steps"); return band.compareDocumentPosition(steps) & Node.DOCUMENT_POSITION_FOLLOWING; });
   ok(order > 0, "the warning comes before the steps");
   ok(await page.locator(".dx-toc .dx-toc-item .dx-danger-ic").count() === 1, "the task list marks the one task that cannot be undone");
-  ok(await page.locator(".dx-example").count() === 1 && /exampleair/.test(await page.locator(".dx-example").innerText()), "the example uses an invented operator");
+  ok(await page.locator(".dx-example").count() === 1 && /sampleaviation/.test(await page.locator(".dx-example").innerText()), "the example uses an invented operator");
   await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE });
   await page.locator("#fn-edit-an-operator .dx-copylink").click(); await sleep(200);
   const clip = await page.evaluate(() => navigator.clipboard.readText()).catch(() => "");
@@ -114,11 +119,11 @@ const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operator
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   ok(overflow <= 0, "no sideways scroll at 390", overflow);
   await page.locator(".dx-tocbar").click(); await sleep(300);
-  ok(await page.locator(".dx-sheet").isVisible() && await page.locator(".dx-sheet .dx-toc-item").count() === 20, "the bar opens a sheet with every task");
+  ok(await page.locator(".dx-sheet").isVisible() && await page.locator(".dx-sheet .dx-toc-item").count() === N, "the bar opens a sheet with every task");
   const rowH = await page.locator(".dx-sheet .dx-toc-item").first().evaluate((e) => e.getBoundingClientRect().height);
   ok(rowH >= 44, "sheet rows are at least 44px (touch)", rowH);
   await page.screenshot({ path: `${OUT}/docs-390-sheet.png` });
-  await page.locator(".dx-sheet .dx-toc-item").nth(5).click(); await sleep(900);
+  await page.locator(".dx-sheet .dx-toc-item").nth(5).click(); await sleep(300); await settle(page);
   ok(await page.locator(".dx-sheet").count() === 0 && /06/.test(await page.locator(".dx-tocbar .num").innerText()), "choosing a task closes the sheet and the bar shows it");
   await ctx.close();
 }

@@ -55,6 +55,12 @@ for (const sec of sections) for (const p of sec.pages) if (p.meta.status === "wr
   const un = p.fns.filter((f) => f.unverified.length);
   console.log(`      ${p.file}: ${p.fns.length} tasks, ${un.length} with a part not tried on the test system${un.length ? ` (${un.map((f) => f.title).join("; ")})` : ""}`);
 }
+// On a written page, a task's Roles line names roles and says "by default": permissions can be changed by an admin.
+const bareRoles = sections.flatMap((sec) => sec.pages.filter((p) => p.meta.status === "written").flatMap((p) => fs.readFileSync(path.join(ROOT, p.file), "utf8").split("\n").filter((l) => /^Roles\s*:/.test(l) && !/(by default|^Roles\s*:\s*All roles)\s*$/i.test(l)).map((l) => `${p.file}: "${l.trim()}"`)));
+ok(bareRoles.length === 0, "on written pages, every task's Roles line says \"by default\"", bareRoles.join(", "));
+// A step marked "Unverified:" counts only through its task's own line: a step mark without one would hide from the count.
+const stepOnly = sections.flatMap((sec) => sec.pages.flatMap((p) => p.fns.filter((f) => !f.unverified.length && f.blocks.some((b) => b.kind === "steps" && b.steps.some((s) => s.unverified))).map((f) => `${p.file} › ${f.title}`)));
+ok(stepOnly.length === 0, "every step marked Unverified belongs to a task with its own Unverified: line (the count)", stepOnly.join(", "));
 ok(problems.length === 0, `every file in content/docs parses (${sections.length} sections, ${nPages} pages, ${nFns} tasks)`, problems.join(" | "));
 
 // ── sections: title and a real icon; no duplicate addresses ──

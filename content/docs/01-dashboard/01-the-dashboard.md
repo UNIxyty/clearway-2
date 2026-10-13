@@ -46,8 +46,6 @@ says **Couldn't reach the Digital Wall.** Press **Retry**.
 The numbers come from the Digital Wall and refresh every minute. "Today" is today's date in UTC.
 :::
 
-Unverified: Flights today and Delayed. The test system has no Leon connection, so these two always show "Couldn't load" there. NOTAM checks left and Open reports were checked.
-
 ## Go back to an airport you looked at
 The **Recently used** block lists the airports you searched for or opened last, so you can go back in one press.
 
@@ -85,9 +83,8 @@ The portal checks each service on its own, every 1 to 30 minutes depending on th
 :::
 
 ## Check the server's health
-Roles: Admin, Developer
-Shows how busy the server is, how full its disks are, and whether its containers run. Only admins and developers
-see this block.
+Roles: Admin and Developer by default
+Shows how busy the server is, how full its disks are, and whether its containers run.
 
 1. Find **Server health**. It says **admins only** next to its name.
 2. If there is a yellow list at the top, read it first. These are warnings, for example a container that stopped.

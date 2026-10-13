@@ -4,7 +4,8 @@
 // as each. Bodies are empty or point at ids that do not exist, so nothing real changes; only the gate is checked.
 //
 //   mkdir -p rig/.scratch/wall-auth && (cd rig/.scratch/wall-auth && env -i PATH="$PATH" HOME="$HOME" PORT=5198 \
-//     DISABLE_AUTH_FOR_TESTING=false ADMIN_EMAILS= DEVELOPER_EMAILS= node --env-file=../../../.env.rig ../../../digital-wall/server.mjs &)
+//     DISABLE_AUTH_FOR_TESTING=false ADMIN_EMAILS= DEVELOPER_EMAILS= $WALL_RIG node --env-file=../../../.env.rig ../../../digital-wall/server.mjs &)
+//   ($WALL_RIG: the rig-only Leon and Resend settings, as in rig/start.sh)
 //   node --env-file=.env.rig rig/wall/access-check.mjs
 const WALL = process.env.RIG_WALL_AUTH_URL || "http://127.0.0.1:5198";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -167,3 +167,6 @@ html[data-motion="reduce"] .dx-media-stage.loading, html[data-motion="reduce"] .
 .dx-unverified { display: flex; gap: 8px; align-items: flex-start; max-width: 66ch; padding: 8px 12px; border-radius: 9px; border: 1px dashed var(--cw-border-strong); background: var(--cw-bg-sunken); font-size: 13.5px; line-height: 1.5; color: var(--cw-text-body); }
 .dx-unverified .ic { margin-top: 3px; flex: none; color: var(--cw-text-muted); }
 .dx-unverified .t { font-weight: 650; color: var(--cw-text); }
+.dx-step-unverified { display: flex; gap: 8px; align-items: flex-start; max-width: 66ch; margin-top: 6px; padding: 4px 10px; border-radius: 7px; border: 1px dashed var(--cw-border-strong); background: var(--cw-bg-sunken); font-size: 13px; line-height: 1.5; color: var(--cw-text-body); }
+.dx-step-unverified > :first-child { margin-top: 3px; flex: none; color: var(--cw-text-muted); }
+.dx-step-unverified .t { font-weight: 650; color: var(--cw-text); }

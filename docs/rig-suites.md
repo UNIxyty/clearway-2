@@ -8,13 +8,9 @@ number of checks passed in the last full run.
 
 ## Known failures
 
-- **manifest/browser, one check: "voice reaches the same picker"** (since about 22:30 UTC on 2026-10-12). The
-  speech-to-text service (ElevenLabs realtime) opens each session and then returns no transcript at all, so the
-  picker never opens. The same code passed at 21:52 the same night, and no agent or voice code changed in between.
-  The rig's key is valid. Outside the code; check the ElevenLabs account's speech-to-text allowance (free tier).
-  The other 35 checks pass.
+None.
 
-Every other suite below passed on 2026-10-12/13 (three full runs: after the image-secrets and docs stage 1
+Every suite below passed on 2026-10-12/13 (three full runs: after the image-secrets and docs stage 1
 changes, after docs stage 2, after docs stage 3; two suites re-run alone after a test fix, see below).
 
 ## Suites
@@ -22,6 +18,7 @@ changes, after docs stage 2, after docs stage 3; two suites re-run alone after a
 | Suite | Last passing | Date |
 |---|---|---|
 | check-no-real-passenger-data | 838 files, none | 2026-10-12 |
+| wall/test-portal-folder | 8 | 2026-10-13 |
 | docs-check | 21 | 2026-10-13 |
 | intake/test-classify | 46 | 2026-10-12 |
 | intake/test-leon-payload | 10 | 2026-10-12 |
@@ -41,7 +38,7 @@ changes, after docs stage 2, after docs stage 3; two suites re-run alone after a
 | intake/browser-flows | 22 | 2026-10-12 |
 | intake/browser-edits | 9 | 2026-10-12 |
 | manifest/test-generator | 47 | 2026-10-12 |
-| manifest/browser | 36 (35 since the speech service stopped answering, above) | 2026-10-12 |
+| manifest/browser | 36 | 2026-10-13 |
 | permissions-check | 43 | 2026-10-12 |
 | permissions-browser | 13 | 2026-10-12 |
 | wall/access-check | 65 | 2026-10-12 |
@@ -63,7 +60,19 @@ changes, after docs stage 2, after docs stage 3; two suites re-run alone after a
 | ext/t-console | clean (no messages) | 2026-10-12 |
 | ext/t-issues | clean (no issues) | 2026-10-12 |
 
-## Red on 2026-10-12, and why (fixed the same night)
+## Red on 2026-10-12/13, and why (each fixed)
+
+- **manifest/browser, "voice reaches the same picker"** (from about 22:30 UTC on 2026-10-12). Not ElevenLabs, which
+  answered correctly when called directly: the Mac's display had gone to sleep, which stops the browser's audio clock,
+  so the page captured no audio and sent none. The check now uses the rig's ElevenLabs stand-in
+  (`rig/voice/mock-elevenlabs.mjs`; no rig test calls the real service, and the rig no longer spends the production
+  account, whose key it used to copy), the test browser has a fake audio output, and the suite runner keeps the
+  display awake. The stand-in only answers once real voiced audio arrives, so the check still proves capture.
+- **ext/t-console** (same night): a screenshot hung with the display asleep (a visible Chrome window stops painting).
+  Fixed by keeping the display awake.
+- **manifest/browser, "the Riga one this evening"** (2026-10-13, 00:00 UTC): the mock puts the flight half an hour after
+  its own start once 19:40Z has passed, so a mock started just before midnight UTC put it after midnight, outside "this
+  evening". The check now says the flight's real day and time of day.
 
 - **Four suites after 49-80 minute stalls** (manifest/browser, intake/e2e, e2e-scheduled, e2e-classify): the Mac
   idle-slept mid-run (power log; Chrome logged ERR_NETWORK_IO_SUSPENDED). Each passed alone. `run-all-suites.sh` now

@@ -50,6 +50,11 @@ const hasGlossary = fs.existsSync(glossaryFile);
 const glossary = hasGlossary ? parseGlossary(fs.readFileSync(glossaryFile, "utf8"), "content/docs/glossary.md") : null;
 const nPages = sections.reduce((a, s) => a + s.pages.length, 0);
 const nFns = sections.reduce((a, s) => a + s.pages.reduce((b, p) => b + p.fns.length, 0), 0);
+// Written pages: how many tasks were done on the test system, and how many are written from the code only.
+for (const sec of sections) for (const p of sec.pages) if (p.meta.status === "written") {
+  const un = p.fns.filter((f) => f.unverified.length);
+  console.log(`      ${p.file}: ${p.fns.length} tasks, ${un.length} with a part not tried on the test system${un.length ? ` (${un.map((f) => f.title).join("; ")})` : ""}`);
+}
 ok(problems.length === 0, `every file in content/docs parses (${sections.length} sections, ${nPages} pages, ${nFns} tasks)`, problems.join(" | "));
 
 // ── sections: title and a real icon; no duplicate addresses ──

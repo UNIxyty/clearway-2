@@ -9,6 +9,7 @@
 //   # Reading the board              a group of tasks (long pages)
 //   ## Add an operator               a task ("function")
 //   Roles: Admin                     optional, first line under a task
+//   Unverified: why                  a part of the task that could not be done on the test system (shown on the page)
 //   One-sentence summary.            the first paragraph of a task
 //   :::warning Title … :::           note | warning | cannot-be-undone | example | how-it-works
 //   :::statuses … :::                "Name (colour): what it means" per line; green, blue, amber, red or grey
@@ -63,6 +64,8 @@ export type Fn = {
   summary: Inline[];
   blocks: Block[];
   irreversible: boolean;
+  /** Parts of the task written from the code because they could not be done on the test system, and why. */
+  unverified: string[];
 };
 
 export type Parsed = {
@@ -274,6 +277,11 @@ export function parsePage(src: string, where = "page"): Parsed {
     const ls = [...ch.lines];
     const first = ls.findIndex((l) => l.trim());
     if (first >= 0 && /^roles?\s*:/i.test(ls[first].trim())) { roles = ls[first].trim().replace(/^roles?\s*:\s*/i, ""); ls.splice(first, 1); }
+    const unverified: string[] = [];
+    for (let k = ls.length - 1; k >= 0; k -= 1) {
+      const m = /^unverified\s*:\s*(.*)$/i.exec(ls[k]);
+      if (m && !/^\s/.test(ls[k])) { if (m[1].trim()) unverified.unshift(m[1].trim()); else problems.push(`${lw}: "Unverified:" needs to say what could not be checked and why`); ls.splice(k, 1); }
+    }
     const bs = blocks(ls, problems, lw);
     const sIdx = bs.findIndex((b) => b.kind === "p");
     const summary = sIdx >= 0 && bs.slice(0, sIdx).every((b) => b.kind === "p") ? (bs.splice(sIdx, 1)[0] as { kind: "p"; text: Inline[] }).text : [];
@@ -281,7 +289,7 @@ export function parsePage(src: string, where = "page"): Parsed {
     while (ids.has(id)) id = `${id}-2`;
     ids.add(id);
     fns.push({ id, n: k + 1, title: ch.title, roles: roles || "All roles", group: ch.group, summary, blocks: bs,
-      irreversible: bs.some((b) => b.kind === "callout" && b.tone === "irreversible") });
+      irreversible: bs.some((b) => b.kind === "callout" && b.tone === "irreversible"), unverified });
   });
   return { meta, intro: blocks(intro, problems, `${where} (intro)`), groups, fns, problems };
 }

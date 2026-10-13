@@ -1,6 +1,8 @@
 {
  "$comment": "Docs text/background pairs, both themes. WCAG 2.2 AA = 4.5:1. Portal pairs are in shared/contrast.json. From the design project (Docs Site); rig/docs-check.mjs recomputes every ratio from the token files.",
  "pairs": [
+  { "fg": "--cw-text-body", "bg": "--cw-bg-sunken", "use": "A task not tried on the test system: the note", "light": 10.05, "dark": 11.07, "aa": true },
+  { "fg": "--cw-text", "bg": "--cw-bg-sunken", "use": "A task not tried on the test system: its first words", "light": 16.39, "dark": 16.02, "aa": true },
   { "fg": "--cw-text-link", "bg": "--cw-bg-selected", "use": "Search: the selected filter chip", "light": 6.07, "dark": 7.23, "aa": true },
   { "fg": "--cw-text", "bg": "--cw-bg-page", "use": "Headings, step text, callout titles", "light": 17.15, "dark": 16.4, "aa": true },
   { "fg": "--cw-text", "bg": "--cw-bg-surface", "use": "Headings, step text, callout titles", "light": 17.74, "dark": 15.33, "aa": true },

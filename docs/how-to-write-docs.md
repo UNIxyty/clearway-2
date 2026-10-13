@@ -71,6 +71,9 @@ Connects one Leon account to the wall, so its flights start to appear.
 ```
 
 - The line right under the title can say who may do it (`Roles:`); without it the page's `roles` is used.
+- If you could not do a task (or part of it) on the test system — no data, no credentials, an outside service — add
+  a line `Unverified: what, and why` under it. The page then says so to the reader, and the docs check counts these
+  per page. A task written only from the code is a guess until someone has done it.
 - The first sentence is the task's summary. Keep it to one.
 - Steps are numbered `1.` `2.` `3.`. Lines indented under a step belong to it: a screenshot, or a `Note:`.
 - On a long page, group tasks with a single `#` line (`# On a phone`). The page then opens with "What you can do

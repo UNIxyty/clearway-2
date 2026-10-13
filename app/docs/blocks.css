@@ -162,3 +162,8 @@ html[data-motion="reduce"] .dx-media-stage.loading, html[data-motion="reduce"] .
   .dx-history .row { grid-template-columns: 56px minmax(0, 1fr); }
   .dx-history .x { grid-column: 1 / -1; }
 }
+
+/* A task (or part of one) written from the code because it could not be done on the test system. */
+.dx-unverified { display: flex; gap: 8px; align-items: flex-start; max-width: 66ch; padding: 8px 12px; border-radius: 9px; border: 1px dashed var(--cw-border-strong); background: var(--cw-bg-sunken); font-size: 13.5px; line-height: 1.5; color: var(--cw-text-body); }
+.dx-unverified .ic { margin-top: 3px; flex: none; color: var(--cw-text-muted); }
+.dx-unverified .t { font-weight: 650; color: var(--cw-text); }

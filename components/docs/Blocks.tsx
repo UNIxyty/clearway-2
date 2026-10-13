@@ -119,6 +119,12 @@ export function FunctionBlock({ fn, shot }: { fn: Fn; shot?: (name: string) => s
         </div>
         <h2>{fn.title}</h2>
         {fn.summary.length > 0 && <p className="summary"><InlineText text={fn.summary} /></p>}
+        {fn.unverified.length > 0 && (
+          <div className="dx-unverified" data-unverified>
+            <MaskIcon name="flask-conical" size={14} className="ic" />
+            <span><span className="t">Not tried on the test system.</span> Written from how the portal is built: {fn.unverified.join(" ")}</span>
+          </div>
+        )}
       </header>
       <Blocks blocks={fn.blocks} fig={fig} />
     </article>

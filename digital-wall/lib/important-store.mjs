@@ -1,6 +1,6 @@
 // "Important" standing operational limitations (badge class IMP), imported
 // from IMPORTANT.docx or added manually in the Console. Stored in
-// data/important.json via the same local-JSON pattern as other wall config.
+// data/portal/important.json via the same local-JSON pattern as other wall config.
 //
 // Matching semantics: within one criteria list it's OR (any listed airport
 // matches); across the criteria groups it's AND (an entry scoped to both an
@@ -9,7 +9,7 @@
 // entries whose criteria could not be inferred stay visible on the Important
 // page (flagged for review) without flagging every flight.
 
-import { JsonFileStore } from "./json-store.mjs";
+import { JsonFileStore, PORTAL_SHARED } from "./json-store.mjs";
 import { icaoToIso2 } from "./icao-country.mjs";
 
 // "overfly" is accepted for entries that concern overflight permits
@@ -117,7 +117,7 @@ export function sanitizeImportantEntry(input = {}, existing = null) {
 
 export class ImportantStore {
   constructor() {
-    this.store = new JsonFileStore("important.json", { entries: [] });
+    this.store = new JsonFileStore(`${PORTAL_SHARED}/important.json`, { entries: [] }, { movedFrom: "important.json" });
     this.entries = [];
     // Soft-deleted entries. A separate list, not a flag: every read path over
     // this.entries stays exactly as it was, and a deleted bulletin cannot

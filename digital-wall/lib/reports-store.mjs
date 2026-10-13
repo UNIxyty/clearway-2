@@ -9,7 +9,7 @@
 // added automatically); presets map a short label ("IT") to an address so
 // nobody types emails day-to-day.
 
-import { JsonFileStore } from "./json-store.mjs";
+import { JsonFileStore, PORTAL_SHARED } from "./json-store.mjs";
 
 export const REPORT_STATUSES = ["untouched", "under_process", "done", "impossible"];
 export const REPORT_STATUS_LABELS = {
@@ -46,7 +46,7 @@ export function sanitizeReport(input = {}, existing = null, actor = null) {
 
 export class ReportsStore {
   constructor() {
-    this.store = new JsonFileStore("reports.json", { reports: [], categories: DEFAULT_CATEGORIES, presets: [] });
+    this.store = new JsonFileStore(`${PORTAL_SHARED}/reports.json`, { reports: [], categories: DEFAULT_CATEGORIES, presets: [] }, { movedFrom: "reports.json" });
     this.reports = [];
     // Soft-deleted reports, kept apart from the live list for the same reason
     // as the Important store: no read path can forget to filter them out.

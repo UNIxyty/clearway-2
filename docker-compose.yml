@@ -34,9 +34,11 @@ services:
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage
-      # The wall's data, read-only, for the dashboard changelog (app/api/dashboard/changelog). Live files instead of
-      # a copy frozen into the image at build time.
-      - ./digital-wall/data:/wall-data:ro
+      # The dashboard changelog (app/api/dashboard/changelog) reads three of the wall's files: important.json,
+      # reports.json, webhook-log.json. The wall keeps exactly those in data/portal/ (digital-wall/lib/json-store.mjs,
+      # PORTAL_SHARED), and only that folder is mounted, read-only. The rest of the wall's data — the display devices'
+      # sign-ins, the webhook registrations — stays out of the portal's reach.
+      - ./digital-wall/data/portal:/wall-data:ro
     depends_on:
       - lithuania-browser
 

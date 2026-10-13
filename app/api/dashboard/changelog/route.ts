@@ -41,7 +41,8 @@ function byActor(actor: string | null | undefined): string {
   return actor ? ` by ${actor}` : "";
 }
 
-// The wall's data folder, mounted read-only into the portal at run time (docker-compose.yml: /wall-data). Never a
+// The part of the wall's data the portal may read: data/portal/ only (important.json, reports.json, webhook-log.json),
+// mounted read-only at /wall-data (docker-compose.yml; digital-wall/lib/json-store.mjs, PORTAL_SHARED). Never a
 // path under the working directory: a cwd-relative read made Next's file tracing copy the WHOLE working folder into
 // the build (and so into the portal image, with the wall's device keys and .env files), and production then read
 // the copy frozen at build time instead of the live files.

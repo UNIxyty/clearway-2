@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Load the pre-classified IMPORTANT.docx entries (seeds/important-seed.json)
-// into the Important store (data/important.json).
+// into the Important store (data/portal/important.json).
 //
 //   node scripts/import-important-seed.mjs [path/to/seed.json]
 //
@@ -22,7 +22,7 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { JsonFileStore } from "../lib/json-store.mjs";
+import { JsonFileStore, PORTAL_SHARED } from "../lib/json-store.mjs";
 import { sanitizeImportantEntry } from "../lib/important-store.mjs";
 
 const seedPath = path.resolve(process.argv[2] || path.join("seeds", "important-seed.json"));
@@ -38,7 +38,7 @@ function endOfDayIfDateOnly(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? `${value}T23:59:59Z` : value;
 }
 
-const store = new JsonFileStore("important.json", { entries: [] });
+const store = new JsonFileStore(`${PORTAL_SHARED}/important.json`, { entries: [] }, { movedFrom: "important.json" });
 const payload = await store.read();
 const byId = new Map((Array.isArray(payload.entries) ? payload.entries : []).map((e) => [e.id, e]));
 
@@ -66,7 +66,7 @@ await store.write({ entries, updatedAt: new Date().toISOString() });
 const active = entries.filter((e) => e.isActive !== false);
 const needsReview = entries.filter((e) => !e.reviewed);
 const overfly = entries.filter((e) => e.match?.direction === "overfly");
-console.log(`Imported ${seedEntries.length} seed entries -> data/important.json (${added} added, ${updated} updated)`);
+console.log(`Imported ${seedEntries.length} seed entries -> data/portal/important.json (${added} added, ${updated} updated)`);
 console.log(`  total in store: ${entries.length}`);
 console.log(`  active:         ${active.length}`);
 console.log(`  needs review:   ${needsReview.length}  (${needsReview.map((e) => e.id).join(", ")})`);

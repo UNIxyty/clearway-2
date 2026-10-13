@@ -29,7 +29,7 @@
 //   mutation { webhook { deleteSubscriptionWebhook(label) } }
 
 import crypto from "node:crypto";
-import { JsonFileStore } from "./json-store.mjs";
+import { JsonFileStore, PORTAL_SHARED } from "./json-store.mjs";
 
 const KEY_CACHE_TTL_MS = 24 * 3600_000;
 const LABEL_PREFIX = "digitalwall";
@@ -145,7 +145,7 @@ export class LeonWebhookService {
     this.sseHub = sseHub;
     this.store = new JsonFileStore("webhooks.json", { tenants: {} });
     this.state = { tenants: {} };
-    this.logStore = new JsonFileStore("webhook-log.json", { logs: {} });
+    this.logStore = new JsonFileStore(`${PORTAL_SHARED}/webhook-log.json`, { logs: {} }, { movedFrom: "webhook-log.json" });
     this.logs = { logs: {} };
     this.keyCache = new Map(); // oprId -> { pem, fetchedAtMs }
   }

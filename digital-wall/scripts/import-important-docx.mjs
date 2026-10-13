@@ -24,7 +24,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { JsonFileStore } from "../lib/json-store.mjs";
+import { JsonFileStore, PORTAL_SHARED } from "../lib/json-store.mjs";
 import { sanitizeImportantEntry } from "../lib/important-store.mjs";
 
 const CANDIDATES_FILE = path.resolve(process.cwd(), "data", "important-candidates.json");
@@ -215,7 +215,7 @@ async function apply(candidatesPath) {
   const { candidates } = JSON.parse(raw);
   if (!Array.isArray(candidates)) throw new Error("Candidates file has no candidates[] array.");
 
-  const store = new JsonFileStore("important.json", { entries: [] });
+  const store = new JsonFileStore(`${PORTAL_SHARED}/important.json`, { entries: [] }, { movedFrom: "important.json" });
   const payload = await store.read();
   const entries = Array.isArray(payload.entries) ? payload.entries : [];
   const byId = new Map(entries.map((e) => [e.id, e]));
@@ -230,7 +230,7 @@ async function apply(candidatesPath) {
     byId.set(sanitized.id, sanitized);
   }
   await store.write({ entries: [...byId.values()], updatedAt: new Date().toISOString() });
-  console.log(`Applied: ${added} added, ${updated} updated -> data/important.json`);
+  console.log(`Applied: ${added} added, ${updated} updated -> data/portal/important.json`);
   console.log("Restart the digital-wall backend (or wait for its next boot) to pick the entries up.");
 }
 

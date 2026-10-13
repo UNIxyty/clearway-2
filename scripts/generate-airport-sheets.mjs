@@ -24,7 +24,9 @@ import fs from "node:fs/promises";
 import { createWriteStream, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import { chromium } from "playwright";
+import { humanChanges } from "./airport-sheets-fields.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SHEETS_DIR = path.join(__dirname, "airport-sheets");
@@ -219,6 +221,31 @@ async function loadAirports(src) {
   return out;
 }
 let airports = await loadAirports(DATA_FILE);
+
+// The field rule (scripts/airport-sheets-fields.mjs): hand-entered values are never overwritten by extraction. Before
+// rendering, compare the data with what is committed in git; if a hand-entered value has been lost or changed and the
+// change is not committed, stop and say which — a sheet must not go out with a person's contacts silently replaced.
+// Commit a deliberate change first, or pass --accept-human-changes. (Without git, e.g. outside the repo, it says so.)
+{
+  const rel = path.relative(path.join(__dirname, ".."), DATA_FILE);
+  const git = (...a) => execFileSync("git", a, { cwd: path.join(__dirname, ".."), encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 << 20 });
+  let baseline = null;
+  try {
+    if (existsSync(DATA_FILE) && (await fs.stat(DATA_FILE)).isDirectory()) {
+      baseline = git("ls-tree", "-r", "--name-only", "HEAD", "--", rel).split("\n").filter((f) => f.endsWith(".json")).map((f) => JSON.parse(git("show", `HEAD:${f}`)));
+    } else baseline = JSON.parse(git("show", `HEAD:${rel}`));
+  } catch { console.log("Field rule: no committed copy of the data to compare with (not in a git checkout?); not checked."); }
+  if (baseline) {
+    const changes = humanChanges(Array.isArray(baseline) ? baseline : baseline.airports ?? [], airports);
+    if (changes.length && !process.argv.includes("--accept-human-changes")) {
+      console.error(`Stopped: ${changes.length} hand-entered value(s) differ from the committed data and the change is not committed:`);
+      for (const c of changes.slice(0, 40)) console.error(`  ${c.icao} ${c.field}: ${JSON.stringify(c.was)} → ${JSON.stringify(c.is)}`);
+      console.error("Hand-entered fields are never overwritten by extraction (scripts/airport-sheets-fields.mjs). If this change is deliberate, commit it, or run again with --accept-human-changes.");
+      process.exit(3);
+    }
+    if (changes.length) console.log(`Field rule: ${changes.length} uncommitted change(s) to hand-entered values accepted (--accept-human-changes).`);
+  }
+}
 const skipped = [];
 // Placeholder files that were never filled in produce no sheet.
 airports = airports.filter((a) => {

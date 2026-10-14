@@ -200,7 +200,7 @@ Read the weather again for every airport with a flight today or tomorrow.
 3. Read the message, for example **Weather refreshed for 8 airport(s)**.
 
 :::how-it-works
-The wall fetches the weather by itself every day at 00:01 UTC. Fetch it now after adding flights during the day, or
+The wall fetches the weather by itself every day at 00:01Z. Fetch it now after adding flights during the day, or
 if the weather colours look old.
 :::
 

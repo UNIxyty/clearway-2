@@ -68,7 +68,7 @@ Read the last notices Leon sent for one event, and what each changed on the wall
 
 1. Press the clock on the event's line (**Trigger history — what Leon pushed and what it changed**). The history
    opens, newest first.
-2. Read each line: the date and time in UTC, the flight, and what changed, for example **landed (ATA 12:34)**.
+2. Read each line: the date and time in UTC, the flight, and what changed, for example **landed (ATA 12:34Z)**.
 3. Press **✕** to close it.
 
 If nothing has come yet, it says **No events received yet for this trigger — history appears as Leon starts

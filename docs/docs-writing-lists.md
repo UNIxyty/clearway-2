@@ -113,6 +113,53 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 - **Admin › Users: a bulk password reset skips developers' rows without saying so.** An admin selects 2 rows, one a
   Developer; the bar says "2 selected", the toast says "Password reset sent to <one address>", and nothing says the
   other was skipped (`app/admin/users/page.tsx:173` filters protected rows out). Seen on the rig.
+- **Help & support: when the Telegram alert does not go out, an urgent report does not say so.** After **Send — it pings
+  now** the thread says "Not notified yet · Send your first message and the developer gets a Telegram alert", though the
+  person has just sent it. Nothing says the alert failed (`app/api/help/threads/route.ts:126`; seen on the rig, which
+  has no Telegram).
+- **Help & support: "Nudge again" says "Nudge sent to Telegram" whether or not it was sent.** The route does not look
+  at Telegram's answer (`app/api/help/threads/[id]/presence/route.ts:45`). Seen on the rig, which has no Telegram.
+- **Help & support: "How do I…" searches only the old Digital Wall guide** (`digital-wall/guide/index.html`, read by
+  `app/api/help/guide-search/route.ts:23`), not the portal's docs. "hide an airport" offered three wall flight-row
+  sections. One title showed a raw `&amp;` ("The marker row &amp; weather colouring").
+- **Help & support: opening a report form saves its empty template as a draft.** The next visit says "Draft restored",
+  though nothing was typed, and **Discard** asks "Discard this draft?". Seen on the rig.
+- **Help & support: the urgent card shows the phone number all day,** not only outside reading hours (see Serious).
+- **Help & support: every report form logs React error #419** in the browser (seen on the rig). Nothing visible breaks.
+- **Help & support: the attached details say "ROLE ops"** for a person whose role is User.
+- **Developer › Agent access: the words "Show revoked grants" are not part of the switch.** Pressing them does nothing;
+  only the switch beside them works (`components/agent/AgentAccess.tsx:166-167`). The page also logs React errors
+  #422 and #425 (seen on the rig), likely from times written in the computer's local time.
+- **Developer › Saved replies: "used" counts insertions, not sends.** A reply put in the box and not sent counts as used
+  (`components/help/DeveloperInbox.tsx:198`). **⇧⏎** also sets the paired status at once, before anything is sent.
+- **Admin › Users: "1 filter are hiding 4 people"** (grammar).
+- **Admin › Permissions: the note on a changed box gives local time** ("Last set by …, 14 Oct, 13:22"), while the change
+  log beside it gives UTC ("14 Oct 10:22Z"). Seen on the rig.
+- **Admin › Email logs lists nothing new.** Since Pick'em was removed (commit fa076e49, 2026-10-10) no code writes to
+  `email_logs`; the page only reads it (`app/api/admin/email-logs/route.ts`). Its subtitle, "Most recent 200 email send
+  attempts", reads as if it covered the portal's emails today. Its times are local and carry no zone.
+- **Admin › Service status editor: an unsaved change is lost after 10 seconds, with no message.** The page reloads its
+  rows every 10 s and overwrites what you chose (`app/admin/service-status/page.tsx:37,55`). Seen on the rig.
+- **Maintenance page: "Last updated: 10/14/2026, 1:28:00 PM"** is the reader's local time in US format, and the page
+  always adds "We are improving reliability and performance." Seen on the rig.
+- **Account › Profile: "Check your email" when the password link was not sent.** The profile calls
+  `/api/auth/password/forgot`, which answers ok even when sending failed (so the public page does not reveal which
+  addresses exist; `app/api/auth/password/forgot/route.ts:31`). For a signed-in person this hides a real failure. Seen
+  on the rig, which has no mail server.
+- **Account › Profile: an emptied display name stays in the sidebar** until the tab is closed (the sidebar only takes a
+  new name when it is not empty; `components/portal/Shell.tsx:89`). Seen on the rig.
+- **Airport search: any four-letter search is read as an ICAO code.** "Riga", "Oslo" and "Nice" find nothing; "Riga
+  Int" finds EVRA (`app/api/search/route.ts:562`, and the same rule at :519 for the database). Seen on the rig.
+- **Airport search: a hidden airport is still found by search.** Hiding filters only the database rows; the built-in
+  list is not filtered (`app/api/search/route.ts:566-575`). The Hidden airports page says hiding "removes it from your
+  own search and browse lists". Seen on the rig, with a two-airport table added for the test.
+- **Airport search: "Done · open 2" opens one airport.** Ticking several opens only the first. Seen on the rig.
+- **Airport search: after Find, the suggestions stay open over the result tabs** until Escape. Seen on the rig.
+- **Airport page: setup text on the dispatcher's screen.** When a source is not set up, the cards say "Set
+  NOTAM_SYNC_URL to your self-hosted NOTAM sync service (e.g. http://notam-sync:3001)", "Set WEATHER_SYNC_URL…" and
+  "Set AIP_SYNC_URL…" (`app/api/notams/route.ts:90`). `/api/weather` answers with a Node stack trace in its error
+  detail. Seen on the rig.
+- **Hidden airports: times in the reader's local time, US format** ("10/14/2026, 3:45:36 PM").
 - **Dashboard: developer-style names in Service monitors.**
 - **Dashboard: the changelog shows a user ID (a UUID) instead of a name.**
 - **Dashboard: the changelog block has two names** ("Your changelog" and "Changelog — everyone").
@@ -219,3 +266,28 @@ Each is also marked on its page with an `Unverified:` line.
 - Settings: saving model tiers, receiving addresses and the retention period (each would have changed or emptied the
   rig mid-run); separate Mac and Windows shortcuts.
 
+
+**AIP & Documents**
+- Airport search and Hidden airports: hiding and restoring with the real airport list. The rig has no `airports`
+  table; a two-airport table was added for the test, then removed.
+- Airport page: a Re-sync that works; getting and downloading GEN 1.2; reading and refreshing NOTAMs and weather. The
+  rig has no AIP, GEN, NOTAM or weather sync service, so each showed its failure.
+
+**Admin**
+- Users: that the password reset emails arrive (the rig has no mail server; the bulk count was checked with the
+  server's answer replaced).
+- Agent sites: what the requester sees in the extension (the requests were sent without the extension).
+- Email logs: real rows. The rig was given the table and two invented rows; in production nothing has written to it
+  since 2026-10-10 (see list 1).
+
+**Developer**
+- Inbox: answering from Telegram.
+- Agent access: nothing left (revoked rows and the off switch were checked on 2026-10-14, then put back).
+
+**Account & Settings**
+- Profile: the email-change email and its link; the password email and the Set a new password page.
+
+**Help & support**
+- Get help: the Telegram alerts for urgent reports and chats.
+- Your threads: the Telegram message behind Nudge again. "Developer has been notified" was set in the rig's database to
+  reach Nudge again and No answer for five minutes.

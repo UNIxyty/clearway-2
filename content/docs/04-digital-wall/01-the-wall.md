@@ -134,7 +134,7 @@ Each check keeps who made it and when.
 2. Read the **Checked:** line at the bottom. It lists each checked part, with the person and the time in UTC.
 
 :::example A Checked line
-Checked: Important ✓ a.dispatcher 21:04 · NOTAM ✓ a.dispatcher 21:04
+Checked: Important ✓ a.dispatcher 21:04Z · NOTAM ✓ a.dispatcher 21:04Z
 :::
 
 :::note The person is shown by their email

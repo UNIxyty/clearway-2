@@ -1214,22 +1214,21 @@ function AIPSearchPageInner() {
                                 }).catch(() => {});
                               }
                               runBrowseLoading(() => {
-                                const merged = [...(results ?? []), ...browseSelection];
-                                const byIcao = merged.filter((a, i, arr) => arr.findIndex((x) => x.icao === a.icao) === i);
-                                setResults(byIcao);
-                                const withCoords = byIcao.find((a) => a.lat != null && a.lon != null);
-                                const nextIcao = withCoords?.icao ?? browseSelection[0].icao;
+                                // One airport opens; several are listed as tabs here, like a search that matches
+                                // several, so the count on the button is what the person gets.
+                                setResults([...browseSelection]);
+                                setHiddenMatches([]);
                                 setSelectedCountry(browseSelectedCountry);
                                 setSelectedState(browseSelectedCountry === "United States of America" ? browseSelectedState : "");
                                 setBrowseMenuOpen(false);
                                 setHasSearched(true);
-                                router.push(`/aip/${nextIcao}`);
+                                if (browseSelection.length === 1) router.push(`/aip/${browseSelection[0].icao}`);
                               });
                             }
                           }}
                           disabled={browseSelection.length === 0}
                         >
-                          Done · open {browseSelection.length}
+                          {browseSelection.length > 1 ? `Done · show ${browseSelection.length}` : `Done · open ${browseSelection.length}`}
                         </PButton>
                       )}
                     </div>

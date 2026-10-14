@@ -6,6 +6,19 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
 import { AlertCircle, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { cw } from "@/lib/portal-tokens";
+import { OFFLINE, TRY_AGAIN_SIGNED_OUT, apiErrorText, authErrorText } from "@/lib/error-text";
+
+// What the page says for each `?error=` code (set by app/auth/callback and app/auth/reset). Only these sentences are
+// shown; text in the URL is never put on the page.
+const REDIRECT_ERRORS: Record<string, string> = {
+  missing_supabase: `Sign-in is not available right now. ${TRY_AGAIN_SIGNED_OUT}`,
+  oauth_cancelled: "Sign-in was cancelled. Sign in again below.",
+  oauth_failed: `Sign-in with your account provider did not finish. ${TRY_AGAIN_SIGNED_OUT}`,
+  oauth_no_code: "This sign-in link is not complete. Open the link from your email again, or sign in below.",
+  session_exchange_failed: "This link has expired or was already used. Request a new one, or sign in below.",
+  reset_link_required: "Open the latest password reset email and click the reset link.",
+};
+const REDIRECT_ERROR_OTHER = "Sign-in did not finish. Sign in again below.";
 
 // Visuals from the Claude Design "Sign In" handoff. The redirect-back
 // mechanics (validated `next`, window.location.href after sign-in) are
@@ -71,7 +84,6 @@ export default function LoginCard() {
   // Only same-origin relative paths survive; anything else falls back to "/".
   const next = safeNextPath(searchParams.get("next"));
   const urlError = searchParams.get("error");
-  const urlMessage = searchParams.get("message");
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -85,8 +97,8 @@ export default function LoginCard() {
 
   const redirectError = useMemo(() => {
     if (!urlError) return null;
-    return urlMessage || `Sign-in failed (${urlError}).`;
-  }, [urlError, urlMessage]);
+    return REDIRECT_ERRORS[urlError] ?? REDIRECT_ERROR_OTHER;
+  }, [urlError]);
 
   const displayError = error ?? redirectError;
 
@@ -102,7 +114,7 @@ export default function LoginCard() {
       if (signInErr) throw signInErr;
       window.location.href = next;
     } catch (e: unknown) {
-      setError((e as { message?: string })?.message || "Sign-in failed.");
+      setError(authErrorText(e, `Sign-in did not work. ${TRY_AGAIN_SIGNED_OUT}`));
     } finally {
       setLoading(false);
     }
@@ -125,18 +137,18 @@ export default function LoginCard() {
         sent?: boolean;
         message?: string;
       };
-      if (!res.ok) throw new Error(data.error || "Failed to send reset email.");
+      if (!res.ok) {
+        setError(apiErrorText(data, `The reset email could not be sent. ${TRY_AGAIN_SIGNED_OUT}`));
+        return;
+      }
       if (data.sent === false) {
-        setInfo(
-          data.message ||
-            "Reset email could not be sent right now. Please retry in a minute and verify your Supabase email provider configuration.",
-        );
+        setInfo(data.message || `The reset email could not be sent right now. ${TRY_AGAIN_SIGNED_OUT}`);
       } else {
         setForgotEmailSentTo(normalizedEmail);
         setInfo(data.message || "Password reset email sent.");
       }
-    } catch (e: unknown) {
-      setError((e as { message?: string })?.message || "Failed to send reset email.");
+    } catch {
+      setError(OFFLINE);
     } finally {
       setLoading(false);
     }

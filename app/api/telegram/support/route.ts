@@ -21,6 +21,7 @@ import {
   unreadCounts,
 } from "@/lib/help/store";
 import { publishHelpEvent } from "@/lib/help/stream";
+import { failure } from "@/lib/public-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -154,6 +155,6 @@ export async function POST(request: Request) {
     if (error instanceof ThreadClosedError) {
       return NextResponse.json({ error: "Thread is closed to new replies", closed: true }, { status: 409 });
     }
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
+    return failure(500, "That did not work. Try again in a few minutes.", { tag: "TELEGRAM-SUPPORT", what: "Support op failed", detail: error });
   }
 }

@@ -10,6 +10,8 @@ import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
 import { Badge, Button, Card, Checkbox, ConfirmDialog, CountBadge, DataTable, EmptyState, ErrorState, Modal, RadioGroup, SkeletonRows, TableCard, TextArea, TextInput, errorDetail, useToast, type Column } from "@/components/kit";
 import { dayTimeZ } from "@/lib/time";
+import { personText } from "@/components/agent/ui/errorText";
+import { ShownError, TRY_AGAIN, shownText } from "@/lib/error-text";
 
 const AGENT_BASE = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
 
@@ -23,10 +25,20 @@ function whenZ(iso: string | null | undefined): string {
 }
 const scopeLabel = (sub: boolean) => (sub ? "+ subdomains" : "This site only");
 
+// The status chooses our sentence. A refused input (400) shows the agent's own validation sentence, such as "Give the
+// host only — no scheme, path, port or wildcard", when it passes the agent UI's technical-text check.
 async function agentPost(path: string, body: unknown) {
   const res = await fetch(`${AGENT_BASE}${path}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const payload = await res.json().catch(() => ({}));
-  if (!res.ok || !payload?.ok) throw new Error(payload?.message || `The agent said ${res.status}.`);
+  if (!res.ok || !payload?.ok) {
+    throw new ShownError(
+      res.status === 400 || res.status === 409 || res.status === 422
+        ? personText(payload?.message, "The agent service did not accept this. Check the site name and try again.")
+        : res.status === 401 || res.status === 403
+          ? "Approving sites needs an admin."
+          : `The agent service did not answer as expected (${res.status}). ${TRY_AGAIN}`,
+    );
+  }
   return payload;
 }
 
@@ -48,8 +60,8 @@ export default function AdminAgentSitesPage() {
   const load = useCallback(async () => {
     const res = await fetch(`${AGENT_BASE}/api/extension/sites/admin`, { credentials: "same-origin", cache: "no-store" }).catch(() => null);
     const payload = res ? await res.json().catch(() => ({})) : {};
-    if (res?.status === 401 || res?.status === 403) { setForbidden(payload?.message || "Approving sites needs an admin."); setState("ready"); return; }
-    if (!res?.ok || !payload?.ok) { setLoadError(errorDetail(res?.status ?? "network", "GET", "/agent/api/extension/sites/admin") + (payload?.message ? ` · ${payload.message}` : "")); setState("error"); return; }
+    if (res?.status === 401 || res?.status === 403) { setForbidden("Approving sites needs an admin."); setState("ready"); return; }
+    if (!res?.ok || !payload?.ok) { setLoadError(errorDetail(res?.status ?? "network", "GET", "/agent/api/extension/sites/admin")); setState("error"); return; }
     setApproved(payload.approved ?? []);
     setRequests(payload.requests ?? []);
     setState("ready");
@@ -59,7 +71,7 @@ export default function AdminAgentSitesPage() {
   async function run(key: string, fn: () => Promise<string>) {
     setBusy(key);
     try { const said = await fn(); await load(); toast.show({ tone: "success", title: said }); return true; }
-    catch (e) { toast.show({ tone: "danger", title: "That didn't work", body: (e as Error).message }); return false; }
+    catch (e) { toast.show({ tone: "danger", title: "That didn't work", body: shownText(e, `The change was not saved. ${TRY_AGAIN}`) }); return false; }
     finally { setBusy(null); }
   }
   const scopeOf = (r: SiteRequest): Scope => scopes[r.id] ?? (r.includeSubdomains ? "subdomains" : "host");

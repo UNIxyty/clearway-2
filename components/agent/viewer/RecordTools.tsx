@@ -15,6 +15,7 @@ import { Button, Icon } from "../ui/primitives";
 import { AGENT_BASE } from "../types";
 import type { DocRef } from "./types";
 import { cw } from "@/lib/portal-tokens";
+import { apiMessage } from "../ui/errorText";
 
 export const COMPOSE_EVENT = "cw-agent-compose";
 export type ComposeDetail = { text: string; send: boolean };
@@ -37,7 +38,7 @@ export function RecordEditor({ docRef, onClose, onSaved }: { docRef: DocRef & { 
     try {
       const res = await fetch(`${AGENT_BASE}/api/knowledge/documents/${encodeURIComponent(docRef.id)}`, { method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: form.title, source: form.source, version: form.version, effectiveDate: form.effectiveDate || null, icao: form.icao, tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean) }) });
       const b = await res.json().catch(() => null);
-      if (!res.ok || !b?.ok) { setState({ busy: false, error: b?.message ?? "The record could not be saved." }); return; }
+      if (!res.ok || !b?.ok) { setState({ busy: false, error: apiMessage(b, "The record could not be saved. Try again.") }); return; }
       onSaved(); onClose();
     } catch { setState({ busy: false, error: "The record could not be saved — check the connection." }); }
   }

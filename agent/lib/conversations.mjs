@@ -5,6 +5,8 @@
 // Every read is scoped to the calling user's id in the query itself — not
 // filtered after fetching — so one dispatcher can never load another's thread.
 
+import { publicStep, publicStoredError } from "./public-errors.mjs";
+
 const REST_TIMEOUT_MS = 10_000;
 
 function url() {
@@ -43,12 +45,14 @@ function mapMessage(r) {
     content: r.content ?? "",
     blocks: r.blocks ?? null,
     sources: r.sources ?? [],
-    toolActivity: r.tool_activity ?? [],
+    // A failed step's summary and a failed reply's error are re-worded from their codes on the way out: rows saved
+    // before 2026-10-14 can hold an exception's raw text (lib/public-errors.mjs).
+    toolActivity: Array.isArray(r.tool_activity) ? r.tool_activity.map(publicStep) : [],
     modelId: r.model_id ?? null,
     modelTier: r.model_tier ?? null,
     inputTokens: r.input_tokens ?? null,
     outputTokens: r.output_tokens ?? null,
-    error: r.error ?? null,
+    error: publicStoredError(r.error),
     createdAt: r.created_at,
   };
 }

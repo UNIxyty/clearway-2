@@ -8,6 +8,8 @@
 // with no space after RWY. Patterns are bounded ([^.;\n]{0,80}) so a match
 // never reaches across sentences of an E) field.
 
+import { PublicError } from "./public-error.mjs";
+
 // Wildcard runway patterns — must catch all three real-world forms:
 //   RWY06R/24L CLSD                          (no space after RWY)
 //   RWY 06L/24R SHALL BE TEMPORARILY CLSD    (words between designator and CLSD)
@@ -69,19 +71,19 @@ function escapeRegex(value) {
 
 export function sanitizeNotamGroups(input) {
   const groups = Array.isArray(input) ? input : [];
-  if (groups.length === 0) throw new Error("notamGroups needs at least one group.");
+  if (groups.length === 0) throw new PublicError("Add at least one keyword group.");
   return groups.map((raw) => {
     const group = String(raw?.group || "").trim();
-    if (!group) throw new Error("Every keyword group needs a name.");
+    if (!group) throw new PublicError("Every keyword group needs a name.");
     const color = String(raw?.color || "#6c7079").trim();
-    if (!/^#[0-9a-fA-F]{3,8}$/.test(color)) throw new Error(`Invalid color for group "${group}": ${color}`);
+    if (!/^#[0-9a-fA-F]{3,8}$/.test(color)) throw new PublicError(`The colour for group "${group}" is not valid. Use a colour like #ff8800.`);
     const terms = (Array.isArray(raw?.terms) ? raw.terms : []).map((v) => String(v).trim()).filter(Boolean);
     const patterns = (Array.isArray(raw?.patterns) ? raw.patterns : []).map((v) => String(v).trim()).filter(Boolean);
     for (const source of patterns) {
       try {
         new RegExp(source, "i");
       } catch {
-        throw new Error(`Invalid regex in group "${group}": ${source}`);
+        throw new PublicError(`A pattern in group "${group}" is not valid: ${source}`);
       }
     }
     return { group, color, terms, patterns };

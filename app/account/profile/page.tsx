@@ -10,6 +10,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import PortalShell, { useIdentity } from "@/components/portal/Shell";
 import { Button, Callout, Card, ErrorState, IconButton, RoleBadge, SkeletonRows, TextInput, useToast } from "@/components/kit";
+import { OFFLINE, ShownError, TRY_AGAIN, apiErrorText, authErrorText, shownText } from "@/lib/error-text";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const ROLE_TEXT = { developer: "Developer", admin: "Admin", user: "User" } as const;
@@ -66,7 +67,7 @@ export default function ProfilePage() {
     const res = await fetch("/api/user/preferences", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ display_name: displayName }) }).catch(() => null);
     const data = res ? await res.json().catch(() => ({})) : {};
     setSavingName(false);
-    if (!res?.ok) { toast.show({ tone: "danger", title: "Couldn't save your name", body: data.error || `The server said ${res?.status ?? "nothing"}.` }); return; }
+    if (!res?.ok) { toast.show({ tone: "danger", title: "Couldn't save your name", body: res ? apiErrorText(data, `The server said ${res.status}.`) : OFFLINE }); return; }
     setSavedName(displayName.trim());
     toast.show({ tone: "success", title: displayName.trim() ? "Name saved" : "Name removed — your email shows instead" });
   }
@@ -79,7 +80,7 @@ export default function ProfilePage() {
     setEmailSaving(true);
     const { error } = await supabase.auth.updateUser({ email: target });
     setEmailSaving(false);
-    if (error) { setEmailError(error.message || "Couldn't start the change."); return; }
+    if (error) { setEmailError(authErrorText(error, `Couldn't start the change. ${TRY_AGAIN}`)); return; }
     setPendingEmail(target); setEditingEmail(false); setNewEmail("");
   }
 
@@ -89,16 +90,16 @@ export default function ProfilePage() {
     setPwSaving(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: currentPassword });
-      if (error) throw new Error("That isn't your current password.");
+      if (error) throw new ShownError(error.code === "invalid_credentials" || /invalid login credentials/i.test(error.message) ? "That isn't your current password." : authErrorText(error, "That isn't your current password."));
       const res = await fetch("/api/auth/password/forgot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
       const data = (await res.json().catch(() => ({}))) as { error?: string; sent?: boolean };
-      if (!res.ok) throw new Error(data.error || "Couldn't send the email.");
+      if (!res.ok) throw new ShownError(apiErrorText(data, `Couldn't send the email. ${TRY_AGAIN}`));
       // The route answers ok even when sending failed, so the public "forgot password" page does not reveal which
       // addresses exist. Here the person is signed in with this address, so a failure is a real one: say so.
-      if (data.sent === false) throw new Error("The email could not be sent. Try again in a few minutes, or ask an admin to send a password reset from Admin › Users.");
+      if (data.sent === false) throw new ShownError("The email could not be sent. Try again in a few minutes, or ask an admin to send a password reset from Admin › Users.");
       setPwSentTo(email.trim()); setPwOpen(false); setCurrentPassword("");
     } catch (e) {
-      setPwError((e as Error).message);
+      setPwError(shownText(e, `Couldn't send the email. ${TRY_AGAIN}`));
     } finally {
       setPwSaving(false);
     }

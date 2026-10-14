@@ -7,6 +7,9 @@ import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
 import { buildAppUrl } from "@/lib/auth-email-flow-utils.mjs";
+import { TRY_AGAIN, failure, logFailure } from "@/lib/public-error";
+
+const NOT_SENT = `The reset email was not sent. ${TRY_AGAIN}`;
 
 export async function POST(request: Request) {
   const auth = await requirePermission("portal.users.password-reset");
@@ -19,7 +22,9 @@ export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const service = createSupabaseServiceRoleClient();
-  if (!url || !anonKey || !service) return NextResponse.json({ error: "The reset email service is not configured." }, { status: 503 });
+  if (!url || !anonKey || !service) {
+    return failure(503, NOT_SENT, { tag: "ADMIN-PASSWORD-RESET", what: "Supabase URL / anon key / service role key not set" });
+  }
 
   const { data: target, error: findError } = await service.auth.admin.getUserById(userId);
   const email = target?.user?.email ?? null;
@@ -35,7 +40,8 @@ export async function POST(request: Request) {
   const { error } = await anon.auth.resetPasswordForEmail(email, { redirectTo: `${appUrl}/auth/reset` });
   if (error) {
     const status = (error as { status?: number }).status ?? 502;
-    return NextResponse.json({ error: status === 429 ? "Too many reset emails just now — try again in a minute." : `The reset email was not sent: ${error.message}`, status }, { status: status === 429 ? 429 : 502 });
+    logFailure("ADMIN-PASSWORD-RESET", `resetPasswordForEmail failed (${status})`, error.message);
+    return NextResponse.json({ error: status === 429 ? "Too many reset emails just now — try again in a minute." : NOT_SENT, status }, { status: status === 429 ? 429 : 502 });
   }
   return NextResponse.json({ ok: true, sentTo: email });
 }

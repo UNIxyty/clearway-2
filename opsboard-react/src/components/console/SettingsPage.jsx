@@ -20,6 +20,7 @@ import {
 } from '../../services/timelineApi';
 import { collectViewportEnv, getDeviceId } from '../../services/device';
 import { fetchCurrentUser } from '../../services/timelineApi';
+import { errorText } from '../../services/errorText';
 
 // Which ACCOUNT's profile the sizing cards edit. null = your own view;
 // the string carries the target account (the main wall signs in as
@@ -123,7 +124,7 @@ function ClocksCard() {
   useEffect(() => {
     fetchDisplayClocks()
       .then((payload) => { setClocks(payload.clocks || []); setLocalSource(payload.localSource ?? null); })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoading(false));
     const id = setInterval(() => setTick((v) => v + 1), 1000);
     return () => clearInterval(id);
@@ -143,7 +144,7 @@ function ClocksCard() {
       setLocalSource(payload.localSource ?? null);
       flash('Clocks saved · wall updates in seconds');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     }
   }
 
@@ -345,7 +346,7 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
             try {
               await resetProfile(MAIN_WALL_ACCOUNT);
               flash('Main wall reset to defaults');
-            } catch (err) { flash(String(err.message || err), '#f87171'); }
+            } catch (err) { flash(errorText(err), '#f87171'); }
           }}
         >
           Reset main wall to defaults
@@ -370,7 +371,7 @@ function DisplayScaleCard() {
       .then((payload) => {
         if (Number.isFinite(payload.settings?.scale)) setScale(payload.settings.scale);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
     return () => clearTimeout(timerRef.current);
   }, []);
@@ -385,7 +386,7 @@ function DisplayScaleCard() {
         await saveDisplaySettings({ scale: next }, deviceId);
         flash(`Display scale ${next.toFixed(2)}× — wall updates in seconds`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorText(err));
       }
     }, 500);
   }
@@ -451,7 +452,7 @@ function HourSpacingCard() {
       .then((payload) => {
         if (Number.isFinite(payload.settings?.timeZoom)) setTimeZoom(payload.settings.timeZoom);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
     return () => clearTimeout(timerRef.current);
   }, []);
@@ -467,7 +468,7 @@ function HourSpacingCard() {
         await saveDisplaySettings({ timeZoom: next }, deviceId);
         flash(`Hour spacing ${next.toFixed(2)}× — wall updates in seconds`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorText(err));
       }
     }, 500);
   }
@@ -541,7 +542,7 @@ function VerticalSizingCard() {
         });
         setAutoFit(payload.settings?.autoFitRows === true);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
     return () => clearTimeout(timerRef.current);
   }, []);
@@ -556,7 +557,7 @@ function VerticalSizingCard() {
         await saveDisplaySettings({ [key]: next }, deviceId);
         flash(`${label} ${next.toFixed(2)}× — wall updates in seconds`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorText(err));
       }
     }, 500);
   }
@@ -597,7 +598,7 @@ function VerticalSizingCard() {
             try {
               await saveDisplaySettings({ autoFitRows: next }, deviceId);
               flash(`Auto-fit ${next ? 'ON' : 'off'}${deviceId ? ' for this screen' : ' (defaults)'}`);
-            } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+            } catch (err) { setError(errorText(err)); }
           }}
         >
           {autoFit ? 'Auto-fit ON' : 'Auto-fit off'}
@@ -665,7 +666,7 @@ function HorizontalSizingCard() {
         setCheck({ floorsDistanceM: payload.settings?.floorsDistanceM ?? null, floorsCheckedAt: payload.settings?.floorsCheckedAt ?? null });
         if (payload.settings?.floorsDistanceM) setDistance(String(payload.settings.floorsDistanceM));
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
     return () => clearTimeout(timerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -678,7 +679,7 @@ function HorizontalSizingCard() {
       try {
         await saveDisplaySettings({ [key]: next }, deviceId);
         flash(`${label} ${unit === 'min' ? `${next} min` : `${Number(next).toFixed(2)}×`} — wall updates in seconds`);
-      } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+      } catch (err) { setError(errorText(err)); }
     }, 500);
   }
 
@@ -698,7 +699,7 @@ function HorizontalSizingCard() {
       try {
         await saveDisplaySettings({ [key]: next }, deviceId);
         flash(`${label} ${next} px — wall updates in seconds`);
-      } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+      } catch (err) { setError(errorText(err)); }
     }, 500);
   }
   async function recordCheck() {
@@ -710,7 +711,7 @@ function HorizontalSizingCard() {
       setCheck({ floorsDistanceM: metres, floorsCheckedAt: at });
       setError('');
       flash(`Minimums recorded: text ${floors.floorTextPx} px, spacing ${floors.floorGapPx} px, read from ${metres} m`);
-    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    } catch (err) { setError(errorText(err)); }
   }
 
   return (
@@ -743,7 +744,7 @@ function HorizontalSizingCard() {
             try {
               await saveDisplaySettings({ autoFitHorizontal: next }, deviceId);
               flash(`Horizontal auto-fit ${next ? 'ON' : 'off'}`);
-            } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+            } catch (err) { setError(errorText(err)); }
           }}
         >
           {autoFit ? 'Auto-fit ON' : 'Auto-fit off'}
@@ -804,7 +805,7 @@ function ChipsCard() {
   useEffect(() => {
     fetchDisplaySettings(deviceId)
       .then((payload) => setValues(Object.fromEntries(KEYS.map((k) => [k.key, payload.settings?.[k.key] !== false]))))
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -814,7 +815,7 @@ function ChipsCard() {
     try {
       await saveDisplaySettings({ [k.key]: next }, deviceId);
       flash(`${k.label} chip ${next ? 'shown' : 'hidden'} — wall updates in seconds`);
-    } catch (err) { setValues((prev) => ({ ...prev, [k.key]: !next })); setError(err instanceof Error ? err.message : String(err)); }
+    } catch (err) { setValues((prev) => ({ ...prev, [k.key]: !next })); setError(errorText(err)); }
   }
   const hidden = KEYS.filter((k) => values[k.key] === false);
   return (
@@ -863,7 +864,7 @@ function UpcomingTableCard() {
         if (Number.isFinite(payload.settings?.upcomingTableScale)) setTblScale(payload.settings.upcomingTableScale);
         if (Number.isFinite(payload.settings?.upcomingTableWidthPct)) setWidthPct(payload.settings.upcomingTableWidthPct);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
     return () => clearTimeout(timerRef.current);
   }, []);
@@ -875,7 +876,7 @@ function UpcomingTableCard() {
         await saveDisplaySettings(patch, deviceId);
         flash(message);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorText(err));
       }
     }, 500);
   }
@@ -1069,7 +1070,7 @@ function PanelScalesCard() {
         if (Number.isFinite(payload.settings?.mvtFlashSeconds)) setMvtFlashSeconds(payload.settings.mvtFlashSeconds);
         setUnconfirmedOutline(payload.settings?.unconfirmedOutline !== false);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
     return () => clearTimeout(timerRef.current);
   }, []);
@@ -1081,7 +1082,7 @@ function PanelScalesCard() {
         await saveDisplaySettings(patch, deviceId);
         flash(message);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorText(err));
       }
     }, 500);
   }
@@ -1224,7 +1225,7 @@ function VisibilityWindowCard() {
         if (Number.isFinite(payload.settings?.upcomingHorizonHours)) setHorizon(payload.settings.upcomingHorizonHours);
         if (Number.isFinite(payload.settings?.postLandingHours)) setPostLanding(payload.settings.postLandingHours);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
     return () => clearTimeout(timerRef.current);
   }, []);
@@ -1236,7 +1237,7 @@ function VisibilityWindowCard() {
         await saveDisplaySettings(patch);
         flash(message);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorText(err));
       }
     }, 500);
   }
@@ -1352,7 +1353,7 @@ function AlertFilterCard() {
         setRules(payload.rules);
         setRawText(JSON.stringify(payload.rules, null, 2));
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err) => setError(errorText(err)));
   }, []);
 
   function mutate(path, next) {
@@ -1386,7 +1387,7 @@ function AlertFilterCard() {
       setDirty(false);
       flash('Alert rules saved · applies from the next scan');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setSaving(false);
     }
@@ -1405,7 +1406,7 @@ function AlertFilterCard() {
           `Scan complete · ${scan?.flightsScanned ?? 0} flights, ${scan?.newFindings ?? 0} new finding${(scan?.newFindings ?? 0) === 1 ? '' : 's'}`
         );
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setScanning(false);
     }
@@ -1528,7 +1529,7 @@ function AlertFilterCard() {
           <div style={{ border: `1px solid ${t.borderInner}`, borderRadius: 11, padding: '13px 15px' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: t.muted, marginBottom: 8 }}>Notification recipient</div>
             <div style={{ fontSize: 13, color: t.body, lineHeight: 1.45 }}>
-              Daily notification (no NOTAM content) via <span style={{ fontFamily: t.mono, fontSize: 12 }}>NOTAM_DIGEST_TO</span>.
+              Daily notification (no NOTAM content) to the recipients in the NOTAM digest card.
             </div>
           </div>
         </div>
@@ -1547,7 +1548,7 @@ function NotamDigestCard() {
   useEffect(() => {
     fetchDigestConfig()
       .then((payload) => setConfig(payload.config))
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err) => setError(errorText(err)));
   }, []);
 
   async function persist(patch, message) {
@@ -1558,7 +1559,7 @@ function NotamDigestCard() {
       setConfig(payload.config);
       flash(message);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     }
     setSaving(false);
   }
@@ -1656,7 +1657,7 @@ function WeatherCard() {
               setLast(payload);
               flash(`Weather refreshed for ${payload.refreshed} airport(s) — wall updates in seconds`);
             } catch (err) {
-              setError(err instanceof Error ? err.message : String(err));
+              setError(errorText(err));
             }
             setBusy(false);
           }}
@@ -1693,7 +1694,7 @@ function DevicesCard() {
         setData(payload);
         setError('');
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err) => setError(errorText(err)));
 
   useEffect(() => {
     load();
@@ -1753,7 +1754,7 @@ function DevicesCard() {
                 flash('Device approved — the screen comes to life within a few seconds');
                 load();
               } catch (err) {
-                setError(err instanceof Error ? err.message : String(err));
+                setError(errorText(err));
               }
               setBusyId('');
             }}
@@ -1799,7 +1800,7 @@ function DevicesCard() {
                 flash('Device revoked — its screen has been disconnected');
                 load();
               } catch (err) {
-                setError(err instanceof Error ? err.message : String(err));
+                setError(errorText(err));
               }
               setBusyId('');
             }}

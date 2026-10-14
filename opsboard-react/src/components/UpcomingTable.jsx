@@ -5,6 +5,7 @@ import { useWallColors } from '../theme/WallColorsContext';
 import { chromeFor, leonChecklistColor, wxCategoryColorsFor } from '../theme/wallColors';
 
 import { WALL_FONT } from '../theme/wallFont';
+import { errorText } from '../services/errorText';
 // Upcoming Flight Table (bug report 3 item 10): a side panel listing every
 // flight from today 00:01 UTC onward — the wall's look-ahead beyond the
 // timeline window. Cell colours come straight from Leon checklists:
@@ -39,7 +40,7 @@ export default function UpcomingTable({ scale = 1, widthPct = 30 }) {
     const load = () => {
       fetchUpcomingFlights()
         .then((data) => { if (alive) { setRows(data); setError(''); } })
-        .catch((err) => { if (alive) setError(err instanceof Error ? err.message : String(err)); });
+        .catch((err) => { if (alive) setError(errorText(err)); });
     };
     load();
     const timer = setInterval(load, 120_000);

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { approveAuthDevice, fetchAuthDevices } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
 import { Button, MonoChip, t, TextInput, useToast } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Bug report 6 item 7 follow-up: an iCloud-style approval popup. When a
 // screen announces itself, this card slides in on WHATEVER console page is
@@ -110,7 +111,7 @@ export default function DeviceApprovalPopup() {
               flash('Screen approved — it comes to life in a few seconds');
               setName('');
             } catch (err) {
-              setError(err instanceof Error ? err.message : String(err));
+              setError(errorText(err));
             }
             setBusy(false);
           }}

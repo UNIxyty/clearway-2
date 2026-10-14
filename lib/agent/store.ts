@@ -5,6 +5,10 @@
 
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import type { AgentAccessRow, AgentKillSwitch } from "@/lib/agent/shared";
+import { logFailure } from "@/lib/public-error";
+
+/** The kill switch's reason when it cannot be read (the database error is logged, not shown). */
+const KILL_SWITCH_UNREADABLE = "The agent settings could not be read, so the agent is off. Report it from Help & support.";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? null : String(v));
@@ -100,16 +104,20 @@ export async function revokeAgentAccess(input: {
 /** Fails CLOSED: an unreadable switch reads as disabled. */
 export async function getKillSwitch(): Promise<AgentKillSwitch> {
   const service = createSupabaseServiceRoleClient();
-  if (!service) return { enabled: false, reason: "Supabase is not configured — failing closed.", updatedAt: null, updatedByEmail: null };
+  if (!service) {
+    logFailure("AGENT-STORE", "Kill switch unreadable: SUPABASE_SERVICE_ROLE_KEY not set — failing closed");
+    return { enabled: false, reason: KILL_SWITCH_UNREADABLE, updatedAt: null, updatedByEmail: null };
+  }
   const { data, error } = await service
     .from("agent_settings")
     .select("enabled,reason,updated_at,updated_by_email")
     .eq("id", "global")
     .maybeSingle();
   if (error || !data) {
+    logFailure("AGENT-STORE", error ? "Kill switch unreadable — failing closed" : "agent_settings row is missing — failing closed", error?.message);
     return {
       enabled: false,
-      reason: error ? `Agent settings unreadable — failing closed: ${error.message}` : "Agent settings row is missing — failing closed.",
+      reason: KILL_SWITCH_UNREADABLE,
       updatedAt: null,
       updatedByEmail: null,
     };

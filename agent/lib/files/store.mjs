@@ -117,7 +117,7 @@ export async function sweepGeneratedFiles({ now = Date.now() } = {}) {
     ];
   } catch (error) {
     process.stderr.write(`[agent-files] retention sweep could not list files: ${error.message}\n`);
-    return { swept: 0, error: error.message };
+    return { swept: 0, error: "could not list files (see the server log)" };
   }
   let swept = 0;
   for (const row of rows ?? []) {

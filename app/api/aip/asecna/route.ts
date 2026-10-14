@@ -9,6 +9,21 @@ import {
   parseAsecnaCli,
   resolveAsecnaHtmlUrl,
 } from "@/scripts/asecna/asecna-eaip-http.mjs";
+import { failure, logFailure, publicEventStream } from "@/lib/public-error";
+import { AIP_FAILED, AIP_NOT_SET_UP, AIP_NO_ANSWER, aipSyncFailure } from "@/lib/aip-sync-failure";
+
+/** Thrown when the sync worker answered with an error; its event is kept for choosing our wording. */
+class SyncWorkerError extends Error {
+  constructor(readonly event: { error?: string; detail?: string; code?: number }, readonly status: number) {
+    super(`${event.error ?? "Sync failed"}${event.detail ? `: ${event.detail}` : ""}`);
+  }
+}
+
+/** Our wording for a failed ASECNA download; the detail is logged. */
+function asecnaFailure(icao: string, err: unknown) {
+  logFailure("AIP-ASECNA", `ASECNA AD 2 sync for ${icao} failed`, err);
+  return err instanceof SyncWorkerError ? aipSyncFailure({ ...err.event, status: err.status }) : { error: AIP_FAILED };
+}
 
 const JSON_PREFIX = "aip/asecna";
 const PDF_PREFIX = "aip/asecna-pdf";
@@ -81,13 +96,7 @@ export async function GET(request: NextRequest) {
   // For AI extract flow, delegate to the existing sync-server pipeline.
   if (extract) {
     if (!AIP_SYNC_URL) {
-      return NextResponse.json(
-        {
-          error: "AIP sync not configured",
-          detail: "Set AIP_SYNC_URL to your self-hosted AIP sync service for extraction flow.",
-        },
-        { status: 503 },
-      );
+      return failure(503, AIP_NOT_SET_UP, { tag: "AIP-ASECNA", what: "ASECNA extract sync requested but AIP_SYNC_URL is not set" }, { code: "not_configured" });
     }
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
@@ -105,7 +114,7 @@ export async function GET(request: NextRequest) {
       request.signal.removeEventListener("abort", onAbort);
 
       if (stream && res.ok && res.body) {
-        return new Response(res.body, {
+        return new Response(publicEventStream(res.body, "AIP-ASECNA", (e) => aipSyncFailure(e)), {
           headers: {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
@@ -121,10 +130,8 @@ export async function GET(request: NextRequest) {
         detail?: string;
       };
       if (!res.ok) {
-        return NextResponse.json(
-          { error: data.error ?? "Sync failed", detail: data.detail },
-          { status: res.status >= 400 && res.status < 600 ? res.status : 502 },
-        );
+        logFailure("AIP-ASECNA", `ASECNA extract sync for ${icao} returned ${res.status}`, { error: data.error, detail: data.detail });
+        return NextResponse.json(aipSyncFailure({ ...data, status: res.status }), { status: res.status >= 400 && res.status < 600 ? res.status : 502 });
       }
       const updatedAt = new Date().toISOString();
       await saveJson(icao, { updatedAt });
@@ -133,13 +140,7 @@ export async function GET(request: NextRequest) {
       if (request.signal.aborted) {
         return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
       }
-      return NextResponse.json(
-        {
-          error: "ASECNA extract sync failed",
-          detail: err instanceof Error ? err.message : String(err),
-        },
-        { status: 502 },
-      );
+      return failure(502, AIP_NO_ANSWER, { tag: "AIP-ASECNA", what: `ASECNA extract sync for ${icao} failed`, detail: err });
     }
   }
 
@@ -158,8 +159,8 @@ export async function GET(request: NextRequest) {
       try {
         const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
         if (!res.ok) {
-          const data = await res.json().catch(() => ({})) as { error?: string; detail?: string };
-          throw new Error((data.error ?? "Sync failed") + (data.detail ? `: ${data.detail}` : ""));
+          const data = await res.json().catch(() => ({})) as { error?: string; detail?: string; code?: number };
+          throw new SyncWorkerError(data, res.status);
         }
       } finally {
         clearTimeout(timeout);
@@ -171,7 +172,11 @@ export async function GET(request: NextRequest) {
   }
 
   if (!stream) {
-    await downloadPdfForIcao();
+    try {
+      await downloadPdfForIcao();
+    } catch (err) {
+      return NextResponse.json(asecnaFailure(icao, err), { status: 500 });
+    }
     const updatedAt = new Date().toISOString();
     await saveJson(icao, { updatedAt });
     return NextResponse.json({ done: true, airports: [], updatedAt, pdfReady: true });
@@ -191,7 +196,7 @@ export async function GET(request: NextRequest) {
         send({ step: "ASECNA AD 2 PDF saved to storage." });
         send({ done: true, airports: [], updatedAt, pdfReady: true });
       } catch (err) {
-        send({ error: "ASECNA sync failed", detail: err instanceof Error ? err.message : String(err) });
+        send(asecnaFailure(icao, err));
       } finally {
         controller.close();
       }

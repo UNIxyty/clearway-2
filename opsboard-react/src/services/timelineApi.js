@@ -1,3 +1,5 @@
+import { CONNECTION, failureFrom, readPayload, ShownError, TRY_AGAIN } from './errorText';
+
 const RAW_API_BASE = String(import.meta.env.VITE_API_BASE_URL || '').trim();
 
 function normalizeApiBase() {
@@ -30,7 +32,8 @@ export async function fetchCurrentUser() {
   try {
     response = await fetch(buildApiUrl('/api/user'));
   } catch (error) {
-    return { status: 'error', error: error instanceof Error ? error.message : String(error) };
+    console.error('[wall] sign-in check could not reach the server', error);
+    return { status: 'error', error: CONNECTION };
   }
   if (response.status === 401) return { status: 'unauthorized' };
   let payload = {};
@@ -40,24 +43,24 @@ export async function fetchCurrentUser() {
     /* non-JSON error page */
   }
   if (!response.ok) {
-    return { status: 'error', error: payload.error || `Auth check failed (${response.status})` };
+    return { status: 'error', error: (typeof payload.error === 'string' && payload.error) || `Couldn't check your sign-in. ${TRY_AGAIN}` };
   }
   return { status: 'ok', user: payload.user || payload, authEnabled: payload.authEnabled !== false };
 }
 
-async function fetchJson(pathWithQuery, errorPrefix) {
+// `what` is the sentence shown when the server sends none, e.g. "Couldn't load the flights." The network error and
+// the API base setting go to the browser console, never to the screen.
+async function fetchJson(pathWithQuery, what) {
   let response;
   try {
     response = await fetch(buildApiUrl(pathWithQuery));
   } catch (error) {
-    throw new Error(
-      `${errorPrefix}: ${error instanceof Error ? error.message : String(error)}. ` +
-      `Check VITE_API_BASE_URL="${RAW_API_BASE || '(empty)'}".`
-    );
+    console.error(`[wall] ${pathWithQuery} could not reach the server (API base "${RAW_API_BASE || '(empty)'}")`, error);
+    throw new ShownError(CONNECTION);
   }
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `${errorPrefix} (${response.status})`);
+    throw failureFrom(payload, what);
   }
   return payload;
 }
@@ -287,10 +290,10 @@ export async function fetchTimelineAircraft({ refresh = true } = {}) {
     to: to.toISOString(),
   });
 
-  const payload = await fetchJson(`/api/timeline/flights?${query.toString()}`, 'Timeline request failed');
+  const payload = await fetchJson(`/api/timeline/flights?${query.toString()}`, "Couldn't load the flights.");
   const limitationsPayload = await fetchJson(
     '/api/timeline/limitations?includeInactive=false',
-    'Limitations request failed'
+    "Couldn't load the limitations."
   ).catch(() => ({ limitations: [] }));
 
   const aircraft = (payload.aircraft || []).map(mapAircraft).filter(Boolean);
@@ -310,7 +313,7 @@ export async function fetchTimelineAircraft({ refresh = true } = {}) {
 
 /** Item 3: registered display devices (viewport env + profile state). */
 export async function fetchDisplayDevices() {
-  return fetchJson('/api/display/devices', 'Devices request failed');
+  return fetchJson('/api/display/devices', "Couldn't load the screens.");
 }
 
 export async function renameDisplayDevice(deviceId, label) {
@@ -319,8 +322,8 @@ export async function renameDisplayDevice(deviceId, label) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ label }),
   });
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Rename failed');
+  const payload = await readPayload(response);
+  if (!response.ok || payload.ok === false) throw failureFrom(payload, "Couldn't rename the screen.");
   return payload;
 }
 
@@ -330,7 +333,7 @@ export async function renameDisplayDevice(deviceId, label) {
  * a user session). Approve/revoke are audit-logged server-side.
  */
 export async function fetchAuthDevices() {
-  return fetchJson('/api/device/list', 'Device list request failed');
+  return fetchJson('/api/device/list', "Couldn't load the screens.");
 }
 
 export async function approveAuthDevice(deviceId, name) {
@@ -339,8 +342,8 @@ export async function approveAuthDevice(deviceId, name) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ deviceId, name }),
   });
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Approve failed');
+  const payload = await readPayload(response);
+  if (!response.ok || payload.ok === false) throw failureFrom(payload, "Couldn't approve the screen.");
   return payload;
 }
 
@@ -350,8 +353,8 @@ export async function revokeAuthDevice(deviceId) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ deviceId }),
   });
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Revoke failed');
+  const payload = await readPayload(response);
+  if (!response.ok || payload.ok === false) throw failureFrom(payload, "Couldn't remove the screen.");
   return payload;
 }
 
@@ -359,8 +362,8 @@ export async function resetProfile(account) {
   const response = await fetch(buildApiUrl(`/api/display/settings/profile/${encodeURIComponent(account)}`), {
     method: 'DELETE',
   });
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Reset failed');
+  const payload = await readPayload(response);
+  if (!response.ok || payload.ok === false) throw failureFrom(payload, "Couldn't reset the settings.");
   return payload;
 }
 
@@ -383,7 +386,7 @@ export async function fetchReports({ status = '', category = '', q = '' } = {}) 
   if (category) params.set('category', category);
   if (q) params.set('q', q);
   const qs = params.toString();
-  return fetchJson(`/api/reports${qs ? `?${qs}` : ''}`, 'Reports request failed');
+  return fetchJson(`/api/reports${qs ? `?${qs}` : ''}`, "Couldn't load the reports.");
 }
 
 async function jsonRequest(path, method, body) {
@@ -392,8 +395,8 @@ async function jsonRequest(path, method, body) {
     headers: { 'content-type': 'application/json' },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) throw new Error(payload.error || `${method} ${path} failed (${response.status})`);
+  const payload = await readPayload(response);
+  if (!response.ok || payload.ok === false) throw failureFrom(payload, "Couldn't save the change.");
   return payload;
 }
 
@@ -401,7 +404,7 @@ async function jsonRequest(path, method, body) {
 // no visibility window. Colours come from Leon checklists — FLIGHT by the
 // OPS aggregate, ADEP/ADES by the SLOT & HANDLING services for that side.
 export async function fetchUpcomingFlights() {
-  const payload = await fetchJson('/api/upcoming/flights', 'Upcoming flights request failed');
+  const payload = await fetchJson('/api/upcoming/flights', "Couldn't load the upcoming flights.");
   const rows = [];
   for (const group of payload.aircraft || []) {
     for (const flight of group.flights || []) {
@@ -437,7 +440,7 @@ export async function fetchUpcomingFlights() {
 }
 
 // NOTAM digest config (console-editable; null field = env default).
-export const fetchDigestConfig = () => fetchJson('/api/notam-check/digest-config', 'Digest config request failed');
+export const fetchDigestConfig = () => fetchJson('/api/notam-check/digest-config', "Couldn't load the NOTAM email settings.");
 export const saveDigestConfig = (body) => jsonRequest('/api/notam-check/digest-config', 'PUT', body);
 
 // Manual trigger of the daily 00:01 UTC flight-weather pull.
@@ -450,7 +453,7 @@ export const sendReport = (id, to) => jsonRequest(`/api/reports/${encodeURICompo
 export const saveReportsConfig = (body) => jsonRequest('/api/reports/config', 'PUT', body);
 
 export async function fetchDisplayClocks() {
-  return fetchJson('/api/display/clocks', 'Clocks request failed');
+  return fetchJson('/api/display/clocks', "Couldn't load the clocks.");
 }
 
 // Settings are per ACCOUNT (the main ops wall signs in as
@@ -458,7 +461,7 @@ export async function fetchDisplayClocks() {
 // = your own profile, resolved server-side from the session.
 export async function fetchDisplaySettings(account) {
   const query = account ? `?account=${encodeURIComponent(account)}` : '';
-  return fetchJson(`/api/display/settings${query}`, 'Display settings request failed');
+  return fetchJson(`/api/display/settings${query}`, "Couldn't load the display settings.");
 }
 
 export async function saveDisplaySettings(settings, account) {
@@ -467,9 +470,9 @@ export async function saveDisplaySettings(settings, account) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ settings, ...(account ? { account } : {}) }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to save display settings (${response.status})`);
+    throw failureFrom(payload, "Couldn't save the display settings.");
   }
   return payload;
 }
@@ -480,9 +483,9 @@ export async function saveDisplayClocks(clocks) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ clocks }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to save clocks (${response.status})`);
+    throw failureFrom(payload, "Couldn't save the clocks.");
   }
   return payload;
 }
@@ -527,17 +530,17 @@ export async function fetchTimelineRaw({ refresh = false } = {}) {
     from: from.toISOString(),
     to: to.toISOString(),
   });
-  return fetchJson(`/api/timeline/flights?${query.toString()}`, 'Timeline request failed');
+  return fetchJson(`/api/timeline/flights?${query.toString()}`, "Couldn't load the flights.");
 }
 
 // ── Presence + remote overlay (Feature 5) ───────────────────────────────────
 
 export async function fetchPresence() {
-  return fetchJson('/api/presence', 'Presence request failed');
+  return fetchJson('/api/presence', "Couldn't load who is online.");
 }
 
 export async function fetchOverlay() {
-  return fetchJson('/api/display/overlay', 'Overlay state request failed');
+  return fetchJson('/api/display/overlay', "Couldn't load the flight panel.");
 }
 
 async function postOverlay(body) {
@@ -546,9 +549,9 @@ async function postOverlay(body) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Overlay command failed (${response.status})`);
+    throw failureFrom(payload, "Couldn't open or close the flight panel on the wall.");
   }
   return payload;
 }
@@ -564,18 +567,18 @@ export function closeFlightOverlay() {
 export async function fetchFlightInfo({ flightNid, oprId }) {
   const params = new URLSearchParams({ flightNid: String(flightNid) });
   if (oprId) params.set('oprId', oprId);
-  return fetchJson(`/api/flight-info?${params.toString()}`, 'Flight info request failed');
+  return fetchJson(`/api/flight-info?${params.toString()}`, "Couldn't load the flight details.");
 }
 
 // ── Alert scanner (Feature 6) ───────────────────────────────────────────────
 
 export async function fetchAlertFindings({ includeInactive = false } = {}) {
   const params = new URLSearchParams({ includeInactive: includeInactive ? 'true' : 'false' });
-  return fetchJson(`/api/alerts/findings?${params.toString()}`, 'Alert findings request failed');
+  return fetchJson(`/api/alerts/findings?${params.toString()}`, "Couldn't load the NOTAM findings.");
 }
 
 export async function fetchAlertRules() {
-  return fetchJson('/api/alerts/rules', 'Alert rules request failed');
+  return fetchJson('/api/alerts/rules', "Couldn't load the NOTAM rules.");
 }
 
 export async function saveAlertRules(rules) {
@@ -584,9 +587,9 @@ export async function saveAlertRules(rules) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ rules }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to save alert rules (${response.status})`);
+    throw failureFrom(payload, "Couldn't save the NOTAM rules.");
   }
   return payload;
 }
@@ -594,7 +597,7 @@ export async function saveAlertRules(rules) {
 // ── Daily NOTAM check (wall sign + per-airport acknowledgments) ────────────
 
 export async function fetchNotamCheckToday() {
-  return fetchJson('/api/notam-check/today', 'NOTAM check request failed');
+  return fetchJson('/api/notam-check/today', "Couldn't load the NOTAM check.");
 }
 
 export async function ackNotamCheck(icao) {
@@ -603,18 +606,18 @@ export async function ackNotamCheck(icao) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ icao }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to acknowledge ${icao} (${response.status})`);
+    throw failureFrom(payload, `Couldn't save the check for ${icao}.`);
   }
   return payload;
 }
 
 export async function runNotamCheck() {
   const response = await fetch(buildApiUrl('/api/notam-check/run'), { method: 'POST' });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to run NOTAM check (${response.status})`);
+    throw failureFrom(payload, "Couldn't run the NOTAM check.");
   }
   return payload;
 }
@@ -625,18 +628,18 @@ export async function resyncNotamCheckAirport(icao) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ icao }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to resync ${icao} (${response.status})`);
+    throw failureFrom(payload, `Couldn't resync ${icao}.`);
   }
   return payload;
 }
 
 export async function triggerAlertScan() {
   const response = await fetch(buildApiUrl('/api/alerts/scan'), { method: 'POST' });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok) {
-    throw new Error(payload.error || `Failed to run alert scan (${response.status})`);
+    throw failureFrom(payload, "Couldn't run the NOTAM scan.");
   }
   return payload;
 }
@@ -650,8 +653,8 @@ export async function postFlightCheck({ flightNid, oprId, types, checked = true 
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ flightNid, oprId, types, checked }),
   });
-  const payload = await response.json();
-  if (!response.ok || payload.ok === false) throw new Error(payload.error || 'Check failed');
+  const payload = await readPayload(response);
+  if (!response.ok || payload.ok === false) throw failureFrom(payload, "Couldn't save the check.");
   return payload;
 }
 
@@ -661,15 +664,15 @@ export async function sendFlightDocs({ flightNid, oprId, airports, docs }) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ flightNid, oprId, airports, docs }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to start document send (${response.status})`);
+    throw failureFrom(payload, "Couldn't start sending the documents.");
   }
   return payload;
 }
 
 export async function fetchAipSendJob(jobId) {
-  return fetchJson(`/api/aip/send/${encodeURIComponent(jobId)}`, 'Send job request failed');
+  return fetchJson(`/api/aip/send/${encodeURIComponent(jobId)}`, "Couldn't load the document send.");
 }
 
 export function aipPdfUrl(icao) {
@@ -679,7 +682,7 @@ export function aipPdfUrl(icao) {
 export async function fetchAircraftSchedule() {
   // refresh=false: the backend's own poll keeps the cache current; forcing
   // a Leon sync from every Aircraft-page visit fed the rate limit.
-  return fetchJson('/api/aircraft/schedule?days=7&refresh=false', 'Aircraft request failed');
+  return fetchJson('/api/aircraft/schedule?days=7&refresh=false', "Couldn't load the aircraft.");
 }
 
 export async function setAircraftVisibility({ oprId, registration, enabled }) {
@@ -692,9 +695,9 @@ export async function setAircraftVisibility({ oprId, registration, enabled }) {
       isHidden: !enabled,
     }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to update aircraft visibility (${response.status})`);
+    throw failureFrom(payload, "Couldn't change whether this aircraft is shown.");
   }
   return payload;
 }
@@ -705,9 +708,9 @@ export async function deleteAircraft({ oprId, registration }) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ oprId, registration }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to delete aircraft (${response.status})`);
+    throw failureFrom(payload, "Couldn't delete the aircraft.");
   }
   return payload;
 }
@@ -716,7 +719,7 @@ export async function fetchOperators({ includeInactive = true } = {}) {
   const query = new URLSearchParams({
     includeInactive: includeInactive ? 'true' : 'false',
   });
-  return fetchJson(`/api/operators?${query.toString()}`, 'Operators request failed');
+  return fetchJson(`/api/operators?${query.toString()}`, "Couldn't load the operators.");
 }
 
 export async function upsertOperator({ name, oprId, refreshToken, isActive = true }) {
@@ -725,9 +728,9 @@ export async function upsertOperator({ name, oprId, refreshToken, isActive = tru
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name, oprId, refreshToken, isActive }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to save operator (${response.status})`);
+    throw failureFrom(payload, "Couldn't save the operator.");
   }
   return payload;
 }
@@ -738,9 +741,9 @@ export async function setOperatorActive(id, isActive) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ isActive }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to update operator (${response.status})`);
+    throw failureFrom(payload, "Couldn't update the operator.");
   }
   return payload;
 }
@@ -761,9 +764,9 @@ export async function updateOperator(id, { name, oprId, refreshToken } = {}) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to update operator (${response.status})`);
+    throw failureFrom(payload, "Couldn't update the operator.");
   }
   return payload;
 }
@@ -772,20 +775,20 @@ export async function deleteOperator(id) {
   const response = await fetch(buildApiUrl(`/api/operators/${encodeURIComponent(id)}`), {
     method: 'DELETE',
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to delete operator (${response.status})`);
+    throw failureFrom(payload, "Couldn't delete the operator.");
   }
   return payload;
 }
 
 export async function fetchWebhooks({ refresh = false } = {}) {
-  return fetchJson(`/api/webhooks${refresh ? '?refresh=true' : ''}`, 'Webhooks request failed');
+  return fetchJson(`/api/webhooks${refresh ? '?refresh=true' : ''}`, "Couldn't load the webhooks.");
 }
 
 export async function fetchWebhookLog(oprId, event) {
   const params = new URLSearchParams({ opr: oprId, event });
-  return fetchJson(`/api/webhooks/log?${params.toString()}`, 'Webhook log request failed');
+  return fetchJson(`/api/webhooks/log?${params.toString()}`, "Couldn't load the webhook log.");
 }
 
 export async function toggleWebhook({ oprId, event, enabled }) {
@@ -794,9 +797,9 @@ export async function toggleWebhook({ oprId, event, enabled }) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ oprId, event, enabled }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to toggle webhook (${response.status})`);
+    throw failureFrom(payload, "Couldn't change the webhook.");
   }
   return payload;
 }
@@ -807,9 +810,9 @@ export async function reregisterWebhooks(oprId) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ oprId }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to re-register webhooks (${response.status})`);
+    throw failureFrom(payload, "Couldn't re-register the webhooks.");
   }
   return payload;
 }
@@ -818,9 +821,9 @@ export async function deleteWebhook(oprId, label) {
   const response = await fetch(buildApiUrl(`/api/webhooks/${encodeURIComponent(label)}?oprId=${encodeURIComponent(oprId)}`), {
     method: 'DELETE',
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to delete webhook (${response.status})`);
+    throw failureFrom(payload, "Couldn't delete the webhook.");
   }
   return payload;
 }
@@ -828,7 +831,7 @@ export async function deleteWebhook(oprId, label) {
 export async function fetchCaa({ withMatches = false } = {}) {
   const params = new URLSearchParams({ includeInactive: 'true' });
   if (withMatches) params.set('withMatches', 'true');
-  return fetchJson(`/api/caa?${params.toString()}`, 'CAA request failed');
+  return fetchJson(`/api/caa?${params.toString()}`, "Couldn't load the CAA details.");
 }
 
 export async function upsertCaa(entry) {
@@ -837,9 +840,9 @@ export async function upsertCaa(entry) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(entry || {}),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to save CAA entry (${response.status})`);
+    throw failureFrom(payload, "Couldn't save the CAA entry.");
   }
   return payload;
 }
@@ -850,9 +853,9 @@ export async function updateCaa(id, patch) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(patch || {}),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to update CAA entry (${response.status})`);
+    throw failureFrom(payload, "Couldn't update the CAA entry.");
   }
   return payload;
 }
@@ -863,9 +866,9 @@ export async function setCaaActive(id, isActive) {
 
 export async function deleteCaa(id) {
   const response = await fetch(buildApiUrl(`/api/caa/${encodeURIComponent(id)}`), { method: 'DELETE' });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to delete CAA entry (${response.status})`);
+    throw failureFrom(payload, "Couldn't delete the CAA entry.");
   }
   return payload;
 }
@@ -873,18 +876,18 @@ export async function deleteCaa(id) {
 export async function fetchLimitations({ withMatches = false } = {}) {
   const params = new URLSearchParams({ includeInactive: 'true' });
   if (withMatches) params.set('withMatches', 'true');
-  return fetchJson(`/api/timeline/limitations?${params.toString()}`, 'Limitations request failed');
+  return fetchJson(`/api/timeline/limitations?${params.toString()}`, "Couldn't load the limitations.");
 }
 
 export async function fetchSyncStatus() {
-  return fetchJson('/api/timeline/sync-status', 'Sync status request failed');
+  return fetchJson('/api/timeline/sync-status', "Couldn't load the sync status.");
 }
 
 export async function forceTimelineRefresh() {
   const response = await fetch(buildApiUrl('/api/timeline/refresh'), { method: 'POST' });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to trigger sync (${response.status})`);
+    throw failureFrom(payload, "Couldn't start a Leon sync.");
   }
   return payload;
 }
@@ -894,7 +897,7 @@ export async function forceTimelineRefresh() {
 export async function fetchImportant({ includeInactive = true, withMatches = false } = {}) {
   const params = new URLSearchParams({ includeInactive: includeInactive ? 'true' : 'false' });
   if (withMatches) params.set('withMatches', 'true');
-  return fetchJson(`/api/important?${params.toString()}`, 'Important request failed');
+  return fetchJson(`/api/important?${params.toString()}`, "Couldn't load the Important entries.");
 }
 
 export async function upsertImportant(entry) {
@@ -903,9 +906,9 @@ export async function upsertImportant(entry) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(entry || {}),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to save Important entry (${response.status})`);
+    throw failureFrom(payload, "Couldn't save the Important entry.");
   }
   return payload;
 }
@@ -916,9 +919,9 @@ export async function updateImportant(id, patch) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(patch || {}),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to update Important entry (${response.status})`);
+    throw failureFrom(payload, "Couldn't update the Important entry.");
   }
   return payload;
 }
@@ -927,7 +930,7 @@ export async function uploadImportantAttachment(id, file) {
   const dataBase64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-    reader.onerror = () => reject(new Error('Could not read the file.'));
+    reader.onerror = () => reject(new ShownError("Couldn't read the file. Pick it again."));
     reader.readAsDataURL(file);
   });
   const response = await fetch(buildApiUrl(`/api/important/${encodeURIComponent(id)}/attachments`), {
@@ -935,9 +938,9 @@ export async function uploadImportantAttachment(id, file) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ filename: file.name, contentType: file.type || 'application/octet-stream', dataBase64 }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to upload attachment (${response.status})`);
+    throw failureFrom(payload, "Couldn't upload the attachment.");
   }
   return payload;
 }
@@ -948,9 +951,9 @@ export function importantAttachmentUrl(id, attachmentId) {
 
 export async function deleteImportantAttachment(id, attachmentId) {
   const response = await fetch(importantAttachmentUrl(id, attachmentId), { method: 'DELETE' });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to delete attachment (${response.status})`);
+    throw failureFrom(payload, "Couldn't delete the attachment.");
   }
   return payload;
 }
@@ -961,9 +964,9 @@ export async function setImportantActive(id, isActive) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ isActive }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to update Important entry (${response.status})`);
+    throw failureFrom(payload, "Couldn't update the Important entry.");
   }
   return payload;
 }
@@ -972,9 +975,9 @@ export async function deleteImportant(id) {
   const response = await fetch(buildApiUrl(`/api/important/${encodeURIComponent(id)}`), {
     method: 'DELETE',
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to delete Important entry (${response.status})`);
+    throw failureFrom(payload, "Couldn't delete the Important entry.");
   }
   return payload;
 }
@@ -982,13 +985,13 @@ export async function deleteImportant(id) {
 export async function searchAirports(query, limit = 30) {
   const q = String(query || '').trim();
   const params = new URLSearchParams({ q, limit: String(limit) });
-  return fetchJson(`/api/airports/search?${params.toString()}`, 'Airport search failed');
+  return fetchJson(`/api/airports/search?${params.toString()}`, "Couldn't search the airports.");
 }
 
 export async function fetchCountries(query = '', limit = 200) {
   const q = String(query || '').trim();
   const params = new URLSearchParams({ q, limit: String(limit) });
-  return fetchJson(`/api/countries?${params.toString()}`, 'Countries request failed');
+  return fetchJson(`/api/countries?${params.toString()}`, "Couldn't load the countries.");
 }
 
 export async function upsertLimitation(input) {
@@ -997,9 +1000,9 @@ export async function upsertLimitation(input) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input || {}),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to save limitation (${response.status})`);
+    throw failureFrom(payload, "Couldn't save the limitation.");
   }
   return payload;
 }
@@ -1010,9 +1013,9 @@ export async function setLimitationActive(id, isActive) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ isActive }),
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to update limitation (${response.status})`);
+    throw failureFrom(payload, "Couldn't update the limitation.");
   }
   return payload;
 }
@@ -1021,9 +1024,9 @@ export async function deleteLimitation(id) {
   const response = await fetch(buildApiUrl(`/api/timeline/limitations/${encodeURIComponent(id)}`), {
     method: 'DELETE',
   });
-  const payload = await response.json();
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Failed to delete limitation (${response.status})`);
+    throw failureFrom(payload, "Couldn't delete the limitation.");
   }
   return payload;
 }

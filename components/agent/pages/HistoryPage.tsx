@@ -14,6 +14,7 @@ import AgentStyles from "../ui/AgentStyles";
 import { AGENT_BASE, type ConversationSummary } from "../types";
 import { useKeybinds } from "../ui/keybinds";
 import { cw } from "@/lib/portal-tokens";
+import { apiMessage } from "../ui/errorText";
 
 const FILTERS = [["mine", "Mine"], ["changes", "With changes"], ["files", "With files"], ["voice", "Voice"]] as const;
 
@@ -29,8 +30,8 @@ export default function HistoryPage() {
     let alive = true; setRows(null);
     const f = [...filters].filter((x) => x !== "mine").join(",");
     fetch(`${AGENT_BASE}/api/history?q=${encodeURIComponent(q)}&filter=${encodeURIComponent(f)}`, { credentials: "same-origin", cache: "no-store" })
-      .then((r) => r.json()).then((b) => { if (!alive) return; if (!b?.ok) { setError(b?.message || "Could not load history."); setRows([]); return; } setRows(b.conversations ?? []); setTotal(b.total ?? 0); })
-      .catch((e) => { if (alive) { setError(String(e)); setRows([]); } });
+      .then((r) => r.json()).then((b) => { if (!alive) return; if (!b?.ok) { setError(apiMessage(b, "Could not load history. Try again.")); setRows([]); return; } setRows(b.conversations ?? []); setTotal(b.total ?? 0); })
+      .catch(() => { if (alive) { setError("Could not load history. Check your connection and try again."); setRows([]); } });
     return () => { alive = false; };
   }, [q, filters]);
 

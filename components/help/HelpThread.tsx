@@ -200,7 +200,7 @@ export default function HelpThread({ reference }: { reference: string }) {
       const err = error as Error & { status?: number; body?: { closed?: boolean } };
       if (err.body?.closed) { load(); return; }
       item.lastTriedAt = new Date().toISOString();
-      item.lastError = err.message === "network" || err.message?.includes("fetch") ? "network" : err.message || "refused";
+      item.lastError = err.status === 0 ? "network" : err.message || "refused";
       writeOutbox([...readOutbox(), item]);
       setFailedItems(readOutbox().filter((i) => i.threadId === data.thread.id && i.lastError));
     }

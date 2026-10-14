@@ -21,6 +21,7 @@ import VoiceReadout from './components/VoiceReadout';
 import { WALL_FONT, applyWallFont } from './theme/wallFont';
 import { WallDisplayProvider } from './theme/WallDisplayContext';
 import { windowCheckLine } from './services/windowCheck';
+import { errorText } from './services/errorText';
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
 // screen's real rendering environment without devtools. The same values are
 // reported to /api/display/env either way (visible on console Settings).
@@ -162,7 +163,7 @@ export default function DisplayApp() {
       setDataUpdatedAt(Date.now());
     } catch (err) {
       // Keep showing the last good board; surface the problem quietly.
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setLoadedOnce(true);
       loadingRef.current = false;

@@ -11,6 +11,7 @@ import path from "node:path";
 import { converseOnce } from "../bedrock.mjs";
 import { embed, activeEmbeddingModel } from "./embeddings.mjs";
 import { rest } from "./retrieval.mjs";
+import { logDetail } from "../public-errors.mjs";
 
 // Originals live on the mounted storage volume, never the root disk.
 const STORAGE_ROOT = process.env.STORAGE_ROOT || "/storage";
@@ -152,7 +153,8 @@ export async function classifyDocument({ title, source, sample }) {
   } catch (error) {
     // An unclassifiable document is proposed as tier 2: the safe default is the
     // one that does NOT put unreviewed text where it will be quoted as law.
-    return { tier: "tier2", confidence: 0, reason: `Could not classify automatically (${error.message}); defaulted to reference.` };
+    logDetail("agent", `could not classify "${String(title ?? "a document").slice(0, 80)}" automatically`, error);
+    return { tier: "tier2", confidence: 0, reason: "It could not be classified automatically, so it is proposed as reference. Check it before you approve it." };
   }
 }
 

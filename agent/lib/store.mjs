@@ -3,6 +3,7 @@
 // same arrangement as the Help Centre store (RLS denies PostgREST outright).
 
 import { currentClient } from "./request-context.mjs";
+import { logDetail } from "./public-errors.mjs";
 
 const REST_TIMEOUT_MS = 10_000;
 
@@ -48,10 +49,15 @@ export async function agentEnabled() {
   try {
     const rows = await rest("agent_settings?id=eq.global&select=enabled,reason,updated_at,updated_by_email");
     const row = rows?.[0];
-    if (!row) return { enabled: false, reason: "Agent settings row is missing — failing closed." };
+    if (!row) {
+      logDetail("agent", "agent settings row is missing — failing closed");
+      return { enabled: false, reason: null, unreadable: true };
+    }
     return { enabled: row.enabled === true, reason: row.reason ?? null, updatedAt: row.updated_at, updatedBy: row.updated_by_email };
   } catch (error) {
-    return { enabled: false, reason: `Agent settings unreadable — failing closed: ${error.message}` };
+    // The database's own text goes to the log only; `unreadable` lets the gate say it in our words.
+    logDetail("agent", "agent settings unreadable — failing closed", error?.message ?? error);
+    return { enabled: false, reason: null, unreadable: true };
   }
 }
 

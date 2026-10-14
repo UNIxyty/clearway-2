@@ -11,6 +11,7 @@ import {
   type CountryServiceState,
   type CountryServiceSummaryResponse,
 } from "@/lib/country-service-status-shared";
+import { ShownError, TRY_AGAIN, shownText } from "@/lib/error-text";
 
 type EditableRow = {
   country: string;
@@ -36,7 +37,7 @@ export default function AdminCountryServiceStatusPage() {
     const load = async () => {
       try {
         const res = await fetch("/api/admin/country-service-status", { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new ShownError(`The country statuses could not be loaded (${res.status}). ${TRY_AGAIN}`);
         const payload = (await res.json()) as CountryServiceSummaryResponse;
         if (!cancelled) {
           setRows(
@@ -51,7 +52,7 @@ export default function AdminCountryServiceStatusPage() {
           setError(null);
         }
       } catch (e) {
-        if (!cancelled) setError(String((e as Error).message || e));
+        if (!cancelled) setError(shownText(e, `The country statuses could not be loaded. ${TRY_AGAIN}`));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -90,11 +91,11 @@ export default function AdminCountryServiceStatusPage() {
           note: row.note,
         }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new ShownError(`${row.country} was not saved (${res.status}). ${TRY_AGAIN}`);
       setUnsaved((prev) => { const next = { ...prev }; delete next[row.country]; return next; });
       setError(null);
     } catch (e) {
-      setError(`Failed to save ${row.country}: ${String((e as Error).message || e)}`);
+      setError(shownText(e, `${row.country} was not saved. ${TRY_AGAIN}`));
     } finally {
       setSavingCountry(null);
     }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
+import { logFailure } from "@/lib/public-error";
 
 function getPublicOrigin(requestUrl: URL, headers: Headers): string {
   const siteUrl = String(process.env.PORTAL_SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim().replace(/\/+$/, "");
@@ -37,14 +38,16 @@ export async function GET(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
+    logFailure("AUTH-CALLBACK", "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY not set");
     return NextResponse.redirect(new URL(`/login?error=missing_supabase`, origin));
   }
 
-  // Supabase/Google sent an error (e.g. redirect_uri_mismatch, access_denied)
+  // Supabase/Google sent an error (e.g. redirect_uri_mismatch, access_denied). The provider's description goes to the
+  // log; the login page shows its own sentence for the code (app/login/ui/LoginCard.tsx).
   if (error) {
+    logFailure("AUTH-CALLBACK", `Provider returned ${error}`, errorDescription ?? undefined);
     const loginUrl = new URL("/login", origin);
-    loginUrl.searchParams.set("error", "oauth_failed");
-    loginUrl.searchParams.set("message", errorDescription || error);
+    loginUrl.searchParams.set("error", error === "access_denied" ? "oauth_cancelled" : "oauth_failed");
     loginUrl.searchParams.set("next", next);
     return NextResponse.redirect(loginUrl);
   }
@@ -109,9 +112,9 @@ export async function GET(request: Request) {
   }
 
   if (authError) {
+    logFailure("AUTH-CALLBACK", "Session exchange failed", authError);
     const loginUrl = new URL("/login", origin);
     loginUrl.searchParams.set("error", "session_exchange_failed");
-    loginUrl.searchParams.set("message", authError);
     loginUrl.searchParams.set("next", next);
     return NextResponse.redirect(loginUrl);
   }

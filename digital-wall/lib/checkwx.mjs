@@ -10,6 +10,7 @@
 // CHECKWX_BASE_URL exists so tests can point at a local stub.
 
 import { JsonFileStore } from "./json-store.mjs";
+import { errorDetail, REASONS } from "./public-error.mjs";
 
 const DEFAULT_TTL_MS = 30 * 60 * 1000; // CheckWX METARs refresh ~each 30-60 min
 
@@ -40,8 +41,9 @@ const cache = new Map(); // icao -> { value, expiresAtMs }
  */
 export async function getMetar(icao, { fresh = false } = {}) {
   const code = String(icao || "").trim().toUpperCase();
-  if (!/^[A-Z0-9]{4}$/.test(code)) return { ok: false, error: `Invalid ICAO: ${icao}` };
-  if (!checkwxConfigured()) return { ok: false, error: "CHECKWX_API_KEY is not configured." };
+  // Errors here are stored per airport and served with the weather summary: our sentence, the detail in the log.
+  if (!/^[A-Z0-9]{4}$/.test(code)) return { ok: false, error: REASONS.badIcao() };
+  if (!checkwxConfigured()) return { ok: false, error: REASONS.weatherUnavailable() };
 
   const hit = cache.get(code);
   if (!fresh && hit && Date.now() < hit.expiresAtMs) return hit.value;
@@ -54,13 +56,15 @@ export async function getMetar(icao, { fresh = false } = {}) {
     });
     if (!response.ok) {
       const body = await response.text();
-      result = { ok: false, error: `CheckWX ${response.status}: ${body.slice(0, 200)}` };
+      console.error(`[checkwx] ${code} failed (${response.status}):`, body.slice(0, 300));
+      result = { ok: false, error: REASONS.weatherUnavailable() };
     } else {
       const payload = await response.json();
       result = { ok: true, data: payload?.data?.[0] ?? null };
     }
   } catch (error) {
-    result = { ok: false, error: error instanceof Error ? error.message : String(error) };
+    console.error(`[checkwx] ${code} failed:`, errorDetail(error));
+    result = { ok: false, error: REASONS.weatherUnavailable() };
   }
   // Failures cache briefly so a down API isn't re-hit per pill render.
   cache.set(code, { value: result, expiresAtMs: Date.now() + (result.ok ? ttlMs() : 60_000) });
@@ -151,10 +155,9 @@ export class CheckwxWeatherService {
     try {
       icaos = await listIcaos();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[checkwx] daily flight-weather refresh (${reason}): airport list failed: ${message}`);
-      this.lastDailyRun = { day, airports: 0, ok: false, error: message, at: new Date().toISOString() };
-      return { ok: false, error: message };
+      console.error(`[checkwx] daily flight-weather refresh (${reason}): airport list failed: ${errorDetail(error)}`);
+      this.lastDailyRun = { day, airports: 0, ok: false, error: REASONS.weatherUnavailable(), at: new Date().toISOString() };
+      return { ok: false, error: REASONS.weatherUnavailable() };
     }
     const result = await this.refreshFor(icaos, { fresh: true });
     if (result.ok) {
@@ -163,7 +166,7 @@ export class CheckwxWeatherService {
       this.dailyFiredFor = day;
       await this.store.write({ byIcao: this.byIcao, dailyFiredFor: this.dailyFiredFor, updatedAt: new Date().toISOString() });
     }
-    this.lastDailyRun = { day, airports: result.refreshed ?? 0, ok: result.ok, error: result.ok ? null : "refresh skipped/failed", at: new Date().toISOString() };
+    this.lastDailyRun = { day, airports: result.refreshed ?? 0, ok: result.ok, error: result.ok ? null : REASONS.weatherUnavailable(), at: new Date().toISOString() };
     console.log(`[checkwx] daily flight-weather refresh (${reason}) for ${day}: ${result.ok ? `${result.refreshed} airport(s)` : "did not run"}`);
     return result;
   }
@@ -194,6 +197,8 @@ export class CheckwxWeatherService {
 
   /** Full decoded summary for the overlay (may be null). */
   summaryOf(icao) {
-    return this.byIcao[String(icao || "").trim().toUpperCase()] ?? null;
+    const entry = this.byIcao[String(icao || "").trim().toUpperCase()] ?? null;
+    // weather.json written before the error rule may hold CheckWX's raw answer: serve our sentence instead.
+    return entry?.error ? { ...entry, error: REASONS.weatherUnavailable() } : entry;
   }
 }

@@ -18,6 +18,9 @@ import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import fs from "fs/promises";
 import path from "path";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
+
+const NOT_LOADED = `The changelog could not be loaded. ${TRY_AGAIN}`;
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +64,7 @@ export async function GET(request: NextRequest) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !anonKey) {
-      return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+      return failure(500, NOT_LOADED, { tag: "CHANGELOG", what: "Supabase URL / anon key not set" });
     }
 
     const cookieStore = cookies();
@@ -132,10 +135,11 @@ export async function GET(request: NextRequest) {
                 at,
               });
             } else if (kind === "chat.error") {
+              // The error text stays in agent_audit_log for developers; the feed says what happened.
               entries.push({
                 kind: "error",
                 source: "Agent",
-                summary: `Agent request failed: ${String(row.error ?? "unknown error").slice(0, 160)}`,
+                summary: "Agent request failed",
                 actor: row.user_email ? String(row.user_email) : null,
                 at,
               });
@@ -308,11 +312,11 @@ export async function GET(request: NextRequest) {
           for (const row of (data ?? []) as Array<Record<string, unknown>>) {
             const at = iso(row.created_at);
             if (!at) continue;
-            const detail = row.error_message ? ` — ${String(row.error_message).slice(0, 140)}` : "";
+            // The provider's error_message stays in email_logs; the feed says what happened.
             entries.push({
               kind: "error",
               source: "Email",
-              summary: `Email (${String(row.email_type ?? "unknown")}) to ${String(row.recipient_email ?? "unknown recipient")} failed${detail}`,
+              summary: `Email (${String(row.email_type ?? "unknown")}) to ${String(row.recipient_email ?? "unknown recipient")} failed`,
               actor: null,
               at,
             });
@@ -331,11 +335,11 @@ export async function GET(request: NextRequest) {
           for (const row of (data ?? []) as Array<Record<string, unknown>>) {
             const at = iso(row.created_at);
             if (!at) continue;
-            const detail = row.detail ? ` — ${String(row.detail).slice(0, 140)}` : "";
+            // The run's detail is on its page under Admin › Debug, for developers.
             entries.push({
               kind: "error",
               source: "Debug runner",
-              summary: `Debug run: ${String(row.icao ?? "?").toUpperCase()} ${String(row.step ?? "step")} ${String(row.state ?? "failed")}${detail}`,
+              summary: `Debug run: ${String(row.icao ?? "?").toUpperCase()} ${String(row.step ?? "step")} ${String(row.state ?? "failed")}`,
               actor: null,
               at,
             });
@@ -437,7 +441,8 @@ export async function GET(request: NextRequest) {
           : entry.flightNid
             ? ` (flight ${String(entry.flightNid)})`
             : "";
-        const change = entry.change ? ` — ${String(entry.change).slice(0, 140)}` : "";
+        // A failed webhook's `change` is the error the wall recorded (Leon's response); it stays in the wall's log.
+        const change = entry.change && !isError ? ` — ${String(entry.change).slice(0, 140)}` : "";
         entries.push({
           kind: isError ? "error" : "edit",
           source: "Wall — Leon webhooks",
@@ -462,9 +467,6 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
   } catch (e: unknown) {
-    return NextResponse.json(
-      { error: (e as { message?: string })?.message || "Failed" },
-      { status: 500 },
-    );
+    return failure(500, NOT_LOADED, { tag: "CHANGELOG", what: "Unexpected error", detail: e });
   }
 }

@@ -5,6 +5,10 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
 import { sanitizeLayout } from "@/lib/dashboard-layout";
 import { isDensity, isMotion, isStartPage, sanitizePins } from "@/lib/user-settings";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
+
+const NOT_LOADED = `Your settings could not be loaded. ${TRY_AGAIN}`;
+const NOT_SAVED = `Your settings were not saved. ${TRY_AGAIN}`;
 
 const PREF_SELECT =
   "display_name, notify_enabled, notify_search_start, notify_search_end, notify_notam, notify_aip, notify_gen, captcha_consent_dismissed, is_admin, created_at, updated_at";
@@ -25,7 +29,7 @@ export async function GET() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !anonKey) {
-      return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+      return failure(500, NOT_LOADED, { tag: "USER-PREFERENCES", what: "Supabase URL / anon key not set" });
     }
 
     const cookieStore = cookies();
@@ -63,15 +67,12 @@ export async function GET() {
     }
 
     if (error && error.code !== "PGRST116") {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return failure(500, NOT_LOADED, { tag: "USER-PREFERENCES", what: "Database error", detail: error });
     }
 
     return NextResponse.json({ preferences: data });
   } catch (e: unknown) {
-    return NextResponse.json(
-      { error: (e as { message?: string })?.message || "Failed" },
-      { status: 500 }
-    );
+    return failure(500, NOT_LOADED, { tag: "USER-PREFERENCES", what: "Unexpected error", detail: e });
   }
 }
 
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !anonKey) {
-      return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+      return failure(500, NOT_SAVED, { tag: "USER-PREFERENCES", what: "Supabase URL / anon key not set" });
     }
 
     const cookieStore = cookies();
@@ -184,7 +185,7 @@ export async function POST(request: Request) {
     }
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return failure(500, NOT_SAVED, { tag: "USER-PREFERENCES", what: "Database error", detail: error });
     }
 
     return NextResponse.json({
@@ -195,9 +196,6 @@ export async function POST(request: Request) {
       unsaved: [...unsaved],
     });
   } catch (e: unknown) {
-    return NextResponse.json(
-      { error: (e as { message?: string })?.message || "Failed" },
-      { status: 500 }
-    );
+    return failure(500, NOT_SAVED, { tag: "USER-PREFERENCES", what: "Unexpected error", detail: e });
   }
 }

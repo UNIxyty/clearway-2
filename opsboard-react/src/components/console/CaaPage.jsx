@@ -31,6 +31,7 @@ import {
   ConfirmDialog,
   Dropdown,
 } from './ui';
+import { errorText } from '../../services/errorText';
 
 // CAA details — Civil Aviation Authority contact records + permit processes
 // (Claude Design brief: list-left / editor-right, teal accent). Imported
@@ -136,7 +137,7 @@ export default function CaaPage() {
       const payload = await fetchCaa({ withMatches: true });
       setEntries(payload.entries || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       setEntries([]);
     } finally {
       setLoading(false);
@@ -214,7 +215,7 @@ export default function CaaPage() {
       setSelectedId(payload.entry?.id || '');
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setSaving(false);
     }
@@ -225,7 +226,7 @@ export default function CaaPage() {
     try {
       await setCaaActive(entry.id, nextValue);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     }
   }
@@ -239,7 +240,7 @@ export default function CaaPage() {
       if (selectedId === entry.id) setSelectedId('');
       setEntries((prev) => prev.filter((row) => row.id !== entry.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     }
   }
@@ -414,7 +415,7 @@ export default function CaaPage() {
           {loading && <LoadingState>Loading authorities…</LoadingState>}
           {!loading && entries.length === 0 && (
             <EmptyState icon="landmark" title="No CAA details yet">
-              Run the importer (scripts/import-caa-xlsx.mjs) or add an authority manually.
+              Add an authority with the Add CAA button above.
             </EmptyState>
           )}
           {!loading && entries.length > 0 && visible.length === 0 && (

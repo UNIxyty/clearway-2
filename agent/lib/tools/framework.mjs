@@ -16,7 +16,22 @@ import { can, canCached } from "../../../lib/permissions/grants.mjs";
 import { validate, SchemaError } from "./schema.mjs";
 import { ToolError, InvalidInput, Timeout } from "./errors.mjs";
 import { audit, agentEnabled } from "../store.mjs";
+import { logDetail, stepFailedText, storedError } from "../public-errors.mjs";
 import { requireConfirmation, consumeConfirmation, issueConfirmation, beginConfirmation, settleConfirmation, failConfirmation } from "../confirm.mjs";
+
+/**
+ * Any exception a tool did not turn into a ToolError: its text (a database error, an upstream body, a bug) is logged,
+ * and the model and the audit row get a fixed reason instead.
+ */
+function internalError(name, error) {
+  logDetail("agent", `tool ${name} threw`, error);
+  return new ToolError("INTERNAL", `${name} failed with an internal error. Tell the user this step did not work; do not guess its result.`);
+}
+/** A failed call's audit `error`: the code and our wording. The tool's own message and detail go to the log. */
+function failedRecord(name, code, message, detail) {
+  if (detail || code !== "INTERNAL") logDetail("agent", `tool ${name} failed (${code})`, detail ? `${message} — ${typeof detail === "string" ? detail : JSON.stringify(detail)}` : message);
+  return storedError(code, stepFailedText(code));
+}
 
 /** Permission levels, least to most privileged. */
 export const PERMISSIONS = ["user", "admin", "developer"];
@@ -307,9 +322,10 @@ export async function executeTool({ name, input, user, conversationId, inputMode
   try {
     validInput = validate(input ?? {}, tool.input, name);
   } catch (error) {
-    const message = error instanceof SchemaError ? error.errors.join("; ") : String(error?.message || error);
+    if (!(error instanceof SchemaError)) logDetail("agent", `tool ${name} input check threw`, error);
+    const message = error instanceof SchemaError ? error.errors.join("; ") : "The input could not be checked.";
     const result = { ok: false, error: "INVALID_INPUT", message };
-    await record(result, false, `INVALID_INPUT: ${message}`);
+    await record(result, false, failedRecord(name, "INVALID_INPUT", message));
     return result;
   }
 
@@ -342,7 +358,8 @@ export async function executeTool({ name, input, user, conversationId, inputMode
       if (tool.precheck) {
         try { await tool.precheck(bare, { user, conversationId }); }
         catch (error) {
-          const toolError = error instanceof ToolError ? error : new ToolError("INTERNAL", String(error?.message || error));
+          const toolError = error instanceof ToolError ? error : internalError(name, error);
+          if (toolError.detail) logDetail("agent", `tool ${name} precheck refused (${toolError.code})`, toolError.detail);
           const result = { ok: false, error: toolError.code, message: toolError.message };
           await record(result, false, toolError.code);
           return result;
@@ -362,7 +379,7 @@ export async function executeTool({ name, input, user, conversationId, inputMode
     const begun = beginConfirmation({ token: confirmationToken, user, toolName: name, input: bare });
     if (begun.error) {
       const why = { unknown: "That confirmation is not one of yours, or this service restarted since it was issued.", mismatch: "The confirmation does not match this action's arguments.", cancelled: "That confirmation was cancelled.", expired: "That confirmation expired — the wall may have changed since. Ask again." }[begun.error];
-      const result = { ok: false, error: "CONFIRMATION_INVALID", reason: begun.error, message: why };
+      const result = { ok: false, error: "CONFIRMATION_INVALID", reason: begun.error, message: why }; // public-error-ok: CONFIRMATION_INVALID is a code and `why` is our wording
       await record(result, false, `CONFIRMATION_${begun.error.toUpperCase()}`);
       return result;
     }
@@ -419,8 +436,7 @@ export async function executeTool({ name, input, user, conversationId, inputMode
         ),
       ]);
     } catch (error) {
-      const toolError = error instanceof ToolError ? error : new ToolError("INTERNAL", String(error?.message || error));
-      throw toolError;
+      throw error instanceof ToolError ? error : internalError(name, error);
     }
   };
   try {
@@ -434,7 +450,7 @@ export async function executeTool({ name, input, user, conversationId, inputMode
   } catch (toolError) {
     if (confirmationEntry && !confirmationEntry.auto) failConfirmation(confirmationEntry);
     const result = toolError.toResult();
-    await record(result, false, `${toolError.code}: ${toolError.message}`);
+    await record(result, false, failedRecord(name, toolError.code, toolError.message, toolError.detail));
     return result;
   }
 
@@ -466,9 +482,10 @@ export async function executeTool({ name, input, user, conversationId, inputMode
       detail: { permission: tool?.permission ?? null, role: user?.agentRole ?? null, ...(auto ? { level, autoConfirmed: true, skipConfirmSetting: true } : confirmationEntry ? { level, confirmedToken: confirmationEntry.token } : {}) } });
     return result;
   } catch (error) {
-    const message = error instanceof SchemaError ? error.errors.join("; ") : String(error?.message || error);
-    const result = { ok: false, error: "INTERNAL", message: `${name} returned an unexpected shape: ${message}` };
-    await record(result, false, `OUTPUT_SCHEMA: ${message}`);
+    // The schema's findings can quote the upstream's data: they go to the log, not to the model or the audit row.
+    logDetail("agent", `tool ${name} returned an unexpected shape`, error instanceof SchemaError ? error.errors.join("; ") : error);
+    const result = { ok: false, error: "INTERNAL", message: `${name} returned data in an unexpected form, so it was not used. Tell the user this step did not work.` };
+    await record(result, false, storedError("OUTPUT_SCHEMA", stepFailedText("INTERNAL")));
     return result;
   }
 }

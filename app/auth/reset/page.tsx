@@ -15,6 +15,7 @@ import {
   PasswordStrength,
 } from "@/app/auth/ui/auth-kit";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { authErrorText } from "@/lib/error-text";
 
 // Visuals from Auth Flow.dc.html ("Reset" + "Password updated" screens).
 // The Supabase recovery mechanics (code / token_hash / hash-fragment session
@@ -71,8 +72,7 @@ export default function ResetPasswordPage() {
         } else {
           if (!hasRecoveryInQuery && !hasRecoveryInHash) {
             router.replace(
-              "/login?error=reset_link_required&message=" +
-                encodeURIComponent("Open the latest password reset email and click the reset link."),
+              "/login?error=reset_link_required",
             );
             return;
           }
@@ -128,7 +128,7 @@ export default function ResetPasswordPage() {
       if (updateError) throw updateError;
       setUpdated(true);
     } catch (e: unknown) {
-      setError((e as { message?: string })?.message || "Failed to reset password.");
+      setError(authErrorText(e, "The password was not changed. Open the latest reset email and try again. If it keeps failing, contact your Clearway administrator."));
     } finally {
       setLoading(false);
     }

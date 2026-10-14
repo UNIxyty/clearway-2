@@ -15,6 +15,7 @@ import { RevisionTag } from "./RevisionTag";
 import { AGENT_BASE, type VerbatimRecord } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
 import { cw } from "@/lib/portal-tokens";
+import { apiMessage } from "../ui/errorText";
 
 type Fetched = { status: "loading" } | { status: "ok"; record: VerbatimRecord } | { status: "error"; message: string };
 
@@ -27,8 +28,8 @@ export function VerbatimFrame({ record, panel = false, notReadAloud = false }: {
     let alive = true;
     const kind = record.kind ?? "limitation";
     fetch(`${AGENT_BASE}/api/verbatim/${kind}/${encodeURIComponent(record.id)}`, { credentials: "same-origin", cache: "no-store" })
-      .then(async (r) => { const body = await r.json().catch(() => null); if (!alive) return; if (r.ok && body?.ok && body.record) setState({ status: "ok", record: { ...record, ...body.record, text: String(body.record.text) } }); else setState({ status: "error", message: body?.message || `The stored text could not be fetched (HTTP ${r.status}).` }); })
-      .catch((e) => { if (alive) setState({ status: "error", message: e instanceof Error ? e.message : String(e) }); });
+      .then(async (r) => { const body = await r.json().catch(() => null); if (!alive) return; if (r.ok && body?.ok && body.record) setState({ status: "ok", record: { ...record, ...body.record, text: String(body.record.text) } }); else setState({ status: "error", message: apiMessage(body, "The stored text could not be fetched. Try again later.") }); })
+      .catch(() => { if (alive) setState({ status: "error", message: "The stored text could not be fetched: the agent could not be reached. Check your connection." }); });
     return () => { alive = false; };
   }, [record.id, record.kind]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -15,6 +15,7 @@
 import { defineTool, S } from "./framework.mjs";
 import { wallGet } from "./http.mjs";
 import { InvalidInput, NotFound, ServiceUnavailable } from "./errors.mjs";
+import { isCode, logDetail, storedError } from "../public-errors.mjs";
 import { getAction, listUndoable, markUndone, recordAction } from "../actions.mjs";
 
 defineTool({
@@ -129,9 +130,11 @@ defineTool({
         targetKind: action.target_kind, targetId: action.target_id, targetLabel: action.target_label,
         beforeState: action.after_state, afterState: null,
         kind: "undo", undoesActionId: actionId,
-        success: false, error: String(error?.message ?? error),
+        // The stored error is ours; the exception's text is in the log.
+        success: false, error: storedError(error?.code && isCode(error.code) ? error.code : "undo_failed", "The change could not be reversed."),
       });
-      throw error instanceof Error && error.code ? error : ServiceUnavailable(`The change could not be reversed: ${error.message}`);
+      logDetail("agent", `undo of action ${actionId} failed`, error);
+      throw error instanceof Error && error.code ? error : ServiceUnavailable("The change could not be reversed.", String(error?.message ?? error)); // public-error-ok: the raw text is the detail (logged), not the message
     }
 
     const undoActionId = await recordAction({

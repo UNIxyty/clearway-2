@@ -11,6 +11,7 @@
 // Refresh tokens are AES-256-GCM encrypted in the table with LEON_REFRESH_TOKEN_ENCRYPTION_KEY (the wall's format,
 // operators-store.mjs). They are decrypted in memory only, never logged, returned or audited.
 import crypto from "node:crypto";
+import { logDetail } from "./public-errors.mjs";
 
 const LIST_TTL_MS = 30_000;
 const ACCESS_TTL_MS = 25 * 60 * 1000; // Leon access tokens live 30 min
@@ -52,7 +53,8 @@ export async function listOperators({ fresh = false } = {}) {
   const rows = await r.json();
   const operators = rows.map((row) => {
     let token = null; let problem = null;
-    try { token = decrypt(row.refresh_token); } catch (error) { problem = `its stored Leon credentials cannot be read (${error.message})`; }
+    // Why it cannot be decrypted (a missing key, a malformed row) is for the log; the reason shown is ours.
+    try { token = decrypt(row.refresh_token); } catch (error) { logDetail("agent", `Leon operator ${row.opr_id}: stored credentials cannot be read`, error?.message ?? error); problem = "its stored Leon credentials cannot be read"; }
     return { oprId: String(row.opr_id), name: String(row.name || row.opr_id), token, problem, lastSync: { status: row.last_sync_status ?? null, at: row.last_sync_at ?? null } };
   });
   listCache = { at: Date.now(), operators };
@@ -138,7 +140,11 @@ export async function searchFlightsAllOperators({ fromMs, toMs, timeoutMs = 20_0
       leon.graphql(SEARCH_QUERY(from, to)),
       new Promise((_, reject) => setTimeout(() => reject(new OperatorUnavailable(op.oprId, op.name, "Leon did not answer in time")), timeoutMs)),
     ]);
-    if (res.errors?.length || !Array.isArray(res.data?.flightList)) throw new OperatorUnavailable(op.oprId, op.name, `Leon returned an error (${String(res.errors?.[0]?.message ?? "no flight list").slice(0, 80)})`);
+    if (res.errors?.length || !Array.isArray(res.data?.flightList)) {
+      // Leon's own error text can name records or people: logged, never passed on.
+      logDetail("agent", `Leon operator ${op.oprId}: flight search failed`, String(res.errors?.[0]?.message ?? "no flight list").slice(0, 300));
+      throw new OperatorUnavailable(op.oprId, op.name, "Leon returned an error");
+    }
     return res.data.flightList
       .filter((f) => VALID_STATUS.has(String(f.status ?? "").toUpperCase()))
       .filter((f) => f.isActive !== false && f.isSimulator !== true && String(f.iconType ?? "").toLowerCase() !== "positioning" && String(f.iconType ?? "").toLowerCase() !== "simulator" && String(f.flightType ?? "").toUpperCase() !== "SIMULATOR")

@@ -154,7 +154,7 @@ export function useAttachments() {
                   state: error.status === 413 ? "toolarge" : "failed",
                   // Failures say whether anything survived.
                   error:
-                    error.message === "network"
+                    error.status === 0
                       ? `Connection dropped at ${lastPct}%. Nothing was saved.`
                       : error.status === 415
                         ? "This file type is not supported."
@@ -417,7 +417,7 @@ export default function BlockEditor({
       anchor = line.key;
       uploadAttachment(file, (pct) => patchImage(line.key, { pct }))
         .then((att) => patchImage(line.key, { uploading: false, pct: 100, id: att.id }))
-        .catch((error: Error) => patchImage(line.key, { uploading: false, failed: error.message === "network" ? "Connection dropped. Nothing was saved." : "Upload failed. Nothing was saved." }));
+        .catch((error: Error) => patchImage(line.key, { uploading: false, failed: (error as Error & { status?: number }).status === 0 ? "Connection dropped. Nothing was saved." : "Upload failed. Nothing was saved." }));
     }
     onChangeRef.current(current);
     return true;

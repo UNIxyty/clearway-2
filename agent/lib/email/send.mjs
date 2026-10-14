@@ -14,6 +14,11 @@
 
 import { randomUUID } from "node:crypto";
 import { sendEmail as deliver, mailerConfigured } from "../../../digital-wall/lib/mailer.mjs";
+import { InvalidInput } from "../tools/errors.mjs";
+import { logDetail } from "../public-errors.mjs";
+
+const NOT_SENT = "The email was not sent: the mail service did not accept it. Try again in a few minutes. If it keeps failing, tell your administrator.";
+const NOT_SENT_SETUP = "The email was not sent: sending email is not set up on this server. Tell your administrator.";
 import { renderAgentEmail, renderAgentEmailText } from "./template.mjs";
 import { audit } from "../store.mjs";
 
@@ -102,9 +107,10 @@ export function validateRecipients(recipients) {
   const clean = (Array.isArray(recipients) ? recipients : [recipients])
     .map((r) => String(r || "").trim()).filter(Boolean);
   const bad = clean.filter((r) => !EMAIL_RE.test(r));
-  if (bad.length) throw new Error(`Not valid email addresses: ${bad.join(", ")}`);
-  if (clean.length === 0) throw new Error("At least one recipient is required.");
-  if (clean.length > 20) throw new Error("At most 20 recipients per send.");
+  // ToolErrors, so the model is told which address to fix (a plain Error would reach it only as "internal error").
+  if (bad.length) throw InvalidInput(`Not valid email addresses: ${bad.join(", ")}`);
+  if (clean.length === 0) throw InvalidInput("At least one recipient is required.");
+  if (clean.length > 20) throw InvalidInput("At most 20 recipients per send.");
   return clean;
 }
 
@@ -143,7 +149,8 @@ function formatBytes(bytes) {
 }
 
 /**
- * Send. Returns { ok, id?, error } and NEVER hides the provider's message.
+ * Send. Returns { ok, id?, error }. A failed send is never hidden: `error` says so in our words, and the
+ * provider's own message is logged and kept in agent_email_log.provider_error.
  *
  * `confirmedExternal` must be explicitly true for any external recipient. The
  * caller cannot satisfy it by simply omitting recipients from a list — the
@@ -167,7 +174,9 @@ export async function sendAgentEmail({ to, prepared, attachments = [], user, con
   }
 
   if (!mailerConfigured()) {
-    const error = "RESEND_API_KEY is not configured on the server, so no email was sent.";
+    // The missing setting is named in the log only; the person (and the model) get our sentence.
+    logDetail("agent-email", "not sent: the mail provider key (RESEND_API_KEY) is not configured");
+    const error = NOT_SENT_SETUP;
     await logSend({ user, conversationId, recipients, subject: prepared.subject, attachments, status: "failed", error, external });
     return { ok: false, error };
   }
@@ -180,23 +189,26 @@ export async function sendAgentEmail({ to, prepared, attachments = [], user, con
     attachments: attachments.map((a) => ({ filename: a.filename, content: a.content })),
   });
 
+  // The provider's own words go to the server log (digital-wall/lib/mailer.mjs logs them) and to the send log's
+  // provider_error column for whoever debugs it. The person, the model and the audit row get our sentence: a
+  // provider's error body is not ours to show.
+  if (!result.ok) logDetail("agent-email", `send of "${prepared.subject}" failed`, result.error);
   await logSend({
     user, conversationId, recipients, subject: prepared.subject, attachments,
     status: result.ok ? "sent" : "failed",
     error: result.ok ? null : result.error,
+    shownError: result.ok ? null : NOT_SENT,
     providerId: result.id ?? null,
     external,
     reference: prepared.reference,
   });
 
-  // The provider's own words, not a paraphrase — whoever debugs this needs the
-  // real message ("domain not verified", "rate limited"), not "send failed".
   return result.ok
     ? { ok: true, id: result.id ?? null, recipients, reference: prepared.reference }
-    : { ok: false, error: result.error, recipients };
+    : { ok: false, error: NOT_SENT, recipients };
 }
 
-async function logSend({ user, conversationId, recipients, subject, attachments, status, error, providerId, external, reference }) {
+async function logSend({ user, conversationId, recipients, subject, attachments, status, error, shownError, providerId, external, reference }) {
   const row = {
     user_id: user?.userId ?? null,
     user_email: user?.email ?? null,
@@ -223,7 +235,7 @@ async function logSend({ user, conversationId, recipients, subject, attachments,
     toolResult: { status, providerId: providerId ?? null },
     confirmationStatus: (external ?? []).length > 0 ? (status === "blocked" ? "pending" : "confirmed") : "not_required",
     success: status === "sent",
-    error: error ?? null,
+    error: shownError ?? error ?? null,
   });
 }
 

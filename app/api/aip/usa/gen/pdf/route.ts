@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { failure } from "@/lib/public-error";
+import { GEN_PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
 
@@ -63,7 +65,10 @@ export async function GET(request: NextRequest) {
       bytes = await readFromStorage();
     }
     if (!bytes) {
-      return NextResponse.json({ error: "USA GEN 1.2 PDF not available", detail: "File not found in storage and sync did not produce it." }, { status: 404 });
+      return failure(404, "GEN 1.2 for the USA is not available yet. If you need it, report it from Help & support.", {
+        tag: "AIP-USA-GEN-PDF",
+        what: "USA GEN 1.2 PDF not in storage and the sync did not produce it",
+      });
     }
     const copy = new Uint8Array(bytes.length);
     copy.set(bytes);
@@ -76,7 +81,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    const msg = (err as { message?: string })?.message || "Failed to load USA GEN PDF";
-    return NextResponse.json({ error: "Failed to load USA GEN PDF", detail: msg }, { status: 502 });
+    return failure(502, GEN_PDF_FAILED, { tag: "AIP-USA-GEN-PDF", what: "USA GEN 1.2 PDF read failed", detail: err });
   }
 }

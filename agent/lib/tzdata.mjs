@@ -131,7 +131,7 @@ async function refreshLatest() {
     const v = (await r.text()).trim();
     if (!r.ok || !/^\d{4}[a-z]+$/.test(v)) throw new Error(`unexpected answer (HTTP ${r.status})`);
     latest = { release: v, checkedAt: new Date().toISOString(), error: null };
-  } catch (e) { latest = { ...latest, checkedAt: new Date().toISOString(), error: String(e.message).slice(0, 120) }; }
+  } catch (e) { console.error(`[tzdata] IANA version check failed: ${e?.message ?? e}`); latest = { ...latest, checkedAt: new Date().toISOString(), error: "the IANA version check did not answer" }; }
   return latest;
 }
 /** Call once on start. Logs the state in words nobody can miss, then keeps the IANA release name fresh. */

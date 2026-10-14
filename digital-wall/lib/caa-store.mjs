@@ -14,6 +14,7 @@
 // contact block in the overlay.
 
 import { JsonFileStore } from "./json-store.mjs";
+import { PublicError } from "./public-error.mjs";
 
 const APPLIES_TO = new Set(["any", "commercial", "private"]);
 // Load (bug report item 11): PAX / FERRY / ALL, alongside appliesTo.
@@ -82,7 +83,7 @@ export function sanitizeCaaEntry(input = {}, existing = null) {
   const country = text(input.country ?? existing?.country);
   const authorityName = text(input.authorityName ?? existing?.authorityName);
   if (!country && !authorityName) {
-    throw new Error("A CAA entry needs at least a country or an authority name.");
+    throw new PublicError("A CAA entry needs at least a country or an authority name.");
   }
   const now = new Date().toISOString();
   const match = input.match || {};
@@ -201,7 +202,7 @@ export class CaaStore {
 
   async patch(id, patchInput = {}) {
     const existing = this.entries.find((e) => e.id === id);
-    if (!existing) throw new Error("CAA entry not found.");
+    if (!existing) throw new PublicError("CAA entry not found.");
     const merged = {
       ...existing,
       ...patchInput,
@@ -213,14 +214,14 @@ export class CaaStore {
 
   async remove(id) {
     const index = this.entries.findIndex((e) => e.id === id);
-    if (index < 0) throw new Error("CAA entry not found.");
+    if (index < 0) throw new PublicError("CAA entry not found.");
     this.entries.splice(index, 1);
     await this.persist();
   }
 
   async setActive(id, isActive) {
     const entry = this.entries.find((e) => e.id === id);
-    if (!entry) throw new Error("CAA entry not found.");
+    if (!entry) throw new PublicError("CAA entry not found.");
     entry.isActive = isActive !== false;
     entry.updatedAt = new Date().toISOString();
     await this.persist();

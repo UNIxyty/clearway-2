@@ -33,6 +33,7 @@ import {
   timeAgo,
   useToast,
 } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Reports (bug report item 13): internal issue/request tracker. Ops raise a
 // report (IT, Office, …), track it through a fixed status lifecycle, and
@@ -76,7 +77,7 @@ function StatusQuickPick({ report, onChanged }) {
                   await updateReport(report.id, { status: s.value });
                   flash(`${report.title.slice(0, 30)} → ${s.label}`);
                   onChanged();
-                } catch (err) { flash(String(err.message || err), '#f87171'); }
+                } catch (err) { flash(errorText(err), '#f87171'); }
               }}
             >
               {s.label}
@@ -130,7 +131,7 @@ export default function ReportsPage() {
       setPresets(payload.presets || []);
       setMailerOk(payload.mailerConfigured !== false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setLoading(false);
     }
@@ -161,7 +162,7 @@ export default function ReportsPage() {
       setForm(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setSaving(false);
     }
@@ -181,7 +182,7 @@ export default function ReportsPage() {
       return payload;
     } catch (err) {
       // LOUD failure: stays on screen until dismissed/retried.
-      setSendError(err instanceof Error ? err.message : String(err));
+      setSendError(errorText(err));
     } finally {
       setSending(false);
     }
@@ -209,7 +210,7 @@ export default function ReportsPage() {
       setSheetNote('');
       await load();
     } catch (err) {
-      flash(String(err.message || err), '#f87171');
+      flash(errorText(err), '#f87171');
     } finally {
       setSheetBusy(false);
     }
@@ -238,7 +239,7 @@ export default function ReportsPage() {
 
         {!mailerOk && (
           <div style={{ marginBottom: 12, fontSize: 13, color: '#92500b', background: t.amberTint, border: '1px solid rgba(180,120,20,.35)', borderRadius: 11, padding: '10px 13px' }}>
-            Email is not configured on this backend (RESEND_API_KEY) — reports can be tracked but not sent.
+            This wall cannot send email right now, so reports can be tracked but not sent. If you need to send one, report it from Help & support.
           </div>
         )}
         <ErrorBanner>{error}</ErrorBanner>
@@ -456,7 +457,7 @@ export default function ReportsPage() {
           onCancel={() => setConfirmDelete(null)}
           onConfirm={async () => {
             try { await deleteReport(confirmDelete.id); flash('Report deleted', '#f87171'); setConfirmDelete(null); await load(); }
-            catch (err) { setError(String(err.message || err)); setConfirmDelete(null); }
+            catch (err) { setError(errorText(err)); setConfirmDelete(null); }
           }}
         />
       </div>
@@ -483,7 +484,7 @@ export default function ReportsPage() {
 
       {!mailerOk && (
         <div style={{ marginBottom: 16, fontSize: 13.5, color: '#92500b', background: t.amberTint, border: '1px solid rgba(180,120,20,.35)', borderRadius: 11, padding: '11px 15px' }}>
-          Email is not configured on this backend (RESEND_API_KEY) — reports can be tracked but not sent.
+          This wall cannot send email right now, so reports can be tracked but not sent. If you need to send one, report it from Help & support.
         </div>
       )}
       <ErrorBanner>{error}</ErrorBanner>
@@ -513,7 +514,7 @@ export default function ReportsPage() {
                   setPresets(payload.presets || []);
                   setPresetsOpen(false);
                   flash('Presets saved');
-                } catch (err) { setError(String(err.message || err)); }
+                } catch (err) { setError(errorText(err)); }
               }}
             >
               Save presets
@@ -671,7 +672,7 @@ export default function ReportsPage() {
         onCancel={() => setConfirmDelete(null)}
         onConfirm={async () => {
           try { await deleteReport(confirmDelete.id); flash('Report deleted', '#f87171'); setConfirmDelete(null); await load(); }
-          catch (err) { setError(String(err.message || err)); setConfirmDelete(null); }
+          catch (err) { setError(errorText(err)); setConfirmDelete(null); }
         }}
       />
     </div>

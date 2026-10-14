@@ -3,6 +3,9 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
+
+const NOT_RESTORED = `The airport was not restored. ${TRY_AGAIN}`;
 
 export async function POST(request: Request) {
   const permission = await requirePermission("portal.airports.hide");
@@ -10,7 +13,7 @@ export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
-    return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+    return failure(500, NOT_RESTORED, { tag: "AIRPORTS-RESTORE", what: "Supabase URL / anon key not set" });
   }
 
   const cookieStore = cookies();
@@ -28,7 +31,7 @@ export async function POST(request: Request) {
 
   const service = createSupabaseServiceRoleClient();
   if (!service) {
-    return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+    return failure(503, NOT_RESTORED, { tag: "AIRPORTS-RESTORE", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
   }
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -50,7 +53,7 @@ export async function POST(request: Request) {
       .eq("id", deletedId)
       .eq("deleted_by", user.id)
       .maybeSingle();
-    if (deletedError) return NextResponse.json({ error: deletedError.message }, { status: 500 });
+    if (deletedError) return failure(500, NOT_RESTORED, { tag: "AIRPORTS-RESTORE", what: "Database error (deletedError)", detail: deletedError });
     targetIcao = String(deleted?.icao || "").toUpperCase();
     targetDeletedId = Number(deleted?.id ?? NaN);
   }
@@ -66,7 +69,7 @@ export async function POST(request: Request) {
       .order("deleted_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (latestHiddenError) return NextResponse.json({ error: latestHiddenError.message }, { status: 500 });
+    if (latestHiddenError) return failure(500, NOT_RESTORED, { tag: "AIRPORTS-RESTORE", what: "Database error (latestHiddenError)", detail: latestHiddenError });
     targetDeletedId = Number(latestHidden?.id ?? NaN);
   }
 
@@ -83,7 +86,7 @@ export async function POST(request: Request) {
     .select("id")
     .maybeSingle();
   const { data: restoredRow, error: restoreError } = await markRestore;
-  if (restoreError) return NextResponse.json({ error: restoreError.message }, { status: 500 });
+  if (restoreError) return failure(500, NOT_RESTORED, { tag: "AIRPORTS-RESTORE", what: "Database error (restoreError)", detail: restoreError });
   if (!restoredRow) {
     return NextResponse.json({ error: "No deletions to restore for current user" }, { status: 404 });
   }

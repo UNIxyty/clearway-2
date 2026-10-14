@@ -12,6 +12,7 @@ import useViewport from '../../hooks/useViewport';
 import { MOBILE } from './mobile';
 import Icon from './icons';
 import { Button, ErrorBanner, HelpBanner, PageHeader, Spinner, t, useToast, useCan, VIEW_ONLY_TITLE } from './ui';
+import { errorText } from '../../services/errorText';
 
 // NOTAM Check — visual treatment from Claude Design "NOTAM Check.dc.html"
 // applied to the functional page. Endpoints and SSE are unchanged
@@ -624,7 +625,7 @@ export default function NotamCheckPage({ navigate }) {
       setState(await fetchNotamCheckToday());
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     }
   }
 
@@ -649,7 +650,7 @@ export default function NotamCheckPage({ navigate }) {
       setState(payload);
       flash(`NOTAM check complete · ${payload.total} airports, notification ${payload.emailedTo ? `sent to ${payload.emailedTo}` : 'not sent'}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setRunning(false);
     }
@@ -665,7 +666,7 @@ export default function NotamCheckPage({ navigate }) {
       if (airport && !airport.error) flash(`${icao} resynced · ${airport.filtered.length} flagged`);
       else flash(`${icao} still failing`, '#f87171');
     } catch (err) {
-      flash(err instanceof Error ? err.message : String(err), '#f87171');
+      flash(errorText(err), '#f87171');
     } finally {
       setResyncBusy('');
     }
@@ -681,7 +682,7 @@ export default function NotamCheckPage({ navigate }) {
       if (payload.sign === 'CHECKED') flash('All airports checked — wall sign flipped to NOTAM CHECKED');
       else if (wasChecked) flash(`${icao} unchecked`, '#f87171');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setAckBusy('');
     }

@@ -28,6 +28,7 @@ import {
   useToast,
   ConfirmDialog,
 } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Operators — Leon operators feeding the wall + sync health (approved design).
 
@@ -64,7 +65,7 @@ function OperatorForm({ operator = null, onSaved, onCancel }) {
         onSaved(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setSaving(false);
     }
@@ -179,7 +180,7 @@ export default function OperatorsPage() {
       setOperators(operatorsPayload.operators || []);
       setSync(statusPayload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       setOperators([]);
     } finally {
       setLoading(false);
@@ -199,7 +200,7 @@ export default function OperatorsPage() {
       await setOperatorActive(operator.id, isActive);
       flash(`${isActive ? 'Activated' : 'Paused'} ${operator.name || operator.oprId}`, isActive ? '#4ade80' : '#f87171');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     } finally {
       setTogglingId('');
@@ -216,7 +217,7 @@ export default function OperatorsPage() {
       setOperators((prev) => prev.filter((row) => row.id !== operator.id));
       flash(`Deleted ${label}`, '#f87171');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     } finally {
       setDeletingId('');
@@ -231,7 +232,7 @@ export default function OperatorsPage() {
       setSync(payload.status || null);
       flash(`Sync complete · ${payload.status?.flightsCached ?? '—'} flights cached`);
     } catch (err) {
-      flash(err instanceof Error ? err.message : String(err), '#f87171');
+      flash(errorText(err), '#f87171');
     } finally {
       setForceSyncing(false);
     }

@@ -16,6 +16,9 @@ import { requireDeveloper } from "@/lib/admin-auth";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { auditAgent, grantAgentAccess, listAgentAccess, revokeAgentAccess } from "@/lib/agent/store";
 import { requirePermission } from "@/lib/permissions/server";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
+
+const NOT_GRANTED = `Access was not given. ${TRY_AGAIN}`;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
   let userId = rawUserId;
   let userEmail: string | null = rawEmail || null;
   const service = createSupabaseServiceRoleClient();
-  if (!service) return NextResponse.json({ error: "Supabase is not configured." }, { status: 500 });
+  if (!service) return failure(500, NOT_GRANTED, { tag: "AGENT-ACCESS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
 
   try {
     if (!userId) {
@@ -58,10 +61,7 @@ export async function POST(request: NextRequest) {
       userEmail = data?.user?.email ?? null;
     }
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not resolve the user." },
-      { status: 500 }
-    );
+    return failure(500, NOT_GRANTED, { tag: "AGENT-ACCESS", what: "Resolving the user failed", detail: error });
   }
 
   try {
@@ -84,10 +84,7 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ ok: true, row, created });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to grant access." },
-      { status: 500 }
-    );
+    return failure(500, NOT_GRANTED, { tag: "AGENT-ACCESS", what: "grantAgentAccess failed", detail: error });
   }
 }
 
@@ -117,9 +114,6 @@ export async function DELETE(request: NextRequest) {
     }
     return NextResponse.json({ ok: true, revoked });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to revoke access." },
-      { status: 500 }
-    );
+    return failure(500, `Access was not removed. ${TRY_AGAIN}`, { tag: "AGENT-ACCESS", what: "revokeAgentAccess failed", detail: error });
   }
 }

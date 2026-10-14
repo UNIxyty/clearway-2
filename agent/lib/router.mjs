@@ -25,6 +25,7 @@
 // falling back to `fast` would let an outage quietly degrade every answer.
 
 import { converseOnce } from "./bedrock.mjs";
+import { logDetail } from "./public-errors.mjs";
 
 export const TIERS_BY_COST = ["fast", "standard", "reasoning"];
 
@@ -134,7 +135,9 @@ export async function routeTurn({ question, hasHistory = false, allowReasoning =
     return { ...decision(chosen, reason, source, started, result?.modelId), routerTier: tier, confidence };
   } catch (error) {
     // An outage must not change what the dispatcher gets, only what it costs.
-    return decision("standard", `router unavailable: ${String(error?.message ?? error).slice(0, 80)}`, "fallback", started);
+    // The model's error text is logged; the routing reason (shown on the Activity page) stays ours.
+    logDetail("agent", "router unavailable", error?.detail ? `${error.message} — ${error.detail}` : error);
+    return decision("standard", "router unavailable", "fallback", started);
   }
 }
 

@@ -9,6 +9,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStatus } from "./thread/Confirmation";
 import { AGENT_BASE, type AgentContext, type AgentMessage, type ConfirmationStatus, type ConversationSummary, type FileData, type PageContextBlock, type PendingConfirmation, type SentAttachment, type ToolActivity } from "./types";
 import { markForAutoOpen } from "./thread/autoOpen";
+import { KILL_SWITCH_UNREADABLE, NO_CONNECTION, REPLY_FAILED, ShownError, isCode, personText } from "./ui/errorText";
+
+// A refusal the agent writes from a reason a developer TYPED (the kill switch) is shown as it is — unless it is the
+// switch's own failure text, which older servers put there (KILL_SWITCH_UNREADABLE).
+const typedReason = (body: { error?: unknown; message?: unknown } | null | undefined) =>
+  body?.error === "agent_disabled" && typeof body.message === "string" && body.message !== "" && !KILL_SWITCH_UNREADABLE.test(body.message);
+const shownMessage = (body: { error?: unknown; message?: unknown } | null | undefined, fallback: string) =>
+  typedReason(body) ? String(body?.message) : personText(body?.message, fallback);
 
 export type SendOptions = { tier?: string | null; attachmentIds?: string[]; attachments?: SentAttachment[]; voice?: boolean; language?: string | null; command?: string | null; pageContext?: PageContextBlock | null; system?: string | null };
 
@@ -95,7 +103,11 @@ export function useThread({ context, initialConversationId = null, initials = nu
         method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, signal: controller.signal,
         body: JSON.stringify({ message: text, conversationId, context: pinned, ...(opts.tier ? { tier: opts.tier } : {}), ...(opts.attachmentIds?.length ? { attachmentIds: opts.attachmentIds } : {}), ...(opts.voice ? { inputMode: "voice", voice: { language: opts.language ?? null } } : {}), ...(opts.pageContext ? { pageContext: { ...opts.pageContext, dataUrl: undefined } } : {}), ...(opts.system ? { system: opts.system } : {}) }),
       });
-      if (!response.ok || !response.body) { const b = await response.json().catch(() => null); throw new Error(b?.message || `The assistant is unavailable (HTTP ${response.status}).`); }
+      if (!response.ok || !response.body) {
+        const b = await response.json().catch(() => null);
+        // A 5xx with no message of its own (a proxy, a restart) is "the agent is unavailable", as before.
+        throw new ShownError(shownMessage(b, "The assistant is not available right now. Try again in a few minutes."), response.status >= 500 && !b?.message ? "unavailable" : isCode(b?.error) ? b.error : null);
+      }
       markUser({ sending: false });
       const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
       const building = new Map<string, { id: string; filename: string; format: string | null; steps: string[]; index: number }>();
@@ -140,7 +152,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
             patchAssistant({ toolActivity: [...tools] });
           }
           else if (event === "done") done = payload;
-          else if (event === "error") throw new Error(payload.message || payload.error);
+          else if (event === "error") throw new ShownError(shownMessage(payload, REPLY_FAILED), isCode(payload.error) ? payload.error : null);
         }
       }
       const d = done ?? {};
@@ -169,10 +181,15 @@ export function useThread({ context, initialConversationId = null, initials = nu
         const finished = tools.length; const cancelled = 0;
         patchAssistant({ content: answer, toolActivity: tools.map((t) => ({ ...t, state: "done" })), streaming: false, stopped: { at: new Date().toISOString(), finished, cancelled } });
       } else {
-        const msg = e instanceof Error ? e.message : String(e);
-        markUser({ sending: false, failed: /unavailable|HTTP 5|network/i.test(msg) ? "the agent is unavailable" : undefined });
+        // Only our own words are shown. A fetch that never got an answer is a TypeError; anything else that is not a
+        // ShownError (a frame that would not parse, a bug) gets the general sentence.
+        const shown = e instanceof ShownError;
+        const msg = shown ? e.message : e instanceof TypeError ? NO_CONNECTION : REPLY_FAILED; // public-error-ok: only a ShownError, whose message is ours by construction
+        const code = shown ? e.code : e instanceof TypeError ? "unavailable" : null;
+        markUser({ sending: false, failed: code === "unavailable" ? "the agent is unavailable" : undefined });
         setError(msg);
-        patchAssistant({ content: answer, toolActivity: tools, streaming: false, error: msg });
+        // The reply keeps "code: words", the same shape the server saves, so the card can tell cases apart.
+        patchAssistant({ content: answer, toolActivity: tools, streaming: false, error: code ? `${code}: ${msg}` : msg });
       }
     } finally {
       setStreaming(false); setActivity(null); abortRef.current = null;

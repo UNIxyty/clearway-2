@@ -9,6 +9,7 @@
 
 import { rest } from "./knowledge/retrieval.mjs";
 import { loadModelConfig, setRuntimeOverride } from "./models.mjs";
+import { BadRequest } from "./errors.mjs";
 
 export const LADDER = ["fast", "standard", "reasoning"];
 export const MANUAL_TIERS = ["fast", "standard", "reasoning"];
@@ -53,14 +54,14 @@ export async function setRoutingSettings(input, user) {
     const t = input?.tiers?.[tier]; if (!t) continue;
     const id = t.id == null || t.id === "" ? null : String(t.id).trim();
     const fallbackId = t.fallbackId == null || t.fallbackId === "" ? null : String(t.fallbackId).trim();
-    for (const v of [id, fallbackId]) if (v && !/^[a-z0-9.:_-]{3,120}$/i.test(v)) throw new Error(`Not a model id: ${v}`);
+    for (const v of [id, fallbackId]) if (v && !/^[a-z0-9.:_-]{3,120}$/i.test(v)) throw BadRequest(`"${v}" is not a model ID. Check the ID and save again.`);
     tiers[tier] = { id, fallbackId };
   }
   const esc = {};
   const e = input?.escalation ?? {};
-  if (e.lowConfidenceBelow != null) { const n = Number(e.lowConfidenceBelow); if (!(n >= 0 && n <= 1)) throw new Error("lowConfidenceBelow must be 0–1."); esc.lowConfidenceBelow = n; }
-  if (e.maxToolsBeforeEscalate != null) { const n = Math.round(Number(e.maxToolsBeforeEscalate)); if (!(n >= 1 && n <= 20)) throw new Error("maxToolsBeforeEscalate must be 1–20."); esc.maxToolsBeforeEscalate = n; }
-  for (const k of ["authoritativeFloor", "conflictTo", "careTo"]) if (e[k] != null) { if (!LADDER.includes(e[k])) throw new Error(`${k} must be fast, standard or reasoning.`); esc[k] = e[k]; }
+  if (e.lowConfidenceBelow != null) { const n = Number(e.lowConfidenceBelow); if (!(n >= 0 && n <= 1)) throw BadRequest("The low-confidence threshold must be between 0 and 1."); esc.lowConfidenceBelow = n; }
+  if (e.maxToolsBeforeEscalate != null) { const n = Math.round(Number(e.maxToolsBeforeEscalate)); if (!(n >= 1 && n <= 20)) throw BadRequest("The number of tools before escalating must be between 1 and 20."); esc.maxToolsBeforeEscalate = n; }
+  for (const k of ["authoritativeFloor", "conflictTo", "careTo"]) if (e[k] != null) { if (!LADDER.includes(e[k])) throw BadRequest("Choose fast, standard or reasoning for each escalation tier."); esc[k] = e[k]; }
   if (e.retryOnFailure != null) esc.retryOnFailure = Boolean(e.retryOnFailure);
   const body = { tiers, escalation: esc };
   await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: "routing", enabled: true, reason: JSON.stringify(body), updated_at: new Date().toISOString(), updated_by_email: user?.email ?? null }]) });
@@ -132,15 +133,15 @@ export async function userPrefs(userId) {
 export async function setUserPref(userId, email, key, value) {
   if (key === "tier") {
     const v = value == null || value === "" || value === "auto" ? "" : String(value);
-    if (v && !MANUAL_TIERS.includes(v)) throw new Error("Tier must be fast, standard, reasoning or automatic.");
+    if (v && !MANUAL_TIERS.includes(v)) throw BadRequest("Choose fast, standard, reasoning or automatic.");
     await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: `pref:${userId}:tier`, enabled: Boolean(v), reason: v, updated_at: new Date().toISOString(), updated_by_email: email ?? null }]) });
   } else if (key === "skipConfirm") {
     await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: `pref:${userId}:skipConfirm`, enabled: Boolean(value), reason: null, updated_at: new Date().toISOString(), updated_by_email: email ?? null }]) });
   } else if (key === "replyMode") {
     const v = value == null || value === "" ? "auto" : String(value);
-    if (!REPLY_MODES.includes(v)) throw new Error("Reply mode must be auto, spoken or text.");
+    if (!REPLY_MODES.includes(v)) throw BadRequest("Choose automatic, spoken or text.");
     await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: `pref:${userId}:replyMode`, enabled: v !== "auto", reason: v, updated_at: new Date().toISOString(), updated_by_email: email ?? null }]) });
-  } else throw new Error("Unknown preference.");
+  } else throw BadRequest("This setting does not exist.");
   return userPrefs(userId);
 }
 

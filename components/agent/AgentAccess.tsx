@@ -22,6 +22,10 @@ import {
 } from "@/components/console-kit";
 import type { AgentAccessRow, AgentKillSwitch } from "@/lib/agent/shared";
 import { dayTimeZ } from "@/lib/time";
+import { KILL_SWITCH_UNREADABLE, KILL_SWITCH_UNREADABLE_TEXT, personText } from "./ui/errorText";
+
+const GRANT_FAILED = "Access was not granted. Try again. If it keeps failing, the detail is in the server log.";
+const SWITCH_FAILED = "The kill switch was not changed. Try again. If it keeps failing, the detail is in the server log.";
 
 function when(iso: string | null): string {
   if (!iso) return "—";
@@ -62,7 +66,9 @@ export default function AgentAccess() {
       body: JSON.stringify({ email: target, note: note.trim() || null }),
     }).catch(() => null);
     const body = await res?.json().catch(() => null);
-    if (!res?.ok) setError(body?.error || "Could not grant access.");
+    // A 400/404 answer is a sentence for the person ("No account found for …"); anything else (a database error,
+    // no answer) is shown in our words — the detail is in the server log.
+    if (!res?.ok) setError(res && (res.status === 400 || res.status === 404) ? personText(body?.error, GRANT_FAILED) : GRANT_FAILED);
     else { setEmail(""); setNote(""); }
     setBusy(false);
     void load();
@@ -84,7 +90,7 @@ export default function AgentAccess() {
       body: JSON.stringify({ enabled, reason }),
     }).catch(() => null);
     const body = await res?.json().catch(() => null);
-    if (!res?.ok) setError(body?.error || "Could not change the kill switch.");
+    if (!res?.ok) setError(res?.status === 400 ? personText(body?.error, SWITCH_FAILED) : SWITCH_FAILED);
     setBusy(false); setDisabling(false);
     void load();
   }
@@ -121,7 +127,7 @@ export default function AgentAccess() {
                 </StatusPill>
               </div>
               <span style={{ fontSize: 12.5, color: t.muted, lineHeight: 1.5 }}>
-                {killSwitch.reason ? `${killSwitch.reason} · ` : ""}
+                {killSwitch.reason ? `${KILL_SWITCH_UNREADABLE.test(killSwitch.reason) ? KILL_SWITCH_UNREADABLE_TEXT : killSwitch.reason} · ` : ""}
                 {killSwitch.updatedByEmail ? `${killSwitch.updatedByEmail} · ` : ""}
                 {when(killSwitch.updatedAt)}
               </span>

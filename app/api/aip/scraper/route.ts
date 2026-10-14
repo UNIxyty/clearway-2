@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { readJsonFromStorage, removeFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
+import { failure, logFailure, publicEventStream } from "@/lib/public-error";
+import { AIP_NOT_SET_UP, AIP_NO_ANSWER, aipSyncFailure } from "@/lib/aip-sync-failure";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
@@ -57,13 +59,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!AIP_SYNC_URL) {
-    return NextResponse.json(
-      {
-        error: "AIP sync not configured",
-        detail: "Set AIP_SYNC_URL in Vercel to your AIP EC2 sync server.",
-      },
-      { status: 503 },
-    );
+    return failure(503, AIP_NOT_SET_UP, { tag: "AIP-SCRAPER", what: "AIP sync requested but AIP_SYNC_URL is not set" }, { code: "not_configured" });
   }
 
   // force=1 propagates to the sync worker so it refetches from the source and
@@ -81,7 +77,7 @@ export async function GET(request: NextRequest) {
     clearTimeout(timeout);
     request.signal.removeEventListener("abort", onAbort);
     if (stream && res.ok && res.body) {
-      return new Response(res.body, {
+      return new Response(publicEventStream(res.body, "AIP-SCRAPER", (e) => aipSyncFailure(e)), {
         headers: {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
@@ -97,8 +93,9 @@ export async function GET(request: NextRequest) {
       airports?: unknown[];
     };
     if (!res.ok) {
+      logFailure("AIP-SCRAPER", `AIP sync for ${icao} returned ${res.status}`, { error: data.error, detail: data.detail });
       return NextResponse.json(
-        { error: data.error ?? "Sync failed", detail: data.detail, ...(typeof data.code === "number" ? { code: data.code } : {}) },
+        { ...(typeof data.code === "number" ? { code: data.code } : {}), ...aipSyncFailure({ ...data, status: res.status }) },
         { status: res.status >= 400 && res.status < 600 ? res.status : 502 },
       );
     }
@@ -110,10 +107,6 @@ export async function GET(request: NextRequest) {
     if (request.signal.aborted) {
       return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
     }
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      { error: "AIP sync request failed", detail: `Cannot reach AIP sync server. ${msg}` },
-      { status: 502 },
-    );
+    return failure(502, AIP_NO_ANSWER, { tag: "AIP-SCRAPER", what: `AIP sync for ${icao} unreachable`, detail: e });
   }
 }

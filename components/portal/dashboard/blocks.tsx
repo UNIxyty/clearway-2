@@ -98,7 +98,8 @@ const WALL = "/digital-wall/api";
 async function wallJson<T>(path: string): Promise<{ data: T | null; error: string | null }> {
   const res = await fetch(`${WALL}${path}`, { cache: "no-store", credentials: "include" }).catch(() => null);
   const body = res ? await res.json().catch(() => null) : null;
-  if (!res || !res.ok || body?.ok === false) return { data: null, error: body?.error ? String(body.error) : `${res?.status ?? "network"} · GET ${WALL}${path.split("?")[0]}` };
+  // The wall's own `error` text is not shown (it can carry what Leon answered); the status and the path are.
+  if (!res || !res.ok || body?.ok === false) return { data: null, error: `${res?.status ?? "network"} · GET ${WALL}${path.split("?")[0]}` };
   return { data: body as T, error: null };
 }
 

@@ -32,6 +32,7 @@ import {
   type HelpBlock,
   type HelpStatus,
 } from "@/lib/help/shared";
+import { TRY_AGAIN, shownText } from "@/lib/error-text";
 
 type SavedReply = { id: string; text: string; setsStatus: HelpStatus | null; useCount: number };
 type ThreadDetail = Awaited<ReturnType<typeof helpApi.getThread>>;
@@ -67,13 +68,14 @@ export default function DeveloperInbox() {
   selectedIdRef.current = selectedId;
 
   const loadList = useCallback(() => {
+    // Only our own wording reaches the page: errorDetail, plus the `error` of our API (person-facing).
     fetch("/api/help/inbox", { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(errorDetail(r.status, "GET", "/api/help/inbox") + (d?.error ? ` · ${d.error}` : ""));
+        if (!r.ok) { setListError(errorDetail(r.status, "GET", "/api/help/inbox") + (d?.error ? ` · ${d.error}` : "")); return; }
         setThreads(d.threads || []); setListError(null);
       })
-      .catch((e) => setListError((prev) => (e instanceof Error ? e.message : prev ?? errorDetail("network", "GET", "/api/help/inbox"))));
+      .catch(() => setListError(errorDetail("network", "GET", "/api/help/inbox")));
   }, []);
 
   const loadDetail = useCallback((id: string) => {
@@ -154,7 +156,7 @@ export default function DeveloperInbox() {
       loadDetail(id);
       loadList();
     } catch (error) {
-      toast.show({ tone: "danger", title: "Couldn't change the status", body: error instanceof Error ? error.message : undefined });
+      toast.show({ tone: "danger", title: "Couldn't change the status", body: shownText(error, `The status was not changed. ${TRY_AGAIN}`) });
     }
   }
 
@@ -185,7 +187,7 @@ export default function DeveloperInbox() {
       loadDetail(id);
       loadList();
     } catch (error) {
-      toast.show({ tone: "danger", title: "Couldn't send the reply", body: error instanceof Error ? error.message : undefined, action: { label: "Retry", onClick: () => void send() } });
+      toast.show({ tone: "danger", title: "Couldn't send the reply", body: shownText(error, `The reply was not sent. ${TRY_AGAIN}`), action: { label: "Retry", onClick: () => void send() } });
     } finally {
       setSending(false);
     }

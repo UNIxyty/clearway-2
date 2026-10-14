@@ -3,12 +3,16 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { isValidPassword } from "@/lib/auth-email-flow-utils.mjs";
+import { failure } from "@/lib/public-error";
+import { TRY_AGAIN_SIGNED_OUT } from "@/lib/error-text";
+
+const NOT_CHANGED = `The password was not changed. ${TRY_AGAIN_SIGNED_OUT}`;
 
 export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
-    return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+    return failure(500, NOT_CHANGED, { tag: "AUTH-RESET", what: "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY not set" });
   }
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -40,12 +44,12 @@ export async function POST(request: Request) {
 
   const service = createSupabaseServiceRoleClient();
   if (!service) {
-    return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+    return failure(503, NOT_CHANGED, { tag: "AUTH-RESET", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
   }
 
   const { error } = await service.auth.admin.updateUserById(user.id, { password });
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return failure(500, NOT_CHANGED, { tag: "AUTH-RESET", what: "updateUserById failed", detail: error });
   }
 
   return NextResponse.json({ ok: true });

@@ -34,7 +34,8 @@ type Events = {
   onSegments: (segments: Segment[]) => void;
   onLanguage: (language: string) => void;
   /** The live transcript stopped working; the recording continues for the batch fallback. */
-  onRealtimeLost: (reason: string) => void;
+  /** The live transcript stopped; the reason is in the browser console (it can be ElevenLabs' own text). */
+  onRealtimeLost: () => void;
   onRealtimeReady: (session: RealtimeSession) => void;
   onMicLost: () => void;
 };
@@ -155,16 +156,18 @@ export class VoiceCapture {
       this.ws = ws;
       ws.onopen = () => { if (this.closed) return; };
       ws.onmessage = (e) => this.onMessage(e.data);
-      ws.onerror = () => this.fail("the live transcript connection failed");
-      ws.onclose = (e) => { if (!this.closed && !this.finishing?.sawCommit) this.fail(e.reason || `connection closed (${e.code})`); };
-    }).catch((e: Error) => this.fail(e.message || "no live transcript"));
+      ws.onerror = () => this.dropLive("the live transcript connection failed");
+      ws.onclose = (e) => { if (!this.closed && !this.finishing?.sawCommit) this.dropLive(e.reason || `connection closed (${e.code})`); };
+    }).catch((e: Error) => this.dropLive(e.message || "no live transcript"));
   }
 
-  private fail(reason: string) {
+  /** Give up on the live transcript (batch on release). `detail` is logged, never shown. */
+  private dropLive(detail: string) {
     if (this.lost || this.closed) return;
     this.lost = true; this.live = false;
     try { this.ws?.close(); } catch { /* closed */ }
-    this.ev.onRealtimeLost(reason);
+    console.warn(`[voice] live transcript lost: ${detail}`);
+    this.ev.onRealtimeLost();
     this.finishing?.resolve();
   }
 
@@ -204,7 +207,7 @@ export class VoiceCapture {
     // A forced commit with nothing new to commit is an answer, not a failure.
     if (type === "insufficient_audio_activity" || type === "commit_throttled") { this.noteCommit(false, true); return; }
     if (type === "warning") return;
-    if (FATAL.has(type)) this.fail(String(m.error ?? m.message ?? type));
+    if (FATAL.has(type)) this.dropLive(String(m.error ?? m.message ?? type));
   }
 
   private noteCommit(_hadText: boolean, timed = false) {
@@ -247,7 +250,7 @@ export class VoiceCapture {
 
   private send(pcm: Int16Array, commit: boolean) {
     try { this.ws?.send(JSON.stringify({ message_type: "input_audio_chunk", audio_base_64: pcm.length ? toBase64(pcm) : "", commit, sample_rate: 16000 })); }
-    catch { this.fail("could not send audio"); }
+    catch { this.dropLive("could not send audio"); }
   }
 
   /** Release: force the final commit and wait for it; hand back the recording if realtime could not finish. */

@@ -16,6 +16,7 @@ import {
   useToast,
   ConfirmDialog,
 } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Aircraft — choose which tails render on the wall (approved design).
 
@@ -47,7 +48,7 @@ export default function AircraftPage() {
       const payload = await fetchAircraftSchedule();
       setData(payload.aircraft || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       setData([]);
     } finally {
       setLoading(false);
@@ -99,7 +100,7 @@ export default function AircraftPage() {
       await setAircraftVisibility({ oprId: row.oprId, registration: row.registration, enabled: showOnWall });
       flash(showOnWall ? `Showing ${row.registration} on wall` : `Hidden ${row.registration} — lane removed`, showOnWall ? '#4ade80' : '#f87171');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     } finally {
       setSavingKey('');
@@ -117,7 +118,7 @@ export default function AircraftPage() {
       setData((prev) => prev.filter((item) => !(item.oprId === row.oprId && item.registration === row.registration)));
       flash(`Deleted ${row.registration}`, '#f87171');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     } finally {
       setDeletingKey('');
@@ -142,7 +143,7 @@ export default function AircraftPage() {
       }
       flash(showOnWall ? 'All aircraft shown on wall' : 'All aircraft hidden', showOnWall ? '#4ade80' : '#f87171');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     } finally {
       setBulkBusy(false);

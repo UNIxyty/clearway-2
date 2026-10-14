@@ -8,6 +8,14 @@ import {
   normalizeEmail,
   sha256Hex,
 } from "@/lib/auth-email-flow-utils.mjs";
+import { failure, logFailure } from "@/lib/public-error";
+import { TRY_AGAIN_SIGNED_OUT } from "@/lib/error-text";
+
+// What a person sees on the confirmation page. The detail (a missing setting, a Supabase error) goes to the log.
+const NO_TOKEN = "This confirmation link is not complete. Open the link from your email again.";
+const BAD_LINK = "This confirmation link is not valid or has expired. Sign up again to get a new link.";
+const USED_LINK = "This confirmation link was already used. Sign in with your email and password.";
+const NOT_NOW = `Your account could not be set up right now. ${TRY_AGAIN_SIGNED_OUT}`;
 
 function createSupabaseFromCookies() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -28,19 +36,24 @@ function createSupabaseFromCookies() {
 
 async function loadConfirmation(token: string) {
   const service = createSupabaseServiceRoleClient();
-  if (!service) return { error: "Missing SUPABASE_SERVICE_ROLE_KEY", row: null };
+  if (!service) {
+    logFailure("AUTH-CONFIRM", "SUPABASE_SERVICE_ROLE_KEY not set");
+    return { error: NOT_NOW, row: null };
+  }
   const tokenHash = sha256Hex(token);
   const { data, error } = await service
     .from("email_confirmations")
     .select("id, email, purpose, expires_at, used_at")
     .eq("token_hash", tokenHash)
     .maybeSingle();
-  if (error || !data) return { error: "Invalid or expired token.", row: null };
-  if (!String(data.purpose || "").startsWith("signup")) {
-    return { error: "Invalid confirmation token purpose.", row: null };
+  if (error) {
+    logFailure("AUTH-CONFIRM", "email_confirmations read failed", error.message);
+    return { error: NOT_NOW, row: null };
   }
-  if (data.used_at) return { error: "Token has already been used.", row: null };
-  if (new Date(data.expires_at).getTime() <= Date.now()) return { error: "Token has expired.", row: null };
+  if (!data) return { error: BAD_LINK, row: null };
+  if (!String(data.purpose || "").startsWith("signup")) return { error: BAD_LINK, row: null };
+  if (data.used_at) return { error: USED_LINK, row: null };
+  if (new Date(data.expires_at).getTime() <= Date.now()) return { error: BAD_LINK, row: null };
   return { error: null, row: data };
 }
 
@@ -53,21 +66,27 @@ function parseUserIdFromPurpose(purpose: string | null | undefined): string | nu
 
 async function findUserIdByEmail(email: string) {
   const service = createSupabaseServiceRoleClient();
-  if (!service) return { error: "Missing SUPABASE_SERVICE_ROLE_KEY", userId: null as string | null };
+  if (!service) {
+    logFailure("AUTH-CONFIRM", "SUPABASE_SERVICE_ROLE_KEY not set");
+    return { error: NOT_NOW, userId: null as string | null };
+  }
 
   const targetEmail = normalizeEmail(email);
   const perPage = 200;
   // Safety bound to avoid unbounded scans in very large user sets.
   for (let page = 1; page <= 10; page += 1) {
     const { data, error } = await service.auth.admin.listUsers({ page, perPage });
-    if (error) return { error: error.message, userId: null as string | null };
+    if (error) {
+      logFailure("AUTH-CONFIRM", "listUsers failed", error.message);
+      return { error: NOT_NOW, userId: null as string | null };
+    }
 
     const users = data?.users ?? [];
     const match = users.find((u) => normalizeEmail(u.email) === targetEmail);
     if (match?.id) return { error: null, userId: match.id };
     if (users.length < perPage) break;
   }
-  return { error: "User account not found for this confirmation token.", userId: null as string | null };
+  return { error: "We could not find the account for this link. Sign up again to get a new link.", userId: null as string | null };
 }
 
 async function notifyApprovalNeeded(userId: string, email: string): Promise<void> {
@@ -144,11 +163,11 @@ async function syncDisplayNameFromMetadata(userId: string) {
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const token = requestUrl.searchParams.get("token") ?? "";
-  if (!token) return NextResponse.json({ error: "Token is required." }, { status: 400 });
+  if (!token) return NextResponse.json({ error: NO_TOKEN }, { status: 400 });
 
   const confirmation = await loadConfirmation(token);
   if (confirmation.error || !confirmation.row) {
-    return NextResponse.json({ error: confirmation.error ?? "Invalid token." }, { status: 400 });
+    return NextResponse.json({ error: confirmation.error ?? BAD_LINK }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, email: confirmation.row.email });
@@ -161,18 +180,18 @@ export async function POST(request: Request) {
   };
   const token = String(body.token ?? "").trim();
   const password = String(body.password ?? "");
-  if (!token) return NextResponse.json({ error: "Token is required." }, { status: 400 });
+  if (!token) return NextResponse.json({ error: NO_TOKEN }, { status: 400 });
   if (!isValidPassword(password)) {
     return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
   }
 
   const confirmation = await loadConfirmation(token);
   if (confirmation.error || !confirmation.row) {
-    return NextResponse.json({ error: confirmation.error ?? "Invalid token." }, { status: 400 });
+    return NextResponse.json({ error: confirmation.error ?? BAD_LINK }, { status: 400 });
   }
 
   const service = createSupabaseServiceRoleClient();
-  if (!service) return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+  if (!service) return failure(503, NOT_NOW, { tag: "AUTH-CONFIRM", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
 
   let targetUserId: string | null = null;
   const userIdFromPurpose = parseUserIdFromPurpose(confirmation.row.purpose);
@@ -191,7 +210,7 @@ export async function POST(request: Request) {
   if (!targetUserId) {
     const lookup = await findUserIdByEmail(confirmation.row.email);
     if (lookup.error || !lookup.userId) {
-      return NextResponse.json({ error: lookup.error ?? "Unable to locate invited user." }, { status: 404 });
+      return NextResponse.json({ error: lookup.error ?? BAD_LINK }, { status: 404 });
     }
     targetUserId = lookup.userId;
   }
@@ -201,7 +220,7 @@ export async function POST(request: Request) {
     email_confirm: true,
   });
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return failure(500, NOT_NOW, { tag: "AUTH-CONFIRM", what: "updateUserById (password) failed", detail: updateError });
   }
 
   await syncDisplayNameFromMetadata(targetUserId);
@@ -220,7 +239,7 @@ export async function POST(request: Request) {
     .update({ used_at: new Date().toISOString() })
     .eq("id", confirmation.row.id);
   if (markUsedError) {
-    return NextResponse.json({ error: markUsedError.message }, { status: 500 });
+    return failure(500, NOT_NOW, { tag: "AUTH-CONFIRM", what: "Marking the confirmation used failed", detail: markUsedError });
   }
 
   return NextResponse.json({ ok: true });

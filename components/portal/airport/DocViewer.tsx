@@ -11,6 +11,18 @@ import { PdfView, ZOOMS, type PdfHandle, type PdfStatus } from "@/components/age
 import AgentStyles from "@/components/agent/ui/AgentStyles";
 import MaskIcon from "@/components/portal/Icon";
 
+/** Our sentence for a viewer failure, chosen by its code. The viewer's own detail (a pdf.js exception) is not shown. */
+function pdfFailureText(status: PdfStatus): string {
+  if (status.state !== "error") return "";
+  switch (status.code) {
+    case "toolarge": return "This PDF is too large to show here. Download it instead.";
+    case "empty": return "The PDF is empty. Get it again, or download it.";
+    case "permission": return "The PDF is not available to open here. Get it again, or download it.";
+    case "fetch": return "The PDF did not arrive. Check your connection and try again.";
+    default: return "The PDF could not be shown here. Download it to open it in another viewer.";
+  }
+}
+
 export type DocTab = {
   id: string;
   label: string;
@@ -118,7 +130,7 @@ function Viewer({ tab }: { tab: DocTab & { pdf: NonNullable<DocTab["pdf"]> } }) 
         )}
         {status.state === "error" && (
           <div className="flex flex-1 items-center justify-center bg-cw-bg-sunken">
-            <ErrorState title={`Couldn't show ${tab.pdf.filename}`} detail={status.detail} onRetry={() => pdf.current?.retry()} />
+            <ErrorState title={`Couldn't show ${tab.pdf.filename}`} detail={pdfFailureText(status)} onRetry={() => pdf.current?.retry()} />
           </div>
         )}
       </div>

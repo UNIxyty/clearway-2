@@ -3,6 +3,9 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
+
+const NOT_HIDDEN = `The airport was not hidden. ${TRY_AGAIN}`;
 
 export async function POST(request: Request) {
   const permission = await requirePermission("portal.airports.hide");
@@ -10,7 +13,7 @@ export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
-    return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+    return failure(500, NOT_HIDDEN, { tag: "AIRPORTS-DELETE", what: "Supabase URL / anon key not set" });
   }
 
   const cookieStore = cookies();
@@ -28,7 +31,7 @@ export async function POST(request: Request) {
 
   const service = createSupabaseServiceRoleClient();
   if (!service) {
-    return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+    return failure(503, NOT_HIDDEN, { tag: "AIRPORTS-DELETE", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
   }
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -44,7 +47,7 @@ export async function POST(request: Request) {
     .select("*")
     .eq("icao", icao)
     .maybeSingle();
-  if (airportError) return NextResponse.json({ error: airportError.message }, { status: 500 });
+  if (airportError) return failure(500, NOT_HIDDEN, { tag: "AIRPORTS-DELETE", what: "Database error (airportError)", detail: airportError });
   if (!airport) return NextResponse.json({ error: "Airport not found" }, { status: 404 });
 
   const { data: existingHidden, error: existingHiddenError } = await service
@@ -54,7 +57,7 @@ export async function POST(request: Request) {
     .eq("deleted_by", user.id)
     .is("restored_at", null)
     .limit(1);
-  if (existingHiddenError) return NextResponse.json({ error: existingHiddenError.message }, { status: 500 });
+  if (existingHiddenError) return failure(500, NOT_HIDDEN, { tag: "AIRPORTS-DELETE", what: "Database error (existingHiddenError)", detail: existingHiddenError });
   if ((existingHidden ?? []).length > 0) return NextResponse.json({ ok: true, alreadyHidden: true });
 
   const { error: archiveError } = await service.from("deleted_airports").insert({
@@ -64,7 +67,7 @@ export async function POST(request: Request) {
     deleted_by: user.id,
     deleted_reason: reason,
   });
-  if (archiveError) return NextResponse.json({ error: archiveError.message }, { status: 500 });
+  if (archiveError) return failure(500, NOT_HIDDEN, { tag: "AIRPORTS-DELETE", what: "Database error (archiveError)", detail: archiveError });
 
   return NextResponse.json({ ok: true });
 }

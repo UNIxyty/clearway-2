@@ -6,6 +6,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
+
+const NOT_LOADED = `Your recent airports could not be loaded. ${TRY_AGAIN}`;
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +27,7 @@ export async function GET() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !anonKey) {
-      return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+      return failure(500, NOT_LOADED, { tag: "DASHBOARD-RECENTS", what: "Supabase URL / anon key not set" });
     }
 
     const cookieStore = cookies();
@@ -53,7 +56,7 @@ export async function GET() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(120);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return failure(500, NOT_LOADED, { tag: "DASHBOARD-RECENTS", what: "Database error", detail: error });
 
     // Newest first already; dedupe by query keeping the newest, cap 12.
     const seen = new Set<string>();
@@ -77,9 +80,6 @@ export async function GET() {
 
     return NextResponse.json({ recents });
   } catch (e: unknown) {
-    return NextResponse.json(
-      { error: (e as { message?: string })?.message || "Failed" },
-      { status: 500 },
-    );
+    return failure(500, NOT_LOADED, { tag: "DASHBOARD-RECENTS", what: "Unexpected error", detail: e });
   }
 }

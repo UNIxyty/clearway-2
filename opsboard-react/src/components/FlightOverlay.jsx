@@ -4,6 +4,7 @@ import { subscribeWallStream } from '../services/wallStream';
 import { WX_CATEGORY_COLORS } from './FlightPill';
 
 import { WALL_FONT } from '../theme/wallFont';
+import { errorText } from '../services/errorText';
 // Remote-controlled flight-detail side overlay (Feature 5.2). A Console user
 // opens/closes it for everyone; the backend holds the authoritative state and
 // pushes display.command over SSE. On boot the current state is restored, so
@@ -119,7 +120,7 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
       if (!silent) setLoading(true);
       fetchFlightInfo({ flightNid: overlay.flightNid, oprId: overlay.oprId })
         .then((payload) => !cancelled && setInfo(payload))
-        .catch((err) => !cancelled && !silent && setError(err instanceof Error ? err.message : String(err)))
+        .catch((err) => !cancelled && !silent && setError(errorText(err)))
         .finally(() => !cancelled && setLoading(false));
     };
     load();

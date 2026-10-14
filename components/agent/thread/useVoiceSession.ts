@@ -122,7 +122,7 @@ export function useVoiceInput({ onResult, onKeepText, onPhase }: { onResult: (r:
       },
       onLanguage: (lang) => { meta.current.language = lang; },
       onRealtimeReady: (s) => { meta.current.candidates = s.candidates ?? []; setLive(true); },
-      onRealtimeLost: (reason) => { setLive(false); meta.current.via = "batch"; setNote(`Live transcript unavailable (${reason.slice(0, 60)}) — I'll transcribe when you release.`); },
+      onRealtimeLost: () => { setLive(false); meta.current.via = "batch"; setNote("Live transcript unavailable — I'll transcribe when you release."); },
       onMicLost: () => {
         // §4.24 error: what was heard is kept in the composer.
         const kept = committedText(segRef.current);
@@ -192,7 +192,7 @@ export function useVoiceInput({ onResult, onKeepText, onPhase }: { onResult: (r:
         if (body?.error === "CAPABILITY_OFF") fail({ title: "Voice is off", detail: "switched off in Agent settings", action: "type" });
         else if (body?.error === "voice_unconfigured") fail({ title: "Voice not set up", detail: "no speech service on this deployment", action: "type" });
         else if (body?.error === "nothing_heard") fail({ title: "Didn't catch that", detail: "nothing heard", action: "retry", hold: 3000 });
-        else fail({ title: "Couldn't transcribe", detail: String(body?.message ?? `HTTP ${res.status}`).slice(0, 80), action: "retry" });
+        else fail({ title: "Couldn't transcribe", detail: "the speech service did not answer — try again or type", action: "retry" });
         return;
       }
       const text = String(body.text ?? "").trim();
@@ -202,7 +202,8 @@ export function useVoiceInput({ onResult, onKeepText, onPhase }: { onResult: (r:
       // Batch gives no per-word confidence: a low language probability is the only signal, and it holds the text for checking.
       deliver(segs, "batch", body.language ?? null, Boolean(body.uncertain));
     } catch (e) {
-      fail({ title: "Couldn't transcribe", detail: e instanceof Error ? e.message.slice(0, 80) : "network error", action: "retry" });
+      console.warn("[voice] transcription request failed", e);
+      fail({ title: "Couldn't transcribe", detail: "the agent could not be reached — check the connection", action: "retry" });
     }
   }, [deliver, fail]);
 

@@ -34,6 +34,7 @@ import {
   Toggle,
   useToast,
 } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Important — standing IMP limitations from the ops bulletin (approved
 // design): list on the left, criteria editor on the right. A matching flight
@@ -180,7 +181,7 @@ function AttachmentsSection({ entry, onChanged, setError }) {
       flash(`Attached ${file.name}`);
       await onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -194,7 +195,7 @@ function AttachmentsSection({ entry, onChanged, setError }) {
       flash(`Removed ${att.filename}`, '#f87171');
       await onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setBusy(false);
     }
@@ -267,7 +268,7 @@ export default function ImportantPage() {
       const payload = await fetchImportant({ includeInactive: true, withMatches: true });
       setEntries(payload.entries || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       setEntries([]);
     } finally {
       setLoading(false);
@@ -341,7 +342,7 @@ export default function ImportantPage() {
       setSelectedId(payload.entry?.id || '');
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setSaving(false);
     }
@@ -352,7 +353,7 @@ export default function ImportantPage() {
     try {
       await setImportantActive(entry.id, nextValue);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     }
   }
@@ -364,7 +365,7 @@ export default function ImportantPage() {
       if (selectedId === entry.id) setSelectedId('');
       setEntries((prev) => prev.filter((row) => row.id !== entry.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     }
   }

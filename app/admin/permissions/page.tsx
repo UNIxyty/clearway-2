@@ -12,6 +12,7 @@ import { dayTimeZ } from "@/lib/time";
 import {
   Badge, Button, Callout, Card, Checkbox, ConfirmDialog, DataTable, EmptyState, ErrorState, NoMatchState, SearchInput, Segmented, SkeletonRows, TableCard, errorDetail, type Column,
 } from "@/components/kit";
+import { OFFLINE, apiErrorText } from "@/lib/error-text";
 
 type Action = { key: string; label: string; default?: string[]; hard?: string; requires?: string; auto?: boolean; read?: boolean };
 type Group = { key: string; label: string; service: string; actions: Action[] };
@@ -78,8 +79,10 @@ export default function PermissionsPage() {
     try {
       const r = await fetch("/api/admin/permissions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ changes }) });
       const body = await r.json().catch(() => ({}));
-      if (!r.ok) { setSaveError(body.error || `Not saved (${r.status}).`); return; }
+      if (!r.ok) { setSaveError(apiErrorText(body, `Not saved (${r.status}).`)); return; }
       setState((s) => (s ? { ...s, grants: body.grants ?? s.grants, log: body.log ?? s.log } : s));
+    } catch {
+      setSaveError(OFFLINE);
     } finally { setBusy(false); }
   }
 

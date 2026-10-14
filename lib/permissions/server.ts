@@ -3,7 +3,7 @@
 // only check for a handler whose action depends on the request, e.g. turning maintenance on vs off).
 import { NextResponse } from "next/server";
 import type { createServerClient } from "@supabase/ssr";
-import { makeSupabaseFromCookies } from "@/lib/admin-auth";
+import { accessCheckUnavailable, makeSupabaseFromCookies } from "@/lib/admin-auth";
 import { resolveRole } from "@/lib/role-resolve";
 import { can, canAny, REFUSED, roleKey } from "@/lib/permissions/grants.mjs";
 
@@ -15,7 +15,7 @@ export type PermissionFailure = { error: NextResponse };
 /** The signed-in person and their role, or a 401. The rig's auth-off mode is its test account, as a developer. */
 export async function currentPerson(): Promise<PermissionFailure | PermissionSuccess> {
   const supabase = makeSupabaseFromCookies();
-  if (!supabase) return { error: NextResponse.json({ error: "Missing Supabase config" }, { status: 500 }) };
+  if (!supabase) return { error: accessCheckUnavailable() };
   if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true") {
     const email = (process.env.DEVELOPER_EMAILS || "rig-test@rig.invalid").split(",")[0].trim();
     const testUser = { id: "00000000-7e57-4000-8000-000000000000", email, app_metadata: {}, user_metadata: {}, aud: "authenticated", created_at: new Date(0).toISOString() } as unknown as User;

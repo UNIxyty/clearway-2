@@ -9,12 +9,13 @@
 import { useCallback, useEffect, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
-import { Button, Card, ErrorState, SkeletonRows, Toggle, errorDetail } from "@/components/kit";
+import { Button, Card, ErrorState, SkeletonRows, Toggle } from "@/components/kit";
 import { Keycap } from "../ui/primitives";
 import { PersonalSettings, RoutingSettings, SettingRow, agentApi, type Routing } from "./SettingsPersonal";
 import { BIND_DEFAULTS, bindFromEvent, label as bindLabel, platform, publishKeybinds, type BindAction, type KeybindConfig, type Platform } from "../ui/keybinds";
 import AgentStyles from "../ui/AgentStyles";
 import IntakeSettingsCard from "../intake/IntakeSettingsCard";
+import { apiMessage } from "../ui/errorText";
 
 type Capability = { key: string; label: string; description: string; enabled: boolean };
 type Person = { userId: string; email: string; name: string; read: string; wall: string; sendEmail: string; approveKb: string };
@@ -70,7 +71,7 @@ export default function SettingsPage() {
     setState("loading");
     const [s, p, u, x, r, i] = await Promise.all([agentApi("/api/settings"), agentApi("/api/settings/permissions"), agentApi("/api/usage"), agentApi("/api/extension/sites/admin"), agentApi("/api/settings/routing"), agentApi("/api/intake/settings")]);
     // Organisation settings are optional for this person: each part shows when the agent answers it, and is left out on 401/403.
-    if (s.status !== 401 && s.status !== 403 && !s.ok) { setLoadError(errorDetail(s.status || "network", "GET", "/agent/api/settings") + (s.body?.message ? ` · ${s.body.message}` : "")); setState("error"); return; }
+    if (s.status !== 401 && s.status !== 403 && !s.ok) { setLoadError(apiMessage(s.body, s.status ? "The agent did not answer. Try again in a few minutes." : "The agent could not be reached. Check your connection and try again.")); setState("error"); return; }
     if (s.ok) { setCaps(s.body.capabilities); setCanEdit(Boolean(s.body.canEdit)); if (s.body.keybinds) setBinds(s.body.keybinds); if (s.body.keybindActions) setBindActions(s.body.keybindActions); }
     setPeople(p.ok ? p.body.people : null);
     setUsage(u.ok ? u.body.usage : null);
@@ -87,14 +88,14 @@ export default function SettingsPage() {
     const prev = caps;
     setCaps((list) => (list ?? []).map((c) => (c.key === cap.key ? { ...c, enabled: next } : c)));
     const { ok, body } = await agentApi("/api/settings", { method: "PATCH", body: JSON.stringify({ key: cap.key, enabled: next }) });
-    if (!ok) { setCaps(prev); setCapError(body?.message || `Couldn't change “${cap.label}”.`); } else setCaps(body.capabilities);
+    if (!ok) { setCaps(prev); setCapError(apiMessage(body, `Couldn't change “${cap.label}”. Try again.`)); } else setCaps(body.capabilities);
     setSaving(null);
   }
   async function saveBinds(next: KeybindConfig) {
     if (!canEdit) return;
     const prev = binds; setBinds(next); setBindError(null);
     const { ok, body } = await agentApi("/api/settings", { method: "PATCH", body: JSON.stringify({ keybinds: next }) });
-    if (!ok) { setBinds(prev); setBindError(body?.message || "That shortcut couldn't be saved."); } else { setBinds(body.keybinds); publishKeybinds(body.keybinds); }
+    if (!ok) { setBinds(prev); setBindError(apiMessage(body, "That shortcut couldn't be saved. Try again.")); } else { setBinds(body.keybinds); publishKeybinds(body.keybinds); }
   }
 
   const visible = TABS.filter((t) => t.id === "prefs" || (t.id === "models" && routing) || (t.id === "caps" && (caps || binds)) || (t.id === "access" && (people || sites)) || (t.id === "intake" && intake));

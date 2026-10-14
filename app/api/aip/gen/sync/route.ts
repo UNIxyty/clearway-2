@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
+import { failure, logFailure, publicEventStream } from "@/lib/public-error";
+import { AIP_NOT_SET_UP, AIP_NO_ANSWER, GEN_FAILED, aipSyncFailure } from "@/lib/aip-sync-failure";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
@@ -21,10 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!AIP_SYNC_URL) {
-    return NextResponse.json(
-      { error: "AIP sync not configured", detail: "Set AIP_SYNC_URL in Vercel." },
-      { status: 503 }
-    );
+    return failure(503, AIP_NOT_SET_UP, { tag: "AIP-GEN-SYNC", what: "GEN sync requested but AIP_SYNC_URL is not set" }, { code: "not_configured" });
   }
 
   const syncUrl = `${AIP_SYNC_URL}/sync/gen?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}`;
@@ -37,7 +36,7 @@ export async function GET(request: NextRequest) {
     const res = await fetch(syncUrl, { method: "GET", headers, signal: controller.signal });
     clearTimeout(timeout);
     if (stream && res.ok && res.body) {
-      return new Response(res.body, {
+      return new Response(publicEventStream(res.body, "AIP-GEN-SYNC", (e) => aipSyncFailure(e, GEN_FAILED)), {
         headers: {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
@@ -48,17 +47,11 @@ export async function GET(request: NextRequest) {
     }
     const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string; ok?: boolean; prefix?: string };
     if (!res.ok) {
-      return NextResponse.json(
-        { error: data.error ?? "GEN sync failed", detail: data.detail },
-        { status: res.status === 401 ? 401 : 502 }
-      );
+      logFailure("AIP-GEN-SYNC", `GEN sync for ${icao} returned ${res.status}`, { error: data.error, detail: data.detail });
+      return NextResponse.json(aipSyncFailure({ ...data, status: res.status }, GEN_FAILED), { status: res.status === 401 ? 401 : 502 });
     }
     return NextResponse.json({ ok: true, prefix: data.prefix ?? prefix });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      { error: "GEN sync request failed", detail: `Cannot reach AIP sync server. ${msg}` },
-      { status: 502 }
-    );
+    return failure(502, AIP_NO_ANSWER, { tag: "AIP-GEN-SYNC", what: `GEN sync for ${icao} unreachable`, detail: e });
   }
 }

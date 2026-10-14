@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { currentPerson, holds, refused, requirePermission } from "@/lib/permissions/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
 
 export async function GET() {
   try {
@@ -43,7 +44,7 @@ export async function GET() {
       can,
     });
   } catch (e) {
-    return NextResponse.json({ error: (e as { message?: string })?.message || "Failed" }, { status: 500 });
+    return failure(500, `The maintenance state could not be read. ${TRY_AGAIN}`, { tag: "MAINTENANCE", what: "GET failed", detail: e });
   }
 }
 
@@ -83,9 +84,9 @@ export async function POST(request: Request) {
       .select("id, enabled, message, eta_text, updated_at")
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return failure(500, `The change was not saved. ${TRY_AGAIN}`, { tag: "MAINTENANCE", what: "maintenance insert failed", detail: error });
     return NextResponse.json({ ok: true, maintenance: data });
   } catch (e) {
-    return NextResponse.json({ error: (e as { message?: string })?.message || "Failed" }, { status: 500 });
+    return failure(500, `The change was not saved. ${TRY_AGAIN}`, { tag: "MAINTENANCE", what: "POST failed", detail: e });
   }
 }

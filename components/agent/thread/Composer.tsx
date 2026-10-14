@@ -25,6 +25,7 @@ import { useVoiceSession, type VoiceThread } from "./useVoiceSession";
 import { AGENT_BASE, type AgentContext } from "../types";
 import ATTACH from "@/agent/config/attachments.json";
 import { cw } from "@/lib/portal-tokens";
+import { personText } from "../ui/errorText";
 
 // ── Attachments ───────────────────────────────────────────────────────────────
 export type ReadStatus = "read" | "partial" | "unreadable";
@@ -59,7 +60,10 @@ function uploadWithProgress(file: File, onProgress: (p: number) => void): Promis
       if (xhr.status === 200 && b?.ok && b.attachment) { const a = b.attachment; resolve({ id: a.id, hasText: a.hasText, readStatus: a.readStatus, readMode: a.readMode, readReason: a.readReason ?? null, readNote: a.readNote ?? null }); return; }
       // A refusal the user must act on (too large, wrong type) is final; anything else can be retried.
       const final = xhr.status === 413 || xhr.status === 415 || ["too_large", "unsupported", "empty"].includes(String(b?.reason));
-      const message = typeof b?.message === "string" && b.message ? b.message : xhr.status === 413 ? `${fmtSize(file.size)} · too large to upload` : "Upload failed";
+      // A refusal with a known reason is the agent's own sentence about this file (attachments.mjs); any other
+      // message is shown only when it reads as a person's sentence.
+      const fallback = xhr.status === 413 ? `${fmtSize(file.size)} · too large to upload` : "Upload failed";
+      const message = final && typeof b?.message === "string" && b.message ? b.message : personText(b?.message, fallback);
       reject(new UploadRejected(message, final));
     };
     xhr.onerror = () => reject(new UploadRejected("Upload failed · check the connection", false));
@@ -286,7 +290,7 @@ export default function Composer({
     if (!chip.file) return;
     uploadWithProgress(chip.file, (p) => setAttachments((list) => list.map((a) => (a.localId === chip.localId ? { ...a, progress: p } : a))))
       .then((r) => setAttachments((list) => list.map((a) => (a.localId === chip.localId ? { ...a, state: "uploaded", progress: 100, id: r.id, hasText: r.hasText, readStatus: r.readStatus, readMode: r.readMode, readReason: r.readReason, readNote: r.readNote } : a))))
-      .catch((e: unknown) => setAttachments((list) => list.map((a) => (a.localId === chip.localId ? { ...a, state: e instanceof UploadRejected && e.final ? "too-large" : "failed", error: e instanceof Error ? e.message : "Upload failed" } : a))));
+      .catch((e: unknown) => setAttachments((list) => list.map((a) => (a.localId === chip.localId ? { ...a, state: e instanceof UploadRejected && e.final ? "too-large" : "failed", error: e instanceof UploadRejected ? e.message : "Upload failed" } : a)))); // public-error-ok: an UploadRejected carries our words or a checked agent sentence
   }, []);
   const addFiles = useCallback((files: FileList | File[] | null) => {
     if (!files) return;

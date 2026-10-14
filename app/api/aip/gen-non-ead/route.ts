@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJsonFromStorage, readPdfFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
 
 const PDF_PREFIX = "aip/non-ead-gen-pdf";
 const JSON_PREFIX = "aip/non-ead-gen";
@@ -199,11 +200,10 @@ export async function GET(request: NextRequest) {
     if (request.signal.aborted) {
       return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
     }
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("Non-EAD GEN AI rewrite failed:", msg);
-    return NextResponse.json(
-      { error: "GEN AI rewrite failed", detail: msg },
-      { status: 502 }
-    );
+    return failure(502, `The portal could not prepare GEN 1.2 for this country. ${TRY_AGAIN}`, {
+      tag: "AIP-GEN-NON-EAD",
+      what: "Non-EAD GEN AI rewrite failed",
+      detail: e,
+    });
   }
 }

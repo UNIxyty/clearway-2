@@ -12,6 +12,7 @@
 import crypto from "node:crypto";
 import { JsonFileStore } from "./json-store.mjs";
 import { getNotams, portalConfigured } from "./portal-client.mjs";
+import { REASONS } from "./public-error.mjs";
 import {
   compileNotamGroups,
   DEFAULT_NOTAM_GROUPS,
@@ -154,7 +155,8 @@ export class AlertsService {
   async runScan() {
     if (this.scanning) return this.lastScan;
     if (!portalConfigured()) {
-      this.lastScan = { at: new Date().toISOString(), ok: false, error: "PORTAL_BASE_URL not configured; scanner idle." };
+      console.warn("[alerts] scan skipped: PORTAL_BASE_URL is not set");
+      this.lastScan = { at: new Date().toISOString(), ok: false, error: REASONS.scanNotConnected() };
       return this.lastScan;
     }
     this.scanning = true;

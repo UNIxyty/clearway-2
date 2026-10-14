@@ -11,6 +11,7 @@ import {
 } from "@/lib/help/store";
 import { publishHelpEvent } from "@/lib/help/stream";
 import { notifyTelegramNewThread, notifyTelegramThreadActivity } from "@/lib/help/telegram";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,7 +63,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         { status: 409 },
       );
     }
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
+    return failure(500, `Your message was not sent. ${TRY_AGAIN}`, { tag: "HELP-MESSAGES", what: "addMessage failed", detail: error });
   }
 
   const attachmentIds = Array.isArray(body.attachmentIds) ? body.attachmentIds.map(String) : [];

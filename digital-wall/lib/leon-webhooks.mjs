@@ -30,6 +30,7 @@
 
 import crypto from "node:crypto";
 import { JsonFileStore, PORTAL_SHARED } from "./json-store.mjs";
+import { errorDetail, REASONS, shownReason } from "./public-error.mjs";
 
 const KEY_CACHE_TTL_MS = 24 * 3600_000;
 const LABEL_PREFIX = "digitalwall";
@@ -44,34 +45,43 @@ const LOG_CAP = 75; // rolling per-(operator,event) audit entries
  *  - notAvailable: Leon genuinely doesn't offer this subscription for this
  *    operator (GraphQL-level rejection of the subscription itself).
  */
+// What the Webhooks page shows under a trigger that is not live: what happened and what to do. Leon's raw answer
+// is classified here and then only logged.
+const HINTS = {
+  token: "Leon refused this operator's token. Check the token and the Leon prefix on the Operators page.",
+  scope: "Leon does not allow a call this trigger needs. The operator's Leon API key may be missing the Operator permission. Make a new key with that permission in Leon, or leave this trigger off.",
+  notAvailable: "Leon does not offer this subscription for this operator. There is nothing to fix. Leave the trigger off.",
+  noAnswer: "Leon did not answer. Try again with Re-register in a few minutes.",
+  other: "Registration with Leon failed. Try again with Re-register. If it keeps failing, report it from Help & support.",
+};
+const KNOWN_HINTS = new Set(Object.values(HINTS));
+
 export function classifyFailure(message) {
   const text = String(message || "");
   const looksHtml = /<html|<head|<body|<!doctype/i.test(text);
-  if (/token refresh failed/i.test(text)) {
-    return {
-      state: "needsAttention",
-      hint: "Leon rejected this operator's refresh token — check the stored token and that the oprId matches the Leon subdomain.",
-    };
-  }
-  if (/403/.test(text) && looksHtml) {
-    return {
-      state: "needsAttention",
-      hint: "Leon's gateway forbids a call this trigger needs (HTML 403 with a working token = the API key is missing a scope — likely 'Operator' / GRAPHQL_OPERATOR, used to resolve the operator id). Regenerate this operator's Leon API key with that scope, or leave this trigger off.",
-    };
-  }
+  if (/token refresh failed/i.test(text)) return { state: "needsAttention", hint: HINTS.token };
+  if (/403/.test(text) && looksHtml) return { state: "needsAttention", hint: HINTS.scope };
   if (/cannot query field|unknown (subscription|field)|not supported|no access to/i.test(text)) {
-    return {
-      state: "notAvailable",
-      hint: "Leon does not offer this subscription for this operator. Nothing to fix — leave the trigger off.",
-    };
+    return { state: "notAvailable", hint: HINTS.notAvailable };
   }
-  if (/fetch failed|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|abort/i.test(text)) {
-    return {
-      state: "needsAttention",
-      hint: "Leon was unreachable when registering — network/endpoint issue; retry with Re-register.",
-    };
-  }
-  return { state: "needsAttention", hint: "Registration failed — see the raw error; retry with Re-register." };
+  if (/fetch failed|ENOTFOUND|ETIMEDOUT|ECONNREFUSED|abort/i.test(text)) return { state: "needsAttention", hint: HINTS.noAnswer };
+  return { state: "needsAttention", hint: HINTS.other };
+}
+
+/**
+ * One trigger's state as the page may see it. A state stored before the error rule may carry Leon's raw answer in
+ * `detail` and an older hint text: `detail` is never sent, and the hint is re-derived or replaced by ours.
+ */
+function shownEventState(st) {
+  if (!st || typeof st !== "object") return st;
+  const hint = st.detail
+    ? classifyFailure(st.detail).hint
+    : KNOWN_HINTS.has(st.hint)
+      ? st.hint
+      : st.hint
+        ? (st.state === "notAvailable" ? HINTS.notAvailable : HINTS.other)
+        : null;
+  return { state: st.state, hint, at: st.at ?? null };
 }
 
 /**
@@ -167,7 +177,10 @@ export class LeonWebhookService {
   }
 
   logFor(oprId, event) {
-    return this.logs.logs[`${oprId}:${event}`] ?? [];
+    // An "error" entry's text is shown on the Webhooks page. Entries written before the error rule hold raw text.
+    return (this.logs.logs[`${oprId}:${event}`] ?? []).map((entry) =>
+      entry?.action === "error" ? { ...entry, change: shownReason(entry.change, REASONS.webhookRepullFailed()) } : entry
+    );
   }
 
   async persist() {
@@ -274,7 +287,7 @@ export class LeonWebhookService {
       }
       return { ok: true, claims };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      return { ok: false, error: errorDetail(error) }; // public-error-ok: logged by server.mjs, never sent (the reply is "verification failed")
     }
   }
 
@@ -367,15 +380,15 @@ export class LeonWebhookService {
       }
       this.sseHub?.broadcast({ type: "flight.changed", oprId, flightNids: nids, via: "webhook" });
     } catch (error) {
-      tenant.lastError = `${eventName}: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(`[leon-webhooks] ${oprId} ${eventName} handling failed:`, errorDetail(error));
+      tenant.lastError = REASONS.webhookRepullFailed();
       await this.appendLog(oprId, eventName, {
         at: new Date().toISOString(),
         flightNid: nids[0] ?? null,
         callsign: null,
         action: "error",
-        change: tenant.lastError.slice(0, 200),
+        change: REASONS.webhookRepullFailed(),
       });
-      console.error(`[leon-webhooks] ${oprId} ${eventName} handling failed:`, tenant.lastError);
     }
     await this.persist();
     this.notifyChanged();
@@ -419,7 +432,7 @@ export class LeonWebhookService {
       // Keep the RAW response (status + body head) for the diagnosis — an
       // HTML 403 here with an otherwise-working token means the API key
       // lacks the GRAPHQL_OPERATOR scope (Item 1: the Sunway case).
-      firstAttemptError = error instanceof Error ? error.message : String(error);
+      firstAttemptError = errorDetail(error);
       console.warn(`[leon-webhooks] ${oprId}: operator query rejected: ${firstAttemptError.slice(0, 300)}`);
     }
     // Fallback only: scan a WIDE window (±45 days) so a quiet-but-not-empty
@@ -437,7 +450,7 @@ export class LeonWebhookService {
         return tenant.operatorId;
       }
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
+      const detail = errorDetail(error);
       throw new Error(
         `operator-id resolution failed for ${oprId}: query { operator { oprNid } } AND the flightList fallback were rejected at https://${oprId}.leon.aero/api/graphql/ — ${firstAttemptError ? `operator query: ${firstAttemptError.slice(0, 160)}; ` : ""}flight scan: ${detail.slice(0, 160)}`
       );
@@ -575,10 +588,12 @@ export class LeonWebhookService {
         delete tenant.eventStates[event];
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      // Leon's raw answer goes to the log; the page gets the hint and our sentence.
+      const message = errorDetail(error);
+      console.error(`[leon-webhooks] ${oprId} ${enabled ? "register" : "remove"} ${event} failed: ${message}`);
       const classified = classifyFailure(message);
-      tenant.eventStates[event] = { state: classified.state, detail: message.slice(0, 400), hint: classified.hint, at: new Date().toISOString() };
-      tenant.lastError = message;
+      tenant.eventStates[event] = { state: classified.state, detail: null, hint: classified.hint, at: new Date().toISOString() };
+      tenant.lastError = enabled ? REASONS.webhookRegisterFailed({ event }) : REASONS.webhookRemoveFailed({ event });
       await this.persist();
       throw error;
     }
@@ -599,11 +614,13 @@ export class LeonWebhookService {
           results[event] = "disabled";
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorDetail(error);
+        console.error(`[leon-webhooks] ${oprId} re-register ${event} failed: ${message}`);
         const classified = classifyFailure(message);
-        tenant.eventStates[event] = { state: classified.state, detail: message.slice(0, 400), hint: classified.hint, at: new Date().toISOString() };
-        results[event] = `error: ${message}`;
-        tenant.lastError = results[event];
+        tenant.eventStates[event] = { state: classified.state, detail: null, hint: classified.hint, at: new Date().toISOString() };
+        // "error: …" — the page counts results that start with "error".
+        tenant.lastError = REASONS.webhookRegisterFailed({ event });
+        results[event] = `error: ${tenant.lastError}`;
       }
     }
     await this.persist();
@@ -641,7 +658,8 @@ export class LeonWebhookService {
             ours: r.label.startsWith(`${LABEL_PREFIX}-`),
           }));
         } catch (error) {
-          remoteError = error instanceof Error ? error.message : String(error);
+          console.error(`[leon-webhooks] ${oprId} subscription list failed: ${errorDetail(error)}`);
+          remoteError = REASONS.webhookLeonNoAnswer();
         }
       } else {
         const liveEvents = new Set(tenant.registered.map((r) => r.event).filter(Boolean));
@@ -653,7 +671,7 @@ export class LeonWebhookService {
       }
       tenants[oprId] = {
         name,
-        eventStates: tenant.eventStates,
+        eventStates: Object.fromEntries(Object.entries(tenant.eventStates ?? {}).map(([event, st]) => [event, shownEventState(st)])),
         needsAttention,
         webhookUrl: this.webhookUrlFor(oprId),
         enabledEvents: tenant.enabledEvents,
@@ -663,7 +681,7 @@ export class LeonWebhookService {
         allEnabledLive,
         lastEventAt: tenant.lastEventAt,
         lastRepull: tenant.lastRepull,
-        lastError: tenant.lastError,
+        lastError: shownReason(tenant.lastError, REASONS.webhookFailed()),
       };
     }
     return { events: Object.fromEntries(Object.entries(WEBHOOK_EVENTS).map(([k, v]) => [k, { description: v.description, defaultOn: v.defaultOn }])), tenants };

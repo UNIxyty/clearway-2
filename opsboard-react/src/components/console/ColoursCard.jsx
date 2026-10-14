@@ -11,6 +11,7 @@ import ColorPicker from './ColorPickerPopover';
 import useViewport from '../../hooks/useViewport';
 import Icon from './icons';
 import { Button, Card, ErrorBanner, LoadingState, SearchBox, Toggle, t, useToast } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Colours tab — presentation rebuilt around a custom design-system picker
 // (no native OS dialog), collapsible groups with mini-swatch previews,
@@ -254,7 +255,7 @@ export default function ColoursCard({ deviceId }) {
   useEffect(() => {
     fetchDisplaySettings(deviceId)
       .then((payload) => setOverrides(payload.settings?.colors ?? {}))
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
     const timers = timersRef.current;
     return () => Object.values(timers).forEach(clearTimeout);
@@ -298,7 +299,7 @@ export default function ColoursCard({ deviceId }) {
         setOverrides(payload.settings?.colors ?? {});
         flash(message);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorText(err));
       }
     }, 400);
   }
@@ -326,7 +327,7 @@ export default function ColoursCard({ deviceId }) {
       setHexDrafts({});
       flash('All colours reset to the shipped defaults');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     }
   }
 

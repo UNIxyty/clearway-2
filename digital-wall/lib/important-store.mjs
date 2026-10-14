@@ -10,6 +10,7 @@
 // page (flagged for review) without flagging every flight.
 
 import { JsonFileStore, PORTAL_SHARED } from "./json-store.mjs";
+import { PublicError } from "./public-error.mjs";
 import { icaoToIso2 } from "./icao-country.mjs";
 
 // "overfly" is accepted for entries that concern overflight permits
@@ -53,7 +54,7 @@ function toIsoDateOrNull(value) {
 
 export function sanitizeImportantEntry(input = {}, existing = null) {
   const title = String(input.title || "").trim();
-  if (!title) throw new Error("Important entry title is required.");
+  if (!title) throw new PublicError("Important entry title is required.");
   const now = new Date().toISOString();
   const match = input.match || {};
   const direction = DIRECTIONS.has(String(match.direction || "any")) ? String(match.direction || "any") : "any";
@@ -194,7 +195,7 @@ export class ImportantStore {
    */
   async patch(id, patchInput = {}, { actor = null } = {}) {
     const existing = this.entries.find((e) => e.id === id);
-    if (!existing) throw new Error("Important entry not found.");
+    if (!existing) throw new PublicError("Important entry not found.");
     const merged = {
       ...existing,
       ...patchInput,
@@ -207,7 +208,7 @@ export class ImportantStore {
   /** Attachment references (Item 8) — bytes live in the attachment store. */
   async addAttachment(id, attachment) {
     const entry = this.entries.find((e) => e.id === id);
-    if (!entry) throw new Error("Important entry not found.");
+    if (!entry) throw new PublicError("Important entry not found.");
     entry.attachments = [...(entry.attachments ?? []), attachment];
     entry.updatedAt = new Date().toISOString();
     await this.persist();
@@ -216,9 +217,9 @@ export class ImportantStore {
 
   async removeAttachment(id, attachmentId) {
     const entry = this.entries.find((e) => e.id === id);
-    if (!entry) throw new Error("Important entry not found.");
+    if (!entry) throw new PublicError("Important entry not found.");
     const attachment = (entry.attachments ?? []).find((a) => a.id === attachmentId);
-    if (!attachment) throw new Error("Attachment not found.");
+    if (!attachment) throw new PublicError("Attachment not found.");
     entry.attachments = entry.attachments.filter((a) => a.id !== attachmentId);
     entry.updatedAt = new Date().toISOString();
     await this.persist();
@@ -234,7 +235,7 @@ export class ImportantStore {
   /** Soft delete: the entry leaves the wall but is kept whole for a restore. */
   async remove(id, { actor = null } = {}) {
     const existing = this.entries.find((e) => e.id === id);
-    if (!existing) throw new Error("Important entry not found.");
+    if (!existing) throw new PublicError("Important entry not found.");
     this.entries = this.entries.filter((e) => e.id !== id);
     this.deleted = [
       { ...existing, deletedAt: new Date().toISOString(), deletedBy: actor ?? null },
@@ -247,8 +248,8 @@ export class ImportantStore {
   /** Put a soft-deleted entry back, same id, same fields. */
   async restore(id, { actor = null } = {}) {
     const deleted = this.deleted.find((e) => e.id === id);
-    if (!deleted) throw new Error("No deleted Important entry with that id — it may have been restored already.");
-    if (this.entries.some((e) => e.id === id)) throw new Error("That Important entry is already on the wall.");
+    if (!deleted) throw new PublicError("No deleted Important entry with that id — it may have been restored already.");
+    if (this.entries.some((e) => e.id === id)) throw new PublicError("That Important entry is already on the wall.");
     const { deletedAt: _a, deletedBy: _b, ...restored } = deleted;
     restored.updatedAt = new Date().toISOString();
     restored.updatedBy = actor ?? restored.updatedBy ?? null;
@@ -261,7 +262,7 @@ export class ImportantStore {
   /** Destroy a soft-deleted entry outright. Only a deleted entry can be purged. */
   async purge(id) {
     const existing = this.deleted.find((e) => e.id === id);
-    if (!existing) throw new Error("Nothing deleted with that id — only a deleted Important entry can be purged.");
+    if (!existing) throw new PublicError("Nothing deleted with that id — only a deleted Important entry can be purged.");
     this.deleted = this.deleted.filter((e) => e.id !== id);
     await this.persist();
     return existing;
@@ -273,7 +274,7 @@ export class ImportantStore {
 
   async setActive(id, isActive) {
     const entry = this.entries.find((e) => e.id === id);
-    if (!entry) throw new Error("Important entry not found.");
+    if (!entry) throw new PublicError("Important entry not found.");
     entry.isActive = Boolean(isActive);
     entry.updatedAt = new Date().toISOString();
     await this.persist();

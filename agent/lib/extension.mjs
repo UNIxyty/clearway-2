@@ -23,6 +23,7 @@ import { fetchRecords } from "./tools/flights.mjs";
 import { wallGet } from "./tools/http.mjs";
 import { listPendingFor } from "./confirm.mjs";
 import { BadRequest, Forbidden } from "./errors.mjs";
+import { logDetail, storedError } from "./public-errors.mjs";
 
 // ── Supabase REST (same pattern as store.mjs) ────────────────────────────────
 const REST_TIMEOUT_MS = 10_000;
@@ -248,7 +249,8 @@ export async function resolveEntity({ user, kind, id }) {
     ({ flights } = await fetchRecords(user, { key: nid, limit: 5 }));
   } catch (error) {
     const r = { ok: false, reason: "unavailable" };
-    await record(r, false, String(error?.message ?? error).slice(0, 200));
+    logDetail("agent", `extension resolve of flight ${nid} failed`, error);
+    await record(r, false, storedError("unavailable", "The flight could not be looked up. Try again in a few minutes."));
     return r;
   }
   const hit = flights.find((f) => String(f.flightNid ?? "") === nid) ?? flights[0] ?? null;

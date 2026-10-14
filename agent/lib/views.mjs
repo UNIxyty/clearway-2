@@ -10,6 +10,8 @@ import { listAccess, agentEnabled } from "./store.mjs";
 import { wallGet } from "./tools/http.mjs";
 import { loadModelConfig } from "./models.mjs";
 import { extractText } from "./knowledge/ingest.mjs";
+import { BadRequest } from "./errors.mjs";
+import { STEP_FAILED, isCode, publicRoutingReason } from "./public-errors.mjs";
 import { ATTACHMENT_LIMITS, AttachmentRejected, KIND_LABELS, assertAcceptable, extractAttachment } from "./attachments.mjs";
 
 const url = () => String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim().replace(/\/+$/, "");
@@ -49,7 +51,9 @@ function resultLine(row, kind) {
     const err = String(row.error ?? "");
     if (/NO_PERMISSION|403/.test(err)) return { text: "Denied · 403", tone: "danger" };
     if (/CONFIRMATION_/.test(err)) return { text: "Not run", tone: "muted" };
-    return { text: err.split(":")[0].slice(0, 40) || "Failed", tone: "danger" };
+    // The stored error is "CODE: words"; only a code is shown here. Older rows can hold an exception's text.
+    const head = err.split(":")[0].trim();
+    return { text: isCode(head) ? head : "Failed", tone: "danger" };
   }
   if (kind === "SEND") return { text: r.sent ? "Delivered" : r.needsConfirmation ? "Not sent" : "Sent", tone: r.sent ? "ok" : "muted" };
   if (kind === "FILE") return { text: r.file ? `1 file · ${Math.max(1, Math.round((r.file.bytes ?? 0) / 1024))} KB` : "1 file", tone: "ok" };
@@ -58,6 +62,23 @@ function resultLine(row, kind) {
   if (r.cached === true && r.available === false) return { text: "Cached · source down", tone: "warn" };
   return { text: "ok", tone: "ok" };
 }
+// The full record shows the tool's arguments and result (the agent's own data), but never an error's text: that
+// came from an exception or an upstream service and belongs in the server log. A code ("SERVICE_UNAVAILABLE") stays.
+const ERROR_KEY = /error|^(problem|detail|diagnostic|stack)$/i;
+function publicResult(value, failed, depth = 0) {
+  if (value == null || typeof value !== "object" || depth > 6) return value;
+  if (Array.isArray(value)) return value.map((v) => publicResult(v, failed, depth + 1));
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (ERROR_KEY.test(k) && (typeof v === "string" ? v !== "" && !isCode(v) : v != null && typeof v === "object")) out[k] = STEP_FAILED;
+    else if (failed && depth === 0 && (k === "message" || k === "reason") && typeof v === "string" && !isCode(v)) out[k] = STEP_FAILED;
+    else out[k] = publicResult(v, failed, depth + 1);
+  }
+  return out;
+}
+const publicRoute = (route) => (route ? { ...route, reason: publicRoutingReason(route.reason) } : route);
+const publicEscalations = (list) => (list ?? []).map((e) => ({ ...e, reason: publicRoutingReason(e.reason) }));
+
 export async function listActivity(user, { filter = "all", person = null, tool = null, date = null, limit = 60, before = null } = {}) {
   const parts = ["kind=in.(tool.call,citation.check,verbatim.check,chat.response,action.auto_confirmed)", "select=id,created_at,kind,user_id,user_email,tool_name,tool_args,tool_result,confirmation_status,success,error,latency_ms,conversation_id,detail,model_id,model_tier,input_tokens,output_tokens", "order=created_at.desc", `limit=${Math.min(Number(limit) || 60, 200)}`];
   if (!isPrivileged(user)) parts.push(`user_id=eq.${encodeURIComponent(user.userId)}`);
@@ -72,13 +93,15 @@ export async function listActivity(user, { filter = "all", person = null, tool =
       const d = row.detail ?? {};
       const model = modelShortName(row.model_id);
       const esc = (d.escalations ?? []).map((e) => `${e.from}→${e.to}`).join(", ");
+      const route = publicRoute(d.route ?? null);
+      const escalations = publicEscalations(d.escalations);
       const text = `${model} · ${row.model_tier ?? "?"}${esc ? ` · escalated ${esc}` : ""}${d.route?.source === "manual" ? " · /model" : d.route?.source === "user-default" ? " · your default" : ""}`;
       return {
         id: row.id, at: row.created_at, who: row.user_email ?? "—", from: fromOf(row), kind: "ANSWER", tool: "answer", args: { tier: row.model_tier, model: row.model_id },
         result: { text, tone: row.success === false ? "danger" : "ok" }, confirmed: { text: "—", tone: "faint" }, conversationId: row.conversation_id ?? null, latencyMs: row.latency_ms ?? null,
         hasRecord: true,
-        routing: { startTier: d.route?.tier ?? null, finalTier: row.model_tier ?? null, modelId: row.model_id ?? null, source: d.route?.source ?? null, reason: d.route?.reason ?? null, confidence: d.route?.confidence ?? null, routerTier: d.route?.routerTier ?? null, escalations: d.escalations ?? [], inputTokens: row.input_tokens ?? null, outputTokens: row.output_tokens ?? null, cacheReadTokens: d.cacheReadTokens ?? 0, costUsd: d.costUsd ?? null },
-        full: { args: { tier: row.model_tier, model: row.model_id }, result: { route: d.route ?? null, escalations: d.escalations ?? [], inputTokens: row.input_tokens, outputTokens: row.output_tokens, cacheReadTokens: d.cacheReadTokens ?? 0, costUsd: d.costUsd ?? null }, error: row.error ?? null, confirmationStatus: null, level: null },
+        routing: { startTier: d.route?.tier ?? null, finalTier: row.model_tier ?? null, modelId: row.model_id ?? null, source: d.route?.source ?? null, reason: route?.reason ?? null, confidence: d.route?.confidence ?? null, routerTier: d.route?.routerTier ?? null, escalations, inputTokens: row.input_tokens ?? null, outputTokens: row.output_tokens ?? null, cacheReadTokens: d.cacheReadTokens ?? 0, costUsd: d.costUsd ?? null },
+        full: { args: { tier: row.model_tier, model: row.model_id }, result: { route, escalations, inputTokens: row.input_tokens, outputTokens: row.output_tokens, cacheReadTokens: d.cacheReadTokens ?? 0, costUsd: d.costUsd ?? null }, error: row.error ? STEP_FAILED : null, confirmationStatus: null, level: null },
       };
     }
     const kind = KIND_OF(row.tool_name, row);
@@ -92,7 +115,7 @@ export async function listActivity(user, { filter = "all", person = null, tool =
       id: row.id, at: row.created_at, who: row.user_email ?? "—", from: fromOf(row), kind, tool: row.tool_name, args: row.tool_args ?? {},
       result, confirmed, conversationId: row.conversation_id ?? null, latencyMs: row.latency_ms ?? null,
       hasRecord: kind !== "READ" || row.success === false,
-      full: { args: row.tool_args ?? {}, result: row.tool_result ?? null, error: row.error ?? null, confirmationStatus: row.confirmation_status ?? null, level: row.detail?.level ?? null },
+      full: { args: row.tool_args ?? {}, result: publicResult(row.tool_result ?? null, row.success === false), error: row.error ? STEP_FAILED : null, confirmationStatus: row.confirmation_status ?? null, level: row.detail?.level ?? null },
     };
   });
   const filtered = mapped.filter((r) => filter === "changes" ? r.kind === "WRITE" : filter === "sent" ? r.kind === "SEND" : filter === "answers" ? r.kind === "ANSWER" : filter === "denied" ? /Denied|Not run/.test(r.result.text) || r.confirmed.text.startsWith("Declined") : true);
@@ -171,11 +194,11 @@ export function normalizeKeybinds(input) {
     for (const a of KEYBIND_ACTIONS) {
       let raw = String(input?.[set]?.[a.key] ?? KEYBIND_DEFAULTS[a.key]).trim();
       if (RETIRED_DEFAULTS[a.key]?.includes(raw)) raw = KEYBIND_DEFAULTS[a.key];
-      if (!BIND_RE.test(raw)) throw new Error(`Invalid shortcut for ${a.key}: ${raw}`);
+      if (!BIND_RE.test(raw)) throw BadRequest(`"${raw}" cannot be used as a shortcut. Choose another key.`);
       out[set][a.key] = raw;
     }
     const seen = new Set();
-    for (const a of KEYBIND_ACTIONS) { if (seen.has(out[set][a.key])) throw new Error(`Two actions share ${out[set][a.key]}.`); seen.add(out[set][a.key]); }
+    for (const a of KEYBIND_ACTIONS) { if (seen.has(out[set][a.key])) throw BadRequest(`Two actions use ${out[set][a.key]}. Give each action its own shortcut.`); seen.add(out[set][a.key]); }
   }
   return out;
 }
@@ -354,7 +377,7 @@ export async function loadAttachment(id, user, { withBytes = false } = {}) {
     if (!meta.readStatus) {
       const read = await readFile(path.join(dir, meta.name))
         .then((buf) => extractAttachment(buf, meta.name))
-        .catch((error) => ({ kind: meta.kind ?? null, mode: "none", status: "unreadable", reason: error instanceof AttachmentRejected ? error.message : "the stored file could not be opened", text: null }));
+        .catch((error) => ({ kind: meta.kind ?? null, mode: "none", status: "unreadable", reason: error instanceof AttachmentRejected ? error.message : "the stored file could not be opened", text: null })); // public-error-ok: AttachmentRejected messages are written for the person (attachments.mjs)
       const stored = read.text ? read.text.slice(0, ATTACHMENT_LIMITS.storedChars) : null;
       meta = { ...meta, hasText: Boolean(read.text), chars: read.text ? read.text.length : 0, kind: read.kind, readStatus: read.status, readMode: read.mode, readReason: read.reason ?? null, readNote: read.note ?? null, format: read.format ?? null, pages: read.pages ?? null, width: read.width ?? null, height: read.height ?? null, textTruncatedAtStore: Boolean(read.text && stored.length < read.text.length) };
       if (stored) await writeFile(path.join(dir, "text.txt"), stored).catch(() => {});

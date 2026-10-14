@@ -127,7 +127,8 @@ defineTool({
     const provider = webSearchProvider();
     if (!provider) {
       throw ServiceUnavailable(
-        "Web search is not configured on this server (no BRAVE_SEARCH_API_KEY or TAVILY_API_KEY). Say that you could not search the web — do not answer from memory."
+        "Web search is not set up on this server. Say that you could not search the web — do not answer from memory.",
+        "no web search provider key is configured (BRAVE_SEARCH_API_KEY / TAVILY_API_KEY)"
       );
     }
 
@@ -138,7 +139,8 @@ defineTool({
         ? await braveSearch(query, { count: limit, domains })
         : await tavilySearch(query, { count: limit, domains });
     } catch (error) {
-      throw ServiceUnavailable(`The web search failed: ${error.message}`);
+      // The provider's own answer is the detail (logged by the framework), never the message.
+      throw ServiceUnavailable("The web search service did not answer. Say that you could not search the web — do not answer from memory.", String(error?.message ?? error));
     }
 
     const retrievedAt = new Date().toISOString();

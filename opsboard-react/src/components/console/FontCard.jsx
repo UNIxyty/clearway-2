@@ -3,6 +3,7 @@ import { fetchDisplaySettings, saveDisplaySettings, fetchTimelineAircraft } from
 import { WALL_FONTS, DEFAULT_WALL_FONT_ID, DEFAULT_ZERO_STYLE, ZERO_STYLES, PLAIN_ZERO_WARNING, resolveWallFont, wallFontProbe, tabularDigits } from '../../theme/wallFont';
 import { useWallColors } from '../../theme/WallColorsContext';
 import { Button, Card, ErrorBanner, LoadingState, Segmented, t, useToast } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Font tab — built like the Colours tab: the same per-account profile (My view / Main wall), the same
 // GET/PUT /api/display/settings, the same config.changed route that repaints the wall in ~1-2 s, no reload.
@@ -28,7 +29,7 @@ export default function FontCard({ deviceId }) {
   useEffect(() => {
     fetchDisplaySettings(deviceId)
       .then((payload) => { setFontId(resolveWallFont(payload.settings?.font).id); setZeroStyle(['dotted', 'slashed', 'plain'].includes(payload.settings?.zeroStyle) ? payload.settings.zeroStyle : DEFAULT_ZERO_STYLE); })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
   }, [deviceId]);
 
@@ -67,7 +68,7 @@ export default function FontCard({ deviceId }) {
     try {
       await saveDisplaySettings({ zeroStyle: style }, deviceId);
       flash(`Zero → ${style} on Nunito, Roboto and Public Sans — wall updates in seconds`);
-    } catch (err) { setZeroStyle(previous); setError(err instanceof Error ? err.message : String(err)); }
+    } catch (err) { setZeroStyle(previous); setError(errorText(err)); }
   }
 
   async function choose(id) {
@@ -80,7 +81,7 @@ export default function FontCard({ deviceId }) {
       flash(`Wall font → ${resolveWallFont(id).label} — wall updates in seconds`);
     } catch (err) {
       setFontId(previous);
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     }
   }
 

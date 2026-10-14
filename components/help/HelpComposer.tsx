@@ -32,6 +32,7 @@ import {
   utcTime,
 } from "@/components/help/helpApi";
 import { HELP_CONTEXT_ORDER, type HelpContext, type HelpThreadType } from "@/lib/help/shared";
+import { TRY_AGAIN, shownText } from "@/lib/error-text";
 
 const TITLES: Record<HelpThreadType, { header: string; placeholder: string }> = {
   urgent: { header: "Something is blocking ops right now", placeholder: "One line — what is blocked?" },
@@ -205,7 +206,8 @@ export default function HelpComposer() {
       fetch(`/api/help/drafts?route=${type}`, { method: "DELETE" }).catch(() => {});
       router.replace(`/help/${thread.reference}`);
     } catch (error) {
-      setSendError(error instanceof Error ? error.message : "Failed to send");
+      // helpApi's errors are worded for a person; anything else gets ours.
+      setSendError(shownText(error, `It was not sent. ${TRY_AGAIN}`));
       setSending(false);
     }
   }

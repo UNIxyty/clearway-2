@@ -136,7 +136,9 @@ async function deliverViaResend({ from, to, subject, html, text, attachments }) 
 /**
  * Send an HTML email (optionally with PDF attachments: [{filename, content:
  * Buffer|base64}]). Never throws — returns { ok, id?, error? } so callers
- * can report failures without crashing the wall.
+ * can report failures without crashing the wall. `error` is a DETAIL (it can
+ * carry Resend's answer): callers log or record it and show a person their own
+ * sentence (lib/public-error.mjs) — the wall's callers never send it to a screen.
  */
 export async function sendEmail({ to, subject, html, text, from = defaultFrom(), attachments }) {
   const recipients = (Array.isArray(to) ? to : [to]).map((v) => String(v || "").trim()).filter(Boolean);
@@ -146,7 +148,7 @@ export async function sendEmail({ to, subject, html, text, from = defaultFrom(),
   }
   if (!mailerConfigured()) {
     console.error(`[mailer] NOT sending "${subject}" to ${recipients.join(", ")}: RESEND_API_KEY is not configured.`);
-    return { ok: false, error: "RESEND_API_KEY is not configured; email skipped." };
+    return { ok: false, error: "RESEND_API_KEY is not configured; email skipped." }; // public-error-ok: detail for the caller's log, see above
   }
   console.log(`[mailer] sending "${subject}" to ${recipients.join(", ")} from "${from}"`);
   try {
@@ -154,7 +156,7 @@ export async function sendEmail({ to, subject, html, text, from = defaultFrom(),
     console.log(`[mailer] sent ok — Resend id ${result?.id ?? "(none)"}`);
     return { ok: true, id: result?.id ?? null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error); // public-error-ok: detail for the caller's log, see above
     console.error(`[mailer] send FAILED: ${message}`);
     return { ok: false, error: message };
   }

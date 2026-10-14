@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { errorDetail, PublicError, REASONS, shownReason } from "./lib/public-error.mjs";
 
 const LOCAL_VISIBILITY_FILE = path.resolve(process.cwd(), "data", "aircraft-visibility.json");
 const ENCRYPTED_PREFIX = "enc:v1:";
@@ -126,7 +127,8 @@ function sanitizeOperator(row) {
     hasRefreshToken: Boolean(row.refresh_token ?? row.refreshToken),
     lastSyncAt: row.last_sync_at ?? row.lastSyncAt ?? null,
     lastSyncStatus: row.last_sync_status ?? row.lastSyncStatus ?? "idle",
-    lastSyncError: row.last_sync_error ?? row.lastSyncError ?? null,
+    // Stored by the sync as one of our sentences (lib/public-error.mjs); older rows may hold raw Leon/Supabase text.
+    lastSyncError: shownReason(row.last_sync_error ?? row.lastSyncError ?? null, REASONS.leonLastSyncFailed()),
     createdAt: row.created_at ?? row.createdAt ?? null,
     updatedAt: row.updated_at ?? row.updatedAt ?? null,
   };
@@ -159,7 +161,8 @@ export class OperatorsStore {
       try {
         out.push({ id: row.id, oprId: row.opr_id, name: row.name ?? row.opr_id, refreshToken: decryptRefreshToken(row.refresh_token) });
       } catch (error) {
-        await this.recordSyncOutcome(row.opr_id, { status: "error", error: `Stored Leon credentials cannot be read: ${error instanceof Error ? error.message : error}` });
+        console.error(`[operators] stored Leon token for ${row.opr_id} cannot be read: ${errorDetail(error)}`);
+        await this.recordSyncOutcome(row.opr_id, { status: "error", error: REASONS.leonTokenUnreadable({ opr: row.opr_id }) });
       }
     }
     return out;
@@ -168,10 +171,10 @@ export class OperatorsStore {
   async upsertOperator({ name, oprId, refreshToken, isActive = true }) {
     const normalizedOprId = String(oprId || "").trim();
     if (!normalizedOprId) {
-      throw new Error("Leon prefix (oprId) is required.");
+      throw new PublicError("Leon prefix (oprId) is required.");
     }
     if (!String(refreshToken || "").trim()) {
-      throw new Error("Leon API refresh token is required.");
+      throw new PublicError("Leon API refresh token is required.");
     }
 
     if (!(await canUseSupabase())) {
@@ -209,7 +212,7 @@ export class OperatorsStore {
       )) || [];
     const existing = Array.isArray(rows) ? rows[0] : rows;
     if (!existing?.id) {
-      throw new Error("Operator not found.");
+      throw new PublicError("Operator not found.");
     }
 
     const patch = { updated_at: new Date().toISOString() };
@@ -217,7 +220,7 @@ export class OperatorsStore {
     if (nextName) patch.name = nextName;
     const nextOprId = String(oprId ?? "").trim();
     if (nextOprId && !/^[a-z0-9-]+$/i.test(nextOprId)) {
-      throw new Error("Leon prefix (oprId) may only contain letters, digits and dashes.");
+      throw new PublicError("Leon prefix (oprId) may only contain letters, digits and dashes.");
     }
     if (nextOprId) patch.opr_id = nextOprId;
     const nextToken = String(refreshToken ?? "").trim();
@@ -257,7 +260,7 @@ export class OperatorsStore {
     const rows = (await supabaseFetch(`leon_operators?select=id,opr_id&id=eq.${encodeURIComponent(id)}&limit=1`)) || [];
     const operator = Array.isArray(rows) ? rows[0] : rows;
     if (!operator?.id) {
-      throw new Error("Operator not found.");
+      throw new PublicError("Operator not found.");
     }
     // Cascade: cached flights and aircraft-visibility rows are removed before
     // the operator so no orphaned rows or FK errors are left behind.
@@ -417,7 +420,7 @@ export class OperatorsStore {
     if (await canUseSupabase()) {
       const operators = await supabaseFetch(`leon_operators?select=id,opr_id&opr_id=eq.${encodeURIComponent(oprId)}`);
       const operator = Array.isArray(operators) ? operators[0] : null;
-      if (!operator) throw new Error(`Operator ${oprId} not found.`);
+      if (!operator) throw new PublicError(`Operator ${oprId} not found.`);
 
       await supabaseFetch("leon_aircraft_visibility?on_conflict=opr_id,registration", {
         method: "POST",

@@ -10,6 +10,7 @@ import {
 } from './services/deviceAuth';
 import { getDeviceId } from './services/device';
 import { resetWallStream, subscribeWallStream } from './services/wallStream';
+import { errorText } from './services/errorText';
 
 const AuthContext = createContext({ user: null, authEnabled: false, deviceMode: false });
 
@@ -103,7 +104,7 @@ export default function AuthGate({ surface = 'display', children }) {
         }
       } catch (err) {
         if (cancelled) return;
-        setPairing({ code: '', error: err instanceof Error ? err.message : String(err) });
+        setPairing({ code: '', error: errorText(err) });
       }
       setState({ phase: 'device-wait', user: null, authEnabled: true, deviceMode: false });
     }

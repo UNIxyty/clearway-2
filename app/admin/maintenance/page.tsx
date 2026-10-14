@@ -10,6 +10,7 @@ import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
 import { dayTimeZ } from "@/lib/time";
 import { Button, Callout, ConfirmDialog, EmptyState, ErrorState, Field, Modal, Skeleton, TextArea, TextInput, errorDetail, useToast } from "@/components/kit";
+import { OFFLINE } from "@/lib/error-text";
 
 type State = {
   enabled: boolean; message: string | null; eta_text: string | null; updated_at: string | null;
@@ -60,6 +61,8 @@ export default function MaintenancePage() {
       setConfirmOff(false); setTyped("");
       toast.show({ tone: enabled ? "warning" : "success", title: enabled ? "The portal is off for everyone" : "The portal is live again", body: enabled ? "People get the maintenance page from their next page load." : "Everyone can use it from their next page load." });
       await load();
+    } catch {
+      toast.show({ tone: "danger", title: enabled ? "The portal was not turned off" : "The portal was not turned back on", body: OFFLINE });
     } finally { setSaving(false); }
   }
 
@@ -72,6 +75,9 @@ export default function MaintenancePage() {
       if (!res.ok) { toast.show({ tone: "danger", title: "The PDF cache was not cleared", body: body?.error || `The server said ${res.status}.` }); return; }
       const n = Array.isArray(body.deleted) ? body.deleted.length : Number(body.total ?? 0);
       toast.show({ tone: body.errors?.length ? "warning" : "success", title: n ? `Cleared ${n} cached PDF${n === 1 ? "" : "s"}` : "There were no cached PDFs", body: body.errors?.length ? `${body.errors.length} could not be deleted.` : "Each airport downloads its PDFs again when next opened." });
+    } catch {
+      setClearOpen(false);
+      toast.show({ tone: "danger", title: "The PDF cache was not cleared", body: OFFLINE });
     } finally { setClearing(false); }
   }
 

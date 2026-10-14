@@ -18,6 +18,7 @@ import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
 import { useOpenDocument } from "../viewer/useOpenDocument";
 import { cw } from "@/lib/portal-tokens";
+import { ShownError, apiMessage, personText, shownText } from "../ui/errorText";
 
 type Doc = {
   id: string; title: string; filename: string; mime: string | null; bytes: number | null; source: string | null; version: string | null;
@@ -45,6 +46,11 @@ async function agentFetch(path: string, init: RequestInit = {}) {
   return { status: res.status, body: await res.json().catch(() => null) };
 }
 
+// A proposal's reason is a sentence from the classifier. Documents uploaded before 2026-10-14 can hold the
+// classifier's error text instead ("Could not classify automatically (…)"); that is shown in our words.
+const UNCLASSIFIED = "It could not be classified automatically, so it is proposed as reference. Check it before you approve it.";
+const proposalReason = (reason: string) => (/^Could not classify automatically/i.test(reason) ? UNCLASSIFIED : personText(reason, UNCLASSIFIED));
+
 export default function KnowledgePage() {
   const { email, isDeveloper } = useIdentity();
   const od = useOpenDocument("Knowledge base");
@@ -58,7 +64,7 @@ export default function KnowledgePage() {
   const load = useCallback(async () => {
     const [d, s] = await Promise.all([agentFetch("/api/knowledge/documents"), agentFetch("/api/knowledge/stats")]);
     if (d.status === 401 || d.status === 403) { setError("The knowledge base needs agent access."); setRows([]); return; }
-    if (!d.body?.ok) { setError(d.body?.message || `Could not load documents (HTTP ${d.status}).`); setRows([]); return; }
+    if (!d.body?.ok) { setError(apiMessage(d.body, "Could not load the documents. Try again.")); setRows([]); return; }
     setRows(d.body.documents ?? []); if (s.body?.ok) setStats(s.body.stats);
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -167,16 +173,16 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
     try {
       if (kind === "rejected") {
         const { status, body } = await agentFetch(`/api/knowledge/documents/${encodeURIComponent(doc.id)}/reject`, { method: "POST", body: JSON.stringify({ reason: note.trim() }) });
-        if (status !== 200 || !body?.ok) throw new Error(body?.message || `Reject failed (HTTP ${status}).`);
+        if (status !== 200 || !body?.ok) throw new ShownError(apiMessage(body, "The document was not rejected. Try again."));
         await onDecided({ kind, at: new Date().toISOString() });
       } else {
         const payload: Record<string, unknown> = { tier: kind === "approved" ? "tier1" : "tier2" };
         if (kind === "approved") payload.records = (clauses ?? []).map((c) => ({ reference: c.reference, title: doc.title, text: c.text }));
         const { status, body } = await agentFetch(`/api/knowledge/documents/${encodeURIComponent(doc.id)}/approve`, { method: "POST", body: JSON.stringify(payload) });
-        if (status !== 200 || !body?.ok) throw new Error(body?.message || `Approval failed (HTTP ${status}).`);
+        if (status !== 200 || !body?.ok) throw new ShownError(apiMessage(body, "The document was not approved. Try again."));
         await onDecided({ kind, at: new Date().toISOString(), clauses: kind === "approved" ? body.records?.length ?? 0 : undefined });
       }
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
+    } catch (e) { setError(shownText(e, "The decision was not saved. Check the connection and try again.")); } finally { setBusy(null); }
   }
 
   const n = clauses?.length ?? 0; const clause = clauses?.[i] ?? null;
@@ -196,7 +202,7 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
           <div style={{ fontSize: 12.5, color: cw.textMuted, marginTop: 2 }}>Uploaded by {doc.uploaded_by_email ?? "—"} · {dayTime(doc.created_at)} · requested tier {requestedTier}</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: 7, columnGap: 8, fontSize: 13 }}>
-          <span style={{ color: cw.textMuted }}>Extracted</span><span>{clauses ? `${n} clause${n === 1 ? "" : "s"}${extracted === false ? " · no text could be read" : ""}` : canApprove && pending ? "…" : doc.proposed_reason ?? "—"}</span>
+          <span style={{ color: cw.textMuted }}>Extracted</span><span>{clauses ? `${n} clause${n === 1 ? "" : "s"}${extracted === false ? " · no text could be read" : ""}` : canApprove && pending ? "…" : doc.proposed_reason ? proposalReason(doc.proposed_reason) : "—"}</span>
           <span style={{ color: cw.textMuted }}>Applies to</span><span style={mono({ fontSize: 12.5 })}>{doc.icao ?? doc.country ?? "—"}</span>
           {doc.fileMissing && <span style={{ gridColumn: "1 / -1" }}><MissingFile doc={doc} canFix={canApprove} onFixed={onDecided ? () => onDecided(decision as never) : undefined} /></span>}
           <span style={{ color: cw.textMuted }}>Revision</span><span><RevisionTag revision={doc.revision} showCurrent /></span>
@@ -276,14 +282,14 @@ function UploadCard({ onDone, onCancel }: { onDone: () => Promise<void>; onCance
         xhr.withCredentials = true;
         xhr.upload.onprogress = (e) => { if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100)); };
         xhr.onload = () => { let parsed = null; try { parsed = JSON.parse(xhr.responseText); } catch { parsed = null; } resolve({ status: xhr.status, body: parsed }); };
-        xhr.onerror = () => reject(new Error("The upload failed — check the connection and try again."));
+        xhr.onerror = () => reject(new ShownError("The upload failed — check the connection and try again."));
         xhr.send(file);
       });
-      if (status !== 200 || !body?.ok) throw new Error(body?.message || `Upload failed (HTTP ${status}).`);
+      if (status !== 200 || !body?.ok) throw new ShownError(apiMessage(body, "The upload failed. Try again."));
       const p = body.proposal;
-      setNotice(p ? `Uploaded. Proposed ${p.tier === "tier1" ? "authoritative" : "reference"}${p.confidence != null ? ` at ${Math.round(p.confidence * 100)}% confidence` : ""}: ${p.reason}` : "Uploaded. Text could not be extracted automatically — review before approving.");
+      setNotice(p ? `Uploaded. Proposed ${p.tier === "tier1" ? "authoritative" : "reference"}${p.confidence != null ? ` at ${Math.round(p.confidence * 100)}% confidence` : ""}: ${proposalReason(p.reason)}` : "Uploaded. Text could not be extracted automatically — review before approving.");
       await onDone();
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); setProgress(null); }
+    } catch (e) { setError(shownText(e, "The upload failed. Try again.")); } finally { setBusy(false); setProgress(null); }
   }
   return (
     <div style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -325,8 +331,8 @@ function MissingFile({ doc, canFix, onFixed }: { doc: Doc; canFix: boolean; onFi
     try {
       const r = await fetch(`${AGENT_BASE}/api/knowledge/documents/${encodeURIComponent(doc.id)}/file`, { method: "PUT", credentials: "same-origin", headers: { "content-type": file.type || "application/octet-stream" }, body: file });
       const b = await r.json().catch(() => null);
-      if (!r.ok || !b?.ok) { setState({ busy: false, message: b?.message ?? "The file could not be restored.", error: true }); return; }
-      setState({ busy: false, message: b.message ?? "File restored.", error: !b.sameContent });
+      if (!r.ok || !b?.ok) { setState({ busy: false, message: apiMessage(b, "The file could not be restored. Try again."), error: true }); return; }
+      setState({ busy: false, message: apiMessage(b, "File restored."), error: !b.sameContent });
       onFixed?.();
     } catch { setState({ busy: false, message: "The file could not be uploaded — check the connection and try again.", error: true }); }
   }

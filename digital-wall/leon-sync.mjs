@@ -23,6 +23,7 @@ const GLOBAL_BACKOFF_MAX_MS = 60 * 60 * 1000;
 const THREE_MONTHS_DAYS = 92;
 const LOCAL_CACHE_FILE = path.resolve(process.cwd(), "data", "timeline-cache.json");
 import { loadGeoAirports } from "./lib/geo-store.mjs";
+import { errorDetail, PublicError, REASONS, shownReason } from "./lib/public-error.mjs";
 
 const AIRPORT_DIRECTORY_CANDIDATES = [
   path.resolve(process.cwd(), "shared-data", "ead-airports-with-names.json"),
@@ -701,6 +702,29 @@ function gqlString(value) {
   return String(value).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
+/**
+ * What a person reads when one operator's sync fails. The raw text (HTTP status, Leon's body) stays in the log.
+ * Rate limits are Leon's gateway answering 403/429; token-refresh failures mean the stored token was refused.
+ */
+function leonOperatorReason(oprId, message) {
+  const text = String(message || "");
+  if (/^rate-limited\b/.test(text) || /\b(403|429)\b/.test(text)) return REASONS.leonLimited({ opr: oprId });
+  if (/token refresh|access token|refresh token|\b401\b/i.test(text)) return REASONS.leonSignIn({ opr: oprId });
+  if (/abort|timeout|timed out|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|socket|network|\b50[0234]\b/i.test(text)) return REASONS.leonNoAnswer({ opr: oprId });
+  return REASONS.leonFailed({ opr: oprId });
+}
+
+/** The status line for the whole feed: null when every operator synced, one operator's reason, or a count. */
+function leonSummaryReason(operatorErrors) {
+  if (operatorErrors.length === 0) return null;
+  if (operatorErrors.length === 1) return operatorErrors[0].reason;
+  const list = operatorErrors.map((e) => e.oprId).join(", ");
+  const noAnswer = operatorErrors.every((e) => e.reason === REASONS.leonNoAnswer({ opr: e.oprId }));
+  return noAnswer
+    ? REASONS.leonManyNoAnswer({ count: operatorErrors.length, list })
+    : REASONS.leonMany({ count: operatorErrors.length, list });
+}
+
 export class LeonTimelineService {
   constructor({ operatorsStore = null, importantStore = null, alertsStore = null }) {
     this.operatorsStore = operatorsStore;
@@ -782,13 +806,16 @@ export class LeonTimelineService {
     if (this.operatorsStore) {
       try {
         const fromStore = await this.operatorsStore.getOperatorCredentials();
+        this.operatorListFailed = false;
         for (const operator of fromStore) {
           this.refreshTokensByOperator.set(operator.oprId, operator.refreshToken);
         }
         // When operators store is configured, operators must come from there only.
         return fromStore;
       } catch (error) {
-        this.state.lastError = error instanceof Error ? error.message : String(error);
+        console.error(`[leon-sync] operator list could not be read: ${errorDetail(error)}`);
+        this.state.lastError = REASONS.leonOperatorsUnreadable();
+        this.operatorListFailed = true;
         return [];
       }
     }
@@ -852,8 +879,9 @@ export class LeonTimelineService {
     this.state.configured = configured;
     if (configured) {
       await this.runSyncCycle().catch((error) => {
+        console.error(`[leon-sync] first sync failed: ${errorDetail(error)}`);
         this.state.healthy = false;
-        this.state.lastError = error instanceof Error ? error.message : String(error);
+        this.state.lastError = REASONS.leonSyncFailed();
       });
       this.startPolling();
     }
@@ -1017,8 +1045,9 @@ export class LeonTimelineService {
     }
     this.interval = setInterval(() => {
       this.runSyncCycle().catch((error) => {
+        console.error(`[leon-sync] sync cycle failed: ${errorDetail(error)}`);
         this.state.healthy = false;
-        this.state.lastError = error instanceof Error ? error.message : String(error);
+        this.state.lastError = REASONS.leonSyncFailed();
       });
     }, this.pollMs);
   }
@@ -1142,8 +1171,8 @@ export class LeonTimelineService {
       }),
     ])
       .catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        this.state.lastError = message;
+        const message = errorDetail(error);
+        this.state.lastError = /abandoning hung cycle/.test(message) ? REASONS.leonTooLong() : REASONS.leonSyncFailed();
         console.error(`[leon-sync] ${message}`);
       })
       .finally(() => {
@@ -1177,7 +1206,7 @@ export class LeonTimelineService {
     if (this.globalBackoff && Date.now() < this.globalBackoff.untilMs) {
       const untilText = new Date(this.globalBackoff.untilMs).toISOString().slice(11, 16);
       this.state.healthy = false;
-      this.state.lastError = `Leon is rate-limiting this server — paused ALL sync traffic until ${untilText}Z so the block can expire`;
+      this.state.lastError = REASONS.leonPaused({ time: `${untilText}Z` });
       this.state.lastRunAt = new Date().toISOString();
       return;
     }
@@ -1204,6 +1233,7 @@ export class LeonTimelineService {
           operatorErrors.push({
             oprId: operator.oprId,
             message: `rate-limited — retrying in ${Math.max(1, Math.round((backoff.untilMs - Date.now()) / 60000))} min`,
+            reason: REASONS.leonLimited({ opr: operator.oprId }),
           });
           continue;
         }
@@ -1242,11 +1272,14 @@ export class LeonTimelineService {
           this.operatorBackoff.delete(operator.oprId);
           await this.operatorsStore?.recordSyncOutcome?.(operator.oprId, { status: "success" });
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          // The raw text (status, Leon's body) is for the log and the rate-limit check; the Operators page and the
+          // status line get a sentence a person can act on (lib/public-error.mjs).
+          const message = errorDetail(error);
+          const reason = leonOperatorReason(operator.oprId, message);
           this.applyBackoff(operator.oprId, message);
-          operatorErrors.push({ oprId: operator.oprId, message });
+          operatorErrors.push({ oprId: operator.oprId, message, reason });
           console.error(`[leon-sync] operator ${operator.oprId} sync failed (isolated): ${message}`);
-          await this.operatorsStore?.recordSyncOutcome?.(operator.oprId, { status: "error", error: message });
+          await this.operatorsStore?.recordSyncOutcome?.(operator.oprId, { status: "error", error: reason });
         }
       }
 
@@ -1271,10 +1304,10 @@ export class LeonTimelineService {
       // Healthy while at least one operator syncs; failing operators are
       // named so the error reads as THEIR problem, not a global outage.
       this.state.healthy = succeeded > 0;
-      this.state.lastError =
-        operatorErrors.length === 0
-          ? null
-          : `${operatorErrors.length} operator(s) failing: ${operatorErrors.map((e) => `${e.oprId} (${e.message.slice(0, 80)})`).join("; ")}`;
+      this.state.lastError = leonSummaryReason(operatorErrors);
+      if (operatorErrors.length > 0) {
+        console.error(`[leon-sync] ${operatorErrors.length} operator(s) failing: ${operatorErrors.map((e) => `${e.oprId} (${e.message.slice(0, 200)})`).join("; ")}`);
+      }
       this.state.lastRunAt = new Date().toISOString();
       this.state.cacheStats = cycleStats;
       if (cycleStats.skipped > 0) {
@@ -1294,8 +1327,13 @@ export class LeonTimelineService {
         this.onFlightsChanged?.({ updated: cycleStats.updated, deleted: cycleStats.deleted });
       }
     } catch (error) {
+      const message = errorDetail(error);
+      console.error(`[leon-sync] sync cycle failed: ${message}`);
       this.state.healthy = false;
-      this.state.lastError = error instanceof Error ? error.message : String(error);
+      // An empty list because the store could not be read is not "no operators".
+      this.state.lastError = !/No Leon operators configured/.test(message)
+        ? REASONS.leonSyncFailed()
+        : this.operatorListFailed ? REASONS.leonOperatorsUnreadable() : REASONS.leonNoOperators();
       this.state.lastRunAt = new Date().toISOString();
       this.state.cacheStats = cycleStats;
     }
@@ -1961,14 +1999,14 @@ export class LeonTimelineService {
     if (forceLive || useAllOperators || targetOprId) {
       const configured = await this.listConfiguredOperators();
       if (configured.length === 0) {
-        throw new Error("LEON credentials are not configured.");
+        throw new PublicError(REASONS.leonNoOperators());
       }
 
       const operators = useAllOperators
         ? configured
         : configured.filter((operator) => operator.oprId === targetOprId);
       if (operators.length === 0) {
-        throw new Error(`Operator ${targetOprId} is not configured.`);
+        throw new PublicError(`Operator ${targetOprId} is not set up on the wall.`);
       }
 
       if (forceLive) {
@@ -2247,7 +2285,7 @@ export class LeonTimelineService {
     const isSecondary = Boolean(targetOprId && targetOprId !== this.operatorId);
 
     if (isSecondary && !(await this.isAnyOperatorConfigured())) {
-      throw new Error("LEON credentials are not configured.");
+      throw new PublicError(REASONS.leonNoOperators());
     }
 
     if (refresh && targetOprId && (await this.isAnyOperatorConfigured())) {
@@ -2382,6 +2420,9 @@ export class LeonTimelineService {
   getStatus() {
     return {
       ...this.state,
+      // Always one of our sentences (lib/public-error.mjs): the console status line, the Operators page and the
+      // portal service checker (/api/health) all show it.
+      lastError: shownReason(this.state.lastError, REASONS.leonSyncFailed()),
       pollMs: this.pollMs,
       flightsCached: this.flightsByNid.size,
       limitationsCached: this.limitations.length,

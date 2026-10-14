@@ -3,6 +3,10 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
+import { failure } from "@/lib/public-error";
+
+// This log is written in the background; nothing on screen depends on it.
+const NOT_LOGGED = "The search was not recorded.";
 
 export async function POST(request: Request) {
   const permission = await requirePermission("portal.search.log");
@@ -11,7 +15,7 @@ export async function POST(request: Request) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !anonKey) {
-      return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+      return failure(500, NOT_LOGGED, { tag: "SEARCH-LOG", what: "Supabase URL / anon key not set" });
     }
 
     const cookieStore = cookies();
@@ -32,10 +36,7 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
     const identityId = user?.id ?? null;
     if (userErr || !identityId) {
-      return NextResponse.json(
-        { error: "Unauthorized", detail: userErr?.message ?? "getUser failed" },
-        { status: 401 },
-      );
+      return failure(401, "Unauthorized", { tag: "SEARCH-LOG", what: "getUser failed", detail: userErr ?? undefined });
     }
 
     const body = (await request.json().catch(() => ({}))) as {
@@ -57,10 +58,10 @@ export async function POST(request: Request) {
       source: typeof body.source === "string" ? body.source : "portal",
     });
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return failure(500, NOT_LOGGED, { tag: "SEARCH-LOG", what: "Database error", detail: error });
     }
     return NextResponse.json({ ok: true, logged: true }, { status: 200 });
   } catch (e: unknown) {
-    return NextResponse.json({ error: (e as { message?: string })?.message || "Failed" }, { status: 500 });
+    return failure(500, NOT_LOGGED, { tag: "SEARCH-LOG", what: "Unexpected error", detail: e });
   }
 }

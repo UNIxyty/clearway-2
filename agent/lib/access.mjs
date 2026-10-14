@@ -34,6 +34,9 @@ export async function assertMayUseAgent(user) {
   if (!user?.userId) throw Unauthorized();
   const switchState = await agentEnabled();
   if (!switchState.enabled) {
+    // `reason` is what a developer typed when switching it off. When the switch could not be read at all, the
+    // database's error is in the log (store.mjs) and the person gets our wording.
+    if (switchState.unreadable) throw AgentDisabled("The agent is not available right now. Try again in a few minutes. If it does not come back, tell your administrator.");
     throw AgentDisabled(switchState.reason ? `The agent is currently disabled: ${switchState.reason}` : "The agent is currently disabled.");
   }
   if (!(await hasAgentAccess(user.userId))) {

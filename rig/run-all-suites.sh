@@ -24,6 +24,7 @@ $E rig/manifest/operators.mjs seed >> $LOG 2>&1
 run no-real-passenger-data node rig/check-no-real-passenger-data.mjs
 run docs-check node --no-warnings rig/docs-check.mjs
 run utc-times node rig/check-utc-times.mjs
+run error-text node rig/check-error-text.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
 run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/intake/test-timezones.mjs
@@ -86,4 +87,5 @@ run fixes/search-hidden $E rig/fixes/search-hidden.mjs
 run fixes/profile-email-failure $E rig/fixes/profile-email-failure.mjs
 run fixes/browse-several $E rig/fixes/browse-several.mjs
 run fixes/email-logs-removed $E rig/fixes/email-logs-removed.mjs
+run error-text-browser $E rig/error-text-browser-check.mjs
 echo DONE >> $LOG

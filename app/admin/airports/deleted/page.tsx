@@ -6,6 +6,10 @@ import PortalShell from "@/components/portal/Shell";
 import { dayTimeZ } from "@/lib/time";
 import { PCard, PButton, PEmpty, PMono, PSectionTitle } from "@/components/portal/ui";
 import { Checkbox } from "@/components/kit";
+import { ShownError, TRY_AGAIN, apiErrorText, shownText } from "@/lib/error-text";
+
+const NOT_LOADED = `The airports you hid could not be loaded. ${TRY_AGAIN}`;
+const NOT_RESTORED = `The airport was not restored. ${TRY_AGAIN}`;
 
 type DeletedAirportRow = {
   id: number;
@@ -34,7 +38,7 @@ export default function DeletedAirportsPage() {
     try {
       const res = await fetch("/api/airports/list?include_deleted=true", { cache: "no-store" });
       const data = await res.json().catch(() => ({} as { error?: string; results?: DeletedAirportRow[] }));
-      if (!res.ok) throw new Error(data.error || "Failed to load deleted airports.");
+      if (!res.ok) throw new ShownError(apiErrorText(data, NOT_LOADED));
       const activeRows: DeletedAirportRow[] = (data.results ?? []).filter(
         (r: DeletedAirportRow) => !r.restored_at,
       );
@@ -43,7 +47,7 @@ export default function DeletedAirportsPage() {
         prev.filter((id) => activeRows.some((r: DeletedAirportRow) => r.id === id)),
       );
     } catch (e) {
-      setError((e as { message?: string })?.message || "Failed to load deleted airports.");
+      setError(shownText(e, NOT_LOADED));
     } finally {
       setLoading(false);
     }
@@ -63,10 +67,10 @@ export default function DeletedAirportsPage() {
         body: JSON.stringify({ deletedId: row.id, icao: row.icao }),
       });
       const data = await res.json().catch(() => ({} as { error?: string }));
-      if (!res.ok) throw new Error(data.error || "Failed to restore airport.");
+      if (!res.ok) throw new ShownError(apiErrorText(data, NOT_RESTORED));
       setRows((prev) => prev.filter((r) => r.id !== row.id));
     } catch (e) {
-      setError((e as { message?: string })?.message || "Failed to restore airport.");
+      setError(shownText(e, NOT_RESTORED));
     } finally {
       setRestoringId(null);
     }
@@ -85,12 +89,12 @@ export default function DeletedAirportsPage() {
           body: JSON.stringify({ deletedId: row.id, icao: row.icao }),
         });
         const data = await res.json().catch(() => ({} as { error?: string }));
-        if (!res.ok) throw new Error(data.error || `Failed to restore ${row.icao}.`);
+        if (!res.ok) throw new ShownError(`${row.icao}: ${apiErrorText(data, NOT_RESTORED)}`);
       }
       setRows((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
       setSelectedIds([]);
     } catch (e) {
-      setError((e as { message?: string })?.message || "Failed to restore selected airports.");
+      setError(shownText(e, NOT_RESTORED));
     } finally {
       setRestoringBulk(false);
     }

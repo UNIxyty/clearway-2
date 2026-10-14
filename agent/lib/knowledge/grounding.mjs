@@ -12,6 +12,7 @@
 
 import { BedrockRuntimeClient, ApplyGuardrailCommand } from "@aws-sdk/client-bedrock-runtime";
 import { loadModelConfig } from "../models.mjs";
+import { logDetail } from "../public-errors.mjs";
 
 const TIMEOUT_MS = 20_000;
 
@@ -48,7 +49,7 @@ export function groundingConfigured() {
  */
 export async function checkGrounding({ query, answer, sources }) {
   if (!groundingConfigured()) {
-    return { verified: false, ran: false, action: null, reason: "No BEDROCK_GUARDRAIL_ID configured — grounding was not checked." };
+    return { verified: false, ran: false, action: null, reason: "Grounding was not checked: the check is not set up on this server." };
   }
   if (!answer || !answer.trim()) {
     return { verified: false, ran: false, action: null, reason: "Nothing to check." };
@@ -102,6 +103,7 @@ export async function checkGrounding({ query, answer, sources }) {
   } catch (error) {
     // Deliberately not thrown: an unavailable check must degrade to "not
     // verified", not to a failed answer.
-    return { verified: false, ran: false, action: null, reason: `Grounding check could not run: ${error.name}: ${String(error.message).slice(0, 160)}` };
+    logDetail("agent", "grounding check could not run", error);
+    return { verified: false, ran: false, action: null, reason: "The grounding check could not run, so this answer is not verified." };
   }
 }

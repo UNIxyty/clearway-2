@@ -31,6 +31,7 @@ import {
   useToast,
   ConfirmDialog,
 } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Limitations — manual text limitations for the wall sidebar, reworked model
 // (Item 9): NO type taxonomy. A limitation is its text + how it matches +
@@ -174,7 +175,7 @@ export default function LimitationsPage() {
       // This page manages the manual limitations only.
       setItems((payload.limitations || []).filter((item) => item.source === 'custom' || !item.source));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       setItems([]);
     } finally {
       setLoading(false);
@@ -223,7 +224,7 @@ export default function LimitationsPage() {
       await load();
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       return false;
     } finally {
       setSaving(false);
@@ -236,7 +237,7 @@ export default function LimitationsPage() {
     try {
       await setLimitationActive(item.id, nextValue);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     } finally {
       setBusyId('');
@@ -252,7 +253,7 @@ export default function LimitationsPage() {
       setItems((prev) => prev.filter((row) => row.id !== item.id));
       flash('Limitation deleted', '#f87171');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await load();
     } finally {
       setBusyId('');

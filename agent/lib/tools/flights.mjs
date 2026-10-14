@@ -23,6 +23,7 @@
 import { defineTool, S } from "./framework.mjs";
 import { wallGet } from "./http.mjs";
 import { NotFound, InvalidInput } from "./errors.mjs";
+import { logDetail } from "../public-errors.mjs";
 import {
   dayBounds,
   filterFlightRecords,
@@ -211,7 +212,9 @@ defineTool({
         { timeoutMs: 40_000 }
       );
     } catch (error) {
-      infoError = String(error?.message || error);
+      // The wall's error text goes to the log; the model (and the Activity log) get our sentence.
+      logDetail("agent", `flight-info for ${flight_id} failed`, error?.detail ? `${error.message} — ${error.detail}` : error);
+      infoError = "The flight's NOTAMs, weather and AIP details could not be read from the wall.";
     }
     const lims = Array.isArray(f.limitations) ? f.limitations : [];
     const ofType = (...types) => lims.filter((l) => types.includes(l?.type));

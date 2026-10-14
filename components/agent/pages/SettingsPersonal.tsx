@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AGENT_BASE } from "../types";
 import { Button, Card, Checkbox, Select, Segmented, SkeletonRows, TextInput, Toggle } from "@/components/kit";
+import { apiMessage } from "../ui/errorText";
 
 type Prefs = { defaultTier: string | null; skipConfirm: boolean; skipConfirmRequested: boolean; skipLocked: boolean; skipLockedForAll: boolean };
 type Catalogue = { qualified: { tool: string; why: string }[]; alwaysConfirm: { tool: string; why: string }[] };
@@ -43,11 +44,11 @@ export function PersonalSettings() {
   const [cat, setCat] = useState<Catalogue | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [showActions, setShowActions] = useState(false);
-  useEffect(() => { void agentApi("/api/settings/me").then(({ ok, body }) => { if (ok) { setPrefs(body.prefs); setCat(body.lowRiskActions); } else setMsg(body?.message ?? "Couldn't load your preferences."); }); }, []);
+  useEffect(() => { void agentApi("/api/settings/me").then(({ ok, body }) => { if (ok) { setPrefs(body.prefs); setCat(body.lowRiskActions); } else setMsg(apiMessage(body, "Couldn't load your preferences. Try again.")); }); }, []);
   async function save(patch: Record<string, unknown>) {
     setMsg(null);
     const { ok, body } = await agentApi("/api/settings/me", { method: "PATCH", body: JSON.stringify(patch) });
-    if (ok) setPrefs(body.prefs); else setMsg(body?.message ?? "Couldn't save.");
+    if (ok) setPrefs(body.prefs); else setMsg(apiMessage(body, "Couldn't save. Try again."));
   }
   return (
     <Card title="Your preferences" description="Only affect you." padded={false}>
@@ -102,7 +103,7 @@ export function RoutingSettings({ routing, onSaved }: { routing: Routing; onSave
     const { ok, body } = await agentApi("/api/settings/routing", { method: "PUT", body: JSON.stringify({ tiers: Object.fromEntries(TIER_ROWS.map((t) => [t, { id: draft.tiers[t]?.id || null, fallbackId: draft.tiers[t]?.fallbackId || null }])), escalation: draft.escalation }) });
     setSaving(false);
     if (ok) { onSaved({ ...routing, tiers: body.tiers, escalation: body.escalation }); setMsg({ text: "Saved. Applies from the next message.", error: false }); }
-    else setMsg({ text: body?.message ?? "Couldn't save.", error: true });
+    else setMsg({ text: apiMessage(body, "Couldn't save. Try again."), error: true });
   }
   const field = (t: string, k: "id" | "fallbackId", label: string) => {
     const diff = changed.has(`${t}.${k}`);

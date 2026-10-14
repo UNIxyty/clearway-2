@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
+import { failure } from "@/lib/public-error";
+
+// Written in the background after a download; nothing on screen depends on it.
+const NOT_RECORDED = "The download time was not recorded.";
 
 const VALID_SOURCES = new Set(["ead", "scraper", "usa", "asecna"]);
 
@@ -29,12 +33,12 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createSupabaseServiceRoleClient();
-    if (!admin) return NextResponse.json({ ok: false, error: "Supabase service role client not configured" }, { status: 503 });
+    if (!admin) return failure(503, NOT_RECORDED, { tag: "DOWNLOAD-STATS", what: "SUPABASE_SERVICE_ROLE_KEY not set" }, { ok: false });
 
     const { error: dbError } = await admin.from("pdf_download_stats").insert({ icao, source, duration_ms });
     if (dbError) {
       console.error("[download-stats] insert failed:", dbError.message, dbError.code);
-      return NextResponse.json({ ok: false, error: dbError.message }, { status: 500 });
+      return NextResponse.json({ ok: false, error: NOT_RECORDED }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   } catch (e) {

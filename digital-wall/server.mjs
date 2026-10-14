@@ -48,6 +48,7 @@ import {
   saveAttachmentBytes,
   validateAttachment,
 } from "./lib/attachment-store.mjs";
+import { errorDetail, isPublicError, logFailure, PublicError, REASONS, shownReason } from "./lib/public-error.mjs";
 
 // Permissions startup check (docs/permissions.md): every write route below must be in lib/permissions/catalogue.mjs,
 // and every wall entry there must still exist here. Refuse to start rather than serve a route nobody decided on.
@@ -306,7 +307,7 @@ function sanitizeDisplaySettings(input = {}) {
   // screen to pack many rows; absolute legibility floors live in
   // pillVerticalMetrics (fonts never below 7px).
   if (!Number.isFinite(scale) || scale < 0.1 || scale > 2) {
-    throw new Error("scale must be a number between 0.1 and 2.0.");
+    throw new PublicError("scale must be a number between 0.1 and 2.0.");
   }
   // Time-axis zoom: horizontal distance between hour gridlines. 1 = default;
   // 0.5 fits twice the hours on screen, 2.5 spreads them 2.5x wider.
@@ -317,13 +318,13 @@ function sanitizeDisplaySettings(input = {}) {
   // neighbour-budget lane packing. Below ~0.12 the rotated ruler labels
   // start touching, so 0.15 is the honest floor for uniform compression.
   if (!Number.isFinite(timeZoom) || timeZoom < 0.15 || timeZoom > 2.5) {
-    throw new Error("timeZoom must be a number between 0.15 and 2.5.");
+    throw new PublicError("timeZoom must be a number between 0.15 and 2.5.");
   }
   // Vertical size: lane/pill height multiplier. <1 thins the timeline so
   // more registrations fit on screen; text keeps the display scale.
   const rowZoom = input.rowZoom === undefined ? DEFAULT_DISPLAY_SETTINGS.rowZoom : Number(input.rowZoom);
   if (!Number.isFinite(rowZoom) || rowZoom < 0.02 || rowZoom > 1.4) {
-    throw new Error("rowZoom must be a number between 0.02 and 1.4.");
+    throw new PublicError("rowZoom must be a number between 0.02 and 1.4.");
   }
   // Item 3: finer vertical sizing — pill body thickness, marker-row size and
   // label (ID / route / times) size adjust independently of row spacing.
@@ -331,46 +332,46 @@ function sanitizeDisplaySettings(input = {}) {
   // marker chips below 10px) so nothing clips even at slider minimums.
   const pillHeight = input.pillHeight === undefined ? DEFAULT_DISPLAY_SETTINGS.pillHeight : Number(input.pillHeight);
   if (!Number.isFinite(pillHeight) || pillHeight < 0.4 || pillHeight > 1.4) {
-    throw new Error("pillHeight must be a number between 0.4 and 1.4.");
+    throw new PublicError("pillHeight must be a number between 0.4 and 1.4.");
   }
   const markerScale = input.markerScale === undefined ? DEFAULT_DISPLAY_SETTINGS.markerScale : Number(input.markerScale);
   if (!Number.isFinite(markerScale) || markerScale < 0.5 || markerScale > 1.3) {
-    throw new Error("markerScale must be a number between 0.5 and 1.3.");
+    throw new PublicError("markerScale must be a number between 0.5 and 1.3.");
   }
   const labelScale = input.labelScale === undefined ? DEFAULT_DISPLAY_SETTINGS.labelScale : Number(input.labelScale);
   if (!Number.isFinite(labelScale) || labelScale < 0.5 || labelScale > 1.3) {
-    throw new Error("labelScale must be a number between 0.5 and 1.3.");
+    throw new PublicError("labelScale must be a number between 0.5 and 1.3.");
   }
   // Independent scales (Item 2): the side overlay and the sidebars (clocks
   // bar + legend/limitations panel) size on their own — the main display
   // scale no longer moves them.
   const overlayScale = input.overlayScale === undefined ? DEFAULT_DISPLAY_SETTINGS.overlayScale : Number(input.overlayScale);
   if (!Number.isFinite(overlayScale) || overlayScale < 1 || overlayScale > 2) {
-    throw new Error("overlayScale must be a number between 1.0 and 2.0.");
+    throw new PublicError("overlayScale must be a number between 1.0 and 2.0.");
   }
   const sidebarScale = input.sidebarScale === undefined ? DEFAULT_DISPLAY_SETTINGS.sidebarScale : Number(input.sidebarScale);
   if (!Number.isFinite(sidebarScale) || sidebarScale < 0.3 || sidebarScale > 2) {
-    throw new Error("sidebarScale must be a number between 0.3 and 2.0.");
+    throw new PublicError("sidebarScale must be a number between 0.3 and 2.0.");
   }
   // Shrinkable chrome (wall declutter): the top clock bar and the left
   // aircraft column size independently so they don't eat row space.
   const headerScale = input.headerScale === undefined ? DEFAULT_DISPLAY_SETTINGS.headerScale : Number(input.headerScale);
   if (!Number.isFinite(headerScale) || headerScale < 0.3 || headerScale > 2) {
-    throw new Error("headerScale must be a number between 0.3 and 2.0.");
+    throw new PublicError("headerScale must be a number between 0.3 and 2.0.");
   }
   const acColScale = input.acColScale === undefined ? DEFAULT_DISPLAY_SETTINGS.acColScale : Number(input.acColScale);
   if (!Number.isFinite(acColScale) || acColScale < 0.2 || acColScale > 1.5) {
-    throw new Error("acColScale must be a number between 0.2 and 1.5.");
+    throw new PublicError("acColScale must be a number between 0.2 and 1.5.");
   }
   // MVT flash (bug report 3 item 7): missing T/O past threshold blinks the
   // pill outline. Reference = CTOT/ETD when present, else STD.
   const mvtThresholdMin = input.mvtThresholdMin === undefined ? DEFAULT_DISPLAY_SETTINGS.mvtThresholdMin : Number(input.mvtThresholdMin);
   if (!Number.isFinite(mvtThresholdMin) || mvtThresholdMin < 5 || mvtThresholdMin > 60) {
-    throw new Error("mvtThresholdMin must be a number between 5 and 60.");
+    throw new PublicError("mvtThresholdMin must be a number between 5 and 60.");
   }
   const mvtFlashSeconds = input.mvtFlashSeconds === undefined ? DEFAULT_DISPLAY_SETTINGS.mvtFlashSeconds : Number(input.mvtFlashSeconds);
   if (!Number.isFinite(mvtFlashSeconds) || mvtFlashSeconds < 0.4 || mvtFlashSeconds > 4) {
-    throw new Error("mvtFlashSeconds must be a number between 0.4 and 4.");
+    throw new PublicError("mvtFlashSeconds must be a number between 0.4 and 4.");
   }
   // Bug report 6 item 2: static red outline on unconfirmed trips (Leon trip
   // status not CONFIRMED). Per-account toggle, default on.
@@ -385,15 +386,15 @@ function sanitizeDisplaySettings(input = {}) {
     ? DEFAULT_DISPLAY_SETTINGS.upcomingTableSide
     : String(input.upcomingTableSide);
   if (!["left", "right"].includes(upcomingTableSide)) {
-    throw new Error("upcomingTableSide must be 'left' or 'right'.");
+    throw new PublicError("upcomingTableSide must be 'left' or 'right'.");
   }
   const upcomingTableScale = input.upcomingTableScale === undefined ? DEFAULT_DISPLAY_SETTINGS.upcomingTableScale : Number(input.upcomingTableScale);
   if (!Number.isFinite(upcomingTableScale) || upcomingTableScale < 0.5 || upcomingTableScale > 2) {
-    throw new Error("upcomingTableScale must be a number between 0.5 and 2.");
+    throw new PublicError("upcomingTableScale must be a number between 0.5 and 2.");
   }
   const upcomingTableWidthPct = input.upcomingTableWidthPct === undefined ? DEFAULT_DISPLAY_SETTINGS.upcomingTableWidthPct : Number(input.upcomingTableWidthPct);
   if (!Number.isFinite(upcomingTableWidthPct) || upcomingTableWidthPct < 15 || upcomingTableWidthPct > 60) {
-    throw new Error("upcomingTableWidthPct must be a number between 15 and 60.");
+    throw new PublicError("upcomingTableWidthPct must be a number between 15 and 60.");
   }
   // Colours tab: overrides for the wall's colour tokens. Only #rrggbb hex
   // values survive; null/"" clears an override (Reset). The KEY list lives
@@ -408,50 +409,50 @@ function sanitizeDisplaySettings(input = {}) {
     if (value === null || value === "") continue; // cleared override
     const hex = String(value).trim().toLowerCase();
     if (!/^#[0-9a-f]{6}$/.test(hex)) {
-      throw new Error(`colors.${key} must be a #rrggbb hex value.`);
+      throw new PublicError(`colors.${key} must be a #rrggbb hex value.`);
     }
     cleanColors[key] = hex;
   }
   // Font tab: the wall's text font, one id from the client-side registry (theme/wallFont.js), per account like
   // the colours. The server stores a slug; the display resolves an unknown one to the default (dotted Nunito).
   const font = input.font === undefined || input.font === null || input.font === "" ? DEFAULT_DISPLAY_SETTINGS.font : String(input.font).trim().toLowerCase();
-  if (!/^[a-z][a-z0-9-]{0,30}$/.test(font)) throw new Error("font must be a short font id (letters, digits, dashes).");
+  if (!/^[a-z][a-z0-9-]{0,30}$/.test(font)) throw new PublicError("font must be a short font id (letters, digits, dashes).");
   // Bug report 7 item 4b: the zero on the fonts the wall builds (Nunito, Roboto, Public Sans).
   const zeroStyle = input.zeroStyle === undefined || input.zeroStyle === null || input.zeroStyle === "" ? DEFAULT_DISPLAY_SETTINGS.zeroStyle : String(input.zeroStyle);
-  if (!["dotted", "slashed", "plain"].includes(zeroStyle)) throw new Error("zeroStyle must be dotted, slashed or plain.");
+  if (!["dotted", "slashed", "plain"].includes(zeroStyle)) throw new PublicError("zeroStyle must be dotted, slashed or plain.");
   // Bug report 7 item 5: chip visibility. A missing key keeps the chip (default on); only an explicit false hides it.
   const chips = Object.fromEntries(["chipImp", "chipCaa", "chipNtm", "chipWx"].map((k) => [k, input[k] === undefined ? DEFAULT_DISPLAY_SETTINGS[k] : input[k] !== false]));
   // Bug report 7 item 3: horizontal knobs, each clamped-or-refused against HORIZONTAL_RANGES.
   const horizontal = {};
   for (const [k, [lo, hi]] of Object.entries(HORIZONTAL_RANGES)) {
     const v = input[k] === undefined ? DEFAULT_DISPLAY_SETTINGS[k] : Number(input[k]);
-    if (!Number.isFinite(v) || v < lo || v > hi) throw new Error(`${k} must be a number between ${lo} and ${hi}.`);
+    if (!Number.isFinite(v) || v < lo || v > hi) throw new PublicError(`${k} must be a number between ${lo} and ${hi}.`);
     horizontal[k] = k === "minPillMinutes" ? Math.round(v) : Math.round(v * 100) / 100;
   }
   const autoFitHorizontal = input.autoFitHorizontal === true;
   const floors = {};
   for (const [k, [lo, hi]] of Object.entries(FLOOR_RANGES)) {
     const v = input[k] === undefined || input[k] === null ? DEFAULT_DISPLAY_SETTINGS[k] : Number(input[k]);
-    if (!Number.isFinite(v) || v < lo || v > hi) throw new Error(`${k} must be a number of pixels between ${lo} and ${hi}.`);
+    if (!Number.isFinite(v) || v < lo || v > hi) throw new PublicError(`${k} must be a number of pixels between ${lo} and ${hi}.`);
     floors[k] = Math.round(v * 2) / 2;
   }
   // The wall check that set them: viewing distance (metres) and when. Both null = provisional.
   const floorsDistanceM = input.floorsDistanceM === undefined || input.floorsDistanceM === null || input.floorsDistanceM === "" ? null : Number(input.floorsDistanceM);
-  if (floorsDistanceM !== null && (!Number.isFinite(floorsDistanceM) || floorsDistanceM < 0.5 || floorsDistanceM > 40)) throw new Error("floorsDistanceM must be a distance in metres between 0.5 and 40.");
+  if (floorsDistanceM !== null && (!Number.isFinite(floorsDistanceM) || floorsDistanceM < 0.5 || floorsDistanceM > 40)) throw new PublicError("floorsDistanceM must be a distance in metres between 0.5 and 40.");
   const floorsCheckedAt = input.floorsCheckedAt === undefined || input.floorsCheckedAt === null || input.floorsCheckedAt === "" ? null : String(input.floorsCheckedAt);
-  if (floorsCheckedAt !== null && !Number.isFinite(Date.parse(floorsCheckedAt))) throw new Error("floorsCheckedAt must be a date.");
+  if (floorsCheckedAt !== null && !Number.isFinite(Date.parse(floorsCheckedAt))) throw new PublicError("floorsCheckedAt must be a date.");
   // Item 9: time-window visibility thresholds (hours).
   const upcomingHorizonHours = input.upcomingHorizonHours === undefined
     ? DEFAULT_DISPLAY_SETTINGS.upcomingHorizonHours
     : Number(input.upcomingHorizonHours);
   if (!Number.isFinite(upcomingHorizonHours) || upcomingHorizonHours < 1 || upcomingHorizonHours > 72) {
-    throw new Error("upcomingHorizonHours must be a number between 1 and 72.");
+    throw new PublicError("upcomingHorizonHours must be a number between 1 and 72.");
   }
   const postLandingHours = input.postLandingHours === undefined
     ? DEFAULT_DISPLAY_SETTINGS.postLandingHours
     : Number(input.postLandingHours);
   if (!Number.isFinite(postLandingHours) || postLandingHours < 0 || postLandingHours > 24) {
-    throw new Error("postLandingHours must be a number between 0 and 24.");
+    throw new PublicError("postLandingHours must be a number between 0 and 24.");
   }
   return {
     // Item 2 (wall sizing): wall computes vertical knobs itself to fit all
@@ -502,18 +503,18 @@ function isValidTimeZone(timeZone) {
 
 function sanitizeClocks(input) {
   if (!Array.isArray(input)) {
-    throw new Error("Body must be { clocks: [{ label, timeZone }] }.");
+    throw new PublicError("Add at least one clock.");
   }
   if (input.length === 0 || input.length > 12) {
-    throw new Error("Configure between 1 and 12 clocks.");
+    throw new PublicError("Configure between 1 and 12 clocks.");
   }
   let localTaken = false; // exactly one local clock at most: the first one flagged
   return input.map((row) => {
     const label = String(row?.label || "").trim().slice(0, 40);
     const timeZone = String(row?.timeZone || "").trim();
-    if (!label) throw new Error("Every clock needs a label.");
+    if (!label) throw new PublicError("Every clock needs a label.");
     if (!isValidTimeZone(timeZone)) {
-      throw new Error(`Unknown IANA time zone: ${timeZone || "(empty)"}.`);
+      throw new PublicError(`Unknown time zone: ${timeZone || "(empty)"}. Pick a zone from the list.`);
     }
     const local = !localTaken && (row?.local === true || row?.home === true);
     if (local) localTaken = true;
@@ -599,6 +600,27 @@ async function readMaybe(filePath) {
 function sendJson(res, payload, status = 200) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
+}
+
+/**
+ * A request that failed. The person gets `message` — what happened and what to do, in our words — unless the error
+ * is a PublicError (our own wording on purpose, e.g. "Every clock needs a label."), which is passed through. The
+ * detail (exception, Leon/Supabase/portal/Resend body, stack) goes to the log under `tag`, never to a screen.
+ */
+function sendFailure(res, status, message, tag, error) {
+  if (isPublicError(error)) {
+    console.warn(`[${tag}] refused: ${error.message}`);
+    sendJson(res, { ok: false, error: error.message }, status); // public-error-ok: a PublicError is our own wording
+    return;
+  }
+  logFailure(tag, message, error);
+  sendJson(res, { ok: false, error: message }, status);
+}
+
+/** Last alert-scan result with its reason as a screen may show it. */
+function shownScan(scan) {
+  if (!scan || typeof scan !== "object" || !scan.error) return scan;
+  return { ...scan, error: shownReason(scan.error, REASONS.scanFailed()) };
 }
 
 async function readJsonBody(req) {
@@ -785,7 +807,7 @@ const server = http.createServer(async (req, res) => {
         }
         sendJson(res, { ok: true, ...out });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't register this screen. Try again in a few minutes. If it keeps failing, report it from Help & support.", "devices", error);
       }
       return;
     }
@@ -920,7 +942,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "devices.changed", action: "approve", deviceId: device.deviceId });
         sendJson(res, { ok: true, device });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't approve the screen. Try again in a few minutes. If it keeps failing, report it from Help & support.", "devices", error);
       }
       return;
     }
@@ -937,7 +959,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "devices.changed", action: "revoke", deviceId: device.deviceId });
         sendJson(res, { ok: true, device });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't remove the screen. Try again in a few minutes. If it keeps failing, report it from Help & support.", "devices", error);
       }
       return;
     }
@@ -1011,7 +1033,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "reports.changed", action: "upsert", id: report.id });
         sendJson(res, { ok: true, report });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't save the report. Try again in a few minutes. If it keeps failing, report it from Help & support.", "reports", error);
       }
       return;
     }
@@ -1033,15 +1055,15 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "reports.changed", action: "config" });
         sendJson(res, { ok: true, ...config });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't save the report settings. Try again in a few minutes. If it keeps failing, report it from Help & support.", "reports", error);
       }
       return;
     }
 
     // Send a report to specific recipients through the branded template.
-    // Failures are LOUD: a non-ok mailer result becomes a 502 with the
-    // provider error surfaced to the page (this system was bitten by
-    // silent email failures before).
+    // Failures are LOUD: a non-ok mailer result becomes a 502 and the page
+    // says the email was not sent (this system was bitten by silent email
+    // failures before). The provider's answer goes to the log, not the page.
     if (/^\/api\/reports\/[^/]+\/send$/.test(pathname) && req.method === "POST") {
       const id = decodeURIComponent(pathname.split("/")[3]);
       const body = await readJsonBody(req);
@@ -1073,7 +1095,7 @@ const server = http.createServer(async (req, res) => {
       const result = await sendEmail({ to, subject, html });
       if (!result.ok) {
         console.error(`[reports] send FAILED for ${id} -> ${to.join(", ")}: ${result.error}`);
-        sendJson(res, { ok: false, error: `Email send failed: ${result.error}` }, 502);
+        sendJson(res, { ok: false, error: "Couldn't send the email. Try again in a few minutes. If it keeps failing, report it from Help & support." }, 502);
         return;
       }
       const updated = await reportsStore.recordSend(id, { to, by: requestUser?.email ?? null, resendId: result.id });
@@ -1100,7 +1122,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "reports.changed", action: "restore", id });
         sendJson(res, { ok: true, report });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+        sendFailure(res, 404, "Couldn't restore the report. Try again in a few minutes. If it keeps failing, report it from Help & support.", "reports", error);
       }
       return;
     }
@@ -1111,7 +1133,7 @@ const server = http.createServer(async (req, res) => {
         const report = await reportsStore.purge(id);
         sendJson(res, { ok: true, id, report });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+        sendFailure(res, 404, "Couldn't remove the report permanently. Try again in a few minutes. If it keeps failing, report it from Help & support.", "reports", error);
       }
       return;
     }
@@ -1124,7 +1146,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "reports.changed", action: "upsert", id });
         sendJson(res, { ok: true, report });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't save the report. Try again in a few minutes. If it keeps failing, report it from Help & support.", "reports", error);
       }
       return;
     }
@@ -1136,7 +1158,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "reports.changed", action: "delete", id });
         sendJson(res, { ok: true, id, report });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't delete the report. Try again in a few minutes. If it keeps failing, report it from Help & support.", "reports", error);
       }
       return;
     }
@@ -1161,7 +1183,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "flight.changed", via: "flight-checks", oprId, flightNids: [flightNid] });
         sendJson(res, { ok: true, checks });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't save the check. Try again in a few minutes. If it keeps failing, report it from Help & support.", "flight-checks", error);
       }
       return;
     }
@@ -1249,7 +1271,7 @@ const server = http.createServer(async (req, res) => {
         const jobId = aipSend.start({ flight: found.flight, requests, user: requestUser });
         sendJson(res, { ok: true, jobId, job: aipSend.publicJob(aipSend.getJob(jobId)) });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't start sending the documents. Try again in a few minutes. If it keeps failing, report it from Help & support.", "aip-send", error);
       }
       return;
     }
@@ -1277,7 +1299,7 @@ const server = http.createServer(async (req, res) => {
         const rules = await alertsService.setRules(body.rules ?? body);
         sendJson(res, { ok: true, rules });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't save the NOTAM rules. Try again in a few minutes. If it keeps failing, report it from Help & support.", "alerts", error);
       }
       return;
     }
@@ -1286,7 +1308,7 @@ const server = http.createServer(async (req, res) => {
       const includeInactive = url.searchParams.get("includeInactive") === "true";
       sendJson(res, {
         ok: true,
-        lastScan: alertsService.lastScan,
+        lastScan: shownScan(alertsService.lastScan),
         findings: alertsService.listFindings({ includeInactive }),
       });
       return;
@@ -1311,7 +1333,7 @@ const server = http.createServer(async (req, res) => {
         notamCheck.broadcast();
         sendJson(res, { ok: true, config: getDigestConfig() });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't save the NOTAM email settings. Try again in a few minutes. If it keeps failing, report it from Help & support.", "notam-check", error);
       }
       return;
     }
@@ -1320,7 +1342,12 @@ const server = http.createServer(async (req, res) => {
       // Manual trigger of the daily 00:01 UTC flight-weather pull (testing /
       // catch-up). Same code path as the scheduler.
       const result = await weatherService.runDailyFlightRefresh(listUpcomingWeatherIcaos, { reason: "manual" });
-      sendJson(res, { ok: result.ok === true, refreshed: result.refreshed ?? 0, lastRun: weatherService.lastDailyRun });
+      const lastRun = weatherService.lastDailyRun;
+      sendJson(res, {
+        ok: result.ok === true,
+        refreshed: result.refreshed ?? 0,
+        lastRun: lastRun?.error ? { ...lastRun, error: shownReason(lastRun.error, REASONS.weatherUnavailable()) } : lastRun,
+      });
       return;
     }
 
@@ -1330,7 +1357,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "roster.changed", reason: "flight-cache-cleared" });
         sendJson(res, { ok: true, cleared });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+        sendFailure(res, 500, "Couldn't clear the flight cache. Try again in a few minutes. If it keeps failing, report it from Help & support.", "admin", error);
       }
       return;
     }
@@ -1346,7 +1373,7 @@ const server = http.createServer(async (req, res) => {
         const state = await notamCheck.ack(body.icao, requestUser);
         sendJson(res, { ok: true, ...state });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't save the check for this airport. Try again in a few minutes. If it keeps failing, report it from Help & support.", "notam-check", error);
       }
       return;
     }
@@ -1357,7 +1384,7 @@ const server = http.createServer(async (req, res) => {
         const state = await notamCheck.resyncAirport(body.icao);
         sendJson(res, { ok: true, ...state });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't resync this airport. Try again in a few minutes. If it keeps failing, report it from Help & support.", "notam-check", error);
       }
       return;
     }
@@ -1367,7 +1394,7 @@ const server = http.createServer(async (req, res) => {
         const state = await notamCheck.runDailyCheck({ reason: "manual" });
         sendJson(res, { ok: true, ...state });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+        sendFailure(res, 500, REASONS.notamCheckFailed(), "notam-check", error);
       }
       return;
     }
@@ -1375,9 +1402,9 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/alerts/scan" && req.method === "POST") {
       try {
         const result = await alertsService.runScan();
-        sendJson(res, { ok: result?.ok !== false, lastScan: result });
+        sendJson(res, { ok: result?.ok !== false, lastScan: shownScan(result) });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+        sendFailure(res, 500, REASONS.scanFailed(), "alerts", error);
       }
       return;
     }
@@ -1430,7 +1457,7 @@ const server = http.createServer(async (req, res) => {
           colors: { ...(base.colors ?? {}), ...(patch?.colors ?? {}) },
         });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't save the display settings. Try again in a few minutes. If it keeps failing, report it from Help & support.", "display", error);
         return;
       }
       // Bug report 4 item 2 — the ACTUAL cause of the recurring ">13h
@@ -1590,7 +1617,7 @@ const server = http.createServer(async (req, res) => {
       try {
         clocks = sanitizeClocks(body.clocks);
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't save the clocks. Try again in a few minutes. If it keeps failing, report it from Help & support.", "display", error);
         return;
       }
       // Saving the list IS a choice of local clock (or of none): the station default stops applying.
@@ -1602,14 +1629,24 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/operators" && req.method === "GET") {
       const includeInactive = url.searchParams.get("includeInactive") === "true";
-      const operators = await operatorsStore.listOperators({ includeInactive });
-      sendJson(res, { ok: true, storage: operatorsStore.storageMode(), operators });
+      try {
+        const operators = await operatorsStore.listOperators({ includeInactive });
+        sendJson(res, { ok: true, storage: operatorsStore.storageMode(), operators });
+      } catch (error) {
+        sendFailure(res, 500, "Couldn't load the operators. Try again in a few minutes. If it keeps failing, report it from Help & support.", "operators", error);
+      }
       return;
     }
 
     if (pathname === "/api/operators" && req.method === "POST") {
       const body = await readJsonBody(req);
-      const operator = await operatorsStore.upsertOperator(body);
+      let operator;
+      try {
+        operator = await operatorsStore.upsertOperator(body);
+      } catch (error) {
+        sendFailure(res, 500, "Couldn't save the operator. Try again in a few minutes. If it keeps failing, report it from Help & support.", "operators", error);
+        return;
+      }
       await timelineService.refreshNow().catch(() => {});
       sseHub.broadcast({ type: "roster.changed", action: "operator-upsert", oprId: operator.oprId });
       sendJson(res, { ok: true, operator });
@@ -1627,7 +1664,7 @@ const server = http.createServer(async (req, res) => {
         }
         sendJson(res, { ok: true, operator });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't load the operator. Try again in a few minutes. If it keeps failing, report it from Help & support.", "operators", error);
       }
       return;
     }
@@ -1663,11 +1700,17 @@ const server = http.createServer(async (req, res) => {
             webhooksNeedReregister: result.oprIdChanged || result.tokenChanged,
           });
         } catch (error) {
-          sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+          sendFailure(res, 400, "Couldn't save the operator. Try again in a few minutes. If it keeps failing, report it from Help & support.", "operators", error);
         }
         return;
       }
-      const operator = await operatorsStore.setOperatorActive(id, Boolean(body.isActive));
+      let operator;
+      try {
+        operator = await operatorsStore.setOperatorActive(id, Boolean(body.isActive));
+      } catch (error) {
+        sendFailure(res, 500, "Couldn't switch the operator on or off. Try again in a few minutes. If it keeps failing, report it from Help & support.", "operators", error);
+        return;
+      }
       // Toggle must be INSTANT: getFlights already filters by the active
       // operator set, so the wall drops/readds this operator's flights on
       // the very next fetch — broadcast now, never behind a Leon sync cycle
@@ -1695,7 +1738,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "roster.changed", action: "operator-delete", oprId: deleted.oprId });
         sendJson(res, { ok: true, ...deleted });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't delete the operator. Try again in a few minutes. If it keeps failing, report it from Help & support.", "operators", error);
       }
       return;
     }
@@ -1724,7 +1767,7 @@ const server = http.createServer(async (req, res) => {
         }
         sendJson(res, payload);
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+        sendFailure(res, 500, "Couldn't load the upcoming flights. Try again in a few minutes. If it keeps failing, report it from Help & support.", "upcoming", error);
       }
       return;
     }
@@ -1747,7 +1790,13 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/aircraft/visibility" && req.method === "PUT") {
       const body = await readJsonBody(req);
-      const result = await operatorsStore.setAircraftHidden(body);
+      let result;
+      try {
+        result = await operatorsStore.setAircraftHidden(body);
+      } catch (error) {
+        sendFailure(res, 500, "Couldn't change whether this aircraft is shown. Try again in a few minutes. If it keeps failing, report it from Help & support.", "aircraft", error);
+        return;
+      }
       sseHub.broadcast({ type: "roster.changed", action: "aircraft-visibility", key: result.key, isHidden: result.isHidden });
       sendJson(res, { ok: true, ...result });
       return;
@@ -1760,7 +1809,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "roster.changed", action: "aircraft-delete", oprId: body.oprId, registration: body.registration });
         sendJson(res, { ok: true, purged });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't delete the aircraft. Try again in a few minutes. If it keeps failing, report it from Help & support.", "aircraft", error);
       }
       return;
     }
@@ -1822,7 +1871,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "important.changed", action: "reset-reviews", reset });
         sendJson(res, { ok: true, reset });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+        sendFailure(res, 500, "Couldn't reset the reviews. Try again in a few minutes. If it keeps failing, report it from Help & support.", "important", error);
       }
       return;
     }
@@ -1853,7 +1902,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "caa.changed", action: "upsert", id: entry.id });
         sendJson(res, { ok: true, entry });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't save the CAA entry. Try again in a few minutes. If it keeps failing, report it from Help & support.", "caa", error);
       }
       return;
     }
@@ -1881,7 +1930,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "caa.changed", action: "update", id });
         sendJson(res, { ok: true, entry });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 404);
+        sendFailure(res, 404, "Couldn't save the CAA entry. Try again in a few minutes. If it keeps failing, report it from Help & support.", "caa", error);
       }
       return;
     }
@@ -1893,7 +1942,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "caa.changed", action: "delete", id });
         sendJson(res, { ok: true, id });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 404);
+        sendFailure(res, 404, "Couldn't delete the CAA entry. Try again in a few minutes. If it keeps failing, report it from Help & support.", "caa", error);
       }
       return;
     }
@@ -1911,7 +1960,7 @@ const server = http.createServer(async (req, res) => {
         );
         sendJson(res, { ok: true, ...status });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+        sendFailure(res, 500, "Couldn't load the webhooks. Try again in a few minutes. If it keeps failing, report it from Help & support.", "leon-webhooks", error);
       }
       return;
     }
@@ -1929,7 +1978,7 @@ const server = http.createServer(async (req, res) => {
         await leonWebhooks.setEventEnabled(String(body.oprId || ""), String(body.event || ""), Boolean(body.enabled));
         sendJson(res, { ok: true });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't change this webhook in Leon. Try again in a few minutes. If it keeps failing, report it from Help & support.", "leon-webhooks", error);
       }
       return;
     }
@@ -1940,7 +1989,7 @@ const server = http.createServer(async (req, res) => {
         const results = await leonWebhooks.reRegisterAll(String(body.oprId || ""));
         sendJson(res, { ok: true, results });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't re-register the webhooks. Try again in a few minutes. If it keeps failing, report it from Help & support.", "leon-webhooks", error);
       }
       return;
     }
@@ -1952,7 +2001,7 @@ const server = http.createServer(async (req, res) => {
         await leonWebhooks.deleteLabel(oprId, label);
         sendJson(res, { ok: true, label });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+        sendFailure(res, 400, "Couldn't delete the webhook. Try again in a few minutes. If it keeps failing, report it from Help & support.", "leon-webhooks", error);
       }
       return;
     }
@@ -1984,7 +2033,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "important.changed", action: "upsert", id: entry.id });
         sendJson(res, { ok: true, entry });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 400);
+        sendFailure(res, 400, "Couldn't save the Important entry. Try again in a few minutes. If it keeps failing, report it from Help & support.", "important", error);
       }
       return;
     }
@@ -2027,7 +2076,7 @@ const server = http.createServer(async (req, res) => {
             sseHub.broadcast({ type: "important.changed", action: "attachment-add", id: entryId });
             sendJson(res, { ok: true, entry, attachment });
           } catch (error) {
-            sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 400);
+            sendFailure(res, 400, "Couldn't upload the file. Try again in a few minutes. If it keeps failing, report it from Help & support.", "important", error);
           }
           return;
         }
@@ -2055,7 +2104,7 @@ const server = http.createServer(async (req, res) => {
             sseHub.broadcast({ type: "important.changed", action: "attachment-delete", id: entryId });
             sendJson(res, { ok: true, id: attachmentId });
           } catch (error) {
-            sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+            sendFailure(res, 404, "Couldn't delete the file. Try again in a few minutes. If it keeps failing, report it from Help & support.", "important", error);
           }
           return;
         }
@@ -2080,7 +2129,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "important.changed", action: "restore", id });
         sendJson(res, { ok: true, entry });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 404);
+        sendFailure(res, 404, "Couldn't restore the Important entry. Try again in a few minutes. If it keeps failing, report it from Help & support.", "important", error);
       }
       return;
     }
@@ -2091,7 +2140,7 @@ const server = http.createServer(async (req, res) => {
         const entry = await importantStore.purge(id);
         sendJson(res, { ok: true, id, entry });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 404);
+        sendFailure(res, 404, "Couldn't remove the Important entry permanently. Try again in a few minutes. If it keeps failing, report it from Help & support.", "important", error);
       }
       return;
     }
@@ -2110,7 +2159,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "important.changed", action: keys.length === 1 && keys[0] === "isActive" ? "toggle" : "update", id });
         sendJson(res, { ok: true, entry });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 404);
+        sendFailure(res, 404, "Couldn't save the Important entry. Try again in a few minutes. If it keeps failing, report it from Help & support.", "important", error);
       }
       return;
     }
@@ -2124,14 +2173,20 @@ const server = http.createServer(async (req, res) => {
         // built from, and the caller should not have to reconstruct it.
         sendJson(res, { ok: true, id, entry });
       } catch (error) {
-        sendJson(res, { ok: false, error: error.message }, 404);
+        sendFailure(res, 404, "Couldn't delete the Important entry. Try again in a few minutes. If it keeps failing, report it from Help & support.", "important", error);
       }
       return;
     }
 
     if (pathname === "/api/timeline/limitations" && req.method === "POST") {
       const body = await readJsonBody(req);
-      const limitation = await timelineService.upsertCustomLimitation(body);
+      let limitation;
+      try {
+        limitation = await timelineService.upsertCustomLimitation(body);
+      } catch (error) {
+        sendFailure(res, 500, "Couldn't save the limitation. Try again in a few minutes. If it keeps failing, report it from Help & support.", "limitations", error);
+        return;
+      }
       sseHub.broadcast({ type: "limitations.changed", action: "upsert", id: limitation.id });
       sendJson(res, { ok: true, limitation });
       return;
@@ -2157,7 +2212,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "limitations.changed", action: "restore", id });
         sendJson(res, { ok: true, limitation });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+        sendFailure(res, 404, "Couldn't restore the limitation. Try again in a few minutes. If it keeps failing, report it from Help & support.", "limitations", error);
       }
       return;
     }
@@ -2168,7 +2223,7 @@ const server = http.createServer(async (req, res) => {
         const purged = await timelineService.purgeDeletedLimitation(id);
         sendJson(res, { ok: true, id, limitation: purged });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 404);
+        sendFailure(res, 404, "Couldn't remove the limitation permanently. Try again in a few minutes. If it keeps failing, report it from Help & support.", "limitations", error);
       }
       return;
     }
@@ -2205,8 +2260,7 @@ const server = http.createServer(async (req, res) => {
         sseHub.broadcast({ type: "limitations.changed", action: "upsert", id });
         sendJson(res, { ok: true, limitation });
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        sendJson(res, { ok: false, error: message }, /not found/i.test(message) ? 404 : 400);
+        sendFailure(res, /not found/i.test(errorDetail(error)) ? 404 : 400, "Couldn't save the limitation. Try again in a few minutes. If it keeps failing, report it from Help & support.", "limitations", error);
       }
       return;
     }
@@ -2218,9 +2272,8 @@ const server = http.createServer(async (req, res) => {
         deleted = await timelineService.deleteCustomLimitation(id, { actor: actorName });
       } catch (error) {
         // Permanent-guard refusals and unknown ids are client errors with a
-        // readable message, not 500s.
-        const message = error instanceof Error ? error.message : String(error);
-        sendJson(res, { ok: false, error: message }, /permanent/i.test(message) ? 400 : 404);
+        // readable message (PublicError), not 500s.
+        sendFailure(res, /permanent/i.test(errorDetail(error)) ? 400 : 404, "Couldn't delete the limitation. Try again in a few minutes. If it keeps failing, report it from Help & support.", "limitations", error);
         return;
       }
       sseHub.broadcast({ type: "limitations.changed", action: "delete", id });
@@ -2295,7 +2348,7 @@ const server = http.createServer(async (req, res) => {
           })),
         });
       } catch (error) {
-        sendJson(res, { ok: false, error: error instanceof Error ? error.message : String(error) }, 500);
+        sendFailure(res, 500, "Couldn't load the flights. Try again in a few minutes. If it keeps failing, report it from Help & support.", "flights", error);
       }
       return;
     }
@@ -2330,11 +2383,7 @@ const server = http.createServer(async (req, res) => {
           await timelineService.getFlights({ from, to, oprId, refresh, allOperators })
         );
       } catch (error) {
-        sendJson(
-          res,
-          { ok: false, error: error instanceof Error ? error.message : String(error) },
-          500
-        );
+        sendFailure(res, 500, "Couldn't load the flights. Try again in a few minutes. If it keeps failing, report it from Help & support.", "timeline", error);
       }
       return;
     }
@@ -2346,11 +2395,7 @@ const server = http.createServer(async (req, res) => {
       try {
         sendJson(res, await timelineService.getAircraft({ oprId, refresh, allOperators }));
       } catch (error) {
-        sendJson(
-          res,
-          { ok: false, error: error instanceof Error ? error.message : String(error) },
-          500
-        );
+        sendFailure(res, 500, "Couldn't load the aircraft. Try again in a few minutes. If it keeps failing, report it from Help & support.", "timeline", error);
       }
       return;
     }
@@ -2365,14 +2410,7 @@ const server = http.createServer(async (req, res) => {
         await timelineService.refreshNow();
         sendJson(res, { ok: true, status: timelineService.getStatus() });
       } catch (error) {
-        sendJson(
-          res,
-          {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error),
-          },
-          500
-        );
+        sendFailure(res, 500, "Couldn't sync with Leon. Try again in a few minutes. If it keeps failing, report it from Help & support.", "timeline", error);
       }
       return;
     }
@@ -2394,11 +2432,14 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
     res.end("Not found.");
   } catch (error) {
-    sendJson(
-      res,
-      { ok: false, error: error instanceof Error ? error.message : String(error) },
-      500
-    );
+    // Anything a route did not catch itself (a body that is not JSON, a store that threw): the person gets our
+    // sentence, the log gets the detail.
+    if (res.headersSent) {
+      logFailure("wall", `${req.method} ${req.url} failed after the answer started`, error);
+      res.end();
+      return;
+    }
+    sendFailure(res, 500, "Something went wrong on the wall server. Try again in a few minutes. If it keeps failing, report it from Help & support.", "wall", error);
   }
 });
 

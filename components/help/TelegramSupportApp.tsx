@@ -20,6 +20,7 @@ import {
   type HelpThread,
   type HelpThreadType,
 } from "@/lib/help/shared";
+import { OFFLINE, apiErrorText } from "@/lib/error-text";
 
 type TG = {
   initData: string;
@@ -129,6 +130,7 @@ export default function TelegramSupportApp() {
 
   const api = useCallback(
     async (init: RequestInit & { qs?: string } = {}) => {
+      // Every error thrown here carries our wording (the `error` of our API, or ours): alerts show it as it is.
       const res = await fetch(`/api/telegram/support${init.qs || ""}`, {
         ...init,
         headers: {
@@ -136,9 +138,11 @@ export default function TelegramSupportApp() {
           "x-telegram-init-data": tg?.initData || "",
           ...(init.body ? { "Content-Type": "application/json" } : {}),
         },
+      }).catch(() => {
+        throw new Error(OFFLINE);
       });
-      if (res.status === 401) { setDenied(true); throw new Error("unauthorized"); }
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})) as { error?: string }).error || `HTTP ${res.status}`);
+      if (res.status === 401) { setDenied(true); throw Object.assign(new Error("You are not allowed to use this."), { code: "unauthorized" }); }
+      if (!res.ok) throw new Error(apiErrorText(await res.json().catch(() => ({})), `That did not work (${res.status}). Try again in a few minutes.`));
       return res.json();
     },
     [tg],
@@ -154,7 +158,7 @@ export default function TelegramSupportApp() {
       setLost(false);
       try { localStorage.setItem("tg-help-inbox", JSON.stringify({ threads: d.threads, at: d.fetchedAt })); } catch { /* full */ }
     } catch (e) {
-      if ((e as Error).message !== "unauthorized") {
+      if ((e as { code?: string }).code !== "unauthorized") {
         setLost(true);
         if (!threads) {
           try {

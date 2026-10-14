@@ -14,6 +14,7 @@ import AgentStyles from "../ui/AgentStyles";
 import DateField from "../ui/DateField";
 import { AGENT_BASE } from "../types";
 import { cw } from "@/lib/portal-tokens";
+import { STEP_FAILED, apiMessage, routingReason, withoutErrorText } from "../ui/errorText";
 
 type Routing = { startTier: string | null; finalTier: string | null; modelId: string | null; source: string | null; reason: string | null; confidence: number | null; routerTier: string | null; escalations: { from: string; to: string; reason: string }[]; inputTokens: number | null; outputTokens: number | null; cacheReadTokens: number; costUsd: number | null };
 type Row = { routing?: Routing; id: number; at: string; who: string; from: string; kind: "READ" | "WRITE" | "SEND" | "FILE" | "ANSWER" | "INSERT"; tool: string; args: Record<string, unknown>; result: { text: string; tone: string }; confirmed: { text: string; tone: string }; conversationId: string | null; hasRecord: boolean; full: { args: Record<string, unknown>; result: unknown; error: string | null; confirmationStatus: string | null; level: string | null } };
@@ -39,7 +40,7 @@ export default function ActivityPage() {
   const load = useCallback(async (before: string | null = null) => {
     const qs = new URLSearchParams({ filter, limit: "60" }); if (person) qs.set("person", person); if (tool) qs.set("tool", tool); if (date) qs.set("date", date); if (before) qs.set("before", before);
     const r = await fetch(`${AGENT_BASE}/api/activity?${qs}`, { credentials: "same-origin", cache: "no-store" }).then((x) => x.json()).catch(() => null);
-    if (!r?.ok) { setError(r?.message || "Could not load the activity log."); setRows([]); return; }
+    if (!r?.ok) { setError(apiMessage(r, "Could not load the activity log. Try again.")); setRows([]); return; }
     setRows((prev) => (before && prev ? [...prev, ...r.rows] : r.rows)); setPeople(r.people ?? []); setTools(r.tools ?? []); setNextBefore(r.rows.length >= 60 ? r.nextBefore : null);
   }, [filter, person, tool, date]);
   useEffect(() => { setRows(null); setOpen(null); void load(); }, [load]);
@@ -90,7 +91,7 @@ export default function ActivityPage() {
                 {open === r.id && !r.routing && (
                   <div style={{ padding: "4px 18px 16px 130px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, background: cw.bgSurface }}>
                     <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, marginBottom: 6 }}>REQUEST</div><div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{request[r.id] === undefined && r.conversationId ? "…" : request[r.id]?.text ? `“${request[r.id]?.text}”` : "Direct call — no message."}</div>{request[r.id]?.title && r.conversationId && <div style={{ fontSize: 12, color: cw.textMuted, marginTop: 6 }}>Thread <a href={`/agent/t/${encodeURIComponent(r.conversationId)}`} style={{ color: cw.textLink }}>{request[r.id]?.title}</a></div>}</div>
-                    <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, marginBottom: 6 }}>ARGUMENTS · RESULT</div><div style={{ ...mono({ fontSize: 12 }), lineHeight: 1.6, background: cw.bgSunken, borderRadius: 8, padding: "9px 11px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{Object.entries(r.full.args).map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`).join("\n")}{r.full.result ? `\n→ ${typeof r.full.result === "object" ? JSON.stringify(r.full.result).slice(0, 600) : String(r.full.result)}` : ""}{r.full.error ? `\n→ ${r.full.error}` : ""}</div></div>
+                    <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, marginBottom: 6 }}>ARGUMENTS · RESULT</div><div style={{ ...mono({ fontSize: 12 }), lineHeight: 1.6, background: cw.bgSunken, borderRadius: 8, padding: "9px 11px", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{Object.entries(r.full.args).map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`).join("\n")}{r.full.result ? `\n→ ${typeof r.full.result === "object" ? JSON.stringify(withoutErrorText(r.full.result, r.full.error != null)).slice(0, 600) : r.full.error != null ? STEP_FAILED : String(r.full.result)}` : ""}{r.full.error ? `\n→ ${STEP_FAILED}` : ""}</div></div>
                     <div><div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: cw.textMuted, marginBottom: 6 }}>CONFIRMATION</div><div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.full.confirmationStatus === "confirmed" ? `Confirmed by ${r.who} ${hmsZ(r.at)}${r.full.level ? `\nLevel: ${r.full.level}` : ""}` : r.full.confirmationStatus === "rejected" ? `Declined by ${r.who} ${hmsZ(r.at)}` : r.full.confirmationStatus === "pending" ? "Prompted — awaiting an answer" : "Not required"}</div></div>
                   </div>
                 )}
@@ -110,7 +111,7 @@ function RoutingRecord({ r }: { r: Routing }) {
   return (
     <div data-routing-record style={{ padding: "4px 18px 16px 130px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, background: cw.bgSurface }}>
       {cell("ANSWERED BY", <><span style={mono({ fontSize: 12.5 })}>{r.modelId ?? "—"}</span><br />tier <b>{r.finalTier}</b>{r.startTier && r.startTier !== r.finalTier ? <> (started on {r.startTier})</> : null}</>)}
-      {cell("WHY", <>{r.source === "manual" ? "Chosen with /model" : r.source === "user-default" ? "Your default in Settings" : r.source === "care" ? "You asked for care" : r.source === "low-confidence" ? "Router unsure — raised one tier" : r.source === "floor" ? "A change request never runs on the fast tier" : "Router"}{r.routerTier ? ` · router said ${r.routerTier}${r.confidence != null ? ` (${Math.round(r.confidence * 100)}%)` : ""}` : ""}{r.reason ? <><br /><span style={{ color: cw.textMuted }}>{r.reason}</span></> : null}{r.escalations.map((e, i) => <div key={i} style={{ color: cw.warningText }}>Escalated {e.from} → {e.to}: {e.reason}</div>)}</>)}
+      {cell("WHY", <>{r.source === "manual" ? "Chosen with /model" : r.source === "user-default" ? "Your default in Settings" : r.source === "care" ? "You asked for care" : r.source === "low-confidence" ? "Router unsure — raised one tier" : r.source === "floor" ? "A change request never runs on the fast tier" : "Router"}{r.routerTier ? ` · router said ${r.routerTier}${r.confidence != null ? ` (${Math.round(r.confidence * 100)}%)` : ""}` : ""}{r.reason ? <><br /><span style={{ color: cw.textMuted }}>{routingReason(r.reason)}</span></> : null}{r.escalations.map((e, i) => <div key={i} style={{ color: cw.warningText }}>Escalated {e.from} → {e.to}: {routingReason(e.reason)}</div>)}</>)}
       {cell("TOKENS · COST", <span style={mono({ fontSize: 12.5 })}>{r.inputTokens ?? "—"} in · {r.outputTokens ?? "—"} out{r.cacheReadTokens ? ` · ${r.cacheReadTokens} cached` : ""}<br />{r.costUsd != null ? `$${r.costUsd.toFixed(4)}` : "—"}</span>)}
     </div>
   );

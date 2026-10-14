@@ -6,6 +6,13 @@ import { readFile as readStoredFile } from "@/lib/storage";
 import { logError } from "@/lib/utils/logger";
 import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
+import { TRY_AGAIN, failure, logFailure, publicEventStream } from "@/lib/public-error";
+
+// What a person sees when the weather cannot be fetched. The detail goes to the log.
+const NOT_SET_UP = "Getting new weather is not set up on this server. Report it from Help & support.";
+const NO_ANSWER = `The weather service did not answer. ${TRY_AGAIN}`;
+const FAILED = `The weather service could not get the weather for this airport. ${TRY_AGAIN}`;
+const TIMED_OUT = `The weather service took too long to answer. ${TRY_AGAIN}`;
 
 const WEATHER_PREFIX = "weather";
 const NOTAM_SYNC_URL = process.env.NOTAM_SYNC_URL?.replace(/\/$/, "");
@@ -65,13 +72,7 @@ export async function GET(request: NextRequest) {
 
   if (sync) {
     if (!WEATHER_SYNC_URL) {
-      return NextResponse.json(
-        {
-          error: "Sync not configured",
-          detail: "Set WEATHER_SYNC_URL or NOTAM_SYNC_URL for weather sync.",
-        },
-        { status: 503 }
-      );
+      return failure(503, NOT_SET_UP, { tag: "WEATHER-API", what: "Weather sync requested but WEATHER_SYNC_URL / NOTAM_SYNC_URL is not set" }, { code: "not_configured" });
     }
     const syncUrl = `${WEATHER_SYNC_URL}/sync/weather?icao=${encodeURIComponent(icao)}${stream ? "&stream=1" : ""}`;
     const headers: HeadersInit = { "Content-Type": "application/json" };
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
       request.signal.removeEventListener("abort", onAbort);
 
       if (stream && res.ok && res.body) {
-        return new Response(res.body, {
+        return new Response(publicEventStream(res.body, "WEATHER-API", FAILED), {
           headers: {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
@@ -96,37 +97,21 @@ export async function GET(request: NextRequest) {
         });
       }
       const text = await res.text().catch(() => "");
-      let data = {} as {
-        weather?: string;
-        updatedAt?: string;
-        error?: string;
-        detail?: string;
-      };
+      let data = {} as { weather?: string; updatedAt?: string };
       try {
         data = text ? (JSON.parse(text) as typeof data) : {};
       } catch {
-        data = {
-          error: "Weather sync failed",
-          detail: text?.slice(0, 500) || `Upstream returned ${res.status} with non-JSON body.`,
-        };
+        data = {};
       }
       if (!res.ok) {
-        const detail =
-          data.detail ||
-          (text && !data.error ? text.slice(0, 500) : undefined) ||
-          `Weather sync host returned HTTP ${res.status}. Check WEATHER_SYNC_URL (or NOTAM_SYNC_URL), WEATHER_SYNC_SECRET / NOTAM_SYNC_SECRET, and GET /sync/weather on the weather sync process.`;
-        return NextResponse.json(
-          { error: data.error ?? "Weather sync failed", detail },
-          { status: 502 }
-        );
+        return failure(502, FAILED, { tag: "WEATHER-API", what: `Weather sync for ${icao} returned ${res.status}`, detail: text.slice(0, 500) });
       }
       return NextResponse.json({ icao, weather: data.weather ?? "", updatedAt: data.updatedAt ?? null });
     } catch (e) {
       if (request.signal.aborted) {
         return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
       }
-      const msg = e instanceof Error ? e.message : String(e);
-      return NextResponse.json({ error: "Weather sync server unreachable", detail: msg }, { status: 502 });
+      return failure(502, NO_ANSWER, { tag: "WEATHER-API", what: `Weather sync for ${icao} unreachable`, detail: e });
     }
   }
 
@@ -148,7 +133,7 @@ export async function GET(request: NextRequest) {
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
-      resolve(NextResponse.json({ error: "Weather search timed out. Try again." }, { status: 504 }));
+      resolve(NextResponse.json({ error: TIMED_OUT }, { status: 504 }));
     }, RUN_TIMEOUT_MS);
 
     child.stdout?.setEncoding("utf8");
@@ -163,18 +148,14 @@ export async function GET(request: NextRequest) {
 
     child.on("error", (err) => {
       clearTimeout(timeout);
-      resolve(NextResponse.json({ error: "Failed to run weather scraper.", detail: err.message }, { status: 500 }));
+      resolve(failure(500, FAILED, { tag: "WEATHER-API", what: `Weather scraper for ${icao} could not start`, detail: err }));
     });
 
     child.on("close", (code) => {
       clearTimeout(timeout);
       if (code !== 0 && !stdout) {
-        resolve(
-          NextResponse.json(
-            { error: "Weather scraper failed.", detail: stderr.slice(-500) || `Exit code ${code}` },
-            { status: 502 },
-          ),
-        );
+        logFailure("WEATHER-API", `Weather scraper for ${icao} exited ${code}`, stderr.slice(-800));
+        resolve(failure(502, FAILED));
         return;
       }
       try {

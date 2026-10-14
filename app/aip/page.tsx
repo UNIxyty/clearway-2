@@ -23,6 +23,7 @@ import {
   RECENTS_STORAGE_KEY,
   isEadIcao,
 } from "@/components/portal/AirportView";
+import { ShownError, TRY_AGAIN, apiErrorText, shownText } from "@/lib/error-text";
 
 const BROWSE_LOADING_STEPS = [
   { id: "browse-1", label: "Loading…", duration: 400 },
@@ -286,13 +287,13 @@ function AIPSearchPageInner() {
         body: JSON.stringify({ icao }),
       });
       const data = await res.json().catch(() => ({} as { error?: string }));
-      if (!res.ok) throw new Error(data.error || "Failed to hide airport.");
+      if (!res.ok) throw new ShownError(apiErrorText(data, `The airport was not hidden. ${TRY_AGAIN}`));
 
       setBrowseCountryAirports((prev) => prev.filter((a) => a.icao !== icao));
       setBrowseSelection((prev) => prev.filter((a) => a.icao !== icao));
       setResults((prev) => (prev ? prev.filter((a) => a.icao !== icao) : prev));
     } catch (e) {
-      setError((e as { message?: string })?.message || "Failed to hide airport.");
+      setError(shownText(e, `The airport was not hidden. ${TRY_AGAIN}`));
     } finally {
       setBrowseDeletingIcaos((prev) => {
         const next = { ...prev };

@@ -17,6 +17,7 @@ import {
 } from "@/app/auth/ui/auth-kit";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
+import { OFFLINE, TRY_AGAIN_SIGNED_OUT, apiErrorText } from "@/lib/error-text";
 
 // Visuals from Auth Flow.dc.html ("Set a new password" screen with the key
 // icon, strength meter and match hint). Mechanics unchanged: the emailed
@@ -64,23 +65,24 @@ function ConfirmEmailContent() {
     let cancelled = false;
     async function validateToken() {
       if (!token) {
-        setError("Missing confirmation token.");
+        setError("This confirmation link is not complete. Open the link from your email again.");
         setValidating(false);
         return;
       }
       try {
         const res = await fetch(`/api/auth/email/confirm?token=${encodeURIComponent(token)}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || "Token validation failed.");
+        if (!res.ok) {
+          if (!cancelled) setError(apiErrorText(data, `This confirmation link could not be checked. ${TRY_AGAIN_SIGNED_OUT}`));
+          return;
+        }
         if (!cancelled) {
           const email = String(data.email || "");
           setConfirmedEmail(email);
           setInfo(`Email confirmed for ${email || "your account"}.`);
         }
-      } catch (e: unknown) {
-        if (!cancelled) {
-          setError((e as { message?: string })?.message || "Token validation failed.");
-        }
+      } catch {
+        if (!cancelled) setError(OFFLINE);
       } finally {
         if (!cancelled) setValidating(false);
       }
@@ -110,7 +112,10 @@ function ConfirmEmailContent() {
         body: JSON.stringify({ token, password }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to set password.");
+      if (!res.ok) {
+        setError(apiErrorText(data, `The password was not set. ${TRY_AGAIN_SIGNED_OUT}`));
+        return;
+      }
       const nextAfterLogin = continuePath === "/signup" ? "/" : continuePath;
       if (confirmedEmail) {
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -123,8 +128,8 @@ function ConfirmEmailContent() {
         }
       }
       router.push(`/login?next=${encodeURIComponent(nextAfterLogin)}`);
-    } catch (e: unknown) {
-      setError((e as { message?: string })?.message || "Failed to set password.");
+    } catch {
+      setError(OFFLINE);
     } finally {
       setLoading(false);
     }

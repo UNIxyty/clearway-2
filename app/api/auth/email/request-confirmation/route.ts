@@ -6,6 +6,10 @@ import {
   randomToken,
   sha256Hex,
 } from "@/lib/auth-email-flow-utils.mjs";
+import { failure } from "@/lib/public-error";
+import { TRY_AGAIN_SIGNED_OUT } from "@/lib/error-text";
+
+const NOT_SENT = `We could not send a confirmation email right now. ${TRY_AGAIN_SIGNED_OUT}`;
 
 const SIGNUP_TOKEN_TTL_MS = 60 * 60 * 1000;
 
@@ -25,16 +29,10 @@ function getPublicOrigin(requestUrl: URL, headers: Headers): string {
   return requestUrl.origin;
 }
 
-// Errors that reveal a configuration problem rather than a user-enumeration risk
-// can be surfaced to the caller so the admin/developer can diagnose them quickly.
-function isConfigError(msg: string): boolean {
-  return /redirect|url|not allowed|smtp|provider|configuration/i.test(msg);
-}
-
 export async function POST(request: Request) {
   const service = createSupabaseServiceRoleClient();
   if (!service) {
-    return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+    return failure(503, NOT_SENT, { tag: "AUTH-SIGNUP", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
   }
 
   const requestUrl = new URL(request.url);
@@ -78,7 +76,7 @@ export async function POST(request: Request) {
   });
 
   if (tokenError) {
-    return NextResponse.json({ error: tokenError.message }, { status: 500 });
+    return failure(500, NOT_SENT, { tag: "AUTH-SIGNUP", what: "email_confirmations insert failed", detail: tokenError });
   }
 
   const inviteOptions = { redirectTo: callbackUrl, data: { full_name: name, name } };
@@ -108,10 +106,8 @@ export async function POST(request: Request) {
       status: inviteError.status,
       code: inviteError.code,
     });
-    const errorMsg = isConfigError(inviteError.message)
-      ? `Invite email failed: ${inviteError.message}`
-      : "We could not send a confirmation email right now. Please retry in a minute.";
-    return NextResponse.json({ ok: true, sent: false, message: errorMsg });
+    // The Supabase message (a redirect URL that is not allowed, an SMTP problem) is logged above, not shown.
+    return NextResponse.json({ ok: true, sent: false, message: NOT_SENT });
   }
 
   // Store the Supabase user ID in the token purpose so the confirm step can

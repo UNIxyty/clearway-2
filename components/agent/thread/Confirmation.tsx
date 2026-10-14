@@ -16,6 +16,18 @@ import { Button, Icon, Keycap, Spinner, hmZ, hmsZ } from "../ui/primitives";
 import { AGENT_BASE, type PendingConfirmation, type ConfirmationStatus } from "../types";
 import { useKeybinds } from "../ui/keybinds";
 import { cw } from "@/lib/portal-tokens";
+import { IN_THE_LOG, STEP_FAILED, apiMessage, personText, stepFailedText } from "../ui/errorText";
+
+/**
+ * Why a confirmed change did not apply, in our words. A refused confirmation or a missing permission is the agent's own
+ * sentence and is shown; any other failure is worded from its code — the tool's message may carry an upstream's text.
+ */
+function confirmFailedText(b: { message?: unknown; result?: { error?: unknown; message?: unknown } | null } | null): string {
+  const code = typeof b?.result?.error === "string" ? b.result.error : null;
+  if (code === "CONFIRMATION_INVALID" || code === "NO_PERMISSION") return personText(b?.result?.message, stepFailedText(code));
+  if (code) return `The change could not be applied. ${stepFailedText(code) === STEP_FAILED ? IN_THE_LOG : stepFailedText(code)}`;
+  return apiMessage(b, "The change could not be applied. Try again.");
+}
 
 type Outcome = { status: ConfirmationStatus; at: string; result?: Record<string, unknown> | null; error?: string | null };
 
@@ -105,9 +117,9 @@ export function ConfirmationCard({
       if (b?.ok && b.result?.ok !== false) settle({ status: "applied", at: b.confirmation?.appliedAt ?? new Date().toISOString(), result: b.result ?? null });
       else if (b?.result?.reason === "expired" || b?.confirmation?.status === "expired") settle({ status: "expired", at: new Date().toISOString() });
       else if (b?.result?.reason === "cancelled") settle({ status: "cancelled", at: new Date().toISOString() });
-      else { firedRef.current = false; setError(b?.result?.message || b?.message || `The change could not be applied (HTTP ${r.status}).`); }
-    } catch (e) {
-      firedRef.current = false; setError(e instanceof Error ? e.message : String(e));
+      else { firedRef.current = false; setError(confirmFailedText(b)); }
+    } catch {
+      firedRef.current = false; setError("The change could not be applied: the agent could not be reached. Check your connection and try again.");
     } finally { setBusy(false); }
   }
   async function cancel() {
@@ -244,7 +256,7 @@ export function ConfirmationModal({ confirmation: c, onSettled }: { confirmation
     if (busy || !matches) return; setBusy(true);
     const r = await fetch(`${AGENT_BASE}/api/confirmations/${c.token}/confirm`, { method: "POST", credentials: "same-origin" }).then((x) => x.json()).catch(() => null);
     setBusy(false);
-    onSettled(r?.ok && r.result?.ok !== false ? { status: "applied", at: new Date().toISOString(), result: r.result } : { status: r?.result?.reason === "expired" ? "expired" : "cancelled", at: new Date().toISOString(), error: r?.result?.message ?? null });
+    onSettled(r?.ok && r.result?.ok !== false ? { status: "applied", at: new Date().toISOString(), result: r.result } : { status: r?.result?.reason === "expired" ? "expired" : "cancelled", at: new Date().toISOString(), error: r?.result ? confirmFailedText(r) : null });
   }
   async function cancel() { await fetch(`${AGENT_BASE}/api/confirmations/${c.token}/cancel`, { method: "POST", credentials: "same-origin" }).catch(() => {}); onSettled({ status: "cancelled", at: new Date().toISOString() }); }
   return (

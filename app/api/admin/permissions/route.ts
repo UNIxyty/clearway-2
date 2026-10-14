@@ -6,6 +6,9 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { currentPerson, holds, requirePermission } from "@/lib/permissions/server";
 import { ACTIONS, GROUPS, MANAGE, PINNED, ROLES, ROLE_LABELS, defaultGrants } from "@/lib/permissions/catalogue.mjs";
 import { invalidateGrants } from "@/lib/permissions/grants.mjs";
+import { TRY_AGAIN, failure, logFailure } from "@/lib/public-error";
+
+const UNREADABLE = `Permissions could not be read. ${TRY_AGAIN}`;
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +17,18 @@ type Change = { role: string; action: string; allowed: boolean };
 
 async function readState() {
   const service = createSupabaseServiceRoleClient();
-  if (!service) return { ok: false as const, error: "Missing SUPABASE_SERVICE_ROLE_KEY" };
+  if (!service) {
+    logFailure("PERMISSIONS", "SUPABASE_SERVICE_ROLE_KEY not set");
+    return { ok: false as const, error: UNREADABLE };
+  }
   const [grants, log] = await Promise.all([
     service.from("permission_grants").select("role, action, allowed, updated_at, updated_by_email"),
     service.from("permission_changes").select("id, at, actor_email, role, action, allowed, previous, via").order("at", { ascending: false }).limit(400),
   ]);
-  if (grants.error) return { ok: false as const, error: `Permissions could not be read: ${grants.error.message}` };
+  if (grants.error) {
+    logFailure("PERMISSIONS", "permission_grants read failed", grants.error.message);
+    return { ok: false as const, error: UNREADABLE };
+  }
   return { ok: true as const, rows: (grants.data ?? []) as Row[], log: log.data ?? [] };
 }
 
@@ -83,11 +92,20 @@ export async function POST(request: Request) {
   if (after.size === 0) return NextResponse.json({ error: "At least one role must keep Manage permissions." }, { status: 409 });
 
   const service = createSupabaseServiceRoleClient();
-  if (!service) return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+  if (!service) return failure(503, `Nothing was saved. ${TRY_AGAIN}`, { tag: "PERMISSIONS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
   const { data, error } = await service.rpc("permission_apply", {
     p_changes: changes, p_actor_id: auth.user.id, p_actor_email: auth.user.email ?? null, p_via: "screen",
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: error.code === "42501" ? 409 : 500 });
+  if (error) {
+    // 42501: the database refused a lock-out (developer keeps Manage permissions; at least one role keeps it).
+    return failure(
+      error.code === "42501" ? 409 : 500,
+      error.code === "42501"
+        ? "Nothing was saved. The developer role, and at least one role, must keep Manage permissions."
+        : `Nothing was saved. ${TRY_AGAIN}`,
+      { tag: "PERMISSIONS", what: "permission_apply failed", detail: error },
+    );
+  }
   invalidateGrants();
   const fresh = await readState();
   return NextResponse.json({ ok: true, changed: data, grants: fresh.ok ? view(fresh.rows) : null, log: fresh.ok ? fresh.log : [] });

@@ -123,7 +123,7 @@ defineTool({
       else file = await generateCsv({ filename, columns, rows });
     } catch (error) {
       if (/Cancelled/.test(String(error?.message))) throw error;
-      throw ServiceUnavailable(`The file could not be generated: ${error.message}`);
+      throw ServiceUnavailable("The file could not be generated.", String(error?.message ?? error));
     }
 
     step(STEPS.length - 1);
@@ -228,8 +228,8 @@ defineTool({
       external,
       recipients,
       messageId: result.id ?? null,
-      // The provider's real error, never softened — a swallowed mail failure
-      // has cost this project weeks.
+      // A failed send is said plainly, never swallowed — that has cost this project weeks. The provider's
+      // own words are in the server log and agent_email_log (email/send.mjs), not here.
       error: result.ok ? null : String(result.error ?? "Send failed."),
       filename,
     };

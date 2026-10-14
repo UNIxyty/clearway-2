@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { failure, logFailure } from "@/lib/public-error";
+import { AIP_NOT_SET_UP, AIP_NO_ANSWER, aipSyncFailure } from "@/lib/aip-sync-failure";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
@@ -11,13 +13,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!AIP_SYNC_URL) {
-    return NextResponse.json(
-      {
-        error: "AIP sync not configured",
-        detail: "Set AIP_SYNC_URL in Vercel to your AIP EC2 sync server (e.g. http://EC2-IP:3002). See scripts/AIP-AWS-SETUP.md.",
-      },
-      { status: 503 }
-    );
+    return failure(503, AIP_NOT_SET_UP, { tag: "AIP-SYNC", what: "AIP sync requested but AIP_SYNC_URL is not set" }, { code: "not_configured" });
   }
 
   const syncUrl = `${AIP_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}`;
@@ -31,20 +27,11 @@ export async function GET(request: NextRequest) {
     clearTimeout(timeout);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return NextResponse.json(
-        { error: data.error ?? "Sync failed", detail: data.detail },
-        { status: res.status === 401 ? 401 : 502 }
-      );
+      logFailure("AIP-SYNC", `AIP sync for ${icao} returned ${res.status}`, { error: data.error, detail: data.detail });
+      return NextResponse.json(aipSyncFailure({ ...data, status: res.status }), { status: res.status === 401 ? 401 : 502 });
     }
     return NextResponse.json(data);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      {
-        error: "AIP sync request failed",
-        detail: `Cannot reach AIP sync server. ${msg}`,
-      },
-      { status: 502 }
-    );
+    return failure(502, AIP_NO_ANSWER, { tag: "AIP-SYNC", what: `AIP sync for ${icao} unreachable`, detail: e });
   }
 }

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
+
+const NOT_LOADED = `The airport list could not be loaded. ${TRY_AGAIN}`;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -10,7 +13,7 @@ export async function GET(request: NextRequest) {
   const includeDeleted = searchParams.get("include_deleted") === "true";
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+  if (!url || !anonKey) return failure(500, NOT_LOADED, { tag: "AIRPORTS-LIST", what: "Supabase URL / anon key not set" });
 
   const cookieStore = cookies();
   const supabase = createServerClient(url, anonKey, {
@@ -25,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   const service = createSupabaseServiceRoleClient();
   if (!service) {
-    return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+    return failure(503, NOT_LOADED, { tag: "AIRPORTS-LIST", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
   }
 
   if (includeDeleted) {
@@ -38,7 +41,7 @@ export async function GET(request: NextRequest) {
       .is("restored_at", null)
       .order("deleted_at", { ascending: false })
       .limit(500);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return failure(500, NOT_LOADED, { tag: "AIRPORTS-LIST", what: "Database error", detail: error });
     return NextResponse.json({ results: data ?? [] });
   }
 
@@ -51,7 +54,7 @@ export async function GET(request: NextRequest) {
   if (state) query = query.eq("state", state);
 
   const { data, error } = await query.limit(10000);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return failure(500, NOT_LOADED, { tag: "AIRPORTS-LIST", what: "Database error", detail: error });
   const airports = (data ?? []) as Array<{ icao?: string } & Record<string, unknown>>;
   if (!user?.id) return NextResponse.json({ results: airports });
 
@@ -61,7 +64,7 @@ export async function GET(request: NextRequest) {
     .eq("deleted_by", user.id)
     .is("restored_at", null)
     .limit(10000);
-  if (hiddenError) return NextResponse.json({ error: hiddenError.message }, { status: 500 });
+  if (hiddenError) return failure(500, NOT_LOADED, { tag: "AIRPORTS-LIST", what: "Database error (hiddenError)", detail: hiddenError });
 
   const hiddenIcaos = new Set((hiddenRows ?? []).map((row) => String((row as { icao?: string }).icao ?? "").toUpperCase()));
   const filtered = airports.filter((airport) => !hiddenIcaos.has(String(airport.icao ?? "").toUpperCase()));

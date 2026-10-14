@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { getAsecnaAirportByIcao } from "@/lib/asecna-airports";
 import { requirePermission } from "@/lib/permissions/server";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
+
+const NOT_STARTED = `The ASECNA download was not started. ${TRY_AGAIN}`;
 
 export async function POST(request: NextRequest) {
   const permission = await requirePermission("portal.aip.fetch");
@@ -20,7 +23,7 @@ export async function POST(request: NextRequest) {
   }
   const supabase = createSupabaseServiceRoleClient();
   if (!supabase) {
-    return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+    return failure(503, NOT_STARTED, { tag: "ASECNA-TRIGGER", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
   }
   const { data, error } = await supabase
     .from("asecna_jobs")
@@ -32,7 +35,7 @@ export async function POST(request: NextRequest) {
     .select("id,status,created_at")
     .single();
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return failure(500, NOT_STARTED, { tag: "ASECNA-TRIGGER", what: "Database error", detail: error });
   }
   return NextResponse.json({ jobId: data.id, status: data.status, createdAt: data.created_at });
 }

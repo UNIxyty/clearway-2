@@ -20,6 +20,7 @@ import { parseFlightId, readManifestFlight, ManifestFlightError } from "./leon.m
 import { leonForOperator, OperatorUnavailable } from "../leon-operators.mjs";
 import { intakeRecordFor } from "./intake-source.mjs";
 import { passengerTextFor } from "../intake/leon-people.mjs";
+import { logDetail } from "../public-errors.mjs";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -41,12 +42,12 @@ export async function generatePassengerManifest({ flightId, leon = null, lookup 
   // Our own record, for a flight our flight intake created (used only when Leon has no passenger records).
   progress?.("Checking the flight intake record");
   let record = null, intakeProblem = null;
-  try { record = intake ? await intake(oprId, nid) : null; } catch (e) { intakeProblem = String(e?.message ?? e).slice(0, 160); }
+  try { record = intake ? await intake(oprId, nid) : null; } catch (e) { logDetail("manifest", `intake record for ${oprId}:${nid} could not be checked`, e); intakeProblem = true; }
   const intakeText = record && !record.purged && record.passengers.length ? passengerTextFor(record.passengers, { reference: record.reference, paxNumber: flight?.passengerList?.count }).text : null;
 
   progress?.("Filling the form");
   const built = buildManifestModel(flight, { unmasked, operatorName, operatorNote, operatorSource, intake: record, intakeText });
-  if (intakeProblem) built.warnings.push({ code: "intake-unavailable", message: `The flight intake record could not be checked (${intakeProblem}); passengers come from Leon only.` });
+  if (intakeProblem) built.warnings.push({ code: "intake-unavailable", message: "The flight intake record could not be checked, so passengers come from Leon only." });
   const callsign = built.model.flight.flightNumber;
   const title = `Passenger Manifest ${callsign} ${built.model.flight.flightDate}`.trim();
   progress?.(`Laying out ${Math.max(1, Math.ceil(built.counts.passengers / 14))} page${built.counts.passengers > 14 ? "s" : ""}`);

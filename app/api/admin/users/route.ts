@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { currentPerson, holds, refused, requirePermission } from "@/lib/permissions/server";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
+
+const NOT_LOADED = `Users could not be loaded. ${TRY_AGAIN}`;
+const NOT_SAVED = `The change was not saved. ${TRY_AGAIN}`;
 
 export async function GET() {
   try {
@@ -9,12 +13,10 @@ export async function GET() {
     if ("error" in auth) return auth.error;
 
     const service = createSupabaseServiceRoleClient();
-    if (!service) {
-      return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
-    }
+    if (!service) return failure(503, NOT_LOADED, { tag: "ADMIN-USERS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
 
     const { data: authData, error: listError } = await service.auth.admin.listUsers({ page: 1, perPage: 500 });
-    if (listError) return NextResponse.json({ error: listError.message }, { status: 500 });
+    if (listError) return failure(500, NOT_LOADED, { tag: "ADMIN-USERS", what: "listUsers failed", detail: listError });
 
     const users = authData?.users ?? [];
     const ids = users.map((u) => u.id);
@@ -23,7 +25,7 @@ export async function GET() {
       .from("user_preferences")
       .select("user_id, display_name, is_admin, is_developer, is_approved")
       .in("user_id", ids);
-    if (prefsError) return NextResponse.json({ error: prefsError.message }, { status: 500 });
+    if (prefsError) return failure(500, NOT_LOADED, { tag: "ADMIN-USERS", what: "user_preferences read failed", detail: prefsError });
 
     const prefMap = new Map((prefs ?? []).map((p) => {
       const row = p as { user_id?: string | null; display_name?: string | null; is_admin?: boolean | null; is_developer?: boolean | null; is_approved?: boolean | null };
@@ -58,7 +60,7 @@ export async function GET() {
     );
     return NextResponse.json({ users: rows, callerIsDeveloper: auth.isDeveloper, callerId: "error" in me ? null : me.user.id, can: { approve, setAdmin, setDeveloper, passwordReset } });
   } catch (e) {
-    return NextResponse.json({ error: (e as { message?: string })?.message || "Failed to load users." }, { status: 500 });
+    return failure(500, NOT_LOADED, { tag: "ADMIN-USERS", what: "GET failed", detail: e });
   }
 }
 
@@ -94,7 +96,7 @@ export async function POST(request: Request) {
     }
 
     const service = createSupabaseServiceRoleClient();
-    if (!service) return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+    if (!service) return failure(503, NOT_SAVED, { tag: "ADMIN-USERS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
 
     const { data: targetPref } = await service
       .from("user_preferences")
@@ -116,7 +118,7 @@ export async function POST(request: Request) {
       .from("user_preferences")
       .upsert({ user_id: targetUserId, ...patch }, { onConflict: "user_id" });
 
-    if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+    if (upsertErr) return failure(500, NOT_SAVED, { tag: "ADMIN-USERS", what: "user_preferences upsert failed", detail: upsertErr });
 
     if (settingApproved) {
       await service.auth.admin.updateUserById(targetUserId, {
@@ -126,6 +128,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    return NextResponse.json({ error: (e as { message?: string })?.message || "Failed to update." }, { status: 500 });
+    return failure(500, NOT_SAVED, { tag: "ADMIN-USERS", what: "POST failed", detail: e });
   }
 }

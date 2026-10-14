@@ -19,7 +19,8 @@ type OperatorStatus = { oprId: string; name: string; available: boolean; problem
 async function searchFlights(input: Record<string, unknown>): Promise<{ flights: PickerFlight[]; operators: OperatorStatus[] }> {
   const r = await fetch(`${AGENT_BASE}/api/tools/invoke`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "search_manifest_flights", input }) });
   const b = await r.json().catch(() => null);
-  if (!r.ok || !b || b.ok === false || !Array.isArray(b.flights)) throw new Error(b?.message ?? `HTTP ${r.status}`);
+  // The picker shows its own "could not search" state; the answer's text is not passed on.
+  if (!r.ok || !b || b.ok === false || !Array.isArray(b.flights)) throw new Error("flight search failed");
   return {
     flights: (b.flights as Parameters<typeof toPickerFlight>[0][]).map(toPickerFlight).filter((f): f is PickerFlight => Boolean(f)),
     operators: Array.isArray(b.operators) ? (b.operators as OperatorStatus[]) : [],

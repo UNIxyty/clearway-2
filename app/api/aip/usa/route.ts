@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
 import { readJsonFromStorage, readPdfFromStorage, storageObjectExists, writeJsonToStorage } from "@/lib/aip-storage";
+import { TRY_AGAIN, failure, logFailure } from "@/lib/public-error";
+
+// What a person sees; the detail (a missing file path, a model provider's error) goes to the log.
+const noPdf = (icao: string) => `There is no stored AIP document for ${icao} yet. If you need it, report it from Help & support.`;
+const READ_FAILED = `The portal could not read this airport's AIP document. ${TRY_AGAIN}`;
 
 const PDF_PREFIX = "aip/usa-pdf";
 const JSON_PREFIX = "aip/usa";
@@ -164,10 +169,7 @@ export async function GET(request: NextRequest) {
   if (!extract) {
     const exists = await hasPdf(icao);
     if (!exists) {
-      return NextResponse.json(
-        { error: "USA AD2 PDF not found", detail: `Place ${icao}.pdf under /storage/${PDF_PREFIX}/` },
-        { status: 404 },
-      );
+      return failure(404, noPdf(icao), { tag: "AIP-USA", what: `USA AD 2 PDF missing: ${PDF_PREFIX}/${icao}.pdf` }, { code: "not_found" });
     }
     const updatedAt = new Date().toISOString();
     await putCachedJson(icao, { airports: [], updatedAt });
@@ -177,10 +179,7 @@ export async function GET(request: NextRequest) {
   if (!stream) {
     const bytes = await getPdfBytes(icao);
     if (!bytes) {
-      return NextResponse.json(
-        { error: "USA AD2 PDF not found", detail: `Place ${icao}.pdf under /storage/${PDF_PREFIX}/` },
-        { status: 404 },
-      );
+      return failure(404, noPdf(icao), { tag: "AIP-USA", what: `USA AD 2 PDF missing: ${PDF_PREFIX}/${icao}.pdf` }, { code: "not_found" });
     }
     try {
       const row = await extractFromPdfBytes(icao, bytes, request.signal);
@@ -188,10 +187,7 @@ export async function GET(request: NextRequest) {
       await putCachedJson(icao, { airports: [row], updatedAt });
       return NextResponse.json({ airports: [row], updatedAt, pdfReady: true });
     } catch (err) {
-      return NextResponse.json(
-        { error: "USA AI extraction failed", detail: err instanceof Error ? err.message : String(err) },
-        { status: 502 },
-      );
+      return failure(502, READ_FAILED, { tag: "AIP-USA", what: `USA AI extraction for ${icao} failed`, detail: err });
     }
   }
 
@@ -205,10 +201,8 @@ export async function GET(request: NextRequest) {
         send({ step: "Loading USA AD 2 PDF from storage…" });
         const bytes = await getPdfBytes(icao);
         if (!bytes) {
-          send({
-            error: "USA AD2 PDF not found",
-            detail: `Place ${icao}.pdf under /storage/${PDF_PREFIX}/`,
-          });
+          logFailure("AIP-USA", `USA AD 2 PDF missing: ${PDF_PREFIX}/${icao}.pdf`);
+          send({ error: noPdf(icao), code: "not_found" });
           return;
         }
         send({ step: "Extracting PDF text…" });
@@ -218,10 +212,8 @@ export async function GET(request: NextRequest) {
         send({ step: "USA AI extraction complete." });
         send({ done: true, airports: [row], updatedAt, pdfReady: true });
       } catch (err) {
-        send({
-          error: "USA AI extraction failed",
-          detail: err instanceof Error ? err.message : String(err),
-        });
+        logFailure("AIP-USA", `USA AI extraction for ${icao} failed`, err);
+        send({ error: READ_FAILED });
       } finally {
         controller.close();
       }

@@ -12,6 +12,7 @@ import {
 } from "@/lib/help/store";
 import { publishHelpEvent } from "@/lib/help/stream";
 import { requirePermission } from "@/lib/permissions/server";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,7 +82,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (error instanceof ReasonRequiredError) {
       return NextResponse.json({ error: "Impossible cannot be saved without a written reason" }, { status: 400 });
     }
-    const message = error instanceof Error ? error.message : "Failed to set status";
-    return NextResponse.json({ error: message }, { status: message === "Invalid status" ? 400 : 500 });
+    const invalid = error instanceof Error && error.message === "Invalid status";
+    if (invalid) return NextResponse.json({ error: "That status is not one of the choices." }, { status: 400 });
+    return failure(500, `The status was not changed. ${TRY_AGAIN}`, { tag: "HELP-THREAD", what: "setStatus failed", detail: error });
   }
 }

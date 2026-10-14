@@ -9,6 +9,7 @@
 import { useMemo } from "react";
 import { TYPE, mono } from "../ui/tokens";
 import { Button, Icon, hmZ, hmsZ, kb } from "../ui/primitives";
+import { IN_THE_LOG, personText } from "../ui/errorText";
 import { AutoConfirmedActions, BuildingFileCard, Thinking, type BuildingFile, type ThinkingBlock } from "./Thinking";
 import { splitStructured } from "./structuredProse";
 import Orb from "../ui/Orb";
@@ -45,6 +46,9 @@ function SentAttachments({ items }: { items: SentAttachment[] }) {
     </div>
   );
 }
+
+/** The words of a stored "code: words" reply error, when they are a person's sentence. */
+const errorWords = (error: string): string | null => { const words = error.replace(/^[A-Za-z][A-Za-z0-9_]{0,39}:\s*/, ""); const shown = personText(words, ""); return shown && shown !== "The reply could not be completed. Nothing was changed." ? shown : null; };
 
 export function UserBubble({ message: m, panel = false }: { message: AgentMessage; panel?: boolean }) {
   // Inline chips: @Mentions in blue mono, /commands in black mono (§4.19, §4.20).
@@ -131,14 +135,16 @@ export function AgentReply({
         {live ? <LiveSteps steps={steps} panel={panel} /> : steps.length > 0 && <ToolSummary steps={steps} elapsedMs={m.latencyMs ?? null} panel={panel} defaultOpen={false} />}
 
         {failed.map((s, i) => {
-          const kind = kindFor(s.error, s.summary);
+          const kind = kindFor(s.error, s.name); // the summary is our wording now; the tool name says whether it is a source (AIP, EAD)
           return <ErrorCard key={`${s.name}-${i}`} panel={panel} kind={kind}
             title={kind === "permission_denied" ? `You can't do that from here` : kind === "source_unavailable" ? `${s.name} is using cached data` : `${s.name} didn't answer`}
             body={kind === "permission_denied" ? `${s.name} needs a role your account doesn't have. I can read for you; ask an admin to grant it.` : `I could not complete ${s.name}, so I have not said anything about that part. Everything else in the reply stands.`}
-            diagnostic={`${s.name} → ${s.error ?? "failed"}${s.durationMs != null ? ` · ${s.durationMs} ms` : ""}`} />;
+            diagnostic={`${s.name}${s.durationMs != null ? ` · ${s.durationMs} ms` : ""} · ${IN_THE_LOG}`} />;
         })}
 
-        {m.error && steps.length === 0 && <ErrorCard panel={panel} kind={kindFor(m.error)} title={/model|529|overload/i.test(m.error) ? "The agent can't reply right now" : "That didn't work"} body={/model|529|overload/i.test(m.error) ? "Your message is saved. Nothing was run. The console itself is working — Flights, NOTAM Check and AIP search are all available." : "The reply could not be completed. Nothing was changed."} diagnostic={m.error} />}
+        {/* m.error is "code: words". The code picks the card; the words are ours (the server re-words saved rows), and
+            anything that still reads like a developer's text is not shown — the detail is in the server log. */}
+        {m.error && steps.length === 0 && <ErrorCard panel={panel} kind={kindFor(m.error)} title={/model|529|overload/i.test(m.error) ? "The agent can't reply right now" : "That didn't work"} body={/model|529|overload/i.test(m.error) ? "Your message is saved. Nothing was run. The console itself is working — Flights, NOTAM Check and AIP search are all available." : "The reply could not be completed. Nothing was changed."} diagnostic={errorWords(m.error)} />}
 
         {confirmations.length > 0 ? (
           confirmations.map((c) => <ConfirmationCard key={c.token} confirmation={c} panel={panel} onSettled={(o) => onConfirmationSettled?.(c, o)} />)

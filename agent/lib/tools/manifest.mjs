@@ -79,7 +79,7 @@ defineTool({
       }
       if (/Cancelled/.test(String(error?.message))) throw error;
       // A font problem (missing / not the pinned file) or a render failure: never render with a substitute.
-      throw ServiceUnavailable(`The manifest could not be generated: ${String(error?.message ?? error).slice(0, 200)}`);
+      throw ServiceUnavailable("The manifest could not be generated.", String(error?.message ?? error));
     }
 
     step(steps[steps.length - 1]);
@@ -123,7 +123,7 @@ defineTool({
     try {
       return await searchFlightsAllOperators({ fromMs, toMs });
     } catch (error) {
-      throw ServiceUnavailable(String(error?.message ?? error).slice(0, 200));
+      throw ServiceUnavailable("The flights could not be searched in Leon.", String(error?.message ?? error));
     }
   },
 });

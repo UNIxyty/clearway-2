@@ -81,7 +81,7 @@ defineTool({
     try {
       result = await searchKnowledge(query, { icao: icao ? icao.toUpperCase() : null, country, limit, tier });
     } catch (error) {
-      throw ServiceUnavailable(`The knowledge base could not be searched: ${error.message}`);
+      throw ServiceUnavailable("The knowledge base could not be searched.", String(error?.message ?? error));
     }
     // Revision state on every hit (unknown is not current), and current revisions first.
     await attachDocumentRevisions([...result.tier1, ...result.tier2]);
@@ -93,7 +93,7 @@ defineTool({
     // model "nothing matched" when retrieval broke invites it to answer from
     // its own knowledge — the precise thing this tier exists to prevent.
     if ((result.failures ?? []).length > 0 && result.tier1.length + result.tier2.length === 0) {
-      throw ServiceUnavailable(`The knowledge base could not be searched: ${result.failures.join("; ")}`);
+      throw ServiceUnavailable("The knowledge base could not be searched.", result.failures.join("; "));
     }
 
     // Two different questions, which the first version conflated:

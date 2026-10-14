@@ -2,6 +2,12 @@
 // able to tell "the model is not available to this account" from "we are being
 // throttled" from "it took too long" — they have different operator responses
 // and only one of them is worth retrying on another model.
+//
+// `message` is the developer's text (it goes to the log; Flight intake reads it). What a person is shown is
+// `publicMessage`: for the model_* codes that is our own wording, because those messages name AWS, a tier or carry
+// Bedrock's own text (lib/public-errors.mjs).
+
+import { REPLY_FAILED } from "./public-errors.mjs";
 
 export class AgentError extends Error {
   constructor(code, message, { status = 500, retryable = false, detail = null } = {}) {
@@ -12,8 +18,11 @@ export class AgentError extends Error {
     this.retryable = retryable;
     this.detail = detail;
   }
+  get publicMessage() {
+    return REPLY_FAILED[this.code] ?? this.message;
+  }
   toJSON() {
-    return { ok: false, error: this.code, message: this.message, retryable: this.retryable };
+    return { ok: false, error: this.code, message: this.publicMessage, retryable: this.retryable };
   }
 }
 
@@ -57,5 +66,6 @@ export function classifyBedrockError(error) {
   if (/ServiceUnavailable|InternalServerException|ModelNotReadyException/i.test(both)) {
     return ModelThrottled("Bedrock is temporarily unavailable.", message);
   }
+  // The raw Bedrock text stays in `message` for the log; toJSON() and the chat stream show REPLY_FAILED.model_error.
   return new AgentError("model_error", message || "Bedrock call failed.", { status: 502, detail: name });
 }

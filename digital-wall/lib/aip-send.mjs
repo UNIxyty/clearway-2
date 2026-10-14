@@ -10,6 +10,7 @@ import crypto from "node:crypto";
 import { fetchAipPdfBuffer, fetchGenPdfBuffer } from "./portal-client.mjs";
 import { escapeHtml, renderTemplateFile, sendEmail, mailerConfigured } from "./mailer.mjs";
 import path from "node:path";
+import { errorDetail, PublicError, REASONS, shownReason } from "./public-error.mjs";
 
 const MAX_KEPT_JOBS = 50;
 
@@ -30,8 +31,9 @@ export class AipSendService {
       flightNo: job.flightNo,
       stage: job.stage, // fetching | ready | emailing | sent | error
       to: job.to,
-      docs: job.docs.map((d) => ({ label: d.label, status: d.status, source: d.source ?? null, error: d.error ?? null })),
-      error: job.error ?? null,
+      // Both are our sentences already (portal-client / below); shownReason is the guard for anything else.
+      docs: job.docs.map((d) => ({ label: d.label, status: d.status, source: d.source ?? null, error: shownReason(d.error ?? null, REASONS.docUnavailable()) })),
+      error: shownReason(job.error ?? null, REASONS.docsSendFailed()),
       updatedAt: job.updatedAt,
     };
   }
@@ -47,9 +49,12 @@ export class AipSendService {
    */
   start({ flight, requests, user }) {
     const to = String(user?.email || "").trim();
-    if (!to) throw new Error("Signed-in user has no email address in the session.");
-    if (!mailerConfigured()) throw new Error("Email is not configured on the server (RESEND_API_KEY).");
-    if (requests.length === 0) throw new Error("Pick at least one airport and document type.");
+    if (!to) throw new PublicError("Your account has no email address, so the documents cannot be sent. Report it from Help & support.");
+    if (!mailerConfigured()) {
+      console.error("[aip-send] refused: RESEND_API_KEY is not set, the server cannot send email");
+      throw new PublicError("This wall cannot send email right now. Report it from Help & support.");
+    }
+    if (requests.length === 0) throw new PublicError("Pick at least one airport and document type.");
 
     const job = {
       jobId: crypto.randomUUID(),
@@ -72,7 +77,8 @@ export class AipSendService {
     }
 
     this.run(job).catch((error) => {
-      this.update(job, { stage: "error", error: error instanceof Error ? error.message : String(error) });
+      console.error(`[aip-send] job ${job.jobId} failed: ${errorDetail(error)}`);
+      this.update(job, { stage: "error", error: REASONS.docsSendFailed() });
     });
     return job.jobId;
   }
@@ -100,7 +106,7 @@ export class AipSendService {
     }
 
     if (attachments.length === 0) {
-      this.update(job, { stage: "error", error: "No document could be produced — see per-document reasons." });
+      this.update(job, { stage: "error", error: REASONS.noDocuments() });
       return;
     }
 
@@ -119,7 +125,7 @@ export class AipSendService {
           ? d.source
             ? `source: ${escapeHtml(d.source)}`
             : "attached to this email"
-          : `Unavailable: ${escapeHtml(d.error || "unknown")} — try requesting again`;
+          : escapeHtml(d.error || "This document is not available right now. Try again in a few minutes.");
         return `
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:${index === 0 ? "0" : "12px 0 0 0"};"><tr>
                 <td width="26" style="vertical-align:top;padding-top:1px;">
@@ -164,7 +170,9 @@ export class AipSendService {
     if (result.ok) {
       this.update(job, { stage: "sent" });
     } else {
-      this.update(job, { stage: "error", error: `Email failed: ${result.error}` });
+      // sendEmail already logged the provider's answer; the person gets our sentence.
+      console.error(`[aip-send] job ${job.jobId}: email not sent`);
+      this.update(job, { stage: "error", error: REASONS.docsSendFailed() });
     }
   }
 }

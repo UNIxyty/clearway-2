@@ -20,6 +20,7 @@ import { JsonFileStore } from "./json-store.mjs";
 import { getNotams, portalConfigured } from "./portal-client.mjs";
 import { flightVisibleInWindow } from "../leon-sync.mjs";
 import { mailerConfigured, renderTemplateFile, sendEmail } from "./mailer.mjs";
+import { errorDetail, PublicError, REASONS, shownMessage, shownReason } from "./public-error.mjs";
 import {
   compileNotamGroups,
   formatNotamTime,
@@ -65,7 +66,7 @@ export async function saveDigestConfig(patch = {}) {
   if ("recipients" in patch) {
     const list = Array.isArray(patch.recipients) ? patch.recipients.map((v) => String(v || "").trim()).filter(Boolean) : [];
     const bad = list.filter((v) => !/.+@.+\..+/.test(v));
-    if (bad.length > 0) throw new Error(`Not an email address: ${bad.join(", ")}`);
+    if (bad.length > 0) throw new PublicError(`Not an email address: ${bad.join(", ")}`);
     digestConfig.recipients = list.length > 0 ? list : null; // empty = fall back to env
   }
   if ("checkHour" in patch) {
@@ -73,7 +74,7 @@ export async function saveDigestConfig(patch = {}) {
       digestConfig.checkHour = null;
     } else {
       const hour = Number(patch.checkHour);
-      if (!Number.isFinite(hour) || hour < 0 || hour > 23) throw new Error("Check hour must be 0–23.");
+      if (!Number.isFinite(hour) || hour < 0 || hour > 23) throw new PublicError("Check hour must be 0–23.");
       digestConfig.checkHour = Math.round(hour);
     }
   }
@@ -82,7 +83,7 @@ export async function saveDigestConfig(patch = {}) {
       digestConfig.reminderIntervalMin = null;
     } else {
       const minutes = Number(patch.reminderIntervalMin);
-      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 1440) throw new Error("Reminder interval must be 1–1440 minutes.");
+      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 1440) throw new PublicError("Reminder interval must be 1–1440 minutes.");
       digestConfig.reminderIntervalMin = Math.round(minutes);
     }
   }
@@ -178,6 +179,8 @@ export class NotamCheckService {
   }
 
   publicState() {
+    // Reasons are stored as our sentences (lib/public-error.mjs); a state file written before that rule may still
+    // hold raw portal/Resend text, so every stored reason passes shownReason on the way out.
     return {
       day: this.state.day,
       timeZone: checkTz(),
@@ -186,15 +189,15 @@ export class NotamCheckService {
       dailyFiredFor: this.state.dailyFiredFor ?? null,
       emailedAt: this.state.emailedAt ?? null,
       emailedTo: this.state.emailedTo ?? null,
-      emailError: this.state.emailError ?? null,
+      emailError: shownReason(this.state.emailError ?? null, REASONS.notamEmailFailed()),
       remindersSent: this.state.remindersSent ?? 0,
       lastReminderAt: this.state.lastReminderAt ?? null,
       reminderIntervalMin: Math.round(reminderIntervalMs() / 60_000),
-      lastRunError: this.lastRunError,
+      lastRunError: shownReason(this.lastRunError, REASONS.notamCheckFailed()),
       sign: this.signState(),
       done: this.state.airports.filter((a) => a.checked).length,
       total: this.state.airports.length,
-      airports: this.state.airports,
+      airports: this.state.airports.map((a) => (a.error ? { ...a, error: shownReason(a.error, REASONS.notamsFailed()) } : a)),
     };
   }
 
@@ -232,8 +235,8 @@ export class NotamCheckService {
       if (hour >= checkHour() && this.state.dailyFiredFor !== day) {
         console.log(`[notam-check] scheduled daily run firing for ${day} (state.day=${this.state.day}, dailyFiredFor=${this.state.dailyFiredFor ?? "never"})`);
         this.runDailyCheck({ reason: "scheduled" }).catch((error) => {
-          this.lastRunError = error?.message || String(error);
-          console.error("notam-check scheduled run failed:", this.lastRunError);
+          this.lastRunError = shownMessage(error, REASONS.notamCheckFailed());
+          console.error("notam-check scheduled run failed:", errorDetail(error));
         });
       }
     }, 60_000);
@@ -338,7 +341,8 @@ export class NotamCheckService {
   async runDailyCheck({ reason = "manual" } = {}) {
     if (this.running) return this.publicState();
     if (!portalConfigured()) {
-      throw new Error("PORTAL_BASE_URL not configured — NOTAM check needs the portal proxy.");
+      console.error("[notam-check] refused: PORTAL_BASE_URL is not set, the check needs the portal proxy");
+      throw new PublicError(REASONS.notamsNotConnected());
     }
     this.running = true;
     try {
@@ -440,10 +444,10 @@ export class NotamCheckService {
   async resyncAirport(icao) {
     const code = String(icao || "").toUpperCase();
     const airport = this.state.airports?.find((a) => a.icao === code);
-    if (!airport) throw new Error(`Airport ${icao} is not part of today's check.`);
-    if (!airport.error) throw new Error(`${code} already synced fine — resync is only for failed airports.`);
+    if (!airport) throw new PublicError(`Airport ${code} is not part of today's check.`);
+    if (!airport.error) throw new PublicError(`${code} has no error, so it does not need a resync.`);
     this.resyncing = this.resyncing || new Set();
-    if (this.resyncing.has(code)) throw new Error(`${code} resync already in progress.`);
+    if (this.resyncing.has(code)) throw new PublicError(`A resync for ${code} is already running. Wait for it to finish.`);
     this.resyncing.add(code);
     try {
       const rules = await this.alertsService.getRules();
@@ -473,7 +477,7 @@ export class NotamCheckService {
 
   async ack(icao, user) {
     const airport = this.state.airports?.find((a) => a.icao === String(icao || "").toUpperCase());
-    if (!airport) throw new Error(`Airport ${icao} is not part of today's check.`);
+    if (!airport) throw new PublicError(`Airport ${String(icao || "").toUpperCase()} is not part of today's check.`);
     airport.checked = airport.checked
       ? null // toggling off is allowed (mis-click)
       : { by: user?.name || user?.email || "unknown", at: new Date().toISOString() };
@@ -510,9 +514,10 @@ export class NotamCheckService {
   async emailNotification({ reminder = false } = {}) {
     const s = this.state;
     const label = reminder ? "reminder" : "notification";
-    const fail = (message) => {
-      s.emailError = message;
-      console.error(`[notam-check] ${label} email NOT sent: ${message}`);
+    // The person reads `reason` (our sentence); `detail` is for the log only.
+    const fail = (reason, detail) => {
+      s.emailError = reason;
+      console.error(`[notam-check] ${label} email NOT sent: ${detail}`);
       return false;
     };
 
@@ -521,8 +526,9 @@ export class NotamCheckService {
       return false;
     }
     const to = digestRecipients();
-    if (to.length === 0) return fail("NOTAM_DIGEST_TO is not set — configure the recipient in the backend .env.");
-    if (!mailerConfigured()) return fail("RESEND_API_KEY is not set — the backend cannot send email.");
+    // The second argument of fail() only goes to the log.
+    if (to.length === 0) return fail(REASONS.notamEmailNoRecipient(), "no recipients (console Settings or NOTAM_DIGEST_TO)"); // public-error-ok: log only
+    if (!mailerConfigured()) return fail(REASONS.notamEmailNotSet(), "RESEND_API_KEY is not set"); // public-error-ok: log only
 
     const base = String(process.env.DIGITAL_WALL_PUBLIC_URL || "https://clearway.verxyl.com/digital-wall")
       .trim()
@@ -553,11 +559,11 @@ export class NotamCheckService {
         generatedAt: s.ranAt,
       });
     } catch (error) {
-      return fail(`template ${template} failed to render: ${error?.message || error}`);
+      return fail(REASONS.notamEmailFailed(), `template ${template} failed to render: ${errorDetail(error)}`);
     }
 
     const result = await sendEmail({ to, subject, html });
-    if (!result.ok) return fail(result.error);
+    if (!result.ok) return fail(REASONS.notamEmailFailed(), `send failed (see the [mailer] line above)`);
 
     s.emailError = null;
     if (reminder) {

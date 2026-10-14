@@ -4,6 +4,7 @@ import { STORAGE_ROOT } from "@/lib/storage";
 import { rm, readdir, stat } from "fs/promises";
 import path from "path";
 import { requirePermission } from "@/lib/permissions/server";
+import { logFailure } from "@/lib/public-error";
 
 // Directories to wipe. All are auto-synced and will re-populate on next sync.
 // Intentionally excludes aip/usa-pdf and aip/usa-gen-pdf (manually uploaded static files)
@@ -49,7 +50,9 @@ export async function DELETE() {
         // Return the relative storage key, not the absolute path
         deleted.push(path.relative(STORAGE_ROOT, absPath));
       } catch (e) {
-        errors.push(`${path.relative(STORAGE_ROOT, absPath)}: ${(e as Error)?.message ?? "unknown"}`);
+        // The file's key is returned; why it could not be deleted goes to the log.
+        errors.push(path.relative(STORAGE_ROOT, absPath));
+        logFailure("AIP-CLEAR-CACHE", `Could not delete ${path.relative(STORAGE_ROOT, absPath)}`, e);
       }
     }
   }

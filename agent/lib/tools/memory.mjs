@@ -92,7 +92,7 @@ defineTool({
       });
       return { memory: mapMemory(rows[0], user) };
     } catch (error) {
-      throw ServiceUnavailable(`The note could not be saved: ${error.message}`);
+      throw ServiceUnavailable("The note could not be saved.", String(error?.message ?? error));
     }
   },
 });
@@ -137,7 +137,7 @@ defineTool({
     try {
       rows = await rest(`agent_memories?${parts.join("&")}`);
     } catch (error) {
-      throw ServiceUnavailable(`Notes could not be read: ${error.message}`);
+      throw ServiceUnavailable("Notes could not be read.", String(error?.message ?? error));
     }
 
     let memories = (rows ?? []).map((r) => mapMemory(r, user));

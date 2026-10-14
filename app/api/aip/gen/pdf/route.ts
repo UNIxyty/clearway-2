@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { failure } from "@/lib/public-error";
+import { GEN_PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import { readPdfFromStorage } from "@/lib/aip-storage";
@@ -103,11 +105,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("GEN PDF read failed:", e);
-    return NextResponse.json(
-      { error: "Failed to load PDF", detail: msg },
-      { status: 502 }
-    );
+    return failure(502, GEN_PDF_FAILED, { tag: "AIP-GEN-PDF", what: "GEN PDF read failed", detail: e });
   }
 }

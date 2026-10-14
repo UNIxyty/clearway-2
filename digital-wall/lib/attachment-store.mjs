@@ -7,6 +7,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { PublicError } from "./public-error.mjs";
 
 const LOCAL_ROOT = path.resolve(process.cwd(), "data", "attachments");
 const BUCKET = process.env.ATTACHMENTS_BUCKET || "storage";
@@ -33,11 +34,11 @@ export function sanitizeFilename(name) {
 export function validateAttachment({ filename, size }) {
   const ext = path.extname(String(filename || "")).toLowerCase();
   if (!ALLOWED_EXTENSIONS.has(ext)) {
-    throw new Error(`File type ${ext || "(none)"} is not allowed. Allowed: ${[...ALLOWED_EXTENSIONS].join(" ")}`);
+    throw new PublicError(`File type ${ext || "(none)"} is not allowed. Allowed: ${[...ALLOWED_EXTENSIONS].join(" ")}`);
   }
-  if (!Number.isFinite(size) || size <= 0) throw new Error("Empty file.");
+  if (!Number.isFinite(size) || size <= 0) throw new PublicError("The file is empty.");
   if (size > MAX_ATTACHMENT_BYTES) {
-    throw new Error(`File is ${(size / 1048576).toFixed(1)} MB — the limit is ${MAX_ATTACHMENT_BYTES / 1048576} MB.`);
+    throw new PublicError(`File is ${(size / 1048576).toFixed(1)} MB — the limit is ${MAX_ATTACHMENT_BYTES / 1048576} MB.`);
   }
 }
 

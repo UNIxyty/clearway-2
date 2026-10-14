@@ -173,10 +173,12 @@ export const PdfView = forwardRef<PdfHandle, {
         const name = (e as { name?: string; status?: number; message?: string })?.name ?? "";
         const status = (e as { status?: number })?.status;
         if (name === "PasswordException") return; // handled by onPassword
+        // The card's diagnostic line shows our words and a status; pdf.js's own message goes to the console.
+        console.warn("[viewer] the PDF could not be opened", e);
         // Ownership on the agent's file routes answers 404 (no existence leak): treat it as no permission, not a bad link.
         if (status === 401 || status === 403 || status === 404 || /401|403|404/.test(String((e as Error)?.message))) onStatus({ state: "error", code: "permission", detail: `${status ?? 403}` });
-        else if (name === "MissingPDFException" || name === "UnexpectedResponseException" || status || /failed to fetch|network|load failed/i.test(String((e as Error)?.message ?? ""))) onStatus({ state: "error", code: "fetch", detail: String((e as Error)?.message ?? name).slice(0, 120) });
-        else onStatus({ state: "error", code: "render", detail: `pdf.render → ${name || "error"}${(e as Error)?.message ? ` · ${String((e as Error).message).slice(0, 80)}` : ""}` });
+        else if (name === "MissingPDFException" || name === "UnexpectedResponseException" || status || /failed to fetch|network|load failed/i.test(String((e as Error)?.message ?? ""))) onStatus({ state: "error", code: "fetch", detail: status ? `answered ${status}` : "no answer" });
+        else onStatus({ state: "error", code: "render", detail: "the PDF could not be drawn" });
       }
     })();
     return () => { cancelled = true; task?.destroy().catch(() => {}); };
@@ -263,7 +265,7 @@ export const PdfView = forwardRef<PdfHandle, {
           setRendered((s) => { const next = new Set(s); next.add(n); return next; });
           host.classList.add("cw-page-in");
         } catch (e) {
-          if (token === docToken.current) onStatus({ state: "error", code: "render", detail: `pdf.render → ${(e as Error)?.name ?? "error"} · p. ${n}${(e as Error)?.message ? ` · ${String((e as Error).message).slice(0, 60)}` : ""}` });
+          if (token === docToken.current) { console.warn(`[viewer] page ${n} could not be drawn`, e); onStatus({ state: "error", code: "render", detail: `page ${n} could not be drawn` }); }
         } finally { if (inFlight.current.get(n) === key) inFlight.current.delete(n); }
       })();
     }

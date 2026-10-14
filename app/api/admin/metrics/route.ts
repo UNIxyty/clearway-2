@@ -4,6 +4,7 @@ import { readFile, readdir } from "fs/promises";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { requireAdmin } from "@/lib/admin-auth";
+import { logFailure } from "@/lib/public-error";
 
 // Server metrics collector (platform audit §6.5). Admin-only.
 //
@@ -31,8 +32,10 @@ type ContainerInfo = {
   memB: number | null;
 };
 
-function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+/** A section that could not be read: our short reason for the response, the exception for the log. */
+function unreadable(what: string, reason: string, e: unknown): SectionMeta {
+  logFailure("ADMIN-METRICS", `${what} unavailable`, e);
+  return { available: false, error: reason };
 }
 
 function authDisabledForTesting(): boolean {
@@ -59,7 +62,7 @@ async function collectCpu(): Promise<{ cpu: { load1: number; load5: number; core
     if (Number.isFinite(load1) && Number.isFinite(load5) && (load1 > 0 || load5 > 0)) {
       return { cpu: { load1, load5, cores }, meta: { available: true, source: "os.loadavg" } };
     }
-    return { cpu: null, meta: { available: false, error: "no load average source available" } };
+    return { cpu: null, meta: { available: false, error: "The CPU load could not be read." } };
   }
 }
 
@@ -101,9 +104,9 @@ async function collectTemp(): Promise<{ tempC: number | null; meta: SectionMeta 
         return { tempC: Math.round(milli / 100) / 10, meta: { available: true, source: `k10temp ${chosen}` } };
       }
     }
-    return { tempC: null, meta: { available: false, error: "no k10temp sensor found under /sys/class/hwmon" } };
+    return { tempC: null, meta: { available: false, error: "No temperature sensor was found." } };
   } catch (e) {
-    return { tempC: null, meta: { available: false, error: `hwmon unavailable: ${errorMessage(e)}` } };
+    return { tempC: null, meta: unreadable("hwmon", "The temperature sensor could not be read.", e) };
   }
 }
 
@@ -151,7 +154,7 @@ async function collectDisks(): Promise<{ disks: DiskInfo[]; meta: SectionMeta }>
     const disks = parseDfOutput(stdout, 1024, "posix");
     return { disks, meta: { available: true, source: "df -kP" } };
   } catch (e) {
-    return { disks: [], meta: { available: false, error: `df unavailable: ${errorMessage(e)}` } };
+    return { disks: [], meta: unreadable("df", "Disk usage could not be read.", e) };
   }
 }
 
@@ -235,7 +238,7 @@ async function collectContainers(): Promise<{ containers: ContainerInfo[]; meta:
   } catch (e) {
     return {
       containers: [],
-      meta: { available: false, error: `docker unavailable: ${errorMessage(e).slice(0, 200)}` },
+      meta: unreadable("docker", "The container list could not be read.", e),
     };
   }
 

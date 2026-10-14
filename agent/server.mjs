@@ -58,6 +58,7 @@ import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.m
 import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment, keybinds, setKeybinds, KEYBIND_ACTIONS, KEYBIND_DEFAULTS } from "./lib/views.mjs";
 import { rest as knowledgeRest2 } from "./lib/knowledge/retrieval.mjs";
 import { AgentError, BadRequest } from "./lib/errors.mjs";
+import { REPLY_FAILED, REPLY_FAILED_DEFAULT, logDetail, stepFailedText, storedError } from "./lib/public-errors.mjs";
 import { ATTACHMENT_LIMITS, AttachmentRejected, assertAcceptable, attachmentBlocks, publicReadStatus, truncateWithMarker } from "./lib/attachments.mjs";
 import { requestContext, clientOf } from "./lib/request-context.mjs";
 import { listSites, listRequests, requestSite, decideRequest, revokeSite, addSite, admins as extensionAdmins, quickActions, resolveEntity, lookup as extensionLookup, insertLog, badge as extensionBadge, consoleOrigin, isPrivileged as isPrivilegedUser } from "./lib/extension.mjs";
@@ -110,8 +111,18 @@ function sendJson(res, payload, status = 200, extraHeaders = {}) {
 // explicitly allowed for a run whose files will be copied to the server's volume.
 function assertRigMayWriteKnowledge() {
   if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true" && process.env.AGENT_RIG_KB_WRITES !== "1") {
-    throw BadRequest("This is a test environment sharing the production database: knowledge-base writes are disabled here (set AGENT_RIG_KB_WRITES=1 only if the files will be copied to the server).");
+    // The switch that allows it is named in the log, not on the screen.
+    logDetail("agent", "knowledge-base write refused on a test rig (AGENT_RIG_KB_WRITES is not 1)");
+    throw BadRequest("Knowledge base changes are switched off in this test environment. Nothing was saved.");
   }
+}
+
+// A setting that could not be saved: a validation message (an AgentError written for the person) goes through as it
+// is; anything else is the database's or a bug's text, which is logged and replaced. Code and status stay bad_request/400.
+function settingNotSaved(error, what) {
+  if (error instanceof AgentError) return error;
+  logDetail("agent", `${what} not saved`, error);
+  return BadRequest("The setting was not saved. Try again. If it keeps failing, tell your administrator.");
 }
 
 let commandCache = { at: 0, list: null };
@@ -130,8 +141,8 @@ async function commandsFor(user) {
 
 function sendError(res, error) {
   if (error instanceof AgentError) return sendJson(res, error.toJSON(), error.status);
-  process.stderr.write(`[agent] unhandled: ${error?.stack || error}\n`);
-  return sendJson(res, { ok: false, error: "internal_error", message: "Unexpected server error." }, 500);
+  logDetail("agent", "unhandled", error);
+  return sendJson(res, { ok: false, error: "internal_error", message: "Something went wrong on the server. Try again. If it keeps failing, tell your administrator." }, 500);
 }
 
 /**
@@ -437,7 +448,7 @@ async function handleRequest(req, res) {
           prefs = await setUserPref(user.userId, user.email, "skipConfirm", body.skipConfirm === true);
         }
         if ("replyMode" in body) prefs = await setUserPref(user.userId, user.email, "replyMode", body.replyMode);
-      } catch (e) { throw BadRequest(e.message); }
+      } catch (e) { throw settingNotSaved(e, "personal settings"); }
       await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { personal: body } });
       prefs = prefs ?? await userPrefs(user.userId);
       return sendJson(res, { ok: true, prefs, replyMode: prefs.replyMode });
@@ -452,7 +463,7 @@ async function handleRequest(req, res) {
       await assertMayUseAgent(user);
       if (!(await can(user.agentRole, "agent.settings.manage"))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
       const body = await readJsonBody(req);
-      let r; try { r = await setRoutingSettings(body, user); } catch (e) { throw BadRequest(e.message); }
+      let r; try { r = await setRoutingSettings(body, user); } catch (e) { throw settingNotSaved(e, "routing settings"); }
       await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { routing: body } });
       return sendJson(res, { ok: true, tiers: r.tiers, escalation: r.escalation });
     }
@@ -471,7 +482,7 @@ async function handleRequest(req, res) {
       const body = await readJsonBody(req);
       if (body.keybinds && typeof body.keybinds === "object") {
         let binds;
-        try { binds = await setKeybinds(body.keybinds, user); } catch (e) { throw BadRequest(e.message); }
+        try { binds = await setKeybinds(body.keybinds, user); } catch (e) { throw settingNotSaved(e, "keybinds"); }
         await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { keybinds: binds } });
         return sendJson(res, { ok: true, keybinds: binds });
       }
@@ -543,7 +554,7 @@ async function handleRequest(req, res) {
       // Which path authenticated this session (cookie / token / bearer / bypass): logged when it changes for
       // this user, so a silent change of browser behaviour shows up in the audit log, not as user reports.
       const authPath = user.authPath ?? "cookie";
-      if (notePath(user.userId, authPath)) { process.stderr.write(`[agent] extension auth path for ${user.email}: ${authPath}\n`); await audit({ kind: "extension.auth_path", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { authPath } }); }
+      if (notePath(user.userId, authPath)) { console.error(`[agent] extension auth path for ${user.email}: ${authPath}`); await audit({ kind: "extension.auth_path", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { authPath } }); }
       const replyPrefs = await userPrefs(user.userId).catch(() => ({ replyMode: "auto" }));
       return sendJson(res, {
         ok: true,
@@ -617,7 +628,7 @@ async function handleRequest(req, res) {
     if (pathname === "/api/voice/transcribe" && req.method === "POST") {
       await assertMayUseAgent(user);
       if (capsNow.voice === false) return sendJson(res, { ok: false, error: "CAPABILITY_OFF", message: "Voice is switched off in Agent settings." }, 403);
-      if (!sttConfigured()) return sendJson(res, { ok: false, error: "voice_unconfigured", message: "Voice is not configured on this deployment." }, 503);
+      if (!sttConfigured()) return sendJson(res, { ok: false, error: "voice_unconfigured", message: "Voice is not set up on this server. Type your message instead." }, 503);
       const started = Date.now();
       const buffer = await readRawBody(req, 10 * 1024 * 1024 + 1024);
       if (buffer.length < 1024) return sendJson(res, { ok: false, error: "nothing_heard", message: "Nothing heard." }, 400);
@@ -627,8 +638,11 @@ async function handleRequest(req, res) {
         await audit({ kind: "voice.transcribed", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { bytes: buffer.length, chars: result.text.length, words: result.words, language: result.language, languageProbability: result.languageProbability, uncertain } });
         return sendJson(res, { ok: true, text: result.text, language: normaliseLanguage(result.language) ?? result.language ?? null, languageProbability: result.languageProbability, uncertain, latencyMs: Date.now() - started });
       } catch (error) {
-        await audit({ kind: "voice.transcribed", userId: user.userId, userEmail: user.email, success: false, error: String(error?.message ?? error).slice(0, 200), confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { bytes: buffer.length } });
-        return sendJson(res, { ok: false, error: "stt_failed", message: String(error?.message ?? error) }, 502);
+        // ElevenLabs' answer (or a missing key) is for the log; the person and the Activity log get our words.
+        logDetail("agent", "voice transcription failed", error);
+        const said = "Your speech could not be turned into text. Try again, or type your message.";
+        await audit({ kind: "voice.transcribed", userId: user.userId, userEmail: user.email, success: false, error: storedError("stt_failed", said), confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { bytes: buffer.length } });
+        return sendJson(res, { ok: false, error: "stt_failed", message: said }, 502);
       }
     }
 
@@ -657,7 +671,7 @@ async function handleRequest(req, res) {
     if (pathname === "/api/voice/realtime-token" && req.method === "POST") {
       await assertMayUseAgent(user);
       if (capsNow.voice === false) return sendJson(res, { ok: false, error: "CAPABILITY_OFF", message: "Voice is switched off in Agent settings." }, 403);
-      if (!sttConfigured()) return sendJson(res, { ok: false, error: "voice_unconfigured", message: "Voice is not configured on this deployment." }, 503);
+      if (!sttConfigured()) return sendJson(res, { ok: false, error: "voice_unconfigured", message: "Voice is not set up on this server. Type your message instead." }, 503);
       const started = Date.now();
       const body = await readJsonBody(req).catch(() => ({}));
       try {
@@ -665,8 +679,10 @@ async function handleRequest(req, res) {
         await audit({ kind: "voice.realtime_token", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { keyterms: session.keyterms.length, candidates: session.candidates.length, sources: session.sources } });
         return sendJson(res, { ok: true, ...session, sources: undefined });
       } catch (error) {
-        await audit({ kind: "voice.realtime_token", userId: user.userId, userEmail: user.email, success: false, error: String(error?.message ?? error).slice(0, 200), confirmationStatus: "not_required", latencyMs: Date.now() - started });
-        return sendJson(res, { ok: false, error: "realtime_unavailable", message: String(error?.message ?? error) }, 502);
+        logDetail("agent", "live transcript token failed", error);
+        const said = "The live transcript is not available right now. Your speech will be turned into text when you stop.";
+        await audit({ kind: "voice.realtime_token", userId: user.userId, userEmail: user.email, success: false, error: storedError("realtime_unavailable", said), confirmationStatus: "not_required", latencyMs: Date.now() - started });
+        return sendJson(res, { ok: false, error: "realtime_unavailable", message: said }, 502);
       }
     }
 
@@ -699,8 +715,10 @@ async function handleRequest(req, res) {
       if (speak) {
         try { audio = await synthesize(plan.spoken, { sentences: plan.sentences }); }
         catch (error) {
-          await audit({ kind: "voice.spoken", userId: user.userId, userEmail: user.email, success: false, error: String(error?.message ?? error).slice(0, 200), confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { kind: plan.kind } });
-          return sendJson(res, { ok: true, plan, audio: null, ttsError: String(error?.message ?? error).slice(0, 160) });
+          logDetail("agent", "spoken reply failed", error);
+          const said = "The reply could not be read aloud. It is shown as text.";
+          await audit({ kind: "voice.spoken", userId: user.userId, userEmail: user.email, success: false, error: storedError("tts_failed", said), confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { kind: plan.kind } });
+          return sendJson(res, { ok: true, plan, audio: null, ttsError: said });
         }
       }
       await audit({ kind: "voice.spoken", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { kind: plan.kind, spoken: Boolean(audio), chars: plan.spoken.length, verbatimWithheld: plan.verbatimIds.length, sentencesWithheld: plan.withheldSentences, phrase: body.phrase ?? null } });
@@ -811,10 +829,10 @@ async function handleRequest(req, res) {
         // Only AttachmentRejected messages are written for the user; anything
         // else is logged and replaced, never shown raw.
         const known = error instanceof AttachmentRejected;
-        if (!known) process.stderr.write(`[agent] attachment upload failed: ${error?.stack || error}\n`);
+        if (!known) logDetail("agent", "attachment upload failed", error);
         const status = !known ? 500 : error.code === "too_large" ? 413 : error.code === "unsupported" ? 415 : 400;
         await audit({ kind: "attachment.uploaded", userId: user.userId, userEmail: user.email, success: false, error: known ? error.code : "internal_error", confirmationStatus: "not_required", detail: { name, bytes: declared || null } }).catch(() => {});
-        return sendJson(res, { ok: false, error: "rejected", reason: known ? error.code : "internal_error", message: known ? error.message : `${name} could not be uploaded. Try again.` }, status);
+        return sendJson(res, { ok: false, error: "rejected", reason: known ? error.code : "internal_error", message: known ? error.message : `${name} could not be uploaded. Try again.` }, status); // public-error-ok: AttachmentRejected messages are written for the person (attachments.mjs)
       }
     }
 
@@ -1173,7 +1191,7 @@ async function handleRequest(req, res) {
       return sendJson(res, { ok: true, id });
     }
 
-    return sendJson(res, { ok: false, error: "not_found", message: `No route for ${req.method} ${pathname}` }, 404);
+    return sendJson(res, { ok: false, error: "not_found", message: "This page or action does not exist." }, 404);
   } catch (error) {
     return sendError(res, error);
   }
@@ -1241,8 +1259,9 @@ async function handleChat(req, res, user) {
       conversationId: body.conversationId ?? null,
       modelTier: requestedTier,
       success: false,
-      error: error instanceof AgentError ? error.code : String(error?.message || error),
+      error: error instanceof AgentError ? error.code : "internal_error",
     });
+    if (!(error instanceof AgentError)) logDetail("agent", "access check failed", error);
     throw error;
   }
 
@@ -1475,7 +1494,9 @@ async function handleChat(req, res, user) {
       catch (error) {
         const up = oneUp(route.tier);
         if (!routing.escalation.retryOnFailure || answer || toolCalls.length || up === route.tier || error?.code === "kill_switch" || error?.status === 401 || error?.status === 403) throw error;
-        retried = { from: route.tier, to: up, reason: `first attempt failed: ${String(error?.message ?? error).slice(0, 120)}` };
+        // The model's own error text is logged, not saved in the routing block the Activity page shows.
+        logDetail("agent", `first attempt on ${route.tier} failed; retrying on ${up}`, error?.detail ? `${error?.message} (${error.detail})` : error);
+        retried = { from: route.tier, to: up, reason: "first attempt failed" };
         escalations.push({ ...retried, round: -1 });
         send("escalated", retried);
         stream = run(up);
@@ -1528,7 +1549,9 @@ async function handleChat(req, res, user) {
       startedAt: c.startedAt ? new Date(c.startedAt).toISOString() : null, durationMs: c.durationMs ?? null,
       args: c.input ?? null,
       // A one-line result the step list can show; never the whole payload.
-      summary: c.result?.message ?? (typeof c.result?.count === "number" ? `${c.result.count} result${c.result.count === 1 ? "" : "s"}` : c.result?.file?.filename ?? (c.result?.confirmationRequired ? "awaiting confirmation" : (c.ok ? "ok" : String(c.error ?? "failed")))),
+      // A failed step's own message is for the model (and may carry an upstream's words); the step list shows ours.
+      summary: !c.ok || c.result?.ok === false ? stepFailedText(c.error ?? c.result?.error)
+        : c.result?.message ?? (typeof c.result?.count === "number" ? `${c.result.count} result${c.result.count === 1 ? "" : "s"}` : c.result?.file?.filename ?? (c.result?.confirmationRequired ? "awaiting confirmation" : "ok")),
       write: Boolean(c.result?.actionId || c.result?.confirmationRequired),
     }));
 
@@ -1627,10 +1650,12 @@ async function handleChat(req, res, user) {
     });
   } catch (error) {
     const code = error instanceof AgentError ? error.code : "model_error";
-    const message = String(error?.message || error);
-    // A non-AgentError is a bug's message (a TypeError, a stack): logged and
-    // audited below, never shown to the user as the reply.
-    send("error", { error: code, message: error instanceof AgentError ? message : "Something went wrong while answering. Try again.", retryable: Boolean(error?.retryable) });
+    // What the person sees (and what is saved on the reply and in the audit row) is our wording for the code. The
+    // raw text — Bedrock's message, a database error, a bug's stack — goes to the log only.
+    const shown = error instanceof AgentError ? error.publicMessage : REPLY_FAILED_DEFAULT;
+    const saved = storedError(code, REPLY_FAILED[code] ?? (error instanceof AgentError ? error.publicMessage : REPLY_FAILED_DEFAULT));
+    logDetail("agent", `chat failed (${code})`, error?.code === "cancelled" ? "cancelled by the user" : error instanceof AgentError && error.detail ? `${error.message} — ${String(error.detail).slice(0, 500)}` : error);
+    send("error", { error: code, message: shown, retryable: Boolean(error?.retryable) });
     // The partial answer is kept: a dispatcher who read half a reply before it
     // failed should find that half still there after a reload, with the error.
     await appendMessage({
@@ -1639,7 +1664,7 @@ async function handleChat(req, res, user) {
       content: answer,
       toolActivity: toolCalls.map((c) => ({ name: c.name, ok: c.ok, error: c.error ?? null })),
       modelTier: requested,
-      error: `${code}: ${message.slice(0, 400)}`,
+      error: saved,
     }).catch(() => {});
     await audit({
       kind: "chat.error",
@@ -1648,7 +1673,7 @@ async function handleChat(req, res, user) {
       conversationId,
       modelTier: requested,
       success: false,
-      error: `${code}: ${message.slice(0, 500)}`,
+      error: saved,
       latencyMs: Date.now() - startedAt,
       detail: { effectiveTier: effective },
     });
@@ -1672,7 +1697,7 @@ sweepGeneratedFiles().catch(() => {});
 // and the generator itself refuses every manifest until it is fixed — it never renders with a substitute.
 const MANIFEST_FONT = (() => {
   try { const f = assertManifestFont(); return { ok: true, regular: f.regular, bold: f.bold }; }
-  catch (error) { process.stderr.write(`[manifest] FONT CHECK FAILED — passenger manifests are refused: ${error.message}\n`); return { ok: false, error: error.message }; }
+  catch (error) { console.error(`[manifest] FONT CHECK FAILED — passenger manifests are refused: ${error.message}`); return { ok: false, error: "font check failed (see the server log)" }; }
 })();
 // Intake: a Leon send interrupted by a restart is UNKNOWN (a person checks Leon; nothing retries), messages
 // still waiting are read again, and retention runs daily.

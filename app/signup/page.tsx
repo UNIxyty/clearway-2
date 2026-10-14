@@ -16,6 +16,7 @@ import {
   authMuted,
 } from "@/app/auth/ui/auth-kit";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
+import { OFFLINE, TRY_AGAIN_SIGNED_OUT, apiErrorText } from "@/lib/error-text";
 
 // Visuals from Auth Flow.dc.html ("Sign Up" + its success message screen).
 // Mechanics unchanged: signup collects name + work email only; the password
@@ -59,9 +60,9 @@ export default function SignupPage() {
         sent?: boolean;
         message?: string;
       };
-      if (!res.ok) throw new Error(data.error || "Failed to send confirmation email.");
-
-      if (!res.ok || data.sent === false || !data.ok) {
+      if (!res.ok) {
+        setError(apiErrorText(data, `We could not send a confirmation email right now. ${TRY_AGAIN_SIGNED_OUT}`));
+      } else if (data.sent === false || !data.ok) {
         setError(
           data.message || data.error ||
             "We could not send the email right now. Check the address and try again in a minute.",
@@ -70,8 +71,8 @@ export default function SignupPage() {
         setConfirmationSentTo(normalizedEmail);
         setInfo(data.message || "Confirmation email sent.");
       }
-    } catch (e: unknown) {
-      setError((e as { message?: string })?.message || "Failed to send confirmation email.");
+    } catch {
+      setError(OFFLINE);
     } finally {
       setLoading(false);
     }

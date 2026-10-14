@@ -2,6 +2,17 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { resolveRole } from "@/lib/role-resolve";
+import { failure } from "@/lib/public-error";
+
+/** What a person sees when the portal cannot check who they are (the missing setting is logged, not shown). */
+export const ACCESS_UNAVAILABLE = "The portal cannot check your access right now. Try again in a few minutes.";
+
+export function accessCheckUnavailable(): NextResponse {
+  return failure(500, ACCESS_UNAVAILABLE, {
+    tag: "AUTH",
+    what: "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY not set",
+  });
+}
 
 type SupabaseServerClient = ReturnType<typeof createServerClient>;
 type AuthFailure = { error: NextResponse };
@@ -29,7 +40,7 @@ export function makeSupabaseFromCookies(): SupabaseServerClient | null {
 export async function requireAuthenticatedUser(): Promise<AuthFailure | AuthSuccess> {
   const supabase = makeSupabaseFromCookies();
   if (!supabase) {
-    return { error: NextResponse.json({ error: "Missing Supabase config" }, { status: 500 }) };
+    return { error: accessCheckUnavailable() };
   }
 
   // Isolated test environments only (mirrors middleware.ts): a synthetic developer so the
@@ -54,7 +65,7 @@ export async function requireAuthenticatedUser(): Promise<AuthFailure | AuthSucc
 export async function requireAdmin(): Promise<AuthFailure | AuthSuccess> {
   const supabase = makeSupabaseFromCookies();
   if (!supabase) {
-    return { error: NextResponse.json({ error: "Missing Supabase config" }, { status: 500 }) };
+    return { error: accessCheckUnavailable() };
   }
 
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
@@ -73,7 +84,7 @@ export async function requireAdmin(): Promise<AuthFailure | AuthSuccess> {
 export async function requireDeveloper(): Promise<AuthFailure | Omit<AuthSuccess, "isDeveloper">> {
   const supabase = makeSupabaseFromCookies();
   if (!supabase) {
-    return { error: NextResponse.json({ error: "Missing Supabase config" }, { status: 500 }) };
+    return { error: accessCheckUnavailable() };
   }
 
   const { data: { user }, error: userErr } = await supabase.auth.getUser();

@@ -9,8 +9,12 @@ import { useState } from "react";
 import { mono } from "../ui/tokens";
 import { Icon } from "../ui/primitives";
 import type { ToolActivity as Step } from "../types";
+import { stepFailedText } from "../ui/errorText";
 
 const fmtMs = (ms: number | null | undefined) => (ms == null ? "" : ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`);
+// A failed step shows our sentence for its code, never its stored summary or error text (older rows can hold an
+// exception's message there).
+const summaryOf = (s: Step): string | null | undefined => (s.summary && s.ok === false ? stepFailedText(s.error) : s.summary);
 const args = (a: Record<string, unknown> | null | undefined) => { if (!a) return ""; const { confirmationToken: _c, voiceConfirmationToken: _v, ...rest } = a; return JSON.stringify(rest); };
 
 /** A · live step list (Ops Agent B2). */
@@ -27,7 +31,7 @@ export function LiveSteps({ steps, panel = false }: { steps: Step[]; panel?: boo
           <div key={`${s.name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: panel ? "5px 12px" : "6px 14px" }}>
             <Icon name={icon} size={14} color={iconColor} style={running ? { animation: "ag-pulse 1100ms ease-in-out infinite" } : undefined} />
             <span style={{ flex: 1, fontSize: panel ? 13 : 13.5, fontWeight: running ? 600 : 500, color: running ? cw.text : cancelled ? cw.textMuted : queued ? cw.textMuted : cw.textMuted, textDecoration: cancelled ? "line-through" : "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {s.summary && !running ? s.summary : <span style={mono()}>{s.name}</span>}{running ? "…" : ""}
+              {summaryOf(s) && !running ? summaryOf(s) : <span style={mono()}>{s.name}</span>}{running ? "…" : ""}
             </span>
             <span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted }}>{cancelled ? "cancelled" : queued ? "queued" : running ? <Elapsed from={s.startedAt} /> : fmtMs(s.durationMs)}</span>
           </div>
@@ -69,7 +73,7 @@ export function ToolSummary({ steps, elapsedMs, panel = false, defaultOpen = fal
         <Icon name={headIcon} size={oneLine ? 14 : 15} color={headColor} />
         {oneLine ? (
           <span style={{ fontSize: 13, color: cw.textMuted, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {steps.length === 1 && steps[0].summary ? steps[0].summary : `Used ${steps.length} tool${steps.length > 1 ? "s" : ""}`}
+            {steps.length === 1 && summaryOf(steps[0]) ? summaryOf(steps[0]) : `Used ${steps.length} tool${steps.length > 1 ? "s" : ""}`}
             <span style={{ ...mono({ fontSize: 12 }), color: cw.textMuted, marginLeft: 8 }}>{steps.map((s) => s.name).join(" · ")}{total ? ` · ${fmtMs(total)}` : ""}</span>
           </span>
         ) : (
@@ -88,7 +92,7 @@ export function ToolSummary({ steps, elapsedMs, panel = false, defaultOpen = fal
               <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
                 {panel && <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), color: cw.text }}>{s.name}</span>}
                 <span style={{ ...mono({ fontSize: 12 }), color: cw.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{args(s.args)}</span>
-                <span style={{ fontSize: 12.5, color: s.ok ? cw.textBody : cw.dangerText }}>{s.ok ? (s.summary ?? "ok") : `${s.error ?? "failed"}`}</span>
+                <span style={{ fontSize: 12.5, color: s.ok ? cw.textBody : cw.dangerText }}>{s.ok ? (s.summary ?? "ok") : stepFailedText(s.error)}</span>
               </span>
               <span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted, whiteSpace: "nowrap" }}>{fmtMs(s.durationMs)}</span>
             </div>

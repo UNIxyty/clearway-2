@@ -10,6 +10,7 @@
 // nobody types emails day-to-day.
 
 import { JsonFileStore, PORTAL_SHARED } from "./json-store.mjs";
+import { PublicError } from "./public-error.mjs";
 
 export const REPORT_STATUSES = ["untouched", "under_process", "done", "impossible"];
 export const REPORT_STATUS_LABELS = {
@@ -24,7 +25,7 @@ const text = (v) => String(v ?? "").trim();
 
 export function sanitizeReport(input = {}, existing = null, actor = null) {
   const title = text(input.title ?? existing?.title);
-  if (!title) throw new Error("Report title is required.");
+  if (!title) throw new PublicError("Report title is required.");
   const now = new Date().toISOString();
   const status = REPORT_STATUSES.includes(String(input.status ?? existing?.status ?? "untouched"))
     ? String(input.status ?? existing?.status ?? "untouched")
@@ -113,14 +114,14 @@ export class ReportsStore {
 
   async patch(id, patchInput = {}, actor = null) {
     const existing = this.reports.find((r) => r.id === id);
-    if (!existing) throw new Error("Report not found.");
+    if (!existing) throw new PublicError("Report not found.");
     return this.upsert({ ...existing, ...patchInput, id }, actor);
   }
 
   /** Soft delete: kept whole for a restore. */
   async remove(id, { actor = null } = {}) {
     const index = this.reports.findIndex((r) => r.id === id);
-    if (index < 0) throw new Error("Report not found.");
+    if (index < 0) throw new PublicError("Report not found.");
     const [existing] = this.reports.splice(index, 1);
     this.deleted = [
       { ...existing, deletedAt: new Date().toISOString(), deletedBy: actor ?? null },
@@ -132,8 +133,8 @@ export class ReportsStore {
 
   async restore(id, { actor = null } = {}) {
     const deleted = this.deleted.find((r) => r.id === id);
-    if (!deleted) throw new Error("No deleted report with that id — it may have been restored already.");
-    if (this.reports.some((r) => r.id === id)) throw new Error("That report already exists.");
+    if (!deleted) throw new PublicError("No deleted report with that id — it may have been restored already.");
+    if (this.reports.some((r) => r.id === id)) throw new PublicError("That report already exists.");
     const { deletedAt: _a, deletedBy: _b, ...restored } = deleted;
     restored.updatedAt = new Date().toISOString();
     restored.updatedBy = actor ?? restored.updatedBy ?? null;
@@ -145,7 +146,7 @@ export class ReportsStore {
 
   async purge(id) {
     const existing = this.deleted.find((r) => r.id === id);
-    if (!existing) throw new Error("Nothing deleted with that id — only a deleted report can be purged.");
+    if (!existing) throw new PublicError("Nothing deleted with that id — only a deleted report can be purged.");
     this.deleted = this.deleted.filter((r) => r.id !== id);
     await this.persist();
     return existing;
@@ -157,7 +158,7 @@ export class ReportsStore {
 
   async recordSend(id, { to, by, resendId }) {
     const report = this.reports.find((r) => r.id === id);
-    if (!report) throw new Error("Report not found.");
+    if (!report) throw new PublicError("Report not found.");
     report.sends = Array.isArray(report.sends) ? report.sends : [];
     report.sends.push({ to, at: new Date().toISOString(), by: by ?? null, resendId: resendId ?? null });
     report.updatedAt = new Date().toISOString();

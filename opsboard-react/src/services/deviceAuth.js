@@ -8,6 +8,7 @@
 
 import { getDeviceId } from './device';
 import { buildApiUrl } from './timelineApi';
+import { CONNECTION, failureFrom, readPayload, ShownError } from './errorText';
 
 const TOKEN_KEY = 'dw-device-token';
 
@@ -59,10 +60,16 @@ export function installDeviceFetch() {
 }
 
 async function deviceApi(pathWithQuery, init) {
-  const response = await fetch(buildApiUrl(pathWithQuery), init);
-  const payload = await response.json().catch(() => ({}));
+  let response;
+  try {
+    response = await fetch(buildApiUrl(pathWithQuery), init);
+  } catch (error) {
+    console.error(`[wall] ${pathWithQuery} could not reach the server`, error);
+    throw new ShownError(CONNECTION);
+  }
+  const payload = await readPayload(response);
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.error || `Device request failed (${response.status})`);
+    throw failureFrom(payload, "Couldn't register this screen with the wall.");
   }
   return payload;
 }

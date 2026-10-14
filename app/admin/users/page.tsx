@@ -10,6 +10,7 @@ import PortalShell from "@/components/portal/Shell";
 import {
   Button, ConfirmDialog, DataTable, EmptyState, FilterBar, FilteredStrip, RoleBadge, TableCard, errorDetail, filterReasons, useToast, type Column, type MenuItem,
 } from "@/components/kit";
+import { OFFLINE } from "@/lib/error-text";
 
 type UserRow = { id: string; email: string | null; displayName: string | null; isAdmin: boolean; isDeveloper: boolean; isApproved: boolean; createdAt: string | null; lastSignInAt: string | null };
 type Can = { approve: boolean; setAdmin: boolean; setDeveloper: boolean; passwordReset: boolean };
@@ -82,6 +83,8 @@ export default function AdminUsersPage() {
       const what = patch.isApproved ? "is approved" : patch.isAdmin === true ? "is now an Admin" : patch.isAdmin === false ? "is no longer an Admin" : patch.isDeveloper === true ? "is now a Developer" : patch.isDeveloper === false ? "is no longer a Developer" : "was updated";
       const undo: Patch = Object.fromEntries(Object.keys(patch).map((k) => [k, before[k as keyof Patch]]));
       toast.show({ tone: "success", title: `${nameOf(target)} ${what}`, body: "Takes effect within 10 seconds.", ...(undoable ? { action: { label: "Undo", onClick: () => void update({ ...target, ...patch }, undo, false) } } : {}) });
+    } catch {
+      toast.show({ tone: "danger", title: `Couldn't update ${nameOf(target)}`, body: OFFLINE });
     } finally { setBusy(null); }
   }
 

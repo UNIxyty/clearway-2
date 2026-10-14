@@ -34,6 +34,7 @@ import {
   hmZ,
   useToast,
 } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Flights — the Console's control page for the wall (approved design):
 // wall banner + show/close-on-wall, today's NOTAM check workflow, and the
@@ -115,7 +116,7 @@ function SendSection({ flight, touch = false }) {
       jobIdRef.current = payload.jobId;
       setJob(payload.job);
     } catch (err) {
-      setStartError(err instanceof Error ? err.message : String(err));
+      setStartError(errorText(err));
     } finally {
       setStarting(false);
     }
@@ -751,7 +752,7 @@ export default function FlightsPage() {
       setAircraft(payload.aircraft || []);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       if (!loadedRef.current) setAircraft([]);
     } finally {
       loadedRef.current = true;
@@ -848,7 +849,7 @@ export default function FlightsPage() {
         flash(`${flight.flightNo} is now on the wall`);
       }
     } catch (err) {
-      flash(err instanceof Error ? err.message : String(err), '#f87171');
+      flash(errorText(err), '#f87171');
     } finally {
       setBusyNid('');
     }

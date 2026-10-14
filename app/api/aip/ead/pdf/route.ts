@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { failure } from "@/lib/public-error";
+import { PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
@@ -108,11 +110,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("AIP PDF read failed:", e);
-    return NextResponse.json(
-      { error: "Failed to load PDF", detail: msg },
-      { status: 502 }
-    );
+    return failure(502, PDF_FAILED, { tag: "AIP-EAD-PDF", what: `AD 2 PDF for ${icao} failed`, detail: e });
   }
 }

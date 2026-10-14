@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { failure } from "@/lib/public-error";
+import { GEN_PDF_FAILED } from "@/lib/aip-sync-failure";
 import { createAsecnaFetch, asecnaFormattedLeafBasename, resolveAsecnaHtmlUrl, htmlUrlToPdfUrl } from "@/scripts/asecna/asecna-eaip-http.mjs";
 import { getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
@@ -104,7 +106,7 @@ export async function GET(request: NextRequest) {
       return pdfResponse(fromStorage, icao);
     }
     return NextResponse.json(
-      { error: "GEN 1.2 not available for this country in ASECNA menu" },
+      { error: "GEN 1.2 for this country is not published by ASECNA." },
       { status: 404 },
     );
   }
@@ -125,10 +127,7 @@ export async function GET(request: NextRequest) {
     if (fromStorage) {
       return pdfResponse(fromStorage, icao);
     }
-    return NextResponse.json(
-      { error: "Failed to download ASECNA GEN PDF", detail: `${res.status} ${res.statusText}` },
-      { status: 502 },
-    );
+    return failure(502, GEN_PDF_FAILED, { tag: "AIP-ASECNA-GEN-PDF", what: `ASECNA GEN PDF for ${icao} answered ${res.status} ${res.statusText}` });
   }
 
   const bytes = new Uint8Array(await res.arrayBuffer());
@@ -138,10 +137,10 @@ export async function GET(request: NextRequest) {
     if (fromStorage) {
       return pdfResponse(fromStorage, icao);
     }
-    return NextResponse.json(
-      { error: "Failed to download ASECNA GEN PDF", detail: !isValidPdfBytes(bytes) ? "Downloaded bytes are not a valid PDF." : `Stub PDF received (${bytes.length} bytes).` },
-      { status: 502 },
-    );
+    return failure(502, GEN_PDF_FAILED, {
+      tag: "AIP-ASECNA-GEN-PDF",
+      what: !isValidPdfBytes(bytes) ? `ASECNA GEN PDF for ${icao} is not a valid PDF` : `ASECNA GEN PDF for ${icao} is a stub (${bytes.length} bytes)`,
+    });
   }
   // Cache to storage so re-requests are served locally and triggerGenSync is not needed.
   const prefix = icao.slice(0, 2).toUpperCase();

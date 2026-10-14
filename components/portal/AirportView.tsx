@@ -29,6 +29,7 @@ import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import { USA_WEB_AIP_URL, isUsaAipIcao } from "@/lib/usa-aip";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
+import { ShownError, TRY_AGAIN, apiErrorText, shownText } from "@/lib/error-text";
 
 export type NotamItem = {
   location: string;
@@ -292,21 +293,18 @@ function isEadPlaceholder(airport: AIPAirport | null): boolean {
   return airport?.name === "EAD UNDEFINED";
 }
 
-/** User-visible AIP sync error; highlight OpenRouter insufficient credits (402). */
-function formatAipSyncError(data: { error?: string; detail?: string; code?: number }): string {
-  if (data.code === 402) {
-    return `Error 402 — Insufficient API credits. ${data.detail ?? "Add credits at https://openrouter.ai/settings/credits"}`;
-  }
-  const detail = String(data.detail || "");
-  if (/captcha-protected/i.test(detail) || /\[greece\]|\[netherlands\]|\[lithuania\]/i.test(detail)) {
-    return "Captcha verification required. Click Continue to open noVNC popup, complete captcha, then retry sync.";
-  }
-  const combined = `${data.error ?? ""} ${detail}`.toLowerCase();
-  if (combined.includes("not found in search results") || combined.includes("may not exist in ead")) {
-    return "This airport was not found in EAD. It may not be published in the civilian AIP for this AIRAC cycle.";
-  }
-  const base = (data.error ?? "Sync failed") + (data.detail ? `: ${data.detail}` : "");
-  return base;
+// What the page says when something fails. Only our own wording reaches the screen: these sentences, or the `error`
+// of the portal's own API (lib/aip-sync-failure.ts, the NOTAM and weather routes), which is written for a person. A
+// worker's `detail`, a response body or a browser exception is never shown.
+const AIP_FAILED_TEXT = `The AIP source did not send the document. ${TRY_AGAIN}`;
+const GEN_FAILED_TEXT = `GEN 1.2 could not be loaded. ${TRY_AGAIN}`;
+const PDF_FAILED_TEXT = `The PDF could not be loaded. ${TRY_AGAIN}`;
+const NOTAM_FAILED_TEXT = `The NOTAM service did not answer. ${TRY_AGAIN}`;
+const WEATHER_FAILED_TEXT = `The weather service did not answer. ${TRY_AGAIN}`;
+
+/** A failed AIP sync: the `error` our AIP routes send (credits, captcha and "not in EAD" are told apart there). */
+function formatAipSyncError(data: { error?: string }): string {
+  return apiErrorText(data, AIP_FAILED_TEXT);
 }
 
 const AIP_FIELD_LABELS: { key: keyof AIPAirport; section: string; label: string }[] = [
@@ -589,7 +587,7 @@ export default function AirportView({ icao }: { icao: string }) {
   const [airport, setAirport] = useState<AIPAirport | null>(null);
   const [aipEadSyncSteps, setAipEadSyncSteps] = useState<string[]>([]);
   const [, setError] = useState<string | null>(null);
-  const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; detail?: string; updatedAt?: string | null }>>({});
+  const [notamsCache, setNotamsCache] = useState<Record<string, { notams: NotamItem[]; error: string | null; updatedAt?: string | null }>>({});
   const [notamsLoadingIcao, setNotamsLoadingIcao] = useState<string | null>(null);
   const [notamsSyncingIcao, setNotamsSyncingIcao] = useState<string | null>(null);
   const [notamsSyncSteps, setNotamsSyncSteps] = useState<string[]>([]);
@@ -806,14 +804,14 @@ export default function AirportView({ icao }: { icao: string }) {
       );
       if (!res.ok || !data.popupUrl) {
         popup.close();
-        const msg = data.error || data.detail || "Failed to start noVNC captcha session.";
+        const msg = apiErrorText(data, "Failed to start noVNC captcha session.");
         setError(msg);
         return;
       }
       popup.location.href = buildCaptchaViewerUrl(country, String(data.popupUrl), String(data.sessionId || ""));
     } catch (err) {
       popup.close();
-      setError(err instanceof Error ? err.message : "Failed to start noVNC captcha session.");
+      setError(shownText(err, "Failed to start noVNC captcha session."));
     }
   }, []);
 
@@ -992,14 +990,14 @@ export default function AirportView({ icao }: { icao: string }) {
         reader.releaseLock();
       }
       if (!settled) {
-        fail("Sync stream ended without a result from the source.");
+        fail(`The source stopped answering before the document arrived. ${TRY_AGAIN}`);
       }
     } catch (err) {
       if (isAbortError(err)) {
         updateStage(icao, "aip", "cancelled", "AIP re-sync cancelled");
         return;
       }
-      fail(`Re-sync request failed: ${(err as Error | undefined)?.message ?? "network error"}`);
+      fail(shownText(err, AIP_FAILED_TEXT));
     } finally {
       finishRequest(`aip-resync-${icao}`, controller);
       resyncInFlightRef.current.delete(icao);
@@ -1062,15 +1060,12 @@ export default function AirportView({ icao }: { icao: string }) {
           cache: "no-store",
         });
         if (!pdfRes.ok) {
-          const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
-          throw new Error(data.detail || data.error || "Failed to load USA GEN PDF");
+          throw new ShownError(apiErrorText(await pdfRes.json().catch(() => ({})), GEN_FAILED_TEXT));
         }
         hand(await pdfRes.blob(), `${icao}_USA_GEN_1.2.pdf`);
         setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Ready." : "Download ready."]);
       } catch (err) {
-        setGenPdfDownloadError(
-          err instanceof Error ? err.message : "USA GEN PDF download failed",
-        );
+        setGenPdfDownloadError(shownText(err, GEN_FAILED_TEXT));
       } finally {
         setGenPdfDownloading(false);
         setGenSyncingPrefix(null);
@@ -1088,15 +1083,12 @@ export default function AirportView({ icao }: { icao: string }) {
           cache: "no-store",
         });
         if (!pdfRes.ok) {
-          const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
-          throw new Error(data.detail || data.error || "Failed to load scraper GEN PDF");
+          throw new ShownError(apiErrorText(await pdfRes.json().catch(() => ({})), GEN_FAILED_TEXT));
         }
         hand(await pdfRes.blob(), `${icao}_SCRAPER_GEN_1.2.pdf`);
         setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Ready." : "Download ready."]);
       } catch (err) {
-        setGenPdfDownloadError(
-          err instanceof Error ? err.message : "Scraper GEN PDF download failed",
-        );
+        setGenPdfDownloadError(shownText(err, GEN_FAILED_TEXT));
       } finally {
         setGenPdfDownloading(false);
         setGenSyncingPrefix(null);
@@ -1115,15 +1107,12 @@ export default function AirportView({ icao }: { icao: string }) {
           cache: "no-store",
         });
         if (!pdfRes.ok) {
-          const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
-          throw new Error(data.detail || data.error || "Failed to load ASECNA GEN PDF");
+          throw new ShownError(apiErrorText(await pdfRes.json().catch(() => ({})), GEN_FAILED_TEXT));
         }
         hand(await pdfRes.blob(), `${icao}_ASECNA_GEN_1.2.pdf`);
         setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Ready." : "Download ready."]);
       } catch (err) {
-        setGenPdfDownloadError(
-          err instanceof Error ? err.message : "ASECNA GEN PDF download failed",
-        );
+        setGenPdfDownloadError(shownText(err, GEN_FAILED_TEXT));
       } finally {
         setGenPdfDownloading(false);
         setGenSyncingPrefix(null);
@@ -1140,7 +1129,7 @@ export default function AirportView({ icao }: { icao: string }) {
       if (!genPdfExistsOnServer[prefix]) {
         const res = await fetch(`/api/aip/gen/sync?icao=${encodeURIComponent(icao)}&stream=1`, { cache: "no-store" });
         if (!res.ok || !res.body) {
-          throw new Error("GEN sync failed");
+          throw new ShownError(apiErrorText(await res.json().catch(() => ({})), GEN_FAILED_TEXT));
         }
         const reader = res.body.getReader();
         const dec = new TextDecoder();
@@ -1164,13 +1153,13 @@ export default function AirportView({ icao }: { icao: string }) {
                   setGenPdfExistsOnServer((prev) => ({ ...prev, [prefix]: true }));
                 }
                 if (data.error) {
-                  throw new Error(data.error);
+                  throw new ShownError(data.error);
                 }
                 if (data.done) {
                   setGenPdfExistsOnServer((prev) => ({ ...prev, [prefix]: true }));
                 }
               } catch (e) {
-                if (e instanceof Error) throw e;
+                if (e instanceof Error) throw e instanceof ShownError ? e : new ShownError(GEN_FAILED_TEXT);
               }
             }
           }
@@ -1182,13 +1171,12 @@ export default function AirportView({ icao }: { icao: string }) {
       setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Opening the GEN PDF…" : "Preparing GEN PDF download…"]);
       const pdfRes = await fetch(`/api/aip/gen/pdf?icao=${encodeURIComponent(icao)}`, { cache: "no-store" });
       if (!pdfRes.ok) {
-        const data = await pdfRes.json().catch(() => ({} as { detail?: string; error?: string }));
-        throw new Error(data.detail || data.error || "Failed to load GEN PDF");
+        throw new ShownError(apiErrorText(await pdfRes.json().catch(() => ({})), GEN_FAILED_TEXT));
       }
       hand(await pdfRes.blob(), `${prefix}_GEN_1.2.pdf`);
       setGenSyncSteps((prev) => [...prev, deliver === "view" ? "Ready." : "Download ready."]);
     } catch (err) {
-      setGenPdfDownloadError(err instanceof Error ? err.message : "GEN PDF download failed");
+      setGenPdfDownloadError(shownText(err, GEN_FAILED_TEXT));
     } finally {
       setGenPdfDownloading(false);
       setGenSyncingPrefix(null);
@@ -1398,7 +1386,7 @@ export default function AirportView({ icao }: { icao: string }) {
           updateStage(icao, "aip", "cancelled", "AIP sync cancelled");
           return;
         }
-        setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: `Failed to load AIP: ${err?.message ?? "network error"}`, updatedAt: null } }));
+        setAipEadCache((c) => ({ ...c, [icao]: { airport: null, error: shownText(err, AIP_FAILED_TEXT), updatedAt: null } }));
         setAipEadSyncRequestedIcao((prev) => (prev === icao ? null : prev));
         updateStage(icao, "aip", "error", "AIP sync failed");
       })
@@ -1543,10 +1531,8 @@ export default function AirportView({ icao }: { icao: string }) {
       fetch(url, { cache: "no-store", signal: controller.signal })
         .then(async (res) => {
           if (!res.ok || !res.body) {
-            const text = await res.text();
-            const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
-            const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? (text || "Sync failed"));
-            setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: msg, detail: data.detail, updatedAt: null } }));
+            const msg = apiErrorText(await res.json().catch(() => ({})), NOTAM_FAILED_TEXT);
+            setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: msg, updatedAt: null } }));
             return;
           }
           const reader = res.body.getReader();
@@ -1577,7 +1563,7 @@ export default function AirportView({ icao }: { icao: string }) {
                   } else if (data.error) {
                     setNotamsCache((c) => ({
                       ...c,
-                      [icao]: { notams: [], error: data.error + (data.detail ? ": " + data.detail : ""), updatedAt: null },
+                      [icao]: { notams: [], error: String(data.error), updatedAt: null },
                     }));
                     updateStage(icao, "notam", "error", data.error);
                     return;
@@ -1596,7 +1582,7 @@ export default function AirportView({ icao }: { icao: string }) {
           }
           setNotamsCache((c) => ({
             ...c,
-            [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"}`, updatedAt: null },
+            [icao]: { notams: [], error: shownText(err, NOTAM_FAILED_TEXT), updatedAt: null },
           }));
           updateStage(icao, "notam", "error", "NOTAM sync failed");
         })
@@ -1614,11 +1600,11 @@ export default function AirportView({ icao }: { icao: string }) {
     const url = `/api/notams?icao=${encodeURIComponent(icao)}`;
     const controller = beginRequest(`notam-${icao}`);
     fetch(url, { signal: controller.signal })
-      .then((res) => res.json())
+      .then((res) => res.json().catch(() => ({ error: NOTAM_FAILED_TEXT })))
       .then((data) => {
         if (data.error) {
-          const msg = data.detail ? `${data.error}: ${data.detail}` : (data.error ?? "Failed");
-          setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: msg, detail: data.detail, updatedAt: null } }));
+          const msg = apiErrorText(data, NOTAM_FAILED_TEXT);
+          setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: msg, updatedAt: null } }));
           updateStage(icao, "notam", "error", msg);
         } else {
           setNotamsCache((c) => ({ ...c, [icao]: { notams: data.notams ?? [], error: null, updatedAt: data.updatedAt ?? null } }));
@@ -1630,7 +1616,7 @@ export default function AirportView({ icao }: { icao: string }) {
           updateStage(icao, "notam", "cancelled", "NOTAM load cancelled");
           return;
         }
-        setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: `Failed to load NOTAMs: ${err?.message ?? "network or server error"}`, updatedAt: null } }));
+        setNotamsCache((c) => ({ ...c, [icao]: { notams: [], error: shownText(err, NOTAM_FAILED_TEXT), updatedAt: null } }));
         updateStage(icao, "notam", "error", "NOTAM load failed");
       })
       .finally(() => {
@@ -1662,9 +1648,7 @@ export default function AirportView({ icao }: { icao: string }) {
       fetch(url, { cache: "no-store", signal: controller.signal })
         .then(async (res) => {
           if (!res.ok || !res.body) {
-            const text = await res.text();
-            const data = (() => { try { return JSON.parse(text); } catch { return {}; } })();
-            const msg = data.detail ? `${data.error ?? "Sync failed"}: ${data.detail}` : (data.error ?? (text || "Sync failed"));
+            const msg = apiErrorText(await res.json().catch(() => ({})), WEATHER_FAILED_TEXT);
             setWeatherCache((c) => ({ ...c, [icao]: { weather: "", error: msg, updatedAt: null } }));
             return;
           }
@@ -1696,7 +1680,7 @@ export default function AirportView({ icao }: { icao: string }) {
                   } else if (data.error) {
                     setWeatherCache((c) => ({
                       ...c,
-                      [icao]: { weather: "", error: data.error + (data.detail ? ": " + data.detail : ""), updatedAt: null },
+                      [icao]: { weather: "", error: String(data.error), updatedAt: null },
                     }));
                     updateStage(icao, "weather", "error", data.error);
                     return;
@@ -1715,7 +1699,7 @@ export default function AirportView({ icao }: { icao: string }) {
           }
           setWeatherCache((c) => ({
             ...c,
-            [icao]: { weather: "", error: `Failed to load weather: ${err?.message ?? "network or server error"}`, updatedAt: null },
+            [icao]: { weather: "", error: shownText(err, WEATHER_FAILED_TEXT), updatedAt: null },
           }));
           updateStage(icao, "weather", "error", "Weather sync failed");
         })
@@ -1731,11 +1715,12 @@ export default function AirportView({ icao }: { icao: string }) {
 
     const controller = beginRequest(`weather-${icao}`);
     fetch(`/api/weather?icao=${encodeURIComponent(icao)}`, { cache: "no-store", signal: controller.signal })
-      .then((res) => res.json())
+      .then((res) => res.json().catch(() => ({ error: WEATHER_FAILED_TEXT })))
       .then((data) => {
         if (data.error) {
-          setWeatherCache((c) => ({ ...c, [icao]: { weather: "", error: data.error, updatedAt: null } }));
-          updateStage(icao, "weather", "error", data.error);
+          const msg = apiErrorText(data, WEATHER_FAILED_TEXT);
+          setWeatherCache((c) => ({ ...c, [icao]: { weather: "", error: msg, updatedAt: null } }));
+          updateStage(icao, "weather", "error", msg);
         } else {
           setWeatherCache((c) => ({ ...c, [icao]: { weather: data.weather ?? "", error: null, updatedAt: data.updatedAt ?? null } }));
           updateStage(icao, "weather", "done", "Weather loaded");
@@ -1746,7 +1731,7 @@ export default function AirportView({ icao }: { icao: string }) {
           updateStage(icao, "weather", "cancelled", "Weather load cancelled");
           return;
         }
-        setWeatherCache((c) => ({ ...c, [icao]: { weather: "", error: `Failed to load weather: ${err?.message ?? "network or server error"}`, updatedAt: null } }));
+        setWeatherCache((c) => ({ ...c, [icao]: { weather: "", error: shownText(err, WEATHER_FAILED_TEXT), updatedAt: null } }));
         updateStage(icao, "weather", "error", "Weather load failed");
       })
       .finally(() => {
@@ -1822,8 +1807,7 @@ export default function AirportView({ icao }: { icao: string }) {
       const downloadStart = Date.now();
       const res = await fetch(`${pdfRoute}?icao=${encodeURIComponent(icao)}&download=1`);
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        const msg = data.detail || data.error || "Failed to load PDF";
+        const msg = apiErrorText(await res.json().catch(() => ({})), PDF_FAILED_TEXT);
         pushPdfStep(`Failed: ${msg}`);
         setPdfDownloadError(msg);
         return;
@@ -1841,7 +1825,7 @@ export default function AirportView({ icao }: { icao: string }) {
       pushPdfStep(`Download started (took ${fmtEstimate(Date.now() - downloadStart)}).`);
     } catch (err) {
       pushPdfStep("Failed to download PDF.");
-      setPdfDownloadError(err instanceof Error ? err.message : "Failed to load PDF");
+      setPdfDownloadError(shownText(err, PDF_FAILED_TEXT));
     } finally {
       if (slowHintTimer != null) window.clearTimeout(slowHintTimer);
       setPdfDownloading(false);

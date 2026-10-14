@@ -5,12 +5,17 @@ import {
   isValidEmail,
   normalizeEmail,
 } from "@/lib/auth-email-flow-utils.mjs";
+import { failure, logFailure } from "@/lib/public-error";
+import { TRY_AGAIN_SIGNED_OUT } from "@/lib/error-text";
 
 export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
-    return NextResponse.json({ error: "Missing Supabase config" }, { status: 500 });
+    return failure(500, `The reset email could not be sent. ${TRY_AGAIN_SIGNED_OUT}`, {
+      tag: "AUTH-FORGOT",
+      what: "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY not set",
+    });
   }
 
   const requestUrl = new URL(request.url);
@@ -30,6 +35,7 @@ export async function POST(request: Request) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
   if (error) {
     // Keep response generic to avoid email enumeration.
+    logFailure("AUTH-FORGOT", "resetPasswordForEmail failed", error.message);
     return NextResponse.json({
       ok: true,
       sent: false,

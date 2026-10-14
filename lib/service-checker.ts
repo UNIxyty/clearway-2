@@ -16,6 +16,7 @@ import { readdir, stat } from "fs/promises";
 import { STORAGE_ROOT, readFile as readStoredFile, saveFile } from "@/lib/storage";
 import { internalDebugAuthHeaders } from "@/lib/internal-debug-auth";
 import { logError } from "@/lib/utils/logger";
+import { logFailure } from "@/lib/public-error";
 
 export type CheckState = "operational" | "degraded" | "down" | "unknown";
 
@@ -33,7 +34,12 @@ export type ServiceChecksSnapshot = {
   lastSweep: string | null;
 };
 
+// `lastError` is shown on the dashboard (Service monitors) and in its tooltip: it is a short reason in our words
+// ("Answered 502", "Did not answer in 15 s", "Not set up on this server"). What the service actually said — a body, an
+// exception, a setting name — is logged under [SERVICE-CHECKS], never stored here.
 type Outcome = { state: CheckState; error?: string | null };
+
+const NOT_SET_UP = "Not set up on this server";
 
 type CheckDef = {
   id: string;
@@ -128,6 +134,13 @@ function errorMessage(e: unknown): string {
   return String(e);
 }
 
+/** A probe that got no answer; `reason` is the person-facing part, the message (with the URL) is for the log. */
+class ProbeError extends Error {
+  constructor(readonly reason: string, message: string) {
+    super(message);
+  }
+}
+
 async function getJson(url: string, headers: Record<string, string> = {}): Promise<ProbeResponse> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
@@ -146,9 +159,9 @@ async function getJson(url: string, headers: Record<string, string> = {}): Promi
     // the next sweep re-resolves (e.g. container restart changed the IP).
     if (resolvedPortalBase && url.startsWith(resolvedPortalBase)) resetPortalBaseCache();
     if (controller.signal.aborted) {
-      throw new Error(`timed out after ${PROBE_TIMEOUT_MS}ms: ${url}`);
+      throw new ProbeError(`Did not answer in ${Math.round(PROBE_TIMEOUT_MS / 1000)} s`, `timed out after ${PROBE_TIMEOUT_MS}ms: ${url}`);
     }
-    throw new Error(`fetch failed for ${url}: ${errorMessage(e)}`);
+    throw new ProbeError("Did not answer", `fetch failed for ${url}: ${errorMessage(e)}`);
   } finally {
     clearTimeout(timer);
   }
@@ -163,8 +176,20 @@ function snippet(r: ProbeResponse): string {
 }
 
 const OK: Outcome = { state: "operational", error: null };
-function downBecause(detail: string): Outcome {
-  return { state: "down", error: detail };
+
+/** Our short reason for a response that is not the expected one. */
+function answered(r: ProbeResponse): string {
+  return r.status === 200 ? "Answered, but not as expected" : `Answered ${r.status}`;
+}
+
+/** A failed check: `reason` is shown, `detail` (what the service said) is logged. */
+function failed(state: CheckState, reason: string, detail?: string): Outcome {
+  if (detail) logFailure("SERVICE-CHECKS", reason, detail);
+  return { state, error: reason };
+}
+
+function downBecause(r: ProbeResponse, detail: string): Outcome {
+  return failed("down", answered(r), `${detail} (HTTP ${r.status}): ${snippet(r)}`);
 }
 
 /** Portal data APIs are session-authed; internally we use the debug-runner
@@ -176,12 +201,11 @@ function probeAuthHeaders(): Record<string, string> {
 }
 
 function unauthenticatedOutcome(r: ProbeResponse): Outcome {
-  return {
-    state: "unknown",
-    error:
-      `probe not authorized (HTTP ${r.status}) — set DEBUG_RUNNER_INTERNAL_SECRET so the checker ` +
-      `can call session-authed portal APIs server-to-server`,
-  };
+  return failed(
+    "unknown",
+    NOT_SET_UP,
+    `probe not authorized (HTTP ${r.status}) — set DEBUG_RUNNER_INTERNAL_SECRET so the checker can call session-authed portal APIs server-to-server`,
+  );
 }
 
 // ── Individual checks ───────────────────────────────────────────────────────
@@ -190,7 +214,7 @@ async function checkPortalHealth(): Promise<Outcome> {
   const r = await getJson(`${await portalBase()}/api/health`);
   const body = asRecord(r.json);
   if (r.status === 200 && body?.ok === true && body.service === "portal") return OK;
-  return downBecause(`unexpected /api/health response (HTTP ${r.status}): ${snippet(r)}`);
+  return downBecause(r, "unexpected portal /api/health response");
 }
 
 async function checkAipResolve(): Promise<Outcome> {
@@ -199,7 +223,7 @@ async function checkAipResolve(): Promise<Outcome> {
   const body = asRecord(r.json);
   // Proof of function: the resolver must actually name a source for EVRA.
   if (r.status === 200 && typeof body?.source === "string" && body.source.length > 0) return OK;
-  return downBecause(`resolve did not return a source (HTTP ${r.status}): ${snippet(r)}`);
+  return downBecause(r, "resolve did not return a source");
 }
 
 async function checkNotamsCachedRead(): Promise<Outcome> {
@@ -207,7 +231,7 @@ async function checkNotamsCachedRead(): Promise<Outcome> {
   if (r.status === 401 || r.status === 403) return unauthenticatedOutcome(r);
   const body = asRecord(r.json);
   if (r.status === 200 && body?.icao === PROBE_ICAO && Array.isArray(body.notams)) return OK;
-  return downBecause(`unexpected NOTAM response (HTTP ${r.status}): ${snippet(r)}`);
+  return downBecause(r, "unexpected NOTAM response");
 }
 
 async function checkWeatherRead(): Promise<Outcome> {
@@ -215,7 +239,7 @@ async function checkWeatherRead(): Promise<Outcome> {
   if (r.status === 401 || r.status === 403) return unauthenticatedOutcome(r);
   const body = asRecord(r.json);
   if (r.status === 200 && body?.icao === PROBE_ICAO && typeof body.weather === "string") return OK;
-  return downBecause(`unexpected weather response (HTTP ${r.status}): ${snippet(r)}`);
+  return downBecause(r, "unexpected weather response");
 }
 
 function makeWorkerHealthCheck(base: () => string, expectedService: string): () => Promise<Outcome> {
@@ -226,9 +250,9 @@ function makeWorkerHealthCheck(base: () => string, expectedService: string): () 
     // A 404 here means an old worker image without the /health route — the
     // process answers but we cannot prove the deployed version, hence unknown.
     if (r.status === 404) {
-      return { state: "unknown", error: `worker answered but has no /health route (old image?): HTTP 404` };
+      return failed("unknown", "Answered, but its version cannot be checked", `${expectedService}: no /health route (old image?): HTTP 404`);
     }
-    return downBecause(`unexpected /health response (HTTP ${r.status}): ${snippet(r)}`);
+    return downBecause(r, `unexpected ${expectedService} /health response`);
   };
 }
 
@@ -236,7 +260,7 @@ async function checkAgentHealth(): Promise<Outcome> {
   const r = await getJson(`${agentBase()}/api/health`);
   const body = asRecord(r.json);
   if (r.status !== 200 || body?.ok !== true || body.service !== "agent") {
-    return downBecause(`unexpected /api/health response (HTTP ${r.status}): ${snippet(r)}`);
+    return downBecause(r, "unexpected agent /api/health response");
   }
   // The agent answering is not the same as the agent being usable: with auth or
   // the Supabase store misconfigured it fails closed and every request is
@@ -247,7 +271,7 @@ async function checkAgentHealth(): Promise<Outcome> {
     body.store === "misconfigured" ? "Supabase store" : null,
   ].filter(Boolean);
   if (broken.length > 0) {
-    return { state: "degraded", error: `agent is up but ${broken.join(" and ")} misconfigured — all requests fail closed` };
+    return failed("degraded", "Running, but turns every request away (a set-up problem)", `agent is up but ${broken.join(" and ")} misconfigured — all requests fail closed`);
   }
   return OK;
 }
@@ -258,16 +282,17 @@ async function checkWallHealth(): Promise<Outcome> {
   // The wall answers unknown /api/* paths with an empty {} 200 — the
   // distinctive service field is what actually proves the real route exists.
   if (r.status === 200 && body?.ok === true && body.service === "digital-wall") return OK;
-  return downBecause(`unexpected /api/health response (HTTP ${r.status}): ${snippet(r)}`);
+  return downBecause(r, "unexpected wall /api/health response");
 }
 
 function leonOutcomeFromStatus(st: Record<string, unknown>): Outcome {
   if (st.configured === false) {
-    return { state: "degraded", error: "Leon sync is not configured on the wall backend" };
+    return failed("degraded", NOT_SET_UP, "Leon sync is not configured on the wall backend");
   }
   if (st.healthy === false) {
+    // The wall's lastError is Leon's own response; it goes to the log.
     const detail = typeof st.lastError === "string" && st.lastError ? `: ${st.lastError}` : "";
-    return { state: "degraded", error: `Leon sync reports unhealthy${detail}` };
+    return failed("degraded", "Leon sync is failing", `Leon sync reports unhealthy${detail}`);
   }
   return OK;
 }
@@ -277,7 +302,7 @@ async function checkLeonFeed(): Promise<Outcome> {
   if (r.status === 200) {
     const body = asRecord(r.json);
     if (body && ("healthy" in body || "configured" in body)) return leonOutcomeFromStatus(body);
-    return downBecause(`sync-status returned an unexpected shape: ${snippet(r)}`);
+    return downBecause(r, "sync-status returned an unexpected shape");
   }
   if (r.status === 401 || r.status === 403) {
     // sync-status is session-gated in production; the wall's /api/health
@@ -285,9 +310,9 @@ async function checkLeonFeed(): Promise<Outcome> {
     const h = await getJson(`${wallBase()}/api/health`);
     const leon = asRecord(asRecord(h.json)?.leon);
     if (h.status === 200 && leon) return leonOutcomeFromStatus(leon);
-    return downBecause(`sync-status HTTP ${r.status} and health fallback failed (HTTP ${h.status}): ${snippet(h)}`);
+    return downBecause(h, `sync-status HTTP ${r.status} and health fallback failed`);
   }
-  return downBecause(`unexpected sync-status response (HTTP ${r.status}): ${snippet(r)}`);
+  return downBecause(r, "unexpected sync-status response");
 }
 
 /** External-dependency freshness: age of the newest cached file the external
@@ -299,7 +324,7 @@ function makeFreshnessCheck(relDir: string, sourceLabel: string): () => Promise<
     try {
       names = await readdir(dir);
     } catch (e) {
-      return { state: "unknown", error: `cannot read ${dir}: ${errorMessage(e)}` };
+      return failed("unknown", "The cache could not be read", `cannot read ${dir}: ${errorMessage(e)}`);
     }
     let newestMs: number | null = null;
     for (const name of names) {
@@ -311,14 +336,14 @@ function makeFreshnessCheck(relDir: string, sourceLabel: string): () => Promise<
       }
     }
     if (newestMs === null) {
-      return { state: "unknown", error: `no cached ${sourceLabel} files under ${relDir}/ yet` };
+      return { state: "unknown", error: "No cached files yet" };
     }
     const ageMs = Date.now() - newestMs;
     if (ageMs > FRESHNESS_DEGRADED_MS) {
       const hours = Math.round(ageMs / 3_600_000);
       return {
         state: "degraded",
-        error: `newest ${sourceLabel} cache file is ~${hours}h old (threshold 24h) — syncs may be failing upstream`,
+        error: `Newest ${sourceLabel} file is about ${hours} h old. Syncs may be failing.`,
       };
     }
     return OK;
@@ -374,10 +399,13 @@ async function loadPersisted(s: CheckerState): Promise<void> {
   try {
     const raw = (await readStoredFile(RESULTS_KEY))?.toString("utf8");
     if (!raw) return;
-    const data = JSON.parse(raw) as { lastSweep?: string | null; checks?: ServiceCheck[] };
+    const data = JSON.parse(raw) as { version?: number; lastSweep?: string | null; checks?: ServiceCheck[] };
     if (Array.isArray(data.checks)) {
       for (const check of data.checks) {
-        if (check && typeof check.id === "string") s.results.set(check.id, check);
+        if (!check || typeof check.id !== "string") continue;
+        // Results saved before version 2 kept the raw probe error (a body snippet, a URL); they are not shown.
+        if (data.version !== 2 && check.lastError) check.lastError = "Waiting for the next check";
+        s.results.set(check.id, check);
       }
     }
     if (typeof data.lastSweep === "string") s.lastSweep = data.lastSweep;
@@ -388,7 +416,7 @@ async function loadPersisted(s: CheckerState): Promise<void> {
 
 async function persist(s: CheckerState): Promise<void> {
   try {
-    await saveFile(RESULTS_KEY, JSON.stringify({ version: 1, lastSweep: s.lastSweep, checks: snapshotChecks(s) }, null, 2));
+    await saveFile(RESULTS_KEY, JSON.stringify({ version: 2, lastSweep: s.lastSweep, checks: snapshotChecks(s) }, null, 2));
   } catch (e) {
     // Storage may be absent in local dev (no /storage mount) — keep serving
     // from memory rather than failing the sweep.
@@ -417,7 +445,7 @@ async function runOne(s: CheckerState, def: CheckDef): Promise<void> {
   try {
     outcome = await def.run();
   } catch (e) {
-    outcome = { state: "down", error: errorMessage(e) };
+    outcome = failed("down", e instanceof ProbeError ? e.reason : "The check failed", `${def.id}: ${errorMessage(e)}`);
   }
   s.results.set(def.id, {
     id: def.id,

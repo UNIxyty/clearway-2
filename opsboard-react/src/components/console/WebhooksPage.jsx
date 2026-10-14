@@ -16,6 +16,7 @@ import {
   Toggle,
   useToast,
 } from './ui';
+import { errorText } from '../../services/errorText';
 
 // Webhooks — Leon push subscriptions per operator (Phase 2c). Landing /
 // cancellation / schedule events push from Leon to the wall backend, which
@@ -77,7 +78,7 @@ function TriggerLogOverlay({ oprId, event, onClose }) {
   useEffect(() => {
     fetchWebhookLog(oprId, event)
       .then((p) => setEntries(p.entries || []))
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err) => setError(errorText(err)));
   }, [oprId, event]);
 
   const ACTION_STYLE = {
@@ -163,7 +164,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
       flash(`${enabled ? 'Registered' : 'Removed'} ${event} for ${oprId}`, enabled ? '#4ade80' : '#f87171');
       await onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
       await onChanged();
     } finally {
       setBusyEvent('');
@@ -179,7 +180,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
       flash(errors.length === 0 ? `Re-registered all enabled events for ${oprId}` : `${oprId}: ${errors.length} event(s) failed — see card`, errors.length === 0 ? '#4ade80' : '#f87171');
       await onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setBusyAll(false);
     }
@@ -297,7 +298,7 @@ export default function WebhooksPage() {
       setData(payload);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorText(err));
     } finally {
       setLoading(false);
       setRefreshing(false);

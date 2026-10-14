@@ -5,6 +5,7 @@
 // outbox (replies saved on the device, resent with a dedupe clientKey).
 
 import type { HelpBlock, HelpContext, HelpStreamEvent, HelpThread } from "@/lib/help/shared";
+import { OFFLINE, ShownError, TRY_AGAIN, apiErrorText, shownText } from "@/lib/error-text";
 
 export type ThreadWithMeta = HelpThread & { preview: string; unread: number };
 
@@ -57,10 +58,21 @@ export function collectClientContext(page?: string): Partial<HelpContext> {
 
 // ── API calls ───────────────────────────────────────────────────────────────
 
+// Every error these calls throw is a ShownError: a sentence for a person — the `error` of our own API, or our wording
+// for a failure with no answer. Pages show it with shownText(err, fallback).
+const NO_ANSWER = (status: number) => `The portal did not answer as expected (${status}). ${TRY_AGAIN}`;
+
+/** fetch, with a network failure turned into our wording (the browser's text, e.g. "Failed to fetch", is not shown). */
+function call(input: string, init?: RequestInit): Promise<Response> {
+  return fetch(input, init).catch(() => {
+    throw Object.assign(new ShownError(OFFLINE), { status: 0 });
+  });
+}
+
 async function json<T>(res: Response): Promise<T> {
   const body = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) {
-    const err = new Error(body?.error || `HTTP ${res.status}`) as Error & { status?: number; body?: unknown };
+    const err = new ShownError(apiErrorText(body, NO_ANSWER(res.status))) as Error & { status?: number; body?: unknown };
     err.status = res.status;
     err.body = body;
     throw err;
@@ -69,9 +81,9 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export const helpApi = {
-  listThreads: () => fetch("/api/help/threads", { cache: "no-store" }).then((r) => json<{ threads: ThreadWithMeta[] }>(r)),
+  listThreads: () => call("/api/help/threads", { cache: "no-store" }).then((r) => json<{ threads: ThreadWithMeta[] }>(r)),
   getThread: (ref: string) =>
-    fetch(`/api/help/threads/${encodeURIComponent(ref)}`, { cache: "no-store" }).then((r) =>
+    call(`/api/help/threads/${encodeURIComponent(ref)}`, { cache: "no-store" }).then((r) =>
       json<{
         thread: HelpThread; closed: boolean;
         messages: Array<{ id: string; author: "ops" | "developer"; authorName: string | null; blocks: HelpBlock[]; createdAt: string }>;
@@ -81,21 +93,21 @@ export const helpApi = {
       }>(r),
     ),
   createThread: (body: Record<string, unknown>) =>
-    fetch("/api/help/threads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    call("/api/help/threads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       .then((r) => json<{ thread: HelpThread; telegramNotified: boolean }>(r)),
   sendMessage: (threadId: string, body: Record<string, unknown>) =>
-    fetch(`/api/help/threads/${threadId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    call(`/api/help/threads/${threadId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       .then((r) => json<{ message: { id: string; createdAt: string } }>(r)),
   markRead: (threadId: string) =>
-    fetch(`/api/help/threads/${threadId}/read`, { method: "POST" }).catch(() => {}),
+    call(`/api/help/threads/${threadId}/read`, { method: "POST" }).catch(() => {}),
   presence: (threadId: string, action: string) =>
-    fetch(`/api/help/threads/${threadId}/presence`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) })
+    call(`/api/help/threads/${threadId}/presence`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) })
       .then((r) => json<{ thread: HelpThread }>(r)),
   setStatus: (threadId: string, status: string, reason?: string) =>
-    fetch(`/api/help/threads/${threadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, reason }) })
+    call(`/api/help/threads/${threadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, reason }) })
       .then((r) => json<{ thread: HelpThread }>(r)),
   guideSearch: (q: string) =>
-    fetch(`/api/help/guide-search?q=${encodeURIComponent(q)}`, { cache: "no-store" })
+    call(`/api/help/guide-search?q=${encodeURIComponent(q)}`, { cache: "no-store" })
       .then((r) => json<{ results: Array<{ title: string; snippet: string; href: string }> }>(r)),
 };
 
@@ -115,16 +127,16 @@ export function uploadAttachment(
         const body = JSON.parse(xhr.responseText || "{}");
         if (xhr.status === 201 && body.attachment) resolve(body.attachment);
         else {
-          const err = new Error(body.error || `HTTP ${xhr.status}`) as Error & { status?: number; body?: unknown };
+          const err = new ShownError(apiErrorText(body, `The file was not uploaded (${xhr.status}). ${TRY_AGAIN}`)) as Error & { status?: number; body?: unknown };
           err.status = xhr.status;
           err.body = body;
           reject(err);
         }
       } catch {
-        reject(new Error("Upload failed"));
+        reject(new ShownError(`The file was not uploaded. ${TRY_AGAIN}`));
       }
     };
-    xhr.onerror = () => reject(new Error("network"));
+    xhr.onerror = () => reject(Object.assign(new ShownError(OFFLINE), { status: 0 }));
     const form = new FormData();
     form.append("file", file);
     xhr.send(form);
@@ -188,7 +200,7 @@ export async function flushOutbox(threadId?: string): Promise<{ sent: number; fa
       const found = out.find((i) => i.clientKey === item.clientKey);
       if (found) {
         found.lastTriedAt = new Date().toISOString();
-        found.lastError = error instanceof Error ? error.message : "failed";
+        found.lastError = shownText(error, "failed");
         // A 4xx means the server refused it — keep it visible as not-delivered,
         // do not silently retry forever.
         writeOutbox(out);

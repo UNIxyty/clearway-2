@@ -20,6 +20,7 @@
 
 import crypto from "node:crypto";
 import { JsonFileStore } from "./json-store.mjs";
+import { PublicError } from "./public-error.mjs";
 
 const PENDING_TTL_MS = 15 * 60 * 1000;
 const LAST_SEEN_WRITE_THROTTLE_MS = 60 * 1000;
@@ -67,7 +68,7 @@ async function withState(fn) {
 /** An unregistered display announces itself; re-announcing refreshes the code TTL. */
 export async function announceDevice(deviceId, meta = {}) {
   if (!/^[a-zA-Z0-9_-]{8,64}$/.test(String(deviceId || ""))) {
-    throw new Error("deviceId must be 8-64 url-safe characters.");
+    throw new PublicError("This screen has no valid ID. Reload the page.");
   }
   let out = null;
   await withState((state) => {
@@ -88,7 +89,7 @@ export async function announceDevice(deviceId, meta = {}) {
     } else if (!d) {
       // Public endpoint — cap the pending pool so it cannot be flooded.
       const pendingCount = state.devices.filter((x) => x.status === "pending").length;
-      if (pendingCount >= 20) throw new Error("Too many pending device requests.");
+      if (pendingCount >= 20) throw new PublicError("Too many screens are waiting for approval. Approve or remove some in the console, then try again.");
       d = {
         deviceId,
         status: "pending",
@@ -139,7 +140,7 @@ export async function approveDevice(deviceId, name, byUser) {
   let out = null;
   await withState((state) => {
     const d = state.devices.find((x) => x.deviceId === deviceId);
-    if (!d || d.status !== "pending") throw new Error("No pending request for that device.");
+    if (!d || d.status !== "pending") throw new PublicError("No pending request for that device.");
     const token = crypto.randomBytes(32).toString("hex");
     d.status = "approved";
     d.name = String(name || "").trim().slice(0, 60) || `Display ${d.code}`;
@@ -159,7 +160,7 @@ export async function revokeDevice(deviceId, byUser) {
   let out = null;
   await withState((state) => {
     const d = state.devices.find((x) => x.deviceId === deviceId);
-    if (!d) throw new Error("Unknown device.");
+    if (!d) throw new PublicError("Unknown device.");
     d.status = "revoked";
     d.revokedAt = nowIso();
     d.revokedBy = byUser || "unknown";

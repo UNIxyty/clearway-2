@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireDeveloper } from "@/lib/admin-auth";
 import { auditAgent, getKillSwitch, setKillSwitch } from "@/lib/agent/store";
 import { requirePermission } from "@/lib/permissions/server";
+import { TRY_AGAIN, failure } from "@/lib/public-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,9 +47,6 @@ export async function PUT(request: NextRequest) {
     });
     return NextResponse.json({ ok: true, killSwitch });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update the kill switch." },
-      { status: 500 }
-    );
+    return failure(500, `The agent switch was not changed. ${TRY_AGAIN}`, { tag: "AGENT-KILL-SWITCH", what: "setKillSwitch failed", detail: error });
   }
 }

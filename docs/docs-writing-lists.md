@@ -77,8 +77,12 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 - **Ops Agent › Settings shows another person's email and spend** ("Heaviest user this month: …") and the raw model
   id (seen).
 
-- **Portal: `/api/aip/sync` has no sign-in check** (found while fixing error text, 2026-10-14; not changed). It asks
-  the AIP sync service to fetch a document for any ICAO code.
+- **Fixed 2026-10-14 (permission check, and the check that missed it).** **Portal: `GET /api/aip/sync` asked for no
+  permission.** The middleware asks for a session, so it was not open to the internet, but any signed-in account
+  could make the AIP sync service fetch and store a document. The permissions check only examined writes (POST, PUT,
+  PATCH, DELETE), so it could not see it, or 18 other reads that change something; nor, on the wall and the agent,
+  routes found through a match variable or written as one-liners (Leon's webhook was in neither the check nor the
+  catalogue). The check now examines all 311 endpoints; the 19 reads ask for portal.aip.fetch (or the help actions).
 
 ### Hard to undo, and the product does not ask first
 
@@ -203,6 +207,11 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
   (seen).
 
 ### Missing or not working
+
+- **Gap: no way to see that an email we sent failed to arrive.** Admin › Email logs was removed on 2026-10-14 (it had
+  shown nothing since 10 October). Inbound email failures show in Ops Agent › Mailbox; outbound ones show nowhere. If
+  an approval email to ops bounces, or a confirmation to a client never arrives, nothing in the portal says so. To
+  decide (Dmitry and the product owner): a real page fed by Resend's delivery events, or nothing. Nothing is built.
 
 - **Flight intake: people without mailbox access cannot read the email they review.** The Original email panel says
   "You don't have access to the agent mailbox". Mailbox access is admins plus a list; Flight intake is for everyone.

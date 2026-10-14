@@ -341,6 +341,14 @@ async function handleRequest(req, res) {
       const entry = endpointFor("agent", req.method, pathname);
       if (!entry) return sendJson(res, { ok: false, error: "forbidden", message: "This endpoint is not in the permissions list, so it is refused." }, 403);
       if (!entry.public && !(await can(user.agentRole, entry.action))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED, permission: entry.action }, 403);
+    } else {
+      // A read with an entry (one that changes something) is held to its action too.
+      const entry = endpointFor("agent", req.method, pathname);
+      if (entry && !entry.public && !entry.read) {
+        let allowed = false;
+        for (const a of entry.any ?? [entry.action]) if (await can(user.agentRole, a)) { allowed = true; break; }
+        if (!allowed) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED, permission: entry.action ?? entry.any }, 403);
+      }
     }
 
     // ── Flight intake and the agent mailbox (agent/lib/intake/api.mjs). Agent users only; the mailbox

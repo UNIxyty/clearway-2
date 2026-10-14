@@ -11,6 +11,8 @@ import {
 } from "@/scripts/asecna/asecna-eaip-http.mjs";
 import { failure, logFailure, publicEventStream } from "@/lib/public-error";
 import { AIP_FAILED, AIP_NOT_SET_UP, AIP_NO_ANSWER, aipSyncFailure } from "@/lib/aip-sync-failure";
+import { requirePermission } from "@/lib/permissions/server";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 /** Thrown when the sync worker answered with an error; its event is kept for choosing our wording. */
 class SyncWorkerError extends Error {
@@ -77,6 +79,10 @@ async function downloadAsecnaPdfToStorage(icao: string, countryCode: string) {
 }
 
 export async function GET(request: NextRequest) {
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requirePermission("portal.aip.fetch");
+    if ("error" in auth) return auth.error;
+  }
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const sync = request.nextUrl.searchParams.get("sync") === "1" || request.nextUrl.searchParams.get("sync") === "true";
   const stream = request.nextUrl.searchParams.get("stream") === "1" || request.nextUrl.searchParams.get("stream") === "true";

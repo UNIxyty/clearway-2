@@ -4,6 +4,8 @@ import { GEN_PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import { readPdfFromStorage } from "@/lib/aip-storage";
+import { requirePermission } from "@/lib/permissions/server";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const GEN_PDF_PREFIX = "aip/gen-pdf";
 const SCRAPER_GEN_PDF_PREFIX = "aip/scraper-gen-pdf";
@@ -75,6 +77,10 @@ async function triggerGenSync(icao: string): Promise<void> {
 }
 
 export async function GET(request: NextRequest) {
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requirePermission("portal.aip.fetch");
+    if ("error" in auth) return auth.error;
+  }
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const prefixParam = request.nextUrl.searchParams.get("prefix")?.trim().toUpperCase() ?? "";
 

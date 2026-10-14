@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { requireDeveloper } from "@/lib/admin-auth";
 import { HELP_STATUSES, type HelpStatus } from "@/lib/help/shared";
 import { deleteSavedReply, listSavedReplies, upsertSavedReply, bumpSavedReplyUse } from "@/lib/help/store";
 import { requirePermission } from "@/lib/permissions/server";
@@ -7,9 +6,9 @@ import { requirePermission } from "@/lib/permissions/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Saved replies — developer only, on every method. */
+/** Saved replies: listed for whoever answers threads or manages the replies (Developers by default). */
 export async function GET() {
-  const auth = await requireDeveloper();
+  const auth = await requirePermission(["portal.help.answer", "portal.help.saved-replies"]);
   if ("error" in auth) return auth.error;
   return NextResponse.json({ replies: await listSavedReplies() });
 }

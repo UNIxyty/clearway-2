@@ -3,6 +3,8 @@ import { failure } from "@/lib/public-error";
 import { GEN_PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage } from "@/lib/aip-storage";
+import { requirePermission } from "@/lib/permissions/server";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const GEN_PDF_PREFIX = "aip/scraper-gen-pdf";
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
@@ -28,6 +30,10 @@ async function triggerGenSync(icao: string): Promise<void> {
 }
 
 export async function GET(request: NextRequest) {
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requirePermission("portal.aip.fetch");
+    if ("error" in auth) return auth.error;
+  }
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
     return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });

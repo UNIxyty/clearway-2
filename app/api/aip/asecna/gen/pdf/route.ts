@@ -6,6 +6,8 @@ import { getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage } from "@/lib/aip-storage";
 import { saveFile } from "@/lib/storage";
+import { requirePermission } from "@/lib/permissions/server";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const GEN_PDF_PREFIX = "aip/gen-pdf";
 const SCRAPER_GEN_PDF_PREFIX = "aip/scraper-gen-pdf";
@@ -82,6 +84,10 @@ function pdfResponse(bytes: Uint8Array, icao: string) {
 }
 
 export async function GET(request: NextRequest) {
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requirePermission("portal.aip.fetch");
+    if ("error" in auth) return auth.error;
+  }
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
     return NextResponse.json({ error: "Valid 4-letter ICAO required" }, { status: 400 });

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 import { failure, logFailure, publicEventStream } from "@/lib/public-error";
 import { AIP_NOT_SET_UP, AIP_NO_ANSWER, GEN_FAILED, aipSyncFailure } from "@/lib/aip-sync-failure";
+import { requirePermission } from "@/lib/permissions/server";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
@@ -10,7 +10,7 @@ const SYNC_TIMEOUT_MS = 600_000;
 
 export async function GET(request: NextRequest) {
   if (!hasInternalDebugAccess(request)) {
-    const auth = await requireAuthenticatedUser();
+    const auth = await requirePermission("portal.aip.fetch");
     if ("error" in auth) return auth.error;
   }
 

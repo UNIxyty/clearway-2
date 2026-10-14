@@ -876,6 +876,15 @@ const server = http.createServer(async (req, res) => {
           sendJson(res, { ok: false, error: REFUSED, permission: entry.action }, 403);
           return;
         }
+      } else {
+        // A read with an entry (one that changes something) is held to its action too.
+        const entry = endpointFor("wall", req.method, pathname);
+        if (entry && !entry.public && !entry.read) {
+          const actions = entry.any ?? [entry.action];
+          let allowed = false;
+          for (const a of actions) if (await can(requestUser?.permRole, a)) { allowed = true; break; }
+          if (!allowed) { sendJson(res, { ok: false, error: REFUSED, permission: entry.action ?? entry.any }, 403); return; }
+        }
       }
     }
 

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/permissions/server";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const AIP_SYNC_URL = process.env.AIP_SYNC_URL?.replace(/\/$/, "");
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
 
 export async function GET(request: NextRequest) {
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requirePermission("portal.aip.fetch");
+    if ("error" in auth) return auth.error;
+  }
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const extract = request.nextUrl.searchParams.get("extract"); // "regex" or omit for AI
 

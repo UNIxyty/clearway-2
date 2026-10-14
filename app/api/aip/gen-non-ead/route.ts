@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJsonFromStorage, readPdfFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
+import { requirePermission } from "@/lib/permissions/server";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const PDF_PREFIX = "aip/non-ead-gen-pdf";
 const JSON_PREFIX = "aip/non-ead-gen";
@@ -145,6 +147,10 @@ async function saveJsonToStorage(prefix: string, payload: GenPayload) {
 }
 
 export async function GET(request: NextRequest) {
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requirePermission("portal.aip.fetch");
+    if ("error" in auth) return auth.error;
+  }
   const prefix = (
     request.nextUrl.searchParams.get("prefix")?.trim().toUpperCase() ||
     (request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "").slice(0, 2)

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
 import { readJsonFromStorage, readPdfFromStorage, storageObjectExists, writeJsonToStorage } from "@/lib/aip-storage";
 import { TRY_AGAIN, failure, logFailure } from "@/lib/public-error";
+import { requirePermission } from "@/lib/permissions/server";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 // What a person sees; the detail (a missing file path, a model provider's error) goes to the log.
 const noPdf = (icao: string) => `There is no stored AIP document for ${icao} yet. If you need it, report it from Help & support.`;
@@ -146,6 +148,10 @@ async function extractFromPdfBytes(icao: string, bytes: Uint8Array, signal?: Abo
 }
 
 export async function GET(request: NextRequest) {
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requirePermission("portal.aip.fetch");
+    if ("error" in auth) return auth.error;
+  }
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const sync = request.nextUrl.searchParams.get("sync") === "1" || request.nextUrl.searchParams.get("sync") === "true";
   const stream = request.nextUrl.searchParams.get("stream") === "1" || request.nextUrl.searchParams.get("stream") === "true";

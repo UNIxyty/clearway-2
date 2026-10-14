@@ -3,6 +3,8 @@ import { failure } from "@/lib/public-error";
 import { GEN_PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
+import { requirePermission } from "@/lib/permissions/server";
+import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const PRIMARY_GEN_KEY = "aip/usa-gen-pdf/GEN-1.2.pdf";
 const FALLBACK_GEN_KEYS = [
@@ -54,6 +56,10 @@ export async function HEAD() {
 }
 
 export async function GET(request: NextRequest) {
+  if (!hasInternalDebugAccess(request)) {
+    const auth = await requirePermission("portal.aip.fetch");
+    if ("error" in auth) return auth.error;
+  }
   const inline = useInline(request);
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() || "USA";
   const filename = buildPdfDownloadFilename("GEN12", icao);

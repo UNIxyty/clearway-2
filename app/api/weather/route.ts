@@ -4,9 +4,9 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { readFile as readStoredFile } from "@/lib/storage";
 import { logError } from "@/lib/utils/logger";
-import { requireAuthenticatedUser } from "@/lib/admin-auth";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 import { TRY_AGAIN, failure, logFailure, publicEventStream } from "@/lib/public-error";
+import { requirePermission } from "@/lib/permissions/server";
 
 // What a person sees when the weather cannot be fetched. The detail goes to the log.
 const NOT_SET_UP = "Getting new weather is not set up on this server. Report it from Help & support.";
@@ -57,7 +57,7 @@ async function getFromStorage(icao: string): Promise<WeatherPayload | null> {
 
 export async function GET(request: NextRequest) {
   if (!hasInternalDebugAccess(request)) {
-    const auth = await requireAuthenticatedUser();
+    const auth = await requirePermission("portal.aip.fetch");
     if ("error" in auth) return auth.error;
   }
 

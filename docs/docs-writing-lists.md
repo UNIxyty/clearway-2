@@ -37,6 +37,15 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
   `HelpComposer.tsx:253`). A Latvian number has 8 digits after +371; this has 7. Someone blocked at night is told to
   call a number that cannot ring. The docs do not repeat it.
 
+- **AIP documents go stale and nothing refreshes them** (found 2026-10-14 from the dashboard's EAD freshness monitor;
+  reported, not changed). The EAD sync is not failing — the AIP sync worker logged one fetch a day on six days since
+  about 30 September, never an error, the last on 12 October — it is not being asked. Nothing schedules a refresh: a
+  document is fetched only when someone presses Re-sync or opens an airport with no copy. Of the 159 cached EAD AD 2
+  documents, 80 were fetched more than 28 days ago (one AIRAC cycle) and 52 more than 90 days ago; only 2 record their
+  AIRAC cycle, so which are superseded cannot be told. A dispatcher sees "AIP fetched 02 Oct … · expires 03 Oct" and
+  a badge "Expired — refreshes on the next sync", but no sync is coming. The wall's Send AIP / GEN emails the cached
+  copy without its date. The monitor says "Syncs may be failing" when none were tried.
+
 ### Missing safeguard
 
 - **Flight intake: a renewed passport does not stop for a person.** Agreed rule: when the name and date of birth match
@@ -207,6 +216,13 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
   (seen).
 
 ### Missing or not working
+
+- **Two flight counts on the same screen** (found 2026-10-14; reported, not changed). The dashboard's Today block
+  counts flights in today's UTC date (00:00–23:59Z, hidden aircraft left out) and "Delayed" as flights whose state is
+  delayed right now — 7 and 0. The agent panel's greeting counts every flight on the wall's board, whose window is
+  2.5 h back to 24 h ahead, and calls "delayed" any flight that left late, even after it landed — 20 and 2 (one of the
+  two had already arrived). Neither is wrong arithmetic; they count different things, and the agent's words ("flights
+  today", "delayed") say the dashboard's.
 
 - **Gap: no way to see that an email we sent failed to arrive.** Admin › Email logs was removed on 2026-10-14 (it had
   shown nothing since 10 October). Inbound email failures show in Ops Agent › Mailbox; outbound ones show nowhere. If

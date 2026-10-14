@@ -1,5 +1,8 @@
 # Rig suites: current state
 
+What the rig cannot test at all — no Cloudflare, mail, real Leon, sync services, Telegram… — is in
+[docs/rig-vs-production.md](rig-vs-production.md). A green suite says nothing about those.
+
 **Rule (2026-10-11):** no suite stays red. A suite passes, or its failure is written here as a known bug with a date and
 a reason. "Same failures as before" is not a result. Update this list whenever a suite is touched or run.
 

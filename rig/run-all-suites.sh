@@ -80,4 +80,5 @@ run dark-audit $E rig/dark-audit.mjs
 run partB-check $E rig/partB-check.mjs
 run docs-browser $E rig/docs-browser.mjs
 run utc-browser $E rig/utc-browser-check.mjs
+run fixes/service-status-unsaved $E rig/fixes/service-status-unsaved.mjs
 echo DONE >> $LOG

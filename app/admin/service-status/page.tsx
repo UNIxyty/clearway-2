@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "lucide-react";
 import PortalShell from "@/components/portal/Shell";
 import { PCard, PButton, PChip, PTh } from "@/components/portal/ui";
@@ -25,6 +25,11 @@ export default function AdminCountryServiceStatusPage() {
   const [loading, setLoading] = useState(true);
   const [savingCountry, setSavingCountry] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Edits not saved yet, by country. The list reloads every 10 s; these are laid back over it until the row is saved,
+  // so a reload never throws away what someone chose or typed.
+  const [unsaved, setUnsaved] = useState<Record<string, Partial<EditableRow>>>({});
+  const unsavedRef = useRef(unsaved);
+  unsavedRef.current = unsaved;
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +45,7 @@ export default function AdminCountryServiceStatusPage() {
               state: row.state,
               note: row.note || "",
               runningDebug: row.runningDebug,
+              ...unsavedRef.current[row.country],
             }))
           );
           setError(null);
@@ -66,6 +72,7 @@ export default function AdminCountryServiceStatusPage() {
   }, [rows, query]);
 
   const updateRow = (country: string, patch: Partial<EditableRow>) => {
+    setUnsaved((prev) => ({ ...prev, [country]: { ...prev[country], ...patch } }));
     setRows((prev) =>
       prev.map((row) => (row.country === country ? { ...row, ...patch } : row))
     );
@@ -84,6 +91,7 @@ export default function AdminCountryServiceStatusPage() {
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setUnsaved((prev) => { const next = { ...prev }; delete next[row.country]; return next; });
       setError(null);
     } catch (e) {
       setError(`Failed to save ${row.country}: ${String((e as Error).message || e)}`);
@@ -193,7 +201,8 @@ export default function AdminCountryServiceStatusPage() {
                           <PChip color="var(--cw-text-muted)" bg="var(--cw-bg-hover)">Idle</PChip>
                         )}
                       </td>
-                      <td className="px-[18px] py-2.5 text-right">
+                      <td className="whitespace-nowrap px-[18px] py-2.5 text-right">
+                        {unsaved[row.country] && <span className="mr-2.5 text-[12px] font-semibold text-cw-warning-text">Not saved</span>}
                         <PButton
                           size="sm"
                           variant="primary"

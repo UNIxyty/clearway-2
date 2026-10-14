@@ -123,14 +123,13 @@ runs) · *deleted* (404) · *410 Gone* (retired).
 | `/admin/permissions` | Admin · Permissions | `permissions.manage` (admin, developer) | live | Grid of role × action, change log |
 | `/admin/maintenance` | Admin · Maintenance | locked card on 403; GET admin; turn on developer, turn off admin (permissions) | live | |
 | ~~`/admin/email-tools`~~ | — | — | deleted (Pick'em retired) | 404 |
-| `/admin/email/logs` | Admin · Email logs | admin (client `AdminRoute`) | live | Spinner in the content area while checking (`components/AdminRoute.tsx:26-31`); non-admins go to `/forbidden` |
 | `/admin/debug` | — URL only, on purpose (see the top) | developer (server) | live | Was in the nav twice and under Reports & Issues; removed 2026-10-11 |
 | `/admin/debug/raw` | — (link from debug run) | developer (server) | URL only | Without `?run=` it says no run is selected and links to the runner |
 | `/developer/components` | — URL only, on purpose (see the top) | developer (server) | live | The kit sheet; off the nav 2026-10-11 |
 | `/admin/service-status` | Admin · Service status editor | page ungated; API admin | live | Non-admin: shell + "HTTP 403" box |
 | `/admin/airports/deleted` | AIP & Documents · Hidden airports | **any signed-in user** | live | "Airports you hid"; also linked from the search browse panel |
 | ~~`/admin/playoffs/*`~~ | — | — | deleted | 404 |
-| `/admin/country-service-status`, `/admin/debug/email-logs` | — | — | redirect | `next.config.mjs:19-20` → `/admin/service-status`, `/admin/email/logs` (the page files were removed) |
+| `/admin/country-service-status` | — | — | redirect | `next.config.mjs:19` → `/admin/service-status` (the page file was removed) |
 | `/developer/inbox` | Developer · Inbox | developer | live | |
 | `/developer/saved-replies` | Developer · Saved replies | developer | live | |
 | `/developer/agent-access` | Developer · Agent access | developer | live | |
@@ -477,9 +476,6 @@ There is no invite or remove action.
 - Turn maintenance on (developers) or off (admins), with a message and ETA. Turning it off asks you to type OFF.
 - Clear all cached AIP PDFs (admin).
 
-**Email logs — `/admin/email/logs`**
-- Refresh. View only.
-
 **Debug runner — `/admin/debug`**
 - Start a run: quantity, concurrency, airports, EAD-only, country, steps.
 - Stop a run. Re-run failures. Re-run from saved failures.
@@ -543,7 +539,9 @@ There is no invite or remove action.
 - `/telegram/support`, `/intake/answer` — by design.
 - `/digital-wall/timeline/?debug=viewport`.
 - Redirect stubs nothing links to: `/status`, `/admin` (→ Users), `/developer/knowledge`, `/profile`,
-  `/admin/country-service-status`, `/admin/debug/email-logs`.
+  `/admin/country-service-status`.
+- Admin › Email logs was removed on 2026-10-14: nothing had written to `email_logs` since Pick'em was retired
+  (2026-10-10), so it could only show old rows. The dashboard's changelog still reads the table.
 
 **Nobody can reach at all (dead code)**
 - A local, git-ignored `digital-wall/dist/`.

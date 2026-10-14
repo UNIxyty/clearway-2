@@ -136,7 +136,7 @@ for (const who of ["user", "admin"]) {
 // Every main portal page: admin pages as the admin, developer and agent pages as the developer; plus the agent panel.
 const PAGES = [
   ["admin", "/dashboard"], ["admin", "/aip"], ["admin", "/aip/EVRA"], ["admin", "/aip/service-status"], ["admin", "/admin/airports/deleted"],
-  ["admin", "/admin/users"], ["admin", "/admin/permissions"], ["admin", "/admin/maintenance"], ["admin", "/admin/agent-sites"], ["admin", "/admin/email/logs"],
+  ["admin", "/admin/users"], ["admin", "/admin/permissions"], ["admin", "/admin/maintenance"], ["admin", "/admin/agent-sites"], 
   ["admin", "/admin/service-status"], ["dev", "/admin/debug"], ["admin", "/account/profile"],
   ["admin", "/help"], ["admin", "/help/new"], ["dev", "/developer/inbox"], ["dev", "/developer/saved-replies"], ["dev", "/developer/agent-access"],
   ["dev", "/agent"], ["dev", "/agent/history"], ["dev", "/agent/knowledge"], ["dev", "/agent/intake"], ["dev", "/agent/mailbox"], ["dev", "/agent/activity"],

@@ -17,7 +17,6 @@ const nextConfig = {
     return [
       { source: "/profile", destination: "/account/profile", permanent: false },
       { source: "/admin/country-service-status", destination: "/admin/service-status", permanent: false },
-      { source: "/admin/debug/email-logs", destination: "/admin/email/logs", permanent: false },
     ];
   },
   images: {

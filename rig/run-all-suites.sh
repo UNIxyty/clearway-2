@@ -85,4 +85,5 @@ run fixes/search-four-letters $E rig/fixes/search-four-letters.mjs
 run fixes/search-hidden $E rig/fixes/search-hidden.mjs
 run fixes/profile-email-failure $E rig/fixes/profile-email-failure.mjs
 run fixes/browse-several $E rig/fixes/browse-several.mjs
+run fixes/email-logs-removed $E rig/fixes/email-logs-removed.mjs
 echo DONE >> $LOG

@@ -129,6 +129,28 @@ fs.mkdirSync(`${tmp}/app/api/new-thing`, { recursive: true });
 fs.writeFileSync(`${tmp}/app/api/new-thing/route.ts`, "export async function POST() { return new Response('hi'); }\n");
 const portalProblems = checkPortal(tmp);
 ok(portalProblems.some((p) => p.includes("POST /api/new-thing")), "portal build check: a new route with no entry fails it", portalProblems[0]);
+// Since 2026-10-14 every endpoint is examined, not only writes: GET /api/aip/sync started AIP syncs for any signed-in
+// account and the check could not see it. A read that changes something needs an entry too; a plain read does not.
+fs.mkdirSync(`${tmp}/app/api/new-sync-read`, { recursive: true });
+fs.writeFileSync(`${tmp}/app/api/new-sync-read/route.ts`, "const U = process.env.AIP_SYNC_URL;\nexport async function GET() { await fetch(`${U}/sync`); return new Response('ok'); }\n");
+fs.mkdirSync(`${tmp}/app/api/new-db-read`, { recursive: true });
+fs.writeFileSync(`${tmp}/app/api/new-db-read/route.ts`, "async function store(db: any) { await db.from('x').insert({ a: 1 }); }\nexport async function GET() { await store(null); return new Response('ok'); }\n");
+fs.mkdirSync(`${tmp}/app/api/new-plain-read`, { recursive: true });
+fs.writeFileSync(`${tmp}/app/api/new-plain-read/route.ts`, "export async function GET() { return Response.json({ ok: true }); }\n");
+const readProblems = checkPortal(tmp);
+ok(readProblems.some((p) => p.includes("GET /api/new-sync-read") && p.includes("changes something")), "portal build check: a new GET that calls a sync service, with no entry, fails it", readProblems.find((p) => p.includes("new-sync-read")));
+ok(readProblems.some((p) => p.includes("GET /api/new-db-read") && p.includes("store()")), "…and one that writes the database through a helper", readProblems.find((p) => p.includes("new-db-read")));
+ok(!readProblems.some((p) => p.includes("new-plain-read")), "…while a plain read needs no entry");
+const wallSrc2 = wallSrc.replace('if (pathname === "/api/operators" && req.method === "POST")', 'const newMatch = pathname.match(/^\\/api\\/new-match\\/([a-z]+)$/); if (newMatch && req.method === "DELETE") { return; }\n    if (pathname === "/api/new-get" && req.method === "GET") { fsSync.writeFileSync("x", ""); return; }\n    if (pathname === "/api/operators" && req.method === "POST")');
+const wallProblems2 = checkCodeRoutes("wall", [wallSrc2]);
+ok(wallProblems2.some((p) => p.includes("DELETE re:^\\/api\\/new-match")), "wall startup check: a write found through a match variable, with no entry, fails it", wallProblems2.find((p) => p.includes("new-match")));
+ok(wallProblems2.some((p) => p.includes("GET /api/new-get") && p.includes("changes something")), "…and a GET that writes a file", wallProblems2.find((p) => p.includes("new-get")));
+const agentSrc = fs.readFileSync("agent/server.mjs", "utf8").replace("// ── Confirmations", 'if (pathname === "/api/new-one-liner" && req.method === "POST") return sendJson(res, {});\n    // ── Confirmations');
+const agentProblems = checkCodeRoutes("agent", [agentSrc, fs.readFileSync("agent/lib/intake/api.mjs", "utf8")]);
+ok(agentProblems.some((p) => p.includes("POST /api/new-one-liner")), "agent startup check: a one-line write with no entry fails it", agentProblems.find((p) => p.includes("new-one-liner")));
+const cov = execFileSync("node", ["lib/permissions/check.mjs", "--coverage"]).toString().trim().split("\n").pop();
+const [, seen, total] = cov.match(/(\d+) of (\d+) endpoints examined/) ?? [];
+ok(seen && seen === total, "every endpoint of the three services is examined", cov);
 const cli = (() => { try { execFileSync("node", ["lib/permissions/check.mjs", "--code"], { stdio: "pipe" }); return "ok"; } catch (e) { return String(e.stdout ?? e.message); } })();
 ok(cli === "ok", "…and the real code passes the same check (what the Dockerfile runs)");
 

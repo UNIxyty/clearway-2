@@ -516,11 +516,8 @@ async function searchVisibleAirportsFromDb(q: string, userId: string | null): Pr
     .eq("visible", true)
     .order("icao", { ascending: true });
 
-  if (qUp.length === 4) {
-    query = query.eq("icao", qUp);
-  } else {
-    query = query.or(`icao.ilike.%${term}%,name.ilike.%${term}%,country.ilike.%${term}%`);
-  }
+  // Four letters can be an ICAO code or a name ("Riga", "Oslo"): match both. The exact code is ranked first below.
+  query = query.or(`icao.ilike.%${term}%,name.ilike.%${term}%,country.ilike.%${term}%`);
 
   const { data, error } = await query.limit(400);
   if (error) return [];
@@ -559,13 +556,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const isExactIcaoQuery = /^[A-Z0-9]{4}$/.test(qUpper);
-
-  // Fast path: return cached/static list immediately and refresh scraper metadata in background.
+  // Fast path: return cached/static list immediately and refresh scraper metadata in background. Four letters can be
+  // an ICAO code or a name ("Riga", "Oslo", "Nice"), so every query is matched against code, name and country; an
+  // exact code is ranked first below.
   void refreshDynamicList();
-  const baseResults = cachedList.filter((a) =>
-    isExactIcaoQuery ? a.icao.toUpperCase() === qUpper : a.searchTextUpper.includes(qUpper)
-  );
+  const baseResults = cachedList.filter((a) => a.searchTextUpper.includes(qUpper));
 
   const userId = await getCurrentUserId();
   const dbResults = await searchVisibleAirportsFromDb(q, userId);
@@ -650,6 +645,8 @@ export async function GET(request: NextRequest) {
 
   const placeholderName = "EAD UNDEFINED";
   results.sort((a, b) => {
+    const exactDelta = Number(b.icao.toUpperCase() === qUpper) - Number(a.icao.toUpperCase() === qUpper);
+    if (exactDelta !== 0) return exactDelta;
     const rankDelta = rankingScore(b) - rankingScore(a);
     if (rankDelta !== 0) return rankDelta;
     const aHasName = a.name !== placeholderName ? 1 : 0;

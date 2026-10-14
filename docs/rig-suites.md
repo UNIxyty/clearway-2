@@ -73,6 +73,13 @@ AIP stand-ins (`rig/wall/seed-portal.mjs`). Three suites had relied on the rig h
   drawn page) on `/aip/EVRA`, which now has a document. Fully transparent text is skipped: nobody can see it.
 - **docs-browser**: it hard-coded the old wall page (20 tasks, four screenshots, an "exampleair" example). It now reads
   the task and group counts from the page's source, and waits for smooth scrolling to settle before reading the list.
+- **stage3-batch1, "bulk password reset: one toast for the lot"**: it ticked the 3rd and 4th rows by position. The
+  rig's second developer account (`rig/.scratch/make-dev2.mjs`, made for the docs) moved the rows, so it ticked a
+  developer, whom an admin may not reset. It now ticks the admin and user rows by email.
+- **Fifteen suites in one full run** (intake e2e and browser suites, permissions-check, stage1/2/3, overlay, dark-audit,
+  ext/t-console): not the code. Load was 11–14, one name look-up failed (`getaddrinfo ENOTFOUND` for the model
+  service), and the sign-in agent took over 3 s to start, so `rig/signin-agent.sh` said DOWN and the suites after it
+  had no agent. It now waits up to 30 s. The next full run (load about 4) passed all but stage3-batch1, above.
 
 ## Red on 2026-10-12/13, and why (each fixed)
 

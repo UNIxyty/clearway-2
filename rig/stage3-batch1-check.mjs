@@ -117,8 +117,10 @@ try {
   ok(/Error sending recovery email/.test(await page.locator('[role="alert"]', { hasText: "reset email" }).first().innerText().catch(() => "")), "password reset reaches the auth server (the rig has no mailer: its error is shown, with Retry)");
   // …and with the server answering yes, the bulk bar sends to everyone selected.
   await page.route("**/api/admin/users/password-reset", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, sentTo: "x@rig.invalid" }) }));
-  const boxes = page.locator('table[aria-label="Users"] tbody [role="checkbox"]');
-  await boxes.nth(2).click(); await boxes.nth(3).click();
+  // By email, not position: the rig's second developer (rig/.scratch/make-dev2.mjs) moves the rows, and a developer's
+  // row is skipped for an admin.
+  for (const who of ["rig-access-admin@rig.invalid", "rig-access-user@rig.invalid"])
+    await page.locator('table[aria-label="Users"] tbody tr', { hasText: who }).locator('[role="checkbox"]').click();
   const bar = page.getByRole("toolbar", { name: /2 selected/ });
   ok(await bar.isVisible(), "selecting rows replaces the toolbar with the bulk bar");
   await bar.getByRole("button", { name: "Send password reset" }).click();

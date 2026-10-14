@@ -27,6 +27,11 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
   limitation was never created"**, while the limitation was on the wall. Asking in words in a new chat did undo it
   (seen). The docs give the asking-in-words route.
 
+- **Help & support: the urgent-help number is a placeholder.** Outside 06:00–22:00Z the help page and the urgent
+  form tell people to "call +371 2 000 000" (`components/help/helpApi.ts:229`, shown by `HelpHome.tsx:83` and
+  `HelpComposer.tsx:253`). A Latvian number has 8 digits after +371; this has 7. Someone blocked at night is told to
+  call a number that cannot ring. The docs do not repeat it.
+
 ### Missing safeguard
 
 - **Flight intake: a renewed passport does not stop for a person.** Agreed rule: when the name and date of birth match
@@ -105,6 +110,9 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 - **Flight intake: Type filter, "Scheduled · not collected yet"** — the hint is out of date.
 - **Flight intake: the Stage filter lists raw stage texts, including people's names** ("Declined by
   rig-access-user", one option per person).
+- **Admin › Users: a bulk password reset skips developers' rows without saying so.** An admin selects 2 rows, one a
+  Developer; the bar says "2 selected", the toast says "Password reset sent to <one address>", and nothing says the
+  other was skipped (`app/admin/users/page.tsx:173` filters protected rows out). Seen on the rig.
 - **Dashboard: developer-style names in Service monitors.**
 - **Dashboard: the changelog shows a user ID (a UUID) instead of a name.**
 - **Dashboard: the changelog block has two names** ("Your changelog" and "Changelog — everyone").

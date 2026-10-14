@@ -16,5 +16,6 @@ sleep 1
     DISABLE_AUTH_FOR_TESTING=false AGENT_TEST_ROLE= INTAKE_PIPELINE=off ADMIN_EMAILS= DEVELOPER_EMAILS= \
     LEON_OPERATOR_API_BASE="http://127.0.0.1:3993/{opr}" LEON_REFRESH_TOKEN_ENCRYPTION_KEY=rig-local-only-not-a-secret RESEND_BASE_URL=http://127.0.0.1:3996 \
     node --env-file="$ROOT/.env.rig" server.mjs > "$SCR/agent-auth.out" 2>&1 & )
-sleep 3
+# Wait up to 30 s: under load (2026-10-14, load 14) the agent took longer than a fixed 3 s and every suite after it failed.
+for _ in $(seq 30); do lsof -tiTCP:5176 -sTCP:LISTEN >/dev/null && break; sleep 1; done
 lsof -tiTCP:5176 -sTCP:LISTEN >/dev/null && echo "up :5176" || echo "DOWN :5176 — see $SCR/agent-auth.out"

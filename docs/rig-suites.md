@@ -80,6 +80,12 @@ AIP stand-ins (`rig/wall/seed-portal.mjs`). Three suites had relied on the rig h
   ext/t-console): not the code. Load was 11–14, one name look-up failed (`getaddrinfo ENOTFOUND` for the model
   service), and the sign-in agent took over 3 s to start, so `rig/signin-agent.sh` said DOWN and the suites after it
   had no agent. It now waits up to 30 s. The next full run (load about 4) passed all but stage3-batch1, above.
+- **stage3-batch1, "password reset reaches the auth server"**: it looked for the auth server's own text "Error sending
+  recovery email". Since the error-text rule (2026-10-14) that text goes to the log and the person reads "The reset
+  email was not sent. …"; the check now expects ours, and fails if the auth server's text comes back.
+- **New on 2026-10-14**: utc-times, utc-browser, error-text, error-text-browser, and rig/fixes/* (one per fix:
+  service-status-unsaved, search-four-letters, search-hidden, profile-email-failure, browse-several,
+  email-logs-removed). The full run that day: 53 suites, all green.
 
 ## Red on 2026-10-12/13, and why (each fixed)
 

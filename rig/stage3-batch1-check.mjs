@@ -114,7 +114,9 @@ try {
   // Password reset: on the rig GoTrue has no mail server, so the real request shows its error honestly…
   await row.getByRole("button", { name: "Row actions" }).click(); await page.getByRole("menuitem", { name: "Send password reset" }).click();
   await page.waitForSelector('[role="alert"]:has-text("reset email")', { timeout: 10000 }).catch(() => {});
-  ok(/Error sending recovery email/.test(await page.locator('[role="alert"]', { hasText: "reset email" }).first().innerText().catch(() => "")), "password reset reaches the auth server (the rig has no mailer: its error is shown, with Retry)");
+  // Since 2026-10-14 the auth server's own text ("Error sending recovery email") goes to the log; the person reads ours.
+  const resetAlert = await page.locator('[role="alert"]', { hasText: "reset email" }).first().innerText().catch(() => "");
+  ok(/The reset email was not sent\./.test(resetAlert) && !/Error sending recovery email/.test(resetAlert) && /Retry/.test(resetAlert), "password reset reaches the auth server (the rig has no mailer: our message is shown, with Retry)", resetAlert.replace(/\s+/g, " "));
   // …and with the server answering yes, the bulk bar sends to everyone selected.
   await page.route("**/api/admin/users/password-reset", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, sentTo: "x@rig.invalid" }) }));
   // By email, not position: the rig's second developer (rig/.scratch/make-dev2.mjs) moves the rows, and a developer's

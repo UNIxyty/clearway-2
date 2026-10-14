@@ -503,6 +503,16 @@ function mapDbRowToAirport(row: DbAirportRow): AIPAirport | null {
   };
 }
 
+/** ICAO codes this person hid (AIP & Documents › Hidden airports). Empty when signed out or on error. */
+async function hiddenIcaosFor(userId: string | null): Promise<Set<string>> {
+  if (!userId) return new Set();
+  const service = createSupabaseServiceRoleClient();
+  if (!service) return new Set();
+  const { data, error } = await service.from("deleted_airports").select("icao").eq("deleted_by", userId).is("restored_at", null);
+  if (error) return new Set();
+  return new Set((data ?? []).map((r) => String((r as { icao?: string }).icao ?? "").toUpperCase()).filter(Boolean));
+}
+
 async function searchVisibleAirportsFromDb(q: string, userId: string | null): Promise<AIPAirport[]> {
   const service = createSupabaseServiceRoleClient();
   if (!service) return [];
@@ -568,12 +578,17 @@ export async function GET(request: NextRequest) {
   for (const airport of baseResults) mergedByIcao.set(airport.icao.toUpperCase(), airport);
   // Prefer DB rows when available so all visible airports are searchable.
   for (const airport of dbResults) mergedByIcao.set(airport.icao.toUpperCase(), airport);
-  let results = filterBlockedIcaos(Array.from(mergedByIcao.values()));
+  // Airports this person hid stay out of every result, not only the database rows (searchVisibleAirportsFromDb).
+  const hidden = await hiddenIcaosFor(userId);
+  const matched = filterBlockedIcaos(Array.from(mergedByIcao.values()));
+  // Said back so the page can tell the person why an airport they typed is missing.
+  const hiddenMatches = [...new Set([...matched.map((a) => a.icao.toUpperCase()), ...(qUpper.length === 4 ? [qUpper] : [])])].filter((icao) => hidden.has(icao));
+  let results = matched.filter((a) => !hidden.has(a.icao.toUpperCase()));
 
   // If 4-letter search matches an EAD ICAO not in stored data, add placeholder so user can sync from server
   if (qUpper.length === 4) {
     const eadMatch = EAD_ICAO_MAP.get(qUpper);
-    if (eadMatch && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
+    if (eadMatch && !hidden.has(qUpper) && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
       results = [
         ...results,
         {
@@ -606,7 +621,7 @@ export async function GET(request: NextRequest) {
 
     // Fast fallback for scraper ICAOs (e.g., VMMC) when dynamic meta refresh is still warming up.
     const scraperCfg = getScraperCountryByIcao(qUpper);
-    if (scraperCfg && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
+    if (scraperCfg && !hidden.has(qUpper) && !results.some((a) => a.icao.toUpperCase() === qUpper)) {
       const coord = coordsMap[qUpper];
       results = [
         ...results,
@@ -655,5 +670,5 @@ export async function GET(request: NextRequest) {
     return (a.name || a.icao).localeCompare(b.name || b.icao);
   });
 
-  return NextResponse.json({ results });
+  return NextResponse.json({ results, hiddenMatches });
 }

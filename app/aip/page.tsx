@@ -87,6 +87,7 @@ function AIPSearchPageInner() {
   const [browseLoadingStepIndex, setBrowseLoadingStepIndex] = useState(0);
   const [browseCountrySearch, setBrowseCountrySearch] = useState("");
   const [recents, setRecents] = useState<RecentEntry[]>([]);
+  const [hiddenMatches, setHiddenMatches] = useState<string[]>([]);
 
 
   // Load "Recently opened" entries once on mount (client-only localStorage list).
@@ -331,7 +332,7 @@ function AIPSearchPageInner() {
     const searchController = beginRequest("airport-search");
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: searchController.signal });
-      let data: { results?: AIPAirport[]; error?: string };
+      let data: { results?: AIPAirport[]; error?: string; hiddenMatches?: string[] };
       try {
         data = await res.json();
       } catch {
@@ -347,7 +348,8 @@ function AIPSearchPageInner() {
       }
 
       let newResults = data.results ?? [];
-      if (qUpper.length === 4 && isEadIcao(qUpper) && !newResults.some((r: AIPAirport) => r.icao.toUpperCase() === qUpper)) {
+      setHiddenMatches(data.hiddenMatches ?? []);
+      if (qUpper.length === 4 && isEadIcao(qUpper) && !(data.hiddenMatches ?? []).includes(qUpper) && !newResults.some((r: AIPAirport) => r.icao.toUpperCase() === qUpper)) {
         newResults = [
           ...newResults,
           {
@@ -755,6 +757,14 @@ function AIPSearchPageInner() {
                   {!error && results !== null && results.length === 0 && (
                     <p className="text-sm text-cw-text-muted">
                       No airports found. Try ICAO (e.g. OIAA), airport name, or country.
+                    </p>
+                  )}
+                  {!error && hiddenMatches.length > 0 && (
+                    <p className="text-sm text-cw-text-muted">
+                      You hid {hiddenMatches.join(", ")}, so {hiddenMatches.length === 1 ? "it is" : "they are"} not listed.{" "}
+                      <button type="button" onClick={() => router.push("/admin/airports/deleted")} className="cursor-pointer border-none bg-transparent p-0 font-semibold text-cw-text-link">
+                        Restore in Hidden airports
+                      </button>
                     </p>
                   )}
                   {!error && results !== null && results.length === 1 && (

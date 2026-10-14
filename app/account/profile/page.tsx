@@ -91,8 +91,11 @@ export default function ProfilePage() {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: currentPassword });
       if (error) throw new Error("That isn't your current password.");
       const res = await fetch("/api/auth/password/forgot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; sent?: boolean };
       if (!res.ok) throw new Error(data.error || "Couldn't send the email.");
+      // The route answers ok even when sending failed, so the public "forgot password" page does not reveal which
+      // addresses exist. Here the person is signed in with this address, so a failure is a real one: say so.
+      if (data.sent === false) throw new Error("The email could not be sent. Try again in a few minutes, or ask an admin to send a password reset from Admin › Users.");
       setPwSentTo(email.trim()); setPwOpen(false); setCurrentPassword("");
     } catch (e) {
       setPwError((e as Error).message);

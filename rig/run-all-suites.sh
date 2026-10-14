@@ -83,4 +83,5 @@ run utc-browser $E rig/utc-browser-check.mjs
 run fixes/service-status-unsaved $E rig/fixes/service-status-unsaved.mjs
 run fixes/search-four-letters $E rig/fixes/search-four-letters.mjs
 run fixes/search-hidden $E rig/fixes/search-hidden.mjs
+run fixes/profile-email-failure $E rig/fixes/profile-email-failure.mjs
 echo DONE >> $LOG

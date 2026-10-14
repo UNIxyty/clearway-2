@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { failure } from "@/lib/public-error";
+import { failure, upstreamFailure } from "@/lib/public-error";
 import { GEN_PDF_FAILED } from "@/lib/aip-sync-failure";
 import { createAsecnaFetch, asecnaFormattedLeafBasename, resolveAsecnaHtmlUrl, htmlUrlToPdfUrl } from "@/scripts/asecna/asecna-eaip-http.mjs";
 import { getAsecnaAirportByIcao, getAsecnaData } from "@/lib/asecna-airports";
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
     if (fromStorage) {
       return pdfResponse(fromStorage, icao);
     }
-    return failure(502, GEN_PDF_FAILED, { tag: "AIP-ASECNA-GEN-PDF", what: `ASECNA GEN PDF for ${icao} answered ${res.status} ${res.statusText}` });
+    return upstreamFailure(GEN_PDF_FAILED, res.status, { tag: "AIP-ASECNA-GEN-PDF", what: `ASECNA GEN PDF for ${icao} answered ${res.status} ${res.statusText}` });
   }
 
   const bytes = new Uint8Array(await res.arrayBuffer());
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
     if (fromStorage) {
       return pdfResponse(fromStorage, icao);
     }
-    return failure(502, GEN_PDF_FAILED, {
+    return upstreamFailure(GEN_PDF_FAILED, res.status, {
       tag: "AIP-ASECNA-GEN-PDF",
       what: !isValidPdfBytes(bytes) ? `ASECNA GEN PDF for ${icao} is not a valid PDF` : `ASECNA GEN PDF for ${icao} is a stub (${bytes.length} bytes)`,
     });

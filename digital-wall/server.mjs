@@ -1104,7 +1104,7 @@ const server = http.createServer(async (req, res) => {
       const result = await sendEmail({ to, subject, html });
       if (!result.ok) {
         console.error(`[reports] send FAILED for ${id} -> ${to.join(", ")}: ${result.error}`);
-        sendJson(res, { ok: false, error: "Couldn't send the email. Try again in a few minutes. If it keeps failing, report it from Help & support." }, 502);
+        sendJson(res, { ok: false, error: "Couldn't send the email. Try again in a few minutes. If it keeps failing, report it from Help & support.", code: "email_not_sent" }, 500); // a failed email is not a gateway, and Cloudflare swaps 502 bodies
         return;
       }
       const updated = await reportsStore.recordSend(id, { to, by: requestUser?.email ?? null, resendId: result.id });

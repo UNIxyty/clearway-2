@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { failure } from "@/lib/public-error";
+import { failure, upstreamFailure } from "@/lib/public-error";
 import { GEN_PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
@@ -87,6 +87,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    return failure(502, GEN_PDF_FAILED, { tag: "AIP-USA-GEN-PDF", what: "USA GEN 1.2 PDF read failed", detail: err });
+    return upstreamFailure(GEN_PDF_FAILED, "unknown", { tag: "AIP-USA-GEN-PDF", what: "USA GEN 1.2 PDF read or sync failed", detail: err });
   }
 }

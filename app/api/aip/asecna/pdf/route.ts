@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { failure } from "@/lib/public-error";
+import { failure, upstreamFailure } from "@/lib/public-error";
 import { PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage } from "@/lib/aip-storage";
@@ -102,6 +102,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    return failure(502, PDF_FAILED, { tag: "AIP-ASECNA-PDF", what: `ASECNA AD 2 PDF for ${icao} failed`, detail: err });
+    return upstreamFailure(PDF_FAILED, "unknown", { tag: "AIP-ASECNA-PDF", what: `ASECNA AD 2 PDF for ${icao} failed (storage or the source)`, detail: err });
   }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJsonFromStorage, removeFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
-import { failure, logFailure, publicEventStream } from "@/lib/public-error";
+import { failure, logFailure, publicEventStream, upstreamFailure, surfaceStatus } from "@/lib/public-error";
 import { AIP_NOT_SET_UP, AIP_NO_ANSWER, aipSyncFailure } from "@/lib/aip-sync-failure";
 import { requirePermission } from "@/lib/permissions/server";
 
@@ -152,13 +152,13 @@ export async function GET(request: NextRequest) {
     const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string; code?: number; airports?: unknown[] };
     if (!res.ok) {
       const code = typeof data.code === "number" ? data.code : undefined;
-      let status = 502;
+      let status = 503; // never 502/504 to the page: Cloudflare would replace our message (lib/public-error.ts)
       if (res.status === 401) status = 401;
       else if (res.status === 402 || code === 402) status = 402;
-      else if (res.status >= 400 && res.status < 600) status = res.status;
+      else if (res.status >= 400 && res.status < 600) status = surfaceStatus(res.status);
       logFailure("AIP-EAD", `AIP sync for ${icao} returned ${res.status}`, { error: data.error, detail: data.detail });
       const ours = aipSyncFailure({ ...data, status: res.status });
-      return NextResponse.json({ ...(code !== undefined ? { code } : {}), ...ours }, { status });
+      return NextResponse.json({ ...(code !== undefined ? { code } : {}), ...ours, upstreamStatus: res.status }, { status });
     }
     const airports = Array.isArray(data.airports) ? data.airports : [];
     const updatedAt = new Date().toISOString();
@@ -168,6 +168,6 @@ export async function GET(request: NextRequest) {
     if (request.signal.aborted) {
       return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
     }
-    return failure(502, AIP_NO_ANSWER, { tag: "AIP-EAD", what: `AIP sync for ${icao} unreachable`, detail: e });
+    return upstreamFailure(AIP_NO_ANSWER, "unreachable", { tag: "AIP-EAD", what: `AIP sync for ${icao} unreachable`, detail: e });
   }
 }

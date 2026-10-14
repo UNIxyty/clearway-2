@@ -9,7 +9,7 @@ import {
   parseAsecnaCli,
   resolveAsecnaHtmlUrl,
 } from "@/scripts/asecna/asecna-eaip-http.mjs";
-import { failure, logFailure, publicEventStream } from "@/lib/public-error";
+import { failure, logFailure, publicEventStream, upstreamFailure, surfaceStatus } from "@/lib/public-error";
 import { AIP_FAILED, AIP_NOT_SET_UP, AIP_NO_ANSWER, aipSyncFailure } from "@/lib/aip-sync-failure";
 import { requirePermission } from "@/lib/permissions/server";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
       };
       if (!res.ok) {
         logFailure("AIP-ASECNA", `ASECNA extract sync for ${icao} returned ${res.status}`, { error: data.error, detail: data.detail });
-        return NextResponse.json(aipSyncFailure({ ...data, status: res.status }), { status: res.status >= 400 && res.status < 600 ? res.status : 502 });
+        return NextResponse.json({ ...aipSyncFailure({ ...data, status: res.status }), upstreamStatus: res.status }, { status: res.status >= 400 && res.status < 600 ? surfaceStatus(res.status) : 503 });
       }
       const updatedAt = new Date().toISOString();
       await saveJson(icao, { updatedAt });
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
       if (request.signal.aborted) {
         return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
       }
-      return failure(502, AIP_NO_ANSWER, { tag: "AIP-ASECNA", what: `ASECNA extract sync for ${icao} failed`, detail: err });
+      return upstreamFailure(AIP_NO_ANSWER, "unknown", { tag: "AIP-ASECNA", what: `ASECNA extract sync for ${icao} failed`, detail: err });
     }
   }
 

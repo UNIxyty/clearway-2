@@ -267,7 +267,7 @@ export async function streamAipPdf(icao, res, { inline = true } = {}) {
       signal: AbortSignal.timeout(resolved.cached ? 30_000 : 180_000),
     });
     if (!response.ok || !response.body) {
-      res.writeHead(502, { "content-type": "application/json; charset=utf-8" });
+      res.writeHead(503, { "content-type": "application/json; charset=utf-8" }); // not 502: Cloudflare swaps 502 bodies
       logPortal(`AIP PDF stream for ${code} failed: portal returned ${response.status} from ${resolved.source}`);
       res.end(JSON.stringify({ ok: false, error: REASONS.aipUnavailable({ icao: code }) }));
       return;
@@ -289,7 +289,7 @@ export async function streamAipPdf(icao, res, { inline = true } = {}) {
   } catch (error) {
     logPortal(`AIP PDF stream for ${code} failed`, errorDetail(error));
     if (!res.headersSent) {
-      res.writeHead(502, { "content-type": "application/json; charset=utf-8" });
+      res.writeHead(503, { "content-type": "application/json; charset=utf-8" }); // not 502: Cloudflare swaps 502 bodies
       res.end(JSON.stringify({ ok: false, error: REASONS.aipUnavailable({ icao: code }) }));
     } else {
       res.end();

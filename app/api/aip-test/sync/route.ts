@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       return NextResponse.json(
         { error: data.error ?? "Sync failed", detail: data.detail },
-        { status: res.status === 401 ? 401 : 502 }
+        { status: res.status === 401 ? 401 : 503 }
       );
     }
     return NextResponse.json(data);
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         error: "AIP sync request failed",
         detail: `Cannot reach AIP sync server at AIP_SYNC_URL. Ensure the sync server is running on EC2 (node scripts/aip-sync-server.mjs), port 3002 is open, and AIP_SYNC_URL is correct. ${msg}`,
       },
-      { status: 502 }
+      { status: 503 }
     );
   }
 }

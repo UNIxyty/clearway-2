@@ -59,9 +59,26 @@ for (const dir of DIRS) {
   }
 }
 
+// A response status of 502 or 504 never reaches a person in production: Cloudflare replaces the origin's body with its
+// own error page (seen 2026-10-14). An upstream failure answers 503 with upstreamStatus (lib/public-error.ts
+// upstreamFailure / surfaceStatus); our own failure answers 500. Every file of the three services, tools included.
+const GATEWAY = /(status:\s*50[24]\b|failure\(\s*50[24]\b|writeHead\(\s*50[24]\b|statusCode\s*\|\|\s*50[24]\b|,\s*50[24]\s*\)\s*;|\?\s*50[24]\s*:\s*\w|:\s*50[24]\s*\}|\?\?\s*50[24]\b|let status = 50[24]\b)/;
+let gatewayChecked = 0;
+for (const dir of DIRS) {
+  for (const rel of files(dir)) {
+    if (/node_modules|\.test\.|\/__tests__\//.test(rel) || /^lib\/public-error\.ts$/.test(rel)) continue;
+    gatewayChecked++;
+    fs.readFileSync(path.join(ROOT, rel), "utf8").split("\n").forEach((line, i) => {
+      const t = line.trim();
+      if (t.startsWith("//") || t.startsWith("*") || /public-error-ok:/.test(line)) return;
+      if (GATEWAY.test(line)) problems.push(`${rel}:${i + 1}  answers 502 or 504, which Cloudflare replaces with its own page — answer 503 (upstream) or 500 (ours)  · ${t.slice(0, 110)}`);
+    });
+  }
+}
+
 if (problems.length) {
   for (const p of problems) console.log(`FAIL  ${p}`);
   console.log(`\n${problems.length} FAILED · ${checked} files checked. Log the detail (lib/public-error.ts) and show our own words, or say why with public-error-ok:.`);
   process.exit(1);
 }
-console.log(`PASS  no raw error text or setting names in shown fields (${checked} files)\n\nALL PASSED`);
+console.log(`PASS  no raw error text or setting names in shown fields (${checked} files)\nPASS  no response answers 502 or 504 (${gatewayChecked} files)\n\nALL PASSED`);

@@ -17,6 +17,6 @@ export async function GET() {
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message, upstreamStatus: "unknown" }, { status: 503 });
   }
 }

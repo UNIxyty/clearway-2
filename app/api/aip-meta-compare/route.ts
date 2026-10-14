@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
           engine,
           stderr: stderr.slice(-4000),
         },
-        { status: 502 }
+        { status: 500 }
       );
     }
 
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json(
         { ok: false, error: "Invalid JSON from extractor.", engine, stderr: stderr.slice(-2000) },
-        { status: 502 }
+        { status: 500 }
       );
     }
 

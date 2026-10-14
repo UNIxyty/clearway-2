@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           error: "Extract timed out.",
           stderr: stderr.slice(-500),
-        }, { status: 504 })
+        }, { status: 503 })
       );
     }, TIMEOUT_MS);
     child.on("close", (code) => {
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
             ok: false,
             error: useAi ? "AI extract failed. Check OPENAI_API_KEY in .env." : "Extract failed.",
             stderr: stderr.slice(-800),
-          }, { status: 502 })
+          }, { status: 500 })
         );
       }
     });

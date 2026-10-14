@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
-import { failure, logFailure, publicEventStream } from "@/lib/public-error";
+import { failure, logFailure, publicEventStream, upstreamFailure } from "@/lib/public-error";
 import { AIP_NOT_SET_UP, AIP_NO_ANSWER, GEN_FAILED, aipSyncFailure } from "@/lib/aip-sync-failure";
 import { requirePermission } from "@/lib/permissions/server";
 
@@ -48,10 +48,10 @@ export async function GET(request: NextRequest) {
     const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string; ok?: boolean; prefix?: string };
     if (!res.ok) {
       logFailure("AIP-GEN-SYNC", `GEN sync for ${icao} returned ${res.status}`, { error: data.error, detail: data.detail });
-      return NextResponse.json(aipSyncFailure({ ...data, status: res.status }, GEN_FAILED), { status: res.status === 401 ? 401 : 502 });
+      return NextResponse.json({ ...aipSyncFailure({ ...data, status: res.status }, GEN_FAILED), upstreamStatus: res.status }, { status: res.status === 401 ? 401 : 503 });
     }
     return NextResponse.json({ ok: true, prefix: data.prefix ?? prefix });
   } catch (e) {
-    return failure(502, AIP_NO_ANSWER, { tag: "AIP-GEN-SYNC", what: `GEN sync for ${icao} unreachable`, detail: e });
+    return upstreamFailure(AIP_NO_ANSWER, "unreachable", { tag: "AIP-GEN-SYNC", what: `GEN sync for ${icao} unreachable`, detail: e });
   }
 }

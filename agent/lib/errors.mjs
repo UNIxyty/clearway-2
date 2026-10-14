@@ -31,7 +31,7 @@ export const ModelUnavailable = (message, detail) =>
 export const ModelThrottled = (message, detail) =>
   new AgentError("model_throttled", message, { status: 429, retryable: true, detail });
 export const ModelTimeout = (message, detail) =>
-  new AgentError("model_timeout", message, { status: 504, retryable: true, detail });
+  new AgentError("model_timeout", message, { status: 503, retryable: true, detail }); // not 504: Cloudflare swaps 504 bodies; the code says it timed out
 export const Unauthorized = (message = "Sign in through the Clearway portal first.") =>
   new AgentError("unauthorized", message, { status: 401 });
 export const Forbidden = (message) => new AgentError("forbidden", message, { status: 403 });
@@ -67,5 +67,5 @@ export function classifyBedrockError(error) {
     return ModelThrottled("Bedrock is temporarily unavailable.", message);
   }
   // The raw Bedrock text stays in `message` for the log; toJSON() and the chat stream show REPLY_FAILED.model_error.
-  return new AgentError("model_error", message || "Bedrock call failed.", { status: 502, detail: name });
+  return new AgentError("model_error", message || "Bedrock call failed.", { status: 503, detail: name }); // not 502 (Cloudflare); the code says what happened
 }

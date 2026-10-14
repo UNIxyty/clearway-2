@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { failure } from "@/lib/public-error";
+import { failure, upstreamFailure } from "@/lib/public-error";
 import { PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
@@ -85,6 +85,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    return failure(502, PDF_FAILED, { tag: "AIP-SCRAPER-PDF", what: `Scraper AD 2 PDF for ${icao} failed`, detail: err });
+    return upstreamFailure(PDF_FAILED, "unknown", { tag: "AIP-SCRAPER-PDF", what: `Scraper AD 2 PDF for ${icao} failed (storage or the sync worker)`, detail: err });
   }
 }

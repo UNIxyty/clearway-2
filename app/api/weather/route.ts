@@ -5,7 +5,7 @@ import { join } from "path";
 import { readFile as readStoredFile } from "@/lib/storage";
 import { logError } from "@/lib/utils/logger";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
-import { TRY_AGAIN, failure, logFailure, publicEventStream } from "@/lib/public-error";
+import { TRY_AGAIN, failure, logFailure, publicEventStream, upstreamFailure } from "@/lib/public-error";
 import { requirePermission } from "@/lib/permissions/server";
 
 // What a person sees when the weather cannot be fetched. The detail goes to the log.
@@ -104,14 +104,14 @@ export async function GET(request: NextRequest) {
         data = {};
       }
       if (!res.ok) {
-        return failure(502, FAILED, { tag: "WEATHER-API", what: `Weather sync for ${icao} returned ${res.status}`, detail: text.slice(0, 500) });
+        return upstreamFailure(FAILED, res.status, { tag: "WEATHER-API", what: `Weather sync for ${icao} returned ${res.status}`, detail: text.slice(0, 500) });
       }
       return NextResponse.json({ icao, weather: data.weather ?? "", updatedAt: data.updatedAt ?? null });
     } catch (e) {
       if (request.signal.aborted) {
         return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
       }
-      return failure(502, NO_ANSWER, { tag: "WEATHER-API", what: `Weather sync for ${icao} unreachable`, detail: e });
+      return upstreamFailure(NO_ANSWER, "unreachable", { tag: "WEATHER-API", what: `Weather sync for ${icao} unreachable`, detail: e });
     }
   }
 
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
     let stderr = "";
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
-      resolve(NextResponse.json({ error: TIMED_OUT }, { status: 504 }));
+      resolve(NextResponse.json({ error: TIMED_OUT, upstreamStatus: "timeout" }, { status: 503 }));
     }, RUN_TIMEOUT_MS);
 
     child.stdout?.setEncoding("utf8");
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
       clearTimeout(timeout);
       if (code !== 0 && !stdout) {
         logFailure("WEATHER-API", `Weather scraper for ${icao} exited ${code}`, stderr.slice(-800));
-        resolve(failure(502, FAILED));
+        resolve(failure(500, FAILED)); // our own scraper process, not a gateway
         return;
       }
       try {

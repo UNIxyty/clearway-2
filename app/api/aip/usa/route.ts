@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
 import { readJsonFromStorage, readPdfFromStorage, storageObjectExists, writeJsonToStorage } from "@/lib/aip-storage";
-import { TRY_AGAIN, failure, logFailure } from "@/lib/public-error";
+import { TRY_AGAIN, failure, logFailure, upstreamFailure } from "@/lib/public-error";
 import { requirePermission } from "@/lib/permissions/server";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
@@ -193,7 +193,7 @@ export async function GET(request: NextRequest) {
       await putCachedJson(icao, { airports: [row], updatedAt });
       return NextResponse.json({ airports: [row], updatedAt, pdfReady: true });
     } catch (err) {
-      return failure(502, READ_FAILED, { tag: "AIP-USA", what: `USA AI extraction for ${icao} failed`, detail: err });
+      return upstreamFailure(READ_FAILED, "unknown", { tag: "AIP-USA", what: `USA AI extraction for ${icao} failed (AI provider)`, detail: err });
     }
   }
 

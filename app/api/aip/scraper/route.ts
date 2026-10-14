@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJsonFromStorage, removeFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
-import { failure, logFailure, publicEventStream } from "@/lib/public-error";
+import { failure, logFailure, publicEventStream, upstreamFailure, surfaceStatus } from "@/lib/public-error";
 import { AIP_NOT_SET_UP, AIP_NO_ANSWER, aipSyncFailure } from "@/lib/aip-sync-failure";
 import { requirePermission } from "@/lib/permissions/server";
 
@@ -95,8 +95,8 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       logFailure("AIP-SCRAPER", `AIP sync for ${icao} returned ${res.status}`, { error: data.error, detail: data.detail });
       return NextResponse.json(
-        { ...(typeof data.code === "number" ? { code: data.code } : {}), ...aipSyncFailure({ ...data, status: res.status }) },
-        { status: res.status >= 400 && res.status < 600 ? res.status : 502 },
+        { ...(typeof data.code === "number" ? { code: data.code } : {}), ...aipSyncFailure({ ...data, status: res.status }), upstreamStatus: res.status },
+        { status: res.status >= 400 && res.status < 600 ? surfaceStatus(res.status) : 503 },
       );
     }
     const airports = Array.isArray(data.airports) ? data.airports : [];
@@ -107,6 +107,6 @@ export async function GET(request: NextRequest) {
     if (request.signal.aborted) {
       return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
     }
-    return failure(502, AIP_NO_ANSWER, { tag: "AIP-SCRAPER", what: `AIP sync for ${icao} unreachable`, detail: e });
+    return upstreamFailure(AIP_NO_ANSWER, "unreachable", { tag: "AIP-SCRAPER", what: `AIP sync for ${icao} unreachable`, detail: e });
   }
 }

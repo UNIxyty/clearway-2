@@ -27,6 +27,28 @@ export function failure(
   return NextResponse.json({ error: message, ...(extra ?? {}) }, { status });
 }
 
+/** What really happened underneath: the upstream's own HTTP status, or that it did not answer at all. */
+export type UpstreamStatus = number | "unreachable" | "timeout" | "unknown";
+
+/**
+ * A failure of something the portal depends on (a sync worker, an AI provider, an AIP site). Answers 503, not 502 or
+ * 504: Cloudflare, in front of production, replaces the body of an origin 502 or 504 with its own error page, so the
+ * person would never read our message (seen 2026-10-14). We change the envelope, not the truth: the real status goes
+ * to the log and to `upstreamStatus` in the body. rig/check-error-text.mjs fails on a 502 or 504.
+ */
+export function upstreamFailure(
+  message: string,
+  upstreamStatus: UpstreamStatus,
+  log?: { tag: string; what: string; detail?: unknown },
+  extra?: Record<string, unknown>,
+): NextResponse {
+  const logged = log ? { ...log, what: `${log.what} (upstream: ${upstreamStatus})` } : undefined;
+  return failure(503, message, logged, { upstreamStatus, ...(extra ?? {}) });
+}
+
+/** An upstream status passed on to the page: a 502 or 504 becomes 503 (see upstreamFailure); others go through. */
+export const surfaceStatus = (status: number): number => (status === 502 || status === 504 ? 503 : status);
+
 /** Fields of a worker's error event that the page may need to tell cases apart. Everything else is dropped. */
 const MACHINE_FIELDS = ["code", "status", "done", "prefix", "type", "icao"] as const;
 

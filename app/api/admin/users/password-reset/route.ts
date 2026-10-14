@@ -39,9 +39,11 @@ export async function POST(request: Request) {
   const appUrl = buildAppUrl(process.env.NEXT_PUBLIC_SITE_URL, new URL(request.url).origin);
   const { error } = await anon.auth.resetPasswordForEmail(email, { redirectTo: `${appUrl}/auth/reset` });
   if (error) {
-    const status = (error as { status?: number }).status ?? 502;
+    const status = (error as { status?: number }).status ?? 0; // the auth server's own status; 0 = it did not say
     logFailure("ADMIN-PASSWORD-RESET", `resetPasswordForEmail failed (${status})`, error.message);
-    return NextResponse.json({ error: status === 429 ? "Too many reset emails just now — try again in a minute." : NOT_SENT, status }, { status: status === 429 ? 429 : 502 });
+    // A failed email is not a bad gateway, and a 502 body is replaced by Cloudflare's page in production: answer 500,
+    // with the auth server's status kept in the body (upstreamStatus) and in the log above.
+    return NextResponse.json({ error: status === 429 ? "Too many reset emails just now — try again in a minute." : NOT_SENT, code: status === 429 ? "rate_limited" : "email_not_sent", upstreamStatus: status || "unknown" }, { status: status === 429 ? 429 : 500 });
   }
   return NextResponse.json({ ok: true, sentTo: email });
 }

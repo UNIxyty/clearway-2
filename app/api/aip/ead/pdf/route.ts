@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { failure } from "@/lib/public-error";
+import { failure, upstreamFailure } from "@/lib/public-error";
 import { PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
@@ -71,7 +71,7 @@ export async function HEAD(request: NextRequest) {
     return new NextResponse(null, { status: 200 });
   } catch (e: unknown) {
     console.error("AIP PDF head failed:", e);
-    return new NextResponse(null, { status: 502 });
+    return new NextResponse(null, { status: 503 }); // not 502: Cloudflare swaps 502 bodies (lib/public-error.ts)
   }
 }
 
@@ -116,6 +116,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (e: unknown) {
-    return failure(502, PDF_FAILED, { tag: "AIP-EAD-PDF", what: `AD 2 PDF for ${icao} failed`, detail: e });
+    return upstreamFailure(PDF_FAILED, "unknown", { tag: "AIP-EAD-PDF", what: `AD 2 PDF for ${icao} failed (storage or the sync worker)`, detail: e });
   }
 }

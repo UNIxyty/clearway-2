@@ -247,9 +247,9 @@ function passToPortal(req, res) {
   const target = new URL(req.url, PORTAL_ORIGIN);
   const upstream = http.request(
     { protocol: target.protocol, hostname: target.hostname, port: target.port || 80, path: target.pathname + target.search, method: req.method, headers: { ...req.headers, host: target.host } },
-    (r) => { res.writeHead(r.statusCode || 502, r.headers); r.pipe(res); }
+    (r) => { res.writeHead(r.statusCode === 502 || r.statusCode === 504 ? 503 : r.statusCode || 503, r.headers); r.pipe(res); } // never 502/504 to a page: Cloudflare swaps those bodies
   );
-  upstream.on("error", () => { if (!res.headersSent) res.writeHead(502, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "portal_unreachable" })); });
+  upstream.on("error", () => { if (!res.headersSent) res.writeHead(503, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "portal_unreachable", upstreamStatus: "unreachable" })); });
   req.pipe(upstream);
 }
 
@@ -650,7 +650,7 @@ async function handleRequest(req, res) {
         logDetail("agent", "voice transcription failed", error);
         const said = "Your speech could not be turned into text. Try again, or type your message.";
         await audit({ kind: "voice.transcribed", userId: user.userId, userEmail: user.email, success: false, error: storedError("stt_failed", said), confirmationStatus: "not_required", latencyMs: Date.now() - started, detail: { bytes: buffer.length } });
-        return sendJson(res, { ok: false, error: "stt_failed", message: said }, 502);
+        return sendJson(res, { ok: false, error: "stt_failed", message: said }, 503);
       }
     }
 
@@ -690,7 +690,7 @@ async function handleRequest(req, res) {
         logDetail("agent", "live transcript token failed", error);
         const said = "The live transcript is not available right now. Your speech will be turned into text when you stop.";
         await audit({ kind: "voice.realtime_token", userId: user.userId, userEmail: user.email, success: false, error: storedError("realtime_unavailable", said), confirmationStatus: "not_required", latencyMs: Date.now() - started });
-        return sendJson(res, { ok: false, error: "realtime_unavailable", message: said }, 502);
+        return sendJson(res, { ok: false, error: "realtime_unavailable", message: said }, 503);
       }
     }
 

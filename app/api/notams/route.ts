@@ -5,7 +5,7 @@ import { existsSync } from "fs";
 import { readFile as readStoredFile } from "@/lib/storage";
 import { logError } from "@/lib/utils/logger";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
-import { TRY_AGAIN, failure, publicEventStream } from "@/lib/public-error";
+import { TRY_AGAIN, failure, publicEventStream, upstreamFailure } from "@/lib/public-error";
 import { requirePermission } from "@/lib/permissions/server";
 
 // What a person sees when NOTAMs cannot be fetched. The detail goes to the log.
@@ -125,13 +125,13 @@ export async function GET(request: NextRequest) {
       }
       const errBody = await res.text();
       logError("NOTAM-API", `NOTAM sync failed with status ${res.status}: ${errBody.slice(0, 200)}`);
-      return failure(502, FAILED);
+      return upstreamFailure(FAILED, res.status);
     } catch (e) {
       if (request.signal.aborted) {
         return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
       }
       logError("NOTAM-API", "NOTAM sync request failed", e);
-      return failure(502, NO_ANSWER);
+      return upstreamFailure(NO_ANSWER, "unreachable");
     }
   }
 
@@ -170,10 +170,10 @@ export async function GET(request: NextRequest) {
       }
       const errBody = await res.text();
       logError("NOTAM-API", `NOTAM cache-miss sync for ${icao} failed (${res.status}): ${errBody.slice(0, 300)}`);
-      return failure(502, FAILED);
+      return upstreamFailure(FAILED, res.status);
     } catch (e) {
       logError("NOTAM-API", `NOTAM cache-miss sync for ${icao} unreachable`, e);
-      return failure(502, NO_ANSWER);
+      return upstreamFailure(NO_ANSWER, "unreachable");
     }
   }
 
@@ -211,7 +211,7 @@ export async function GET(request: NextRequest) {
     const timeout = setTimeout(() => {
       child.kill("SIGKILL");
       resolve(
-        NextResponse.json({ error: TIMED_OUT }, { status: 504 })
+        NextResponse.json({ error: TIMED_OUT, upstreamStatus: "timeout" }, { status: 503 })
       );
     }, RUN_TIMEOUT_MS);
 
@@ -237,7 +237,8 @@ export async function GET(request: NextRequest) {
         logError("NOTAM-API", `NOTAM scraper subprocess for ${icao} exited ${code}: ${stderr.slice(-800)}`);
         // A module-resolution crash means this runtime cannot run the scraper at all (NOTAM_SYNC_URL is needed).
         const moduleCrash = /ERR_MODULE_NOT_FOUND|Cannot find (module|package)|esm\/resolve/i.test(stderr);
-        resolve(moduleCrash ? failure(502, NOT_SET_UP, undefined, { code: "not_configured" }) : failure(502, FAILED));
+        // Our own scraper process failed (not a gateway): 503 when it is not set up here, 500 otherwise.
+        resolve(moduleCrash ? failure(503, NOT_SET_UP, undefined, { code: "not_configured" }) : failure(500, FAILED));
         return;
       }
       try {
@@ -253,7 +254,7 @@ export async function GET(request: NextRequest) {
         resolve(NextResponse.json({ icao, notams, updatedAt: null }));
       } catch {
         logError("NOTAM-API", `NOTAM scraper for ${icao} printed no JSON: ${stdout.slice(-300)}`);
-        resolve(failure(502, FAILED));
+        resolve(failure(500, FAILED)); // our own scraper process, not a gateway
       }
     });
   });

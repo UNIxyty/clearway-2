@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJsonFromStorage, readPdfFromStorage, writeJsonToStorage } from "@/lib/aip-storage";
-import { TRY_AGAIN, failure } from "@/lib/public-error";
+import { TRY_AGAIN, failure, upstreamFailure } from "@/lib/public-error";
 import { requirePermission } from "@/lib/permissions/server";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
@@ -206,9 +206,9 @@ export async function GET(request: NextRequest) {
     if (request.signal.aborted) {
       return NextResponse.json({ error: "Request cancelled by client" }, { status: 499 });
     }
-    return failure(502, `The portal could not prepare GEN 1.2 for this country. ${TRY_AGAIN}`, {
+    return upstreamFailure(`The portal could not prepare GEN 1.2 for this country. ${TRY_AGAIN}`, "unknown", {
       tag: "AIP-GEN-NON-EAD",
-      what: "Non-EAD GEN AI rewrite failed",
+      what: "Non-EAD GEN AI rewrite failed (AI provider)",
       detail: e,
     });
   }

@@ -48,6 +48,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    return failure(502, PDF_FAILED, { tag: "AIP-USA-PDF", what: "USA AD 2 PDF read failed", detail: err });
+    return failure(500, PDF_FAILED, { tag: "AIP-USA-PDF", what: "USA AD 2 PDF read failed (local file)", detail: err });
   }
 }

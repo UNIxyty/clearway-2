@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           error: "Download timed out (Playwright may need a display; run locally or on EC2 with xvfb).",
           stderr: stderr.slice(-500),
-        }, { status: 504 })
+        }, { status: 503 })
       );
     }, TIMEOUT_MS);
     child.on("close", async (code) => {
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
           resolve(
             NextResponse.json(
               { ok: false, error: "Download succeeded but output path was not returned." },
-              { status: 502 }
+              { status: 500 }
             )
           );
           return;
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
             ok: false,
             error: `Script exited ${code}. Ensure EAD_USER and EAD_PASSWORD_ENC are set (e.g. in .env).`,
             stderr: stderr.slice(-800),
-          }, { status: 502 })
+          }, { status: 500 })
         );
       }
     });

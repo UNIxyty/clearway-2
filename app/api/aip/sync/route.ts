@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { failure, logFailure } from "@/lib/public-error";
+import { failure, logFailure, upstreamFailure } from "@/lib/public-error";
 import { AIP_NOT_SET_UP, AIP_NO_ANSWER, aipSyncFailure } from "@/lib/aip-sync-failure";
 import { requirePermission } from "@/lib/permissions/server";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
@@ -34,10 +34,10 @@ export async function GET(request: NextRequest) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       logFailure("AIP-SYNC", `AIP sync for ${icao} returned ${res.status}`, { error: data.error, detail: data.detail });
-      return NextResponse.json(aipSyncFailure({ ...data, status: res.status }), { status: res.status === 401 ? 401 : 502 });
+      return NextResponse.json({ ...aipSyncFailure({ ...data, status: res.status }), upstreamStatus: res.status }, { status: res.status === 401 ? 401 : 503 });
     }
     return NextResponse.json(data);
   } catch (e) {
-    return failure(502, AIP_NO_ANSWER, { tag: "AIP-SYNC", what: `AIP sync for ${icao} unreachable`, detail: e });
+    return upstreamFailure(AIP_NO_ANSWER, "unreachable", { tag: "AIP-SYNC", what: `AIP sync for ${icao} unreachable`, detail: e });
   }
 }

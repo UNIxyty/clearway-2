@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       resolve(
         NextResponse.json(
           { ok: false, error: "Download timed out", stderr: stderr.slice(-600) },
-          { status: 504 }
+          { status: 503 }
         )
       );
     }, TIMEOUT_MS);
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
               stderr: stderr.slice(-1200),
               stdout: stdout.slice(-1200),
             },
-            { status: 502 }
+            { status: 500 }
           )
         );
         return;

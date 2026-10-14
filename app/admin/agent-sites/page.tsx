@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
 import { Badge, Button, Card, Checkbox, ConfirmDialog, CountBadge, DataTable, EmptyState, ErrorState, Modal, RadioGroup, SkeletonRows, TableCard, TextArea, TextInput, errorDetail, useToast, type Column } from "@/components/kit";
+import { dayTimeZ } from "@/lib/time";
 
 const AGENT_BASE = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
 
@@ -18,10 +19,7 @@ type Scope = "host" | "subdomains";
 
 function whenZ(iso: string | null | undefined): string {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}Z`;
+  return dayTimeZ(iso, { alwaysDate: true }) || "—";
 }
 const scopeLabel = (sub: boolean) => (sub ? "+ subdomains" : "This site only");
 

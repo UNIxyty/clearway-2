@@ -23,7 +23,7 @@ const BLOCKS: Record<BlockId, { title: string; icon: string; size: BlockSize; ad
 const LOCAL = "cw-dashboard-layout";
 
 function greeting(name: string | null) {
-  const h = new Date().getHours();
+  const h = new Date().getHours(); // local-time-ok: picks Morning/Evening for the reader; no time is shown
   const part = h < 5 ? "Evening" : h < 12 ? "Morning" : h < 18 ? "Afternoon" : "Evening";
   const first = name?.trim().split(/\s+/)[0];
   return `${part}${first ? `, ${first}` : ""}. Everything below is yours to arrange.`;

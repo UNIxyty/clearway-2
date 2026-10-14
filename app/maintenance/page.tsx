@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { dayTimeZ } from "@/lib/time";
 import { WrenchIcon, ShieldCheckIcon, RefreshCwIcon } from "lucide-react";
 
 type MaintenancePayload = {
@@ -71,7 +72,7 @@ export default function MaintenancePage() {
                 )}
                 {data?.updated_at && (
                   <p className="mt-3 text-xs text-cw-text-muted">
-                    Last updated: {new Date(data.updated_at).toLocaleString()}
+                    Last updated: <span className="font-mono">{dayTimeZ(data.updated_at, { alwaysDate: true })}</span>
                   </p>
                 )}
               </>

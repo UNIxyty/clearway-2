@@ -52,7 +52,7 @@ function nowFracUtc(nowMs, windowStartMs, windowDurationMs) {
 
 function nowTimeStr(nowMs) {
   const n = new Date(nowMs);
-  return `${p2(n.getUTCHours())}:${p2(n.getUTCMinutes())} UTC`;
+  return `${p2(n.getUTCHours())}:${p2(n.getUTCMinutes())}Z`;
 }
 
 function SoftGrid({ hours, stroke }) {

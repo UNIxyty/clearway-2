@@ -884,7 +884,7 @@ function UpcomingTableCard() {
     <Card style={{ marginBottom: 22 }}>
       <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Upcoming Flight Table</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
-        A side table on the wall listing every flight from 00:01 UTC today onward — FLIGHT
+        A side table on the wall listing every flight from 00:01Z today onward — FLIGHT
         coloured by the OPS checklist, ADEP/ADES by the SLOT &amp; HANDLING services, WX as
         coloured dots. Independent of the timeline's visibility window.
       </p>
@@ -1637,7 +1637,7 @@ function WeatherCard() {
     <Card style={{ marginBottom: 22 }}>
       <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Weather</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 14px' }}>
-        Decoded METARs refresh automatically at 00:01 UTC for every airport with a flight from
+        Decoded METARs refresh automatically at 00:01Z for every airport with a flight from
         today through the end of tomorrow. Use the button after adding flights mid-day or if
         categories look stale — same pull, on demand.
       </p>
@@ -1665,7 +1665,7 @@ function WeatherCard() {
         </Button>
         {last && !busy && (
           <span style={{ fontSize: 12.5, color: t.faint }}>
-            last manual run: {last.refreshed} airport(s){last.lastRun?.at ? ` · ${String(last.lastRun.at).slice(11, 16)} UTC` : ''}
+            last manual run: {last.refreshed} airport(s){last.lastRun?.at ? ` · ${String(last.lastRun.at).slice(11, 16)}Z` : ''}
           </span>
         )}
       </div>

@@ -3,6 +3,7 @@
 // Shared plumbing for the dashboard blocks: a defensive polling hook (the service-checker / metrics endpoints may not
 // be deployed yet — a 404 means "offline", never a crash) and time / size formatting.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { dateLong } from "@/lib/time";
 import { errorDetail } from "@/components/kit";
 
 export type PollState<T> = {
@@ -72,7 +73,7 @@ export function timeAgo(isoString: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(t).toLocaleDateString();
+  return dateLong(t);
 }
 
 export function formatBytes(bytes: number): string {

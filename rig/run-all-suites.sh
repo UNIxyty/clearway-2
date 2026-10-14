@@ -23,6 +23,7 @@ $E rig/manifest/operators.mjs seed >> $LOG 2>&1
 # ── code-only and local tests
 run no-real-passenger-data node rig/check-no-real-passenger-data.mjs
 run docs-check node --no-warnings rig/docs-check.mjs
+run utc-times node rig/check-utc-times.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
 run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/intake/test-timezones.mjs
@@ -78,4 +79,5 @@ run overlay-check $E rig/overlay-check.mjs
 run dark-audit $E rig/dark-audit.mjs
 run partB-check $E rig/partB-check.mjs
 run docs-browser $E rig/docs-browser.mjs
+run utc-browser $E rig/utc-browser-check.mjs
 echo DONE >> $LOG

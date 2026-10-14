@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
+import { dayTimeZ } from "@/lib/time";
 import { Button, Callout, ConfirmDialog, EmptyState, ErrorState, Field, Modal, Skeleton, TextArea, TextInput, errorDetail, useToast } from "@/components/kit";
 
 type State = {
@@ -15,7 +16,7 @@ type State = {
   since: string | null; by: string | null; lastEnded: { at: string; by: string | null } | null;
   can: { enable: boolean; disable: boolean; clearCache: boolean };
 };
-const zulu = (iso: string) => { const d = new Date(iso); return `${String(d.getUTCDate()).padStart(2, "0")} ${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })} ${d.getUTCFullYear()} ${d.toISOString().slice(11, 16)}Z`; };
+const zulu = (iso: string) => dayTimeZ(iso, { alwaysDate: true });
 const ago = (iso: string) => { const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); return m < 60 ? `${m} min` : m < 1440 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${Math.floor(m / 1440)} d`; };
 
 const EFFECTS = [

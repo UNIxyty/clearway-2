@@ -241,7 +241,7 @@ export default function OperatorsPage() {
   const stats = sync
     ? [
         { label: 'DATA SOURCE', value: sync.source || '—' },
-        { label: 'LAST RUN', value: sync.lastRunAt ? `${new Date(sync.lastRunAt).toISOString().slice(11, 16)} UTC · ${timeAgo(sync.lastRunAt)}` : '—' },
+        { label: 'LAST RUN', value: sync.lastRunAt ? `${new Date(sync.lastRunAt).toISOString().slice(11, 16)}Z · ${timeAgo(sync.lastRunAt)}` : '—' },
         { label: 'FLIGHTS CACHED', value: `${sync.flightsCached ?? 0} flights` },
         { label: 'STORAGE MODE', value: sync.storage || '—' },
         { label: 'POLL INTERVAL', value: `every ${Math.round((sync.pollMs || 0) / 1000)} seconds` },

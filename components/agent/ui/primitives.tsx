@@ -110,29 +110,8 @@ export function IconButton({ icon, title, onClick, size = 30, iconSize = 16, col
   );
 }
 
-// ── Times (§1): UTC, Z suffix, mono. ─────────────────────────────────────────
-const pad = (n: number) => String(n).padStart(2, "0");
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-export function hmZ(iso: string | null | undefined): string {
-  if (!iso) return ""; const d = new Date(iso); if (Number.isNaN(d.getTime())) return "";
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}Z`;
-}
-export function hmsZ(iso: string | null | undefined): string {
-  if (!iso) return ""; const d = new Date(iso); if (Number.isNaN(d.getTime())) return "";
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
-}
-/** `23 SEP 18:10Z` — or just `18:10Z` when it is today (UTC). */
-export function dayTimeZ(iso: string | null | undefined, { alwaysDate = false } = {}): string {
-  if (!iso) return ""; const d = new Date(iso); if (Number.isNaN(d.getTime())) return "";
-  const now = new Date();
-  const sameDay = d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth() && d.getUTCDate() === now.getUTCDate();
-  return sameDay && !alwaysDate ? hmZ(iso) : `${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${hmZ(iso)}`;
-}
-/** `02 Sep 2026` for approval footers. */
-export function dateLong(iso: string | null | undefined): string {
-  if (!iso) return ""; const d = new Date(iso); if (Number.isNaN(d.getTime())) return "";
-  return `${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()][0]}${MONTHS[d.getUTCMonth()].slice(1).toLowerCase()} ${d.getUTCFullYear()}`;
-}
+// ── Times (§1): UTC, Z suffix, mono. One implementation for the whole portal: lib/time.ts. ──
+export { hmZ, hmsZ, dayTimeZ, dateLong } from "@/lib/time";
 export function kb(bytes: number | null | undefined): string {
   if (bytes == null) return ""; if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`; return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }

@@ -65,7 +65,7 @@ export default function FlightDetailSheet({ flight, limitations = [], stale = fa
   const durMs = Math.max(0, Number(flight.endUtcMs) - Number(flight.delayedStartUtcMs));
 
   const checkedLine = Object.entries(checks)
-    .map(([type, ch]) => `${TYPE_LABEL[type] || type} ✓${ch.by ? ` ${String(ch.by).split('@')[0]}` : ''} ${String(ch.at || '').slice(11, 16)}`)
+    .map(([type, ch]) => `${TYPE_LABEL[type] || type} ✓${ch.by ? ` ${String(ch.by).split('@')[0]}` : ''} ${ch.at ? `${String(ch.at).slice(11, 16)}Z` : ''}`)
     .join(' · ');
 
   async function markChecked() {

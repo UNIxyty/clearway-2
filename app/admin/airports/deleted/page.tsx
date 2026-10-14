@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Trash2Icon } from "lucide-react";
 import PortalShell from "@/components/portal/Shell";
+import { dayTimeZ } from "@/lib/time";
 import { PCard, PButton, PEmpty, PMono, PSectionTitle } from "@/components/portal/ui";
 import { Checkbox } from "@/components/kit";
 
@@ -170,7 +171,7 @@ export default function DeletedAirportsPage() {
                     </p>
                   </div>
                   <PMono className="hidden flex-none text-[12.5px] text-cw-text-muted sm:block">
-                    {new Date(row.deleted_at).toLocaleString()}
+                    {dayTimeZ(row.deleted_at, { alwaysDate: true })}
                   </PMono>
                   <button
                     type="button"

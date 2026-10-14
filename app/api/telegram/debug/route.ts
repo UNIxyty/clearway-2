@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { dayTimeZ } from "@/lib/time";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { startDebugRun } from "@/lib/debug-runner";
 import { listBugReports, updateBugReportStatus } from "@/lib/bug-reports-store";
@@ -361,7 +362,7 @@ function reporterName(row: BugReportRow): string {
 }
 
 function formatBugDetail(row: BugReportRow): string {
-  const when = row.createdAt ? new Date(row.createdAt).toLocaleString() : "Unknown time";
+  const when = row.createdAt ? dayTimeZ(row.createdAt, { alwaysDate: true }) : "Unknown time";
   const status = BUG_REPORT_STATUS_META[row.status].label;
   return [
     `Reporter: ${reporterName(row)}`,

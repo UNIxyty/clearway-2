@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dayTimeZ } from "@/lib/time";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
@@ -94,10 +95,7 @@ async function notifyApprovalNeeded(userId: string, email: string): Promise<void
   }
 
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const dateStr = new Date().toLocaleString("en-GB", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  const dateStr = dayTimeZ(new Date(), { alwaysDate: true });
   const text = [
     "<b>New account pending approval</b>",
     `Name: ${esc(name || "-")}`,

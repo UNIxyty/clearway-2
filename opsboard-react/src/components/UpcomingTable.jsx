@@ -110,7 +110,7 @@ export default function UpcomingTable({ scale = 1, widthPct = 30 }) {
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && !error && <div style={s.empty}>No flights from 00:01 UTC yet</div>}
+        {rows.length === 0 && !error && <div style={s.empty}>No flights from 00:01Z yet</div>}
         {error && <div style={{ ...s.empty, color: chrome.error }}>{error}</div>}
       </div>
     </div>

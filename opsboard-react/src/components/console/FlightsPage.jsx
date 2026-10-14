@@ -31,7 +31,6 @@ import {
   t,
   TableShell,
   timeAgo,
-  hm,
   hmZ,
   useToast,
 } from './ui';
@@ -415,17 +414,17 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
           <TimingBox
             label={`Departure · ${flight.adep?.icao ?? 'UNK'}`}
             rows={[
-              ['STD', hm(flight.startTimeUTC)],
-              ['ETD', hm(flight.etd || flight.startTimeUTC)],
-              ['ATD', hm(flight.atd), !flight.atd],
+              ['STD', hmZ(flight.startTimeUTC)],
+              ['ETD', hmZ(flight.etd || flight.startTimeUTC)],
+              ['ATD', hmZ(flight.atd), !flight.atd],
             ]}
           />
           <TimingBox
             label={`Arrival · ${flight.ades?.icao ?? 'UNK'}`}
             rows={[
-              ['STA', hm(flight.endTimeUTC)],
-              ['ETA', hm(flight.eta || flight.endTimeUTC)],
-              ['ATA', hm(flight.ata), !flight.ata],
+              ['STA', hmZ(flight.endTimeUTC)],
+              ['ETA', hmZ(flight.eta || flight.endTimeUTC)],
+              ['ATA', hmZ(flight.ata), !flight.ata],
             ]}
           />
         </div>

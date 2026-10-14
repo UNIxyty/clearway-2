@@ -40,6 +40,7 @@ import {
   type HelpThread as Thread,
 } from "@/lib/help/shared";
 import { cw } from "@/lib/portal-tokens";
+import { dayZ, isTodayUtc } from "@/lib/time";
 
 type Message = { id: string; author: "ops" | "developer"; authorName: string | null; blocks: HelpBlock[]; createdAt: string };
 type Event = { id: string; kind: string; payload: Record<string, unknown>; actor: string | null; createdAt: string };
@@ -73,12 +74,7 @@ function eventDot(e: Event): string {
   return cw.borderStrong;
 }
 
-const dayLabel = (iso: string) => {
-  const d = new Date(iso);
-  const today = new Date();
-  const label = `${d.getUTCDate()} ${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getUTCMonth()]}`;
-  return d.toDateString() === today.toDateString() ? `TODAY · ${label}` : label;
-};
+const dayLabel = (iso: string) => (isTodayUtc(iso) ? `TODAY · ${dayZ(iso)}` : dayZ(iso));
 
 // ── Presence strip (five states, timestamps over colour) ────────────────────
 

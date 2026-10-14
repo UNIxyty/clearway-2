@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
+import { dayTimeZ } from "@/lib/time";
 import {
   Badge, Button, Callout, Card, Checkbox, ConfirmDialog, DataTable, EmptyState, ErrorState, NoMatchState, SearchInput, Segmented, SkeletonRows, TableCard, errorDetail, type Column,
 } from "@/components/kit";
@@ -26,8 +27,8 @@ const SERVICES = [
 ] as const;
 const on = (c: Cell | undefined) => c?.allowed === true || c?.pinned === true;
 const drifted = (c: Cell | undefined) => !!c && !c.pinned && (c.allowed ?? false) !== c.default;
-const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
-const utc = (iso: string) => { const d = new Date(iso); return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })} ${d.toISOString().slice(11, 16)}Z`; };
+const fmt = (iso: string | null) => dayTimeZ(iso, { alwaysDate: true, seconds: true });
+const utc = (iso: string) => dayTimeZ(iso, { alwaysDate: true });
 
 export default function PermissionsPage() {
   const [state, setState] = useState<State | null>(null);

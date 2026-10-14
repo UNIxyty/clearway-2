@@ -51,7 +51,7 @@ export default function HelpHome() {
   const visible = threads ? (showAll ? threads : threads.slice(0, 4)) : null;
 
   return (
-    <PortalShell crumb="Help" title="Help & support" subtitle="Reports go to the developer who builds Clearway. They are read between 06:00 and 22:00Z."
+    <PortalShell crumb="Help" title="Help & support" subtitle="Reports go to the developer who builds Clearway. They are read between 06:00Z and 22:00Z."
       headerRight={
         // The status card is a raised surface on the page, like every card in the portal (it used to be page-coloured
         // inside a surface-coloured band — invisible in light, a dark hole in a pale band in dark).
@@ -80,7 +80,7 @@ export default function HelpHome() {
                 </span>
                 <span className="text-[13.5px] leading-normal text-cw-text-muted">
                   Pings the developer in Telegram the moment you send. Typically answered in under 25 minutes between
-                  06:00 and 22:00Z — outside those hours call {OUT_OF_HOURS_PHONE}.
+                  06:00Z and 22:00Z — outside those hours call {OUT_OF_HOURS_PHONE}.
                 </span>
               </span>
               <span className="inline-flex h-10 flex-none items-center rounded-[10px] bg-cw-danger-solid px-4 text-[13.5px] font-bold text-cw-text-on-primary">Report it</span>

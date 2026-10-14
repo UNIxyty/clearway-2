@@ -26,7 +26,7 @@ function fmt(timeZone) {
 }
 
 function fmtDate() {
-  return new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }).toUpperCase();
+  return new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' }).toUpperCase();
 }
 
 export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null, scale = 1 }) {

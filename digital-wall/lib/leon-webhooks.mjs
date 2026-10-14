@@ -284,7 +284,7 @@ export class LeonWebhookService {
     const hm = (v) => {
       const dt = new Date(v ?? "");
       return Number.isFinite(dt.getTime())
-        ? `${String(dt.getUTCHours()).padStart(2, "0")}:${String(dt.getUTCMinutes()).padStart(2, "0")}`
+        ? `${String(dt.getUTCHours()).padStart(2, "0")}:${String(dt.getUTCMinutes()).padStart(2, "0")}Z`
         : null;
     };
     if (outcome === "sync-cycle") return "incremental sync";

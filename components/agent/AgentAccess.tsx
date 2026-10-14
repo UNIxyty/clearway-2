@@ -21,12 +21,11 @@ import {
   InfoBanner, LoadingRows, ReasonDialog, StatusPill, TextInput, Toggle, t,
 } from "@/components/console-kit";
 import type { AgentAccessRow, AgentKillSwitch } from "@/lib/agent/shared";
+import { dayTimeZ } from "@/lib/time";
 
 function when(iso: string | null): string {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return dayTimeZ(iso, { alwaysDate: true }) || "—";
 }
 
 export default function AgentAccess() {

@@ -9,6 +9,7 @@
 // real airport route on mount.
 
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { dateLong } from "@/lib/time";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
 import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, Trash2Icon, XIcon, GlobeIcon, SearchIcon, SquareIcon } from "lucide-react";
@@ -34,7 +35,7 @@ function formatRecentTimestamp(ts: number): string {
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min ago`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} h ago`;
   if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)} d ago`;
-  return new Date(ts).toLocaleDateString();
+  return dateLong(ts);
 }
 
 function isEditableElement(target: EventTarget | null): boolean {

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { hmZ } from "@/lib/time";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -181,7 +182,7 @@ export default function AdminDebugPage() {
             ? "Estimating after first completed check..."
             : `About ${formatDuration(remainingMs)} left`,
       etaLabel: etaDate
-        ? `ETA ${etaDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+        ? `ETA ${hmZ(etaDate)}`
         : "",
     };
   }, [selectedRun]);

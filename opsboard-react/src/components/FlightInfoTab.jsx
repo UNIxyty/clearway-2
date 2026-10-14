@@ -45,7 +45,7 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
 
   const s = styles();
   const checkedLine = Object.entries(checks)
-    .map(([type, c]) => `${TYPE_LABEL[type]} ✓${c.by ? ` ${String(c.by).split('@')[0]}` : ''} ${String(c.at || '').slice(11, 16)}`)
+    .map(([type, c]) => `${TYPE_LABEL[type]} ✓${c.by ? ` ${String(c.by).split('@')[0]}` : ''} ${c.at ? `${String(c.at).slice(11, 16)}Z` : ''}`)
     .join(' · ');
 
   function Section({ typeKey, title, children }) {

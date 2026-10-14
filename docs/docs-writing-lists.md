@@ -19,6 +19,14 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
   a function": the box passes the event instead of the text (`opsboard-react/src/components/console/ReportsPage.jsx:604`).
   Seen on the rig on 2026-10-14. The phone version works. The docs warn people not to use it.
 
+- **Ops Agent: an email that failed to send is shown as sent.** The card turned to "Sent · Confirmed by you" while the
+  mailer logged "send FAILED: Resend request failed (401)" and the audit has an `email.failed` row (seen on the rig on
+  2026-10-14, when the rig's key was refused). A dispatcher would believe the manifest went out. The docs tell people
+  to ask the recipient to confirm.
+- **Ops Agent: after a confirmed change, /undo in the same chat said "There is no confirmed change to undo — the
+  limitation was never created"**, while the limitation was on the wall. Asking in words in a new chat did undo it
+  (seen). The docs give the asking-in-words route.
+
 ### Missing safeguard
 
 - **Flight intake: a renewed passport does not stop for a person.** Agreed rule: when the name and date of birth match
@@ -47,6 +55,17 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
   as …", and on the Main wall row). Seen.
 - **Digital Wall: AIP / GEN sends broadcast the requester's email address to every connected screen**, wall displays
   included (code: `digital-wall/lib/aip-send.mjs:41` → `lib/sse.mjs:83-91`).
+
+- **Ops Agent: internal text on screen.** Every reply shows the model id and token counts ("claude-sonnet-4-6 ·
+  standard · by router · 769 in · 73 out"), raw tool names ("list_limitations", "get_weather didn't answer"), and under
+  a change the tool's instruction to the model ("NOT DONE YET … Do not ask them to confirm in words, and do not call
+  this tool again with a token."). Cards show raw ids ("Undo action d67477a1", attachment ids) and "Blocks [object
+  Object]" (all seen).
+- **Ops Agent › Mailbox: attachments open without mailbox access** (code: `agent/lib/intake/api.mjs:465` checks
+  agent use only), and **Download .eml and Forward give unmasked personal data without the reveal permission**
+  (code). The 60-second reveal limit is enforced only in the browser (code).
+- **Ops Agent › Settings shows another person's email and spend** ("Heaviest user this month: …") and the raw model
+  id (seen).
 
 ### Hard to undo, and the product does not ask first
 
@@ -107,6 +126,19 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 - **Digital Wall › CAA details: Cancel on an existing authority keeps what was typed** (seen). The docs say so.
 - **Digital Wall › Reports: the email's "Open this report" link opens the list, not the report** (code).
 
+- **Ops Agent › Settings › Who can do what is a fixed table**, not the real permissions: it says "No" under Approve KB
+  for both developers, minutes after a developer approved a document (seen). The docs warn about it.
+- **Ops Agent: the NOTAM card shows raw times** ("2610112100 → 2610162100"), History previews show raw Markdown
+  ("**68 passengers**"), a manifest question carries "(flight_id cwy-cwy:880003)", and after an undo the record still
+  says "Undo isn't automatic — ask me to revert it" (all seen).
+- **Ops Agent: typing a command name after / and pressing Enter can pick another command** ("/notam" chose /flight)
+  (seen).
+- **Ops Agent › Mailbox: the no-access page says "0 people have access today"**, counting only the reader list (seen);
+  searching for a number in an email (a reference) finds nothing, words do (seen); a failed "Process as handling
+  request" leaves the email Failed with a raw server path as its reason (seen).
+- **Developer › Agent access: a failed grant shows the raw database error**, and times are local with AM/PM, not UTC
+  (seen).
+
 ### Missing or not working
 
 - **Flight intake: people without mailbox access cannot read the email they review.** The Original email panel says
@@ -129,6 +161,15 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 - **Digital Wall › CAA details: no way to find unreviewed authorities** (seen: no filter, nothing in the list).
 - **Digital Wall: keyboard and screen readers.** The My view / Main wall rows cannot be reached by keyboard; the font
   choices and the × on words and addresses have no accessible names (seen in the page's markup).
+
+- **Ops Agent: "Limitation…" and "IMPORTANT…" on selected document text send the request to the agent, but its card
+  is shown nowhere**, so nothing is created and it expires (seen twice; the Activity log has the two proposals). The
+  docs give the asking-in-words route.
+- **Ops Agent: a React "too many updates" error (#185) is thrown each time a question is sent** (seen); the page keeps
+  working.
+- **Ops Agent › Knowledge base: only text files can be approved.** PDF and Word uploads get no text, so they can never
+  be approved or indexed, though the upload card accepts them (code; the docs warn).
+- **Ops Agent › History: a chat cannot be renamed or deleted**, though the permission text promises deleting (code).
 
 ## 2. What could not be verified on the rig
 
@@ -157,4 +198,16 @@ Each is also marked on its page with an `Unverified:` line.
   pushes events).
 - Reports: a new category; removing a preset, and wrong preset rows being dropped.
 - Settings: dragging clocks into a new order; the digest hour and reminder pickers; losing unsaved filter words.
+
+**Ops Agent**
+- Flight intake: Enter details by hand is now checked (2026-10-14); the six other items stay.
+- Chat: Open full page, Minimise, resizing and closing the panel; the first-time microphone question (the test
+  browser had allowed it); Cancel and the hold-to-delete card; where Open source opens the document; Export CSV (no
+  test table had more than 10 rows).
+- History: opening a chat from the panel.
+- Knowledge base: Reference only.
+- Mailbox: the message after creating a scheduled-flight request (the request was created).
+- Activity log: someone else's row as an admin; the 60-row export limit.
+- Settings: saving model tiers, receiving addresses and the retention period (each would have changed or emptied the
+  rig mid-run); separate Mac and Windows shortcuts.
 

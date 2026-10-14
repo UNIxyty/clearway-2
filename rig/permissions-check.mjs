@@ -25,7 +25,7 @@ async function account(email, flags) {
   let id = made.id;
   if (!id) id = (await (await sb("/auth/v1/admin/users?per_page=200")).json()).users.find((u) => u.email === email)?.id;
   await sb("/rest/v1/user_preferences?on_conflict=user_id", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ user_id: id, is_admin: false, is_developer: false, ...flags }) });
-  psql(`insert into agent_access (id, user_id, user_email, note) select (select coalesce(max(id), 0) + 1 from agent_access), '${id}', '${email}', 'rig permissions check' where not exists (select 1 from agent_access where user_id = '${id}' and revoked_at is null);`);
+  psql(`insert into agent_access (user_id, user_email, note) select '${id}', '${email}', 'rig permissions check' where not exists (select 1 from agent_access where user_id = '${id}' and revoked_at is null);`);
   const s = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email, password }) })).json();
   const ref = new URL(SB).hostname.split(".")[0];
   return { id, email, token: s.access_token, cookie: `sb-${ref}-auth-token=base64-${Buffer.from(JSON.stringify(s)).toString("base64")}` };

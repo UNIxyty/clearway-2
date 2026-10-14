@@ -3,7 +3,7 @@ title: Flight intake
 summary: Flight requests that arrive by email. The agent reads them, you check them, and then they are created in Leon.
 status: written
 roles: People with Ops Agent access
-updated: 2026-10-13
+updated: 2026-10-14
 related: ops-agent/mailbox, ops-agent/settings
 ---
 
@@ -279,12 +279,10 @@ A request keeps at least one leg. A leg you added stays as a crossed-out tab aft
 ## Enter a request by hand
 When the agent could read no values, enter the flight yourself.
 
-1. Open the request. The review says **No values could be read, so there is nothing to review yet.**
-2. Press **Enter details by hand**. An empty leg opens.
-   Unverified: This button never showed: the agent always found at least one value.
+1. Open the request. The box at the top says the agent read **0 legs**.
+2. Press **Enter details by hand**. An empty leg opens, marked **ADDED**, and **Can't confirm yet** lists the values
+   to fill in.
 3. Fill in each value, as in [Correct a value](ops-agent/flight-intake#correct-a-value).
-
-Unverified: Enter details by hand. On the test system the agent always found at least one value, so the button never showed. Written from the code.
 
 ## Show crew and passengers' personal data
 Roles: Admin and Developer by default

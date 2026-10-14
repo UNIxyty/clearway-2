@@ -1,5 +1,10 @@
 # Docs writing: what the portal does badly, and what was not verified
 
+Entries marked **Fixed 2026-10-14** were fixed after review: every time UTC with a Z, the service status editor's
+unsaved edits, names of four letters, hidden airports in search, Done · show, the profile's failed email, Email logs
+removed, and raw error text replaced by our own wording across the portal, the Ops Agent (outside Flight intake) and
+the Digital Wall. Flight intake, the renewed-passport safeguard and the missing-email problem are left for a decision.
+
 Kept while the docs are written (step 10). Each section adds to both lists. Nothing here is fixed by the docs work:
 these are for the owners to decide. "Rig" is the test system (`rig/`).
 
@@ -45,11 +50,11 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 
 ### Security
 
-- **Dashboard › Service monitors shows raw error text, including whole HTML pages.** When a check fails, the block
+- **Fixed 2026-10-14 (error text).** **Dashboard › Service monitors shows raw error text, including whole HTML pages.** When a check fails, the block
   shows the upstream error as it came back, for example a full HTML error page. Anything an upstream puts in an error
   (a token in a URL, a passenger name in a response) lands on every user's dashboard. Found 2026-10-13.
 
-- **Digital Wall: raw server and upstream text on screen.** Seen on the rig: a failed NOTAM airport shows the
+- **Fixed 2026-10-14 (error text).** **Digital Wall: raw server and upstream text on screen.** Seen on the rig: a failed NOTAM airport shows the
   upstream JSON with server setting names (`… CREWBRIEFING_USERNAME / CREWBRIEFING_PASSWORD are not configured …`);
   the NOTAM page footer says "Email problem: NOTAM_DIGEST_TO is not set — configure the recipient in the backend
   .env."; a failed attachment upload shows `{"message":"name resolution failed"}`; a failed report email showed a
@@ -71,6 +76,9 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
   (code). The 60-second reveal limit is enforced only in the browser (code).
 - **Ops Agent › Settings shows another person's email and spend** ("Heaviest user this month: …") and the raw model
   id (seen).
+
+- **Portal: `/api/aip/sync` has no sign-in check** (found while fixing error text, 2026-10-14; not changed). It asks
+  the AIP sync service to fetch a document for any ICAO code.
 
 ### Hard to undo, and the product does not ask first
 
@@ -133,33 +141,33 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 - **Developer › Saved replies: "used" counts insertions, not sends.** A reply put in the box and not sent counts as used
   (`components/help/DeveloperInbox.tsx:198`). **⇧⏎** also sets the paired status at once, before anything is sent.
 - **Admin › Users: "1 filter are hiding 4 people"** (grammar).
-- **Admin › Permissions: the note on a changed box gives local time** ("Last set by …, 14 Oct, 13:22"), while the change
+- **Fixed 2026-10-14 (UTC times).** **Admin › Permissions: the note on a changed box gives local time** ("Last set by …, 14 Oct, 13:22"), while the change
   log beside it gives UTC ("14 Oct 10:22Z"). Seen on the rig.
-- **Admin › Email logs lists nothing new.** Since Pick'em was removed (commit fa076e49, 2026-10-10) no code writes to
+- **Fixed 2026-10-14 (page removed).** **Admin › Email logs lists nothing new.** Since Pick'em was removed (commit fa076e49, 2026-10-10) no code writes to
   `email_logs`; the page only reads it (`app/api/admin/email-logs/route.ts`). Its subtitle, "Most recent 200 email send
   attempts", reads as if it covered the portal's emails today. Its times are local and carry no zone.
-- **Admin › Service status editor: an unsaved change is lost after 10 seconds, with no message.** The page reloads its
+- **Fixed 2026-10-14 (unsaved edits kept).** **Admin › Service status editor: an unsaved change is lost after 10 seconds, with no message.** The page reloads its
   rows every 10 s and overwrites what you chose (`app/admin/service-status/page.tsx:37,55`). Seen on the rig.
-- **Maintenance page: "Last updated: 10/14/2026, 1:28:00 PM"** is the reader's local time in US format, and the page
+- **Fixed 2026-10-14 (UTC times (the fixed line about reliability stays)).** **Maintenance page: "Last updated: 10/14/2026, 1:28:00 PM"** is the reader's local time in US format, and the page
   always adds "We are improving reliability and performance." Seen on the rig.
-- **Account › Profile: "Check your email" when the password link was not sent.** The profile calls
+- **Fixed 2026-10-14 (says it was not sent).** **Account › Profile: "Check your email" when the password link was not sent.** The profile calls
   `/api/auth/password/forgot`, which answers ok even when sending failed (so the public page does not reveal which
   addresses exist; `app/api/auth/password/forgot/route.ts:31`). For a signed-in person this hides a real failure. Seen
   on the rig, which has no mail server.
 - **Account › Profile: an emptied display name stays in the sidebar** until the tab is closed (the sidebar only takes a
   new name when it is not empty; `components/portal/Shell.tsx:89`). Seen on the rig.
-- **Airport search: any four-letter search is read as an ICAO code.** "Riga", "Oslo" and "Nice" find nothing; "Riga
+- **Fixed 2026-10-14 (names of four letters).** **Airport search: any four-letter search is read as an ICAO code.** "Riga", "Oslo" and "Nice" find nothing; "Riga
   Int" finds EVRA (`app/api/search/route.ts:562`, and the same rule at :519 for the database). Seen on the rig.
-- **Airport search: a hidden airport is still found by search.** Hiding filters only the database rows; the built-in
+- **Fixed 2026-10-14 (hidden airports).** **Airport search: a hidden airport is still found by search.** Hiding filters only the database rows; the built-in
   list is not filtered (`app/api/search/route.ts:566-575`). The Hidden airports page says hiding "removes it from your
   own search and browse lists". Seen on the rig, with a two-airport table added for the test.
-- **Airport search: "Done · open 2" opens one airport.** Ticking several opens only the first. Seen on the rig.
+- **Fixed 2026-10-14 (Done · show 2).** **Airport search: "Done · open 2" opens one airport.** Ticking several opens only the first. Seen on the rig.
 - **Airport search: after Find, the suggestions stay open over the result tabs** until Escape. Seen on the rig.
-- **Airport page: setup text on the dispatcher's screen.** When a source is not set up, the cards say "Set
+- **Fixed 2026-10-14 (error text).** **Airport page: setup text on the dispatcher's screen.** When a source is not set up, the cards say "Set
   NOTAM_SYNC_URL to your self-hosted NOTAM sync service (e.g. http://notam-sync:3001)", "Set WEATHER_SYNC_URL…" and
   "Set AIP_SYNC_URL…" (`app/api/notams/route.ts:90`). `/api/weather` answers with a Node stack trace in its error
   detail. Seen on the rig.
-- **Hidden airports: times in the reader's local time, US format** ("10/14/2026, 3:45:36 PM").
+- **Fixed 2026-10-14 (UTC times).** **Hidden airports: times in the reader's local time, US format** ("10/14/2026, 3:45:36 PM").
 - **Dashboard: developer-style names in Service monitors.**
 - **Dashboard: the changelog shows a user ID (a UUID) instead of a name.**
 - **Dashboard: the changelog block has two names** ("Your changelog" and "Changelog — everyone").
@@ -191,7 +199,7 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 - **Ops Agent › Mailbox: the no-access page says "0 people have access today"**, counting only the reader list (seen);
   searching for a number in an email (a reference) finds nothing, words do (seen); a failed "Process as handling
   request" leaves the email Failed with a raw server path as its reason (seen).
-- **Developer › Agent access: a failed grant shows the raw database error**, and times are local with AM/PM, not UTC
+- **Fixed 2026-10-14 (error text).** **Developer › Agent access: a failed grant shows the raw database error**, and times are local with AM/PM, not UTC
   (seen).
 
 ### Missing or not working

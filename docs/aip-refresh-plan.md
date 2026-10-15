@@ -5,6 +5,12 @@ on the AIRAC schedule, that record which cycle they are, and that tell someone w
 
 ## What is true today
 
+> **Update, 15 Oct 16:10Z:** the counts below are from before 16:02:54Z. At that time, someone used **Admin → Maintenance →
+> Clear the PDF cache**, which emptied `aip/ead-pdf`, `aip/ead`, `aip/gen-pdf` and the scraper folders. The US and
+> ASECNA folders were kept, as designed. Since then, each EAD copy is fetched again when it is first opened, and records
+> its cycle (EVRA: effective 2026-09-03, AIRAC 2609). The plan still holds. The first scheduled run would find almost
+> nothing cached, so pre-fetching (decision 5) matters more.
+
 - **Nothing refreshes a cached AIP document.** A copy is fetched when someone presses **Re-sync**, or opens an airport
   that has no copy. No timer, cron job or worker loop exists. The AIP sync worker logged one fetch on each of six days
   since about 30 September, never an error; the last was 12 October.

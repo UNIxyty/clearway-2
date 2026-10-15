@@ -221,7 +221,7 @@ const pagesShown = (page) => page.locator('[role="toolbar"][aria-label="Document
   await page.waitForSelector('[role="toolbar"][aria-label="Document controls"]', { timeout: 30000 });
   for (let i = 0; i < 40 && !(await pagesShown(page)); i++) await sleep(250);
   const head = norm(await page.locator("h1").locator("xpath=../..").innerText());
-  ok(/EVRA/.test(head) && /Riga/.test(head) && /56\.\d{4} 23\.\d{4} Map/.test(head) && /AIP fetched \d\d \w{3} \d\d:\d\dZ · expires \d\d \w{3} \d\d:\d\dZ/.test(head), "header: the airport on one line, the location on one line with a Map link, fetched/expires in UTC", head);
+  ok(/EVRA/.test(head) && /Riga/.test(head) && /56\.\d{4} 23\.\d{4} Map/.test(head) && /This copy is from \d\d \w{3} \d{4}\./.test(head) && !/refreshes on the next sync/.test(head), "header: the airport on one line, the location on one line with a Map link, and when this copy is from (since 2026-10-15; no promised refresh)", head);
   ok(/openstreetmap\.org/.test(await page.getByRole("link", { name: "Map" }).getAttribute("href")) && await page.locator(".leaflet-container").count() === 0, "the map card is gone; Map opens the location");
   for (const name of ["Download PDF", "Re-sync", "Web AIP"]) ok(await page.getByRole("button", { name, exact: true }).isEnabled(), `action: ${name}`);
   await page.getByRole("button", { name: "More for EVRA" }).click();

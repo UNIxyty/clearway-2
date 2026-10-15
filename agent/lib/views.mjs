@@ -329,7 +329,10 @@ export async function suggestions(user, context) {
   const greeting = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
   return {
     greeting: firstName ? `${greeting}, ${firstName}.` : `${greeting}.`,
-    flightsToday: flights.length, delayed: delayed.length, delayedCallsigns: delayed.slice(0, 2).map((f) => f.flightNo ?? f.flightNid).filter(Boolean),
+    // What the wall's board holds now (2.5 h back to 24 h ahead), not today's flights; and flights that left late,
+    // landed or not. Named for what they count: the dashboard's "Flights today" / "Delayed" are other numbers, and two
+    // numbers may differ but may not share a name (docs/portal-kit.md).
+    flightsOnWall: flights.length, leftLate: delayed.length, leftLateCallsigns: delayed.slice(0, 2).map((f) => f.flightNo ?? f.flightNid).filter(Boolean),
     notamOutstanding: outstanding,
     recent: recent.map((c) => ({ id: c.id, title: c.title, at: c.last_message_at })),
     context: context ?? null,

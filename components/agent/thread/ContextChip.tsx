@@ -57,7 +57,7 @@ export function NowOnChip({ context, onSwitch }: { context: AgentContext; onSwit
 
 // ── Suggested questions ───────────────────────────────────────────────────────
 type Suggestion = { kind: string; color: string; icon?: string; question: string };
-type Live = { greeting: string; flightsToday: number; delayed: number; delayedCallsigns: string[]; notamOutstanding: number | null; recent: Array<{ id: string; title: string; at: string }> };
+type Live = { greeting: string; flightsOnWall: number; leftLate: number; leftLateCallsigns: string[]; notamOutstanding: number | null; recent: Array<{ id: string; title: string; at: string }> };
 
 export function useLiveSuggestions(context: AgentContext | null) {
   const [live, setLive] = useState<Live | null>(null);
@@ -132,11 +132,12 @@ export function suggestionsFor(context: AgentContext | null, live: Live | null, 
     };
   }
   const items: Suggestion[] = [];
-  if (live && live.delayed > 0) items.push({ kind: "Now", color: cw.warningText, question: live.delayedCallsigns.length ? `Why ${live.delayedCallsigns.length > 1 ? "are" : "is"} ${live.delayedCallsigns.join(" and ")} delayed?` : `Which ${live.delayed} flights are delayed and why?` });
+  if (live && live.leftLate > 0) items.push({ kind: "Now", color: cw.warningText, question: live.leftLateCallsigns.length ? `Why did ${live.leftLateCallsigns.join(" and ")} leave late?` : `Which ${live.leftLate} flights left late, and why?` });
   items.push({ kind: "Now", color: cw.dangerText, question: "Which flights still have unreviewed NOTAMs?" });
   items.push({ kind: "Documents", color: cw.textLink, question: "/aip EVRA AD 2" });
   return {
-    headline: live ? `${live.greeting} ${live.flightsToday} flight${live.flightsToday === 1 ? "" : "s"} today${live.delayed ? `, ${live.delayed} delayed` : ""}.` : "What do you need?",
+    // What the wall's board holds, in its own words — not "today"/"delayed", which are the dashboard's other numbers.
+    headline: live ? `${live.greeting} ${live.flightsOnWall} flight${live.flightsOnWall === 1 ? "" : "s"} on the wall${live.leftLate ? ` · ${live.leftLate} left late` : ""}.` : "What do you need?",
     sub: "Opened without a page to ask about. These come from what's happening now, not a fixed list.",
     items,
     recent: live?.recent,

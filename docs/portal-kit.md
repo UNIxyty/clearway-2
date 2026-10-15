@@ -32,6 +32,20 @@ import { Button, Select, Checkbox, DataTable, FilterBar, Card, useToast } from "
 - **Server-safe**: nothing in the kit renders differently on the server and on the first client render (a portal is
   drawn only after mount), so pages hydrate instead of being re-rendered.
 
+## Rules for what a page says
+
+These are not enforced by the kit; each was learned the hard way.
+
+- **Two numbers may differ, but they may not share a name.** If the agent counts what is on the wall's board and the
+  dashboard counts today's UTC flights, each says what it counts ("20 flights on the wall · 2 left late",
+  "Flights today 7 · Delayed 0"). Two different numbers under one name, on one screen, cost more trust than either
+  number is worth (2026-10-15).
+- **Every time is UTC, written with a Z** (`lib/time.ts`; `rig/check-utc-times.mjs`, `rig/utc-browser-check.mjs`).
+- **A person sees what happened and what to do; the detail goes to the log** (`lib/public-error.ts`;
+  `rig/check-error-text.mjs`). Never answer 502 or 504: Cloudflare replaces those bodies in production.
+- **Never say something will happen by itself unless it will.** A cached AIP copy said "refreshes on the next sync";
+  nothing refreshed it. Say when a copy is from, and what the person has to do (2026-10-15).
+
 ## Older kits
 
 `components/portal/ui.tsx` (`PButton`, `PEmpty`), `components/console-kit` (its `Button`, `Toggle`, `TextInput`,

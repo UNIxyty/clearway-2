@@ -13,6 +13,7 @@ import { useSearchParams } from "next/navigation";
 import { ChevronDownIcon, ChevronUpIcon, GlobeIcon } from "lucide-react";
 import AskAboutButton from "@/components/agent/ui/AskAboutButton";
 import MaskIcon from "@/components/portal/Icon";
+import { dateLong } from "@/lib/time";
 import { Badge, Button, Callout, Card, ErrorState, IconButton, Menu, Modal, Skeleton, Spinner as KitSpinner, type MenuItem } from "@/components/kit";
 import DocViewer, { type DocTab } from "@/components/portal/airport/DocViewer";
 import { NotamsCard, WeatherCard } from "@/components/portal/airport/AirportSide";
@@ -610,6 +611,9 @@ export default function AirportView({ icao }: { icao: string }) {
   const [resyncError, setResyncError] = useState<Record<string, { message: string; cachedAt: string | null }>>({});
   const [aipPdfReady, setAipPdfReady] = useState<Record<string, boolean>>({});
   const [aipPdfExistsOnServer, setAipPdfExistsOnServer] = useState<Record<string, boolean>>({});
+  // When the AD 2 copy being shown was fetched (/api/aip/resolve: its revision record, or the file's date). The stored
+  // extraction is dropped after a day, so this — not detailCacheEntry.updatedAt — is what says how old the PDF is.
+  const [aipCopyFetchedAt, setAipCopyFetchedAt] = useState<Record<string, string | null>>({});
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [genPdfDownloadError, setGenPdfDownloadError] = useState<string | null>(null);
@@ -926,6 +930,7 @@ export default function AirportView({ icao }: { icao: string }) {
             if (data.pdfReady) {
               setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
               setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
+              setAipCopyFetchedAt((prev) => ({ ...prev, [icao]: new Date().toISOString() }));
             }
             if (data.step) {
               const step = data.step;
@@ -961,6 +966,7 @@ export default function AirportView({ icao }: { icao: string }) {
               }));
               setAipPdfReady((prev) => ({ ...prev, [icao]: true }));
               setAipPdfExistsOnServer((prev) => ({ ...prev, [icao]: true }));
+              setAipCopyFetchedAt((prev) => ({ ...prev, [icao]: new Date().toISOString() }));
               settled = true;
               updateStage(icao, "aip", "done", "AIP re-synced from source");
               // EAD route: refresh the "Cached … expires …" line from the
@@ -1435,6 +1441,13 @@ export default function AirportView({ icao }: { icao: string }) {
         else if (r.status === 404) setAipPdfExistsOnServer((c) => ({ ...c, [icao]: false }));
       })
       .catch(() => {});
+    fetch(`/api/aip/resolve?icao=${encodeURIComponent(icao)}`, { signal: controller.signal, cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { cached?: boolean; copyFetchedAt?: string | null } | null) => {
+        if (cancelled || !d) return;
+        setAipCopyFetchedAt((c) => (c[icao] && !d.copyFetchedAt ? c : { ...c, [icao]: d.cached ? d.copyFetchedAt ?? null : null }));
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
       controller.abort();
@@ -1880,7 +1893,8 @@ export default function AirportView({ icao }: { icao: string }) {
           const ad2Name = `${detailIcao}_${isAsecnaIcao(detailIcao) ? "ASECNA" : isBahrainScraperIcao(detailIcao, a) ? "SCRAPER" : "AIP"}_AD2.pdf`;
           const genOk = detailSynced && genApplicable(a);
           const gen = genView[detailIcao];
-          const fetched = detailCacheEntry?.updatedAt ? new Date(detailCacheEntry.updatedAt) : null;
+          const copyIso = aipCopyFetchedAt[detailIcao] ?? detailCacheEntry?.updatedAt ?? null;
+          const fetched = copyIso ? new Date(copyIso) : null;
           const expires = fetched ? new Date(fetched.getTime() + (detailCacheEntry?.cache?.ttlMs ?? 24 * 60 * 60 * 1000)) : null;
 
           const ad2Body = loadingAd2
@@ -1933,11 +1947,25 @@ export default function AirportView({ icao }: { icao: string }) {
                         <a href={`https://www.openstreetmap.org/?mlat=${a.lat}&mlon=${a.lon}#map=14/${a.lat}/${a.lon}`} target="_blank" rel="noreferrer" className="font-semibold text-cw-text-link no-underline hover:text-cw-primary-hover">Map</a>
                       </span>
                     )}
-                    {detailSynced && fetched && expires && (
-                      <span>AIP fetched <span className="font-mono">{utc(fetched)}</span> · expires <span className="font-mono">{utc(expires)}</span>{expires <= new Date() && <span className="ml-2"><Badge tone="warning">Expired — refreshes on the next sync</Badge></span>}</span>
-                    )}
                     {pdfDownloading && aipEadSyncSteps.length > 0 && <span role="status" className="flex items-center gap-1.5 text-cw-text-body"><KitSpinner size={12} />{aipEadSyncSteps[aipEadSyncSteps.length - 1]}</span>}
                   </div>
+                  {pdfThere && fetched && (() => {
+                    // When this copy was fetched, plainly. Nothing refreshes it by itself (2026-10-15: documents up to
+                    // 97 days old were labelled "refreshes on the next sync"); a copy older than one AIRAC cycle says so.
+                    const ageMs = Date.now() - fetched.getTime();
+                    const stale = expires != null && expires <= new Date();
+                    const oldCycle = ageMs > 28 * 24 * 60 * 60 * 1000;
+                    return (
+                      <p className={`m-0 mt-2 flex items-start gap-2 text-[14px] leading-snug ${oldCycle ? "font-semibold text-cw-warning-text" : "text-cw-text-body"}`} data-aip-copy-age={oldCycle ? "old-cycle" : stale ? "stale" : "fresh"}>
+                        {oldCycle && <MaskIcon name="triangle-alert" size={15} color="var(--cw-warning)" />}
+                        <span>
+                          This copy is from <span className="font-mono">{dateLong(fetched)}</span>.
+                          {oldCycle && " That is more than one AIRAC cycle (28 days) ago."}
+                          {stale && (hasLiveSync ? <> It is not refreshed automatically. Press <strong>Re-sync</strong> to fetch the current document.</> : " It is not refreshed automatically.")}
+                        </span>
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {detailSynced && <Button variant="primary" icon="download" loading={pdfDownloading} loadingLabel="Downloading…" disabled={!canDownload} title={canDownload ? "Download the AD 2 PDF" : "The PDF appears once it has been fetched"} onClick={() => void downloadAd2(a)}>Download PDF</Button>}

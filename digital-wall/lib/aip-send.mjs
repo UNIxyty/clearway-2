@@ -11,6 +11,7 @@ import { fetchAipPdfBuffer, fetchGenPdfBuffer } from "./portal-client.mjs";
 import { escapeHtml, renderTemplateFile, sendEmail, mailerConfigured } from "./mailer.mjs";
 import path from "node:path";
 import { errorDetail, PublicError, REASONS, shownReason } from "./public-error.mjs";
+import { dayLong, datedFilename, olderThanCycle, stampCachedCopy } from "./aip-stamp.mjs";
 
 const MAX_KEPT_JOBS = 50;
 
@@ -94,9 +95,13 @@ export class AipSendService {
       if (result.ok) {
         doc.status = "ready";
         doc.source = result.source;
+        doc.fetchedAt = result.fetchedAt ?? null;
+        // The copy says on itself when it was fetched, and so does its file name (aip-stamp.mjs).
+        const filename = datedFilename(result.filename, doc.fetchedAt);
+        doc.filename = filename;
         // De-duplicate (dep+arr can share a GEN country file).
-        if (!attachments.some((a) => a.filename === result.filename)) {
-          attachments.push({ filename: result.filename, content: result.buffer });
+        if (!attachments.some((a) => a.filename === filename)) {
+          attachments.push({ filename, content: await stampCachedCopy(result.buffer, doc.fetchedAt) });
         }
       } else {
         doc.status = "unavailable";
@@ -121,10 +126,11 @@ export class AipSendService {
     const docRows = job.docs
       .map((d, index) => {
         const ready = d.status === "ready";
+        const day = dayLong(d.fetchedAt);
+        const old = olderThanCycle(d.fetchedAt);
+        // Anything we email goes to someone who will act on it: each document says when its copy was fetched.
         const sub = ready
-          ? d.source
-            ? `source: ${escapeHtml(d.source)}`
-            : "attached to this email"
+          ? `${day ? `Cached copy from ${escapeHtml(day)}` : "Cached copy, fetch date unknown"}${old ? " — more than one AIRAC cycle old. Check the current AIP before use." : ". Not refreshed automatically."}${d.source ? ` · source: ${escapeHtml(d.source)}` : ""}`
           : escapeHtml(d.error || "This document is not available right now. Try again in a few minutes.");
         return `
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:${index === 0 ? "0" : "12px 0 0 0"};"><tr>
@@ -133,7 +139,7 @@ export class AipSendService {
                 </td>
                 <td style="vertical-align:top;">
                   <div style="font-size:14px;font-weight:600;color:${ready ? "#17181c" : "#8a8f98"};line-height:1.35;">${escapeHtml(d.label)}</div>
-                  <div style="font-size:12.5px;color:${ready ? "#6c7079" : "#b3383c"};margin-top:2px;line-height:1.4;">${sub}</div>
+                  <div style="font-size:12.5px;color:${ready ? (olderThanCycle(d.fetchedAt) ? "#9a3412" : "#6c7079") : "#b3383c"};${ready && olderThanCycle(d.fetchedAt) ? "font-weight:600;" : ""}margin-top:2px;line-height:1.4;">${sub}</div>
                 </td>
                 <td align="right" style="vertical-align:top;font-family:Consolas,Menlo,monospace;font-size:11.5px;font-weight:600;color:${ready ? "#15803d" : "#e5484d"};white-space:nowrap;padding-left:10px;">${ready ? "PDF" : "FAILED"}</td>
               </tr></table>`;

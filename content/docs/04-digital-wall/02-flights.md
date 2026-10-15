@@ -98,11 +98,13 @@ documents that were found. To send again, press **Send again**, or **Retry send*
 Chosen: Departure · EVRA, AIP and GEN
 AIP AD-2 · EVRA: found
 GEN 1.2 · EVRA: unavailable
-Email: Sent to a.dispatcher@example.com, with EVRA-AD2.pdf
+Email: Sent to a.dispatcher@example.com, with EVRA-AD2_fetched-2026-10-02.pdf
 :::
 
 :::how-it-works
 The email goes only to the address you sign in with. It is never shown on the wall. Its subject starts with
 `[DOCS]`, then the flight number, the route and the file names. The documents come from the portal's own copies
-first, and are fetched from the source if there is no copy.
+first, and are fetched from the source if there is no copy. A copy is not refreshed automatically, so each document
+says when it was fetched: in the email, in its file name, and in a line across the top of every page. A copy older
+than 28 days, one AIRAC cycle, says so.
 :::

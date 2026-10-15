@@ -165,6 +165,8 @@ export async function resolveAipPdf(icao) {
     cached: Boolean(result.data.cached),
     filesPath: result.data.filesPath,
     pdfPath: result.data.pdfPath,
+    // When the cached copy was fetched (the portal's revision record), so an emailed copy can say so.
+    fetchedAt: result.data.copyFetchedAt ?? result.data.revision?.fetchedAt ?? null,
   };
   cacheSet(key, value, value.cached ? 6 * 3600_000 : 5 * 60_000);
   return value;
@@ -199,7 +201,9 @@ export async function fetchAipPdfBuffer(icao) {
       return { ok: false, error: REASONS.aipUnavailable({ icao: code }) };
     }
     if (!resolved.cached) cache.delete(`aip:${code}`);
-    return { ok: true, buffer, source: resolved.source, cached: Boolean(resolved.cached), filename: `${code}-AD2.pdf` };
+    // A copy fetched just now is from now; a cached one carries its own date (null when no record says).
+    const fetchedAt = resolved.cached ? resolved.fetchedAt ?? null : new Date().toISOString();
+    return { ok: true, buffer, source: resolved.source, cached: Boolean(resolved.cached), fetchedAt, filename: `${code}-AD2.pdf` };
   } catch (error) {
     logPortal(`AIP PDF for ${code} failed`, errorDetail(error));
     return { ok: false, error: REASONS.aipUnavailable({ icao: code }) };
@@ -218,6 +222,10 @@ export async function fetchGenPdfBuffer(icao) {
     logPortal(`GEN 1.2 for ${code} skipped: PORTAL_BASE_URL is not set`);
     return { ok: false, error: REASONS.docsNotConnected() };
   }
+  // Whether GEN 1.2 is already cached, and since when: an emailed copy says when it was fetched.
+  const before = await portalJson(`/api/aip/gen/pdf/exists?icao=${code}&prefix=${code.slice(0, 2)}`, { timeoutMs: 15_000 }).catch(() => null);
+  const cachedAt = before?.ok && before.data?.exists ? before.data.copyFetchedAt ?? before.data.revision?.fetchedAt ?? null : null;
+  const wasCached = Boolean(before?.ok && before.data?.exists);
   try {
     const response = await fetch(`${portalBaseUrl()}/api/aip/gen/pdf?icao=${code}`, {
       headers: portalHeaders(),
@@ -233,7 +241,7 @@ export async function fetchGenPdfBuffer(icao) {
       logPortal(`GEN 1.2 for ${code}: no usable PDF produced (${buffer.length} bytes)`);
       return { ok: false, error: REASONS.genUnavailable({ icao: code }) };
     }
-    return { ok: true, buffer, source: "gen", cached: null, filename: `${code.slice(0, 2)}-GEN-1.2.pdf` };
+    return { ok: true, buffer, source: "gen", cached: wasCached, fetchedAt: wasCached ? cachedAt : new Date().toISOString(), filename: `${code.slice(0, 2)}-GEN-1.2.pdf` };
   } catch (error) {
     logPortal(`GEN 1.2 for ${code} failed`, errorDetail(error));
     return { ok: false, error: REASONS.genUnavailable({ icao: code }) };

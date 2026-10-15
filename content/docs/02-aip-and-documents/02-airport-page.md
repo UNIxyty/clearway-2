@@ -12,8 +12,15 @@ related: aip-and-documents/airport-search, ops-agent/chat
      from a source failed there. -->
 
 Open it from [Airport search](aip-and-documents/airport-search). The top shows the ICAO code, name, country,
-coordinates and a **Map** link, and when the AIP copy was fetched and when it expires. The document is on the left,
-with the tabs **AD 2** and **GEN**. NOTAMs and weather are on the right.
+coordinates and a **Map** link. Under them, the page says when the copy you are reading was fetched, for example
+**This copy is from 02 Oct 2026.** The document is on the left, with the tabs **AD 2** and **GEN**. NOTAMs and
+weather are on the right.
+
+:::warning Copies are not refreshed automatically
+The portal keeps a copy of each AIP document and does not fetch a new one by itself. A copy older than a day says
+**It is not refreshed automatically. Press Re-sync to fetch the current document.** A copy older than 28 days, one
+AIRAC cycle, says so in orange. Check the date before you rely on a document, and press **Re-sync** when it is old.
+:::
 
 ## Download the AD 2 PDF
 Roles: All roles

@@ -88,5 +88,6 @@ run fixes/profile-email-failure $E rig/fixes/profile-email-failure.mjs
 run fixes/browse-several $E rig/fixes/browse-several.mjs
 run fixes/email-logs-removed $E rig/fixes/email-logs-removed.mjs
 run fixes/aip-sync-permission $E rig/fixes/aip-sync-permission.mjs
+run fixes/aip-copy-date $E rig/fixes/aip-copy-date.mjs
 run error-text-browser $E rig/error-text-browser-check.mjs
 echo DONE >> $LOG

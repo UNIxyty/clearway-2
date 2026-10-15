@@ -350,6 +350,36 @@ function makeFreshnessCheck(relDir: string, sourceLabel: string): () => Promise<
   };
 }
 
+/** EAD AIP copies: the portal fetches a document only when someone asks (Re-sync, or an airport with no copy), and
+ * nothing refreshes it by itself (2026-10-15). What matters is the OLDEST copy a dispatcher may be reading, and the
+ * monitor says so plainly instead of "Syncs may be failing" — no sync was attempted. */
+function checkAipCopiesAge(): Promise<Outcome> {
+  return (async () => {
+    const dir = path.join(STORAGE_ROOT, "aip/ead-pdf");
+    let names: string[];
+    try {
+      names = (await readdir(dir)).filter((n) => n.toLowerCase().endsWith(".pdf"));
+    } catch (e) {
+      return failed("unknown", "The cache could not be read", `cannot read ${dir}: ${errorMessage(e)}`);
+    }
+    let oldestMs: number | null = null;
+    for (const name of names) {
+      try {
+        const s = await stat(path.join(dir, name));
+        if (s.isFile()) oldestMs = Math.min(oldestMs ?? Number.MAX_SAFE_INTEGER, s.mtimeMs);
+      } catch {
+        /* file vanished mid-scan — ignore */
+      }
+    }
+    if (oldestMs === null) return { state: "unknown", error: "No cached AIP documents yet" };
+    const days = Math.floor((Date.now() - oldestMs) / (24 * 3_600_000));
+    if (days > 28) {
+      return { state: "degraded", error: `AIP documents are not refreshed automatically. Oldest copy: ${days} days.` };
+    }
+    return OK;
+  })();
+}
+
 // ── Check inventory (audit §6.4 cadences) ───────────────────────────────────
 
 const CHECK_DEFS: CheckDef[] = [
@@ -365,7 +395,7 @@ const CHECK_DEFS: CheckDef[] = [
   { id: "leon-feed", label: "Leon feed (wall sync-status)", intervalMs: 2 * MIN, run: checkLeonFeed },
   { id: "checkwx-freshness", label: "CheckWX cache freshness (weather/)", intervalMs: 30 * MIN, run: makeFreshnessCheck("weather", "CheckWX weather") },
   { id: "crewbriefing-freshness", label: "CrewBriefing cache freshness (notam/)", intervalMs: 30 * MIN, run: makeFreshnessCheck("notam", "CrewBriefing NOTAM") },
-  { id: "ead-freshness", label: "EAD cache freshness (aip/ead-pdf/)", intervalMs: 30 * MIN, run: makeFreshnessCheck("aip/ead-pdf", "EAD AIP") },
+  { id: "ead-freshness", label: "EAD AIP copies (aip/ead-pdf/)", intervalMs: 30 * MIN, run: checkAipCopiesAge },
 ];
 
 // ── Singleton runner ────────────────────────────────────────────────────────

@@ -7,6 +7,8 @@ import { getScraperCountryByIcao } from "@/lib/scraper-country-config";
 import { isUsaAipIcao } from "@/lib/usa-aip";
 import { isEadSupportedIcao } from "@/lib/ead-country-coverage";
 import { readAipRevision } from "@/lib/aip-revision";
+import { stat } from "node:fs/promises";
+import { storagePathForKey } from "@/lib/storage";
 
 // Resolve which AIP source serves an ICAO and whether its AD-2 PDF is
 // already in the shared /storage cache — WITHOUT triggering any sync.
@@ -65,6 +67,12 @@ export async function GET(request: NextRequest) {
   // Revision of the cached copy (additive — existing consumers ignore it). Unknown is stated, never
   // rendered as current: see lib/airac.ts.
   const revision = await readAipRevision(storageKey);
+  // When this copy was fetched: its revision record, or else the file's own date. Every copy says when it is from —
+  // nothing refreshes a cached AIP by itself (2026-10-15), so a page or an email shows this date.
+  let copyFetchedAt: string | null = revision.fetchedAt ?? null;
+  if (!copyFetchedAt && storageKey) {
+    try { copyFetchedAt = (await stat(storagePathForKey(storageKey))).mtime.toISOString(); } catch { copyFetchedAt = null; }
+  }
 
   return NextResponse.json({
     icao,
@@ -73,6 +81,7 @@ export async function GET(request: NextRequest) {
     cached: Boolean(storageKey),
     storageKey,
     revision,
+    copyFetchedAt,
     // Where a cached copy is served from (no sync) / the normal fetch route
     // (downloads on miss and writes the shared cache).
     filesPath: storageKey ? `/files/${storageKey}` : null,

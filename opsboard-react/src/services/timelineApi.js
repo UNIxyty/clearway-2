@@ -65,34 +65,10 @@ async function fetchJson(pathWithQuery, what) {
   return payload;
 }
 
-function toDate(value) {
-  // new Date(null) is the 1970 epoch, not Invalid Date — a null ATD/ATA
-  // must NOT read as "00:00" (it broke every has-actual-time check).
-  if (value == null || value === '') return null;
-  const dt = new Date(value);
-  return Number.isFinite(dt.getTime()) ? dt : null;
-}
-
-function toHm(value) {
-  const dt = toDate(value);
-  if (!dt) return null;
-  const hh = String(dt.getUTCHours()).padStart(2, '0');
-  const mm = String(dt.getUTCMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-}
-
-// Pill fill state. The backend derives movementState from real Leon
-// semantics (flight watch movement chain, CTOT, delay — see
-// digital-wall/LEON-PILL-MAPPING.md); older cached flights without it fall
-// back to a client-side derivation.
-function statusFromFlight(flight) {
-  if (flight?.isCnl) return 'cancelled';
-  if (flight?.movementState) return flight.movementState;
-  if (flight?.ata) return 'arrived';
-  if (flight?.atd) return 'airborne';
-  if ((flight?.delayMin ?? 0) > 0) return 'delayed';
-  return 'scheduled';
-}
+// The facts a pill shows — the time that matters, signed deltas, the bar's span, the state and whether it is
+// estimated — are the wall's rules, shared with the phone wall in the portal: shared/wall-facts.mjs (lifted from
+// here verbatim on 2026-10-18; the display's rendering is unchanged). mapFlight keeps its exact shape.
+import { flightTimes, statusFromFlight, toDate, toHm } from '../../../shared/wall-facts.mjs';
 
 function toNumber(value, fallback = 0) {
   if (value === null || value === undefined || value === '') return fallback;
@@ -101,105 +77,10 @@ function toNumber(value, fallback = 0) {
 }
 
 function mapFlight(flight, group) {
-  // ── Ops timing rules (bug report 7-9) ─────────────────────────────────
-  // Initial schedule = STD/STA. Actual = T/O (departure) and LDG (arrival).
-  // Departure display precedence: T/O beats everything; otherwise the
-  // LATER of CTOT and ETD; plain STD when no flight-watch estimate exists.
-  // Arrival display: LDG once landed; ETA once airborne (or estimated).
-  // BLOFF is never displayed. Deltas vs schedule are SIGNED — early shows
-  // as a negative difference, not just delays.
-  const stdMs = toDate(flight.startTimeUTC)?.getTime();
-  const staMs = toDate(flight.endTimeUTC)?.getTime();
-  if (!Number.isFinite(stdMs) || !Number.isFinite(staMs)) return null;
-  // Sanity clamp (stale epoch bugs once produced -29645850 min deltas):
-  // any instant >48h from its scheduled anchor is unusable.
-  const sane = (value, refMs) => {
-    const ms = toDate(value)?.getTime();
-    return Number.isFinite(ms) && Math.abs(ms - refMs) <= 48 * 3600_000 ? ms : null;
-  };
-  const toMs = sane(flight.takeOffUTC, stdMs);
-  const ldgMs = sane(flight.landingUTC, staMs);
-  const ctotMs = sane(flight.ctotUTC, stdMs);
-  const etdMs = sane(flight.etd, stdMs) ?? stdMs;
-  const etaMs = sane(flight.eta, staMs) ?? staMs;
-
-  // Stale-estimate guard (bug report 2, item 4): a flight-watch ETD more
-  // than 30 min BEFORE the schedule on a not-yet-departed flight is almost
-  // always a leftover from re-planning (real case: 'ETD 07:00 -120' with a
-  // backwards hatch). Real early departures still show through T/O, which
-  // is actual data and always wins.
-  const etdEffMs = toMs == null && etdMs < stdMs - 30 * 60_000 ? stdMs : etdMs;
-
-  let depKind;
-  let depDisplayMs;
-  if (toMs != null) {
-    depKind = 'T/O';
-    depDisplayMs = toMs;
-  } else if (ctotMs != null || etdEffMs !== stdMs) {
-    // CTOT and ETD are EQUAL priority — the LATER (bigger) one is shown.
-    depDisplayMs = Math.max(ctotMs ?? -Infinity, etdEffMs);
-    depKind = ctotMs != null && ctotMs >= etdEffMs ? 'CTOT' : 'ETD';
-  } else {
-    depKind = 'STD';
-    depDisplayMs = stdMs;
-  }
-  const depDeltaMin = Math.round((depDisplayMs - stdMs) / 60_000);
-
-  // ── Bar precedence (bug report 7 item 6), START and END, written out ──
-  // START (above): T/O if Leon has it; else the LATER of CTOT and ETD; else STD. Off-block never moves it.
-  // END, first that applies:
-  //   1. LDG — the actual landing.
-  //   2. departure + EET — when Leon's flight watch holds an EET (FlightWatch.eet, "EET" in Leon). The bar is
-  //      then exactly EET long from where it starts, so a changed EET changes its length.
-  //   3. ETA — Leon's flight-watch ETA, when it differs from STA (Leon derives it from T/O or ETD + EET).
-  //   4. STA moved by the departure's delta — a delayed or early flight keeps its scheduled duration.
-  //   5. STA.
-  // When STA and departure + EET disagree (STA 00:15, STD 23:30 + EET 02:00 = 01:30) EET wins: STA is the
-  // commercial schedule, EET is ops' current statement of how long the flight takes. The arrival LABEL uses the
-  // same instant as the bar's end and carries the signed difference from STA (+75), so the text never contradicts
-  // the bar and the change from the schedule stays visible.
-  const eetMin = Number(flight.eetMin);
-  const hasEet = Number.isFinite(eetMin) && eetMin > 0 && eetMin <= 24 * 60;
-  let arrKind;
-  let arrDisplayMs;
-  if (ldgMs != null) {
-    arrKind = 'LDG';
-    arrDisplayMs = ldgMs;
-  } else if (hasEet) {
-    arrKind = 'ETA'; // an estimated arrival; arrBasis says it came from the EET
-    arrDisplayMs = depDisplayMs + eetMin * 60_000;
-  } else if (etaMs !== staMs) {
-    arrKind = 'ETA';
-    arrDisplayMs = etaMs;
-  } else if (toMs != null || depDeltaMin !== 0) {
-    arrKind = 'ETA';
-    arrDisplayMs = staMs + depDeltaMin * 60_000;
-  } else {
-    arrKind = 'STA';
-    arrDisplayMs = staMs;
-  }
-  const arrDeltaMin = Math.round((arrDisplayMs - staMs) / 60_000);
-
-  // Ops model, REVERSED in bug report 3 (their newest mockups): the hatch
-  // LEADS the body — it spans schedule→actual departure (STD→T/O), and the
-  // coloured body runs from the actual departure to the arrival. No
-  // trailing tail; arrival differences show through the signed label.
-  const spanStartMs = Math.min(stdMs, depDisplayMs);
-  const hatchDepEndMs = depDisplayMs; // leading hatch = [STD, actual dep] when delayed
-  const solidEndMs = Math.max(arrDisplayMs, depDisplayMs + 5 * 60_000);
-  const spanEndMs = solidEndMs;
-
-  const start = new Date(spanStartMs);
-  const scheduledEnd = new Date(solidEndMs);
-  const etd = toHm(new Date(stdMs));
-  const eta = toHm(new Date(staMs));
+  const t = flightTimes(flight);
+  if (!t) return null;
   const dep = flight.adep?.icao || 'UNK';
   const arr = flight.ades?.icao || 'UNK';
-  const depDelayMin = Math.max(depDeltaMin, 0);
-  const arrDelayMin = Math.max(arrDeltaMin, 0);
-  const delayedDep = new Date(hatchDepEndMs);
-  const delayedArr = new Date(spanEndMs);
-
   const oprId = flight.oprId || group?.oprId || null;
   const flightNid = flight.flightNid != null ? String(flight.flightNid) : null;
 
@@ -209,7 +90,7 @@ function mapFlight(flight, group) {
     // must use `id`, never `fn`. `fn` is display-only.
     id: flightNid
       ? `${oprId || 'opr'}:${flightNid}`
-      : `${flight.flightNo || 'UNKNOWN'}|${dep}|${arr}|${start.getTime()}|${scheduledEnd.getTime()}`,
+      : `${flight.flightNo || 'UNKNOWN'}|${dep}|${arr}|${t.startUtcMs}|${t.scheduledEndUtcMs}`,
     flightNid,
     oprId,
     fn: flight.flightNo || 'UNKNOWN',
@@ -219,26 +100,27 @@ function mapFlight(flight, group) {
     icaoType: flight.icaoType || group?.defaultIcaoType || null,
     dep,
     arr,
-    etd,
-    eta,
+    // STD / STA as HH:MM (the names are historical).
+    etd: t.stdHm,
+    eta: t.staHm,
     // Actual times (Leon flightWatch/journey log) — the pill tags delayed
     // segments with ETD→ATD / ETA→ATA when these exist; null = not departed/
     // arrived yet, and the pill omits the tag rather than inventing a value.
-    atdHm: toHm(flight.atd),
-    ataHm: toHm(flight.ata),
-    dlyMin: Math.max(depDelayMin, arrDelayMin),
-    depDelayMin,
-    arrDelayMin,
+    atdHm: t.atdHm,
+    ataHm: t.ataHm,
+    dlyMin: Math.max(t.depDelayMin, t.arrDelayMin),
+    depDelayMin: t.depDelayMin,
+    arrDelayMin: t.arrDelayMin,
     // Ops timing display (exact rules): what to label each pill end with,
     // the value, and the SIGNED difference vs the initial schedule.
-    depKind,
-    arrKind,
-    depHm: toHm(new Date(depDisplayMs)),
-    arrHm: toHm(new Date(arrDisplayMs)),
-    eetMin: hasEet ? eetMin : null,
-    arrBasis: ldgMs != null ? 'LDG' : hasEet ? 'EET' : etaMs !== staMs ? 'ETA' : (toMs != null || depDeltaMin !== 0) ? 'STA+delta' : 'STA',
-    depDeltaMin,
-    arrDeltaMin,
+    depKind: t.depKind,
+    arrKind: t.arrKind,
+    depHm: t.depHm,
+    arrHm: t.arrHm,
+    eetMin: t.eetMin,
+    arrBasis: t.arrBasis,
+    depDeltaMin: t.depDeltaMin,
+    arrDeltaMin: t.arrDeltaMin,
     status: statusFromFlight(flight),
     // Clock-derived estimate (no flight-watch data) — pill renders HOLLOW.
     estimated: flight.movementStateEstimated === true,
@@ -246,10 +128,10 @@ function mapFlight(flight, group) {
     isConfirmed: flight.isConfirmed !== false,
     checklistColor: flight.checklistColor || null,
     ctot: flight.ctot || null,
-    startUtcMs: start.getTime(),
-    delayedStartUtcMs: delayedDep.getTime(),
-    scheduledEndUtcMs: scheduledEnd.getTime(),
-    endUtcMs: delayedArr.getTime(),
+    startUtcMs: t.startUtcMs,
+    delayedStartUtcMs: t.delayedStartUtcMs,
+    scheduledEndUtcMs: t.scheduledEndUtcMs,
+    endUtcMs: t.endUtcMs,
     limitationIds: Array.isArray(flight.limitationIds) ? flight.limitationIds : [],
     limitations: Array.isArray(flight.limitations) ? flight.limitations : [],
     // CheckWX flight categories per airport (VFR/MVFR/IFR/LIFR or null).

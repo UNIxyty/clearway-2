@@ -709,7 +709,8 @@ export default function PortalShell(props: PageProps) {
 // access screens, the one-tap intake answer, the Telegram mini app, the agent panel framed by the wall console, and
 // the captcha (HITL) viewer popups. Everything else gets the frame.
 // /docs has its own shell (components/docs/DocsFrame): two left navs on one screen is a bad page.
-const BARE = /^\/(login|signup|auth|maintenance|pending-approval|access-blocked|forbidden|intake\/answer|telegram|agent\/panel|docs|[a-z]+-hitl-auto-test)(\/|$)/;
+// /m is the phone shell (components/m/PhoneShell.tsx): its own app bar and tab bar, never the sidebar and top bar.
+const BARE = /^\/(login|signup|auth|maintenance|pending-approval|access-blocked|forbidden|intake\/answer|telegram|agent\/panel|docs|m|[a-z]+-hitl-auto-test)(\/|$)/;
 export function isBareRoute(pathname: string) {
   return BARE.test(pathname);
 }

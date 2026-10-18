@@ -48,9 +48,9 @@ type WeatherItem = {
 };
 
 
-export type RecentEntry = { icao: string; name: string; country: string; ts: number };
-export const RECENTS_STORAGE_KEY = "portal-recents";
-const RECENTS_MAX = 8;
+// The recents store lives in lib/portal-recents.ts (the phone pages read it too); re-exported here for the AIP page.
+import { RECENTS_MAX, RECENTS_STORAGE_KEY, type RecentEntry } from "@/lib/portal-recents";
+export { RECENTS_STORAGE_KEY, type RecentEntry };
 
 function getCaptchaViewerHref(country: string): string {
   switch (country.toLowerCase()) {

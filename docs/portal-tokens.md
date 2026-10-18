@@ -63,6 +63,12 @@ colours; it cannot see how a page looks. `rig/dark-audit.mjs` opens every page (
 and flags pale surfaces, pale borders and dark text — what the source check cannot. Neither can judge layout: a page
 built from correct tokens can still be arranged with light-theme logic (Help & support's header was, until Part A3).
 
+## The phone (since 2026-10-18)
+
+The phone shell at `/m` is a portal page like any other: it uses the `--cw-*` tokens plus `shared/mobile-tokens.css`,
+follows the one stored theme and motion choice, and is checked by `rig/mobile/tier1-check.mjs` in both themes.
+docs/mobile-shell.md has the rest (the breakpoint, the redirects, the shared facts module, the deliberate differences).
+
 ## The wall console (since 2026-10-18)
 
 The Display Console (`/digital-wall/console/*`, `opsboard-react/src/components/console/`) follows the portal's theme.
@@ -74,9 +80,15 @@ localStorage (shared with the portal on the same origin), the same saved choice 
 paint, on console paths only. The portal's **Motion** preference (`cw-motion`, the account's `motion`,
 `data-motion="reduce"`) comes the same way, with the portal's reduced-motion rules scoped to `.cw-console`. Both are
 followed live: a change made in the portal's Settings reaches an open console tab through the `storage` event, with no
-reload and no transition. **One place chooses them** (Settings › Appearance, Settings › Preferences); the console shows
-which choice is in effect and links there, and has no control of its own. The wall's guide (`digital-wall/guide/`)
-follows the same two keys and lost its own light/dark button on 2026-10-18.
+reload and no transition.
+
+> **One stored choice for the theme (`cw-theme`, with the account's saved value winning), and one for motion
+> (`cw-motion`). Any number of controls may write them. No app may keep its own.**
+
+So the portal's Settings › Appearance, its top-bar sun/moon menu and the docs site's copy of it are all fine: they write
+the one key and save to the one account. What is not fine is a second key: the wall's guide (`digital-wall/guide/`)
+kept its own (`dwguide-theme`) with its own button until 2026-10-18 — a second setting, which would have drifted — and
+now follows the two keys like the console. The console shows which choice is in effect and links to Settings.
 
 **The wall display is not themed.** It keeps its own per-account colours and font (wall settings; `shared/design-tokens.json`
 is its token file, read at build time), sets no `data-theme`, loads no `--cw-*` token. Everything the console draws

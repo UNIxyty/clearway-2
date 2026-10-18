@@ -15,6 +15,19 @@ const tokenColour = (name: string) => ({ opacityValue }: Alpha) =>
 const colourTokens = Object.keys(portal.tokens).filter((k) => !/^(shadow-|show-)/.test(k));
 // Tailwind accepts a function colour (for the opacity modifier); its config type only describes strings.
 const cw = Object.fromEntries(colourTokens.map((k) => [k, tokenColour(k)])) as unknown as Record<string, string>;
+// The additions (shared/client-tokens.css, shared/mobile-tokens.css): the same one-class-per-token wiring, by name.
+// bg-ca-st-delayed-bg, text-ca-sens-text, bg-mx-tabbar, text-mx-now … Each resolves to its variable.
+const varColour = (prefix: string) => (name: string) => ({ opacityValue }: Alpha) =>
+  opacityValue === undefined || opacityValue === "1" || opacityValue.startsWith("var(--tw-")
+    ? `var(--${prefix}-${name})`
+    : `color-mix(in srgb, var(--${prefix}-${name}) calc(${opacityValue} * 100%), transparent)`;
+const CA_TOKENS = ["sens", "sens-text", "sens-tint", "sens-border", "sens-solid", "sens-on-solid", "mask", "watermark", "countdown-track",
+  ...["scheduled", "delayed", "ctot", "flying", "arrived", "aog"].flatMap((s) => [`st-${s}-bg`, `st-${s}-fg`]),
+  ...["op", "reg", "trip"].flatMap((s) => [`scope-${s}-bg`, `scope-${s}-fg`, `scope-${s}-bd`]), "on-dot", "off-ring", "route-line", "map-grid"];
+const MX_TOKENS = ["statusbar", "appbar", "tabbar", "tab-active", "tab-idle", "tab-indicator", "sheet", "handle", "now", "now-soft", "mark-bg", "mark-fg", "hold-track",
+  ...["imp", "ntm", "wx", "caa", "lim"].flatMap((s) => [`chk-${s}-bg`, `chk-${s}-fg`]), "paper", "paper-ink", "paper-rule"];
+const ca = Object.fromEntries(CA_TOKENS.map((k) => [k, varColour("ca")(k)])) as unknown as Record<string, string>;
+const mx = Object.fromEntries(MX_TOKENS.map((k) => [k, varColour("mx")(k)])) as unknown as Record<string, string>;
 
 export default {
   // Theme switching is data-theme on <html> (set before first paint by the inline script in app/layout.tsx). The
@@ -45,7 +58,7 @@ export default {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
       },
-      colors: { cw },
+      colors: { cw, ca, mx },
       // Preflight's default border, ring and placeholder colours are Tailwind greys/blues: make them tokens.
       borderColor: { DEFAULT: "var(--cw-border)" },
       ringColor: { DEFAULT: "var(--cw-focus)" },

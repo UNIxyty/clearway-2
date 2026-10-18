@@ -3,7 +3,6 @@ import Board from '../Board';
 import { useWallColors } from '../../theme/WallColorsContext';
 import { chromeFor, markerChipsFor, wxCategoryColorsFor } from '../../theme/wallColors';
 import FlightDetailSheet from './FlightDetailSheet';
-import PhoneWall from './PhoneWall';
 import TabletWall from './TabletWall';
 import { MONO } from './mobileChrome';
 import { flattenFlights, hmZ } from './mobileUtil';
@@ -11,7 +10,7 @@ import { ConnChip, StaleBanner } from './WallChrome';
 import useConnection from './useConnection';
 
 // The Digital Wall below the ops-room breakpoint (design sections A + B):
-//   ≤767 portrait   → PhoneWall (Now / Attention / Timeline tabs)
+//   ≤767 portrait   → the portal's phone wall at /m/wall (mobile Stage 2; PhoneWall retired)
 //   ≤767 landscape  → the mini timeline full-screen (A6)
 //   768–1919        → TabletWall (reduced timeline + rail + drawer)
 // Data fetching / polling / SSE stay in DisplayApp — this component only
@@ -25,11 +24,9 @@ export default function ResponsiveWall({
   windowStartUtc,
   windowEndUtc,
   clocks = [],
-  notamState = null,
   mvtThresholdMin = 15,
   showUnconfirmedRing = true,
   mvtFlashSeconds = 1,
-  loadedOnce = false,
   error = '',
   dataUpdatedAt = 0,
   onReload = null,
@@ -69,9 +66,11 @@ export default function ResponsiveWall({
   // still a phone: anything landscape with a phone-height viewport gets the
   // full-screen mini timeline (design A6), not the tablet layout.
   const phoneLandscape = vp.landscape && (vp.isPhone || (vp.height <= 500 && vp.width < 1024));
+  const portraitPhone = vp.isPhone && !vp.landscape;
+  useEffect(() => { if (portraitPhone && /\/digital-wall\//.test(window.location.pathname)) window.location.replace('/m/wall'); }, [portraitPhone]);
   let view;
-  if (vp.isPhone && !vp.landscape) {
-    view = <PhoneWall {...shared} notamState={notamState} loadedOnce={loadedOnce} />;
+  if (portraitPhone) {
+    view = null; // leaving for /m/wall
   } else if (phoneLandscape) {
     view = <LandscapePhoneWall {...shared} />;
   } else {

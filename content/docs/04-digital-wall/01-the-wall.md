@@ -1,10 +1,10 @@
 ---
 title: The wall
-summary: Today's flights as a timeline, one row per aircraft. The same wall runs on the ops-room screen, on phones and on tablets, each laid out for its size.
+summary: Today's flights as a timeline, one row per aircraft. The same wall runs on the ops-room screen and on tablets; a phone opens the portal's own phone pages, with the same facts.
 status: written
 roles: All roles
 video: the-wall | 30 seconds
-updated: 2026-10-14
+updated: 2026-10-18
 related: digital-wall/flights, digital-wall/notam-check, digital-wall/settings
 ---
 
@@ -20,7 +20,7 @@ The wall picks its layout from the screen:
 | Screen | Layout |
 |---|---|
 | 1920 pixels wide or more, or 1280 or more with a mouse or trackpad | The full board |
-| A phone held upright | Three tabs: **Now**, **Attention** and **Timeline** |
+| A phone held upright | The portal's phone pages open instead, on the **Wall** tab ([On a phone](dashboard/on-a-phone)) |
 | A phone turned sideways | A full-screen timeline |
 | A tablet, or any other touch screen | A reduced timeline |
 
@@ -180,95 +180,16 @@ screens in [Settings](digital-wall/settings#approve-a-new-screen). The code chan
 
 # On a phone
 
-## See what is happening now
-The **Now** tab lists the flights in the air and the next ones out.
-
-1. Open the wall on your phone. The **Now** tab opens.
-2. Read the line at the top, for example **1 airborne · 1 depart within the hour · 5 need attention**.
-3. Read **AIRBORNE**: each flight in the air, with its take-off time and when it lands.
-4. Read **NEXT OUT**: the next flights, earliest first, with how long until each leaves.
-
-:::note When nothing is flying
-The tab says **Nothing in the air**. Press **See the whole day** to open the day's timeline.
-:::
-
-Unverified: The empty tab (Nothing in the air, See the whole day). The test system always had flights. The rest was checked.
-
-## See what needs attention
-The **Attention** tab lists what someone should look at.
-
-1. Press **Attention**. The number next to it counts the airports and flights that need someone.
-2. Read each part. The table below says what each one lists.
-   Unverified: MVT OVERDUE never showed: no test flight was overdue.
-
-| Part | What it lists |
-|---|---|
-| **UNREVIEWED NOTAMS** | Airports whose NOTAMs nobody has checked today, and the flights they affect |
-| **MVT OVERDUE** | Flights with no movement message when one was expected |
-| **UNCONFIRMED** | Flights the operator has not confirmed |
-| **ACTIVE LIMITATIONS** | The limitations in force |
-
-If there is nothing, the tab says **Nothing needs attention right now.**
-
-Unverified: MVT OVERDUE and the empty tab. Neither happened on the test system. The other three parts were checked.
-
-## Review an airport's NOTAMs from the phone
-Open the NOTAM Check page from the Attention tab.
-
-1. Press **Attention**.
-2. Under **UNREVIEWED NOTAMS**, press **CHECK** next to the airport. The **NOTAM Check** page opens.
-3. Check the airport there, as on the [NOTAM Check](digital-wall/notam-check) page.
-
-:::note The page opens at the top
-The page opens with all of today's airports. Find the airport in the list.
-:::
-
-## Look at the day's timeline
-See the flights on a timeline that you scroll sideways.
-
-1. Press **Timeline**.
-2. Choose how much time to see: **2H**, **6H** or **DAY**. The line above says how many hours are in view.
-3. Scroll sideways to move in time.
-
-The tab opens at **2H** each time.
-
-## Open a flight on the phone
-See one flight's times and the notices that apply to it.
-
-1. Press the flight, on **Now**, **Attention** or **Timeline**. Its details open from the bottom of the screen.
-2. Read the times, then the notices: important notices, NOTAMs, weather, limitations and CAA.
-3. To close the details, press **✕**. Or press the dimmed part of the screen.
-
-## Mark a flight checked on the phone
-Roles: User, Admin and Developer by default
-Check everything on a flight at once, from the phone.
-
-:::warning There is no undo
-The checks cannot be taken back. They stay until the next daily check resets them.
-:::
-
-1. Open the flight.
-2. Press **Mark checked**, at the bottom.
-3. Read the **Checked:** line. It lists each part, with your name and the time.
-
-## Get the wall back when it stops updating
-When the phone has not heard from the wall for 3 minutes, the wall says so.
-
-1. Read the banner at the top: **STALE**, with how many minutes old the data is, and **Last update** with the time.
-   The times below it may be out of date.
-2. Press **Retry**.
-3. Wait. When the wall answers, the banner goes away and the clock says **LIVE** again.
-
-:::note While the wall is stale
-**Mark checked** does not work, so that nothing is checked against old data.
-:::
+The wall's address on a phone held upright opens the portal's phone pages, on the **Wall** tab: cards instead of the
+timeline, what needs attention first, and the same checks. How to read and mark from there is in
+[On a phone](dashboard/on-a-phone).
 
 ## Turn the phone sideways
 See the full timeline on a phone.
 
-1. Turn the phone sideways. The timeline fills the screen, with the next 3 hours in view.
+1. Open the wall's address and turn the phone sideways. The timeline fills the screen, with the next 3 hours in view.
 2. Scroll sideways to move in time.
-3. Turn the phone upright to go back to the tabs. A flight you had open stays open.
+3. Turn the phone upright and the portal's **Wall** tab opens.
 
 # On a tablet
 

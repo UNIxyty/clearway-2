@@ -8,7 +8,8 @@ cd "$(dirname "$0")/.."
 # pass alone failed after 49-80 minute stalls, and Chrome logged ERR_NETWORK_IO_SUSPENDED). Keep the DISPLAY awake too
 # (-u wakes it, -d holds it): with the display asleep, a visible Chrome window stops painting, so the extension suites'
 # screenshots never finish, and the browser's audio clock stops (2026-10-13).
-[ -z "$RIG_AWAKE" ] && command -v caffeinate >/dev/null && { caffeinate -u -t 2; exec env RIG_AWAKE=1 caffeinate -d -i "$0" "$@"; }
+# Every kind of sleep: -d display, -i idle, -s system (on mains), -u user-active. A closed lid still sleeps the Mac.
+[ -z "$RIG_AWAKE" ] && command -v caffeinate >/dev/null && { caffeinate -u -t 2; exec env RIG_AWAKE=1 caffeinate -d -i -s -u "$0" "$@"; }
 OUT=rig/.scratch/suites; mkdir -p $OUT; LOG=$OUT/summary.log; : > $LOG
 SCR="$PWD/rig/.scratch"; E="node --env-file=.env.rig"
 run() { local name="$1"; shift; local out="$OUT/$(echo "$name" | tr '/ ' '__').out"; local t0=$(date +%s); "$@" > "$out" 2>&1 < /dev/null; local rc=$?; echo "$name rc=$rc $(( $(date +%s) - t0 ))s $(grep -cE '^(PASS|ok)' "$out") pass $(grep -cE '^(FAIL|not ok)' "$out") fail :: $(tail -1 "$out" | cut -c1-140)" >> $LOG; }
@@ -56,6 +57,7 @@ run intake/browser-edits $E rig/intake/browser-edits.mjs "$CIMOG"
 
 # ── permissions, wall, portal, extension
 run permissions-check $E rig/permissions-check.mjs
+( cd opsboard-react && npx vite build > ../rig/.scratch/vite-build.out 2>&1 ) || echo "vite build failed — see rig/.scratch/vite-build.out" >> $LOG   # the console check and the phone check read the built dist
 preview 5198   # the console against the sign-in-on wall
 docker exec supabase_db_rig psql -U postgres -q -c "alter table permission_changes disable trigger permission_changes_append_only; delete from permission_grants; alter table permission_changes enable trigger permission_changes_append_only;"
 docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.sql > /dev/null
@@ -64,6 +66,7 @@ run wall/access-check $E rig/wall/access-check.mjs
 run wall/browser-access $E rig/wall/browser-access.mjs
 run wall/console-theme-check $E rig/wall/console-theme-check.mjs
 preview 5199   # back to the normal wall
+run mobile/tier1-check $E rig/mobile/tier1-check.mjs
 run group2 $E rig/group2-check.mjs
 run shell-check $E rig/shell-check.mjs
 run stage1-check $E rig/stage1-check.mjs
@@ -92,4 +95,12 @@ run fixes/email-logs-removed $E rig/fixes/email-logs-removed.mjs
 run fixes/aip-sync-permission $E rig/fixes/aip-sync-permission.mjs
 run fixes/aip-copy-date $E rig/fixes/aip-copy-date.mjs
 run error-text-browser $E rig/error-text-browser-check.mjs
+# A run the machine slept through proves nothing: the browser logs ERR_NETWORK_IO_SUSPENDED and every later suite finds
+# the fixtures the stalled one never made (2026-10-18: seven red suites from one nap). Say so, loudly, and exit 2.
+if grep -lq "ERR_NETWORK_IO_SUSPENDED" $OUT/*.out 2>/dev/null; then
+  first=$(grep -l "ERR_NETWORK_IO_SUSPENDED" $OUT/*.out | head -1 | xargs basename | sed 's/\.out$//')
+  echo "SUSPENDED: the machine slept during $first — nothing from that suite on can be trusted. Rerun from there." | tee -a $LOG
+  echo DONE >> $LOG
+  exit 2
+fi
 echo DONE >> $LOG

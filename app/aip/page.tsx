@@ -11,6 +11,7 @@
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { dateLong } from "@/lib/time";
 import { useRouter, useSearchParams } from "next/navigation";
+import PhoneRedirect from "@/components/m/PhoneRedirect";
 import { Spinner } from "@/components/ui/spinner";
 import { PlaneIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, Trash2Icon, XIcon, GlobeIcon, SearchIcon, SquareIcon } from "lucide-react";
 import PortalShell from "@/components/portal/Shell";
@@ -1323,6 +1324,7 @@ export default function AIPSearchPage() {
         </div>
       }
     >
+      <PhoneRedirect to="/m/airport" />
       <AIPSearchPageInner />
     </Suspense>
   );

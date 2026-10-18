@@ -42,7 +42,7 @@ their own views). The console has a **Flights** table. No wall page has cards *a
 | Delete an operator (type the code, "Delete permanently", deletes Flight Intake history) | partly | Trash icon, plain confirm; deletes its cached flights and aircraft visibility; leaves webhooks, checks and Flight intake history |
 
 Evidence (file:line for every row) was gathered from `opsboard-react/src` (DisplayApp, FlightPill, Board, FlightInfoTab,
-mobile/PhoneWall, mobile/TabletWall, mobile/FlightDetailSheet, console/FlightsPage, console/OperatorsPage),
+mobile/PhoneWall (retired 2026-10-18: a portrait phone now opens the portal's /m/wall), mobile/TabletWall, mobile/FlightDetailSheet, console/FlightsPage, console/OperatorsPage),
 `digital-wall/server.mjs`, `digital-wall/operators-store.mjs`, `digital-wall/lib/leon-sync.mjs` and
 `lib/permissions/catalogue.mjs` on 2026-10-12.
 

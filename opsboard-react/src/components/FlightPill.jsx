@@ -18,6 +18,7 @@ import {
 } from '../theme/wallColors';
 
 import { WALL_FONT } from '../theme/wallFont';
+import { markerKeysOf, mvtOverdue } from '../../../shared/wall-facts.mjs';
 import { useWallDisplay } from '../theme/WallDisplayContext';
 // Static resolved defaults — for module-level exports and the shared
 // components when they render OUTSIDE the wall's WallColorsProvider (console
@@ -274,37 +275,27 @@ export function orderedMarkersOf(flight, { wx = true, colors = DEFAULT_COLORS, s
 }
 
 /**
- * MVT-overdue predicate, shared by the wall timeline (blink ring) and the
- * phone/tablet lists (static red badge) — ONE definition, no drift. True when
- * no T/O `thresholdMin` past the expected departure; reference is CTOT/ETD
- * when set, else STD (that instant IS delayedStartUtcMs under mapFlight).
+ * MVT-overdue predicate, shared by the wall timeline (blink ring), the phone/tablet lists (static red badge) and the
+ * portal's phone wall — ONE definition, in shared/wall-facts.mjs (mvtOverdue), re-exported here.
  */
 export function mvtOverdueOf(flight, nowMs, thresholdMin = 15) {
-  const mvtRefMs = Number(flight.delayedStartUtcMs) || Number(flight.startUtcMs) || 0;
-  return (
-    (flight.depKind ?? 'STD') !== 'T/O' &&
-    !flight.atdHm &&
-    flight.status !== 'arrived' &&
-    !flight.isCnl &&
-    mvtRefMs > 0 &&
-    Number(nowMs) > mvtRefMs + thresholdMin * 60_000
-  );
+  return mvtOverdue(flight, nowMs, thresholdMin);
 }
 
 export function markerListOf(flight, { wx = true, colors = DEFAULT_COLORS, show = null } = {}) {
   const chips = markerChipsFor(colors);
   const wxColors = wxCategoryColorsFor(colors);
-  // Bug report 7 item 5: per-account chip visibility. A hidden chip is simply not in the list, so the row (and
-  // every width estimate built from it) closes up — no gap where it was.
+  // Which markers the flight carries is the wall's rule, shared with the phone (shared/wall-facts.mjs markerKeysOf);
+  // this list adds the per-account chip toggles (bug report 7 item 5: a hidden chip is simply not in the list, so
+  // the row closes up) and the wall's colours.
+  const has = markerKeysOf(flight);
   const on = (key) => show == null || show[key] !== false;
   const list = [];
-  if (on('IMP') && (flight.limitations || []).some((lim) => lim.type === 'IMP')) list.push({ key: 'IMP', color: chips.IMP.text, label: 'Important' });
-  if (on('CAA') && (flight.limitations || []).some((lim) => lim.type === 'CAA')) list.push({ key: 'CAA', color: chips.CAA.text, label: 'CAA details' });
-  if (on('WX') && wx && flight.wxDep && wxColors[flight.wxDep]) list.push({ key: 'WXD', color: wxColors[flight.wxDep], label: `Departure WX ${flight.wxDep}` });
-  if (on('WX') && wx && flight.wxArr && wxColors[flight.wxArr]) list.push({ key: 'WXA', color: wxColors[flight.wxArr], label: `Arrival WX ${flight.wxArr}` });
-  if (on('NTM')) for (const type of new Set((flight.limitations || []).filter((l) => l.source === 'alert' && ALERT_MARK_TYPES.has(l.type)).map((l) => l.type))) {
-    list.push({ key: type, color: chips.NTM.text, label: 'Unreviewed NOTAM' });
-  }
+  if (on('IMP') && has.IMP) list.push({ key: 'IMP', color: chips.IMP.text, label: 'Important' });
+  if (on('CAA') && has.CAA) list.push({ key: 'CAA', color: chips.CAA.text, label: 'CAA details' });
+  if (on('WX') && wx && has.WXD && wxColors[has.WXD]) list.push({ key: 'WXD', color: wxColors[has.WXD], label: `Departure WX ${has.WXD}` });
+  if (on('WX') && wx && has.WXA && wxColors[has.WXA]) list.push({ key: 'WXA', color: wxColors[has.WXA], label: `Arrival WX ${has.WXA}` });
+  if (on('NTM') && has.NTM) list.push({ key: 'NTM', color: chips.NTM.text, label: 'Unreviewed NOTAM' });
   return list;
 }
 

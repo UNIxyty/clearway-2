@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Public_Sans } from "next/font/google";
 import "@/shared/portal-tokens.css";
+// The client-view and phone additions (--ca-*, --mx-*): only what the portal has no token for, loaded after it
+// (docs/portal-tokens.md). Both are additive; neither redefines a --cw-* token.
+import "@/shared/client-tokens.css";
+import "@/shared/mobile-tokens.css";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { PortalFrame } from "@/components/portal/Shell";

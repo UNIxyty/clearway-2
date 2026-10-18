@@ -13,6 +13,7 @@ import { notFound, usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import PortalShell from "@/components/portal/Shell";
 import AirportView from "@/components/portal/AirportView";
+import PhoneRedirect from "@/components/m/PhoneRedirect";
 
 // Legacy sub-tab segments: still valid URLs (the page redirects them).
 const LEGACY_TAB_SEGMENTS = new Set(["gen", "notam", "weather"]);
@@ -39,6 +40,7 @@ export default function AirportLayout({
 
   return (
     <PortalShell>
+      <PhoneRedirect to={`/m/airport/${icao}`} />
       <Suspense
         fallback={
           <div className="px-4 py-6 pb-12 sm:px-[30px]">

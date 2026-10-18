@@ -229,6 +229,20 @@ const STATES = [
   await ctx.close();
 }
 
+// ── intake from the phone: "Looks right" on a flagged field sends the desktop's op and the agent accepts it ──
+{
+  const flagged = (intake.rows ?? []).find((r) => r.statusKey === "needs_review") ?? req;
+  const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
+  await page.goto(`${BASE}/m/intake/${flagged.id}/leg/1`, { waitUntil: "load" }); await page.waitForTimeout(1800);
+  const btn = page.getByRole("button", { name: /^Looks right$/ }).first();
+  if (await btn.count()) {
+    await btn.click(); await page.waitForTimeout(2500);
+    const alerts = await page.locator("[role=alert]").allInnerTexts();
+    ok(alerts.length === 0, "intake: Looks right is accepted by the agent (no alert)", alerts.join(" | ").slice(0, 200));
+  } else console.log("skip  intake: no field to mark Looks right on the rig's flagged request");
+  await ctx.close();
+}
+
 await browser.close();
 console.log(failures ? `${failures} FAILED` : "ALL PASS");
 process.exit(failures ? 1 : 0);

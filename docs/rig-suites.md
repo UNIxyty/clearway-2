@@ -93,6 +93,14 @@ AIP stand-ins (`rig/wall/seed-portal.mjs`). Three suites had relied on the rig h
   service-status-unsaved, search-four-letters, search-hidden, profile-email-failure, browse-several,
   email-logs-removed). The full run that day: 53 suites, all green.
 
+## Red in a full run on 2026-10-19, green alone
+
+- **manifest/browser "the blank form is one keypress from the picker" (35/36) and wall/console-theme-check "the open
+  display tab did not react: pixel-identical" (39/40)** in the second full run of the night (after the mobile
+  Tier 1 suite was added). Each passed alone straight after: 36/36 (with a fresh mock Leon, as the runner starts it)
+  and 40/40. Both are timing checks under load — a keypress before focus settles, and a display screenshot taken
+  while the tab was busy. Watch them; if either is red twice running, split the runner's browser suites further.
+
 ## Red on 2026-10-12/13, and why (each fixed)
 
 - **manifest/browser, "voice reaches the same picker"** (from about 22:30 UTC on 2026-10-12). Not ElevenLabs, which

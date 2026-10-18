@@ -74,7 +74,7 @@ export default function IntakeLegPage() {
                     </>
                   ) : (
                     <>
-                      {f.state === "low_confidence" ? <MButton size="sm" disabled={busy !== null} onClick={() => void apply(f.key, { op: "check", leg: leg.index, key: f.key })}><MaskIcon name="check" size={15} color="currentColor" />Looks right</MButton> : <span />}
+                      {f.state === "low_confidence" ? <MButton size="sm" disabled={busy !== null} onClick={() => void apply(f.key, { op: "looks_right", leg: leg.index, key: f.key })}><MaskIcon name="check" size={15} color="currentColor" />Looks right</MButton> : <span />}
                       <MButton size="sm" onClick={() => setEditing({ key: f.key, value: f.value ?? "" })}><MaskIcon name="pencil" size={15} color="currentColor" />Edit</MButton>
                     </>
                   )}

@@ -21,7 +21,6 @@ import {
   ErrorBanner,
   FieldLabel,
   IconButton,
-  LoadingState,
   MonoChip,
   PageHeader,
   SearchBox,
@@ -32,7 +31,11 @@ import {
   TextInput,
   timeAgo,
   useToast,
+  useLoadPhase,
+  TableSkeleton,
+  SkeletonCards,
 } from './ui';
+import { TABLE_GRID, gridHeader } from './pageMeta';
 import { errorText } from '../../services/errorText';
 
 // Reports (bug report item 13): internal issue/request tracker. Ops raise a
@@ -40,10 +43,10 @@ import { errorText } from '../../services/errorText';
 // route it to the right inbox through the branded Resend template.
 
 const STATUSES = [
-  { value: 'untouched', label: 'Untouched', c: '#b45309', b: '#fef3e2' },
-  { value: 'under_process', label: 'Under process', c: '#1d4ed8', b: '#e8effe' },
-  { value: 'done', label: 'Done', c: '#15803d', b: '#e7f6ec' },
-  { value: 'impossible', label: 'Impossible', c: '#e5484d', b: '#fdecec' },
+  { value: 'untouched', label: 'Untouched', c: t.amber, b: t.amberTint },
+  { value: 'under_process', label: 'Under process', c: t.blueDeep, b: t.blueTint },
+  { value: 'done', label: 'Done', c: t.greenDeep, b: t.greenTint },
+  { value: 'impossible', label: 'Impossible', c: t.redDeep, b: t.redTint },
 ];
 const STATUS_BY_VALUE = Object.fromEntries(STATUSES.map((s) => [s.value, s]));
 
@@ -63,7 +66,7 @@ function StatusQuickPick({ report, onChanged }) {
         <StatusChip value={report.status} />
       </span>
       {open && (
-        <span style={{ position: 'absolute', top: '110%', left: 0, zIndex: 30, background: '#fff', border: `1px solid ${t.borderInput}`, borderRadius: 10, boxShadow: t.shadowPanel, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 150 }}>
+        <span style={{ position: 'absolute', top: '110%', left: 0, zIndex: 30, background: t.raised, border: `1px solid ${t.borderInput}`, borderRadius: 10, boxShadow: t.shadowPop, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 150 }}>
           {STATUSES.map((s) => (
             <button
               key={s.value}
@@ -77,7 +80,7 @@ function StatusQuickPick({ report, onChanged }) {
                   await updateReport(report.id, { status: s.value });
                   flash(`${report.title.slice(0, 30)} → ${s.label}`);
                   onChanged();
-                } catch (err) { flash(errorText(err), '#f87171'); }
+                } catch (err) { flash(errorText(err), t.red); }
               }}
             >
               {s.label}
@@ -99,6 +102,7 @@ export default function ReportsPage() {
   const [presets, setPresets] = useState([]);
   const [mailerOk, setMailerOk] = useState(true);
   const [loading, setLoading] = useState(true);
+  const phase = useLoadPhase(loading);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -190,7 +194,7 @@ export default function ReportsPage() {
 
   const filterBtn = (on) => ({
     fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
-    border: `1px solid ${on ? t.blue : t.borderInput}`, background: on ? t.blueTint : '#fff',
+    border: `1px solid ${on ? t.blue : t.borderInput}`, background: on ? t.blueTint : t.card,
     color: on ? t.blueDeep : t.muted, borderRadius: 8, padding: '6px 12px',
   });
 
@@ -210,7 +214,7 @@ export default function ReportsPage() {
       setSheetNote('');
       await load();
     } catch (err) {
-      flash(errorText(err), '#f87171');
+      flash(errorText(err), t.red);
     } finally {
       setSheetBusy(false);
     }
@@ -238,7 +242,7 @@ export default function ReportsPage() {
         </div>
 
         {!mailerOk && (
-          <div style={{ marginBottom: 12, fontSize: 13, color: '#92500b', background: t.amberTint, border: '1px solid rgba(180,120,20,.35)', borderRadius: 11, padding: '10px 13px' }}>
+          <div style={{ marginBottom: 12, fontSize: 13, color: t.amber, background: t.amberTint, border: `1px solid ${t.amberBorder}`, borderRadius: 11, padding: '10px 13px' }}>
             This wall cannot send email right now, so reports can be tracked but not sent. If you need to send one, report it from Help & support.
           </div>
         )}
@@ -293,11 +297,11 @@ export default function ReportsPage() {
         )}
 
         {sendFor && (
-          <Card className="cw-fade" style={{ border: '1px solid rgba(37,99,235,.4)', marginBottom: 14, padding: 16 }}>
+          <Card className="cw-fade" style={{ border: `1px solid ${t.blue}`, marginBottom: 14, padding: 16 }}>
             <h3 style={{ fontSize: 15.5, fontWeight: 800, margin: '0 0 4px' }}>Send “{sendFor.title}”</h3>
             <p style={{ fontSize: 13, color: t.muted, margin: '0 0 12px' }}>Pick preset recipients and/or add an address.</p>
             {sendError && (
-              <div style={{ marginBottom: 12, fontSize: 13.5, fontWeight: 600, color: '#b91c1c', background: '#fdecec', border: '1px solid #f6c6c6', borderRadius: 10, padding: '10px 14px' }}>
+              <div style={{ marginBottom: 12, fontSize: 13.5, fontWeight: 600, color: t.redDeep, background: t.redTint, border: `1px solid ${t.redBorder}`, borderRadius: 10, padding: '10px 14px' }}>
                 {sendError}
               </div>
             )}
@@ -332,8 +336,8 @@ export default function ReportsPage() {
           ))}
         </ChipRow>
 
-        {loading && <LoadingState>Loading reports…</LoadingState>}
-        {!loading && ordered.length === 0 && (
+        {phase === 'skeleton' && <SkeletonCards label="Loading reports" />}
+        {phase === 'content' && ordered.length === 0 && (
           <Card style={{ padding: 0 }}>
             <EmptyState icon="clipboard-check" title="No reports">
               Raise the first one with “New report”.
@@ -341,7 +345,7 @@ export default function ReportsPage() {
           </Card>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {ordered.map((report) => (
+          {phase === 'content' && ordered.map((report) => (
             <div
               key={report.id}
               role="button"
@@ -365,7 +369,7 @@ export default function ReportsPage() {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                 <StatusChip value={report.status} />
-                <MonoChip color="#1d4ed8" bg="#e8effe">{report.category}</MonoChip>
+                <MonoChip color={t.blueDeep} bg={t.blueTint}>{report.category}</MonoChip>
                 <span style={{ marginLeft: 'auto', fontSize: 11.5, color: t.faint, flex: 'none' }}>{timeAgo(report.updatedAt || report.createdAt)}</span>
               </div>
               <span style={{ fontSize: 14, fontWeight: 700, color: t.ink, lineHeight: 1.4 }}>{report.title}</span>
@@ -420,7 +424,7 @@ export default function ReportsPage() {
                           height: 20,
                           borderRadius: '50%',
                           border: on ? `6px solid ${t.blue}` : `1.5px solid ${t.borderInput}`,
-                          background: '#fff',
+                          background: t.card,
                           flex: 'none',
                           boxSizing: 'border-box',
                         }}
@@ -456,7 +460,7 @@ export default function ReportsPage() {
           body="The report and its send history are removed. This cannot be undone."
           onCancel={() => setConfirmDelete(null)}
           onConfirm={async () => {
-            try { await deleteReport(confirmDelete.id); flash('Report deleted', '#f87171'); setConfirmDelete(null); await load(); }
+            try { await deleteReport(confirmDelete.id); flash('Report deleted', t.red); setConfirmDelete(null); await load(); }
             catch (err) { setError(errorText(err)); setConfirmDelete(null); }
           }}
         />
@@ -483,7 +487,7 @@ export default function ReportsPage() {
       />
 
       {!mailerOk && (
-        <div style={{ marginBottom: 16, fontSize: 13.5, color: '#92500b', background: t.amberTint, border: '1px solid rgba(180,120,20,.35)', borderRadius: 11, padding: '11px 15px' }}>
+        <div style={{ marginBottom: 16, fontSize: 13.5, color: t.amber, background: t.amberTint, border: `1px solid ${t.amberBorder}`, borderRadius: 11, padding: '11px 15px' }}>
           This wall cannot send email right now, so reports can be tracked but not sent. If you need to send one, report it from Help & support.
         </div>
       )}
@@ -574,11 +578,11 @@ export default function ReportsPage() {
       )}
 
       {sendFor && (
-        <Card className="cw-fade" style={{ border: '1px solid rgba(37,99,235,.4)', marginBottom: 18 }}>
+        <Card className="cw-fade" style={{ border: `1px solid ${t.blue}`, marginBottom: 18 }}>
           <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 4px' }}>Send “{sendFor.title}”</h3>
           <p style={{ fontSize: 13, color: t.muted, margin: '0 0 12px' }}>Pick preset recipients and/or add an address.</p>
           {sendError && (
-            <div style={{ marginBottom: 12, fontSize: 13.5, fontWeight: 600, color: '#b91c1c', background: '#fdecec', border: '1px solid #f6c6c6', borderRadius: 10, padding: '10px 14px' }}>
+            <div style={{ marginBottom: 12, fontSize: 13.5, fontWeight: 600, color: t.redDeep, background: t.redTint, border: `1px solid ${t.redBorder}`, borderRadius: 10, padding: '10px 14px' }}>
               {sendError}
             </div>
           )}
@@ -619,26 +623,19 @@ export default function ReportsPage() {
       </div>
 
       <TableShell
-        columns=".7fr 2fr 1fr 1.1fr 1.1fr .8fr"
-        header={[
-          { label: 'CATEGORY' },
-          { label: 'REPORT' },
-          { label: 'STATUS' },
-          { label: 'CREATED' },
-          { label: 'LAST UPDATE' },
-          { label: 'ACTIONS', align: 'right' },
-        ]}
+        columns={TABLE_GRID.reports.columns}
+        header={gridHeader('reports')}
       >
-        {loading && <LoadingState>Loading reports…</LoadingState>}
-        {!loading && visible.length === 0 && (
+        {phase === 'skeleton' && <TableSkeleton columns={TABLE_GRID.reports.columns} label="Loading reports" />}
+        {phase === 'content' && visible.length === 0 && (
           <EmptyState icon="clipboard-check" title="No reports">
             Raise the first one with “New report”.
           </EmptyState>
         )}
-        {visible.map((report) => (
+        {phase === 'content' && visible.map((report) => (
           <div key={report.id} style={{ padding: '13px 18px', borderBottom: `1px solid ${t.rowLine}` }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '.7fr 2fr 1fr 1.1fr 1.1fr .8fr', alignItems: 'center', gap: 8 }}>
-              <div><MonoChip color="#1d4ed8" bg="#e8effe">{report.category}</MonoChip></div>
+            <div style={{ display: 'grid', gridTemplateColumns: TABLE_GRID.reports.columns, alignItems: 'center', gap: 8 }}>
+              <div><MonoChip color={t.blueDeep} bg={t.blueTint}>{report.category}</MonoChip></div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 14.5, fontWeight: 700 }}>{report.title}</div>
                 {report.body && <div style={{ fontSize: 12.5, color: t.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{report.body}</div>}
@@ -671,7 +668,7 @@ export default function ReportsPage() {
         body="The report and its send history are removed. This cannot be undone."
         onCancel={() => setConfirmDelete(null)}
         onConfirm={async () => {
-          try { await deleteReport(confirmDelete.id); flash('Report deleted', '#f87171'); setConfirmDelete(null); await load(); }
+          try { await deleteReport(confirmDelete.id); flash('Report deleted', t.red); setConfirmDelete(null); await load(); }
           catch (err) { setError(errorText(err)); setConfirmDelete(null); }
         }}
       />

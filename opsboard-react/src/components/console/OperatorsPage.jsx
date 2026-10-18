@@ -17,7 +17,6 @@ import {
   EmptyState,
   FieldLabel,
   IconButton,
-  LoadingState,
   PageHeader,
   StatusPill,
   t,
@@ -27,15 +26,18 @@ import {
   Toggle,
   useToast,
   ConfirmDialog,
+  useLoadPhase,
+  TableSkeleton,
 } from './ui';
+import { TABLE_GRID, gridHeader } from './pageMeta';
 import { errorText } from '../../services/errorText';
 
 // Operators — Leon operators feeding the wall + sync health (approved design).
 
 const STATUS_MAP = {
-  success: { c: '#15803d', b: '#e7f6ec', label: 'Synced', dot: '#16a34a' },
-  error: { c: '#e5484d', b: '#fdecec', label: 'Error', dot: '#e5484d' },
-  idle: { c: '#6c7079', b: '#eef1f5', label: 'Paused', dot: '#9aa0a8' },
+  success: { c: t.greenDeep, b: t.greenTint, label: 'Synced', dot: t.green },
+  error: { c: t.redDeep, b: t.redTint, label: 'Error', dot: t.red },
+  idle: { c: t.neutralText, b: t.neutralTint, label: 'Paused', dot: 'var(--cw-neutral)' },
 };
 
 function OperatorForm({ operator = null, onSaved, onCancel }) {
@@ -135,7 +137,7 @@ function OperatorForm({ operator = null, onSaved, onCancel }) {
             It authorises read-only flight &amp; schedule pulls.
           </div>
           {editing && (form.refreshToken.trim() !== '' || form.oprId.trim() !== (operator.oprId || '')) && (
-            <div style={{ marginTop: 10, fontSize: 12.5, color: t.amberDeep || '#92500b', background: t.amberTint, border: '1px solid rgba(180,120,20,.35)', borderRadius: 9, padding: '9px 12px', lineHeight: 1.5 }}>
+            <div style={{ marginTop: 10, fontSize: 12.5, color: t.amber, background: t.amberTint, border: `1px solid ${t.amberBorder}`, borderRadius: 9, padding: '9px 12px', lineHeight: 1.5 }}>
               {form.oprId.trim() !== (operator.oprId || '')
                 ? 'Changing the prefix points this connection at a different Leon tenant — its cached flights are removed and re-synced. '
                 : ''}
@@ -161,6 +163,7 @@ export default function OperatorsPage() {
   const [operators, setOperators] = useState([]);
   const [sync, setSync] = useState(null);
   const [loading, setLoading] = useState(true);
+  const phase = useLoadPhase(loading);
   const [error, setError] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [editingOperator, setEditingOperator] = useState(null);
@@ -198,7 +201,7 @@ export default function OperatorsPage() {
     setOperators((prev) => prev.map((row) => (row.id === operator.id ? { ...row, isActive } : row)));
     try {
       await setOperatorActive(operator.id, isActive);
-      flash(`${isActive ? 'Activated' : 'Paused'} ${operator.name || operator.oprId}`, isActive ? '#4ade80' : '#f87171');
+      flash(`${isActive ? 'Activated' : 'Paused'} ${operator.name || operator.oprId}`, isActive ? t.green : t.red);
     } catch (err) {
       setError(errorText(err));
       await load();
@@ -215,7 +218,7 @@ export default function OperatorsPage() {
     try {
       await deleteOperator(operator.id);
       setOperators((prev) => prev.filter((row) => row.id !== operator.id));
-      flash(`Deleted ${label}`, '#f87171');
+      flash(`Deleted ${label}`, t.red);
     } catch (err) {
       setError(errorText(err));
       await load();
@@ -232,7 +235,7 @@ export default function OperatorsPage() {
       setSync(payload.status || null);
       flash(`Sync complete · ${payload.status?.flightsCached ?? '—'} flights cached`);
     } catch (err) {
-      flash(errorText(err), '#f87171');
+      flash(errorText(err), t.red);
     } finally {
       setForceSyncing(false);
     }
@@ -313,7 +316,7 @@ export default function OperatorsPage() {
       )}
 
       {reregisterNotice && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, fontSize: 13.5, color: '#92500b', background: t.amberTint, border: '1px solid rgba(180,120,20,.35)', borderRadius: 11, padding: '12px 16px', lineHeight: 1.5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, fontSize: 13.5, color: t.amber, background: t.amberTint, border: `1px solid ${t.amberBorder}`, borderRadius: 11, padding: '12px 16px', lineHeight: 1.5 }}>
           <Icon name="alert-triangle" size={17} style={{ flexShrink: 0 }} />
           <span style={{ flex: 1 }}>
             <strong>{reregisterNotice.name}</strong>: the {reregisterNotice.oprIdChanged ? 'Leon prefix/token' : 'refresh token'} changed —
@@ -327,27 +330,21 @@ export default function OperatorsPage() {
       <ErrorBanner>{error}</ErrorBanner>
 
       <TableShell
-        columns="1.4fr .8fr 1fr 1fr .9fr"
-        header={[
-          { label: 'OPERATOR' },
-          { label: 'PREFIX' },
-          { label: 'LAST SYNC' },
-          { label: 'STATUS' },
-          { label: 'ACTIVE', align: 'right' },
-        ]}
+        columns={TABLE_GRID.operators.columns}
+        header={gridHeader('operators')}
       >
-        {loading && <LoadingState>Loading operators…</LoadingState>}
-        {!loading && operators.length === 0 && (
+        {phase === 'skeleton' && <TableSkeleton columns={TABLE_GRID.operators.columns} label="Loading operators" />}
+        {phase === 'content' && operators.length === 0 && (
           <EmptyState icon="users" title="No operators yet">
             Add a Leon operator to start feeding the wall.
           </EmptyState>
         )}
-        {operators.map((operator) => {
+        {phase === 'content' && operators.map((operator) => {
           const status = operator.lastSyncStatus === 'error' ? 'error' : operator.isActive ? (operator.lastSyncStatus === 'success' ? 'success' : healthy ? 'success' : 'idle') : 'idle';
           const st = STATUS_MAP[status];
           return (
             <div key={operator.id} style={{ padding: '15px 18px', borderBottom: `1px solid ${t.rowLine}` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr .8fr 1fr 1fr .9fr', alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: TABLE_GRID.operators.columns, alignItems: 'center' }}>
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{operator.name || operator.oprId}</div>
                 <div style={{ fontFamily: t.mono, fontSize: 14, color: t.body }}>{operator.oprId}</div>
                 <div style={{ fontSize: 13.5, color: t.muted }}>
@@ -382,7 +379,7 @@ export default function OperatorsPage() {
                 </div>
               </div>
               {operator.lastSyncError && (
-                <div style={{ marginTop: 11, fontSize: 13, color: t.redDeep, background: '#fdf0f0', border: '1px solid #f6d8d8', borderRadius: 9, padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 9 }}>
+                <div style={{ marginTop: 11, fontSize: 13, color: t.redDeep, background: t.redTint, border: `1px solid ${t.redBorder}`, borderRadius: 9, padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 9 }}>
                   <Icon name="alert-triangle" size={15} style={{ flexShrink: 0 }} />
                   {operator.lastSyncError}
                 </div>

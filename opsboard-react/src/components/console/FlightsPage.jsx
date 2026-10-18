@@ -21,7 +21,6 @@ import {
   HelpBanner,
   ImpMark,
   limChip,
-  LoadingState,
   PageHeader,
   PendingNote,
   SearchBox,
@@ -33,21 +32,26 @@ import {
   timeAgo,
   hmZ,
   useToast,
+  useLoadPhase,
+  TableSkeleton,
 } from './ui';
+import { TABLE_GRID, gridHeader } from './pageMeta';
 import { errorText } from '../../services/errorText';
 
 // Flights — the Console's control page for the wall (approved design):
 // wall banner + show/close-on-wall, today's NOTAM check workflow, and the
 // AIP/GEN send controls in the flight detail panel.
 
+// Status pills: the wall legend's colours (--ca-st-*, shared/client-tokens.css), both themes; "On wall" is the
+// console's own state and takes the success tint.
 const STATUS_STYLE = {
-  'On wall': { c: '#15803d', b: '#e7f6ec' },
-  Airborne: { c: '#1d4ed8', b: '#e8effe' },
-  Boarding: { c: '#1d4ed8', b: '#e8effe' },
-  Delayed: { c: '#b45309', b: '#fef3e2' },
-  Arrived: { c: '#475569', b: '#eef1f5' },
-  Scheduled: { c: '#475569', b: '#eef1f5' },
-  Cancelled: { c: '#e5484d', b: '#fdecec' },
+  'On wall': { c: t.greenDeep, b: t.greenTint },
+  Airborne: { c: 'var(--ca-st-flying-fg)', b: 'var(--ca-st-flying-bg)' },
+  Boarding: { c: 'var(--ca-st-flying-fg)', b: 'var(--ca-st-flying-bg)' },
+  Delayed: { c: 'var(--ca-st-delayed-fg)', b: 'var(--ca-st-delayed-bg)' },
+  Arrived: { c: 'var(--ca-st-arrived-fg)', b: 'var(--ca-st-arrived-bg)' },
+  Scheduled: { c: 'var(--ca-st-scheduled-fg)', b: 'var(--ca-st-scheduled-bg)' },
+  Cancelled: { c: t.redDeep, b: t.redTint },
 };
 
 function deriveStatus(flight) {
@@ -145,8 +149,8 @@ function SendSection({ flight, touch = false }) {
     fetching: [t.blueBorder, t.blueWash],
     ready: [t.blueBorder, t.blueWash],
     emailing: [t.blueBorder, t.blueWash],
-    sent: [t.greenBorder, '#f1faf4'],
-    error: [t.redBorder, '#fdf0f0'],
+    sent: [t.greenBorder, t.greenTint],
+    error: [t.redBorder, t.redTint],
   }[stage] || [t.borderInner, t.subtle];
 
   const buttonByStage = {
@@ -166,7 +170,7 @@ function SendSection({ flight, touch = false }) {
     fontSize: touch ? 13.5 : 13,
     fontWeight: touch && on ? 700 : 600,
     border: `1px solid ${on ? t.blue : t.borderInput}`,
-    background: on ? t.blueTint : '#fff',
+    background: on ? t.blueTint : t.card,
     color: on ? t.blueDeep : t.body,
     // touch: 42px document/airport picks (design C3 send-documents card)
     padding: touch ? '11px 6px' : 9,
@@ -306,9 +310,9 @@ function ImpDetails({ flight, impEntries }) {
                       fontWeight: 600,
                       padding: '2px 8px',
                       borderRadius: 6,
-                      background: chip.hit ? t.amberTint : '#fff',
+                      background: chip.hit ? t.amberTint : t.card,
                       color: chip.hit ? t.amber : t.muted,
-                      border: `1px solid ${chip.hit ? 'rgba(180,83,9,.45)' : t.borderInner}`,
+                      border: `1px solid ${chip.hit ? t.amberBorder : t.borderInner}`,
                     }}
                   >
                     {chip.label}
@@ -353,7 +357,7 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
   return (
     <div
       className="cw-fade"
-      style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadowPanel, overflow: 'hidden' }}
+      style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadowPanel, overflow: 'hidden' }}
     >
       <div style={{ padding: '18px 20px', borderBottom: `1px solid ${t.borderInner}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
         <div>
@@ -365,7 +369,7 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
             {flight.adep?.icao ?? 'UNK'} → {flight.ades?.icao ?? 'UNK'} · {flight.operatorName || flight.oprId}
           </div>
           {flight.movementStateEstimated && (
-            <div style={{ fontSize: 12.5, color: '#92500b', marginTop: 4 }}>
+            <div style={{ fontSize: 12.5, color: t.amber, marginTop: 4 }}>
               State is estimated from the schedule — Leon holds no flight-watch data for this leg.
             </div>
           )}
@@ -649,7 +653,7 @@ function MobileFlightDetail({
             height: 34,
             padding: '0 12px',
             borderRadius: 9,
-            background: '#fff',
+            background: t.card,
             border: `1px solid ${onWall ? t.greenBorder : t.borderInput}`,
             fontSize: 13,
             fontWeight: 700,
@@ -719,6 +723,7 @@ export default function FlightsPage() {
   const [aircraft, setAircraft] = useState([]);
   const [overlay, setOverlay] = useState({ open: false });
   const [loading, setLoading] = useState(true);
+  const phase = useLoadPhase(loading);
   const [error, setError] = useState('');
   const [busyNid, setBusyNid] = useState('');
   const [search, setSearch] = useState('');
@@ -843,13 +848,13 @@ export default function FlightsPage() {
     try {
       if (onWall) {
         await closeFlightOverlay();
-        flash('Closed on wall', '#f87171');
+        flash('Closed on wall', t.red);
       } else {
         await openFlightOverlay({ flightNid: flight.flightNid, oprId: flight.oprId });
         flash(`${flight.flightNo} is now on the wall`);
       }
     } catch (err) {
-      flash(errorText(err), '#f87171');
+      flash(errorText(err), t.red);
     } finally {
       setBusyNid('');
     }
@@ -1091,7 +1096,7 @@ export default function FlightsPage() {
             display: 'flex',
             alignItems: 'center',
             gap: 14,
-            background: '#fff',
+            background: t.card,
             border: `1px solid ${t.border}`,
             borderLeft: `4px solid ${t.green}`,
             borderRadius: 12,
@@ -1100,7 +1105,7 @@ export default function FlightsPage() {
             boxShadow: t.shadow,
           }}
         >
-          <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.green, boxShadow: '0 0 0 5px rgba(22,163,74,.14)', flex: 'none' }} />
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.green, boxShadow: `0 0 0 5px ${t.greenTint}`, flex: 'none' }} />
           <div style={{ flex: 1 }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>{wallFlight?.flightNo || `Flight ${overlay.flightNid}`}</span>
             <span style={{ fontSize: 15, color: t.muted }}>
@@ -1140,28 +1145,20 @@ export default function FlightsPage() {
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
         <TableShell
           style={{ flex: 1, minWidth: 0 }}
-          columns=".85fr 1.1fr 1.2fr .8fr 1fr .7fr .9fr"
-          header={[
-            { label: 'CALLSIGN', sort: true, onSort: () => sortHeader('callsign') },
-            { label: 'MARKERS' },
-            { label: 'ROUTE' },
-            { label: 'REG' },
-            { label: 'OPERATOR', sort: true, onSort: () => sortHeader('operator') },
-            { label: 'ETD', sort: true, onSort: () => sortHeader('etd') },
-            { label: 'STATUS' },
-          ]}
+          columns={TABLE_GRID.flights.columns}
+          header={gridHeader('flights', { CALLSIGN: () => sortHeader('callsign'), OPERATOR: () => sortHeader('operator'), ETD: () => sortHeader('etd') })}
         >
           {/* Rows scroll inside the card (header stays put) so long days
               never push the shell — the sidebar redesign keeps pages
               in-viewport. */}
           <div style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}>
-          {loading && <LoadingState>Loading flights…</LoadingState>}
-          {!loading && rows.length === 0 && (
+          {phase === 'skeleton' && <TableSkeleton columns={TABLE_GRID.flights.columns} label="Loading flights" />}
+          {phase === 'content' && rows.length === 0 && (
             <EmptyState icon="plane" title="No flights match">
               Adjust the filters or switch to “All”.
             </EmptyState>
           )}
-          {rows.map((flight) => {
+          {phase === 'content' && rows.map((flight) => {
             const key = flightKey(flight);
             const isSel = key === selectedKey;
             const onWall = String(flight.flightNid) === overlayNid;
@@ -1177,12 +1174,12 @@ export default function FlightsPage() {
                 tabIndex={0}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '.85fr 1.1fr 1.2fr .8fr 1fr .7fr .9fr',
+                  gridTemplateColumns: TABLE_GRID.flights.columns,
                   padding: '15px 18px',
                   borderBottom: `1px solid ${t.rowLine}`,
                   borderLeft: `3px solid ${isSel ? t.blue : 'transparent'}`,
                   alignItems: 'center',
-                  background: isSel ? '#f6faff' : '#fff',
+                  background: isSel ? 'var(--cw-bg-selected)' : t.card,
                   cursor: 'pointer',
                 }}
               >

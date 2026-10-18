@@ -5,9 +5,9 @@ import {
   WALL_COLOR_DEFAULTS,
   resolveWallColors,
   contrastRatio,
-  withAlpha,
 } from '../../theme/wallColors';
 import ColorPicker from './ColorPickerPopover';
+import PreviewPill from '../wall-preview/PreviewPill';
 import useViewport from '../../hooks/useViewport';
 import Icon from './icons';
 import { Button, Card, ErrorBanner, LoadingState, SearchBox, Toggle, t, useToast } from './ui';
@@ -77,91 +77,6 @@ const TOKEN_DESC = {
   tableGreen: 'Table status green (Leon "confirmed")',
 };
 
-/** Miniature pill rendered purely from resolved tokens (sticky preview). */
-function PreviewPill({ c }) {
-  const hatch = `repeating-linear-gradient(45deg, ${withAlpha(c.hatchLight, 0.9)} 0px, ${withAlpha(
-    c.hatchLight,
-    0.9
-  )} 6px, ${withAlpha(c.hatchDark, 0.9)} 6px, ${withAlpha(c.hatchDark, 0.9)} 10px)`;
-  return (
-    <div
-      style={{
-        background: c.boardBg,
-        borderRadius: 12,
-        padding: '16px 16px 12px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 9,
-        fontFamily: t.mono,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: '50%',
-            background: c.limUnchecked,
-            color: '#fff',
-            fontSize: 10,
-            fontWeight: 800,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          1
-        </span>
-        <span style={{ color: c.textCallsign, fontWeight: 700, fontSize: 13 }}>CWY101</span>
-        <div style={{ position: 'relative', flex: 1, maxWidth: 300, height: 22 }}>
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: 99,
-              display: 'flex',
-              overflow: 'hidden',
-              boxShadow: `0 0 0 2px ${c.mvtRing}`,
-            }}
-          >
-            <div style={{ width: '26%', background: hatch }} />
-            <div
-              style={{
-                flex: 1,
-                background: c.stateAirborne,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 10px',
-                fontSize: 11,
-                fontWeight: 700,
-              }}
-            >
-              <span style={{ color: c.boardBg }}>EVRA</span>
-              <span style={{ color: c.boardBg }}>EGGW</span>
-            </div>
-          </div>
-        </div>
-        <span style={{ color: c.markerImp, fontSize: 10.5, fontWeight: 800 }}>IMP</span>
-        <span style={{ color: c.markerNtm, fontSize: 10.5, fontWeight: 800 }}>NTM</span>
-        <span style={{ color: c.markerCaa, fontSize: 10.5, fontWeight: 800 }}>CAA</span>
-      </div>
-      <div style={{ display: 'flex', gap: 12, fontSize: 11.5, paddingLeft: 26, flexWrap: 'wrap' }}>
-        <span style={{ color: c.textTimes }}>T/O 13:22</span>
-        <span style={{ color: c.textDeltaLate, fontWeight: 800 }}>+22</span>
-        <span style={{ color: c.textTimes }}>LDG 15:35</span>
-        <span style={{ color: c.textDeltaEarly, fontWeight: 800 }}>−5</span>
-        <span style={{ color: c.textIcao, fontWeight: 700 }}>LEBL→LIPB</span>
-        <span style={{ display: 'inline-flex', gap: 7, marginLeft: 'auto' }}>
-          {[c.stateScheduled, c.stateAirborne, c.stateDelayed, c.stateCtot, c.stateArrived].map((fill, i) => (
-            <span key={i} style={{ width: 18, height: 9, borderRadius: 3, background: fill }} />
-          ))}
-          <span style={{ width: 18, height: 9, borderRadius: 3, border: `2px solid ${c.estimatedOutline}` }} />
-        </span>
-      </div>
-    </div>
-  );
-}
 
 /** [{keys:[a,b], message}] — advisory only, never blocking. */
 function distinctnessProblems(c) {
@@ -221,15 +136,15 @@ function ContrastChip({ hex, against }) {
         fontFamily: t.mono,
         fontSize: 11.5,
         fontWeight: 700,
-        color: low ? '#b45309' : t.greenDeep,
-        background: low ? '#fef3e2' : t.greenTint,
+        color: low ? t.amber : t.greenDeep,
+        background: low ? t.amberTint : t.greenTint,
         borderRadius: 999,
         padding: '3px 9px',
         whiteSpace: 'nowrap',
         cursor: 'help',
       }}
     >
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: low ? '#f59e0b' : t.green }} />
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: low ? t.amberDot : t.green }} />
       {ratio.toFixed(1)}:1
     </span>
   );
@@ -363,7 +278,7 @@ export default function ColoursCard({ deviceId }) {
       {loaded && (
         <>
           {/* Sticky preview: judge a change without scrolling back up. */}
-          <div style={{ position: 'sticky', top: 8, zIndex: 40, background: t.card, borderRadius: 12, boxShadow: '0 6px 18px rgba(16,18,22,.10)' }}>
+          <div style={{ position: 'sticky', top: 8, zIndex: 40, background: t.card, borderRadius: 12, boxShadow: t.shadowPanel }}>
             <PreviewPill c={resolved} />
           </div>
 
@@ -421,7 +336,7 @@ export default function ColoursCard({ deviceId }) {
                               height: 16,
                               borderRadius: 4,
                               background: resolved[token.key],
-                              border: '1px solid rgba(16,18,22,.12)',
+                              border: `1px solid ${t.borderInput}`,
                               display: 'block',
                             }}
                           />
@@ -485,7 +400,7 @@ export default function ColoursCard({ deviceId }) {
                                 borderRadius: 7,
                                 outline: 'none',
                                 border: `1.5px solid ${draft && !HEX_RE.test(draft) ? t.red : t.borderInner}`,
-                                background: draft && !HEX_RE.test(draft) ? t.redTint : '#fff',
+                                background: draft && !HEX_RE.test(draft) ? t.redTint : t.card,
                                 color: draft && !HEX_RE.test(draft) ? t.red : t.body,
                                 width: 88,
                               }}
@@ -562,7 +477,7 @@ export default function ColoursCard({ deviceId }) {
                             height: 14,
                             borderRadius: 4,
                             background: resolved[token.key],
-                            border: '1px solid rgba(16,18,22,.14)',
+                            border: `1px solid ${t.borderInput}`,
                           }}
                         />
                       ))}
@@ -624,7 +539,7 @@ export default function ColoursCard({ deviceId }) {
                               borderRadius: 7,
                               outline: 'none',
                               border: `1.5px solid ${draft && !HEX_RE.test(draft) ? t.red : t.borderInner}`,
-                              background: draft && !HEX_RE.test(draft) ? t.redTint : '#fff',
+                              background: draft && !HEX_RE.test(draft) ? t.redTint : t.card,
                               color: draft && !HEX_RE.test(draft) ? t.red : t.body,
                               width: '100%',
                             }}

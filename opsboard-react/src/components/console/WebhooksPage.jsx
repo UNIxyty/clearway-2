@@ -37,7 +37,7 @@ const EVENT_ORDER = [
 // (needsAttention) reads as a loud red; Leon-side "not offered here" is calm.
 function healthOf(tenant) {
   const enabled = Object.entries(tenant.enabledEvents || {}).filter(([, on]) => on).map(([e]) => e);
-  if (enabled.length === 0) return { label: 'Disabled', color: t.faint, bg: '#f1f2f4', dot: '#c3c7cd' };
+  if (enabled.length === 0) return { label: 'Disabled', color: t.faint, bg: t.neutralTint, dot: t.ghost };
   if (tenant.allEnabledLive === null && tenant.remoteError) {
     return { label: 'Status unknown (Leon unreachable)', color: t.amber, bg: t.amberTint, dot: t.amber };
   }
@@ -65,7 +65,7 @@ function healthOf(tenant) {
 
 const EVENT_STATE_CHIP = {
   live: { label: 'live on Leon', color: t.greenDeep, bg: t.greenTint },
-  notAvailable: { label: 'Not available for this operator', color: t.muted, bg: '#eef1f5' },
+  notAvailable: { label: 'Not available for this operator', color: t.muted, bg: t.neutralTint },
   needsAttention: { label: 'needs attention', color: t.redDeep, bg: t.redTint },
 };
 
@@ -90,12 +90,12 @@ function TriggerLogOverlay({ oprId, event, onClose }) {
   return (
     <div
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(15,18,26,.45)', zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 30 }}
+      style={{ position: 'fixed', inset: 0, background: t.scrim, zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 30 }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="cw-fade"
-        style={{ background: '#fff', borderRadius: 16, boxShadow: '0 24px 70px rgba(16,18,22,.35)', width: 680, maxWidth: '94vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        style={{ background: t.raised, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadowPop, width: 680, maxWidth: '94vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       >
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${t.borderInner}`, display: 'flex', alignItems: 'center', gap: 10 }}>
           <Icon name="clock" size={17} color={t.blueDeep} />
@@ -115,8 +115,8 @@ function TriggerLogOverlay({ oprId, event, onClose }) {
           )}
           {(entries || []).map((entry, index) => {
             const st = ACTION_STYLE[entry.action] || (String(entry.action).startsWith('evicted') || entry.action === 'not-found-evicted'
-              ? { color: '#b45309', bg: t.amberTint }
-              : { color: t.muted, bg: '#eef1f5' });
+              ? { color: t.amber, bg: t.amberTint }
+              : { color: t.muted, bg: t.neutralTint });
             return (
               <div key={`${entry.at}-${index}`} style={{ borderBottom: `1px solid ${t.rowLine}`, padding: '10px 2px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
@@ -161,7 +161,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
     setError('');
     try {
       await toggleWebhook({ oprId, event, enabled });
-      flash(`${enabled ? 'Registered' : 'Removed'} ${event} for ${oprId}`, enabled ? '#4ade80' : '#f87171');
+      flash(`${enabled ? 'Registered' : 'Removed'} ${event} for ${oprId}`, enabled ? t.green : t.red);
       await onChanged();
     } catch (err) {
       setError(errorText(err));
@@ -177,7 +177,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
     try {
       const payload = await reregisterWebhooks(oprId);
       const errors = Object.entries(payload.results || {}).filter(([, v]) => String(v).startsWith('error'));
-      flash(errors.length === 0 ? `Re-registered all enabled events for ${oprId}` : `${oprId}: ${errors.length} event(s) failed — see card`, errors.length === 0 ? '#4ade80' : '#f87171');
+      flash(errors.length === 0 ? `Re-registered all enabled events for ${oprId}` : `${oprId}: ${errors.length} event(s) failed — see card`, errors.length === 0 ? t.green : t.red);
       await onChanged();
     } catch (err) {
       setError(errorText(err));
@@ -206,7 +206,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
         {tenant.webhookUrl}
       </div>
       {tenant.lastError && tenant.needsAttention === true && (
-        <div style={{ fontSize: 13, color: t.redDeep, background: '#fdf0f0', border: '1px solid #f6d8d8', borderRadius: 9, padding: '9px 12px', marginBottom: 14, display: 'flex', gap: 9, alignItems: 'center' }}>
+        <div style={{ fontSize: 13, color: t.redDeep, background: t.redTint, border: `1px solid ${t.redBorder}`, borderRadius: 9, padding: '9px 12px', marginBottom: 14, display: 'flex', gap: 9, alignItems: 'center' }}>
           <Icon name="alert-triangle" size={15} style={{ flexShrink: 0 }} />
           <span style={{ overflowWrap: 'anywhere' }}>{tenant.lastError}</span>
         </div>
@@ -232,7 +232,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
               : EVENT_STATE_CHIP[eventState?.state] ?? { label: 'not confirmed on Leon', color: t.amber, bg: t.amberTint }
             : null;
           return (
-            <div key={event} style={{ display: 'flex', alignItems: 'center', gap: 12, border: `1px solid ${t.borderInner}`, borderRadius: 10, padding: '10px 14px', background: enabled ? '#fff' : t.subtle }}>
+            <div key={event} style={{ display: 'flex', alignItems: 'center', gap: 12, border: `1px solid ${t.borderInner}`, borderRadius: 10, padding: '10px 14px', background: enabled ? t.card : t.subtle }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: t.mono, fontSize: 13.5, fontWeight: 700 }}>{event}</span>

@@ -1,0 +1,46 @@
+/* Phone additions. Load after shared/portal-tokens.css and shared/client-tokens.css (status, scope and sensitive tokens come from there).
+   From the Claude Design project "Clearway Portal", shared/mobile-tokens.css (etag 1792327237500843, 2026-10-18), verbatim:
+   --mx-* only, never a --cw-* redefinition (docs/portal-tokens.md). The console (Stage 1) uses --mx-chk-* for the five
+   check chips; the phone pages (Stages 2–3) use the rest. */
+:root, [data-theme="light"] {
+  --mx-statusbar: var(--cw-bg-page);
+  --mx-appbar: var(--cw-bg-page);
+  --mx-tabbar: var(--cw-bg-surface);
+  --mx-tab-active: var(--cw-text);
+  --mx-tab-idle: var(--cw-text-muted);
+  --mx-tab-indicator: var(--cw-text);
+  --mx-sheet: var(--cw-bg-raised);
+  --mx-handle: var(--cw-border-strong);
+  --mx-now: #0e7490;
+  --mx-mark-bg: #fff1b8; --mx-mark-fg: #3d2c00;
+  --mx-now-soft: #e3f4f7;
+  --mx-hold-track: var(--ca-sens-border);
+  /* the wall's five checks, same order everywhere: IMP · NTM · WX · CAA · LIM */
+  --mx-chk-imp-bg:#fdecd2; --mx-chk-imp-fg:#8a4b09;
+  --mx-chk-ntm-bg:#fbe2cc; --mx-chk-ntm-fg:#93430c;
+  --mx-chk-wx-bg:#e6ebf3;  --mx-chk-wx-fg:#334155;
+  --mx-chk-caa-bg:#d6f1eb; --mx-chk-caa-fg:#0b625a;
+  --mx-chk-lim-bg:#e8e2fa; --mx-chk-lim-fg:#4b3a8f;
+  --mx-paper: #ffffff; --mx-paper-ink: #17181c; --mx-paper-rule: #d6d8dc;
+}
+[data-theme="dark"] {
+  --mx-statusbar: var(--cw-bg-page);
+  --mx-appbar: var(--cw-bg-page);
+  --mx-tabbar: var(--cw-bg-sunken);
+  --mx-tab-active: var(--cw-text);
+  --mx-tab-idle: var(--cw-text-muted);
+  --mx-tab-indicator: var(--cw-text);
+  --mx-sheet: var(--cw-bg-raised);
+  --mx-handle: var(--cw-border-strong);
+  --mx-now: #67d3f0;
+  --mx-mark-bg: #4a3a0c; --mx-mark-fg: #ffe9a6;
+  --mx-now-soft: #10262d;
+  --mx-hold-track: var(--ca-sens-border);
+  --mx-chk-imp-bg:#3a2a12; --mx-chk-imp-fg:#f7c98a;
+  --mx-chk-ntm-bg:#3a2414; --mx-chk-ntm-fg:#f4b98a;
+  --mx-chk-wx-bg:#232c3a;  --mx-chk-wx-fg:#c9d3e1;
+  --mx-chk-caa-bg:#10302b; --mx-chk-caa-fg:#86dccb;
+  --mx-chk-lim-bg:#261f45; --mx-chk-lim-fg:#c4b7f5;
+  /* a document page stays paper in dark: the AIP is a printed page */
+  --mx-paper: #f4f5f7; --mx-paper-ink: #17181c; --mx-paper-rule: #c9cdd3;
+}

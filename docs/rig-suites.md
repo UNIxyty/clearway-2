@@ -25,6 +25,7 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | wall/test-portal-folder | 7 | 2026-10-13 |
 | airport-sheets-check | 8 | 2026-10-13 |
 | docs-check | 21 | 2026-10-13 |
+| check-console-theme | 24 console files, 0 findings | 2026-10-18 |
 | intake/test-classify | 46 | 2026-10-12 |
 | intake/test-leon-payload | 10 | 2026-10-12 |
 | intake/test-timezones | 30 | 2026-10-12 |
@@ -48,10 +49,11 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | permissions-browser | 13 | 2026-10-12 |
 | wall/access-check | 65 | 2026-10-12 |
 | wall/browser-access | 9 | 2026-10-12 |
+| wall/console-theme-check | 32 | 2026-10-18 |
 | group2-check | 13 | 2026-10-12 |
 | group4-check | 33 | 2026-10-12 |
 | shell-check | 10 | 2026-10-12 |
-| stage1-check | 19 | 2026-10-12 |
+| stage1-check | 19 | 2026-10-18 |
 | portal-foundations-check | 30 | 2026-10-12 |
 | stage2-check | 58 | 2026-10-12 |
 | stage3-batch1-check | 39 | 2026-10-12 |

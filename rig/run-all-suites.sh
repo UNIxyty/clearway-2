@@ -25,6 +25,7 @@ run no-real-passenger-data node rig/check-no-real-passenger-data.mjs
 run docs-check node --no-warnings rig/docs-check.mjs
 run utc-times node rig/check-utc-times.mjs
 run error-text node rig/check-error-text.mjs
+run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
 run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/intake/test-timezones.mjs
@@ -61,6 +62,7 @@ docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.s
 run permissions-browser $E rig/permissions-browser.mjs
 run wall/access-check $E rig/wall/access-check.mjs
 run wall/browser-access $E rig/wall/browser-access.mjs
+run wall/console-theme-check $E rig/wall/console-theme-check.mjs
 preview 5199   # back to the normal wall
 run group2 $E rig/group2-check.mjs
 run shell-check $E rig/shell-check.mjs

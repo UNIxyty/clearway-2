@@ -22,6 +22,7 @@ import { WALL_FONT, applyWallFont } from './theme/wallFont';
 import { WallDisplayProvider } from './theme/WallDisplayContext';
 import { windowCheckLine } from './services/windowCheck';
 import { errorText } from './services/errorText';
+import { WALL_SIGN } from './theme/wallSign';
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
 // screen's real rendering environment without devtools. The same values are
 // reported to /api/display/env either way (visible on console Settings).
@@ -54,8 +55,8 @@ function ViewportDebug() {
 // Daily NOTAM-check wall sign (view-only: the display just renders the state
 // the backend pushes; acknowledgments happen in the Console).
 function NotamSign({ sign, scale = 1 }) {
-  if (sign !== 'CHECK' && sign !== 'CHECKED') return null;
-  const isCheck = sign === 'CHECK';
+  const v = WALL_SIGN[sign];
+  if (!v) return null;
   return (
     <>
       <style>{'@keyframes cwsignpulse{0%,100%{opacity:1}50%{opacity:.55}}'}</style>
@@ -65,17 +66,17 @@ function NotamSign({ sign, scale = 1 }) {
           fontSize: Math.round(14 * scale),
           fontWeight: 700,
           letterSpacing: '1px',
-          color: '#fff',
-          background: isCheck ? '#c62828' : '#1f7a3f',
-          border: `1px solid ${isCheck ? '#ff8a80' : '#66bb6a'}`,
+          color: v.text,
+          background: v.bg,
+          border: `1px solid ${v.border}`,
           borderRadius: 8,
           padding: '8px 14px',
           whiteSpace: 'nowrap',
-          animation: isCheck ? 'cwsignpulse 1.6s ease-in-out infinite' : 'none',
-          boxShadow: isCheck ? '0 0 18px rgba(198,40,40,.55)' : '0 0 12px rgba(31,122,63,.4)',
+          animation: v.pulse ? 'cwsignpulse 1.6s ease-in-out infinite' : 'none',
+          boxShadow: `0 0 ${v.pulse ? 18 : 12}px ${v.glow}`,
         }}
       >
-        {isCheck ? '!!! CHECK NOTAM !!!' : 'NOTAM CHECKED'}
+        {v.label}
       </div>
     </>
   );

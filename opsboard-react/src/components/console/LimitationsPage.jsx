@@ -12,6 +12,7 @@ import { subscribeWallStream } from '../../services/wallStream';
 import useViewport from '../../hooks/useViewport';
 import { FixedActionBar, PushedPage } from './mobile';
 import Icon from './icons';
+import LimitationPreview from '../wall-preview/LimitationPreview';
 import {
   Button,
   Card,
@@ -21,7 +22,6 @@ import {
   FieldLabel,
   IconButton,
   InfoBanner,
-  LoadingState,
   PageHeader,
   StatusPill,
   t,
@@ -30,6 +30,8 @@ import {
   Toggle,
   useToast,
   ConfirmDialog,
+  useLoadPhase,
+  SkeletonCards,
 } from './ui';
 import { errorText } from '../../services/errorText';
 
@@ -74,40 +76,6 @@ function windowText(item) {
   return bits.join(' ') || 'always';
 }
 
-function WallPreview({ title, desc, scope, permanent, window, mobile = false }) {
-  return (
-    <div style={mobile ? { width: '100%' } : { width: 'clamp(340px, 21vw, 440px)', flex: 'none', position: 'sticky', top: 0 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 10 }}>
-        WALL SIDEBAR PREVIEW
-      </div>
-      <div style={{ background: t.dark, borderRadius: 16, padding: 18, boxShadow: t.shadowPop }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', color: '#6b7280', marginBottom: 14 }}>
-          LIMITATIONS
-        </div>
-        <div style={{ background: t.darkCard, borderRadius: 12, padding: 18, borderLeft: '5px solid #f0c060' }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            {permanent && (
-              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', color: '#f0c060' }}>PERMANENT</span>
-            )}
-            {!permanent && window !== 'always' && (
-              <span style={{ fontSize: 12, fontFamily: t.mono, color: '#8f99ab' }}>{window}</span>
-            )}
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: '8px 0 10px', lineHeight: 1.15 }}>
-            {title || 'EGLL slot enforcement'}
-          </div>
-          <div style={{ fontSize: 16, lineHeight: 1.5, color: '#c9ced6' }}>
-            {desc || 'Heathrow CTOT strictly enforced — confirm slot with delivery before pushback. No tolerance beyond -5/+10.'}
-          </div>
-          <div style={{ fontSize: 14, fontFamily: t.mono, color: '#7a828d', marginTop: 12 }}>{scope || 'EGLL · GB'}</div>
-        </div>
-        <div style={{ fontSize: 11, color: '#4b5560', marginTop: 12, textAlign: 'center' }}>
-          Rendered at wall scale · fully legible at distance
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function LimitationsPage() {
   const [items, setItems] = useState([]);
@@ -116,6 +84,7 @@ export default function LimitationsPage() {
   const [matchType, setMatchType] = useState('airport');
   const [editingId, setEditingId] = useState('');
   const [loading, setLoading] = useState(true);
+  const phase = useLoadPhase(loading);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
@@ -251,7 +220,7 @@ export default function LimitationsPage() {
     try {
       await deleteLimitation(item.id);
       setItems((prev) => prev.filter((row) => row.id !== item.id));
-      flash('Limitation deleted', '#f87171');
+      flash('Limitation deleted', t.red);
     } catch (err) {
       setError(errorText(err));
       await load();
@@ -297,15 +266,15 @@ export default function LimitationsPage() {
         <ErrorBanner>{error}</ErrorBanner>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, paddingBottom: 92 }}>
-          {loading && <Card style={{ padding: 0 }}><LoadingState>Loading limitations…</LoadingState></Card>}
-          {!loading && items.length === 0 && (
+          {phase === 'skeleton' && <SkeletonCards label="Loading limitations" />}
+          {phase === 'content' && items.length === 0 && (
             <Card style={{ padding: 0 }}>
               <EmptyState icon="alert-triangle" title="No limitations yet">
                 Write the first one below — it appears on the wall the moment it's saved.
               </EmptyState>
             </Card>
           )}
-          {items.map((item) => {
+          {phase === 'content' && items.map((item) => {
             const active = item.isActive !== false;
             return (
               <div
@@ -437,8 +406,8 @@ export default function LimitationsPage() {
                         height: 44,
                         borderRadius: 10,
                         border: on ? 'none' : `1px solid ${t.border}`,
-                        background: on ? t.ink : t.card,
-                        color: on ? '#fff' : t.muted,
+                        background: on ? t.inkFill : t.card,
+                        color: on ? t.onInk : t.muted,
                         fontSize: 12,
                         fontWeight: on ? 800 : 700,
                         cursor: 'pointer',
@@ -507,7 +476,7 @@ export default function LimitationsPage() {
                     <ChipInput
                       values={form.airportIcaos}
                       placeholder="+ Add"
-                      chipColor="#1d4ed8"
+                      chipColor={t.blueDeep}
                       chipBg={t.blueChip}
                       onAdd={(v) => setForm((prev) => ({ ...prev, airportIcaos: [...new Set([...prev.airportIcaos, v.toUpperCase()])] }))}
                       onRemove={(v) => setForm((prev) => ({ ...prev, airportIcaos: prev.airportIcaos.filter((x) => x !== v) }))}
@@ -527,7 +496,7 @@ export default function LimitationsPage() {
                     <ChipInput
                       values={form.countries}
                       placeholder="+ Add"
-                      chipColor="#1d4ed8"
+                      chipColor={t.blueDeep}
                       chipBg={t.blueChip}
                       onAdd={(v) => setForm((prev) => ({ ...prev, countries: [...new Set([...prev.countries, v])] }))}
                       onRemove={(v) => setForm((prev) => ({ ...prev, countries: prev.countries.filter((x) => x !== v) }))}
@@ -578,7 +547,7 @@ export default function LimitationsPage() {
 
             {/* The live wall preview stays — it is the only way to know the
                 text fits (C6). */}
-            <WallPreview
+            <LimitationPreview
               mobile
               title={form.title}
               desc={form.description}
@@ -624,22 +593,22 @@ export default function LimitationsPage() {
       <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start' }}>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {loading && <Card style={{ padding: 0 }}><LoadingState>Loading limitations…</LoadingState></Card>}
-            {!loading && items.length === 0 && (
+            {phase === 'skeleton' && <SkeletonCards label="Loading limitations" />}
+            {phase === 'content' && items.length === 0 && (
               <Card style={{ padding: 0 }}>
                 <EmptyState icon="alert-triangle" title="No limitations yet">
                   Write the first one below — it appears on the wall the moment it's saved.
                 </EmptyState>
               </Card>
             )}
-            {items.map((item) => {
+            {phase === 'content' && items.map((item) => {
               const active = item.isActive !== false;
               const matches = item.matchedFlightCount ?? 0;
               return (
                 <div
                   key={item.id}
                   style={{
-                    background: '#fff',
+                    background: t.card,
                     border: `1px solid ${t.border}`,
                     borderRadius: 13,
                     padding: '16px 18px',
@@ -656,7 +625,7 @@ export default function LimitationsPage() {
                     <div style={{ flex: 1 }} />
                     <StatusPill
                       color={matches > 0 ? t.blueDeep : t.faint}
-                      bg={matches > 0 ? t.blueChip : '#f1f2f4'}
+                      bg={matches > 0 ? t.blueChip : t.neutralTint}
                     >
                       {matches > 0 ? `matches ${matches} flight${matches > 1 ? 's' : ''}` : 'no current matches'}
                     </StatusPill>
@@ -736,7 +705,7 @@ export default function LimitationsPage() {
                           fontWeight: 700,
                           letterSpacing: '0.04em',
                           border: `1px solid ${on ? t.blue : t.borderInput}`,
-                          background: on ? t.blueTint : '#fff',
+                          background: on ? t.blueTint : t.card,
                           color: on ? t.blueDeep : t.muted,
                           padding: '7px 13px',
                           borderRadius: 8,
@@ -857,7 +826,7 @@ export default function LimitationsPage() {
           </Card>
         </div>
 
-        <WallPreview
+        <LimitationPreview
           title={form.title}
           desc={form.description}
           scope={scopeText}

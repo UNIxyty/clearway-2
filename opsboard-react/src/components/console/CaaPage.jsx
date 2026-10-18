@@ -19,7 +19,6 @@ import {
   ErrorBanner,
   FieldLabel,
   IconButton,
-  LoadingState,
   PageHeader,
   SearchBox,
   StatusPill,
@@ -30,6 +29,8 @@ import {
   useToast,
   ConfirmDialog,
   Dropdown,
+  useLoadPhase,
+  SkeletonCards,
 } from './ui';
 import { errorText } from '../../services/errorText';
 
@@ -61,14 +62,14 @@ const CAA_LOADS = [
 ];
 const LOAD_CHIP = {
   all: null, // default — no chip noise
-  pax: { label: 'PAX', color: '#0369a1', bg: '#e0f2fe' },
-  ferry: { label: 'FERRY', color: '#6d28d9', bg: '#ede9fe' },
+  pax: { label: 'PAX', color: t.infoText, bg: t.infoTint },
+  ferry: { label: 'FERRY', color: t.diffText, bg: t.diffTint },
 };
 
 const COND_CHIP = {
-  any: { label: 'Any', color: '#475569', bg: '#eef1f5' },
-  commercial: { label: 'Commercial', color: '#0369a1', bg: '#e0f2fe' },
-  private: { label: 'Private', color: '#6d28d9', bg: '#ede9fe' },
+  any: { label: 'Any', color: t.neutralText, bg: t.neutralTint },
+  commercial: { label: 'Commercial', color: t.infoText, bg: t.infoTint },
+  private: { label: 'Private', color: t.diffText, bg: t.diffTint },
 };
 
 function entryToForm(entry) {
@@ -123,6 +124,7 @@ export default function CaaPage() {
   const [funcFilter, setFuncFilter] = useState('');
   const [condFilter, setCondFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const phase = useLoadPhase(loading);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const flash = useToast();
@@ -236,7 +238,7 @@ export default function CaaPage() {
   async function remove(entry) {
     try {
       await deleteCaa(entry.id);
-      flash('CAA entry deleted', '#f87171');
+      flash('CAA entry deleted', t.red);
       if (selectedId === entry.id) setSelectedId('');
       setEntries((prev) => prev.filter((row) => row.id !== entry.id));
     } catch (err) {
@@ -382,7 +384,7 @@ export default function CaaPage() {
               style={{ flex: 1, minWidth: 0 }}
             />
           </div>
-          <div style={{ display: 'flex', background: '#eef0f2', borderRadius: 9, padding: 3, marginBottom: 12 }}>
+          <div style={{ display: 'flex', background: t.segment, border: `1px solid ${t.border}`, borderRadius: 9, padding: 3, marginBottom: 12 }}>
             {[{ value: '', label: 'All' }, { value: 'any', label: 'Any' }, { value: 'commercial', label: 'Comm.' }, { value: 'private', label: 'Private' }].map((f) => {
               const on = condFilter === f.value;
               return (
@@ -390,7 +392,7 @@ export default function CaaPage() {
                   key={f.value || 'all'}
                   type="button"
                   onClick={() => setCondFilter(f.value)}
-                  style={{ fontFamily: 'inherit', flex: 1, fontSize: 12.5, fontWeight: 600, color: on ? t.blueDeep : t.muted, background: on ? '#fff' : 'transparent', border: 'none', height: 32, borderRadius: 7, cursor: 'pointer', boxShadow: on ? '0 1px 2px rgba(16,18,22,.1)' : 'none' }}
+                  style={{ fontFamily: 'inherit', flex: 1, fontSize: 12.5, fontWeight: 600, color: on ? t.blueDeep : t.muted, background: on ? t.card : 'transparent', border: 'none', height: 32, borderRadius: 7, cursor: 'pointer', boxShadow: on ? t.shadow : 'none' }}
                 >
                   {f.label}
                 </button>
@@ -412,19 +414,19 @@ export default function CaaPage() {
             )}
           </div>
 
-          {loading && <LoadingState>Loading authorities…</LoadingState>}
-          {!loading && entries.length === 0 && (
+          {phase === 'skeleton' && <SkeletonCards label="Loading authorities" />}
+          {phase === 'content' && entries.length === 0 && (
             <EmptyState icon="landmark" title="No CAA details yet">
               Add an authority with the Add CAA button above.
             </EmptyState>
           )}
-          {!loading && entries.length > 0 && visible.length === 0 && (
+          {phase === 'content' && entries.length > 0 && visible.length === 0 && (
             <EmptyState icon="search" title="No authorities match">
               Try a different search or clear the filters.
             </EmptyState>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {visible.map((entry) => {
+            {phase === 'content' && visible.map((entry) => {
               const isSel = entry.id === selectedId;
               const active = entry.isActive !== false;
               const cond = COND_CHIP[entry.appliesTo || 'any'];
@@ -438,9 +440,9 @@ export default function CaaPage() {
                   tabIndex={0}
                   className={isSel ? '' : 'cw-hover-row'}
                   style={{
-                    background: isSel ? '#f6faff' : '#fff',
+                    background: isSel ? 'var(--cw-bg-selected)' : t.card,
                     border: `1px solid ${t.border}`,
-                    borderLeft: `3px solid ${isSel ? '#2f9e8f' : 'transparent'}`,
+                    borderLeft: `3px solid ${isSel ? 'var(--mx-chk-caa-fg)' : 'transparent'}`,
                     borderRadius: 12,
                     padding: '13px 15px',
                     cursor: 'pointer',
@@ -449,7 +451,7 @@ export default function CaaPage() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                    <span style={{ fontFamily: t.mono, fontSize: 11, fontWeight: 700, color: '#0f766e', background: '#ccfbf1', padding: '3px 7px', borderRadius: 6 }}>
+                    <span style={{ fontFamily: t.mono, fontSize: 11, fontWeight: 700, color: 'var(--mx-chk-caa-fg)', background: 'var(--mx-chk-caa-bg)', padding: '3px 7px', borderRadius: 6 }}>
                       {FUNCTION_LABELS[entry.functionKind] || 'Other'}
                     </span>
                     <span style={{ fontSize: 11, fontWeight: 600, color: cond.color, background: cond.bg, padding: '3px 8px', borderRadius: 6 }}>
@@ -461,7 +463,7 @@ export default function CaaPage() {
                       </span>
                     )}
                     <div style={{ flex: 1 }} />
-                    <span title={active ? 'Active on wall' : 'Inactive'} style={{ width: 8, height: 8, borderRadius: '50%', background: active ? t.green : '#c3c7cd' }} />
+                    <span title={active ? 'Active on wall' : 'Inactive'} style={{ width: 8, height: 8, borderRadius: '50%', background: active ? t.green : t.ghost }} />
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3, marginBottom: 3 }}>
                     {entry.country || entry.authorityName}
@@ -471,10 +473,10 @@ export default function CaaPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     {(entry.match?.countries || []).slice(0, 3).map((c) => (
-                      <span key={c} style={{ fontFamily: t.mono, fontSize: 11, fontWeight: 600, background: '#ede9fe', color: '#6d28d9', padding: '3px 8px', borderRadius: 6 }}>{c}</span>
+                      <span key={c} style={{ fontFamily: t.mono, fontSize: 11, fontWeight: 600, background: t.diffTint, color: t.diffText, padding: '3px 8px', borderRadius: 6 }}>{c}</span>
                     ))}
                     {(entry.match?.airportIcaos || []).slice(0, 3).map((a) => (
-                      <span key={a} style={{ fontFamily: t.mono, fontSize: 11, fontWeight: 600, background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: 6 }}>{a}</span>
+                      <span key={a} style={{ fontFamily: t.mono, fontSize: 11, fontWeight: 600, background: t.infoTint, color: t.infoText, padding: '3px 8px', borderRadius: 6 }}>{a}</span>
                     ))}
                     {typeof entry.matchedFlightCount === 'number' && entry.matchedFlightCount > 0 && (
                       <span style={{ fontSize: 11, fontWeight: 600, color: t.blueDeep, background: t.blueChip, padding: '3px 8px', borderRadius: 6 }}>
@@ -498,7 +500,7 @@ export default function CaaPage() {
             </div>
           )}
           {form && (
-            <div style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadow, overflow: 'hidden' }}>
+            <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadow, overflow: 'hidden' }}>
               {/* header */}
               <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.borderInner}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -569,7 +571,7 @@ export default function CaaPage() {
                             key={value}
                             type="button"
                             onClick={() => setForm((prev) => ({ ...prev, functionKind: value }))}
-                            style={{ fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, border: `1px solid ${on ? '#2f9e8f' : t.borderInput}`, background: on ? '#ccfbf1' : '#fff', color: on ? '#0f766e' : t.muted, padding: '8px 13px', borderRadius: 8, cursor: 'pointer' }}
+                            style={{ fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, border: `1px solid ${on ? 'var(--mx-chk-caa-fg)' : t.borderInput}`, background: on ? 'var(--mx-chk-caa-bg)' : t.card, color: on ? 'var(--mx-chk-caa-fg)' : t.muted, padding: '8px 13px', borderRadius: 8, cursor: 'pointer' }}
                           >
                             {label}
                           </button>
@@ -584,8 +586,8 @@ export default function CaaPage() {
                   </div>
                   {textField('info', 'INFO', 'working hours & conditions', { span: true, area: true, minHeight: 74, placeholder: 'Working hours, conditions and handling notes — verbatim from the sheet' })}
                   {textField('contact', 'Contact', 'routing instruction', { span: true, placeholder: 'e.g. USE CAA FOR REQ · DIRECT · USE WEB PAGE FOR REQ' })}
-                  {chipField('phones', 'Phone number(s)', { color: '#475569', bg: '#eef1f5' })}
-                  {chipField('mail', 'Mail', { color: '#475569', bg: '#eef1f5' })}
+                  {chipField('phones', 'Phone number(s)', { color: t.neutralText, bg: t.neutralTint })}
+                  {chipField('mail', 'Mail', { color: t.neutralText, bg: t.neutralTint })}
                   {textField('aftn', 'AFTN', null, { mono: true, placeholder: 'e.g. EGGGYAYX' })}
                   {textField('sita', 'SITA', null, { mono: true, placeholder: 'e.g. LONCAXH' })}
                   {textField('vfrAddresses', 'VFR flight plan addresses', null, { span: true, mono: true, placeholder: 'Addressees for VFR flight plans' })}
@@ -596,10 +598,10 @@ export default function CaaPage() {
               <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.borderInner}` }}>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 14 }}>MATCH FLAGS</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 6 }}>
-                  {chipField('countries', 'Countries', { color: '#6d28d9', bg: '#ede9fe' }, async (q) =>
+                  {chipField('countries', 'Countries', { color: t.diffText, bg: t.diffTint }, async (q) =>
                     countries.filter((c) => c.toLowerCase().includes(q.toLowerCase())).slice(0, 10).map((c) => ({ value: c, label: c }))
                   )}
-                  {chipField('airportIcaos', 'Airports (ICAO)', { color: '#0369a1', bg: '#e0f2fe' }, async (q) => {
+                  {chipField('airportIcaos', 'Airports (ICAO)', { color: t.infoText, bg: t.infoTint }, async (q) => {
                     const payload = await searchAirports(q, 10);
                     return (payload.airports || []).map((a) => ({ value: a.icao, label: `${a.icao}${a.name ? ` · ${a.name}` : ''}` }));
                   }, true)}
@@ -614,7 +616,7 @@ export default function CaaPage() {
                         key={option.value}
                         type="button"
                         onClick={() => setForm((prev) => ({ ...prev, appliesTo: option.value }))}
-                        style={{ fontFamily: 'inherit', flex: 1, fontSize: 13, fontWeight: 600, border: `1px solid ${on ? '#2f9e8f' : t.borderInput}`, background: on ? '#ccfbf1' : '#fff', color: on ? '#0f766e' : t.muted, padding: 10, borderRadius: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+                        style={{ fontFamily: 'inherit', flex: 1, fontSize: 13, fontWeight: 600, border: `1px solid ${on ? 'var(--mx-chk-caa-fg)' : t.borderInput}`, background: on ? 'var(--mx-chk-caa-bg)' : t.card, color: on ? 'var(--mx-chk-caa-fg)' : t.muted, padding: 10, borderRadius: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
                       >
                         <Icon name={option.icon} size={15} />
                         {option.label}
@@ -635,7 +637,7 @@ export default function CaaPage() {
                           key={option.value}
                           type="button"
                           onClick={() => setForm((prev) => ({ ...prev, load: option.value }))}
-                          style={{ fontFamily: 'inherit', flex: 1, fontSize: 13, fontWeight: 600, border: `1px solid ${on ? '#2f9e8f' : t.borderInput}`, background: on ? '#ccfbf1' : '#fff', color: on ? '#0f766e' : t.muted, padding: 10, borderRadius: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+                          style={{ fontFamily: 'inherit', flex: 1, fontSize: 13, fontWeight: 600, border: `1px solid ${on ? 'var(--mx-chk-caa-fg)' : t.borderInput}`, background: on ? 'var(--mx-chk-caa-bg)' : t.card, color: on ? 'var(--mx-chk-caa-fg)' : t.muted, padding: 10, borderRadius: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
                         >
                           <Icon name={option.icon} size={15} />
                           {option.label}

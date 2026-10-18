@@ -11,8 +11,11 @@ import {
 import { getDeviceId } from './services/device';
 import { resetWallStream, subscribeWallStream } from './services/wallStream';
 import { errorText } from './services/errorText';
+import ConsoleGate from './components/console/ConsoleGate';
 
-const AuthContext = createContext({ user: null, authEnabled: false, deviceMode: false });
+// `booting`: the console surface renders its shell while the session is still being checked (wall console Stage 1:
+// the top bar, nav and page title paint on the first frame; role-dependent slots hold their space as skeletons).
+const AuthContext = createContext({ user: null, authEnabled: false, deviceMode: false, booting: false });
 
 export function useAuth() {
   return useContext(AuthContext);
@@ -209,6 +212,13 @@ export default function AuthGate({ surface = 'display', children }) {
   }, [state.phase, state.deviceMode]);
 
   if (state.phase === 'loading') {
+    if (!isDisplay) {
+      return (
+        <AuthContext.Provider value={{ user: null, authEnabled: false, deviceMode: false, booting: true }}>
+          {children}
+        </AuthContext.Provider>
+      );
+    }
     return <div style={s.center}>Checking session…</div>;
   }
 
@@ -233,6 +243,7 @@ export default function AuthGate({ surface = 'display', children }) {
   }
 
   if (state.phase === 'unauthorized') {
+    if (!isDisplay) return <ConsoleGate loginHref={loginHref()} />;
     return (
       <div style={s.center}>
         <div style={s.card}>
@@ -248,7 +259,7 @@ export default function AuthGate({ surface = 'display', children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user: state.user, authEnabled: state.authEnabled, deviceMode: state.deviceMode }}>
+    <AuthContext.Provider value={{ user: state.user, authEnabled: state.authEnabled, deviceMode: state.deviceMode, booting: false }}>
       {children}
     </AuthContext.Provider>
   );

@@ -24,7 +24,6 @@ import {
   FieldLabel,
   IconButton,
   InfoBanner,
-  LoadingState,
   PageHeader,
   SearchBox,
   StatusPill,
@@ -33,6 +32,8 @@ import {
   TextInput,
   Toggle,
   useToast,
+  useLoadPhase,
+  SkeletonCards,
 } from './ui';
 import { errorText } from '../../services/errorText';
 
@@ -41,10 +42,10 @@ import { errorText } from '../../services/errorText';
 // shows only the "!" icon on the wall; the full text is read here.
 
 const CHIP_STYLES = {
-  countries: { color: '#6d28d9', bg: '#ede9fe' },
-  airports: { color: '#0369a1', bg: '#e0f2fe' },
-  operators: { color: '#475569', bg: '#eef1f5' },
-  registrations: { color: '#334155', bg: '#f1f5f9' },
+  countries: { color: t.diffText, bg: t.diffTint },
+  airports: { color: t.infoText, bg: t.infoTint },
+  operators: { color: t.neutralText, bg: t.neutralTint },
+  registrations: { color: t.neutralText, bg: t.neutralTint },
 };
 
 const DIRECTIONS = [
@@ -83,7 +84,7 @@ function SegmentedRow({ label, options, value, onChange, hint }) {
                 fontSize: 13,
                 fontWeight: 600,
                 border: `1px solid ${on ? t.blue : t.borderInput}`,
-                background: on ? t.blueTint : '#fff',
+                background: on ? t.blueTint : t.card,
                 color: on ? t.blueDeep : t.muted,
                 padding: 9,
                 borderRadius: 9,
@@ -192,7 +193,7 @@ function AttachmentsSection({ entry, onChanged, setError }) {
     setBusy(true);
     try {
       await deleteImportantAttachment(entry.id, att.id);
-      flash(`Removed ${att.filename}`, '#f87171');
+      flash(`Removed ${att.filename}`, t.red);
       await onChanged();
     } catch (err) {
       setError(errorText(err));
@@ -253,6 +254,7 @@ export default function ImportantPage() {
   const [search, setSearch] = useState('');
   const [onlyUnreviewed, setOnlyUnreviewed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const phase = useLoadPhase(loading);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const flash = useToast();
@@ -361,7 +363,7 @@ export default function ImportantPage() {
   async function remove(entry) {
     try {
       await deleteImportant(entry.id);
-      flash('Important entry deleted', '#f87171');
+      flash('Important entry deleted', t.red);
       if (selectedId === entry.id) setSelectedId('');
       setEntries((prev) => prev.filter((row) => row.id !== entry.id));
     } catch (err) {
@@ -410,14 +412,14 @@ export default function ImportantPage() {
         <input type="checkbox" checked={onlyUnreviewed} onChange={(e) => setOnlyUnreviewed(e.target.checked)} />
         Needs review only {unreviewedCount > 0 && `(${unreviewedCount})`}
       </label>
-      {loading && <LoadingState>Loading entries…</LoadingState>}
-      {!loading && visible.length === 0 && (
+      {phase === 'skeleton' && <SkeletonCards label="Loading entries" />}
+      {phase === 'content' && visible.length === 0 && (
         <EmptyState icon="star" title="No entries match">
           {entries.length === 0 ? 'Import the ops bulletin or add an entry manually.' : 'Adjust the search or filter.'}
         </EmptyState>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {visible.map((entry) => {
+        {phase === 'content' && visible.map((entry) => {
           const isSel = entry.id === selectedId;
           const active = entry.isActive !== false;
           const expired = isExpired(entry);
@@ -436,7 +438,7 @@ export default function ImportantPage() {
               tabIndex={0}
               className={isSel ? '' : 'cw-hover-row'}
               style={{
-                background: isSel ? '#f6faff' : '#fff',
+                background: isSel ? 'var(--cw-bg-selected)' : t.card,
                 border: `1px solid ${t.border}`,
                 borderLeft: `3px solid ${isSel ? t.blue : 'transparent'}`,
                 borderRadius: 12,
@@ -449,14 +451,14 @@ export default function ImportantPage() {
                 <span style={{ fontSize: 11, fontWeight: 700, color: entry.reviewed ? t.greenDeep : t.amber, background: entry.reviewed ? t.greenTint : t.amberTint, padding: '3px 9px', borderRadius: 6 }}>
                   {entry.reviewed ? 'Reviewed' : 'Needs review'}
                 </span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: expired ? t.faint : active ? t.greenDeep : t.muted, background: expired ? '#f1f2f4' : active ? t.greenTint : '#eef1f5', padding: '3px 9px', borderRadius: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: expired ? t.faint : active ? t.greenDeep : t.muted, background: expired ? t.neutralTint : active ? t.greenTint : t.neutralTint, padding: '3px 9px', borderRadius: 6 }}>
                   {expired ? 'Expired' : active ? 'Active' : 'Inactive'}
                 </span>
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3, marginBottom: 9 }}>{entry.title}</div>
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 {criteria.slice(0, 6).map((c) => (
-                  <span key={c} style={{ fontFamily: t.mono, fontSize: 11.5, fontWeight: 600, background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: 6 }}>
+                  <span key={c} style={{ fontFamily: t.mono, fontSize: 11.5, fontWeight: 600, background: t.neutralTint, color: t.neutralText, padding: '3px 8px', borderRadius: 6 }}>
                     {c}
                   </span>
                 ))}
@@ -471,7 +473,7 @@ export default function ImportantPage() {
   );
 
   const editorCard = form && (
-    <div style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadow, overflow: 'hidden' }}>
+    <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadow, overflow: 'hidden' }}>
       <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.borderInner}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <TextInput
@@ -571,7 +573,7 @@ export default function ImportantPage() {
                       fontSize: 13,
                       fontWeight: 600,
                       border: `1px solid ${on ? t.blue : t.borderInput}`,
-                      background: on ? t.blueTint : '#fff',
+                      background: on ? t.blueTint : t.card,
                       color: on ? t.blueDeep : t.muted,
                       padding: 9,
                       borderRadius: 9,
@@ -744,14 +746,14 @@ export default function ImportantPage() {
             <input type="checkbox" checked={onlyUnreviewed} onChange={(e) => setOnlyUnreviewed(e.target.checked)} />
             Needs review only {unreviewedCount > 0 && `(${unreviewedCount})`}
           </label>
-          {loading && <LoadingState>Loading entries…</LoadingState>}
-          {!loading && visible.length === 0 && (
+          {phase === 'skeleton' && <SkeletonCards label="Loading entries" />}
+          {phase === 'content' && visible.length === 0 && (
             <EmptyState icon="star" title="No entries match">
               {entries.length === 0 ? 'Import the ops bulletin or add an entry manually.' : 'Adjust the search or filter.'}
             </EmptyState>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {visible.map((entry) => {
+            {phase === 'content' && visible.map((entry) => {
               const isSel = entry.id === selectedId;
               const active = entry.isActive !== false;
               const expired = isExpired(entry);
@@ -770,7 +772,7 @@ export default function ImportantPage() {
                   tabIndex={0}
                   className={isSel ? '' : 'cw-hover-row'}
                   style={{
-                    background: isSel ? '#f6faff' : '#fff',
+                    background: isSel ? 'var(--cw-bg-selected)' : t.card,
                     border: `1px solid ${t.border}`,
                     borderLeft: `3px solid ${isSel ? t.blue : 'transparent'}`,
                     borderRadius: 12,
@@ -783,14 +785,14 @@ export default function ImportantPage() {
                     <span style={{ fontSize: 11, fontWeight: 700, color: entry.reviewed ? t.greenDeep : t.amber, background: entry.reviewed ? t.greenTint : t.amberTint, padding: '3px 9px', borderRadius: 6 }}>
                       {entry.reviewed ? 'Reviewed' : 'Needs review'}
                     </span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: expired ? t.faint : active ? t.greenDeep : t.muted, background: expired ? '#f1f2f4' : active ? t.greenTint : '#eef1f5', padding: '3px 9px', borderRadius: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: expired ? t.faint : active ? t.greenDeep : t.muted, background: expired ? t.neutralTint : active ? t.greenTint : t.neutralTint, padding: '3px 9px', borderRadius: 6 }}>
                       {expired ? 'Expired' : active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3, marginBottom: 9 }}>{entry.title}</div>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                     {criteria.slice(0, 6).map((c) => (
-                      <span key={c} style={{ fontFamily: t.mono, fontSize: 11.5, fontWeight: 600, background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: 6 }}>
+                      <span key={c} style={{ fontFamily: t.mono, fontSize: 11.5, fontWeight: 600, background: t.neutralTint, color: t.neutralText, padding: '3px 8px', borderRadius: 6 }}>
                         {c}
                       </span>
                     ))}
@@ -813,7 +815,7 @@ export default function ImportantPage() {
             </div>
           )}
           {form && (
-            <div style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadow, overflow: 'hidden' }}>
+            <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: t.shadow, overflow: 'hidden' }}>
               <div style={{ padding: '18px 22px', borderBottom: `1px solid ${t.borderInner}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <TextInput
@@ -913,7 +915,7 @@ export default function ImportantPage() {
                               fontSize: 13,
                               fontWeight: 600,
                               border: `1px solid ${on ? t.blue : t.borderInput}`,
-                              background: on ? t.blueTint : '#fff',
+                              background: on ? t.blueTint : t.card,
                               color: on ? t.blueDeep : t.muted,
                               padding: 9,
                               borderRadius: 9,

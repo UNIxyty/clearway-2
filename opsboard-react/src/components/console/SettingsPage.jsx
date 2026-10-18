@@ -71,6 +71,9 @@ import {
   Toggle,
   useToast,
 } from './ui';
+import ClockBarPreview from '../wall-preview/ClockBarPreview';
+import WallDisplayPreview from '../wall-preview/WallDisplayPreview';
+import { usePortalTheme } from '../../theme/portalTheme';
 
 // Settings — wall clocks + the NOTAM / alert filter (approved design).
 
@@ -180,13 +183,13 @@ function ClocksCard() {
         If the local clock is UTC, the UTC colour wins and the clock is labelled “UTC · LOCAL”.
       </p>
       {localSource === 'station-default' && (
-        <div style={{ fontSize: 12.5, color: '#92400e', background: '#fef3e2', borderRadius: 8, padding: '7px 10px', margin: '-6px 0 14px' }}>
+        <div style={{ fontSize: 12.5, color: t.amber, background: t.amberTint, borderRadius: 8, padding: '7px 10px', margin: '-6px 0 14px' }}>
           Nobody has picked the local clock yet, so the wall uses the station default ({(clocks.find((c) => c.local) || {}).label}).
           Press Set local on any clock to make the choice explicit.
         </div>
       )}
       {localSource === 'none' && (
-        <div style={{ fontSize: 12.5, color: t.muted, background: '#f1f2f4', borderRadius: 8, padding: '7px 10px', margin: '-6px 0 14px' }}>
+        <div style={{ fontSize: 12.5, color: t.muted, background: t.neutralTint, borderRadius: 8, padding: '7px 10px', margin: '-6px 0 14px' }}>
           No clock is marked local: only UTC is highlighted on the wall.
         </div>
       )}
@@ -207,7 +210,7 @@ function ClocksCard() {
                   type="button"
                   className="cw-hover-surface"
                   onClick={() => addClock(zone)}
-                  style={{ textAlign: 'left', border: 'none', background: '#fff', borderRadius: 8, padding: '8px 11px', fontSize: 13, cursor: 'pointer', color: t.body }}
+                  style={{ textAlign: 'left', border: 'none', background: t.card, borderRadius: 8, padding: '8px 11px', fontSize: 13, cursor: 'pointer', color: t.body }}
                 >
                   <strong>{cityFromZone(zone)}</strong> · {zone} · {zoneTime(zone)}
                 </button>
@@ -246,7 +249,7 @@ function ClocksCard() {
                 fontSize: 12,
                 fontWeight: 600,
                 color: (clock.local || clock.home) ? t.greenDeep : t.faint,
-                background: (clock.local || clock.home) ? t.greenTint : '#f1f2f4',
+                background: (clock.local || clock.home) ? t.greenTint : t.neutralTint,
                 border: 'none',
                 padding: '6px 12px',
                 borderRadius: 8,
@@ -268,18 +271,9 @@ function ClocksCard() {
       </div>
 
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: t.faint, marginBottom: 10 }}>
-        WALL CLOCK BAR PREVIEW
+        WALL CLOCK BAR PREVIEW · THE WALL'S OWN COLOURS
       </div>
-      <div style={{ background: t.dark, borderRadius: 14, padding: '16px 22px', display: 'flex', justifyContent: 'space-around' }}>
-        {(clocks.length > 0 ? clocks : [{ label: 'UTC', timeZone: 'UTC', home: false }]).map((clock, index) => (
-          <div key={`${clock.timeZone}-${index}`} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', color: clock.home ? '#7dd3a8' : '#8a929c', marginBottom: 5 }}>
-              {clock.label.toUpperCase()}
-            </div>
-            <div style={{ fontFamily: t.mono, fontSize: 26, fontWeight: 600, color: '#fff' }}>{zoneTime(clock.timeZone)}</div>
-          </div>
-        ))}
-      </div>
+      <ClockBarPreview clocks={clocks} zoneTime={zoneTime} />
     </Card>
   );
 }
@@ -305,7 +299,7 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
   const rowStyle = (active) => ({
     display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
     border: `1.5px solid ${active ? t.blue : t.borderInner}`, borderRadius: 11,
-    cursor: 'pointer', marginBottom: 8, background: active ? '#f0f6ff' : t.card,
+    cursor: 'pointer', marginBottom: 8, background: active ? 'var(--cw-bg-selected)' : t.card,
   });
   const flash = useToast();
   const canBig = useCan()('wall.bigscreen.settings');
@@ -324,7 +318,7 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
           <div style={{ fontSize: 14.5, fontWeight: 700 }}>My view</div>
           <div style={{ fontSize: 12.5, color: t.faint, fontFamily: t.mono }}>{myEmail || 'this account'}</div>
         </div>
-        {selected === null && <MonoChip color="#1d4ed8" bg="#e3edff">editing</MonoChip>}
+        {selected === null && <MonoChip color={t.blueDeep} bg={t.blueTint}>editing</MonoChip>}
       </div>
       <div style={rowStyle(selected === MAIN_WALL_ACCOUNT)} onClick={() => onSelect(MAIN_WALL_ACCOUNT)}>
         <Icon name="plane" size={17} color={selected === MAIN_WALL_ACCOUNT ? t.blue : t.faint} />
@@ -335,7 +329,7 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
             {env ? ` · ${env.innerWidth}×${env.innerHeight} css px · DPR ${env.devicePixelRatio}` : ''}
           </div>
         </div>
-        {selected === MAIN_WALL_ACCOUNT && <MonoChip color="#92500b" bg="#fdf3e2">{canBig ? 'editing the BIG SCREEN' : 'viewing the BIG SCREEN'}</MonoChip>}
+        {selected === MAIN_WALL_ACCOUNT && <MonoChip color={t.amber} bg={t.amberTint}>{canBig ? 'editing the BIG SCREEN' : 'viewing the BIG SCREEN'}</MonoChip>}
       </div>
       {selected === MAIN_WALL_ACCOUNT && (
         <Button
@@ -346,7 +340,7 @@ function AccountProfileCard({ selected, onSelect, myEmail, wallDevice }) {
             try {
               await resetProfile(MAIN_WALL_ACCOUNT);
               flash('Main wall reset to defaults');
-            } catch (err) { flash(errorText(err), '#f87171'); }
+            } catch (err) { flash(errorText(err), t.red); }
           }}
         >
           Reset main wall to defaults
@@ -578,7 +572,7 @@ function VerticalSizingCard() {
         is untouched. Hard floors keep everything legible at the minimums.
       </p>
       <ErrorBanner>{error}</ErrorBanner>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? '#f0f6ff' : t.card }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? 'var(--cw-bg-selected)' : t.card }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Auto-fit rows to the screen</div>
           <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
@@ -725,7 +719,7 @@ function HorizontalSizingCard() {
         post-landing windows under Wall content (which flights are on the board at all).
       </p>
       <ErrorBanner>{error}</ErrorBanner>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? '#f0f6ff' : t.card }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? 'var(--cw-bg-selected)' : t.card }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Auto-fit horizontal sizes</div>
           <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
@@ -824,7 +818,7 @@ function ChipsCard() {
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 6px' }}>
         Which warning chips the wall shows after each pill. A hidden chip leaves no gap; the row closes up.
       </p>
-      <p style={{ fontSize: 13, color: '#b91c1c', margin: '0 0 14px', fontWeight: 600 }}>
+      <p style={{ fontSize: 13, color: t.redDeep, margin: '0 0 14px', fontWeight: 600 }}>
         Each chip is a real warning: switching one off means nobody looking at the wall sees it — the information is still
         in the Console and the flight overlay.
       </p>
@@ -833,7 +827,7 @@ function ChipsCard() {
         <div key={k.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderTop: `1px solid ${t.borderInner}` }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 700 }}>{k.label}</div>
-            <div style={{ fontSize: 12.5, color: values[k.key] === false ? '#b91c1c' : t.faint }}>{values[k.key] === false ? `Hidden: the wall no longer shows ${k.stops}.` : `Shows ${k.stops}.`}</div>
+            <div style={{ fontSize: 12.5, color: values[k.key] === false ? t.redDeep : t.faint }}>{values[k.key] === false ? `Hidden: the wall no longer shows ${k.stops}.` : `Shows ${k.stops}.`}</div>
           </div>
           <Toggle on={values[k.key] !== false} disabled={!loaded} onToggle={() => void toggle(k)} />
         </div>
@@ -890,7 +884,7 @@ function UpcomingTableCard() {
         coloured dots. Independent of the timeline's visibility window.
       </p>
       <ErrorBanner>{error}</ErrorBanner>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: enabled ? '#f0f6ff' : t.card }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: enabled ? 'var(--cw-bg-selected)' : t.card }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Show the table on the wall</div>
           <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
@@ -1448,9 +1442,9 @@ function AlertFilterCard() {
           style={{
             width: '100%',
             boxSizing: 'border-box',
-            background: t.dark,
-            color: '#c9ced6',
-            border: 'none',
+            background: t.subtle,
+            color: t.ink,
+            border: `1px solid ${t.borderInput}`,
             borderRadius: 12,
             padding: 16,
             fontFamily: t.mono,
@@ -1585,8 +1579,8 @@ function NotamDigestCard() {
           <ChipInput
             values={recipients}
             placeholder="Add e-mail and press Enter…"
-            chipColor="#1d4ed8"
-            chipBg="#e8effe"
+            chipColor={t.blueDeep}
+            chipBg={t.blueTint}
             onAdd={(value) => persist({ recipients: [...recipients, value] }, `Recipient added — digest goes to ${recipients.length + 1} address(es)`)}
             onRemove={(value) => persist({ recipients: recipients.filter((v) => v !== value) }, recipients.length - 1 === 0 ? 'Recipients cleared — using the server default' : 'Recipient removed')}
           />
@@ -1725,8 +1719,8 @@ function DevicesCard() {
             alignItems: 'center',
             gap: 14,
             flexWrap: 'wrap',
-            border: '1px solid #e8c56a',
-            background: '#fdf7e7',
+            border: `1px solid ${t.amberBorder}`,
+            background: t.amberTint,
             borderRadius: 10,
             padding: '12px 14px',
             marginBottom: 10,
@@ -1884,6 +1878,52 @@ function MobileGroup({ title, summary, open, onToggle, note = false, children })
   );
 }
 
+/**
+ * The boundary, at the top of Settings ("Console Screen.dc.html" › Settings): above the dashed rule, a live strip of
+ * the wall display drawn from this room's own wall settings — colours and font are per-account data the cards below
+ * edit; below it, this console, which follows the portal's theme. The portal's light and dark stop at the dashed line.
+ */
+function BoundaryBlock({ deviceId }) {
+  const [settings, setSettings] = useState(null);
+  const { theme, choice } = usePortalTheme();
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => fetchDisplaySettings(deviceId).then((payload) => { if (!cancelled) setSettings(payload.settings || {}); }).catch(() => { if (!cancelled) setSettings({}); });
+    load();
+    const unsub = subscribeWallStream('config.changed', load, { surface: 'console' });
+    return () => { cancelled = true; unsub(); };
+  }, [deviceId]);
+  const choiceLabel = { system: `Match this device (${theme} now)`, light: 'Light', dark: 'Dark' }[choice] || choice;
+  return (
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', color: t.muted, whiteSpace: 'nowrap' }}>WALL DISPLAY · ITS OWN COLOURS AND FONT</span>
+        <span style={{ flex: 1, borderTop: `1.5px dashed ${t.borderStrong}` }} />
+      </div>
+      <div style={{ border: `1.5px dashed ${t.borderStrong}`, borderRadius: 14, padding: 2 }}>
+        <WallDisplayPreview settings={settings} loading={settings === null} />
+      </div>
+      <span style={{ fontSize: 13, lineHeight: 1.5, color: t.muted, maxWidth: 760 }}>
+        The wall display reads only these settings. The portal’s light and dark theme stops at the dashed line: it styles this console page, never the big screen.
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', color: t.muted, whiteSpace: 'nowrap' }}>THIS CONSOLE · FOLLOWS THE PORTAL</span>
+        <span style={{ flex: 1, height: 1, background: t.border }} />
+      </div>
+      <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, overflow: 'hidden', maxWidth: 760 }}>
+        <div style={{ minHeight: 54, display: 'flex', alignItems: 'center', gap: 12, padding: '6px 16px' }}>
+          <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Theme</span>
+            <span style={{ fontSize: 12.5, color: t.muted }}>Portal › Settings › Appearance</span>
+          </span>
+          <span data-console-theme={theme} style={{ fontSize: 13.5, fontWeight: 600, color: t.body }}>{choiceLabel}</span>
+          <a href="/settings#appearance" style={{ fontSize: 13.5, fontWeight: 600, color: t.blueDeep, textDecoration: 'none' }}>Change</a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   const [selectedAccount, setSelectedAccount] = useState(null); // null = my view
   const can = useCan();
@@ -1961,6 +2001,7 @@ export default function SettingsPage() {
     );
     return (
       <div>
+        <BoundaryBlock deviceId={selectedAccount} />
         {isPhone ? (
           <div style={{ display: 'flex', gap: 18, overflowX: 'auto', borderBottom: `1px solid ${t.border}`, margin: '0 0 14px' }}>
             {SECTION_OPTIONS.map((option) => {
@@ -2064,6 +2105,7 @@ export default function SettingsPage() {
         desc="Wall display profiles, timeline content, clocks, and the NOTAM / alert / weather machinery."
         descMax={600}
       />
+      <BoundaryBlock deviceId={selectedAccount} />
       <div style={{ margin: '0 0 18px', display: 'inline-block' }}>
         <Segmented
           value={section}

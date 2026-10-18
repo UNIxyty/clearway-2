@@ -1,0 +1,61 @@
+/* Client access additions. Load after shared/portal-tokens.css. Only what the portal has no token for.
+   From the Claude Design project "Clearway Portal", shared/client-tokens.css (etag 1792329584077018, 2026-10-18), verbatim:
+   --ca-* only, never a --cw-* redefinition (docs/portal-tokens.md). The console (Stage 1) uses --ca-st-* for flight
+   status pills; the client view (Stage 5) uses the rest. */
+:root, [data-theme="light"] {
+  /* Sensitive data (passenger documents) — its own hue so it never reads as an error or a warning */
+  --ca-sens: #be185d;
+  --ca-sens-text: #9d174d;
+  --ca-sens-tint: #fcf0f5;
+  --ca-sens-border: #f0c4d8;
+  --ca-sens-solid: #be185d;
+  --ca-sens-on-solid: #ffffff;
+  --ca-mask: #b9bec6;
+  --ca-watermark: rgba(157,23,77,.10);
+  --ca-countdown-track: #f0c4d8;
+
+  /* Flight status (same meanings as the wall legend) */
+  --ca-st-scheduled-bg: #eef0f3;  --ca-st-scheduled-fg: #3a3d44;
+  --ca-st-delayed-bg: #fdf0d5;    --ca-st-delayed-fg: #8a4b00;
+  --ca-st-ctot-bg: #f1ebfd;       --ca-st-ctot-fg: #5b2bb5;
+  --ca-st-flying-bg: #e3eefc;     --ca-st-flying-fg: #1f4f99;
+  --ca-st-arrived-bg: #f6e9ef;    --ca-st-arrived-fg: #7d3557;
+  --ca-st-aog-bg: #fdecec;        --ca-st-aog-fg: #b91c1c;
+
+  /* Scope kinds */
+  --ca-scope-op-bg: var(--cw-primary-tint);   --ca-scope-op-fg: var(--cw-text-link);   --ca-scope-op-bd: var(--cw-primary-tint-border);
+  --ca-scope-reg-bg: var(--cw-neutral-tint);  --ca-scope-reg-fg: var(--cw-neutral-text); --ca-scope-reg-bd: var(--cw-border-control);
+  --ca-scope-trip-bg: #e6f5f2;                --ca-scope-trip-fg: #0f6b5c;              --ca-scope-trip-bd: #bfe3dc;
+
+  --ca-on-dot: var(--cw-text);
+  --ca-off-ring: var(--cw-border-strong);
+  --ca-route-line: var(--cw-border-strong);
+  --ca-map-grid: rgba(23,24,28,.06);
+}
+[data-theme="dark"] {
+  --ca-sens: #f472b6;
+  --ca-sens-text: #f9a8d4;
+  --ca-sens-tint: #26121d;
+  --ca-sens-border: #5b2140;
+  --ca-sens-solid: #db2777;
+  --ca-sens-on-solid: #ffffff;
+  --ca-mask: #4a5260;
+  --ca-watermark: rgba(249,168,212,.08);
+  --ca-countdown-track: #5b2140;
+
+  --ca-st-scheduled-bg: #232a34;  --ca-st-scheduled-fg: #dfe3ea;
+  --ca-st-delayed-bg: #3a2a0c;    --ca-st-delayed-fg: #f5c46b;
+  --ca-st-ctot-bg: #2a1f45;       --ca-st-ctot-fg: #c9b2ff;
+  --ca-st-flying-bg: #15263f;     --ca-st-flying-fg: #9cc2f5;
+  --ca-st-arrived-bg: #33202b;    --ca-st-arrived-fg: #e7b3cb;
+  --ca-st-aog-bg: #3a1416;        --ca-st-aog-fg: #ff9b9b;
+
+  --ca-scope-op-bg: var(--cw-primary-tint);   --ca-scope-op-fg: var(--cw-text-link);   --ca-scope-op-bd: var(--cw-primary-tint-border);
+  --ca-scope-reg-bg: var(--cw-neutral-tint);  --ca-scope-reg-fg: var(--cw-neutral-text); --ca-scope-reg-bd: var(--cw-border-control);
+  --ca-scope-trip-bg: #0f2a26;                --ca-scope-trip-fg: #7fd8c6;              --ca-scope-trip-bd: #1d4a43;
+
+  --ca-on-dot: var(--cw-text);
+  --ca-off-ring: var(--cw-border-strong);
+  --ca-route-line: var(--cw-border-strong);
+  --ca-map-grid: rgba(236,238,242,.05);
+}

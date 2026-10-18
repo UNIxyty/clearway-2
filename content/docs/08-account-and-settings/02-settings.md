@@ -22,7 +22,8 @@ Choose how the portal looks on every device you sign in on.
 The same choice is in the sun or moon button at the top right of the portal.
 
 :::note The wall keeps its own colours
-This does not change the Digital Wall. Its colours are in the wall's own [Settings](digital-wall/settings). Press
+The Digital Wall's console pages (Flights, NOTAM Check and the rest) follow this choice too. The big screen itself does
+not: its colours are in the wall's own [Settings](digital-wall/settings). Press
 **Wall display settings** to go there.
 :::
 

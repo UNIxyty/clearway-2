@@ -124,7 +124,7 @@ export function useAgentDock({ page, label }) {
 
   const dock = available && open ? (
     <div
-      style={{ width: minimised ? TAB_WIDTH : PANEL_WIDTH, flex: 'none', order: 9, borderLeft: `1px solid ${t.border}`, background: '#fff', minHeight: 0, display: 'flex' }}
+      style={{ width: minimised ? TAB_WIDTH : PANEL_WIDTH, flex: 'none', order: 9, borderLeft: `1px solid ${t.border}`, background: t.card, minHeight: 0, display: 'flex' }}
       aria-label="Ops Agent"
     >
       <iframe ref={frameRef} title="Ops Agent" src={src} style={{ border: 'none', width: '100%', height: '100%', display: 'block' }} allow="clipboard-write" />

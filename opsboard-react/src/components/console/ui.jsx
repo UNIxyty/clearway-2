@@ -1,120 +1,194 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import Icon from './icons';
-import sharedTokens from '../../../../shared/design-tokens.json';
+import portalTokensCss from '../../../../shared/portal-tokens.css?raw';
+import clientTokensCss from '../../../../shared/client-tokens.css?raw';
+import mobileTokensCss from '../../../../shared/mobile-tokens.css?raw';
 
-// Display Console UI kit — implements the approved Claude Design system
-// ("Display Console.dc.html" + "Console Shell & Style Tile"): light surfaces,
-// Public Sans / IBM Plex Mono, blue #2563eb primary, 10/14/16px radii,
-// hairline borders and soft card shadows. Every Console page composes from
-// this kit; the wall display keeps its own dark styling and is untouched.
+// Display Console UI kit — the portal's design system ("Console Screen.dc.html", wall console Stage 1, 2026-10-18):
+// Public Sans / IBM Plex Mono, 10/14/16px radii, hairline borders and soft card shadows, and every colour a --cw-*
+// token (shared/portal-tokens.json), so the console follows the portal's light / dark / match-device theme
+// (theme/portalTheme.js sets data-theme on <html>). Flight status pills use --ca-st-* and check chips --mx-chk-*
+// (shared/client-tokens.css, shared/mobile-tokens.css), as the design does. Every Console page composes from this
+// kit; the wall display keeps its own per-account colours and font and reads none of this (components/wall-preview/).
+//
+// ONE rule, checked by scripts/check-console-theme.mjs: no hard-coded colour in a console file. A line that must
+// carry a literal (a colour picker's own gradients) says why and ends in `// colour-data`.
 
 // ── Design tokens ────────────────────────────────────────────────────────────
-// Keys that exist in the platform token source (shared/design-tokens.json)
-// are wired to it — ONE source for both the portal and the console. Values
-// are identical to what the console shipped with, so nothing shifts visually.
-// Keys without a shared counterpart stay console-local literals.
-const sc = sharedTokens.color;
+// The console's names for the portal's tokens (docs/portal-tokens.md). Each is a var(--cw-*) reference, so a value
+// is never copied here and the theme can change under a running page.
+const v = (name) => `var(--cw-${name})`;
 
 export const t = {
-  font: sharedTokens.font.sans,
-  mono: sharedTokens.font.mono,
+  font: "'Public Sans', system-ui, sans-serif",
+  mono: "'IBM Plex Mono', monospace",
   // text
-  ink: sc.text,
-  body: sc.textBody,
-  muted: sc.textMuted,
-  faint: sc.textFaint,
-  ghost: '#c3c7cd',
+  ink: v('text'),
+  body: v('text-body'),
+  muted: v('text-muted'),
+  faint: v('text-muted'),
+  ghost: v('text-disabled'),
   // surfaces
-  canvas: '#e8e9ec',
-  surface: '#f5f6f7',
-  card: sc.card,
-  subtle: sc.cardSubtle,
-  wash: '#f0f1f3',
-  segment: '#eef0f2',
+  canvas: v('bg-sunken'),
+  surface: v('bg-sunken'),
+  card: v('bg-surface'),
+  raised: v('bg-raised'),
+  subtle: v('bg-sunken'),
+  wash: v('bg-hover'),
+  segment: v('bg-sunken'),
+  scrim: v('bg-scrim'),
   // borders
-  border: sc.border,
-  borderInput: '#d6d8dc',
-  borderInner: sc.borderInner,
-  rowLine: '#f2f3f5',
+  border: v('border'),
+  borderInput: v('border-control'),
+  borderStrong: v('border-strong'),
+  borderInner: v('divider'),
+  rowLine: v('divider'),
   // accents
-  blue: sc.primary,
-  blueDeep: sc.primaryDeep,
-  blueTint: sc.primaryTint,
-  blueChip: '#e8effe',
-  blueWash: '#f2f7ff',
-  blueBorder: '#dbe6ff',
-  blueInk: '#3a5170',
-  green: sc.green,
-  greenDeep: sc.greenDeep,
-  greenTint: sc.greenTint,
-  greenBorder: '#c7ead2',
-  red: sc.red,
-  // redDeep/redTint stay console-local: the shared redDeep (#b91c1c) /
-  // redTint (#fee2e2) differ from the shipped console values, and this
-  // wiring must not change a single rendered pixel.
-  redDeep: '#b3383c',
-  redTint: '#fdecec',
-  redBorder: '#f4cdcd',
-  // the console's "amber" has always been the deep text tone (#b45309) —
-  // that is the shared source's amberDeep, not its amber (#f59e0b).
-  amber: sc.amberDeep,
-  amberTint: sc.amberTint,
-  amberWash: '#fffaf3',
-  amberBorder: '#f0d3ba',
-  orange: '#ea8a4e',
-  orangeTint: '#fdf1e8',
-  // dark wall previews
-  dark: '#0e1116',
-  darkCard: '#171b22',
+  blue: v('primary'),
+  blueHover: v('primary-hover'),
+  blueDeep: v('text-link'),
+  blueTint: v('primary-tint'),
+  blueChip: v('primary-tint'),
+  blueWash: v('primary-tint'),
+  blueBorder: v('primary-tint-border'),
+  blueInk: v('text-body'),
+  onPrimary: v('text-on-primary'),
+  green: v('success'),
+  greenDeep: v('success-text'),
+  greenTint: v('success-tint'),
+  greenBorder: v('success-border'),
+  red: v('danger'),
+  redDeep: v('danger-text'),
+  redTint: v('danger-tint'),
+  redBorder: v('danger-border'),
+  redSolid: v('danger-solid'),
+  amber: v('warning-text'),
+  amberDeep: v('warning-text'),
+  amberDot: v('warning'),
+  amberTint: v('warning-tint'),
+  amberWash: v('warning-tint'),
+  amberBorder: v('warning-border'),
+  orange: v('orange'),
+  orangeText: v('orange-text'),
+  orangeTint: v('orange-tint'),
+  info: v('info'),
+  infoText: v('info-text'),
+  infoTint: v('info-tint'),
+  neutralText: v('neutral-text'),
+  neutralTint: v('neutral-tint'),
+  diffText: v('diff-text'),
+  diffTint: v('diff-tint'),
+  // inverse (toasts, active filter chips)
+  inkFill: v('ink'),
+  onInk: v('on-ink'),
+  // skeletons
+  skeleton: v('skeleton'),
   // elevation
-  shadow: '0 1px 2px rgba(16,18,22,.04)',
-  shadowPanel: '0 1px 2px rgba(16,18,22,.04), 0 16px 40px rgba(16,18,22,.06)',
-  shadowPop: '0 12px 34px rgba(0,0,0,.18)',
+  shadow: v('shadow-1'),
+  shadowPanel: v('shadow-2'),
+  shadowPop: v('shadow-pop'),
 };
 
-// Limitation type chip palette (from the design's limChip map).
+// Limitation type chips, each by its meaning: the wall's check colours (--mx-chk-*) where the type is a check, the
+// wall legend's status colours (--ca-st-*) where it is a flight state, the portal's semantic tints for the rest.
 export const LIM_CHIP = {
-  OPS: { c: '#475569', b: '#eef1f5' },
-  AOG: { c: '#b91c1c', b: '#fee2e2' },
-  WX: { c: '#0369a1', b: '#e0f2fe' },
-  CTOT: { c: '#b45309', b: '#fef3e2' },
-  PAX: { c: '#7c3aed', b: '#ede9fe' },
-  CREW: { c: '#0e7490', b: '#cffafe' },
-  NTM: { c: '#c2703b', b: '#fdf1e8' },
-  IMP: { c: '#b45309', b: '#fef3e2' },
+  OPS: { c: 'var(--cw-neutral-text)', b: 'var(--cw-neutral-tint)' },
+  AOG: { c: 'var(--ca-st-aog-fg)', b: 'var(--ca-st-aog-bg)' },
+  WX: { c: 'var(--mx-chk-wx-fg)', b: 'var(--mx-chk-wx-bg)' },
+  CTOT: { c: 'var(--ca-st-ctot-fg)', b: 'var(--ca-st-ctot-bg)' },
+  PAX: { c: 'var(--ca-sens-text)', b: 'var(--ca-sens-tint)' },
+  CREW: { c: 'var(--cw-info-text)', b: 'var(--cw-info-tint)' },
+  NTM: { c: 'var(--mx-chk-ntm-fg)', b: 'var(--mx-chk-ntm-bg)' },
+  IMP: { c: 'var(--mx-chk-imp-fg)', b: 'var(--mx-chk-imp-bg)' },
 };
 export function limChip(type) {
   return LIM_CHIP[type] || LIM_CHIP.OPS;
 }
 
-// ── Global console CSS (hover states, keyframes, placeholders) ──────────────
+// ── Global console CSS (tokens, hover states, keyframes, placeholders) ──────
+// The three token sheets travel inside the console's own <style>, so they exist only while the console is mounted:
+// the wall display's document never defines a --cw-* token (the rig's console-theme check reads that back).
 const GLOBAL_CSS = `
+  html[data-theme] body, html[data-theme] #root { background: var(--cw-bg-page); color: var(--cw-text); }
   .cw-console { font-family: ${t.font}; color: ${t.ink}; }
-  .cw-console ::selection { background: #c9ddff; }
-  .cw-console input::placeholder, .cw-console textarea::placeholder { color: ${t.faint}; }
+  .cw-console ::selection { background: var(--cw-primary-tint); }
+  .cw-console input::placeholder, .cw-console textarea::placeholder { color: var(--cw-text-placeholder); }
   .cw-console input, .cw-console textarea, .cw-console button { font-family: inherit; }
   @keyframes cwspin { to { transform: rotate(360deg); } }
   @keyframes cwfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  @keyframes cwshimmer { 0% { background-position: -360px 0; } 100% { background-position: 360px 0; } }
-  @keyframes cwpulseDot { 0%, 100% { box-shadow: 0 0 0 0 rgba(229,72,77,.30); } 70% { box-shadow: 0 0 0 9px rgba(229,72,77,0); } }
-  @keyframes cwglow { 0%, 100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); } 50% { box-shadow: 0 0 20px 0 rgba(229,72,77,.32); } }
+  @keyframes cw-shimmer { 0% { background-position: -320px 0; } 100% { background-position: 320px 0; } }
   .cw-fade { animation: cwfade .22s ease; }
-  .cw-skel { background: linear-gradient(90deg, #eef0f2 25%, #f6f7f8 37%, #eef0f2 63%); background-size: 720px 100%; animation: cwshimmer 1.3s infinite linear; border-radius: 7px; }
+  /* The portal's skeleton: shimmer 1400 ms linear (app/globals.css, §1.5). */
+  .cw-skel { background: linear-gradient(90deg, var(--cw-skeleton) 0, var(--cw-skeleton-shine) 50%, var(--cw-skeleton) 100%); background-size: 640px 100%; animation: cw-shimmer 1400ms linear infinite; border-radius: 4px; }
+  .cw-skel-still { background: var(--cw-skeleton); border-radius: 4px; }
   @media (prefers-reduced-motion: reduce) {
     .cw-fade, .cw-skel, .cw-motion-decor { animation: none !important; }
   }
-  .cw-hover-surface:hover { background: ${t.surface} !important; }
-  .cw-hover-primary:hover { background: ${t.blueDeep} !important; }
-  .cw-hover-danger:hover { background: #fbdcdc !important; }
-  .cw-hover-row:hover { background: ${t.subtle}; }
+  .cw-hover-surface:hover { background: var(--cw-bg-hover) !important; }
+  .cw-hover-primary:hover { background: var(--cw-primary-hover) !important; }
+  .cw-hover-danger:hover { background: var(--cw-danger-border) !important; }
+  .cw-hover-row:hover { background: var(--cw-bg-hover); }
 `;
 
 export function ConsoleStyles() {
-  return <style>{GLOBAL_CSS}</style>;
+  return <style>{`${portalTokensCss}\n${clientTokensCss}\n${mobileTokensCss}\n${GLOBAL_CSS}`}</style>;
+}
+
+// ── Loading: the portal's skeletons and the 120 / 400 ms rule ───────────────
+// A skeleton draws the shape of what is coming, in the page's real grid. It is skipped when data lands within
+// 120 ms (nothing flashes), and once shown it stays at least 400 ms (nothing flickers); each region then swaps in
+// one step. The phase is 'blank' (waiting, under 120 ms), 'skeleton' or 'content'.
+export function useLoadPhase(loading, { delay = 120, minShow = 400 } = {}) {
+  const [phase, setPhase] = useState(loading ? 'blank' : 'content');
+  const shownAt = useRef(0);
+  useEffect(() => {
+    if (loading) {
+      const id = setTimeout(() => { shownAt.current = Date.now(); setPhase('skeleton'); }, delay);
+      return () => clearTimeout(id);
+    }
+    const held = shownAt.current ? Math.max(0, minShow - (Date.now() - shownAt.current)) : 0;
+    const id = setTimeout(() => { shownAt.current = 0; setPhase('content'); }, held);
+    return () => clearTimeout(id);
+  }, [loading, delay, minShow]);
+  return phase;
+}
+
+/** One shimmering bar. `w` may be a number (px) or a CSS width. */
+export function Skel({ w = '60%', h = 11, round = 4, still = false, style = {} }) {
+  return <span aria-hidden className={still ? 'cw-skel-still' : 'cw-skel'} style={{ display: 'block', width: w, height: h, borderRadius: round, ...style }} />;
+}
+
+const SKEL_WIDTHS = ['70%', '55%', '80%', '45%', '62%', '50%', '38%', '66%'];
+/** Table rows in the page's real column grid: the same `columns` the TableShell draws. */
+export function TableSkeleton({ columns, rows = 7, rowHeight = 52, label = 'Loading' }) {
+  return (
+    <div role="status" aria-label={label} aria-busy="true">
+      {Array.from({ length: rows }, (_, r) => (
+        <div key={r} style={{ display: 'grid', gridTemplateColumns: columns, gap: 16, alignItems: 'center', minHeight: rowHeight, padding: '0 18px', borderBottom: `1px solid ${t.rowLine}` }}>
+          {columns.split(/\s+/).map((_, c) => <Skel key={c} w={SKEL_WIDTHS[(r + c) % SKEL_WIDTHS.length]} />)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Card lists: three cards of the real card's shape. */
+export function SkeletonCards({ count = 3, height = 140, label = 'Loading' }) {
+  return (
+    <div role="status" aria-label={label} aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 18px', minHeight: height, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Skel w="38%" h={14} />
+          <Skel w="72%" />
+          <Skel w="55%" still />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ── Spinner ──────────────────────────────────────────────────────────────────
-export function Spinner({ size = 16, track = '#cbd5e1', color = t.blue }) {
+export function Spinner({ size = 16, track = t.borderInput, color = t.blue }) {
   return (
     <span
       style={{
@@ -134,7 +208,7 @@ export function Spinner({ size = 16, track = '#cbd5e1', color = t.blue }) {
 // ── Buttons ──────────────────────────────────────────────────────────────────
 const BUTTON_VARIANTS = {
   primary: {
-    style: { color: '#fff', background: t.blue, border: 'none' },
+    style: { color: t.onPrimary, background: t.blue, border: 'none' },
     hover: 'cw-hover-primary',
   },
   secondary: {
@@ -154,7 +228,7 @@ const BUTTON_VARIANTS = {
     hover: '',
   },
   danger: {
-    style: { color: '#fff', background: t.red, border: 'none' },
+    style: { color: t.onPrimary, background: t.redSolid, border: 'none' },
     hover: '',
   },
   dangerSoft: {
@@ -303,7 +377,7 @@ export function Toggle({ on, onToggle, disabled = false, size = 'md', action = n
         cursor: disabled ? 'default' : 'pointer',
         padding: 3,
         display: 'flex',
-        background: on ? t.green : '#cfd3d8',
+        background: on ? t.green : t.borderStrong,
         justifyContent: on ? 'flex-end' : 'flex-start',
         transition: 'background .15s',
         opacity: disabled ? 0.6 : 1,
@@ -315,8 +389,8 @@ export function Toggle({ on, onToggle, disabled = false, size = 'md', action = n
           width: knob,
           height: knob,
           borderRadius: '50%',
-          background: '#fff',
-          boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+          background: 'var(--cw-knob)',
+          boxShadow: t.shadow,
         }}
       />
     </button>
@@ -390,7 +464,7 @@ export function ImpMark({ size = 18, title = 'Important limitation' }) {
   );
 }
 
-export function MonoChip({ children, color = '#334155', bg = '#f1f5f9', onRemove }) {
+export function MonoChip({ children, color = t.neutralText, bg = t.neutralTint, onRemove }) {
   return (
     <span
       style={{
@@ -413,7 +487,7 @@ export function MonoChip({ children, color = '#334155', bg = '#f1f5f9', onRemove
           onClick={onRemove}
           style={{
             border: 'none',
-            background: 'rgba(0,0,0,.06)',
+            background: t.wash,
             width: 16,
             height: 16,
             borderRadius: '50%',
@@ -720,7 +794,7 @@ export function Dropdown({ icon, label, value, options, onChange, style = {} }) 
 // ── Segmented control (Today / All) ──────────────────────────────────────────
 export function Segmented({ options, value, onChange }) {
   return (
-    <div style={{ display: 'flex', background: t.segment, borderRadius: 10, padding: 3 }}>
+    <div style={{ display: 'flex', background: t.segment, border: `1px solid ${t.border}`, borderRadius: 10, padding: 3 }}>
       {options.map((option) => {
         const on = option.value === value;
         return (
@@ -733,12 +807,12 @@ export function Segmented({ options, value, onChange }) {
               fontSize: 13.5,
               fontWeight: 600,
               color: on ? t.ink : t.muted,
-              background: on ? '#fff' : 'transparent',
+              background: on ? t.card : 'transparent',
               border: 'none',
               padding: '8px 14px',
               borderRadius: 8,
               cursor: 'pointer',
-              boxShadow: on ? '0 1px 2px rgba(0,0,0,.06)' : 'none',
+              boxShadow: on ? t.shadow : 'none',
             }}
           >
             {option.label}
@@ -897,11 +971,10 @@ export function TableShell({ columns, header, children, style = {} }) {
 }
 
 // ── States: loading / empty / error ─────────────────────────────────────────
-export function LoadingState({ children = 'Loading…' }) {
+export function LoadingState({ children = 'Loading…', rows = 3 }) {
   return (
-    <div style={{ padding: '38px 24px', textAlign: 'center', color: t.faint, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-      <Spinner size={20} />
-      <div style={{ fontSize: 13.5, color: t.muted }}>{children}</div>
+    <div role="status" aria-label={typeof children === 'string' ? children : 'Loading'} aria-busy="true" style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {Array.from({ length: rows }, (_, i) => <Skel key={i} w={SKEL_WIDTHS[i % SKEL_WIDTHS.length]} h={i ? 11 : 14} />)}
     </div>
   );
 }
@@ -923,8 +996,8 @@ export function ErrorBanner({ children }) {
       style={{
         fontSize: 13,
         color: t.redDeep,
-        background: '#fdf0f0',
-        border: '1px solid #f6d8d8',
+        background: t.redTint,
+        border: `1px solid ${t.redBorder}`,
         borderRadius: 9,
         padding: '9px 12px',
         display: 'flex',
@@ -960,13 +1033,13 @@ export function ConfirmDialog({ open, title, body, confirmLabel = 'Delete', dang
   if (!open) return null;
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 220, background: 'rgba(10,14,24,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 220, background: t.scrim, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={onCancel}
     >
       <div
         className="cw-fade"
         onClick={(e) => e.stopPropagation()}
-        style={{ background: '#fff', borderRadius: 16, boxShadow: t.shadowPanel, border: `1px solid ${t.border}`, maxWidth: 470, width: '100%', padding: '22px 24px' }}
+        style={{ background: t.raised, borderRadius: 16, boxShadow: t.shadowPop, border: `1px solid ${t.border}`, maxWidth: 470, width: '100%', padding: '22px 24px' }}
       >
         <div style={{ display: 'flex', gap: 13, alignItems: 'flex-start', marginBottom: 16 }}>
           <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: danger ? t.redTint : t.blueTint, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -994,7 +1067,7 @@ export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null);
   const timerRef = useRef(null);
 
-  function flash(message, dot = '#4ade80') {
+  function flash(message, dot = t.green) {
     setToast({ message, dot });
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setToast(null), 2400);
@@ -1013,14 +1086,14 @@ export function ToastProvider({ children }) {
             bottom: 28,
             left: '50%',
             transform: 'translateX(-50%)',
-            background: t.ink,
-            color: '#fff',
+            background: t.inkFill,
+            color: t.onInk,
             padding: '13px 20px',
             borderRadius: 12,
             display: 'flex',
             alignItems: 'center',
             gap: 11,
-            boxShadow: '0 12px 34px rgba(0,0,0,.28)',
+            boxShadow: t.shadowPop,
             zIndex: 200,
             fontSize: 14,
             fontWeight: 600,
@@ -1063,8 +1136,9 @@ export function hm(iso) {
   return `${String(dt.getUTCHours()).padStart(2, '0')}:${String(dt.getUTCMinutes()).padStart(2, '0')}`;
 }
 
-// Deterministic avatar color per user (presence stack, account chip).
-const AVATAR_COLORS = ['#2563eb', '#6d28d9', '#0e9f6e', '#b45309', '#be185d', '#0e7490'];
+// Deterministic avatar colour per user (presence stack, account chip): identity, not theme — the same six in both
+// themes, all legible under white initials.
+const AVATAR_COLORS = ['#2563eb', '#6d28d9', '#0e9f6e', '#b45309', '#be185d', '#0e7490']; // colour-data
 export function avatarColor(seed) {
   let hash = 0;
   const str = String(seed || '');
@@ -1096,7 +1170,7 @@ export function Avatar({ name, initials, seed, size = 32, color = null, style = 
         height: size,
         borderRadius: '50%',
         background: color || avatarColor(seed || name),
-        color: '#fff',
+        color: t.onPrimary,
         fontSize: Math.round(size * 0.38),
         fontWeight: 700,
         display: 'flex',

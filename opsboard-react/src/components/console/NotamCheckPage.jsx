@@ -11,7 +11,8 @@ import NotamText, { buildHighlightGroups } from '../NotamText';
 import useViewport from '../../hooks/useViewport';
 import { MOBILE } from './mobile';
 import Icon from './icons';
-import { Button, ErrorBanner, HelpBanner, PageHeader, Spinner, t, useToast, useCan, VIEW_ONLY_TITLE } from './ui';
+import { Button, ErrorBanner, HelpBanner, PageHeader, Spinner, SkeletonCards, t, useLoadPhase, useToast, useCan, VIEW_ONLY_TITLE } from './ui';
+import WallSign from '../wall-preview/WallSign';
 import { errorText } from '../../services/errorText';
 
 // NOTAM Check — visual treatment from Claude Design "NOTAM Check.dc.html"
@@ -50,14 +51,14 @@ function NotamRecord({ notam, groups, muted = false }) {
         border: `1px solid ${t.borderInner}`,
         borderLeft: `3px solid ${muted ? t.border : color}`,
         borderRadius: 10,
-        background: '#fff',
+        background: t.card,
         overflow: 'hidden',
         opacity: muted ? 0.72 : 1,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderBottom: '1px solid #f4f5f7', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderBottom: `1px solid ${t.borderInner}`, flexWrap: 'wrap' }}>
         <span style={{ ...mono, fontSize: 13.5, fontWeight: 600, color: t.ink }}>{notam.number || '(no number)'}</span>
-        <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', color: t.muted, background: '#eef1f5', padding: '3px 8px', borderRadius: 6 }}>
+        <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', color: t.muted, background: t.neutralTint, padding: '3px 8px', borderRadius: 6 }}>
           {notam.class || '—'}
         </span>
         {top && (
@@ -96,16 +97,12 @@ function SignBanner({ sign, done, total, ranAt, running, onRun }) {
   const checked = sign === 'CHECKED';
   const v = checked
     ? {
-        border: t.greenBorder, bg: '#f1faf4', icon: 'shield-check', iconBg: '#dcf1e3', iconColor: '#1a9455',
-        plateBorder: '#22343e', plateBg: '#10151a', signColor: '#5ee79b', dot: '#4ade80', anim: false,
-        sub: '#4a8f66', detail: `All ${total} airports reviewed today · the wall is showing the green all-clear sign`,
-        text: 'NOTAM CHECKED',
+        border: t.greenBorder, bg: t.greenTint, icon: 'shield-check', iconBg: t.greenTint, iconColor: t.greenDeep,
+        sub: t.greenDeep, detail: `All ${total} airports reviewed today · the wall is showing the green all-clear sign`,
       }
     : {
-        border: '#f1d4d4', bg: '#fdf4f4', icon: 'alert-triangle', iconBg: '#fbe0e0', iconColor: '#d33f45',
-        plateBorder: '#3a252b', plateBg: '#14131a', signColor: '#ff6167', dot: '#ff5a5f', anim: true,
-        sub: '#a85757', detail: `${total - done} airport${total - done === 1 ? '' : 's'} still to review · the wall is showing the attention sign`,
-        text: 'CHECK NOTAM',
+        border: t.redBorder, bg: t.redTint, icon: 'alert-triangle', iconBg: t.redTint, iconColor: t.red,
+        sub: t.redDeep, detail: `${total - done} airport${total - done === 1 ? '' : 's'} still to review · the wall is showing the attention sign`,
       };
   return (
     <div style={{ border: `1px solid ${v.border}`, background: v.bg, borderRadius: 15, padding: '16px 20px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
@@ -114,20 +111,8 @@ function SignBanner({ sign, done, total, ranAt, running, onRun }) {
       </div>
       <div style={{ flex: 1, minWidth: 220 }}>
         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', color: t.faint, marginBottom: 7 }}>TODAY'S WALL SIGN</div>
-        <div
-          className={v.anim ? 'cw-motion-decor' : undefined}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 11, background: v.plateBg,
-            border: `1px solid ${v.plateBorder}`, borderRadius: 10, padding: '9px 16px',
-            animation: v.anim ? 'cwglow 2.4s ease-in-out infinite' : 'none',
-          }}
-        >
-          <span
-            className={v.anim ? 'cw-motion-decor' : undefined}
-            style={{ width: 9, height: 9, borderRadius: '50%', background: v.dot, flex: 'none', animation: v.anim ? 'cwpulseDot 2s ease-out infinite' : 'none' }}
-          />
-          <span style={{ ...mono, fontSize: 16, fontWeight: 600, letterSpacing: '0.16em', color: v.signColor }}>{v.text}</span>
-        </div>
+        {/* The sign itself, exactly as the wall draws it (components/wall-preview/WallSign.jsx): its own colours. */}
+        <WallSign sign={checked ? 'CHECKED' : 'CHECK'} scale={1.15} />
         <div style={{ fontSize: 13, color: v.sub, marginTop: 9 }}>{v.detail}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 'none' }}>
@@ -149,7 +134,7 @@ function ProgressCard({ done, total, legend }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const color = allChecked ? t.green : done > 0 ? t.blue : t.red;
   return (
-    <div style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 20px', marginBottom: 20, boxShadow: t.shadow }}>
+    <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, padding: '16px 20px', marginBottom: 20, boxShadow: t.shadow }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
           <span style={{ fontSize: 17, fontWeight: 800 }}>{done} of {total} airports checked</span>
@@ -175,12 +160,12 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
   const noneFlagged = airport.filtered.length === 0;
   const visible = expanded ? airport.all : airport.filtered;
   const c = checked
-    ? { border: t.greenBorder, headBg: '#f4faf6', headBorder: '#dcefe2', iconBg: t.greenTint, iconColor: t.greenDeep }
+    ? { border: t.greenBorder, headBg: t.greenTint, headBorder: t.greenBorder, iconBg: t.greenTint, iconColor: t.greenDeep }
     : noneFlagged
-      ? { border: t.border, headBg: t.subtle, headBorder: t.borderInner, iconBg: '#eef1f5', iconColor: t.muted }
-      : { border: t.amberBorder, headBg: t.amberWash, headBorder: '#f5e2ce', iconBg: '#fdf1e8', iconColor: '#c2703b' };
+      ? { border: t.border, headBg: t.subtle, headBorder: t.borderInner, iconBg: t.neutralTint, iconColor: t.muted }
+      : { border: t.amberBorder, headBg: t.amberWash, headBorder: t.amberBorder, iconBg: t.orangeTint, iconColor: t.orangeText };
   return (
-    <div style={{ border: `1px solid ${c.border}`, borderRadius: 15, overflow: 'hidden', background: '#fff', boxShadow: t.shadow }}>
+    <div style={{ border: `1px solid ${c.border}`, borderRadius: 15, overflow: 'hidden', background: t.card, boxShadow: t.shadow }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 18px', background: c.headBg, borderBottom: `1px solid ${c.headBorder}`, flexWrap: 'wrap' }}>
         <div style={{ width: 44, height: 44, borderRadius: 11, background: c.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
           <Icon name="plane" size={20} color={c.iconColor} />
@@ -224,7 +209,7 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
       </div>
       <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 9 }}>
         {airport.error && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fdf0f0', border: '1px solid #f6d8d8', borderRadius: 10, padding: '10px 13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: t.redTint, border: `1px solid ${t.redBorder}`, borderRadius: 10, padding: '10px 13px' }}>
             <Icon name="wifi-off" size={16} color={t.red} style={{ flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 13, color: t.redDeep, lineHeight: 1.45, overflowWrap: 'anywhere' }}>
               Fetch failed: {airport.error}
@@ -236,7 +221,7 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
           </div>
         )}
         {!expanded && noneFlagged && !airport.error && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: t.greenDeep, background: '#f4faf6', border: '1px solid #d8ecdf', borderRadius: 10, padding: '11px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: t.greenDeep, background: t.greenTint, border: `1px solid ${t.greenBorder}`, borderRadius: 10, padding: '11px 14px' }}>
             <Icon name="shield-check" size={16} />No keyword-flagged NOTAMs for today. Full list available below.
           </div>
         )}
@@ -268,14 +253,14 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
 function StateStrip({ tone, title, body, spinner = false, icon }) {
   const tones = {
     blue: { border: t.blueBorder, accent: t.blue, bg: t.blueWash, title: t.blueDeep, body: t.blueInk },
-    red: { border: t.redBorder, accent: t.red, bg: '#fdf0f0', title: '#c0392f', body: '#8a3a3a' },
+    red: { border: t.redBorder, accent: t.red, bg: t.redTint, title: t.redDeep, body: t.redDeep },
     gray: { border: t.border, accent: t.faint, bg: t.subtle, title: t.body, body: t.muted },
   };
   const v = tones[tone];
   return (
     <div style={{ border: `1px solid ${v.border}`, borderLeft: `5px solid ${v.accent}`, background: v.bg, borderRadius: 15, padding: '18px 22px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
       {spinner ? (
-        <span style={{ width: 20, height: 20, borderRadius: '50%', border: '2.5px solid #bcd2f7', borderTopColor: t.blue, animation: 'cwspin .7s linear infinite', flex: 'none' }} />
+        <span style={{ width: 20, height: 20, borderRadius: '50%', border: `2.5px solid ${t.blueBorder}`, borderTopColor: t.blue, animation: 'cwspin .7s linear infinite', flex: 'none' }} />
       ) : (
         <Icon name={icon} size={22} color={v.accent} style={{ flexShrink: 0 }} />
       )}
@@ -287,26 +272,6 @@ function StateStrip({ tone, title, body, spinner = false, icon }) {
   );
 }
 
-function SkeletonCards() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {[1, 2, 3].map((i) => (
-        <div key={i} style={{ border: `1px solid ${t.border}`, borderRadius: 15, background: '#fff', padding: '16px 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
-            <div className="cw-skel" style={{ width: 44, height: 44, borderRadius: 11 }} />
-            <div style={{ flex: 1 }}>
-              <div className="cw-skel" style={{ width: 130, height: 15, marginBottom: 8 }} />
-              <div className="cw-skel" style={{ width: 90, height: 11 }} />
-            </div>
-            <div className="cw-skel" style={{ width: 120, height: 38, borderRadius: 10 }} />
-          </div>
-          <div className="cw-skel" style={{ width: '100%', height: 44, marginBottom: 9 }} />
-          <div className="cw-skel" style={{ width: '82%', height: 44 }} />
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ── Phone (<768) — design C4: one airport expanded at a time ─────────────────
 
@@ -485,7 +450,7 @@ function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onA
                 justifyContent: 'center',
                 fontSize: 12,
                 fontWeight: 800,
-                color: '#fff',
+                color: t.onPrimary,
                 flex: 'none',
               }}
             >
@@ -560,7 +525,7 @@ function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onA
             borderRadius: 11,
             border: 'none',
             background: checked ? t.segment : t.green,
-            color: checked ? t.body : '#fff',
+            color: checked ? t.body : t.onPrimary,
             fontSize: 13,
             fontWeight: 800,
             letterSpacing: '0.06em',
@@ -572,7 +537,7 @@ function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onA
             opacity: airport.error ? 0.5 : 1,
           }}
         >
-          {ackBusy ? <Spinner size={15} track="rgba(255,255,255,.4)" color="#fff" /> : null}
+          {ackBusy ? <Spinner size={15} track={t.greenBorder} color={t.onPrimary} /> : null}
           {checked ? 'Undo' : 'CHECKED'}
         </button>
         <button
@@ -664,9 +629,9 @@ export default function NotamCheckPage({ navigate }) {
       setState(payload);
       const airport = payload.airports.find((a) => a.icao === icao);
       if (airport && !airport.error) flash(`${icao} resynced · ${airport.filtered.length} flagged`);
-      else flash(`${icao} still failing`, '#f87171');
+      else flash(`${icao} still failing`, t.red);
     } catch (err) {
-      flash(errorText(err), '#f87171');
+      flash(errorText(err), t.red);
     } finally {
       setResyncBusy('');
     }
@@ -680,7 +645,7 @@ export default function NotamCheckPage({ navigate }) {
       const payload = await ackNotamCheck(icao);
       setState(payload);
       if (payload.sign === 'CHECKED') flash('All airports checked — wall sign flipped to NOTAM CHECKED');
-      else if (wasChecked) flash(`${icao} unchecked`, '#f87171');
+      else if (wasChecked) flash(`${icao} unchecked`, t.red);
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -691,6 +656,7 @@ export default function NotamCheckPage({ navigate }) {
   const airports = state?.airports || [];
   const loading = state === null && !error;
   const busy = loading || running;
+  const phase = useLoadPhase(busy);
 
   return (
     <div>
@@ -728,7 +694,7 @@ export default function NotamCheckPage({ navigate }) {
       />
       )}
 
-      {busy && (
+      {phase === 'skeleton' && (
         <div className="cw-fade">
           <StateStrip
             tone="blue"
@@ -740,7 +706,7 @@ export default function NotamCheckPage({ navigate }) {
         </div>
       )}
 
-      {!busy && error && (
+      {phase === 'content' && error && (
         <div className="cw-fade">
           <StateStrip
             tone="red"
@@ -748,8 +714,8 @@ export default function NotamCheckPage({ navigate }) {
             title="CHECK UNAVAILABLE"
             body="The NOTAM source did not respond. Today's flagged notices can't be verified — the wall sign stays on CHECK NOTAM until this clears."
           />
-          <div style={{ background: '#fff', border: `1px solid ${t.border}`, borderRadius: 16, padding: '36px 24px', textAlign: 'center', boxShadow: t.shadow, marginBottom: 20 }}>
-            <div style={{ width: 56, height: 56, borderRadius: 14, background: '#fdecec', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 16, padding: '36px 24px', textAlign: 'center', boxShadow: t.shadow, marginBottom: 20 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 14, background: t.redTint, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <Icon name="server-off" size={26} color={t.red} />
             </div>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 6 }}>Couldn't reach the NOTAM source</div>
@@ -757,7 +723,7 @@ export default function NotamCheckPage({ navigate }) {
               {state?.ranAt ? <>Last successful run was <strong style={{ color: t.ink }}>{zTime(state.ranAt)}</strong>. </> : null}
               This is usually a transient upstream timeout — retry the check.
             </div>
-            <div style={{ ...mono, fontSize: 12, color: '#b3383c', background: '#fdf0f0', border: '1px solid #f6d8d8', borderRadius: 8, padding: '8px 12px', display: 'inline-block', marginBottom: 20, maxWidth: '100%', overflowWrap: 'anywhere' }}>
+            <div style={{ ...mono, fontSize: 12, color: t.redDeep, background: t.redTint, border: `1px solid ${t.redBorder}`, borderRadius: 8, padding: '8px 12px', display: 'inline-block', marginBottom: 20, maxWidth: '100%', overflowWrap: 'anywhere' }}>
               {error}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
@@ -767,7 +733,7 @@ export default function NotamCheckPage({ navigate }) {
         </div>
       )}
 
-      {!busy && state && !state.day && !error && (
+      {phase === 'content' && state && !state.day && !error && (
         <div className="cw-fade">
           <StateStrip
             tone="gray"
@@ -775,7 +741,7 @@ export default function NotamCheckPage({ navigate }) {
             title="NO CHECK YET TODAY"
             body={`It runs automatically at ${state.checkHour}:00 ${state.timeZone} — or run it now.`}
           />
-          <div style={{ background: '#fff', border: `1.5px dashed ${t.borderInput}`, borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{ background: t.card, border: `1.5px dashed ${t.borderInput}`, borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
             <div style={{ width: 58, height: 58, borderRadius: 15, background: t.wash, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <Icon name="clipboard-check" size={27} color={t.ghost} />
             </div>
@@ -789,7 +755,7 @@ export default function NotamCheckPage({ navigate }) {
         </div>
       )}
 
-      {!busy && state && state.day && airports.length === 0 && !error && (
+      {phase === 'content' && state && state.day && airports.length === 0 && !error && (
         <div className="cw-fade">
           <StateStrip
             tone="gray"
@@ -797,7 +763,7 @@ export default function NotamCheckPage({ navigate }) {
             title="NOTHING TO CHECK"
             body="No flights are scheduled for today, so there are no airports to review."
           />
-          <div style={{ background: '#fff', border: `1.5px dashed ${t.borderInput}`, borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{ background: t.card, border: `1.5px dashed ${t.borderInput}`, borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
             <div style={{ width: 58, height: 58, borderRadius: 15, background: t.wash, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <Icon name="plane-takeoff" size={27} color={t.ghost} />
             </div>
@@ -816,7 +782,7 @@ export default function NotamCheckPage({ navigate }) {
       )}
 
       {/* ── Phone (C4): progress header, one airport expanded at a time ── */}
-      {!busy && state && state.day && airports.length > 0 && isPhone && (
+      {phase === 'content' && state && state.day && airports.length > 0 && isPhone && (
         <div className="cw-fade">
           {error && <ErrorBanner>{error}</ErrorBanner>}
           {state.lastRunError && <ErrorBanner>Last scheduled run failed: {state.lastRunError}</ErrorBanner>}
@@ -903,7 +869,7 @@ export default function NotamCheckPage({ navigate }) {
         </div>
       )}
 
-      {!busy && state && state.day && airports.length > 0 && !isPhone && (
+      {phase === 'content' && state && state.day && airports.length > 0 && !isPhone && (
         <div className="cw-fade">
           {error && <ErrorBanner>{error}</ErrorBanner>}
           {state.lastRunError && <ErrorBanner>Last scheduled run failed: {state.lastRunError}</ErrorBanner>}

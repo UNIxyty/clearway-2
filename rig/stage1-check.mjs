@@ -12,8 +12,8 @@
 //      and the Admin/Developer/Ops Agent slots are skeletons; for a user they then go, for an admin Admin fills its slot.
 //   4. Contrast, measured: every visible text element's colour against its painted background, on several pages, in
 //      both themes; AA (4.5, or 3 for large text); inactive (disabled) controls exempt.
-//   5. The wall is untouched: with the portal set to Dark on a dark device, the wall's pages have no data-theme, read no
-//      --cw-* token, and paint exactly the colours they paint with the portal in Light.
+//   5. The wall display is untouched: with the portal set to Dark on a dark device, it has no data-theme, reads no
+//      --cw-* token, and paints exactly the colours it paints with the portal in Light; the console follows the portal.
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
@@ -187,8 +187,11 @@ ok(totalBad === 0, `contrast measured on ${PAGES.length} views × 2 themes: ever
   const look = async (device, choice) => {
     const ctx = await context("admin", { colorScheme: device });
     await ctx.addInitScript((c) => { try { localStorage.setItem("cw-theme", c); } catch { /* */ } }, choice);
-    // The rig proxy forwards only the wall's API; its UI (opsboard-react/dist, unchanged by this stage) is served here
-    // on the portal's origin — as in production, so the portal's stored theme is there for the wall to (not) read.
+    // The rig proxy forwards only the wall's API; its UI (opsboard-react/dist) is served here on the portal's origin — as
+    // in production, so the portal's stored theme is there for the console to read and the display to ignore. The
+    // account's saved choice wins over the device's (the portal's rule, and the console's since 2026-10-18), so the
+    // account answers with the same choice.
+    await ctx.route(/\/api\/user\/preferences/, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ preferences: { theme: choice } }) }));
     await ctx.route(/\/(digital-wall\/(?!api)|assets\/|fonts\/)/, async (route) => {
       const u = new URL(route.request().url());
       const file = u.pathname.startsWith("/digital-wall/") ? "index.html" : u.pathname.slice(1);
@@ -209,9 +212,16 @@ ok(totalBad === 0, `contrast measured on ${PAGES.length} views × 2 themes: ever
   };
   const light = await look("light", "light");
   const dark = await look("dark", "dark");
+  // The display is untouched; the console follows the portal (wall console Stage 1, 2026-10-18; rig/wall/console-theme-check.mjs
+  // goes deeper).
   for (const path of Object.keys(light)) {
-    ok(dark[path].dataTheme === null && !dark[path].readsCw, `wall ${path}: no data-theme, no --cw-* token read (portal set to Dark on a dark device)`, JSON.stringify({ dataTheme: dark[path].dataTheme, readsCw: dark[path].readsCw }));
-    ok(dark[path].sample === light[path].sample, `wall ${path}: the same colours and fonts with the portal in Dark as in Light`);
+    if (path.includes("/console/")) {
+      ok(dark[path].dataTheme === "dark" && dark[path].readsCw && light[path].dataTheme === "light", `wall console ${path}: follows the portal's theme (data-theme set, --cw-* tokens read)`, JSON.stringify({ dark: dark[path].dataTheme, light: light[path].dataTheme, readsCw: dark[path].readsCw }));
+      ok(dark[path].sample !== light[path].sample, `wall console ${path}: different colours with the portal in Dark than in Light`);
+      continue;
+    }
+    ok(dark[path].dataTheme === null && !dark[path].readsCw, `wall display ${path}: no data-theme, no --cw-* token read (portal set to Dark on a dark device)`, JSON.stringify({ dataTheme: dark[path].dataTheme, readsCw: dark[path].readsCw }));
+    ok(dark[path].sample === light[path].sample, `wall display ${path}: the same colours and fonts with the portal in Dark as in Light`);
   }
 }
 

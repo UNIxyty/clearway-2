@@ -11,6 +11,8 @@ Wall is a separate system: it keeps its own per-account colours and fonts, reads
 | `shared/portal-tokens.css` | Generated: the tokens as custom properties for `:root`/`[data-theme="light"]`, `[data-theme="dark"]`, and `prefers-color-scheme: dark` when there is no `data-theme` (JavaScript off). Do not edit. |
 | `shared/portal-contrast.json` | Text/background pairs and their measured contrast in both themes. |
 | `lib/portal-tokens.ts` | For code: `cw.textMuted` → `"var(--cw-text-muted)"`, `v("text-muted")`, `alpha(token, 0.1)`, `resolveColour()` for canvas. |
+| `shared/client-tokens.css` | `--ca-*` additions from the Claude Design project (client access): the sensitive-data rose, the six flight-status pills, scope kinds. Loaded after `portal-tokens.css`; never redefines a `--cw-*` token. The wall console uses `--ca-st-*` for status pills (since 2026-10-18); the client view (Stage 5) the rest. |
+| `shared/mobile-tokens.css` | `--mx-*` additions (the phone): shell, now-line, search mark, the five check chips, paper. Loaded after the two above; never redefines a `--cw-*` token. The wall console uses `--mx-chk-*` for its check chips; the phone pages (Stages 2–3) the rest. |
 | `tailwind.config.ts` | One class per token: `bg-cw-bg-surface`, `text-cw-text-muted`, `border-cw-border`; `/10` opacity modifiers mix with transparent. |
 | `components/portal/theme-script.ts` | The inline `<head>` script that sets `data-theme` before first paint. |
 | `components/portal/theme.ts` | The choice: `system` (match this device, default), `light`, `dark`. |
@@ -60,3 +62,35 @@ second, contrast measured on 28 views in both themes, and the wall unchanged.
 colours; it cannot see how a page looks. `rig/dark-audit.mjs` opens every page (the list is `app/**/page.tsx`) in dark
 and flags pale surfaces, pale borders and dark text — what the source check cannot. Neither can judge layout: a page
 built from correct tokens can still be arranged with light-theme logic (Help & support's header was, until Part A3).
+
+## The wall console (since 2026-10-18)
+
+The Display Console (`/digital-wall/console/*`, `opsboard-react/src/components/console/`) follows the portal's theme.
+Its kit (`ui.jsx`) names the portal's tokens (`t.ink` is `var(--cw-text)`, and so on); the three token sheets travel
+inside the console's own `<style>` (`ConsoleStyles`), so they exist only while the console is mounted; and
+`src/theme/portalTheme.js` is the portal's `components/portal/theme.ts` in plain JS: the same `cw-theme` key in
+localStorage (shared with the portal on the same origin), the same saved choice on the account
+(`/api/user/preferences`), `data-theme` and `color-scheme` on `<html>`; `index.html` applies it before the first
+paint, on console paths only.
+
+**The wall display is not themed.** It keeps its own per-account colours and font (wall settings; `shared/design-tokens.json`
+is its token file, read at build time), sets no `data-theme`, loads no `--cw-*` token. Everything the console draws
+*of* the wall (the Colours tab's preview pill, the font preview, the limitation and clock-bar previews, today's wall
+sign, the strip at the top of Settings) lives in `src/components/wall-preview/` and is drawn from the wall's resolved
+colours and font — data the console edits, never a token. Each carries `data-wall-display="true"`.
+
+Loading follows the portal's skeletons (shimmer 1400 ms linear) in the page's real grid (`pageMeta.js` is the one source
+of each table's columns, for the table and for its skeleton), plus a rule the design added for the console: a skeleton
+is skipped when data lands within 120 ms and, once shown, stays at least 400 ms (`useLoadPhase` in `ui.jsx`). The
+portal itself shows its skeletons at once and swaps as soon as data lands; adopting the 120/400 rule there is a
+separate job.
+
+Checks: `node scripts/check-console-theme.mjs` reads the source — no hard-coded colour in a console file (a line that
+must hold one, such as the colour picker's own gradients, ends in `// colour-data` and is printed), and no portal token,
+`data-theme` or console import in any display file, `wall-preview/` included. `node --env-file=.env.rig
+rig/wall/console-theme-check.mjs` opens the built console against the sign-in-on rig wall: all ten pages in light, dark
+and "match this device"; the first second (shell, nav, title and a disabled main button at once, the badge holding its
+space, nothing in the nav moving); the 120/400 rule with the API delayed; and the boundary — the display defines no
+`--cw-*` token and is pixel-identical with the portal in light and in dark (the clock frozen), as is the wall preview
+inside the dashed line on Settings.
+

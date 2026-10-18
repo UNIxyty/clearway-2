@@ -53,7 +53,7 @@ export default function DeviceApprovalPopup() {
         background: t.card,
         border: `1px solid ${t.border}`,
         borderRadius: 14,
-        boxShadow: '0 18px 48px rgba(16,18,22,.22)',
+        boxShadow: t.shadowPop,
         padding: '16px 18px',
       }}
     >
@@ -63,8 +63,8 @@ export default function DeviceApprovalPopup() {
             width: 34,
             height: 34,
             borderRadius: 9,
-            background: '#fdf7e7',
-            border: '1px solid #e8c56a',
+            background: t.amberTint,
+            border: `1px solid ${t.amberBorder}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -92,7 +92,7 @@ export default function DeviceApprovalPopup() {
       <div style={{ fontSize: 11, color: t.faint, marginBottom: 10 }}>
         Screen ID <MonoChip>{current.deviceId}</MonoChip>
       </div>
-      {error && <div style={{ fontSize: 12, color: '#b3372f', marginBottom: 8 }}>{error}</div>}
+      {error && <div style={{ fontSize: 12, color: t.redDeep, marginBottom: 8 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
         <TextInput
           value={name}

@@ -8,6 +8,9 @@ import {
   timeAgo,
   ToastProvider, initialsOf, ViewOnly, ViewOnlyNote, PermissionsProvider } from './components/console/ui';
 import { MOBILE } from './components/console/mobile';
+import { Skel } from './components/console/ui';
+import PageSkeleton from './components/console/PageSkeleton';
+import { usePortalTheme } from './theme/portalTheme';
 import useViewport from './hooks/useViewport';
 import AircraftPage from './components/console/AircraftPage';
 import NotamCheckPage from './components/console/NotamCheckPage';
@@ -33,9 +36,11 @@ import {
 import { subscribeWallStream } from './services/wallStream';
 import { windowCheckLine, windowRepairLine } from './services/windowCheck';
 
-// Brand assets — dropped into opsboard-react/public/assets/ (SVG, crisp on
-// retina). Until the files exist, the components fall back to text.
+// Brand assets — opsboard-react/public/assets/ (SVG, crisp on retina), each in a light and a white variant: the
+// portal's --cw-show-light / --cw-show-dark tokens pick the one for the theme (the portal's Shell does the same with
+// the same files, public/brand/). Until the files exist, the components fall back to text.
 const CLEARWAY_LOGO = `${import.meta.env.BASE_URL}assets/clearway-logo.svg`;
+const CLEARWAY_LOGO_DARK = `${import.meta.env.BASE_URL}assets/clearway-logo-white.svg`;
 // Footer credit: pre-resampled variants (125x22 / 250x44 / 375x66) — the
 // original 1500x264 raster downscaled ~16:1 by the browser is what made the
 // footer logo blurry; srcset picks the right density so retina stays crisp
@@ -43,22 +48,19 @@ const CLEARWAY_LOGO = `${import.meta.env.BASE_URL}assets/clearway-logo.svg`;
 const VERXYL_FOOTER_1X = `${import.meta.env.BASE_URL}assets/verxyl-footer.png`;
 const VERXYL_FOOTER_2X = `${import.meta.env.BASE_URL}assets/verxyl-footer@2x.png`;
 const VERXYL_FOOTER_3X = `${import.meta.env.BASE_URL}assets/verxyl-footer@3x.png`;
+const VERXYL_FOOTER_DARK = [1, 2, 3].map((n) => `${import.meta.env.BASE_URL}assets/verxyl-footer-white${n > 1 ? `@${n}x` : ''}.png`);
+const VERXYL_SRCSET = `${VERXYL_FOOTER_1X} 1x, ${VERXYL_FOOTER_2X} 2x, ${VERXYL_FOOTER_3X} 3x`;
+const VERXYL_SRCSET_DARK = VERXYL_FOOTER_DARK.map((u, i) => `${u} ${i + 1}x`).join(', ');
 const VERXYL_URL = ''; // set when a link target is provided
 
-function BrandLogo({ src, srcSet, alt, height, width, fallback }) {
+function BrandLogo({ src, srcSet, srcDark, srcSetDark, alt, height, width, fallback }) {
   const [failed, setFailed] = useState(false);
   if (failed) return fallback;
-  return (
-    <img
-      src={src}
-      srcSet={srcSet}
-      alt={alt}
-      width={width}
-      height={height}
-      style={{ height, width: width ?? 'auto', display: 'block' }}
-      onError={() => setFailed(true)}
-    />
+  const img = (s, set, show) => (
+    <img key={s} src={s} srcSet={set} alt={alt} width={width} height={height} style={{ height, width: width ?? 'auto', display: show }} onError={() => setFailed(true)} />
   );
+  if (!srcDark) return img(src, srcSet, 'block');
+  return <>{img(src, srcSet, 'var(--cw-show-light)')}{img(srcDark, srcSetDark, 'var(--cw-show-dark)')}</>;
 }
 
 const NAV = [
@@ -96,9 +98,41 @@ function navItemStyle(on, collapsed) {
     cursor: 'pointer',
     fontSize: 13.5,
     fontWeight: on ? 700 : 500,
-    background: on ? '#eef4ff' : 'transparent',
-    color: on ? '#1d4ed8' : t.body,
+    background: on ? t.blueTint : 'transparent',
+    color: on ? t.blueDeep : t.body,
   };
+}
+
+/**
+ * The boundary, drawn: the wall display is not themed by the portal. It keeps this ops room's own colours and font
+ * (wall settings), so the card that opens it is dashed, tagged OWN COLOURS, and sits at the foot of the nav
+ * ("Console Screen.dc.html"). Collapsed rail: the same, as one icon with the full text as its tooltip.
+ */
+function WallDisplayCard({ collapsed }) {
+  const open = () => window.open('/digital-wall/timeline/', '_blank');
+  if (collapsed) {
+    return (
+      <button type="button" className="cw-hover-surface" title="Wall display · its own colours, not the portal's theme · open" onClick={open} style={{ ...navItemStyle(false, true), border: `1.5px dashed ${t.borderStrong}`, marginBottom: 10 }}>
+        <Icon name="monitor" size={17} />
+      </button>
+    );
+  }
+  // Compact (a title row and a tag line), so the ten pages, this card, the sync card and the badge all fit a 900 px screen.
+  return (
+    <div data-wall-display-card style={{ border: `1.5px dashed ${t.borderStrong}`, borderRadius: 12, padding: '9px 10px 10px 12px', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <Icon name="monitor" size={15} color={t.body} />
+        <span style={{ fontSize: 13, fontWeight: 700, flex: 1, whiteSpace: 'nowrap' }}>Wall display</span>
+        <button type="button" className="cw-hover-surface" title="Open the wall display" aria-label="Open the wall display" onClick={open} style={{ fontFamily: 'inherit', width: 26, height: 26, borderRadius: 8, border: `1px solid ${t.borderInput}`, background: t.card, color: t.ink, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none' }}>
+          <Icon name="arrow-up-right" size={14} />
+        </button>
+      </span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, lineHeight: 1.4, color: t.muted }}>
+        <span style={{ height: 18, padding: '0 5px', borderRadius: 5, border: `1px solid ${t.borderInput}`, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.03em', color: t.muted, display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', flex: 'none' }}>OWN COLOURS</span>
+        Not themed by the portal.
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -108,7 +142,7 @@ function navItemStyle(on, collapsed) {
  * statistics / Guide / Sign out. Portal paths are full navigations (the
  * shared gateway session carries).
  */
-function UserBadge({ user, collapsed }) {
+function UserBadge({ user, collapsed, booting = false }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 
@@ -150,7 +184,7 @@ function UserBadge({ user, collapsed }) {
         cursor: 'pointer',
         fontSize: 14,
         fontWeight: 500,
-        color: '#3a3d44',
+        color: t.body,
         background: 'transparent',
       }}
     >
@@ -159,6 +193,15 @@ function UserBadge({ user, collapsed }) {
     </button>
   );
 
+  // Booting: the slot holds its space (the design's role-gated skeleton), so the sidebar never shifts when the person arrives.
+  if (booting) {
+    return (
+      <div aria-hidden style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10, padding: collapsed ? '6px 0' : '6px 8px' }}>
+        <Skel w={28} h={28} round={14} still />
+        {!collapsed && <span style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}><Skel w={110} h={10} /><Skel w={54} h={8} still /></span>}
+      </div>
+    );
+  }
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
       <button
@@ -201,10 +244,10 @@ function UserBadge({ user, collapsed }) {
             bottom: 'calc(100% + 8px)',
             left: 0,
             width: 240,
-            background: '#fff',
-            border: '1px solid #e6e7ea',
+            background: t.raised,
+            border: `1px solid ${t.border}`,
             borderRadius: 14,
-            boxShadow: '0 16px 44px rgba(16,18,22,.16)',
+            boxShadow: t.shadowPop,
             padding: 7,
             zIndex: 200,
           }}
@@ -217,7 +260,7 @@ function UserBadge({ user, collapsed }) {
               </div>
             )}
           </div>
-          <div style={{ height: 1, background: '#eef0f2', margin: '2px 4px 7px' }} />
+          <div style={{ height: 1, background: t.borderInner, margin: '2px 4px 7px' }} />
           {item('Profile', 'user', go('/account/profile'))}
           {item('Guide', 'book-open', () => window.open('/digital-wall/guide/', '_blank', 'noopener,noreferrer'))}
           {item('Sign out', 'log-out', signOut)}
@@ -234,7 +277,9 @@ function UserBadge({ user, collapsed }) {
  * sync-status card, user badge, collapse rail (248px / 68px).
  */
 export default function ConsoleApp({ page, navigate }) {
-  const { user } = useAuth();
+  const { user, booting } = useAuth();
+  // The portal's theme: data-theme on <html> before the first paint, then kept current (theme/portalTheme.js).
+  usePortalTheme();
   const can = useCanAction();
   // Ops Agent side panel (⌘J) — hosted from the portal, see AgentDock.
   const agent = useAgentDock({ page, label: NAV.find((n) => n.key === page)?.label });
@@ -365,16 +410,16 @@ export default function ConsoleApp({ page, navigate }) {
         bg: t.greenTint,
         border: t.greenBorder,
         dot: t.green,
-        glow: 'rgba(22,163,74,.15)',
+        glow: t.greenTint,
         color: t.greenDeep,
         label: `Wall live · ${wallFlight?.callsign ?? '…'} on screen`,
       };
     }
     return {
-      bg: '#f1f2f4',
+      bg: t.subtle,
       border: t.border,
       dot: t.faint,
-      glow: 'rgba(154,160,168,.15)',
+      glow: t.wash,
       color: t.muted,
       label: 'Wall idle · no flight',
     };
@@ -435,6 +480,7 @@ export default function ConsoleApp({ page, navigate }) {
   };
 
   function renderPage() {
+    if (booting) return <PageSkeleton page={page} />;
     switch (page) {
       case 'notam-check':
         return <NotamCheckPage navigate={navigate} />;
@@ -479,7 +525,7 @@ export default function ConsoleApp({ page, navigate }) {
           alignItems: 'center',
           gap: 10,
           cursor: 'pointer',
-          background: on ? '#fff' : 'transparent',
+          background: on ? t.card : 'transparent',
           color: on ? t.ink : t.body,
           fontSize: 14,
           fontWeight: on ? 700 : 500,
@@ -580,7 +626,7 @@ export default function ConsoleApp({ page, navigate }) {
           </div>
 
           {/* Content column (page + footer share the scroll). */}
-          <div style={{ flex: 1, minWidth: 0, overflow: 'auto', background: t.surface, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minWidth: 0, overflow: 'auto', background: 'var(--cw-bg-page)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '12px 14px', flex: 1, minWidth: 0 }}>
               <div key={page} className="cw-fade">
                 {renderPage()}
@@ -590,7 +636,9 @@ export default function ConsoleApp({ page, navigate }) {
               <span style={{ fontSize: 11.5, color: t.faint }}>Built by</span>
               <BrandLogo
                 src={VERXYL_FOOTER_1X}
-                srcSet={`${VERXYL_FOOTER_1X} 1x, ${VERXYL_FOOTER_2X} 2x, ${VERXYL_FOOTER_3X} 3x`}
+                srcSet={VERXYL_SRCSET}
+                srcDark={VERXYL_FOOTER_DARK[0]}
+                srcSetDark={VERXYL_SRCSET_DARK}
                 alt="Verxyl"
                 width={125}
                 height={22}
@@ -607,7 +655,7 @@ export default function ConsoleApp({ page, navigate }) {
                 style={{
                   width: 300,
                   flex: 'none',
-                  background: t.surface,
+                  background: 'var(--cw-bg-sidebar)',
                   borderRight: `1px solid ${t.border}`,
                   display: 'flex',
                   flexDirection: 'column',
@@ -618,6 +666,7 @@ export default function ConsoleApp({ page, navigate }) {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px 10px' }}>
                   <BrandLogo
                     src={CLEARWAY_LOGO}
+                    srcDark={CLEARWAY_LOGO_DARK}
                     alt="Clearway"
                     height={26}
                     fallback={<span style={{ fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em' }}>clearway</span>}
@@ -655,7 +704,7 @@ export default function ConsoleApp({ page, navigate }) {
                     alignItems: 'center',
                     gap: 8,
                     minHeight: 44,
-                    background: '#fff',
+                    background: t.card,
                     border: `1px solid ${t.border}`,
                     borderRadius: 10,
                     padding: '9px 11px',
@@ -681,18 +730,9 @@ export default function ConsoleApp({ page, navigate }) {
                   DIGITAL WALL
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {drawerRow({
-                    key: 'open-wall',
-                    label: 'Open wall',
-                    icon: 'external-link',
-                    onClick: () => {
-                      setDrawerOpen(false);
-                      window.open('/digital-wall/timeline/', '_blank');
-                    },
-                  })}
                   {NAV.map((item) => {
-                    const badge = item.key === 'important' && needsReview > 0 ? String(needsReview) : null;
-                    const notamDot = item.key === 'notam-check' && notamSign !== 'NONE' ? notamSign : null;
+                    const badge = !booting && item.key === 'important' && needsReview > 0 ? String(needsReview) : null;
+                    const notamDot = !booting && item.key === 'notam-check' && notamSign !== 'NONE' ? notamSign : null;
                     return drawerRow({
                       key: item.key,
                       label: item.label,
@@ -709,6 +749,7 @@ export default function ConsoleApp({ page, navigate }) {
                   })}
                 </div>
                 <div style={{ flex: 1, minHeight: 12 }} />
+                <WallDisplayCard collapsed={false} />
                 <div style={{ ...s.syncCard, marginBottom: 10, flex: 'none' }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
                     Sync status
@@ -722,14 +763,14 @@ export default function ConsoleApp({ page, navigate }) {
                       ? healthy
                         ? `Leon feed healthy · last sync ${timeAgo(sync.lastRunAt)}`
                         : `Sync error · ${sync.lastError || 'see Operators page'}`
-                      : 'Checking sync status…'}
+                      : <Skel w="82%" h={10} style={{ margin: '3px 0' }} />}
                   </div>
                   {countLine && <div style={{ fontSize: 11.5, lineHeight: 1.45, marginTop: 4, color: countLine.level === 'error' ? t.red : countLine.level === 'warn' ? t.amber ?? t.red : t.faint, fontWeight: countLine.level === 'ok' ? 400 : 700 }}>{countLine.text}</div>}
                   {repairLine && <div style={{ fontSize: 11, lineHeight: 1.4, marginTop: 3, color: t.faint }}>{repairLine}</div>}
                 </div>
                 {/* User badge pinned at the bottom — exactly the desktop badge. */}
                 <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 10, flex: 'none' }}>
-                  <UserBadge user={user} collapsed={false} />
+                  <UserBadge user={user} collapsed={false} booting={booting} />
                 </div>
               </div>
               <div onClick={() => setDrawerOpen(false)} style={{ flex: 1, background: MOBILE.scrim }} />
@@ -753,6 +794,7 @@ export default function ConsoleApp({ page, navigate }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <BrandLogo
               src={CLEARWAY_LOGO}
+              srcDark={CLEARWAY_LOGO_DARK}
               alt="Clearway"
               height={30}
               fallback={
@@ -798,7 +840,7 @@ export default function ConsoleApp({ page, navigate }) {
                     name={`${p.name}${p.email ? ` · ${p.email}` : ''} · ${(p.surfaces || []).join(', ')}`}
                     initials={p.initials}
                     seed={p.userId}
-                    style={{ border: '2px solid #fff', marginLeft: -8 }}
+                    style={{ border: `2px solid ${t.card}`, marginLeft: -8 }}
                   />
                 ))}
               </div>
@@ -812,10 +854,8 @@ export default function ConsoleApp({ page, navigate }) {
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           {/* ── Sidebar: platform deep-context nav ── */}
           <div className="cw-rail" style={{ ...s.nav, width: collapsed ? 68 : 248 }}>
-            {/* The rail sits on t.surface (#f5f6f7) — cw-hover-surface's
-                default hover is that same tone, so scope the platform
-                hover (#eceef0) to rail items. */}
-            <style>{'.cw-console .cw-rail .cw-hover-surface:hover { background: #eceef0 !important; }'}</style>
+            {/* The rail sits on the sidebar tone, which is also the quiet hover, so rail items hover one step deeper. */}
+            <style>{'.cw-console .cw-rail .cw-hover-surface:hover { background: var(--cw-bg-active) !important; }'}</style>
 
             {/* Back to the platform home */}
             <button
@@ -839,38 +879,27 @@ export default function ConsoleApp({ page, navigate }) {
                     width: 32,
                     height: 32,
                     borderRadius: 9,
-                    background: '#dbeafe',
+                    background: t.blueTint,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
                   }}
                 >
-                  <Icon name="monitor" size={17} color="#1d4ed8" />
+                  <Icon name="monitor" size={17} color={t.blueDeep} />
                 </span>
                 <div style={{ minWidth: 0, lineHeight: 1.3 }}>
                   <div style={{ fontFamily: t.mono, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap' }}>Digital Wall</div>
-                  <div style={{ fontSize: 12, color: '#6c7079' }}>Riga ops room</div>
+                  <div style={{ fontSize: 12, color: t.muted }}>Riga ops room</div>
                 </div>
               </div>
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto', overflowX: 'hidden' }}>
-              {/* Open the wall display itself (new tab) */}
-              <button
-                type="button"
-                className="cw-hover-surface"
-                title="Open wall"
-                onClick={() => window.open('/digital-wall/timeline/', '_blank')}
-                style={navItemStyle(false, collapsed)}
-              >
-                <Icon name="external-link" size={17} />
-                {!collapsed && <span style={{ flex: 1 }}>Open wall</span>}
-              </button>
               {NAV.map((item) => {
                 const on = item.key === page;
-                const badge = item.key === 'important' && needsReview > 0 ? needsReview : null;
-                const notamDot = item.key === 'notam-check' && notamSign !== 'NONE' ? notamSign : null;
+                const badge = !booting && item.key === 'important' && needsReview > 0 ? needsReview : null;
+                const notamDot = !booting && item.key === 'notam-check' && notamSign !== 'NONE' ? notamSign : null;
                 return (
                   <button
                     key={item.key}
@@ -916,6 +945,7 @@ export default function ConsoleApp({ page, navigate }) {
               })}
             </div>
             <div style={{ flex: 1 }} />
+            <WallDisplayCard collapsed={collapsed} />
             {!collapsed && (
               <div style={{ ...s.syncCard, marginBottom: 10 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -930,14 +960,14 @@ export default function ConsoleApp({ page, navigate }) {
                     ? healthy
                       ? `Leon feed healthy · last sync ${timeAgo(sync.lastRunAt)}`
                       : `Sync error · ${sync.lastError || 'see Operators page'}`
-                    : 'Checking sync status…'}
+                    : <Skel w="82%" h={10} style={{ margin: '3px 0' }} />}
                 </div>
                 {countLine && <div style={{ fontSize: 11.5, lineHeight: 1.45, marginTop: 4, color: countLine.level === 'error' ? t.red : countLine.level === 'warn' ? t.amber ?? t.red : t.faint, fontWeight: countLine.level === 'ok' ? 400 : 700 }}>{countLine.text}</div>}
                 {repairLine && <div style={{ fontSize: 11, lineHeight: 1.4, marginTop: 3, color: t.faint }}>{repairLine}</div>}
               </div>
             )}
             {agent.available && <AgentNavRow collapsed={collapsed} open={agent.open} onClick={agent.toggle} keycap={agent.keycap} />}
-            <UserBadge user={user} collapsed={collapsed} />
+            <UserBadge user={user} collapsed={collapsed} booting={booting} />
             <button
               type="button"
               className="cw-hover-surface"
@@ -953,7 +983,7 @@ export default function ConsoleApp({ page, navigate }) {
           {/* ── Ops Agent dock (right of the content: order 9) ── */}
           {agent.dock}
           {/* ── Content ── */}
-          <div style={{ flex: 1, minWidth: 0, overflow: 'auto', background: t.surface, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minWidth: 0, overflow: 'auto', background: 'var(--cw-bg-page)', display: 'flex', flexDirection: 'column' }}>
             {/* Full-bleed content: no max-width column — pages flex to the
                 viewport (minus nav) so tables and detail panels use the
                 whole screen on ops monitors. Padding keeps it readable. */}
@@ -970,7 +1000,9 @@ export default function ConsoleApp({ page, navigate }) {
                 <a href={VERXYL_URL} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', textDecoration: 'none' }}>
                   <BrandLogo
                     src={VERXYL_FOOTER_1X}
-                    srcSet={`${VERXYL_FOOTER_1X} 1x, ${VERXYL_FOOTER_2X} 2x, ${VERXYL_FOOTER_3X} 3x`}
+                    srcSet={VERXYL_SRCSET}
+                srcDark={VERXYL_FOOTER_DARK[0]}
+                srcSetDark={VERXYL_SRCSET_DARK}
                     alt="Verxyl"
                     width={125}
                     height={22}
@@ -980,7 +1012,9 @@ export default function ConsoleApp({ page, navigate }) {
               ) : (
                 <BrandLogo
                   src={VERXYL_FOOTER_1X}
-                  srcSet={`${VERXYL_FOOTER_1X} 1x, ${VERXYL_FOOTER_2X} 2x, ${VERXYL_FOOTER_3X} 3x`}
+                  srcSet={VERXYL_SRCSET}
+                srcDark={VERXYL_FOOTER_DARK[0]}
+                srcSetDark={VERXYL_SRCSET_DARK}
                   alt="Verxyl"
                   width={125}
                   height={22}
@@ -1002,7 +1036,7 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
-    background: t.surface,
+    background: 'var(--cw-bg-page)',
   },
   topBar: {
     height: 64,
@@ -1026,7 +1060,7 @@ const s = {
   logoDot: { width: 9, height: 9, borderRadius: '50%', background: t.ink },
   nav: {
     // width set inline: 248 expanded / 68 collapsed rail
-    background: t.surface,
+    background: 'var(--cw-bg-sidebar)',
     borderRight: `1px solid ${t.border}`,
     flex: 'none',
     display: 'flex',

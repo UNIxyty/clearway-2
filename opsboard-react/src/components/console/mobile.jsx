@@ -10,13 +10,12 @@ import { t } from './ui';
 // in MOBILE below, each with the design reference that mandates it.
 
 export const MOBILE = {
-  // C2: the drawer / sheet scrim — rgba(23,24,28,.42) per the design.
-  scrim: 'rgba(23,24,28,.42)',
-  // C4: the amber "UNCHECKED" state chip trio (#f6dcc4 / #9a4d10 / #dda06a)
-  // — the console kit has no matching amber-chip token set.
-  amberChipBg: '#f6dcc4',
-  amberChipText: '#9a4d10',
-  amberChipBorder: '#dda06a',
+  // C2: the drawer / sheet scrim — the portal's scrim token.
+  scrim: t.scrim,
+  // C4: the amber "UNCHECKED" state chip trio — the portal's warning tokens.
+  amberChipBg: t.amberTint,
+  amberChipText: t.amber,
+  amberChipBorder: t.amberBorder,
 };
 
 /** Lock body scroll while a fixed overlay (pushed page / sheet) is up. */
@@ -297,10 +296,10 @@ export function FilterChip({ on, onClick, children }) {
         padding: '0 13px',
         borderRadius: 9,
         border: on ? 'none' : `1px solid ${t.border}`,
-        background: on ? t.ink : t.surface,
+        background: on ? t.inkFill : t.surface,
         fontSize: 13,
         fontWeight: on ? 600 : 500,
-        color: on ? '#fff' : t.body,
+        color: on ? t.onInk : t.body,
         cursor: 'pointer',
         whiteSpace: 'nowrap',
         flex: 'none',

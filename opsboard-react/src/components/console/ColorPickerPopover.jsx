@@ -12,6 +12,7 @@ import { t } from './ui';
 // so a stored alpha would be dropped by the server's validation.
 
 const RECENTS_KEY = 'console-colour-recents';
+const HEX_EXAMPLE = '#2563eb'; // colour-data: the example in the help text, not a colour the console paints
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 function loadRecents() {
@@ -77,7 +78,7 @@ function Swatchlet({ hex, active, onPick, label }) {
         width: 22,
         height: 22,
         borderRadius: 6,
-        border: active ? `2px solid ${t.blue}` : '1px solid rgba(16,18,22,.18)',
+        border: active ? `2px solid ${t.blue}` : `1px solid ${t.borderInput}`,
         background: hex,
         cursor: 'pointer',
         padding: 0,
@@ -177,10 +178,10 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, shee
               right: 0,
               bottom: 0,
               zIndex: 2400,
-              background: '#fff',
-              borderTop: '1px solid #e6e7ea',
+              background: t.raised,
+              borderTop: `1px solid ${t.border}`,
               borderRadius: '22px 22px 0 0',
-              boxShadow: '0 -16px 44px rgba(16,18,22,.18)',
+              boxShadow: t.shadowPop,
               padding: '12px 16px 22px',
               fontFamily: 'inherit',
               maxHeight: '80vh',
@@ -192,10 +193,10 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, shee
               top: pos.top,
               width: pos.W,
               zIndex: 2400,
-              background: '#fff',
-              border: '1px solid #e6e7ea',
+              background: t.raised,
+              border: `1px solid ${t.border}`,
               borderRadius: 14,
-              boxShadow: '0 16px 44px rgba(16,18,22,.18)',
+              boxShadow: t.shadowPop,
               padding: 12,
               fontFamily: 'inherit',
             }
@@ -210,7 +211,7 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, shee
           height: 148,
           borderRadius: 10,
           cursor: 'crosshair',
-          background: `linear-gradient(to top, #000, rgba(0,0,0,0)), linear-gradient(to right, #fff, ${hueHex})`,
+          background: `linear-gradient(to top, #000, rgba(0,0,0,0)), linear-gradient(to right, #fff, ${hueHex})`, // colour-data: the picker's saturation/value plane
           touchAction: 'none',
         }}
       >
@@ -222,8 +223,8 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, shee
             width: 14,
             height: 14,
             borderRadius: '50%',
-            border: '2px solid #fff',
-            boxShadow: '0 0 0 1px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.3)',
+            border: '2px solid #fff', // colour-data: a cursor ring that reads on any colour under it
+            boxShadow: '0 0 0 1px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.3)', // colour-data
             transform: 'translate(-50%, -50%)',
             background: current,
             pointerEvents: 'none',
@@ -242,7 +243,7 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, shee
           marginTop: 12,
           cursor: 'pointer',
           background:
-            'linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)',
+            'linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)', // colour-data: the hue strip
           touchAction: 'none',
         }}
       >
@@ -254,8 +255,8 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, shee
             width: 16,
             height: 16,
             borderRadius: '50%',
-            border: '2px solid #fff',
-            boxShadow: '0 0 0 1px rgba(0,0,0,.3)',
+            border: '2px solid #fff', // colour-data: a cursor ring that reads on any hue
+            boxShadow: '0 0 0 1px rgba(0,0,0,.3)', // colour-data
             transform: 'translate(-50%, -50%)',
             background: hueHex,
             pointerEvents: 'none',
@@ -270,7 +271,7 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, shee
             width: 30,
             height: 30,
             borderRadius: 8,
-            border: '1px solid rgba(16,18,22,.15)',
+            border: `1px solid ${t.borderInput}`,
             background: current,
             flexShrink: 0,
           }}
@@ -299,15 +300,15 @@ function PickerPopover({ anchorRect, value, onChange, onClose, wallPalette, shee
             padding: '7px 10px',
             borderRadius: 8,
             outline: 'none',
-            border: `1.5px solid ${draftValid ? '#d6d8dc' : t.red}`,
-            background: draftValid ? '#fff' : t.redTint,
-            color: draftValid ? '#17181c' : t.red,
+            border: `1.5px solid ${draftValid ? t.borderInput : t.red}`,
+            background: draftValid ? t.card : t.redTint,
+            color: draftValid ? t.ink : t.red,
           }}
         />
       </div>
       {!draftValid && (
         <div style={{ fontSize: 11.5, color: t.red, marginTop: 5 }}>
-          Not a colour yet — needs the #rrggbb form, e.g. #2563eb
+          Not a colour yet — needs the #rrggbb form, e.g. {HEX_EXAMPLE}
         </div>
       )}
 
@@ -368,8 +369,8 @@ export default function ColorPicker({ value, onChange, wallPalette, ariaLabel, s
           width: size || 34,
           height: size || 26,
           borderRadius: size ? 10 : 7,
-          border: '1px solid rgba(16,18,22,.18)',
-          boxShadow: 'inset 0 0 0 2px #fff',
+          border: `1px solid ${t.borderInput}`,
+          boxShadow: `inset 0 0 0 2px ${t.card}`,
           background: value,
           cursor: 'pointer',
           padding: 0,
@@ -398,7 +399,7 @@ function SheetScrim({ onClose }) {
   return createPortal(
     <div
       onMouseDown={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 2390, background: 'rgba(23,24,28,.42)' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 2390, background: t.scrim }}
     />,
     document.body
   );

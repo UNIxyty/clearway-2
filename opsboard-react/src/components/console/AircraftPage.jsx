@@ -7,7 +7,6 @@ import {
   EmptyState,
   ErrorBanner,
   IconButton,
-  LoadingState,
   PageHeader,
   SearchBox,
   t,
@@ -15,7 +14,10 @@ import {
   Toggle,
   useToast,
   ConfirmDialog,
+  useLoadPhase,
+  TableSkeleton,
 } from './ui';
+import { TABLE_GRID, gridHeader } from './pageMeta';
 import { errorText } from '../../services/errorText';
 
 // Aircraft — choose which tails render on the wall (approved design).
@@ -30,6 +32,7 @@ function fmtNext(row) {
 export default function AircraftPage() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const phase = useLoadPhase(loading);
   const [error, setError] = useState('');
   const [savingKey, setSavingKey] = useState('');
   const [deletingKey, setDeletingKey] = useState('');
@@ -98,7 +101,7 @@ export default function AircraftPage() {
     );
     try {
       await setAircraftVisibility({ oprId: row.oprId, registration: row.registration, enabled: showOnWall });
-      flash(showOnWall ? `Showing ${row.registration} on wall` : `Hidden ${row.registration} — lane removed`, showOnWall ? '#4ade80' : '#f87171');
+      flash(showOnWall ? `Showing ${row.registration} on wall` : `Hidden ${row.registration} — lane removed`, showOnWall ? t.green : t.red);
     } catch (err) {
       setError(errorText(err));
       await load();
@@ -116,7 +119,7 @@ export default function AircraftPage() {
     try {
       await deleteAircraft({ oprId: row.oprId, registration: row.registration });
       setData((prev) => prev.filter((item) => !(item.oprId === row.oprId && item.registration === row.registration)));
-      flash(`Deleted ${row.registration}`, '#f87171');
+      flash(`Deleted ${row.registration}`, t.red);
     } catch (err) {
       setError(errorText(err));
       await load();
@@ -141,7 +144,7 @@ export default function AircraftPage() {
         // Sequential on purpose — the visibility endpoint is one-row-at-a-time.
         await setAircraftVisibility({ oprId: row.oprId, registration: row.registration, enabled: showOnWall });
       }
-      flash(showOnWall ? 'All aircraft shown on wall' : 'All aircraft hidden', showOnWall ? '#4ade80' : '#f87171');
+      flash(showOnWall ? 'All aircraft shown on wall' : 'All aircraft hidden', showOnWall ? t.green : t.red);
     } catch (err) {
       setError(errorText(err));
       await load();
@@ -182,33 +185,27 @@ export default function AircraftPage() {
       <ErrorBanner>{error}</ErrorBanner>
 
       <TableShell
-        columns="1fr 1.2fr 1.3fr 1.2fr .9fr"
-        header={[
-          { label: 'REGISTRATION' },
-          { label: 'OPERATOR' },
-          { label: 'UPCOMING (7 DAYS)' },
-          { label: 'NEXT FLIGHT' },
-          { label: 'SHOW ON WALL', align: 'right' },
-        ]}
+        columns={TABLE_GRID.aircraft.columns}
+        header={gridHeader('aircraft')}
       >
-        {loading && <LoadingState>Loading aircraft…</LoadingState>}
-        {!loading && visible.length === 0 && (
+        {phase === 'skeleton' && <TableSkeleton columns={TABLE_GRID.aircraft.columns} label="Loading aircraft" />}
+        {phase === 'content' && visible.length === 0 && (
           <EmptyState icon="navigation" title="No aircraft match">
             Adjust the search or operator filter.
           </EmptyState>
         )}
-        {visible.map((row) => {
+        {phase === 'content' && visible.map((row) => {
           const shown = !row.isHidden;
           return (
             <div
               key={`${row.oprId}:${row.registration}`}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1.2fr 1.3fr 1.2fr .9fr',
+                gridTemplateColumns: TABLE_GRID.aircraft.columns,
                 padding: '15px 18px',
                 borderBottom: `1px solid ${t.rowLine}`,
                 alignItems: 'center',
-                background: shown ? '#fff' : t.subtle,
+                background: shown ? t.card : t.subtle,
               }}
             >
               <div style={{ fontFamily: t.mono, fontSize: 15, fontWeight: 600 }}>{row.registration}</div>

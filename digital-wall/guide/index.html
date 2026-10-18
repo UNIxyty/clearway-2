@@ -36,22 +36,20 @@
     a:hover{color:var(--accent2)}
     .gw-scroll::-webkit-scrollbar{width:9px}
     .gw-scroll::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
-    .gw-theme-btn{transition:transform .12s ease, background .15s ease}
-    .gw-theme-btn:hover{transform:translateY(-2px)}
     :root[data-theme="dark"] .gw-logo{filter:brightness(0) invert(1);opacity:.65 !important}
+    /* Motion: the portal's "Reduce" (Settings › Preferences) stops every animation and transition here too. */
+    :root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important}
     @media print{
       .gw-toc{display:none !important}
       .gw-main{padding:0 !important}
-      .gw-theme-btn{display:none !important}
       section{break-inside:avoid}
     }
   </style>
 </helmet>
 <div style="min-height:100vh;background:var(--pg);font-family:'Public Sans',system-ui,sans-serif;color:var(--tx);">
 
-  <button class="gw-theme-btn" onClick="{{ toggleTheme }}" title="{{ themeLabel }}" aria-label="{{ themeLabel }}" style="position:fixed;bottom:24px;right:24px;z-index:200;width:46px;height:46px;border-radius:50%;border:1px solid var(--bd);background:var(--card);color:var(--tx);box-shadow:0 6px 20px rgba(16,18,22,.22);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;">
-    <i data-lucide="{{ themeIcon }}" style="width:20px;height:20px;"></i>
-  </button>
+  <!-- No theme control here (2026-10-18): light or dark is chosen once, in the portal's Settings › Appearance, and this
+       guide follows it (the shared cw-theme choice, the account's saved one, or the device), as the console does. -->
 
   <!-- ===================== COVER ===================== -->
   <div style="position:relative;overflow:hidden;background:#0e1524;color:#fff;padding:64px 40px 72px;">
@@ -1868,13 +1866,31 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { active: 'overview', theme: 'light' };
+  state = { active: 'overview' };
 
-  componentDidMount(){
+  // The one theme choice (the portal's Settings › Appearance): cw-theme and cw-motion in localStorage on this origin,
+  // the account's saved choice when the portal answers, and the device setting for "system". Followed live: a change
+  // made in another tab reaches this one through the storage event, with no reload.
+  applyChoice(){
     try{
-      var saved = (localStorage.getItem('dwguide-theme') === 'dark') ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', saved);
-      this.setState({ theme: saved });
+      var d = document.documentElement, c = localStorage.getItem('cw-theme');
+      var t = c === 'light' || c === 'dark' ? c : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      d.setAttribute('data-theme', t); d.style.colorScheme = t;
+      if (localStorage.getItem('cw-motion') === 'reduce') d.setAttribute('data-motion', 'reduce'); else d.removeAttribute('data-motion');
+    }catch(e){}
+  }
+  componentDidMount(){
+    this.applyChoice();
+    this.onStorage = (e) => { if (!e.key || e.key === 'cw-theme' || e.key === 'cw-motion') this.applyChoice(); };
+    window.addEventListener('storage', this.onStorage);
+    try{ this.mq = matchMedia('(prefers-color-scheme: dark)'); this.onMq = () => this.applyChoice(); this.mq.addEventListener('change', this.onMq); }catch(e){}
+    try{
+      fetch('/api/user/preferences', { headers: { accept: 'application/json' } }).then(r => r.ok ? r.json() : null).then(d => {
+        var p = d && d.preferences || {};
+        if (p.theme === 'system' || p.theme === 'light' || p.theme === 'dark') localStorage.setItem('cw-theme', p.theme);
+        if (p.motion === 'system' || p.motion === 'reduce') localStorage.setItem('cw-motion', p.motion);
+        this.applyChoice();
+      }).catch(() => {});
     }catch(e){}
     this.icons();
     try{
@@ -1885,13 +1901,8 @@ class Component extends DCLogic {
     }catch(e){}
   }
   componentDidUpdate(){ this.icons(); }
-  componentWillUnmount(){ try{ this.io && this.io.disconnect(); }catch(e){} }
+  componentWillUnmount(){ try{ this.io && this.io.disconnect(); window.removeEventListener('storage', this.onStorage); this.mq && this.mq.removeEventListener('change', this.onMq); }catch(e){} }
   icons(){ try{ window.lucide && window.lucide.createIcons(); }catch(e){} }
-  toggleTheme(){
-    const next = this.state.theme === 'dark' ? 'light' : 'dark';
-    try{ document.documentElement.setAttribute('data-theme', next); localStorage.setItem('dwguide-theme', next); }catch(e){}
-    this.setState({ theme: next });
-  }
 
   renderVals(){
     const active = this.state.active;
@@ -1924,13 +1935,7 @@ class Component extends DCLogic {
         weight: on ? 700 : 500,
       };
     });
-    const dark = this.state.theme === 'dark';
-    return {
-      toc,
-      toggleTheme: () => this.toggleTheme(),
-      themeIcon: dark ? 'sun' : 'moon',
-      themeLabel: dark ? 'Switch to light theme' : 'Switch to dark theme',
-    };
+    return { toc };
   }
 }
 </script>

@@ -132,6 +132,62 @@ async function previewShot(theme) {
 const pl = await previewShot("light"), pd = await previewShot("dark");
 ok(pl.around !== pd.around && pl.png.equals(pd.png), "Settings: the wall preview inside the dashed line is pixel-identical in both themes while the page around it changes", `page ${pl.around} / ${pd.around} · ${pl.png.length} vs ${pd.png.length} bytes`);
 
+// ── E. one place chooses; the others follow live ──
+// The console (and the wall's guide) on the portal's origin, as in production: the sign-in-on proxy (:3989) serves the
+// portal; the wall UI is fulfilled from the built dist (the proxy forwards only the wall's API). Tab B is the portal's
+// Settings, the one place; tabs A (console), C (display) and D (guide) are open already and are never touched.
+{
+  const PORTAL = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
+  const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const sess = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: "rig-access-admin@rig.invalid", password: "rig-access-check-only" }) })).json();
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "light" });
+  await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(sess)).toString("base64")}`, url: PORTAL }]);
+  await ctx.route(/\/(digital-wall\/(?!api)|assets\/|fonts\/)/, async (route) => {
+    const u = new URL(route.request().url());
+    let file = u.pathname.startsWith("/digital-wall/guide/") ? `digital-wall/guide/${u.pathname.slice("/digital-wall/guide/".length) || "index.html"}` : u.pathname.startsWith("/digital-wall/") ? "opsboard-react/dist/index.html" : `opsboard-react/dist${u.pathname}`;
+    try { await route.fulfill({ path: file }); } catch { await route.fulfill({ status: 404, body: "" }); }
+  });
+  // the one place: start from Light, Match device
+  const B = await ctx.newPage();
+  await B.goto(`${PORTAL}/settings`, { waitUntil: "load" }); await B.waitForTimeout(2500);
+  // a card's accessible name is its label plus its subtitle ("Dark For the ops room at night"): match the start
+  const theme = (name) => B.locator("#appearance").getByRole("radio", { name: new RegExp(`^${name}`) }).click({ timeout: 8000 });
+  const motion = (name) => B.locator("#preferences").getByRole("radio", { name }).click();
+  await theme("Light"); await motion(/^Match device/); await B.waitForTimeout(800);
+  // the followers, open and then never touched
+  const A = await ctx.newPage();
+  await A.route("**/digital-wall/api/operators**", async (route) => { await new Promise((r) => setTimeout(r, 12000)); await route.continue(); }); // keep a skeleton on screen
+  await A.goto(`${PORTAL}/digital-wall/console/operators`, { waitUntil: "load" }); await A.waitForTimeout(2000);
+  await A.evaluate(() => { window.__untouched = 1; });
+  const C = await ctx.newPage(); await C.clock.install({ time: new Date("2026-10-18T14:00:00Z") });
+  await C.goto(`${PORTAL}/digital-wall/timeline/`, { waitUntil: "load" }); await C.waitForTimeout(3500);
+  const still = () => C.evaluate(() => document.getAnimations().forEach((a) => { a.pause(); try { a.currentTime = 0; } catch { /* finished */ } }));
+  await still(); const cBefore = await C.screenshot();
+  const D = await ctx.newPage();
+  await D.goto(`${PORTAL}/digital-wall/guide/`, { waitUntil: "load" }); await D.waitForTimeout(3000);
+  const stateA = () => A.evaluate(() => ({ theme: document.documentElement.getAttribute("data-theme"), motion: document.documentElement.getAttribute("data-motion"), untouched: window.__untouched === 1, bg: getComputedStyle(document.querySelector(".cw-console")).backgroundColor, skel: (() => { const e = document.querySelector(".cw-skel"); return e ? getComputedStyle(e).animationDuration : null; })() }));
+  const a0 = await stateA();
+  ok(a0.theme === "light" && a0.motion === null && a0.skel && a0.skel !== "0.001ms", "console tab A starts light, motion as the device, a skeleton animating", JSON.stringify(a0));
+  ok((await D.locator(".gw-theme-btn").count()) === 0 && (await D.evaluate(() => document.documentElement.getAttribute("data-theme"))) === "light", "the wall's guide has no theme button and starts light");
+  // the change, in the portal only
+  await theme("Dark"); await A.waitForTimeout(1200);
+  const a1 = await stateA();
+  ok(a1.theme === "dark" && a1.bg === TOKENS.dark.bgPage && a1.untouched, "portal → Dark: the open console tab is dark at once, without a reload", JSON.stringify(a1));
+  ok((await D.evaluate(() => document.documentElement.getAttribute("data-theme"))) === "dark", "…and so is the open guide tab");
+  await still(); const cAfter = await C.screenshot({ path: `${OUT}/console-theme-display-untouched.png` });
+  ok(cBefore.equals(cAfter) && (await C.evaluate(() => document.documentElement.getAttribute("data-theme"))) === null, "…and the open display tab did not react: pixel-identical, no data-theme", `${cBefore.length} vs ${cAfter.length} bytes`);
+  await motion(/^Reduce/); await A.waitForTimeout(1200);
+  const a2 = await stateA();
+  ok(a2.motion === "reduce" && (a2.skel === "0s" || a2.skel === "0.001ms") && a2.untouched, "portal → Motion Reduce: the open console tab stops its animations at once", JSON.stringify(a2));
+  ok((await D.evaluate(() => document.documentElement.getAttribute("data-motion"))) === "reduce" && (await C.evaluate(() => document.documentElement.getAttribute("data-motion"))) === null, "…the guide follows; the display does not");
+  await A.screenshot({ path: `${OUT}/console-theme-followed.png` });
+  // back to where we found it
+  await theme("Light"); await motion(/^Match device/); await A.waitForTimeout(1000);
+  const a3 = await stateA();
+  ok(a3.theme === "light" && a3.motion === null, "portal → Light, Match device: the console follows back", JSON.stringify(a3));
+  await ctx.close();
+}
+
 await browser.close();
 console.log(`\n${failures ? `${failures} FAILED` : "ALL PASSED"} · screenshots in ${OUT}/console-theme-*.png`);
 process.exit(failures ? 1 : 0);

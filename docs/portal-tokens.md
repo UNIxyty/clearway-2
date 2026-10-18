@@ -71,7 +71,12 @@ inside the console's own `<style>` (`ConsoleStyles`), so they exist only while t
 `src/theme/portalTheme.js` is the portal's `components/portal/theme.ts` in plain JS: the same `cw-theme` key in
 localStorage (shared with the portal on the same origin), the same saved choice on the account
 (`/api/user/preferences`), `data-theme` and `color-scheme` on `<html>`; `index.html` applies it before the first
-paint, on console paths only.
+paint, on console paths only. The portal's **Motion** preference (`cw-motion`, the account's `motion`,
+`data-motion="reduce"`) comes the same way, with the portal's reduced-motion rules scoped to `.cw-console`. Both are
+followed live: a change made in the portal's Settings reaches an open console tab through the `storage` event, with no
+reload and no transition. **One place chooses them** (Settings › Appearance, Settings › Preferences); the console shows
+which choice is in effect and links there, and has no control of its own. The wall's guide (`digital-wall/guide/`)
+follows the same two keys and lost its own light/dark button on 2026-10-18.
 
 **The wall display is not themed.** It keeps its own per-account colours and font (wall settings; `shared/design-tokens.json`
 is its token file, read at build time), sets no `data-theme`, loads no `--cw-*` token. Everything the console draws

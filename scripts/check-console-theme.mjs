@@ -8,7 +8,7 @@
 //      gradients, a cursor ring that reads on any colour, identity colours) says why and ends in `// colour-data`;
 //      the check prints those so they stay few. They may not import shared/design-tokens.json (the wall's file).
 //   2. DISPLAY files (everything else under opsboard-react/src, including components/wall-preview/*) read no portal
-//      token: no `--cw-`, `--ca-`, `--mx-`, no `data-theme`, no portal-tokens / client-tokens / mobile-tokens import,
+//      token: no `--cw-`, `--ca-`, `--mx-`, no `data-theme` or `data-motion`, no portal-tokens / client-tokens / mobile-tokens import,
 //      no import from components/console/ui. The wall keeps its own per-account colours and font.
 //   3. Every data-wall-display root lives in components/wall-preview/ (nothing under it may be themed).
 //
@@ -51,7 +51,7 @@ for (const f of files) {
     lines.forEach((line, i) => {
       const code = line.replace(/^\s*(\/\/|\*|\/\*).*$/, "").replace(/\s\/\/\s.*$/, "");
       if (/--cw-|--ca-|--mx-/.test(code)) findings.push(`${rel(f)}:${i + 1}  a display file reads a portal token: ${code.trim().slice(0, 100)}`);
-      if (/data-theme/.test(code)) findings.push(`${rel(f)}:${i + 1}  a display file reads data-theme`);
+      if (/data-theme|data-motion/.test(code)) findings.push(`${rel(f)}:${i + 1}  a display file reads data-theme or data-motion`);
       if (/portal-tokens|client-tokens|mobile-tokens|components\/console\/ui['"]/.test(code) && /import|from|@import|href/.test(code)) findings.push(`${rel(f)}:${i + 1}  a display file imports the console's theme: ${code.trim().slice(0, 100)}`);
     });
   }

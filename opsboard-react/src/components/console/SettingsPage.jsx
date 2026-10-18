@@ -1885,7 +1885,7 @@ function MobileGroup({ title, summary, open, onToggle, note = false, children })
  */
 function BoundaryBlock({ deviceId }) {
   const [settings, setSettings] = useState(null);
-  const { theme, choice } = usePortalTheme();
+  const { theme, choice, motion } = usePortalTheme();
   useEffect(() => {
     let cancelled = false;
     const load = () => fetchDisplaySettings(deviceId).then((payload) => { if (!cancelled) setSettings(payload.settings || {}); }).catch(() => { if (!cancelled) setSettings({}); });
@@ -1914,10 +1914,18 @@ function BoundaryBlock({ deviceId }) {
         <div style={{ minHeight: 54, display: 'flex', alignItems: 'center', gap: 12, padding: '6px 16px' }}>
           <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Theme</span>
-            <span style={{ fontSize: 12.5, color: t.muted }}>Portal › Settings › Appearance</span>
+            <span style={{ fontSize: 12.5, color: t.muted }}>Chosen once, in the portal: Settings › Appearance</span>
           </span>
           <span data-console-theme={theme} style={{ fontSize: 13.5, fontWeight: 600, color: t.body }}>{choiceLabel}</span>
           <a href="/settings#appearance" style={{ fontSize: 13.5, fontWeight: 600, color: t.blueDeep, textDecoration: 'none' }}>Change</a>
+        </div>
+        <div style={{ minHeight: 54, display: 'flex', alignItems: 'center', gap: 12, padding: '6px 16px', borderTop: `1px solid ${t.borderInner}` }}>
+          <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Motion</span>
+            <span style={{ fontSize: 12.5, color: t.muted }}>Chosen once, in the portal: Settings › Preferences</span>
+          </span>
+          <span data-console-motion={motion} style={{ fontSize: 13.5, fontWeight: 600, color: t.body }}>{motion === 'reduce' ? 'Reduced' : 'Match this device'}</span>
+          <a href="/settings#preferences" style={{ fontSize: 13.5, fontWeight: 600, color: t.blueDeep, textDecoration: 'none' }}>Change</a>
         </div>
       </div>
     </section>

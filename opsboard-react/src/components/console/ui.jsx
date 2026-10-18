@@ -121,9 +121,12 @@ const GLOBAL_CSS = `
   /* The portal's skeleton: shimmer 1400 ms linear (app/globals.css, §1.5). */
   .cw-skel { background: linear-gradient(90deg, var(--cw-skeleton) 0, var(--cw-skeleton-shine) 50%, var(--cw-skeleton) 100%); background-size: 640px 100%; animation: cw-shimmer 1400ms linear infinite; border-radius: 4px; }
   .cw-skel-still { background: var(--cw-skeleton); border-radius: 4px; }
+  /* Motion: the OS setting when the portal's Motion is "Match device"; the portal's "Reduce" (data-motion) regardless. */
   @media (prefers-reduced-motion: reduce) {
     .cw-fade, .cw-skel, .cw-motion-decor { animation: none !important; }
   }
+  html[data-motion="reduce"] .cw-console *, html[data-motion="reduce"] .cw-console *::before, html[data-motion="reduce"] .cw-console *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+  html[data-motion="reduce"] .cw-skel, html[data-motion="reduce"] .cw-fade, html[data-motion="reduce"] .cw-motion-decor { animation: none !important; }
   .cw-hover-surface:hover { background: var(--cw-bg-hover) !important; }
   .cw-hover-primary:hover { background: var(--cw-primary-hover) !important; }
   .cw-hover-danger:hover { background: var(--cw-danger-border) !important; }

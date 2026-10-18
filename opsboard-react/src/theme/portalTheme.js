@@ -4,13 +4,28 @@
 // at once), the same saved copy on the account (GET/POST /api/user/preferences, which the portal serves), and the same
 // effect: data-theme and color-scheme on <html>, read by the --cw-* tokens the console's stylesheet carries.
 //
-// Only the console surface calls this. The wall display never does: it sets no data-theme, loads no --cw-* token and
-// keeps its own per-account colours (scripts/check-console-theme.mjs proves it).
+// The portal's Motion preference (Settings › Preferences: "Match device" | "Reduce") comes the same way: localStorage
+// cw-motion, the account's `motion`, data-motion="reduce" on <html> (components/portal/user-settings.ts). One place
+// chooses both; the console has no control of its own for either, and follows a change made in another tab at once.
+//
+// Only the console surface calls this. The wall display never does: it sets no data-theme or data-motion, loads no
+// --cw-* token and keeps its own per-account colours (scripts/check-console-theme.mjs proves it).
 import { useEffect, useState } from 'react';
 
 export const THEME_KEY = 'cw-theme';
+export const MOTION_KEY = 'cw-motion';
 const EVENT = 'cw-theme-change';
 const isChoice = (v) => v === 'system' || v === 'light' || v === 'dark';
+const isMotion = (v) => v === 'system' || v === 'reduce';
+
+export function readMotion() {
+  try { const v = localStorage.getItem(MOTION_KEY); return isMotion(v) ? v : 'system'; } catch { return 'system'; }
+}
+export function applyPortalMotion(motion = readMotion()) {
+  const root = document.documentElement;
+  if (motion === 'reduce') root.setAttribute('data-motion', 'reduce'); else root.removeAttribute('data-motion');
+  return motion;
+}
 
 export function readChoice() {
   try { const v = localStorage.getItem(THEME_KEY); return isChoice(v) ? v : 'system'; } catch { return 'system'; }
@@ -41,8 +56,13 @@ export async function adoptAccountChoice() {
   try {
     const r = await fetch('/api/user/preferences', { headers: { accept: 'application/json' } });
     if (!r.ok) return;
-    const saved = (await r.json())?.preferences?.theme;
-    if (isChoice(saved) && saved !== readChoice()) setChoice(saved, { save: false });
+    const prefs = (await r.json())?.preferences ?? {};
+    if (isChoice(prefs.theme) && prefs.theme !== readChoice()) setChoice(prefs.theme, { save: false });
+    if (isMotion(prefs.motion) && prefs.motion !== readMotion()) {
+      try { localStorage.setItem(MOTION_KEY, prefs.motion); } catch { /* private mode */ }
+      applyPortalMotion(prefs.motion);
+      window.dispatchEvent(new CustomEvent(EVENT));
+    }
   } catch { /* the portal is not reachable from here (the rig's console preview): this device's choice stands */ }
 }
 
@@ -52,9 +72,11 @@ export async function adoptAccountChoice() {
  */
 export function usePortalTheme() {
   const [theme, setTheme] = useState(() => (typeof document === 'undefined' ? 'light' : applyPortalTheme()));
+  const [motion, setMotion] = useState(() => (typeof document === 'undefined' ? 'system' : applyPortalMotion()));
   useEffect(() => {
-    const sync = () => setTheme(applyPortalTheme());
-    const onStorage = (e) => { if (e.key === THEME_KEY) sync(); };
+    const sync = () => { setTheme(applyPortalTheme()); setMotion(applyPortalMotion()); };
+    // Another tab (the portal's Settings) changed the choice: the browser tells this one, and it follows at once.
+    const onStorage = (e) => { if (e.key === THEME_KEY || e.key === MOTION_KEY) sync(); };
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
     const onSystem = () => { if (readChoice() === 'system') sync(); };
     window.addEventListener(EVENT, sync);
@@ -63,5 +85,5 @@ export function usePortalTheme() {
     adoptAccountChoice().then(sync);
     return () => { window.removeEventListener(EVENT, sync); window.removeEventListener('storage', onStorage); mq?.removeEventListener?.('change', onSystem); };
   }, []);
-  return { theme, choice: readChoice(), setChoice };
+  return { theme, choice: readChoice(), motion, setChoice };
 }

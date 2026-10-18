@@ -49,7 +49,7 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | permissions-browser | 13 | 2026-10-12 |
 | wall/access-check | 65 | 2026-10-12 |
 | wall/browser-access | 9 | 2026-10-12 |
-| wall/console-theme-check | 32 | 2026-10-18 |
+| wall/console-theme-check | 40 | 2026-10-18 |
 | group2-check | 13 | 2026-10-12 |
 | group4-check | 33 | 2026-10-12 |
 | shell-check | 10 | 2026-10-12 |

@@ -12,7 +12,7 @@
     <!-- The console follows the portal's theme (src/theme/portalTheme.js, the portal's components/portal/theme-script.ts):
          read the choice before the first paint so a dark console never flashes light. Console paths only — the wall
          display (/timeline) sets no data-theme and reads no portal token. -->
-    <script>(function(){try{if(!/\/console(\/|$)/.test(location.pathname))return;var c=localStorage.getItem("cw-theme"),t=c==="light"||c==="dark"?c:(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"),d=document.documentElement;d.setAttribute("data-theme",t);d.style.colorScheme=t}catch(e){}})();</script>
+    <script>(function(){try{if(!/\/console(\/|$)/.test(location.pathname))return;var c=localStorage.getItem("cw-theme"),t=c==="light"||c==="dark"?c:(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"),d=document.documentElement;d.setAttribute("data-theme",t);d.style.colorScheme=t;if(localStorage.getItem("cw-motion")==="reduce")d.setAttribute("data-motion","reduce")}catch(e){}})();</script>
     <!-- Fonts are self-hosted (src/fonts.css, public/fonts): no Google Fonts, no CDN. Preloaded: only the wall's
          default text font in the four weights the wall uses; every other option loads when chosen. -->
     <link rel="preload" as="font" type="font/woff2" crossorigin href="%BASE_URL%fonts/Nunito-dotted-400.woff2" />

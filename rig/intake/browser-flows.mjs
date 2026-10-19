@@ -48,6 +48,11 @@ await page.screenshot({ path: `${OUT}/flow-2-revealed.png`, fullPage: true });
 await page.getByRole("button", { name: /Hide now/i }).first().click(); await page.waitForTimeout(500);
 ok(!(await page.evaluate(() => /XX000000\d/.test(document.body.innerText))), "Hide now masks them again");
 const audits = await db("agent_audit_log?select=kind&kind=eq.intake.personal_revealed"); ok(audits.length >= 1, "reveal is in the audit log", `${audits.length} row(s)`);
+// Since 2026-10-20 the confirm bar offers "Read the original email first" until the email was read in this session
+// (lib/intake-email-read.ts): open the drawer, let the body load, close it.
+async function readEmail() { await page.getByRole("button", { name: /^Original email/i }).first().click(); await page.waitForTimeout(1500); await page.keyboard.press("Escape"); await page.waitForTimeout(400); }
+ok((await page.getByRole("button", { name: /Read the original email first/i }).count()) === 1 && (await page.getByRole("button", { name: /Review and (create|send)/i }).count()) === 0, "confirm bar: before the email is read, the only action is Read the original email first");
+await readEmail();
 const openBtn = page.getByRole("button", { name: /Review and create in Leon|Review and send to Leon/i }).first();
 ok(await openBtn.isEnabled(), "confirm bar enabled once nothing blocks");
 await openBtn.click(); await page.waitForSelector('[role="dialog"]'); await page.waitForTimeout(800);
@@ -77,7 +82,7 @@ ok((await page.getByText(/Loaded\. Both legs are in Leon/).count()) > 0, "banner
 
 // 2. SP-OVO: Leon refuses leg 2 → partly loaded banner, chips, pipeline, email.
 faults({ refuseFlightNo: ["AMQ5V"], refuseLegOnAdes: ["LFMN"] });
-await go(amq);
+await go(amq); await readEmail();
 await page.getByRole("button", { name: /Review and create in Leon/i }).first().click(); await page.waitForSelector('[role="dialog"]'); await page.waitForTimeout(500);
 await page.locator('[role="dialog"]').getByRole("button", { name: /^Create in Leon$/ }).click();
 await page.waitForTimeout(8000);
@@ -91,7 +96,7 @@ faults({});
 
 // 3. Timezone unknown → choose local.
 if (notz) {
-  await go(notz); await page.screenshot({ path: `${OUT}/flow-8-tz.png`, fullPage: true });
+  await go(notz); await readEmail(); await page.screenshot({ path: `${OUT}/flow-8-tz.png`, fullPage: true });
   ok((await page.getByText(/Which timezone are these times in\?/).count()) > 0, "timezone block shown");
   ok(await page.getByRole("button", { name: /Review and create in Leon/i }).first().isDisabled(), "confirm disabled while timezone unknown");
   await page.getByRole("button", { name: /They are local time/i }).first().click(); await page.waitForTimeout(2000);

@@ -8,11 +8,11 @@ import { useEffect, useId, useState } from "react";
 import { mono } from "../ui/tokens";
 import { Icon, dayTimeZ, kb } from "../ui/primitives";
 import { Drawer, Tag } from "./controls";
-import { mailboxApi, type RequestDetail } from "./api";
+import { mailboxApi, type RequestDetail, intakeApi } from "./api";
 import { EYEBROW, errText, plural } from "./intake-shared";
 import { cw } from "@/lib/portal-tokens";
 
-export function OriginalEmailDrawer({ detail, open, onClose }: { detail: RequestDetail; open: boolean; onClose: () => void }) {
+export function OriginalEmailDrawer({ detail, open, onClose, onRead }: { detail: RequestDetail; open: boolean; onClose: () => void; onRead?: () => void }) {
   const titleId = useId();
   const r = detail.request;
   const [body, setBody] = useState<{ text: string; masks: number } | null>(null);
@@ -20,11 +20,11 @@ export function OriginalEmailDrawer({ detail, open, onClose }: { detail: Request
   useEffect(() => {
     if (!open || body || err) return;
     let live = true;
-    mailboxApi.body(r.messageId, "text", false)
-      .then((x) => { if (live) setBody(x.body.purged ? { text: "", masks: 0 } : { text: x.body.text ?? "", masks: x.body.masks ?? 0 }); })
+    intakeApi.email(r.id)
+      .then((x) => { if (!live) return; setBody(x.body.purged ? { text: "", masks: 0 } : { text: x.body.text ?? "", masks: x.body.masks ?? 0 }); onRead?.(); }) // read = saw what there is, including "purged" or "entered by hand"
       .catch((e) => { if (live) setErr(errText(e)); });
     return () => { live = false; };
-  }, [open, r.messageId, body, err]);
+  }, [open, r.id, body, err, onRead]);
   const atts = detail.attachments.filter((a) => !a.inline);
   const anyPersonal = atts.some((a) => a.personal);
   return (

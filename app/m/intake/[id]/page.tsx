@@ -13,7 +13,6 @@ import { bannerFor } from "@/components/agent/intake/intake-detail";
 import { fieldOf, hm, legDate, legRoute } from "@/components/agent/intake/intake-shared";
 import { answerQuestion, legIssues, questionFor, useIntakeDetail, intakeErrorText } from "@/lib/m/intake";
 import { confirmPlan } from "@/components/agent/intake/intake-review";
-import { AGENT_BASE } from "@/components/agent/types";
 
 export default function IntakeRequestPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,7 +20,7 @@ export default function IntakeRequestPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const r = detail?.request;
-  usePhonePage({ title: r?.sender || r?.reference || "Request", subtitle: r ? `${r.typeLabel} · ${(detail?.review?.legs ?? []).filter((l) => !l.removed).length} legs` : null, back: "/m/intake", tab: "intake", actions: detail ? [{ icon: "mail", label: "The email", href: `${AGENT_BASE}/api/intake/requests/${id}` }] : [] });
+  usePhonePage({ title: r?.sender || r?.reference || "Request", subtitle: r ? `${r.typeLabel} · ${(detail?.review?.legs ?? []).filter((l) => !l.removed).length} legs` : null, back: "/m/intake", tab: "intake", actions: detail ? [{ icon: "mail", label: "Original email", href: `/m/intake/${id}/email` }] : [] });
 
   if (!detail && !error) return <MSkeleton kind="rows" count={6} label="Loading the request" />;
   if (!detail || !r) return <MError title="Couldn’t load the request" onRetry={reload}>{error}</MError>;
@@ -85,7 +84,7 @@ export default function IntakeRequestPage() {
         <MCard>
           <MRow minH={56}><MaskIcon name="list-checks" size={18} color="var(--cw-text-muted)" className="flex-none" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Services</span><span className="text-[13px] text-cw-text-muted">{legs.reduce((n, l) => n + l.services.length, 0)} requested · {legs.reduce((n, l) => n + l.services.filter((s) => s.conditional).length, 0)} conditional</span></span></MRow>
           <MRow minH={56}><MaskIcon name="users" size={18} color="var(--ca-sens-text)" className="flex-none" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Crew and passengers</span><span className="text-[13px] text-cw-text-muted">{peopleCount ? `${peopleCount} people` : "none listed"} · documents hidden</span></span></MRow>
-          {detail.emails.length > 0 && <MRow minH={56}><MaskIcon name="mail" size={18} color="var(--cw-text-muted)" className="flex-none" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Emails</span><span className="text-[13px] text-cw-text-muted">{detail.emails.length} on this request</span></span></MRow>}
+          {detail.emails.length > 0 && <MRow minH={56} href={`/m/intake/${id}/email`}><MaskIcon name="mail" size={18} color="var(--cw-text-muted)" className="flex-none" /><span className="flex flex-1 flex-col"><span className="text-[15px] font-semibold">Original email</span><span className="text-[13px] text-cw-text-muted">{detail.emails.length} on this request</span></span></MRow>}
         </MCard>
         {detail.blockers.length > 0 && <div className="text-[13px] text-cw-text-body">{detail.blockers.join(" ")}</div>}
       </div>

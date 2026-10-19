@@ -106,8 +106,8 @@ the debug runner and the component sheet are not in the nav at all, as on a desk
 - **Settings has no "Use the wall's colours", "Text size" or "Notifications"**: the first was the design's open
   question 2 and loses to the one-theme rule; the other two do not exist in the product. Table density is a desk
   setting and is not shown.
-- **Desk-only on purpose**: uploading to the knowledge base, changing a report's status, the mailbox's email bodies
-  (revealing is logged on a desk), help attachments and screenshots, writing limitations / notices / CAA entries,
+- **Desk-only on purpose**: uploading to the knowledge base, changing a report's status, the Mailbox page's email
+  bodies with personal values revealed (logged on a desk), help attachments and screenshots, writing limitations / notices / CAA entries,
   renaming or revoking a screen, the wall's colours, font and sizes.
 - **The wall-settings preview** draws only the colours the room has set (`settings.colors`); with none set it says the
   wall runs on its shipped palette rather than drawing that palette from the wall's files.
@@ -116,6 +116,22 @@ the debug runner and the component sheet are not in the nav at all, as on a desk
 `node --env-file=.env.rig rig/mobile/tier2-check.mjs`: every Tier 2 page in both themes and its first detail, the
 three honest screens (a way back, the desk link, no disabled button), each page's loading / empty / error by its own
 route, the More sheet's routes and the Desk tag, and asking a person from the phone creating a thread that opens.
+
+### The original email on an intake request (2026-10-20)
+Flight intake is Tier 1, and reviewing a request means reading the email it came from. Anyone who confirms a flight
+to Leon must be able to read what the client asked for — a prerequisite, not a privilege. So the agent has one
+narrow endpoint, `GET /api/intake/requests/:id/email`: that request's one email, in text, personal values masked
+exactly as the mailbox shows them to a reader, logged (`intake.email_read`). Not the mailbox — no other message, no
+thread; the mailbox's reader gate is untouched. It rides on its own action, **intake.requests.email**, on by default
+for everyone who may review intake (migration `0026_intake-email-read.sql`) so an admin can take it away
+deliberately in the grid.
+
+Both the desk's drawer (`intake-drawer.tsx`) and the phone's **Original email** page (`/m/intake/[id]/email`:
+headers and attachments from the request, the body from that endpoint) read through it, and both refuse rather
+than confirm blind: the desk's confirm bar and the phone's confirm step offer **Read the original email first** —
+a button that opens it, not a disabled one — until the email was read on this device in this session
+(`lib/intake-email-read.ts`, sessionStorage). Before this the desk had allowed a blind confirm since the feature
+existed; the phone screen forced the question.
 
 ## Tokens
 

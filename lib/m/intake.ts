@@ -77,3 +77,5 @@ export function useIntakeDetail(id: string) {
   useEffect(() => { alive.current = true; void load(); const t = setInterval(load, 10_000); return () => { alive.current = false; clearInterval(t); }; }, [load]);
   return { detail, setDetail, error, reload: load };
 }
+
+export { emailReadKey, markEmailRead, emailReadAt } from "@/lib/intake-email-read";

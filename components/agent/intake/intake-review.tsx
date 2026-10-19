@@ -27,6 +27,7 @@ export type ReviewProps = {
   people: People | null; peopleError: string | null; reveal: RevealState; setReveal: (r: RevealState) => void; doReveal: (section: string) => void;
   editPeople: (body: Parameters<typeof intakeApi.editPeople>[1]) => Promise<void>;
   reprocess: (attachmentId: string | null) => Promise<void>; reprocessing: string | null; reprocessMsg: string | null;
+  emailRead: boolean; onOpenEmail: () => void;
   onPrepare: () => void; preparing: boolean; prepareError: string | null;
 };
 
@@ -156,7 +157,7 @@ export function ReviewCard(p: ReviewProps) {
         </>
       )}
 
-      <ConfirmBar detail={detail} closed={p.closed} onPrepare={p.onPrepare} preparing={p.preparing} error={p.prepareError} />
+      <ConfirmBar detail={detail} closed={p.closed} onPrepare={p.onPrepare} preparing={p.preparing} error={p.prepareError} emailRead={p.emailRead} onOpenEmail={p.onOpenEmail} />
     </section>
   );
 }
@@ -247,7 +248,7 @@ export function confirmPlan(detail: RequestDetail) {
   const resend = live.length > 0 && live.every((l) => l.leon?.state === "not_in_leon");
   return { live, resend, items: 0, scheduled: detail.request.type === "scheduled" };
 }
-function ConfirmBar({ detail, closed, onPrepare, preparing, error }: { detail: RequestDetail; closed: boolean; onPrepare: () => void; preparing: boolean; error: string | null }) {
+function ConfirmBar({ detail, closed, onPrepare, preparing, error, emailRead, onOpenEmail }: { detail: RequestDetail; closed: boolean; onPrepare: () => void; preparing: boolean; error: string | null; emailRead: boolean; onOpenEmail: () => void }) {
   const legs = detail.review?.legs ?? [];
   const { live, resend, items, scheduled } = confirmPlan(detail);
   if (closed || !detail.review) return null;
@@ -277,10 +278,18 @@ function ConfirmBar({ detail, closed, onPrepare, preparing, error }: { detail: R
           <span style={{ fontSize: 15, fontWeight: 700 }}>{title}</span>
           <span style={{ fontSize: 12.5, lineHeight: 1.5, color: cw.textMuted }}>{sub}</span>
         </div>
+        {!emailRead ? (
+          // Refuse rather than confirm blind: until the original email was read here, the action is to read it.
+          <button type="button" className="ag-focus" onClick={onOpenEmail} aria-haspopup="dialog"
+            style={{ fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: cw.text, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: 10, padding: "10px 16px", cursor: "pointer" }}>
+            <Icon name="mail" size={15} color={cw.text} />Read the original email first
+          </button>
+        ) : (
         <button type="button" className="ag-focus" disabled={blocked || preparing} aria-busy={preparing || undefined} onClick={onPrepare}
           style={{ fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: blocked ? cw.textMuted : cw.textOnPrimary, background: blocked ? cw.border : cw.primary, border: "none", borderRadius: 10, padding: "11px 16px", cursor: blocked || preparing ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
           <Icon name="send" size={15} color={blocked ? cw.textMuted : cw.textOnPrimary} />{preparing ? "Preparing…" : btn}
         </button>
+        )}
       </div>
       {blocked && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4, background: TONE.red.bg, border: `1px solid ${TONE.red.bd}`, borderRadius: 9, padding: "9px 12px" }}>

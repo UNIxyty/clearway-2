@@ -16,6 +16,7 @@ import { NotificationCard } from "./intake-notification";
 import { CancellationPanel } from "./intake-cancel";
 import { SentSection, EmailsSection, latestWrites } from "./intake-sent";
 import { OriginalEmailDrawer } from "./intake-drawer";
+import { emailReadAt, markEmailRead } from "@/lib/intake-email-read";
 import { ConfirmDialog } from "./intake-confirm";
 import type { RevealState } from "./intake-people";
 import type { Def } from "./intake-services";
@@ -29,6 +30,10 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
   const [saveError, setSaveError] = useState<string | null>(null);
   const [legPos, setLegPos] = useState(0);
   const [drawer, setDrawer] = useState(false);
+  // Confirming needs the original email read on this device, this session (lib/intake-email-read.ts).
+  const [emailRead, setEmailRead] = useState(false);
+  useEffect(() => { setEmailRead(Boolean(emailReadAt(id))); }, [id]);
+  const onEmailRead = useCallback(() => { markEmailRead(id); setEmailRead(true); }, [id]);
   const [rawOpen, setRawOpen] = useState(false);
   const [defs, setDefs] = useState<Def[] | null>(defsCache);
   const [people, setPeople] = useState<People | null>(null);
@@ -201,7 +206,7 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
         <ReviewCard detail={detail} apply={apply} defs={defs} legPos={legPos} setLegPos={setLegPos} closed={closed}
           people={people} peopleError={peopleError} reveal={reveal} setReveal={setReveal} doReveal={(s) => void doReveal(s)} editPeople={async (b) => { const p = await intakeApi.editPeople(id, b); setPeople(p); setReveal({ phase: "off" }); onChanged(); }}
           reprocess={reprocess} reprocessing={reprocessing} reprocessMsg={reprocessMsg}
-          onPrepare={() => void onPrepare()} preparing={preparing} prepareError={prepareError} />
+          onPrepare={() => void onPrepare()} preparing={preparing} prepareError={prepareError} emailRead={emailRead} onOpenEmail={() => setDrawer(true)} />
         )}
       </div>
       {r.type === "scheduled" && liveLegs.length > 0 && <NotificationCard detail={detail} compact />}
@@ -209,7 +214,7 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
       <SentSection detail={detail} rawOpen={rawOpen} setRawOpen={setRawOpen} resolveLeg={resolveLeg} reload={async () => { await load(); onChanged(); }} />
       <EmailsSection detail={detail} />
 
-      <OriginalEmailDrawer detail={detail} open={drawer} onClose={() => setDrawer(false)} />
+      <OriginalEmailDrawer detail={detail} open={drawer} onClose={() => setDrawer(false)} onRead={onEmailRead} />
       {prepared && <ConfirmDialog prepared={prepared} detail={detail} runsAs={runsAs} onFinished={(sent) => { setPrepared(null); void load(); if (sent) onChanged(); }} />}
     </div>
   );

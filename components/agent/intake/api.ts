@@ -102,6 +102,8 @@ export const intakeApi = {
   overview: () => call<{ health: { mailbox: { ok: boolean; lastAt: string | null; note: string | null }; leon: { ok: boolean }; portals: { built: boolean; lookup: boolean; note: string }; timezones?: { ok: boolean; version: string; minimum: string; latest: string | null; behind: boolean; note: string } }; queue: number }>("/api/intake/overview"),
   list: (q: { tab?: string; q?: string; type?: string }) => call<{ rows: ListRow[]; counts: { all: number; needs: number; progress: number; loaded: number; closed: number } }>(`/api/intake/requests?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`),
   detail: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}`),
+  /** The request's one original email, masked, logged (intake.requests.email) — not the mailbox. */
+  email: (id: string) => call<{ body: MailBody }>(`/api/intake/requests/${id}/email`),
   lookup: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/lookup`, { json: {} }),
   approve: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/approve`, { json: {} }),
   decline: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/decline`, { json: {} }),

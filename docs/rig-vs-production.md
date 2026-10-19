@@ -4,6 +4,11 @@ The rig (`rig/`, `docs/rig-suites.md`) is one Mac running the portal, the wall, 
 cannot show anything below. A suite that passes says nothing about these; a docs page marks them `Unverified:`; a
 screenshot taken on the rig cannot show them either. Written 2026-10-15; add a line when a new one is found.
 
+- **The bypass stack has no session.** On the plain rig (:3999 → portal :3998, `DISABLE_AUTH_FOR_TESTING`) the
+  portal's admin helpers (`requireAdmin`, `requireDeveloper`, `requirePermission`) see no session cookie, so admin
+  endpoints answer **401** there — the server genuinely does not know who is asking. In production, and on the
+  sign-in-on rig (:3989), a signed-in non-admin gets **403** with a sentence (probed on every admin endpoint,
+  2026-10-20: 0 answer 401 to a signed-in person). A 401 read off the bypass rig is a rig artefact, not a bug.
 - **No Cloudflare.** Cloudflare replaces the body of an origin 502 or 504 with its own page (found 2026-10-14, after
   the error-text work had passed every rig check); caching, headers and anything else it rewrites are untested.
 - **No mail server.** Supabase Auth's emails (password reset, email change, sign-up confirmation) fail on the rig;

@@ -4,7 +4,7 @@
 // services), then the desktop's own confirmation dialog — the same prepare → confirm calls, the same countdown, the
 // same record of who sent it. Nothing is sent until the person presses Confirm there.
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import MaskIcon from "@/components/portal/Icon";
 import { usePhonePage } from "@/components/m/chrome";
 import { MButton, MCard, MError, MSkeleton, StickyBar } from "@/components/m/ui";
@@ -13,7 +13,7 @@ import { ConfirmDialog } from "@/components/agent/intake/intake-confirm";
 import { fieldOf, legDate, legRoute } from "@/components/agent/intake/intake-shared";
 import { confirmPlan } from "@/components/agent/intake/intake-review";
 import { useIdentity } from "@/components/portal/Shell";
-import { useIntakeDetail, intakeErrorText } from "@/lib/m/intake";
+import { emailReadAt, useIntakeDetail, intakeErrorText } from "@/lib/m/intake";
 
 export default function IntakeConfirmPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +21,9 @@ export default function IntakeConfirmPage() {
   const { detail, error, reload } = useIntakeDetail(id);
   const { display } = useIdentity();
   const [prepared, setPrepared] = useState<Prepared | null>(null);
+  // Refuse rather than confirm blind: the original email must have been read on this phone, this session.
+  const [emailRead, setEmailRead] = useState<string | null>(null);
+  useEffect(() => { setEmailRead(emailReadAt(id)); }, [id]);
   const [preparing, setPreparing] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   usePhonePage({ title: "Confirm", subtitle: detail ? `${detail.request.sender || detail.request.reference} · ${(detail.review?.legs ?? []).filter((l) => !l.removed).length} legs` : null, back: `/m/intake/${id}`, tab: "intake", tabs: false });
@@ -52,9 +55,15 @@ export default function IntakeConfirmPage() {
         <div className="flex gap-2.5 rounded-[10px] bg-cw-bg-sunken px-3 py-2.5 text-[13.5px] leading-snug text-cw-text-body"><MaskIcon name="info" size={16} color="var(--cw-text-muted)" className="mt-px flex-none" /><span>Once sent, changes are made in Leon. You can still cancel the request there.</span></div>
         {failed && <div role="alert" className="rounded-[10px] border border-cw-danger-border bg-cw-danger-tint px-3 py-2 text-[13.5px] text-cw-danger-text">{failed}</div>}
       </div>
+      {!emailRead ? (
+        <StickyBar note="Confirming needs the request read as the client wrote it.">
+          <MButton kind="primary" size="lg" icon="mail" href={`/m/intake/${id}/email`}>Read the original email first</MButton>
+        </StickyBar>
+      ) : (
       <StickyBar note={display ? `Logged as ${display}` : undefined}>
         <MButton kind="primary" size="lg" icon="send" disabled={preparing || plan.live.length === 0} onClick={() => void prepare()}>{preparing ? "Preparing…" : plan.resend ? "Send again to Leon" : "Confirm and send to Leon"}</MButton>
       </StickyBar>
+      )}
       {prepared && <ConfirmDialog prepared={prepared} detail={detail} runsAs={prepared.runsAs ?? display} onFinished={(sent) => { setPrepared(null); if (sent) router.push(`/m/intake/${id}`); else void reload(); }} />}
     </div>
   );

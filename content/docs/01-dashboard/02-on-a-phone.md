@@ -96,6 +96,21 @@ The **Intake** tab puts what needs you first, with the question and its answers 
 Requests moving on their own are listed under **MOVING ON THEIR OWN**; the done and closed ones are folded at the
 bottom.
 
+## Read the original email on the phone
+Roles: User, Admin and Developer by default
+Only when the Ops Agent is enabled for you.
+Before a request is confirmed, read what the client actually asked for.
+
+1. Open the request and press **Original email**, at the top or in the list. The headers and attachments are shown.
+2. Read the body as received. Personal values are masked; the agent mailbox on a desk can show them, logged.
+3. Go back and press **Review and send to Leon**. Until the email has been read on this phone, the confirm step
+   says **Read the original email first** instead.
+
+:::note If the body is not shown
+Reading a request's email needs the **Read the original email of a request** permission, on for everyone by default.
+If an admin has taken it from your role, the page says so, and the request cannot be confirmed from here.
+:::
+
 ## Ask the Ops Agent from the phone
 Roles: User, Admin and Developer by default
 Only when the Ops Agent is enabled for you.

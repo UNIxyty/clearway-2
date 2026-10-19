@@ -3,7 +3,7 @@ title: Flight intake
 summary: Flight requests that arrive by email. The agent reads them, you check them, and then they are created in Leon.
 status: written
 roles: People with Ops Agent access
-updated: 2026-10-14
+updated: 2026-10-20
 related: ops-agent/mailbox, ops-agent/settings
 ---
 
@@ -109,9 +109,10 @@ The list of attachments says which files contain personal data. Opening one is l
 5. To open an attachment, press **Open ↗** next to it. It opens in a new tab.
 6. Press **Close**, or press Esc.
 
-:::note When the text says "You don't have access to the agent mailbox"
-The email's text is shown only to people with access to the agent mailbox. Ask an admin to add you to **Agent mailbox
-access**, in the agent's settings. You can still open the attachments.
+:::note Who may read it
+Everyone who reviews requests, by default: reading a request's own email needs **Read the original email of a
+request**, which an admin can take from a role under Permissions. It is logged under your name. The agent mailbox is a
+different thing, for its readers only.
 :::
 
 :::how-it-works
@@ -369,11 +370,13 @@ After this, the flights are in Leon. The agent cannot change or remove them. You
 :::
 
 1. Look at the bottom of the request. If it says **Can't confirm yet**, do what each line says first.
-2. Press **Review and create in Leon**. A window opens.
-3. Read **Legs**, **Services**, **In Leon**, **People** and **Changed**.
-4. Press **Create in Leon** before the time in **Expires in** runs out. Or press **Cancel**.
-5. Wait. The box at the top says **Sending to Leon**. You can leave the page.
-6. Read the box. **Loaded** means the flights are in Leon. It gives their Leon flight numbers.
+2. If the bar says **Read the original email first**, press it. The email opens; read it and press **Close**. The
+   button becomes **Review and create in Leon**. The portal asks this once per request in each sitting.
+3. Press **Review and create in Leon**. A window opens.
+4. Read **Legs**, **Services**, **In Leon**, **People** and **Changed**.
+5. Press **Create in Leon** before the time in **Expires in** runs out. Or press **Cancel**.
+6. Wait. The box at the top says **Sending to Leon**. You can leave the page.
+7. Read the box. **Loaded** means the flights are in Leon. It gives their Leon flight numbers.
 
 For a scheduled flight, the buttons are **Review and send to Leon** and **Send to Leon**.
 

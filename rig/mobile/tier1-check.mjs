@@ -94,6 +94,7 @@ const PAGES = [
   { name: "intake", path: "/m/intake", ready: "a[href^='/m/intake/']" },
   { name: "intake-request", path: `/m/intake/${req.id}`, ready: "text=Legs" },
   { name: "intake-leg", path: `/m/intake/${req.id}/leg/1`, ready: "main, [data-phone-shell]" },
+  { name: "intake-email", path: `/m/intake/${req.id}/email`, ready: "text=As received", settle: 2500 },
   { name: "intake-confirm", path: `/m/intake/${req.id}/confirm`, ready: "[data-phone-shell]" },
   { name: "agent", path: "/m/agent", ready: "textarea, [contenteditable]" },
   { name: "agent-history", path: "/m/agent", ready: "textarea, [contenteditable]", then: async (p) => { await p.getByRole("button", { name: "Recent threads" }).click(); await p.waitForTimeout(800); } },
@@ -250,6 +251,21 @@ const STATES = [
     const r = await fetch(`${BASE}/digital-wall/api/flight-checks`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ oprId: pick.oprId, flightNid: pick.flightNid, types: ["wx"], checked: false }) });
     ok(r.ok, "marking: put back (unchecked by the API) so the rig is as it was", String(r.status));
   } else ok(!openChecksOf(pick.flight).includes("wx"), "marking: no flight on the board has an open Weather check right now, so the sheet rightly offers nothing to mark", (await page.locator("[role=dialog]").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 160));
+  await ctx.close();
+}
+
+// ── the confirm step refuses until the original email was read on this phone ──
+{
+  const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
+  await page.goto(`${BASE}/m/intake/${req.id}/confirm`, { waitUntil: "load" }); await page.waitForTimeout(1500);
+  ok((await page.getByRole("link", { name: /Read the original email first/ }).count()) === 1 && (await page.getByRole("button", { name: /send to Leon/ }).count()) === 0, "confirm: without the email read, the only action is Read the original email first (no dead Confirm)");
+  await page.getByRole("link", { name: /Read the original email first/ }).click(); await page.waitForTimeout(2500);
+  const text = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
+  const bodyShown = !/shown to the mailbox’s readers/.test(text);
+  ok(/As received/.test(text) && /Subject/.test(text), "email: the headers are shown", text.slice(0, 160));
+  await page.goBack(); await page.waitForTimeout(1500);
+  if (bodyShown) ok((await page.getByRole("button", { name: /send to Leon/ }).count()) === 1, "confirm: after reading the email, Confirm and send to Leon is offered");
+  else ok((await page.getByRole("link", { name: /Read the original email first/ }).count()) === 1, "confirm: this account cannot read bodies (not a mailbox reader), so the phone still refuses to confirm");
   await ctx.close();
 }
 

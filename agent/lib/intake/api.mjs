@@ -432,6 +432,15 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
       return send({ ok: true, answer: out, ...(await requestDetail(m[1])) });
     }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await requestDetail(m[1])) });
+    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/email$/.exec(P)) && req.method === "GET") {
+      // The one email this request came from, for whoever may review the request (intake.requests.email, checked by
+      // the route table): masked exactly as the mailbox shows it to a reader, and logged. Not the mailbox — no other
+      // message, no thread; the mailbox's own gate is untouched.
+      const r = (await rest(`intake_requests?select=id,message_id&id=eq.${m[1]}`))?.[0]; if (!r) throw err(404, "No such request.");
+      const { out } = r.message_id ? await renderBody(r.message_id, { mode: "text", images: false }) : { out: { mode: "text", text: "", masks: 0, unavailable: "This request was entered by hand. There is no email behind it." } };
+      await audit({ kind: "intake.email_read", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: m[1], messageId: r.message_id, masks: out.masks ?? 0, purged: Boolean(out.purged) } }).catch(() => {});
+      return send({ ok: true, body: out });
+    }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/edit$/.exec(P)) && req.method === "POST") { await editRequest(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await requestDetail(m[1])) }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await peopleFor(m[1], false)), canReveal: await can(user.agentRole, "intake.people.reveal") });
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/edit$/.exec(P)) && req.method === "POST") { await editPeople(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await peopleFor(m[1], false)), canReveal: await can(user.agentRole, "intake.people.reveal") }); }

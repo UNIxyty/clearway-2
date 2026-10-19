@@ -2,7 +2,7 @@
 title: On a phone
 summary: The portal on a phone has its own pages for the wall, flights, Flight intake, the Ops Agent and airports, with tabs at the bottom. Everything else opens as on a desk.
 status: written
-updated: 2026-10-18
+updated: 2026-10-20
 roles: All roles
 related: digital-wall/the-wall, ops-agent/flight-intake, aip-and-documents/airport-search
 ---
@@ -105,6 +105,22 @@ Only when the Ops Agent is enabled for you.
 3. Press the clock icon for your recent threads; press **‹** for a new one.
 
 If the agent cannot be reached, the thread says so and your question stays in the box.
+
+## Open any other page on the phone
+Every page has a phone layout. Tables become lists; a row opens its detail.
+
+1. Press **More**. The sheet lists every page you can open, by section, with **Help & support** at the foot.
+2. Press a page. Lists open the detail when you press a row; settings pages are rows with a switch or an arrow.
+3. What you may change is what you may change on a desk: a switch or button you don't see is one you don't have.
+
+Some things are done on a desk only, where they need room: writing limitations, notices and CAA entries, uploading
+documents for the agent, the wall's colours and font, attachments on a report.
+
+## Pages that need a wider screen
+Permissions, the debug runner and the component sheet are marked **Desk** in More.
+
+1. Press one. A screen says what the page is and why it needs a wider screen.
+2. Press **Back**, or **Email me the link** to send yourself the page's address for a laptop.
 
 ## Look up an airport on the phone
 1. Press **More**, then **Airport search**. Or open **Weather** or **NOTAMs and documents** from a flight.

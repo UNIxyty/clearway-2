@@ -50,7 +50,8 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | wall/access-check | 65 | 2026-10-12 |
 | wall/browser-access | 9 | 2026-10-12 |
 | wall/console-theme-check | 40 | 2026-10-18 |
-| mobile/tier1-check | 208 | 2026-10-18 |
+| mobile/tier1-check | 210 | 2026-10-19 |
+| mobile/tier2-check | 437 | 2026-10-20 |
 | group2-check | 13 | 2026-10-12 |
 | group4-check | 33 | 2026-10-12 |
 | shell-check | 10 | 2026-10-12 |

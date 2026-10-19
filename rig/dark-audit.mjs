@@ -68,8 +68,13 @@ for (const [page, route] of visits) {
     // tab, the current page). A theme preview carries its own data-theme. Neither is a fault.
     const probe = document.createElement("span"); probe.style.cssText = "background:var(--cw-ink);color:var(--cw-on-ink)"; document.body.appendChild(probe);
     const INK = getComputedStyle(probe).backgroundColor, ON_INK = getComputedStyle(probe).color; probe.remove();
+    // A switch's knob (--cw-knob) is white in both themes on purpose, like a phone's: a small element in that exact
+    // colour is a knob, not a surface (the phone's 22 px knob; the desk's 14 px one is under the size floor anyway).
+    const kp = document.createElement("span"); kp.style.cssText = "background:var(--cw-knob)"; document.body.appendChild(kp);
+    const KNOB = getComputedStyle(kp).backgroundColor; kp.remove();
+    const isKnob = (e) => { const r = e.getBoundingClientRect(); return r.width <= 28 && r.height <= 28 && getComputedStyle(e).backgroundColor === KNOB; };
     const onInk = (e) => { for (let a = e; a && a !== document.body; a = a.parentElement) { if (getComputedStyle(a).backgroundColor === INK) return true; } return false; };
-    const skip = (e) => e.closest('.cw-page, .cw-canvas, .cw-thumb-rail, img, video, canvas, svg, iframe, object') || (e.closest("[data-theme]") && e.closest("[data-theme]") !== document.documentElement) || onInk(e);
+    const skip = (e) => e.closest('.cw-page, .cw-canvas, .cw-thumb-rail, img, video, canvas, svg, iframe, object') || (e.closest("[data-theme]") && e.closest("[data-theme]") !== document.documentElement) || onInk(e) || isKnob(e);
     const label = (e) => `<${e.tagName.toLowerCase()}${e.id ? `#${e.id}` : ""} class="${String(e.className).slice(0, 70)}"> “${(e.innerText || e.textContent || "").trim().replace(/\s+/g, " ").slice(0, 36)}”`;
     const theme = document.documentElement.getAttribute("data-theme");
     const found = { surfaces: [], borders: [], text: [] };

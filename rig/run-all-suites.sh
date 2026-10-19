@@ -73,6 +73,7 @@ run wall/browser-access $E rig/wall/browser-access.mjs
 run wall/console-theme-check $E rig/wall/console-theme-check.mjs
 preview 5199   # back to the normal wall
 run mobile/tier1-check $E rig/mobile/tier1-check.mjs
+run mobile/tier2-check $E rig/mobile/tier2-check.mjs
 run group2 $E rig/group2-check.mjs
 run shell-check $E rig/shell-check.mjs
 run stage1-check $E rig/stage1-check.mjs

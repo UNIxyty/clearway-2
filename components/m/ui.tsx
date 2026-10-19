@@ -12,9 +12,9 @@ import { STATUS_LABEL, STATUS_TOKEN, CHECK_LABEL } from "@/shared/wall-facts.mjs
 
 const cx = (...a: Array<string | false | null | undefined>) => a.filter(Boolean).join(" ");
 
-/** A 52 px (primary) / 48 px action. `kind`: primary · secondary · danger · sens (passenger data, rose). */
+/** A 52 px (primary) / 48 px action. `kind`: primary · secondary · danger · danger-outline · sens (passenger data, rose). */
 export function MButton({ children, kind = "secondary", size = "md", icon, href, onClick, disabled, type = "button", className, ariaLabel }: {
-  children?: ReactNode; kind?: "primary" | "secondary" | "danger" | "sens" | "quiet"; size?: "md" | "lg" | "sm"; icon?: string; href?: string;
+  children?: ReactNode; kind?: "primary" | "secondary" | "danger" | "danger-outline" | "sens" | "quiet"; size?: "md" | "lg" | "sm"; icon?: string; href?: string;
   onClick?: () => void; disabled?: boolean; type?: "button" | "submit"; className?: string; ariaLabel?: string;
 }) {
   const h = size === "lg" ? "h-[56px] text-[16px]" : size === "sm" ? "h-[44px] text-[14px]" : "h-[52px] text-[15.5px]";
@@ -22,6 +22,7 @@ export function MButton({ children, kind = "secondary", size = "md", icon, href,
     primary: "bg-cw-primary text-cw-text-on-primary font-bold",
     secondary: "border border-cw-border-control bg-cw-bg-surface text-cw-text font-semibold",
     danger: "bg-cw-danger-solid text-cw-text-on-primary font-bold",
+    "danger-outline": "border-[1.5px] border-cw-danger-border bg-cw-bg-surface text-cw-danger-text font-bold",
     sens: "bg-ca-sens-solid text-ca-sens-on-solid font-bold",
     quiet: "text-cw-text-link font-semibold",
   }[kind];

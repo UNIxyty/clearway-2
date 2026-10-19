@@ -19,9 +19,18 @@ import { hmUtc } from "./ui";
 const cx = (...a: Array<string | false | null | undefined>) => a.filter(Boolean).join(" ");
 
 // Tier 1 pages live under /m; everything else opens its desktop page until Stage 3 gives it a phone pattern.
-const M_ROUTES: Record<string, string> = { "wall-flights": "/m/flights", "aip-search": "/m/airport", "agent-chat": "/m/agent", "agent-intake": "/m/intake" };
-// Tier 3 (mobile-portal-spec.md › tiers): a grid or a runner that needs a wide screen — marked Desk here, and given
-// one honest screen in Stage 3.
+const M_ROUTES: Record<string, string> = {
+  "wall-flights": "/m/flights", "aip-search": "/m/airport", "agent-chat": "/m/agent", "agent-intake": "/m/intake",
+  // Tier 2 (mobile Stage 3)
+  dashboard: "/m/dashboard", "aip-status": "/m/service-status", "aip-hidden": "/m/hidden-airports",
+  "wall-notam": "/m/notam-check", "wall-operators": "/m/operators", "wall-aircraft": "/m/aircraft", "wall-limitations": "/m/limitations", "wall-important": "/m/important", "wall-caa": "/m/caa", "wall-webhooks": "/m/webhooks", "wall-reports": "/m/reports", "wall-settings": "/m/wall-settings",
+  "agent-history": "/m/history", "agent-knowledge": "/m/knowledge", "agent-activity": "/m/activity", "agent-settings": "/m/agent-settings", "agent-mailbox": "/m/mailbox",
+  "adm-users": "/m/users", "adm-maint": "/m/maintenance", "adm-agent-sites": "/m/agent-sites", "dev-inbox": "/m/inbox", "acc-profile": "/m/profile", settings: "/m/settings",
+  // Tier 3: the honest screen
+  "adm-perms": "/m/desk/permissions",
+};
+// Tier 3 (mobile-portal-spec.md › tiers): a grid or a runner that needs a wide screen — marked Desk here and given one
+// honest screen (/m/desk/[id]). The debug runner and the component sheet are not in the nav at all.
 const DESK = new Set(["adm-perms"]);
 
 function TabBar({ tab, hasAgent, intakeNeeds, onMore }: { tab?: PhoneTab; hasAgent: boolean; intakeNeeds: number; onMore: () => void }) {
@@ -93,6 +102,8 @@ function MoreSheet({ open, onClose, hasAgent }: { open: boolean; onClose: () => 
               </div>
             );
           })}
+          <div className="px-2 pb-1 pt-4 text-[11.5px] font-bold tracking-[.08em] text-cw-text-muted">HELP</div>
+          <Link href="/m/help" onClick={onClose} className="flex min-h-12 items-center gap-3 rounded-[10px] px-2 text-cw-text"><MaskIcon name="life-buoy" size={19} color="var(--cw-text-muted)" className="flex-none" /><span className="flex-1 text-[15.5px] font-medium">Help &amp; support</span><MaskIcon name="chevron-right" size={16} color="var(--cw-text-muted)" /></Link>
         </div>
       </div>
     </div>

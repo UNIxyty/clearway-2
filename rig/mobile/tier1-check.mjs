@@ -5,15 +5,15 @@
 //   - the page reports no uncaught error.
 // Each page's loading, empty and error states are reached by holding, emptying or failing its own data route.
 // Then the redirects (a 390 px viewport on /agent, /agent/intake, /aip, /aip/EVRA lands on /m; 1024 px stays; the
-// ops-room display at /digital-wall/timeline on a portrait phone goes to /m/wall, a landscape phone keeps the mini
-// timeline) and the facts: the phone's flight page shows the times and status that shared/wall-facts.mjs computes
+// ops-room display at /digital-wall/timeline sends a signed-in person on a phone-sized screen to /m/wall, upright or
+// sideways, and leaves a registered screen on the display) and the facts: the phone's flight page shows the times and status that shared/wall-facts.mjs computes
 // from the wall's own data — the same module the display's mapFlight is built from.
 // Needs the rig (rig/start.sh: portal :3998, agent :5175, wall :5199 behind the proxy :3999) and the built wall
 // dist (cd opsboard-react && npx vite build) for the display redirect:
 //   node --env-file=.env.rig rig/mobile/tier1-check.mjs
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
-import { flightTimes, statusFromFlight, STATUS_LABEL } from "../../shared/wall-facts.mjs";
+import { flightTimes, openChecksOf, statusFromFlight, STATUS_LABEL } from "../../shared/wall-facts.mjs";
 
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3999";
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
@@ -23,9 +23,11 @@ const PHONE = { width: 390, height: 844 };
 // ── what is on the rig ──
 const normalized = await (await fetch(`${BASE}/digital-wall/api/flights/normalized`)).json();
 const flights = normalized.flights ?? [];
-// A flight the board shows: the wall's window reaches 2 h behind now, so a flight that left earlier is "not on the wall".
-const onBoard = flights.filter((f) => !f.flight.isCnl && Date.parse(f.flight.startTimeUTC) > Date.now() - 90 * 60e3).sort((a, b) => Date.parse(a.flight.startTimeUTC) - Date.parse(b.flight.startTimeUTC));
-const pick = onBoard.find((f) => f.flight.movementState === "ctot") ?? onBoard[0] ?? flights[0];
+// A flight the board shows: the wall's window reaches 2 h behind and 17 h ahead; outside it the flight page rightly says "not on the wall".
+const onBoard = flights.filter((f) => !f.flight.isCnl && Date.parse(f.flight.startTimeUTC) > Date.now() - 115 * 60e3 && Date.parse(f.flight.startTimeUTC) < Date.now() + 16 * 3600e3).sort((a, b) => Date.parse(a.flight.startTimeUTC) - Date.parse(b.flight.startTimeUTC));
+// prefer one with an open Weather check, so the marking step has something to mark
+const pick = onBoard.find((f) => openChecksOf(f.flight).includes("wx")) ?? onBoard.find((f) => f.flight.movementState === "ctot") ?? onBoard[0] ?? null;
+if (!pick) { console.error("The rig's board is empty right now (every seeded flight is outside the wall's window): restart the wall's mock Leon (rig/start.sh) and run again."); process.exit(2); }
 if (!pick) { console.error("no flights on the rig wall"); process.exit(2); }
 const flightId = `${pick.oprId}:${pick.flightNid}`;
 const intake = await (await fetch(`${BASE}/agent/api/intake/requests?tab=all`)).json();
@@ -84,7 +86,7 @@ async function audit(name, theme, page, errors) {
 // ── the Tier 1 pages, both themes ──
 const enc = encodeURIComponent;
 const PAGES = [
-  { name: "wall", path: "/m/wall", ready: "a[href^='/m/wall/']" },
+  { name: "wall", path: "/m/wall", readyText: /Nothing open|No flights in the next|→/ },
   { name: "wall-flight", path: `/m/wall/${enc(flightId)}`, ready: "text=Checks" },
   { name: "wall-check", path: `/m/wall/${enc(flightId)}?check=wx`, ready: "[role=dialog]" },
   { name: "flights", path: "/m/flights", ready: "a[href^='/m/flights/']" },
@@ -102,13 +104,16 @@ const PAGES = [
   { name: "airport-weather", path: `/m/airport/${ICAO}?tab=weather`, ready: "[data-phone-shell]" },
   { name: "airport-docs", path: `/m/airport/${ICAO}?tab=docs`, ready: "text=AD 2" },
   { name: "airport-doc", path: `/m/airport/${ICAO}?doc=ad2`, ready: "[aria-label='Next page']", settle: 4000 },
-  { name: "more", path: "/m/wall", ready: "a[href^='/m/wall/']", then: async (p) => { await p.getByRole("button", { name: "More" }).click(); await p.waitForTimeout(600); } },
+  { name: "more", path: "/m/wall", readyText: /Nothing open|No flights in the next|→/, then: async (p) => { await p.getByRole("button", { name: "More", exact: true }).click(); await p.waitForTimeout(600); } },
 ].filter((p) => p.path);
 for (const theme of ["light", "dark"]) {
   const ctx = await context({ theme });
   for (const spec of PAGES) {
     const { page, errors } = await open(ctx, spec.path, { settle: spec.settle ?? 1800 });
-    try { await page.locator(spec.ready).first().waitFor({ timeout: 8000 }); } catch { ok(false, `${spec.name} · ${theme}: ready (${spec.ready})`, (await page.locator("body").innerText()).slice(0, 160).replace(/\s+/g, " ")); }
+    try {
+      if (spec.readyText) await page.waitForFunction((re) => new RegExp(re).test(document.body.innerText) && !document.querySelector("[role=status][aria-busy='true']"), spec.readyText.source, { timeout: 8000 });
+      else await page.locator(spec.ready).first().waitFor({ timeout: 8000 });
+    } catch { ok(false, `${spec.name} · ${theme}: ready (${spec.ready ?? spec.readyText})`, (await page.locator("body").innerText()).slice(0, 160).replace(/\s+/g, " ")); }
     if (spec.then) await spec.then(page);
     await audit(spec.name, theme, page, errors);
     await page.close();
@@ -188,16 +193,33 @@ const STATES = [
   for (const from of ["/agent", "/aip"]) { const page = await wide.newPage(); await page.goto(`${BASE}${from}`, { waitUntil: "load" }); await page.waitForTimeout(1500); ok(new URL(page.url()).pathname === from, `1024 px: ${from} stays`, page.url()); await page.close(); }
   await wide.close();
   // the ops-room display: the built dist fulfilled on the portal's origin (the proxy forwards only the wall's API)
-  const dist = async (ctx) => ctx.route(/\/(digital-wall\/(?!api)|assets\/|fonts\/)/, async (route) => {
+  // The local dist (plain vite build) calls /api/…; production builds it with VITE_API_BASE_URL=/digital-wall. On the
+  // rig proxy, send those calls to the wall's path so the display learns who is asking (its session or its token).
+  const dist = async (ctx) => { await ctx.route(/^https?:\/\/[^/]+\/api\//, (route) => route.continue({ url: route.request().url().replace("/api/", "/digital-wall/api/") })); return ctx.route(/\/(digital-wall\/(?!api)|assets\/|fonts\/)/, async (route) => {
     const u = new URL(route.request().url());
     const file = u.pathname.startsWith("/digital-wall/") && !/\.[a-z0-9]+$/i.test(u.pathname) ? "opsboard-react/dist/index.html" : `opsboard-react/dist${u.pathname.replace(/^\/digital-wall/, "")}`;
     try { await route.fulfill({ path: file }); } catch { await route.fulfill({ status: 404, body: "" }); }
-  });
-  for (const [vp, expect, what] of [[PHONE, "/m/wall", "a portrait phone on /digital-wall/timeline lands on /m/wall"], [{ width: 844, height: 390 }, "/digital-wall/timeline", "a landscape phone keeps the mini timeline"]]) {
+  }); };
+  // who is asking decides, not the orientation: a signed-in person on a phone-sized screen leaves for /m/wall, upright
+  // or sideways; a registered screen (device token, approved) stays on the display at the same sizes
+  const LANDSCAPE = { width: 844, height: 390 };
+  for (const [vp, who, expect, what] of [
+    [PHONE, "person", "/m/wall", "a signed-in person on an upright phone at /digital-wall/timeline lands on /m/wall"],
+    [LANDSCAPE, "person", "/m/wall", "…and sideways too"],
+    [PHONE, "screen", "/digital-wall/timeline", "a registered screen the size of an upright phone stays on the display"],
+    [LANDSCAPE, "screen", "/digital-wall/timeline", "…and sideways (a small screen mounted sideways is a wall, not a phone)"],
+  ]) {
     const ctx = await browser.newContext({ viewport: vp, isMobile: true, hasTouch: true }); await dist(ctx);
+    if (who === "screen") {
+      await ctx.addInitScript(() => { try { localStorage.setItem("dw-device-token", "rig-registered-screen"); } catch {} });
+      await ctx.route(/\/api\/device\/state/, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, status: "approved" }) }));
+      await ctx.route(/\/api\/user(\?|$)/, (route) => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ ok: false, error: "Sign in" }) }));
+    }
     const page = await ctx.newPage(); await page.goto(`${BASE}/digital-wall/timeline`, { waitUntil: "load" });
-    try { await page.waitForURL((u) => u.pathname === expect, { timeout: 6000 }); } catch {} await page.waitForTimeout(800);
-    ok(new URL(page.url()).pathname === expect, what, page.url()); await ctx.close();
+    try { await page.waitForURL((u) => u.pathname === expect, { timeout: 6000 }); } catch {} await page.waitForTimeout(1500);
+    const shown = who === "screen" ? await page.locator("[data-wall-display], canvas, [class*=timeline], [data-count-line]").count() : 0;
+    ok(new URL(page.url()).pathname === expect, what, `${page.url()}${who === "screen" ? ` · display elements ${shown}` : ""}`);
+    await ctx.close();
   }
 }
 
@@ -220,12 +242,14 @@ const STATES = [
   const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
   await page.goto(`${BASE}/m/wall/${enc(flightId)}?check=wx`, { waitUntil: "load" }); await page.waitForTimeout(1800);
   const btn = page.getByRole("button", { name: /^Mark Weather checked$/ });
-  ok((await btn.count()) === 1 && (await btn.isEnabled()), "marking: the Weather sheet offers 'Mark Weather checked' (the rig account may)");
-  await btn.click(); await page.waitForTimeout(2000);
-  const row = page.getByRole("button", { name: /^Weather: checked$/ });
-  ok((await row.count()) === 1, "marking: after the tap the Weather row reads checked, with who did it", (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ").slice(0, 200));
-  const r = await fetch(`${BASE}/digital-wall/api/flight-checks`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ oprId: pick.oprId, flightNid: pick.flightNid, types: ["wx"], checked: false }) });
-  ok(r.ok, "marking: put back (unchecked by the API) so the rig is as it was", String(r.status));
+  if ((await btn.count()) === 1 && (await btn.isEnabled())) {
+    ok(true, "marking: the Weather sheet offers 'Mark Weather checked' (the rig account may)");
+    await btn.click(); await page.waitForTimeout(2000);
+    const row = page.getByRole("button", { name: /^Weather: checked$/ });
+    ok((await row.count()) === 1, "marking: after the tap the Weather row reads checked, with who did it", (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ").slice(0, 200));
+    const r = await fetch(`${BASE}/digital-wall/api/flight-checks`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ oprId: pick.oprId, flightNid: pick.flightNid, types: ["wx"], checked: false }) });
+    ok(r.ok, "marking: put back (unchecked by the API) so the rig is as it was", String(r.status));
+  } else ok(!openChecksOf(pick.flight).includes("wx"), "marking: no flight on the board has an open Weather check right now, so the sheet rightly offers nothing to mark", (await page.locator("[role=dialog]").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 160));
   await ctx.close();
 }
 

@@ -13,9 +13,13 @@ phone's browser. Tier 3 pages (a grid or a runner that needs a wide screen — o
 `PHONE_MAX_WIDTH = 768` in `components/m/viewport.ts`, the wall's own `BP.phoneWide = 767` with the other sign. Under
 it the Tier 1 desktop pages send the person to their counterpart, once, after the first measurement
 (`components/m/PhoneRedirect.tsx`: `/agent` → `/m/agent`, `/agent/intake` → `/m/intake`, `/aip` → `/m/airport`,
-`/aip/<ICAO>` → `/m/airport/<ICAO>`), and the ops-room display at `/digital-wall/timeline` on a portrait phone goes to
-`/m/wall` (`opsboard-react/src/components/mobile/ResponsiveWall.jsx`; `PhoneWall.jsx` is retired). A landscape phone on
-the display keeps the mini timeline (design A6); a tablet keeps the tablet layout. At or above the breakpoint the `/m`
+`/aip/<ICAO>` → `/m/airport/<ICAO>`), and the ops-room display at `/digital-wall/timeline` sends a **signed-in person** on a
+phone-sized screen, upright or sideways, to `/m/wall` (`opsboard-react/src/components/mobile/ResponsiveWall.jsx`;
+`PhoneWall.jsx` is retired). Who is asking decides, not the orientation: a **registered screen** — one with a device
+token, `AuthGate`'s `deviceMode`, or one still waiting to be paired — stays on the display at any size, because a
+small screen mounted sideways in an ops room is a wall, not a phone; with no session and the backend unreachable
+nobody is redirected. A screen that is phone-sized gets the mini timeline sideways (design A6) and the reduced
+timeline upright; a tablet keeps the tablet layout. At or above the breakpoint the `/m`
 pages still work, as a 430 px column, and the desktop pages keep their own layout — nothing redirects the other way.
 
 ## The facts are shared, not copied
@@ -61,8 +65,8 @@ page — docs/portal-tokens.md.
 
 - **No Edit of times on a phone flight.** The wall holds no overrides, so the phone cannot either.
 - **Passengers, radar and services links are not on the phone flight page** until Stage 4 (the passenger viewer).
-- **A landscape phone on the ops-room display keeps the mini timeline.** Only the portrait phone is redirected; the
-  spec's line was for PhoneWall. Flip `portraitPhone` to `vp.isPhone` in ResponsiveWall to redirect both.
+- **The display's redirect asks who, not which way up** (decided 2026-10-19): a person on a phone-sized screen goes
+  to `/m/wall` in either orientation; a registered screen never does.
 - **The shared composer's icon buttons are 30–36 px on a desk.** On a phone a scoped rule makes every composer
   button 44 px and hides the keyboard hint for voice; the composer itself is unchanged.
 
@@ -72,5 +76,5 @@ page — docs/portal-tokens.md.
 at 390 × 844 in light and in dark — no horizontal overflow (nothing past the edge unless an ancestor scrolls or clips
 sideways), every target ≥ 44 px, no page error, photographed at 2× to `rig/.scratch/shots/m-*.png`; each page's
 loading, empty and error state by holding, emptying or failing its own route; the redirects at 390 and not at 1024;
-the display redirect for a portrait phone and not a landscape one; the facts (the phone's flight page shows the
+the display redirect for a person upright and sideways, and not for a registered screen; the facts (the phone's flight page shows the
 times and status `shared/wall-facts.mjs` computes from the wall's data); marking Weather from the sheet, then put back.

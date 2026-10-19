@@ -19,6 +19,12 @@ preview() { pkill -f "vite preview --port 4173"; sleep 1; ( cd opsboard-react &&
 lsof -tiTCP:3986 -sTCP:LISTEN >/dev/null || ( env -i PATH="$PATH" HOME="$HOME" nohup node rig/voice/mock-elevenlabs.mjs > rig/.scratch/mock-elevenlabs.out 2>&1 & )
 # The manifest's mock Leon dates its flights from its own start, so start it fresh (this also restarts :5175).
 rig/manifest/start.sh > $OUT/manifest-start.out 2>&1 < /dev/null
+# The wall's mock Leon (:3985) times its flights from its own start too, so a day later the board is empty: start it fresh
+# and make both rig walls read it again (the sign-in-on wall :5198 runs from the same mock).
+pid=$(lsof -tiTCP:3985 -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid && sleep 1
+( cd rig/wall && env -i PATH="$PATH" HOME="$HOME" PORT=3985 nohup node mock-leon.mjs > "$SCR/wall-mock-leon.out" 2>&1 & ); sleep 3
+F=$(date -u -v-1d +%Y-%m-%d); T=$(date -u -v+4d +%Y-%m-%d)
+for p in 5199 5198; do curl -s -m 60 -o /dev/null "http://127.0.0.1:$p/api/timeline/flights?allOperators=true&refresh=true&from=$F&to=$T" || true; done
 $E rig/manifest/operators.mjs seed >> $LOG 2>&1
 
 # ── code-only and local tests

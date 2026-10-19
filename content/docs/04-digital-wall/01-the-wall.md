@@ -20,8 +20,8 @@ The wall picks its layout from the screen:
 | Screen | Layout |
 |---|---|
 | 1920 pixels wide or more, or 1280 or more with a mouse or trackpad | The full board |
-| A phone held upright | The portal's phone pages open instead, on the **Wall** tab ([On a phone](dashboard/on-a-phone)) |
-| A phone turned sideways | A full-screen timeline |
+| A phone, when you are signed in | The portal's phone pages open instead, on the **Wall** tab ([On a phone](dashboard/on-a-phone)) |
+| A phone-sized screen approved as a wall screen | A full-screen timeline sideways, the reduced timeline upright |
 | A tablet, or any other touch screen | A reduced timeline |
 
 # On the ops-room screen
@@ -180,16 +180,19 @@ screens in [Settings](digital-wall/settings#approve-a-new-screen). The code chan
 
 # On a phone
 
-The wall's address on a phone held upright opens the portal's phone pages, on the **Wall** tab: cards instead of the
-timeline, what needs attention first, and the same checks. How to read and mark from there is in
-[On a phone](dashboard/on-a-phone).
+The wall's address on a phone, when you are signed in, opens the portal's phone pages on the **Wall** tab — upright or
+sideways: cards instead of the timeline, what needs attention first, and the same checks. How to read and mark from
+there is in [On a phone](dashboard/on-a-phone). A small screen approved as a wall screen in
+[Settings](digital-wall/settings#approve-a-new-screen) is not a phone: it keeps the timeline whichever way it is
+mounted.
 
-## Turn the phone sideways
-See the full timeline on a phone.
+## Open the wall on a phone
+Get to the phone pages from the wall's own address.
 
-1. Open the wall's address and turn the phone sideways. The timeline fills the screen, with the next 3 hours in view.
-2. Scroll sideways to move in time.
-3. Turn the phone upright and the portal's **Wall** tab opens.
+1. Open the wall's address on your phone and sign in if asked. The portal's **Wall** tab opens, upright or sideways.
+2. Read and mark from there, as in [On a phone](dashboard/on-a-phone).
+3. To see the timeline instead, use a tablet or the ops-room screen. A screen approved as a wall screen in
+   [Settings](digital-wall/settings#approve-a-new-screen) always keeps the timeline, whichever way it is mounted.
 
 # On a tablet
 

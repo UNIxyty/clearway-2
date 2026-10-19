@@ -4,13 +4,17 @@ import { useWallColors } from '../../theme/WallColorsContext';
 import { chromeFor, markerChipsFor, wxCategoryColorsFor } from '../../theme/wallColors';
 import FlightDetailSheet from './FlightDetailSheet';
 import TabletWall from './TabletWall';
+import { useAuth } from '../../AuthGate';
 import { MONO } from './mobileChrome';
 import { flattenFlights, hmZ } from './mobileUtil';
 import { ConnChip, StaleBanner } from './WallChrome';
 import useConnection from './useConnection';
 
 // The Digital Wall below the ops-room breakpoint (design sections A + B):
-//   ≤767 portrait   → the portal's phone wall at /m/wall (mobile Stage 2; PhoneWall retired)
+//   a signed-in PERSON on a phone-sized screen, upright or sideways → the portal's phone wall at /m/wall
+//     (mobile Stage 2; PhoneWall retired). A registered SCREEN (device token) stays here at any size: a small
+//     screen mounted sideways in an ops room is a wall, not a phone.
+//   ≤767 portrait (a screen)  → the reduced timeline
 //   ≤767 landscape  → the mini timeline full-screen (A6)
 //   768–1919        → TabletWall (reduced timeline + rail + drawer)
 // Data fetching / polling / SSE stay in DisplayApp — this component only
@@ -66,10 +70,14 @@ export default function ResponsiveWall({
   // still a phone: anything landscape with a phone-height viewport gets the
   // full-screen mini timeline (design A6), not the tablet layout.
   const phoneLandscape = vp.landscape && (vp.isPhone || (vp.height <= 500 && vp.width < 1024));
-  const portraitPhone = vp.isPhone && !vp.landscape;
-  useEffect(() => { if (portraitPhone && /\/digital-wall\//.test(window.location.pathname)) window.location.replace('/m/wall'); }, [portraitPhone]);
+  // Who is asking decides, not the orientation. AuthGate knows: a person has a session (user), a registered screen
+  // runs in deviceMode (or is waiting to be paired, and never reaches here). With no session and the backend
+  // unreachable nobody is redirected: the display degrades in place.
+  const { user, deviceMode } = useAuth();
+  const leaving = Boolean(user) && !deviceMode && (vp.isPhone || phoneLandscape);
+  useEffect(() => { if (leaving && /\/digital-wall\//.test(window.location.pathname)) window.location.replace('/m/wall'); }, [leaving]);
   let view;
-  if (portraitPhone) {
+  if (leaving) {
     view = null; // leaving for /m/wall
   } else if (phoneLandscape) {
     view = <LandscapePhoneWall {...shared} />;

@@ -23,7 +23,8 @@ move between them. The other pages open as they do on a desk, in your phone's br
 | **More** | Every other page, by section |
 
 A desk page you open on a phone goes to its phone version by itself: the Ops Agent, Flight intake, airport search and
-an airport's page. The wall's big-screen address does the same when the phone is held upright.
+an airport's page. The wall's big-screen address does the same on a phone, upright or sideways, as long as you are signed in; a screen
+approved as a wall screen stays a wall.
 
 :::note The phone shows the same facts as the ops-room screen
 The times, the status words and the colours on the phone come from the same rules as the ops-room screen. The phone

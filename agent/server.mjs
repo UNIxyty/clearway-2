@@ -21,6 +21,7 @@ import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/
 import { assertRigSafe } from "../lib/rig-guard.mjs";
 import { verifySvix, handleEvent as handleIntakeEvent } from "./lib/intake/resend.mjs";
 import { handleIntakeRoutes } from "./lib/intake/api.mjs";
+import { handlePassengerRoutes } from "./lib/passengers/api.mjs";
 import { recoverOnStart as recoverIntakeSends } from "./lib/intake/send.mjs";
 import { resumeWaiting as resumeIntakeQueue } from "./lib/intake/pipeline.mjs";
 import { startTzWatch, tzStatus } from "./lib/tzdata.mjs";
@@ -272,7 +273,7 @@ async function knowledgeView(user) {
 // must be in lib/permissions/catalogue.mjs (and every agent entry there must still exist). Refuse to start otherwise.
 {
   const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
-  const problems = [...checkCatalogue(), ...checkCodeRoutes("agent", [read("./server.mjs"), read("./lib/intake/api.mjs")]), ...checkTools(allTools().map((t) => t.name))];
+  const problems = [...checkCatalogue(), ...checkCodeRoutes("agent", [read("./server.mjs"), read("./lib/intake/api.mjs"), read("./lib/passengers/api.mjs")]), ...checkTools(allTools().map((t) => t.name))];
   if (problems.length) {
     console.error(`REFUSING TO START: permissions check failed\n  ${problems.join("\n  ")}`);
     process.exit(1);
@@ -356,6 +357,11 @@ async function handleRequest(req, res) {
     if (pathname.startsWith("/api/intake/") || pathname.startsWith("/api/mailbox/")) {
       await assertMayUseAgent(user);
       if (await handleIntakeRoutes({ req, res, url, pathname, user, sendJson, readJsonBody })) return;
+    }
+    // ── The passenger viewer (agent/lib/passengers/api.mjs): a flight's names, and one document on reveal. ──
+    if (pathname.startsWith("/api/flights/")) {
+      await assertMayUseAgent(user);
+      if (await handlePassengerRoutes({ req, res, pathname, user, sendJson })) return;
     }
 
     // ── Availability: what the portal asks to decide whether the agent exists

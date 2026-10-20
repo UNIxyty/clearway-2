@@ -124,7 +124,7 @@ A file that contains personal data says so. Opening or saving it is logged under
 
 ## Show personal data in an email
 Roles: User, Admin and Developer by default
-See the passport numbers and dates of birth hidden in an email's text, for 60 seconds.
+See the passport numbers and dates of birth hidden in an email's text, for 30 seconds.
 
 :::warning Showing personal data is logged
 Each time you show it, your name and the time are logged.
@@ -132,7 +132,7 @@ Each time you show it, your name and the time are logged.
 
 1. Open the email. Personal data shows as ••••••••.
 2. Press **Show personal data in this message**.
-3. Press **Show for 60 s**. Or press **Cancel**.
+3. Press **Show for 30 s**. Or press **Cancel**.
 4. Read the data. To hide it sooner, press **Hide now**.
 
 It also hides when you leave the window or open another email.

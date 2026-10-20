@@ -91,6 +91,7 @@ const PAGES = [
   { name: "wall-check", path: `/m/wall/${enc(flightId)}?check=wx`, ready: "[role=dialog]" },
   { name: "flights", path: "/m/flights", ready: "a[href^='/m/flights/']" },
   { name: "flight", path: `/m/flights/${enc(flightId)}`, ready: "text=UTC" },
+  { name: "flight-passengers", path: `/m/flights/${enc(flightId)}/passengers`, ready: "[data-passenger-viewer]", settle: 4000 },
   { name: "intake", path: "/m/intake", ready: "a[href^='/m/intake/']" },
   { name: "intake-request", path: `/m/intake/${req.id}`, ready: "text=Legs" },
   { name: "intake-leg", path: `/m/intake/${req.id}/leg/1`, ready: "main, [data-phone-shell]" },

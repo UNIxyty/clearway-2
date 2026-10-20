@@ -6,7 +6,8 @@
 import { useParams } from "next/navigation";
 import { useMemo } from "react";
 import { usePhonePage } from "@/components/m/chrome";
-import { MCard, MError, MSkeleton, StatusPill } from "@/components/m/ui";
+import MaskIcon from "@/components/portal/Icon";
+import { Chevron, MCard, MError, MRow, MSkeleton, StatusPill } from "@/components/m/ui";
 import { useAllFlights } from "@/lib/m/flights";
 
 export default function FlightRecordPage() {
@@ -35,7 +36,9 @@ export default function FlightRecordPage() {
       <MCard>
         {rec.map(([k, v, mono], i) => <div key={k} className={`flex min-h-11 items-center px-3.5 text-[14.5px] ${i ? "border-t border-cw-divider" : ""}`}><span className="flex-1 text-cw-text-muted">{k}</span><span className={`font-semibold ${mono ? "font-mono" : ""}`}>{v}</span></div>)}
       </MCard>
-      <span className="text-[12.5px] text-cw-text-muted">Passengers and their documents come with the passenger viewer (Stage 4).</span>
+      <MCard>
+        <MRow href={`/m/flights/${encodeURIComponent(f.id)}/passengers`} minH={60}><MaskIcon name="id-card" size={19} color="var(--ca-sens-text)" className="flex-none" /><span className="flex min-w-0 flex-1 flex-col"><span className="text-[15px] font-semibold">Passengers</span><span className="text-[13px] text-cw-text-muted">{f.raw.passengerCount != null ? `${f.raw.passengerCount} on this flight · ` : ""}documents hidden until opened</span></span><Chevron /></MRow>
+      </MCard>
     </div>
   );
 }

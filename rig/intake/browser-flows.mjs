@@ -41,7 +41,7 @@ for (let i = 0; i < 4 && (await page.getByRole("button", { name: /Use the email/
 ok((await page.getByText(/Chose the email body/).count()) > 0, "conflict resolved, row marked EDITED with who");
 await page.getByRole("tab").filter({ hasText: "LEG 1" }).first().click(); await page.waitForTimeout(600);
 await page.getByRole("button", { name: /Show personal data/i }).first().click(); await page.waitForTimeout(300);
-await page.getByRole("button", { name: /Show for 60 s/i }).first().click(); await page.waitForTimeout(1500);
+await page.getByRole("button", { name: /Show for 30 s/i }).first().click(); await page.waitForTimeout(1500);
 const shown = await page.evaluate(() => /XX000000\d/.test(document.body.innerText));
 ok(shown, "reveal shows the values (after the logged warning)");
 await page.screenshot({ path: `${OUT}/flow-2-revealed.png`, fullPage: true });

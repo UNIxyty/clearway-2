@@ -3,7 +3,7 @@
 // Agent mailbox §M8 + §M14.2: the message body. HTML renders in an iframe with an EMPTY sandbox (no scripts, no
 // same-origin, no forms, no popups) and its own CSP; links are inert spans; remote images are blocked unless
 // asked for, and even then they come through the agent's proxy. Masked personal values arrive as \0M{n}\0
-// markers and are only ever filled from the reveal call, for 60 s, for this one message.
+// markers and are only ever filled from the reveal call, for 30 s, for this one message.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FONT, INTAKE, TONE, mono } from "../ui/tokens";
@@ -146,10 +146,10 @@ export function MessageCard({ id, plain, setPlain, onOpenRaw }: { id: string; pl
     return () => { dead = true; };
   }, [id, mode, images, hide]);
 
-  // Re-mask: after 60 s, on tab blur / hide, and before printing. (Focus moving into the frame is not a blur.)
+  // Re-mask: after 30 s, on tab blur / hide, and before printing. (Focus moving into the frame is not a blur.)
   useEffect(() => {
     if (reveal.phase !== "on") return;
-    const t = setTimeout(hide, 60_000);
+    const t = setTimeout(hide, 30_000); // 30 s everywhere
     const onBlur = () => setTimeout(() => { if (!document.hasFocus()) hide(); }, 0);
     const onVis = () => { if (document.visibilityState === "hidden") hide(); };
     window.addEventListener("blur", onBlur); document.addEventListener("visibilitychange", onVis); window.addEventListener("beforeprint", hide);
@@ -179,12 +179,12 @@ export function MessageCard({ id, plain, setPlain, onOpenRaw }: { id: string; pl
           ) : reveal.phase === "ask" || reveal.phase === "loading" || reveal.phase === "error" ? (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               <span role={reveal.phase === "error" ? "alert" : undefined} style={{ fontSize: 11.5, color: reveal.phase === "error" ? cw.dangerText : cw.textBody }}>{reveal.phase === "error" ? reveal.message : "Logged under your name."}</span>
-              <button type="button" className="ag-focus" autoFocus disabled={reveal.phase === "loading"} onClick={() => void show()} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: cw.onInk, background: cw.ink, border: "none", borderRadius: 8, padding: "5px 9px", cursor: reveal.phase === "loading" ? "wait" : "pointer" }}>Show for 60 s</button>
+              <button type="button" className="ag-focus" autoFocus disabled={reveal.phase === "loading"} onClick={() => void show()} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: cw.onInk, background: cw.ink, border: "none", borderRadius: 8, padding: "5px 9px", cursor: reveal.phase === "loading" ? "wait" : "pointer" }}>Show for 30 s</button>
               <button type="button" className="ag-focus" onClick={hide} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: cw.textBody, background: "transparent", border: "none", cursor: "pointer" }}>Cancel</button>
             </span>
           ) : (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: TONE.amber.fg, background: cw.warningTint, border: `1px solid ${cw.warningBorder}`, borderRadius: 999, padding: "3px 8px" }}>Visible · hides after 60 s · logged</span>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: TONE.amber.fg, background: cw.warningTint, border: `1px solid ${cw.warningBorder}`, borderRadius: 999, padding: "3px 8px" }}>Visible · hides after 30 s · logged</span>
               <button type="button" className="ag-focus" onClick={hide} style={{ fontFamily: "inherit", fontSize: 12, fontWeight: 600, color: cw.text, background: cw.bgSurface, border: `1px solid ${cw.borderControl}`, borderRadius: 8, padding: "4px 9px", cursor: "pointer" }}>Hide now</button>
             </span>
           )

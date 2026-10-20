@@ -50,8 +50,9 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | wall/access-check | 65 | 2026-10-12 |
 | wall/browser-access | 9 | 2026-10-12 |
 | wall/console-theme-check | 40 | 2026-10-18 |
-| mobile/tier1-check | 210 | 2026-10-19 |
+| mobile/tier1-check | 229 | 2026-10-20 |
 | mobile/tier2-check | 437 | 2026-10-20 |
+| mobile/pax-check | 46 | 2026-10-20 |
 | group2-check | 13 | 2026-10-12 |
 | group4-check | 33 | 2026-10-12 |
 | shell-check | 10 | 2026-10-12 |
@@ -93,6 +94,14 @@ AIP stand-ins (`rig/wall/seed-portal.mjs`). Three suites had relied on the rig h
 - **New on 2026-10-14**: utc-times, utc-browser, error-text, error-text-browser, and rig/fixes/* (one per fix:
   service-status-unsaved, search-four-letters, search-hidden, profile-email-failure, browse-several,
   email-logs-removed). The full run that day: 53 suites, all green.
+
+## Red in two full runs on 2026-10-19/20: the portal left in maintenance mode
+
+- **A dozen suites after portal-foundations** (permissions, intake browser suites, docs-browser, the fixes) went red
+  with hour-long durations. Cause each time: portal-foundations switches maintenance on and off, and under heavy load
+  (the Mac at load 30–40 from other apps) its "off" step failed, so the sign-in-on portal stayed in maintenance and
+  every later suite that signs in met the maintenance page. The runner now inserts an "off" row after that suite
+  whatever happened; docs/rig-vs-production.md says how to read the state (the newest `public.maintenance` row).
 
 ## Red in a full run on 2026-10-19, green alone
 

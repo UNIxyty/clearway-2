@@ -71,11 +71,11 @@ export function RequestDetailView({ id, updatedAt, onCollapse, onChanged, runsAs
     return () => { live = false; };
   }, [id, extractionId, wantPeople]);
 
-  // Reveal (§I8): 60 s, then masked again; also on window blur and when this request collapses (unmount).
+  // Reveal (§I8): 30 s, then masked again (30 everywhere since 2026-10-20); also on window blur and when this request collapses (unmount).
   const setReveal = useCallback((r: RevealState) => {
     if (revealTimer.current) { clearTimeout(revealTimer.current); revealTimer.current = null; }
     setRevealState(r);
-    if (r.phase === "on") revealTimer.current = setTimeout(() => setRevealState({ phase: "off" }), 60000);
+    if (r.phase === "on") revealTimer.current = setTimeout(() => setRevealState({ phase: "off" }), 30_000); // 30 s everywhere (the passenger viewer, intake, the mailbox)
   }, []);
   useEffect(() => {
     const hide = () => setReveal({ phase: "off" });

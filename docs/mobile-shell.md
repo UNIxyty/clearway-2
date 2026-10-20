@@ -133,6 +133,41 @@ a button that opens it, not a disabled one — until the email was read on this 
 (`lib/intake-email-read.ts`, sessionStorage). Before this the desk had allowed a blind confirm since the feature
 existed; the phone screen forced the question.
 
+## The passenger viewer (Stage 4, 2026-10-20)
+
+One implementation, two places: `shared/passenger-viewer.jsx` (plain React on the portal's tokens) is rendered by the
+phone's `/m/flights/[id]/passengers` and by the wall console's Flights panel (Show names). Behind it, two narrow
+endpoints on the agent (`agent/lib/passengers/api.mjs`), reading Leon with the flight's operator's credentials as
+the passenger manifest does, asking for no more than is shown:
+
+- `GET /api/flights/<oprId:nid>/passengers` — row, SURNAME, given names, nationality, sex. **No document field is in
+  this payload**: not masked, absent. Plain agent access.
+- `POST /api/flights/<oprId:nid>/passengers/<contactNid>/reveal` — one passenger's **date of birth, document
+  country, document number, expiry** (place of birth is not fetched), gated by **intake.people.reveal** — the action
+  intake already has, not a second one — and logged (`intake.personal_revealed`: the flight, the row, the counts;
+  never a value). **Copy all details** calls it again and so is logged again.
+
+The rules it keeps: masked by default; one passenger at a time (the phone's document covers the list, the desk's
+expands in the row, opening another closes the first); fetched on reveal, never hidden by CSS; nothing of a passenger
+in a URL, a log row or an error message; the view closes itself after **30 s** — intake's and the mailbox's reveals
+were brought from 60 to the same 30 (no place keeps 60); the watermark carries **the viewer's name and the UTC time**,
+and the screen says so once ("Your name and the time are on this view"); when the app leaves the foreground names
+blur and any open document closes ("Hidden while you were away" · Show names); a role without the permission sees
+names and no Hold / Show, and the strip says why.
+
+Two rules keep a quiet harvest visible (the decision of 2026-10-20):
+- **a stop** — 40 reveals per person per 10 minutes across flights, answered 429 and logged once
+  (`intake.personal_reveal_limited`); well clear of a person checking a whole manifest against a GenDec;
+- **a signal** — reveals on **more than three different flights** within 10 minutes write one extra row,
+  `intake.personal_reveal_burst`, once per window, naming the flights and the count. A whole flight checked end to
+  end writes nothing extra: the individual rows already say what happened, and a signal that fires on routine work
+  stops being read.
+
+Both counts come from the audit log itself, so a restart forgets nothing. The check (`rig/mobile/pax-check.mjs`)
+asserts on the list's **response body** and on the **page source** before any reveal — no document field, none of the
+rig's fake passport numbers or dates of birth — then the hold, the cover, the watermark, the 30 s, Copy all as a
+reveal, away, no permission, a refused reveal, the burst row, the stop, and the console panel the same way.
+
 ## Tokens
 
 `shared/mobile-tokens.css` (`--mx-*`): the shell, the now-line, the search mark, the five check chips, paper. Loaded

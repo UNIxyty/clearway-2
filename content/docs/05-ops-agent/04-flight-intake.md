@@ -287,7 +287,7 @@ When the agent could read no values, enter the flight yourself.
 
 ## Show crew and passengers' personal data
 Roles: Admin and Developer by default
-Show names, dates of birth and passport numbers for 60 seconds.
+Show names, dates of birth and passport numbers for 30 seconds.
 
 :::warning Showing personal data is logged
 Each time you show it, your name and the time are logged.
@@ -295,8 +295,8 @@ Each time you show it, your name and the time are logged.
 
 1. Under **Crew** or **Passengers**, press **Show personal data**.
 2. Read the question.
-3. Press **Show for 60 s**. Or press **Cancel**.
-4. Read the data. The section says **Visible to you · hides after 60 s · logged**.
+3. Press **Show for 30 s**. Or press **Cancel**.
+4. Read the data. The section says **Visible to you · hides after 30 s · logged**.
 5. To hide it sooner, press **Hide now**.
 
 :::how-it-works
@@ -314,7 +314,7 @@ If the data is hidden, you are asked to show it first. That is logged.
 
 1. Under **Passengers**, find the passenger.
 2. Press **✎** in the row.
-3. If you are asked, press **Show for 60 s**.
+3. If you are asked, press **Show for 30 s**.
 4. Read the name as it is **written in the request**.
 5. Type the **Surname**.
 6. Type the **Given names**.

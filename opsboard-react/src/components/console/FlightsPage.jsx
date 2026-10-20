@@ -13,6 +13,7 @@ import { subscribeWallStream } from '../../services/wallStream';
 import useViewport from '../../hooks/useViewport';
 import { ChipRow, FilterChip, PushedPage, SkeletonCard } from './mobile';
 import Icon from './icons';
+import PassengerViewer from '../../../../shared/passenger-viewer.jsx';
 import {
   Button,
   Dropdown,
@@ -443,9 +444,43 @@ function DetailPanel({ flight, status, onWall, busy, onToggleWall, onClose }) {
 
       {impEntries.length > 0 && <ImpDetails flight={flight} impEntries={impEntries} />}
 
+      <PassengersSection flight={flight} />
+
       <SendSection flight={flight} />
     </div>
   );
+}
+
+// ── Passengers (mobile Stage 4): the one shared viewer, here on the desk ──────
+// Names only until a document is asked for; opened on request so Leon is read only when someone wants the list.
+// The agent's endpoints do the gating and the logging; this draws what it is given.
+function PassengersSection({ flight }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const flightId = `${flight.oprId}:${flight.flightNid}`;
+  const api = useMemo(() => ({
+    list: () => agentJson(`/flights/${encodeURIComponent(flightId)}/passengers`),
+    reveal: (pid) => agentJson(`/flights/${encodeURIComponent(flightId)}/passengers/${encodeURIComponent(pid)}/reveal`, { method: 'POST' }),
+  }), [flightId]);
+  const icon = (name, size, color) => <Icon name={name} size={size} color={color || 'currentColor'} />;
+  return (
+    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${t.borderInner}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>Passengers</span>
+        <span style={{ fontSize: 12.5, color: t.muted }}>{flight.passengerCount != null ? `${flight.passengerCount} on this flight · ` : ''}documents hidden until opened</span>
+        <span style={{ flex: 1 }} />
+        {!open && <Button variant="secondary" size="sm" icon="users" onClick={() => setOpen(true)}>Show names</Button>}
+      </div>
+      {open && <div style={{ marginTop: 12 }}><PassengerViewer api={api} viewer={{ name: user?.name || user?.email || 'Viewer' }} icon={icon} /></div>}
+    </div>
+  );
+}
+
+async function agentJson(path, init) {
+  const r = await fetch(`/agent/api${path}`, { credentials: 'same-origin', cache: 'no-store', ...init });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || j?.ok === false) { const e = new Error(typeof j?.message === 'string' ? j.message : `The agent answered ${r.status}.`); e.shown = true; e.status = r.status; throw e; }
+  return j;
 }
 
 // ── Mobile (<1024) pushed flight detail — design C3 ──────────────────────────

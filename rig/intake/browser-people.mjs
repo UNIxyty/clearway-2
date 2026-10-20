@@ -57,8 +57,8 @@ await open("RIGPAX19", "split-and-warning", async (page, text) => {
   // Masked, ✎'s name says what it does first (the hint is not a hover-only tooltip).
   ok(await table.getByRole("button", { name: /Correct the surname and given names of passenger 1 \(shows personal data first\)$/ }).count() === 1, "each passenger's split can be corrected (✎), and its name says it shows personal data first");
   await table.getByRole("button", { name: /Correct the surname and given names of passenger 1 \(shows personal data first\)$/ }).click();
-  ok(await page.getByRole("button", { name: "Show for 60 s" }).count() >= 1 && await page.getByRole("group", { name: "Name split, passenger 1" }).count() === 0, "…while masked, ✎ asks to show personal data first (no names in an editor)");
-  await page.getByRole("button", { name: "Show for 60 s" }).first().click();
+  ok(await page.getByRole("button", { name: "Show for 30 s" }).count() >= 1 && await page.getByRole("group", { name: "Name split, passenger 1" }).count() === 0, "…while masked, ✎ asks to show personal data first (no names in an editor)");
+  await page.getByRole("button", { name: "Show for 30 s" }).first().click();
   await page.waitForTimeout(800);
   const shown = await table.innerText();
   ok(/SAMPLE DOUBLE · edited by/.test(shown), "after Show personal data: the names, on amber, with the edit marked", shown.split("\n").slice(0, 3).join(" | "));

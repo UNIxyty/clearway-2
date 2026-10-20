@@ -115,6 +115,7 @@ export default function WallFlightPage() {
       </section>
 
       <MCard>
+        <MRow href={`/m/flights/${encodeURIComponent(f.id)}/passengers`}><MaskIcon name="id-card" size={19} color="var(--ca-sens-text)" className="flex-none" /><span className="flex min-w-0 flex-1 flex-col"><span className="text-[15px] font-semibold">Passengers</span><span className="text-[13px] text-cw-text-muted">Documents hidden until opened</span></span><Chevron /></MRow>
         <MRow href={`/m/airport/${f.adep}?tab=weather`}><MaskIcon name="cloud-sun" size={19} color="var(--cw-text-muted)" className="flex-none" /><span className="flex min-w-0 flex-1 flex-col"><span className="text-[15px] font-semibold">Weather</span><span className="text-[13px] text-cw-text-muted">{[f.raw.wxDep && `${f.adep} ${f.raw.wxDep}`, f.raw.wxArr && `${f.ades} ${f.raw.wxArr}`].filter(Boolean).join(" · ") || `${f.adep} and ${f.ades}`}</span></span><Chevron /></MRow>
         <MRow href={`/m/airport/${f.ades}`}><MaskIcon name="file-text" size={19} color="var(--cw-text-muted)" className="flex-none" /><span className="flex min-w-0 flex-1 flex-col"><span className="text-[15px] font-semibold">NOTAMs and documents</span><span className="text-[13px] text-cw-text-muted">{f.ades} · arrival</span></span><Chevron /></MRow>
       </MCard>

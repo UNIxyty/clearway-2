@@ -137,6 +137,26 @@ Permissions, the debug runner and the component sheet are marked **Desk** in Mor
 1. Press one. A screen says what the page is and why it needs a wider screen.
 2. Press **Back**, or **Email me the link** to send yourself the page's address for a laptop.
 
+## See a passenger's document on the phone
+Roles: User, Admin and Developer by default
+Only when the Ops Agent is enabled for you; the document needs **Reveal a passenger's personal data**.
+Read one passenger's document against the person in front of you, then put it away.
+
+:::warning Every document view is logged with your name
+The view carries your name and the time as a watermark, so a photograph of the screen is traceable to you. It closes
+by itself after 30 seconds.
+:::
+
+1. Open the flight, from the Wall or from Flights, and press **Passengers**. The list shows names, nationality and
+   sex. Nothing else is on the phone.
+2. Hold a passenger's **Hold** button for one second. Their document covers the list: date of birth, document
+   country, document number and expiry.
+3. Read it, then press **Hide now**, or let it close by itself.
+4. To copy the details, press **Copy all details**. That is a view too, and is logged the same way.
+
+If you switch apps, the names are covered and any open document closes; press **Show names** to continue. If your
+role does not include documents, the list has no Hold button and says so.
+
 ## Look up an airport on the phone
 1. Press **More**, then **Airport search**. Or open **Weather** or **NOTAMs and documents** from a flight.
 2. Type the ICAO or IATA code or the city, or press one of **ON TODAY'S FLIGHTS**.

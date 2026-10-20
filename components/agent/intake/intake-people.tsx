@@ -172,7 +172,7 @@ function RevealControls({ section, reveal, setReveal, doReveal }: { section: str
   if (reveal.phase === "on") {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span role="status" style={{ fontSize: 12, fontWeight: 600, color: TONE.amber.fg, background: TONE.amber.bg, borderRadius: 6, padding: "4px 8px" }}>Visible to you · hides after 60 s · logged</span>
+        <span role="status" style={{ fontSize: 12, fontWeight: 600, color: TONE.amber.fg, background: TONE.amber.bg, borderRadius: 6, padding: "4px 8px" }}>Visible to you · hides after 30 s · logged</span>
         <button type="button" className="ag-focus" style={btn} onClick={() => setReveal({ phase: "off" })}><Icon name="eye-off" size={13} color={cw.textMuted} />Hide now</button>
       </div>
     );
@@ -181,7 +181,7 @@ function RevealControls({ section, reveal, setReveal, doReveal }: { section: str
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: reveal.phase === "error" ? cw.dangerText : cw.textBody }}>{reveal.phase === "error" ? `Could not show it: ${reveal.message}` : "Showing passengers' names, dates of birth and passport numbers is logged under your name."}</span>
-        <button type="button" className="ag-focus" disabled={reveal.phase === "loading"} onClick={() => doReveal(section)} style={{ ...btn, color: cw.onInk, background: cw.ink, border: `1px solid ${cw.text}` }}>{reveal.phase === "loading" ? "Showing…" : "Show for 60 s"}</button>
+        <button type="button" className="ag-focus" disabled={reveal.phase === "loading"} onClick={() => doReveal(section)} style={{ ...btn, color: cw.onInk, background: cw.ink, border: `1px solid ${cw.text}` }}>{reveal.phase === "loading" ? "Showing…" : "Show for 30 s"}</button>
         <button type="button" className="ag-focus" style={btn} onClick={() => setReveal({ phase: "off" })}>Cancel</button>
       </div>
     );

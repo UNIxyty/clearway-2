@@ -3,7 +3,7 @@ title: Flights
 summary: The console's list of flights, where you open one, put it on the big screen, or email yourself its AIP and GEN.
 status: written
 roles: All roles
-updated: 2026-10-14
+updated: 2026-10-20
 related: digital-wall/the-wall, digital-wall/notam-check
 ---
 
@@ -79,6 +79,23 @@ Banner: TST103 · EVRA → EYVI is currently on the wall — opened by a.dispatc
 On the wall, the flight's details open on the right: its times, alerts, weather, important notices, CAA details and
 limitations. The flight stays there until someone closes it.
 :::
+
+## See a passenger's document
+Roles: User, Admin and Developer by default
+The document needs **Reveal a passenger's personal data**; the Ops Agent must be enabled for you.
+Read one passenger's document, then hide it.
+
+:::warning Every document view is logged with your name
+The open document carries your name and the time as a watermark. It closes by itself after 30 seconds.
+:::
+
+1. Open the flight's details and find **Passengers**. Press **Show names**. The list shows names, nationality and
+   sex, and nothing else.
+2. Press **Show** on a passenger. Their document opens in the row: date of birth, document country, document number
+   and expiry. Only one is open at a time.
+3. Press **Hide**, or let it close by itself. **Copy all details** copies them and is logged as a view.
+
+If the window loses focus, names are blurred and the open document closes; press **Show names** to continue.
 
 ## Email yourself the AIP or GEN for a flight
 Roles: User, Admin and Developer by default

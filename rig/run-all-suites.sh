@@ -74,10 +74,14 @@ run wall/console-theme-check $E rig/wall/console-theme-check.mjs
 preview 5199   # back to the normal wall
 run mobile/tier1-check $E rig/mobile/tier1-check.mjs
 run mobile/tier2-check $E rig/mobile/tier2-check.mjs
+run mobile/pax-check $E rig/mobile/pax-check.mjs
 run group2 $E rig/group2-check.mjs
 run shell-check $E rig/shell-check.mjs
 run stage1-check $E rig/stage1-check.mjs
 run portal-foundations $E rig/portal-foundations-check.mjs
+# portal-foundations switches maintenance on and off; if it fails mid-way under load (2026-10-19 and -20), the portal
+# stays in maintenance and every suite after it that signs in goes red. Put it back off, whatever happened.
+docker exec supabase_db_rig psql -U postgres -q -c "insert into public.maintenance (enabled, message, updated_at) values (false, 'rig: off after portal-foundations', now())" 2>/dev/null || true
 run ext/t-console $E rig/ext/t-console.mjs
 run ext/t-issues $E rig/ext/t-issues.mjs
 run group4 $E rig/group4-check.mjs

@@ -446,7 +446,7 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/edit$/.exec(P)) && req.method === "POST") { await editPeople(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await peopleFor(m[1], false)), canReveal: await can(user.agentRole, "intake.people.reveal") }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/reveal$/.exec(P)) && req.method === "POST") {
       const out = await peopleFor(m[1], true);
-      await audit({ kind: "intake.personal_revealed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: m[1], seconds: 60 } }).catch(() => {});
+      await audit({ kind: "intake.personal_revealed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: m[1], seconds: 30 } }).catch(() => {});
       return send({ ok: true, ...out, revealedBy: user.name || user.email, at: new Date().toISOString() });
     }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/reprocess$/.exec(P)) && req.method === "POST") {

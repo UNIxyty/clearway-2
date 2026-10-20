@@ -133,7 +133,10 @@ for (const theme of ["light", "dark"]) {
   ok((await page.getByRole("dialog").count()) === 0, "phone: the document closes itself after 30 s");
   // away: leaving the foreground hides names and closes any open document
   await hold.dispatchEvent("pointerdown"); await page.waitForTimeout(1300); await page.getByRole("dialog").waitFor({ timeout: 10_000 });
-  await page.evaluate(() => { Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  // pagehide is the earliest of the events a phone fires on its way to the switcher; the blur must be in the SAME frame
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  const sameFrame = await page.evaluate(() => ({ attr: document.documentElement.getAttribute("data-pax-away"), blur: getComputedStyle(document.querySelector("[data-pax-list]")).filter, doc: document.querySelector("[data-pax-doc]") ? getComputedStyle(document.querySelector("[data-pax-doc]")).visibility : "gone" }));
+  ok(sameFrame.attr === "1" && /blur\(7px\)/.test(sameFrame.blur) && (sameFrame.doc === "hidden" || sameFrame.doc === "gone"), "phone: on pagehide the names are blurred and the document hidden synchronously, before any re-render", JSON.stringify(sameFrame));
   await page.waitForTimeout(400);
   const cover = (await page.locator("[data-passenger-viewer]").innerText()).replace(/\s+/g, " ");
   ok((await page.getByRole("dialog").count()) === 0 && /Hidden while you were away/.test(cover), "phone: leaving the foreground closes the document and covers the names");

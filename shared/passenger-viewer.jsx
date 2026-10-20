@@ -48,11 +48,16 @@ export default function PassengerViewer({ api, viewer, phone = false, icon, seco
   }, [open?.passenger?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // Leaving the foreground: names blur, the open document closes, the app switcher shows the cover.
   useEffect(() => {
-    const gone = () => { setAway(true); hide(); };
+    // The app switcher photographs the page as it leaves the foreground. Setting the attribute here is synchronous —
+    // the stylesheet below blurs the list and hides the document in the same frame — and only then does React catch
+    // up. pagehide / freeze / visibilitychange(hidden) / blur: whichever a phone fires first wins.
+    const gone = () => { document.documentElement.setAttribute("data-pax-away", "1"); setAway(true); hide(); };
     const onVis = () => { if (document.visibilityState !== "visible") gone(); };
     document.addEventListener("visibilitychange", onVis); window.addEventListener("blur", gone);
-    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("blur", gone); };
+    window.addEventListener("pagehide", gone); document.addEventListener("freeze", gone);
+    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("blur", gone); window.removeEventListener("pagehide", gone); document.removeEventListener("freeze", gone); document.documentElement.removeAttribute("data-pax-away"); };
   }, [hide]);
+  const back = useCallback(() => { document.documentElement.removeAttribute("data-pax-away"); setAway(false); }, []);
 
   const reveal = useCallback(async (p) => {
     setOpening(p.id); setRevealError(null);
@@ -80,6 +85,7 @@ export default function PassengerViewer({ api, viewer, phone = false, icon, seco
 
   return (
     <div data-passenger-viewer={phone ? "phone" : "desk"} style={{ display: "flex", flexDirection: "column", gap: 12, position: "relative", minHeight: phone ? "100%" : undefined, fontFamily: "inherit", color: "var(--cw-text)" }}>
+      <style>{`html[data-pax-away] [data-pax-list]{filter:blur(7px)!important}html[data-pax-away] [data-pax-doc]{visibility:hidden!important}`}</style>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", borderRadius: 12, background: strip.bg, border: `1px solid ${strip.bd}` }}>
         <span style={{ marginTop: 2, flex: "none", display: "flex" }}>{icon(strip.icon, 16, strip.color)}</span>
         <span style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--cw-text-body)" }}>{strip.text}</span>
@@ -109,7 +115,7 @@ export default function PassengerViewer({ api, viewer, phone = false, icon, seco
       {state === "ready" && data && (
         <>
           <div style={card}>
-            <div data-pax-list="" style={{ filter: away ? "blur(7px)" : "none", transition: "filter 120ms" }} aria-hidden={away || undefined}>
+            <div data-pax-list="" style={{ filter: away ? "blur(7px)" : "none" }} aria-hidden={away || undefined}>
               {data.passengers.map((p, i) => { const isOpen = open?.passenger?.id === p.id; return (
                 <div key={p.id} style={{ borderTop: i ? "1px solid var(--cw-divider)" : "none", background: isOpen ? "var(--cw-bg-surface)" : "transparent", boxShadow: isOpen ? `inset 3px 0 0 ${sens.solid}` : "none" }}>
                   <div style={{ minHeight: phone ? 64 : 46, display: "grid", gridTemplateColumns: canReveal ? "34px minmax(0,1fr) auto" : "34px minmax(0,1fr)", gap: "4px 12px", alignItems: "center", padding: phone ? "6px 8px 6px 14px" : "6px 14px" }}>
@@ -140,7 +146,7 @@ export default function PassengerViewer({ api, viewer, phone = false, icon, seco
                   {icon("eye-off", 22, "var(--cw-text-muted)")}
                   <span style={{ fontSize: 16, fontWeight: 750 }}>Hidden while you were away</span>
                   <span style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--cw-text-body)" }}>{phone ? "The app left the screen, so names were covered and any open document was closed." : "This window lost focus, so names were blurred and any open document was closed."}</span>
-                  <button type="button" onClick={() => setAway(false)} style={{ marginTop: 4, height: 48, padding: "0 18px", borderRadius: 12, border: "none", background: "var(--cw-primary)", color: "var(--cw-text-on-primary)", fontSize: 15, fontWeight: 650, fontFamily: "inherit", cursor: "pointer" }}>Show names</button>
+                  <button type="button" onClick={back} style={{ marginTop: 4, height: 48, padding: "0 18px", borderRadius: 12, border: "none", background: "var(--cw-primary)", color: "var(--cw-text-on-primary)", fontSize: 15, fontWeight: 650, fontFamily: "inherit", cursor: "pointer" }}>Show names</button>
                 </div>
               </div>
             )}
@@ -151,7 +157,7 @@ export default function PassengerViewer({ api, viewer, phone = false, icon, seco
       )}
 
       {phone && open && !away && (
-        <div role="dialog" aria-label={`Document of ${open.passenger.surname}`} style={{ position: "fixed", inset: 0, zIndex: 40, background: "var(--mx-sheet, var(--cw-bg-surface))", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div role="dialog" data-pax-doc="" aria-label={`Document of ${open.passenger.surname}`} style={{ position: "fixed", inset: 0, zIndex: 40, background: "var(--mx-sheet, var(--cw-bg-surface))", display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <Document open={open} stamp={stamp} seconds={seconds} icon={icon} sens={sens} onCopy={copyAll} copied={copied} onHide={hide} />
         </div>
       )}
@@ -186,7 +192,7 @@ function Document({ open, stamp, seconds, icon, sens, onCopy, copied, onHide, in
   const fact = <span style={{ fontSize: 13, lineHeight: 1.5, color: "var(--cw-text-muted)" }}>Your name and the time are on this view.{inline ? "" : " The rest of the list is hidden while it is open."}</span>;
   const copy = <button type="button" onClick={() => void onCopy()} style={{ height: inline ? 34 : 48, padding: "0 14px", borderRadius: 10, border: `1px solid ${sens.border}`, background: "var(--cw-bg-surface)", color: sens.text, fontSize: 13.5, fontWeight: 650, display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit" }}>{icon("copy", 14)}{copied ? "Copied" : "Copy all details"}</button>;
   if (inline) return (
-    <div style={{ margin: "0 14px 12px", border: `1.5px solid ${sens.solid}`, borderRadius: 10, background: sens.tint, position: "relative", overflow: "hidden" }}>
+    <div data-pax-doc="" style={{ margin: "0 14px 12px", border: `1.5px solid ${sens.solid}`, borderRadius: 10, background: sens.tint, position: "relative", overflow: "hidden" }}>
       <Watermark stamp={stamp} count={14} />
       {head}
       <div style={{ position: "relative", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>

@@ -120,7 +120,11 @@ for (const who of ["user", "admin"]) {
   if (who === "user") await page.screenshot({ path: `${OUT}/stage1-boot.png` });
   ok(!/OPERATIONS|Signed in|\bUSER\b|\bADMIN\b|DEVELOPER/.test(boot.text) && boot.skeletons >= 3 && !boot.admin,
     `${who}, role not known yet: no placeholder role, skeleton slots for the role-gated groups and the account line`, `${boot.skeletons} skeletons; account line text: ${JSON.stringify(boot.text.split("\n").slice(-2))}`);
-  release(); await sleep(2500);
+  release();
+  // Both answers are now free to arrive; the shell drops its skeletons when both have (the rig under a full suite can take
+  // more than a fixed pause). Wait for that, up to 10 s; the assertion below still says what was found.
+  await page.waitForFunction(() => document.querySelector("[data-cw-sidebar]")?.querySelectorAll(".cw-shimmer").length === 0, null, { timeout: 10000 }).catch(() => {});
+  await sleep(300);
   const after = await page.evaluate(() => {
     const side = document.querySelector("[data-cw-sidebar]");
     const rows = [...side.querySelectorAll("nav > div, nav > button")].map((el) => ({ text: el.textContent.trim().split("\n")[0], top: Math.round(el.getBoundingClientRect().top), h: Math.round(el.getBoundingClientRect().height) }));

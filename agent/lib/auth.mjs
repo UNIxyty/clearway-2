@@ -113,16 +113,18 @@ function parseEmailList(raw) {
   return String(raw || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
 }
 
-function roleFromMetadata(appMeta = {}, userMeta = {}) {
-  const roleValue = String(appMeta.role || userMeta.role || "").toLowerCase();
+// APP metadata only. user_metadata is the person's own to edit (Supabase auth.updateUser), so a role written there is a
+// claim, not a grant — found 2026-10-20, when a plain user wrote role: "developer" into it and the portal believed it.
+function roleFromMetadata(appMeta = {}) {
+  const roleValue = String(appMeta.role || "").toLowerCase();
   if (roleValue === "developer") return "developer";
   if (roleValue === "admin") return "admin";
-  const rolesRaw = appMeta.roles || userMeta.roles;
+  const rolesRaw = appMeta.roles;
   const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
   if (roles.includes("developer")) return "developer";
   if (roles.includes("admin")) return "admin";
-  if (appMeta.is_developer === true || userMeta.is_developer === true) return "developer";
-  if (appMeta.is_admin === true || userMeta.is_admin === true) return "admin";
+  if (appMeta.is_developer === true) return "developer";
+  if (appMeta.is_admin === true) return "admin";
   return "none";
 }
 
@@ -137,7 +139,7 @@ async function resolveAgentRole(user) {
   const email = user.email ? user.email.toLowerCase() : null;
   if (email && parseEmailList(process.env.DEVELOPER_EMAILS).includes(email)) return "developer";
 
-  const metaRole = roleFromMetadata(user.appMetadata, user.userMetadata);
+  const metaRole = roleFromMetadata(user.appMetadata);
   if (metaRole === "developer") return "developer";
 
   let prefs = null;
@@ -162,7 +164,7 @@ async function resolveAgentRole(user) {
 }
 
 function mapSupabaseUser(payload) {
-  const meta = payload.user_metadata || {};
+  const meta = payload.user_metadata || {}; // metadata-ok: the display name only; the role comes from app_metadata above
   const email = payload.email || null;
   const name =
     String(meta.full_name || meta.name || "").trim() ||
@@ -175,9 +177,9 @@ function mapSupabaseUser(payload) {
     email,
     name,
     initials,
-    role: String(payload.app_metadata?.role || meta.role || "user"),
+    role: String(payload.app_metadata?.role || "user"), // app_metadata only
     appMetadata: payload.app_metadata || {},
-    userMetadata: meta,
+    userMetadata: meta, // metadata-ok: carried for the display name (voice readout), never for a role
   };
 }
 

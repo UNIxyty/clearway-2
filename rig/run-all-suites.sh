@@ -68,12 +68,18 @@ preview 5198   # the console against the sign-in-on wall
 docker exec supabase_db_rig psql -U postgres -q -c "alter table permission_changes disable trigger permission_changes_append_only; delete from permission_grants; alter table permission_changes enable trigger permission_changes_append_only;"
 docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.sql > /dev/null
 run permissions-browser $E rig/permissions-browser.mjs
+run self-promotion-check $E rig/self-promotion-check.mjs
 run wall/access-check $E rig/wall/access-check.mjs
 run wall/browser-access $E rig/wall/browser-access.mjs
 run wall/console-theme-check $E rig/wall/console-theme-check.mjs
 preview 5199   # back to the normal wall
 run mobile/tier1-check $E rig/mobile/tier1-check.mjs
 run mobile/tier2-check $E rig/mobile/tier2-check.mjs
+# The passenger check reads the manifest's mock Leon through the agent, which needs the manifest key in its environment
+# (rig/manifest/start.sh); anything that restarted :5175 in between (rig/start.sh has no key) would leave it unable to read
+# the operators' credentials. Start it fresh here, as at the top.
+rig/manifest/start.sh > $OUT/manifest-start-2.out 2>&1 < /dev/null
+$E rig/manifest/operators.mjs seed >> $LOG 2>&1
 run mobile/pax-check $E rig/mobile/pax-check.mjs
 run group2 $E rig/group2-check.mjs
 run shell-check $E rig/shell-check.mjs

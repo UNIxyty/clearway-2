@@ -13,18 +13,19 @@ function emailList(raw) {
 }
 
 /** From the Supabase user's metadata alone: "developer" | "admin" | "none" (lib/admin-auth.ts roleFromSupabaseUser). */
+// APP metadata only. user_metadata is the person's own to edit (Supabase auth.updateUser), so a role written there is a
+// claim, not a grant — found 2026-10-20, when a plain user wrote role: "developer" into it and the portal believed it.
 export function roleFromClaims(claims) {
   const app = claims?.app ?? {};
-  const meta = claims?.user ?? {};
-  const role = String(app.role || meta.role || "").toLowerCase();
+  const role = String(app.role || "").toLowerCase();
   if (role === "developer") return "developer";
   if (role === "admin") return "admin";
-  const rolesRaw = app.roles || meta.roles;
+  const rolesRaw = app.roles;
   const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
   if (roles.includes("developer")) return "developer";
   if (roles.includes("admin")) return "admin";
-  if (app.is_developer === true || meta.is_developer === true) return "developer";
-  if (app.is_admin === true || meta.is_admin === true) return "admin";
+  if (app.is_developer === true) return "developer";
+  if (app.is_admin === true) return "admin";
   return "none";
 }
 

@@ -779,12 +779,12 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
         return NextResponse.json({ error: "Missing service key" }, { status: 503 });
       }
       const { data: userLookup } = await service.auth.admin.getUserById(targetUserId);
-      const currentMeta = ((userLookup?.user?.user_metadata as Record<string, unknown> | undefined) || {});
+      const currentMeta = ((userLookup?.user?.app_metadata as Record<string, unknown> | undefined) || {});
       const nextMeta: Record<string, unknown> = {
         ...currentMeta,
         is_approved: false,
       };
-      await service.auth.admin.updateUserById(targetUserId, { user_metadata: nextMeta });
+      await service.auth.admin.updateUserById(targetUserId, { app_metadata: nextMeta }); // app_metadata: a grant, not a claim
       await service
         .from("user_preferences")
         .upsert({ user_id: targetUserId, is_approved: false }, { onConflict: "user_id" });
@@ -820,7 +820,7 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
       }
 
       const { data: userLookupRole } = await service.auth.admin.getUserById(targetUserId);
-      const currentMeta = ((userLookupRole?.user?.user_metadata as Record<string, unknown> | undefined) || {});
+      const currentMeta = ((userLookupRole?.user?.app_metadata as Record<string, unknown> | undefined) || {});
       const nextMeta: Record<string, unknown> = { ...currentMeta, is_approved: true };
       if (role === "temporary") {
         nextMeta.role = "temporary";
@@ -830,7 +830,7 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
         nextMeta.is_temporary = false;
       }
       await service.auth.admin.updateUserById(targetUserId, {
-        user_metadata: nextMeta,
+        app_metadata: nextMeta, // app_metadata: a grant, not a claim
       });
 
       await service.from("user_preferences").upsert(

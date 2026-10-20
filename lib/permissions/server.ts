@@ -18,7 +18,7 @@ export async function currentPerson(): Promise<PermissionFailure | PermissionSuc
   if (!supabase) return { error: accessCheckUnavailable() };
   if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true") {
     const email = (process.env.DEVELOPER_EMAILS || "rig-test@rig.invalid").split(",")[0].trim();
-    const testUser = { id: "00000000-7e57-4000-8000-000000000000", email, app_metadata: {}, user_metadata: {}, aud: "authenticated", created_at: new Date(0).toISOString() } as unknown as User;
+    const testUser = { id: "00000000-7e57-4000-8000-000000000000", email, app_metadata: {}, user_metadata: {}, aud: "authenticated", created_at: new Date(0).toISOString() } as unknown as User; // metadata-ok: the rig's stub user, empty
     return { user: testUser, supabase, role: "developer", isDeveloper: true };
   }
   const { data: { user }, error } = await supabase.auth.getUser();

@@ -36,7 +36,10 @@ const server = http.createServer((req, res) => {
     if (typeof loc === "string") { const m = loc.match(/^https?:\/\/(?:localhost|127\.0\.0\.1):\d+(\/.*)?$/); if (m) r.headers.location = m[1] || "/"; }
     res.writeHead(r.statusCode, r.headers); r.pipe(res);
   });
-  up.on("error", (e) => { res.writeHead(502); res.end(String(e)); });
+  up.on("error", (e) => { if (!res.headersSent) res.writeHead(502); res.end(String(e)); });
+  // The browser going away must reach the upstream (2026-10-20): a page's SSE (/api/help/stream) otherwise stays open on
+  // the portal for ever — thousands after a full run — and the portal slows until pages hang on "load".
+  res.on("close", () => { if (!up.destroyed) up.destroy(); });
   req.pipe(up);
 });
 server.on("upgrade", (req, socket, head) => {

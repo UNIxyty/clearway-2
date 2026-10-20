@@ -43,7 +43,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const blocks = sanitizeBlocks(body.blocks);
   if (!blocks.length) return NextResponse.json({ error: "Message has no content" }, { status: 400 });
   const displayName =
-    String((auth.user.user_metadata as Record<string, unknown> | undefined)?.display_name || "").trim() ||
+    String((auth.user.user_metadata as Record<string, unknown> | undefined)?.display_name || "").trim() || // metadata-ok: the display name only
     auth.user.email || "";
 
   let message;

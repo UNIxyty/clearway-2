@@ -34,13 +34,13 @@ export default function PendingApprovalPage() {
         window.location.href = "/login";
         return;
       }
-      if (data.session.user?.user_metadata?.is_approved === true) {
-        const role = String(data.session.user?.user_metadata?.role || "").toLowerCase();
+      if (data.session.user?.app_metadata?.is_approved === true) {
+        const role = String(data.session.user?.app_metadata?.role || "").toLowerCase();
         const isTemporary =
           role === "temporary" ||
-          data.session.user?.user_metadata?.is_temporary === true ||
-          (Array.isArray(data.session.user?.user_metadata?.roles) &&
-            (data.session.user?.user_metadata?.roles as unknown[]).some(
+          data.session.user?.app_metadata?.is_temporary === true ||
+          (Array.isArray(data.session.user?.app_metadata?.roles) &&
+            (data.session.user?.app_metadata?.roles as unknown[]).some(
               (value) => String(value).toLowerCase() === "temporary",
             ));
         window.location.href = isTemporary ? "/access-blocked" : nextParam;

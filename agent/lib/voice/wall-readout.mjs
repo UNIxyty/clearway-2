@@ -114,7 +114,7 @@ export const OUTCOME_TEXT = Object.freeze({
 
 /** First name + last-name initial, or a neutral label. Never the email. */
 export function speakerLabel(user) {
-  const meta = user?.userMetadata ?? {};
+  const meta = user?.userMetadata ?? {}; // metadata-ok: the speaker's name only
   const full = String(meta.full_name || meta.name || "").trim()
     || [meta.firstname, meta.lastname].filter(Boolean).join(" ").trim();
   let name = full;

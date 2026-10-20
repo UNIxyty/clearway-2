@@ -48,7 +48,7 @@ export async function requireAuthenticatedUser(): Promise<AuthFailure | AuthSucc
   if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true") {
     // The rig's account (see lib/rig-guard.mjs): unmistakable as a test account in every log.
     const email = (process.env.DEVELOPER_EMAILS || "rig-test@rig.invalid").split(",")[0].trim();
-    const testUser = { id: "00000000-7e57-4000-8000-000000000000", email, app_metadata: {}, user_metadata: {}, aud: "authenticated", created_at: new Date(0).toISOString() } as unknown as AuthSuccess["user"];
+    const testUser = { id: "00000000-7e57-4000-8000-000000000000", email, app_metadata: {}, user_metadata: {}, aud: "authenticated", created_at: new Date(0).toISOString() } as unknown as AuthSuccess["user"]; // metadata-ok: the rig's stub user, empty
     return { user: testUser, supabase, isDeveloper: true };
   }
 

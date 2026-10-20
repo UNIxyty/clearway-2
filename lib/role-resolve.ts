@@ -13,20 +13,19 @@ export function parseEmailList(raw: string | undefined) {
 
 export type Role = "none" | "admin" | "developer";
 
-export function roleFromSupabaseUser(user: { app_metadata?: unknown; user_metadata?: unknown }): Role {
+// APP metadata only. user_metadata is the person's own to edit (Supabase auth.updateUser), so a role written there is a
+// claim, not a grant — found 2026-10-20, when a plain user wrote role: "developer" into it and the portal believed it.
+export function roleFromSupabaseUser(user: { app_metadata?: unknown; user_metadata?: unknown }): Role { // metadata-ok: a type; only app_metadata is read below
   const appMeta = (user.app_metadata || {}) as Record<string, unknown>;
-  const userMeta = (user.user_metadata || {}) as Record<string, unknown>;
-  const roleValue = String(appMeta.role || userMeta.role || "").toLowerCase();
+  const roleValue = String(appMeta.role || "").toLowerCase();
   if (roleValue === "developer") return "developer";
   if (roleValue === "admin") return "admin";
-
-  const rolesRaw = appMeta.roles || userMeta.roles;
+  const rolesRaw = appMeta.roles;
   const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
   if (roles.includes("developer")) return "developer";
   if (roles.includes("admin")) return "admin";
-
-  if (appMeta.is_developer === true || userMeta.is_developer === true) return "developer";
-  if (appMeta.is_admin === true || userMeta.is_admin === true) return "admin";
+  if (appMeta.is_developer === true) return "developer";
+  if (appMeta.is_admin === true) return "admin";
   return "none";
 }
 

@@ -106,7 +106,7 @@ async function notifyApprovalNeeded(userId: string, email: string): Promise<void
   let name = "";
   if (service) {
     const { data: ud } = await service.auth.admin.getUserById(userId);
-    const meta = (ud?.user?.user_metadata ?? {}) as Record<string, unknown>;
+    const meta = (ud?.user?.user_metadata ?? {}) as Record<string, unknown>; // metadata-ok: the display name only
     name =
       (typeof meta.full_name === "string" ? meta.full_name : null) ??
       (typeof meta.name === "string" ? meta.name : null) ??
@@ -145,7 +145,7 @@ async function syncDisplayNameFromMetadata(userId: string) {
   if (!service) return;
 
   const { data: userData } = await service.auth.admin.getUserById(userId);
-  const metadata = (userData?.user?.user_metadata ?? {}) as Record<string, unknown>;
+  const metadata = (userData?.user?.user_metadata ?? {}) as Record<string, unknown>; // metadata-ok: the display name only
   const rawName =
     (typeof metadata.full_name === "string" ? metadata.full_name : null) ??
     (typeof metadata.name === "string" ? metadata.name : null);
@@ -227,7 +227,7 @@ export async function POST(request: Request) {
 
   // Mark account as pending approval and notify Telegram.
   await service.auth.admin.updateUserById(targetUserId, {
-    user_metadata: { is_approved: false },
+    app_metadata: { is_approved: false }, // app_metadata: the person cannot change it themselves
   });
   await service
     .from("user_preferences")

@@ -9,18 +9,16 @@ import { can, canAny, REFUSED, roleKey } from "@/lib/permissions/grants.mjs";
 import { DEFAULT_START, isStartPage } from "@/lib/user-settings";
 import docsSite from "@/content/docs/site.json";
 
-function isTemporaryUser(user: {
-  app_metadata?: Record<string, unknown> | null;
-  user_metadata?: Record<string, unknown> | null;
-}): boolean {
+// APP metadata only (see lib/role-resolve.ts): a person can edit their own user_metadata, so a restriction kept only
+// there could be removed by the person it restricts.
+function isTemporaryUser(user: { app_metadata?: Record<string, unknown> | null; user_metadata?: Record<string, unknown> | null }): boolean { // metadata-ok: a type; only app_metadata is read below
   const appMeta = (user.app_metadata || {}) as Record<string, unknown>;
-  const userMeta = (user.user_metadata || {}) as Record<string, unknown>;
-  const roleValue = String(appMeta.role || userMeta.role || "").toLowerCase();
+  const roleValue = String(appMeta.role || "").toLowerCase();
   if (roleValue === "temporary") return true;
-  const rolesRaw = appMeta.roles || userMeta.roles;
+  const rolesRaw = appMeta.roles;
   const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
   if (roles.includes("temporary")) return true;
-  return appMeta.is_temporary === true || userMeta.is_temporary === true;
+  return appMeta.is_temporary === true;
 }
 
 function isTemporaryAllowedPath(pathname: string): boolean {
@@ -254,9 +252,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect accounts pending admin approval (is_approved explicitly false in metadata).
-  // Undefined means existing account (not subject to approval flow) → allowed through.
-  const isApprovedMeta = (user.user_metadata as Record<string, unknown> | null)?.is_approved;
+  // Redirect accounts pending admin approval (is_approved explicitly false in APP metadata — written only with the
+  // service key; a person cannot approve themselves by editing their own user_metadata). Undefined means an existing
+  // account (not subject to the approval flow) → allowed through.
+  const isApprovedMeta = (user.app_metadata as Record<string, unknown> | null)?.is_approved;
   if (isApprovedMeta === false && !pathname.startsWith("/pending-approval")) {
     const pendingUrl = request.nextUrl.clone();
     pendingUrl.pathname = "/pending-approval";

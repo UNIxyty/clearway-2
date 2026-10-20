@@ -122,7 +122,7 @@ export async function POST(request: Request) {
 
     if (settingApproved) {
       await service.auth.admin.updateUserById(targetUserId, {
-        user_metadata: { is_approved: body.isApproved! },
+        app_metadata: { is_approved: body.isApproved! }, // app_metadata: the person cannot change it themselves
       });
     }
 

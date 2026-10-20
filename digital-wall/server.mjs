@@ -16,7 +16,7 @@ import { assertRigSafe } from "./lib/rig-guard.mjs";
 import { resolveRoleKey } from "./lib/roles.mjs";
 import { endpointFor, isWriteMethod } from "../lib/permissions/catalogue.mjs";
 import { can, grantsFor, REFUSED } from "../lib/permissions/grants.mjs";
-import { checkCatalogue, checkCodeRoutes } from "../lib/permissions/check.mjs";
+import { checkCatalogue, checkCodeRoutes, checkMetadataReads } from "../lib/permissions/check.mjs";
 assertRigSafe("digital-wall");
 import {
   announceDevice,
@@ -53,7 +53,7 @@ import { errorDetail, isPublicError, logFailure, PublicError, REASONS, shownReas
 // Permissions startup check (docs/permissions.md): every write route below must be in lib/permissions/catalogue.mjs,
 // and every wall entry there must still exist here. Refuse to start rather than serve a route nobody decided on.
 {
-  const problems = [...checkCatalogue(), ...checkCodeRoutes("wall", [fsSync.readFileSync(new URL(import.meta.url), "utf8")])];
+  const problems = [...checkCatalogue(), ...checkMetadataReads([["server.mjs", new URL(import.meta.url)], ["lib/auth.mjs", new URL("./lib/auth.mjs", import.meta.url)], ["lib/roles.mjs", new URL("./lib/roles.mjs", import.meta.url)]].map(([file, u]) => ({ file, text: fsSync.readFileSync(u, "utf8") }))), ...checkCodeRoutes("wall", [fsSync.readFileSync(new URL(import.meta.url), "utf8")])];
   if (problems.length) {
     console.error(`REFUSING TO START: permissions check failed\n  ${problems.join("\n  ")}`);
     process.exit(1);

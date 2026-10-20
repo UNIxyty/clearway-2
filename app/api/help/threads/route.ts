@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   const clientContext = (body.context && typeof body.context === "object" ? body.context : {}) as Record<string, unknown>;
   const roleLabel = auth.isDeveloper ? "developer" : "ops";
   const displayName =
-    String((auth.user.user_metadata as Record<string, unknown> | undefined)?.display_name || "").trim() ||
+    String((auth.user.user_metadata as Record<string, unknown> | undefined)?.display_name || "").trim() || // metadata-ok: the display name only
     auth.user.email || "";
 
   // Reopening a Done thread files a LINKED report — validate the link target.

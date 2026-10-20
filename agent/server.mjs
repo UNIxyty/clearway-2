@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 
 import { endpointFor, isWriteMethod } from "../lib/permissions/catalogue.mjs";
 import { can, loadGrants, REFUSED } from "../lib/permissions/grants.mjs";
-import { checkCatalogue, checkCodeRoutes, checkTools } from "../lib/permissions/check.mjs";
+import { checkCatalogue, checkCodeRoutes, checkTools, checkMetadataReads } from "../lib/permissions/check.mjs";
 import http from "node:http";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
@@ -273,7 +273,7 @@ async function knowledgeView(user) {
 // must be in lib/permissions/catalogue.mjs (and every agent entry there must still exist). Refuse to start otherwise.
 {
   const read = (f) => readFileSync(new URL(f, import.meta.url), "utf8");
-  const problems = [...checkCatalogue(), ...checkCodeRoutes("agent", [read("./server.mjs"), read("./lib/intake/api.mjs"), read("./lib/passengers/api.mjs")]), ...checkTools(allTools().map((t) => t.name))];
+  const problems = [...checkCatalogue(), ...checkMetadataReads(["./server.mjs", "./lib/auth.mjs", "./lib/access.mjs", "./lib/voice/wall-readout.mjs"].map((f) => ({ file: f, text: read(f) }))), ...checkCodeRoutes("agent", [read("./server.mjs"), read("./lib/intake/api.mjs"), read("./lib/passengers/api.mjs")]), ...checkTools(allTools().map((t) => t.name))];
   if (problems.length) {
     console.error(`REFUSING TO START: permissions check failed\n  ${problems.join("\n  ")}`);
     process.exit(1);

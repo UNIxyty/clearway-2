@@ -145,7 +145,7 @@ function pick(m) {
 }
 
 function mapSupabaseUser(payload) {
-  const meta = payload.user_metadata || {};
+  const meta = payload.user_metadata || {}; // metadata-ok: the display name only; roles.mjs reads app_metadata
   const email = payload.email || null;
   const name =
     String(meta.full_name || meta.name || "").trim() ||

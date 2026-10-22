@@ -69,6 +69,7 @@ docker exec supabase_db_rig psql -U postgres -q -c "alter table permission_chang
 docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.sql > /dev/null
 run permissions-browser $E rig/permissions-browser.mjs
 run self-promotion-check $E rig/self-promotion-check.mjs
+run temporary-access-check $E rig/temporary-access-check.mjs
 run wall/access-check $E rig/wall/access-check.mjs
 run wall/browser-access $E rig/wall/browser-access.mjs
 run wall/console-theme-check $E rig/wall/console-theme-check.mjs
@@ -120,4 +121,14 @@ if grep -lq "ERR_NETWORK_IO_SUSPENDED" $OUT/*.out 2>/dev/null; then
   echo DONE >> $LOG
   exit 2
 fi
+# The verdict, in the log and in the exit code (2026-10-21: a chain that counted "rc=0" lines in this log pushed on an
+# empty log). Every suite this script names must have run — a missing one is INCOMPLETE, not green — and any red is red.
+EXPECTED=$(grep -cE '^run ' "$0"); RAN=$(grep -cE ' rc=' $LOG); RED=$(grep -E ' rc=' $LOG | grep -vcE ' rc=0 ' || true)
+# A suite that took longer than two hours ran across a sleep the browser did not report (2026-10-22: the passenger check
+# "took" 42 hours and its ten-minute window test failed on stale reveals). That run is INCOMPLETE too, whatever its rcs.
+SLEPT=$(grep -E ' rc=' $LOG | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+s$/) { sub(/s$/, "", $i); if ($i + 0 > 7200) print $1 } }' | head -3 | tr '\n' ' ')
+if [ -n "$SLEPT" ]; then echo "VERDICT: INCOMPLETE — the machine slept during: $SLEPT(a suite over two hours); rerun from there" | tee -a $LOG; echo DONE >> $LOG; exit 2; fi
+if [ "$RAN" != "$EXPECTED" ]; then echo "VERDICT: INCOMPLETE — $RAN of $EXPECTED suites ran ($RED red)" | tee -a $LOG; echo DONE >> $LOG; exit 2; fi
+if [ "$RED" != 0 ]; then echo "VERDICT: RED — $RED of $RAN suites failed" | tee -a $LOG; echo DONE >> $LOG; exit 1; fi
+echo "VERDICT: GREEN — all $RAN suites passed" | tee -a $LOG
 echo DONE >> $LOG

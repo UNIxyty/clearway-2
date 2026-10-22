@@ -8,6 +8,12 @@ for this first: "if the answer is 'it isn't', say so plainly — that is the rea
 There is no scope anywhere. A person is either outside (no session, or `is_approved: false`, who sees the sign-in or
 the pending page and nothing else) or inside — and inside means **all of Clearway's flights, every operator**.
 
+*Correction, 2026-10-21:* "outside" was only true at the portal. The wall backend and the agent sit past the portal's
+middleware and answered any valid session, so the 19 temporary accounts (other companies) could read every operator's
+flights from the wall; see docs/security-metadata-roles.md, "The temporary label only ever covered the portal". Fixed
+in both services the same day. Stage 5 is therefore a door being closed, not a feature added: until a client role
+with a scope exists, every account that can sign in is inside everywhere.
+
 | Where | Who gets in | What they get |
 | --- | --- | --- |
 | Portal (Next middleware) | any Supabase session not pending approval; roles `user` / `admin` / `developer` from the account's metadata | every page and API behind sign-in: airports, NOTAMs, weather, AIP copies, dashboard, help; the only per-person data is a person's own recents, hidden airports and preferences |

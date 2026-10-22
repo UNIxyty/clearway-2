@@ -57,6 +57,11 @@ function walk(dir) {
   }
 }
 walk(root);
+if (!files) {
+  // Nothing read means the root is missing or unreadable, not that it is clean (a gate fails closed, 2026-10-21).
+  console.error(`check-image-secrets: REFUSING — no file could be read under ${root}; the image cannot be called clean`);
+  process.exit(2);
+}
 if (findings.length) {
   console.error(`check-image-secrets: ${findings.length} finding(s) in ${root} — the image must not be built:`);
   for (const f of findings.slice(0, 50)) console.error(`  ${f}`);

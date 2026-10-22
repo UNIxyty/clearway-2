@@ -169,6 +169,14 @@ function mapSupabaseUser(payload) {
   };
 }
 
+/** APP metadata only (the person cannot edit it): the temporary label, or approval explicitly withheld. */
+export function accountBlocked(appMeta) {
+  const app = appMeta && typeof appMeta === "object" ? appMeta : {};
+  const role = String(app.role || "").toLowerCase();
+  const roles = Array.isArray(app.roles) ? app.roles.map((r) => String(r).toLowerCase()) : [];
+  return role === "temporary" || roles.includes("temporary") || app.is_temporary === true || app.is_approved === false;
+}
+
 async function verifyAccessToken(token) {
   const cacheKey = crypto.createHash("sha256").update(token).digest("hex");
   const cached = verifyCache.get(cacheKey);
@@ -196,6 +204,13 @@ async function verifyAccessToken(token) {
   }
   const payload = await response.json();
   if (!payload?.id) {
+    verifyCache.set(cacheKey, { invalid: true, expiresAtMs: Date.now() + VERIFY_CACHE_TTL_MS });
+    return null;
+  }
+  if (accountBlocked(payload.app_metadata)) {
+    // A temporary (retired Pick'em guest) or not-yet-approved account: the portal's middleware sends them to
+    // /access-blocked or /pending-approval, but the wall is reached past that middleware (2026-10-21), so it must
+    // refuse on its own — as nobody, so an id reveals nothing. Reads and writes alike; the grid never sees them.
     verifyCache.set(cacheKey, { invalid: true, expiresAtMs: Date.now() + VERIFY_CACHE_TTL_MS });
     return null;
   }

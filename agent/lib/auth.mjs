@@ -163,6 +163,14 @@ async function resolveAgentRole(user) {
   return "user";
 }
 
+/** APP metadata only: the temporary label, or approval explicitly withheld. Mirrors digital-wall/lib/auth.mjs. */
+export function accountBlocked(appMeta) {
+  const app = appMeta && typeof appMeta === "object" ? appMeta : {};
+  const role = String(app.role || "").toLowerCase();
+  const roles = Array.isArray(app.roles) ? app.roles.map((r) => String(r).toLowerCase()) : [];
+  return role === "temporary" || roles.includes("temporary") || app.is_temporary === true || app.is_approved === false;
+}
+
 function mapSupabaseUser(payload) {
   const meta = payload.user_metadata || {}; // metadata-ok: the display name only; the role comes from app_metadata above
   const email = payload.email || null;
@@ -205,6 +213,12 @@ async function verifyAccessToken(token) {
   }
   const payload = await response.json();
   if (!payload?.id) {
+    verifyCache.set(cacheKey, { invalid: true, expiresAtMs: Date.now() + VERIFY_CACHE_TTL_MS });
+    return null;
+  }
+  if (accountBlocked(payload.app_metadata)) {
+    // A temporary or not-yet-approved account is nobody here (2026-10-21): the agent is reached past the portal's
+    // middleware, and the allowlist is a second gate, not the first.
     verifyCache.set(cacheKey, { invalid: true, expiresAtMs: Date.now() + VERIFY_CACHE_TTL_MS });
     return null;
   }

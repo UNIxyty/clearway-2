@@ -44,6 +44,22 @@ before that.
 2. Deploy `portal`, `agent-service`, `digital-wall-backend`.
 3. Nothing to tell ops: nobody's access changes, except for whoever had promoted themselves.
 
+## The temporary label only ever covered the portal (found 2026-10-21)
+A temporary account (`app_metadata.role: "temporary"` / `is_temporary`, the Telegram bot's guest grant for the retired
+Pick'em area) and a not-yet-approved one (`is_approved: false`) were held off by the portal's middleware alone:
+/access-blocked or /pending-approval for pages, 403 for the portal's APIs. The wall and the agent are reached past
+that middleware (Cloudflare routes `/digital-wall` and `/agent/api` to their own services), and both answered any
+valid Supabase session — so a temporary account, by signing in and then calling the wall backend directly, read every
+operator's timeline, the flights feed and the NOTAM check. The agent was closed to them only by its allowlist. On
+2026-10-21 production held 19 temporary accounts (other companies' addresses, last sign-ins June–July 2026, no expiry
+anywhere) and 7 accounts with no approval key at all (never signed in; the middleware treats a missing key as an old
+account and lets it through).
+
+**Fix:** `accountBlocked(app_metadata)` in `digital-wall/lib/auth.mjs` and `agent/lib/auth.mjs` — a temporary or
+unapproved account verifies as nobody (401, nothing revealed), before the grid or the allowlist is asked.
+**Check:** `rig/temporary-access-check.mjs` (in the runner): both labels, portal 307/403, agent 401, wall 401 by cookie,
+by bearer and for a write. The 7 keyless accounts are a decision for ops (approve, or set `is_approved: false`).
+
 ## Related
 The permissions grid (docs/permissions.md) decides what each *role* may do; this is about who *holds* a role.
 Client access (Stage 5) adds a `client` role on the same rule: `app_metadata` set by the service key when ops approve.

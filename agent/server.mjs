@@ -1292,6 +1292,10 @@ async function handleChat(req, res, user) {
   }
 
   const question = String(body.message ?? "").trim();
+  // A slash command with one fixed meaning is not left to the model (lib/bedrock.mjs pinTool): /blank-manifest always
+  // makes the blank form — twice the model answered it with a flight's manifest (2026-10-19, 2026-10-26).
+  const command = String(body.command ?? "").trim();
+  const pinTool = command === "/blank-manifest" || /^make the blank passenger manifest form\b/i.test(question) ? { name: "make_passenger_manifest", input: { blank: true } } : null;
 
   // Page content the user chose to send from the Chrome extension (PROTOCOL.md
   // `pageContext`): a selection, a captured region (as an attachment) or the
@@ -1511,7 +1515,7 @@ async function handleChat(req, res, user) {
     const abort = new AbortController();
     res.on("close", () => { if (!res.writableEnded) abort.abort(); });
     const onToolProgress = (e) => { if (!res.writableEnded) send("tool_progress", { name: e.name, toolUseId: e.toolUseId ?? null, step: e.step, index: e.index ?? null, steps: e.steps ?? null, filename: e.filename ?? e.input?.filename ?? null, format: e.format ?? e.input?.format ?? null }); };
-    const run = (tier) => streamConversationWithTools({ onToolProgress, signal: abort.signal, tier, system, messages: [...history, { role: "user", content: currentUserContent }], user, conversationId, inputMode, onRound, skipConfirm: prefs.skipConfirm === true && inputMode !== "voice" });
+    const run = (tier) => streamConversationWithTools({ pinTool, onToolProgress, signal: abort.signal, tier, system, messages: [...history, { role: "user", content: currentUserContent }], user, conversationId, inputMode, onRound, skipConfirm: prefs.skipConfirm === true && inputMode !== "voice" });
     let stream = run(route.tier);
     // A failed first attempt is retried once, one tier up — only if nothing was shown yet, so the reply
     // is never a splice of two models.

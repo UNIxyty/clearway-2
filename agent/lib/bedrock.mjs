@@ -158,7 +158,11 @@ export async function converseOnce({ tier = "standard", system, messages, ...ove
  *    and returns the standard error vocabulary. The model never gets to run
  *    anything the framework has not approved.
  */
-export async function* streamConversationWithTools({ tier: startTier = "standard", system, messages, user, conversationId, inputMode = "text", onRound = null, skipConfirm = false, onToolProgress = null, signal = null }) {
+export async function* streamConversationWithTools({ tier: startTier = "standard", system, messages, user, conversationId, inputMode = "text", onRound = null, skipConfirm = false, onToolProgress = null, signal = null, pinTool = null }) {
+  // pinTool { name, input } (2026-10-26): a slash command whose meaning is fixed — /blank-manifest — does not leave the
+  // tool and its input to the model. On the first round the model is made to call that tool (toolChoice), and the
+  // input it writes is replaced by the pinned one; later rounds are free again. Seen twice: asked for the blank form,
+  // the model picked a flight from the conversation and called it the blank form.
   // The tier may RISE during the turn (escalation after a tool round, item 3); it never falls.
   let tier = startTier;
   let { requested, effective, config } = resolveTier(tier);
@@ -198,7 +202,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
             // On the final round the tools are withheld, which forces the model
             // to answer from what it already has instead of asking for more.
             ...(toolSpecs.length > 0 && !lastRound
-              ? { toolConfig: { tools: withCachePoint(toolSpecs, modelId) } }
+              ? { toolConfig: { tools: withCachePoint(toolSpecs, modelId), ...(pinTool && round === 0 && toolSpecs.some((t) => t.toolSpec.name === pinTool.name) ? { toolChoice: { tool: { name: pinTool.name } } } : {}) } }
               : {}),
           }),
           { abortSignal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) }
@@ -293,6 +297,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         try { onToolProgress?.({ name: call.name, toolUseId: call.toolUseId, step: "start", input: call.input }); } catch { /* best-effort */ }
         // origin: "model" -- a confirmation token in a model tool call is refused
         // by executeTool; only the console's confirm endpoint may spend one.
+        if (pinTool && call.name === pinTool.name && !pinTool.used) { pinTool.used = true; call.input = { ...pinTool.input }; }
         const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode, origin: "model", skipConfirm: skipConfirm && inputMode !== "voice", signal, onProgress: (e) => { try { onToolProgress?.({ toolUseId: call.toolUseId, ...e }); } catch { /* best-effort */ } } });
         return { call, result, startedAt, durationMs: Date.now() - startedAt };
       })

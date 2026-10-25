@@ -101,7 +101,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
     try {
       const response = await fetch(`${AGENT_BASE}/api/chat`, {
         method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, signal: controller.signal,
-        body: JSON.stringify({ message: text, conversationId, context: pinned, ...(opts.tier ? { tier: opts.tier } : {}), ...(opts.attachmentIds?.length ? { attachmentIds: opts.attachmentIds } : {}), ...(opts.voice ? { inputMode: "voice", voice: { language: opts.language ?? null } } : {}), ...(opts.pageContext ? { pageContext: { ...opts.pageContext, dataUrl: undefined } } : {}), ...(opts.system ? { system: opts.system } : {}) }),
+        body: JSON.stringify({ message: text, conversationId, context: pinned, ...(opts.tier ? { tier: opts.tier } : {}), ...(opts.attachmentIds?.length ? { attachmentIds: opts.attachmentIds } : {}), ...(opts.voice ? { inputMode: "voice", voice: { language: opts.language ?? null } } : {}), ...(opts.pageContext ? { pageContext: { ...opts.pageContext, dataUrl: undefined } } : {}), ...(opts.system ? { system: opts.system } : {}), ...(opts.command ? { command: opts.command } : {}) }),
       });
       if (!response.ok || !response.body) {
         const b = await response.json().catch(() => null);

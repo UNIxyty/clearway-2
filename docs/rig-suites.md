@@ -112,7 +112,7 @@ AIP stand-ins (`rig/wall/seed-portal.mjs`). Three suites had relied on the rig h
 
 ## Red in a full run on 2026-10-19, green alone
 
-- **manifest/browser "the blank form is one keypress from the picker" (35/36) and wall/console-theme-check "the open
+- **Fixed 2026-10-26 (the manifest one was not timing: the model chose a flight for the blank form; /blank-manifest now pins the tool and its input — commit "The blank manifest form is never left to the model").** **manifest/browser "the blank form is one keypress from the picker" (35/36) and wall/console-theme-check "the open
   display tab did not react: pixel-identical" (39/40)** in the second full run of the night (after the mobile
   Tier 1 suite was added). Each passed alone straight after: 36/36 (with a fresh mock Leon, as the runner starts it)
   and 40/40. Both are timing checks under load — a keypress before focus settles, and a display screenshot taken

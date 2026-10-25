@@ -16,6 +16,10 @@ Cached EAD AD 2 copies now refresh on the AIRAC schedule, record which cycle the
   on the wall in the next 7 days (the wall writes `data/portal/upcoming-airports.json`, ICAO codes only, and the worker mounts that folder read-only as `/wall-portal`, never the wall’s whole data folder), copies over 90 days old, copies
   older than one cycle, the rest; airports with flights and no copy are appended. For each copy it checks the source and
   **refetches only when the table has a newer date or the copy has no recorded date** — and only in download mode.
+- **Scope: airports with flights in the next 7 days, by default** (`AIP_REFRESH_SCOPE=upcoming`, decided 2026-10-25 after
+  reading EAD Basic's terms): on the cycle date the run checks those copies and, in download mode, refetches the newer
+  ones and fetches the missing ones; everything else stays on demand. `AIP_REFRESH_SCOPE=all` restores the full order
+  (the 52 oldest, older than a cycle, the rest) — off by default.
 - **Check-only is the default.** `AIP_REFRESH_DOWNLOADS=on` in the server's `.env` turns refetching on. Until then a
   run records what it found and changes no document.
 - **Every sidecar** gets `lastCheck { at, ok, sourceEffectiveDate, newer | refetched | reason }`. A failure keeps the old
@@ -40,6 +44,22 @@ Cached EAD AD 2 copies now refresh on the AIRAC schedule, record which cycle the
 3. **Failure alerts go to the developer Telegram channel**, the one that already carries approvals. Decided.
 4. **Run window:** due from 00:30Z on the effective date, with the 24-hour recheck. Decided.
 5. **Pre-fetching** airports with upcoming flights and no copy: yes, in download mode (appended to the run). Decided.
+
+## EAD Basic terms, read 2026-10-25
+The EAD Basic terms (the Terms and Conditions page of the EAD Basic portal, and EUROCONTROL's site terms it links)
+say nothing about automated access, scripts, frequency or bulk downloading. What they do say: EAD Basic is "an
+advertisement tool showing the capabilities and functionalities of the EAD operational system", "not connected to the
+EAD operational database", and "the information displayed shall not be used for operational purposes"; users who want
+EAD for operational purposes are invited to contact ead.service@eurocontrol.int. Registration is free; access codes are
+for the registrant's sole use; EUROCONTROL may withdraw access for a breach. Redistribution of site content is allowed
+for non-commercial purposes with attribution; commercial exploitation needs written permission. Users on forums report
+that the site blocks bulk downloads and that EUROCONTROL's answer to volume is a B2B subscription (EAD Pro).
+
+So the question is not the schedule but the posture: the copies are used operationally already, by a person pressing
+Re-sync. A scheduled refresh does not change that; it changes the volume. The narrow position — refresh only the airports
+with flights in the next seven days, on the cycle date, everything else on demand — keeps the volume at what a person
+would do (a few dozen page reads per cycle) and is the default (`AIP_REFRESH_SCOPE=upcoming`; `all` restores the full order, off). The operational-use line is a matter for EUROCONTROL
+and Clearway, not for this code.
 
 ## Production, in order
 1. Run migration-free: nothing to run on the database.

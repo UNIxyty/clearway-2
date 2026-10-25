@@ -38,17 +38,22 @@ fs.writeFileSync(path.join(WALL, "timeline-cache.json"), JSON.stringify({ flight
 fs.writeFileSync(STUB, JSON.stringify({ EVRA: { effectiveDate: cycle.effective }, EYVI: { effectiveDate: cycle.effective }, LSGG: { effectiveDate: cycle.effective }, EGLL: { fail: "EAD session expired (stub)" }, LFPG: { effectiveDate: prevCycle.effective }, EDDF: { effectiveDate: cycle.effective } }));
 
 const PORT = 3983;
-const worker = spawn("node", ["scripts/aip-sync-server.mjs"], { env: { ...process.env, STORAGE_ROOT: STORAGE, WALL_DATA_DIR: WALL, AIP_REFRESH_STUB: STUB, AIP_REFRESH_PAUSE_MS: "0", AIP_REFRESH_SCHEDULE: "off", AIP_SYNC_PORT: String(PORT), SYNC_SECRET: "rig-refresh", TELEGRAM_BUG_BOT_TOKEN: "", TELEGRAM_BOT_TOKEN: "" }, stdio: ["ignore", "pipe", "pipe"] });
+const worker = spawn("node", ["scripts/aip-sync-server.mjs"], { env: { ...process.env, STORAGE_ROOT: STORAGE, WALL_DATA_DIR: WALL, AIP_REFRESH_STUB: STUB, AIP_REFRESH_PAUSE_MS: "0", AIP_REFRESH_SCHEDULE: "off", AIP_REFRESH_SCOPE: "all", AIP_SYNC_PORT: String(PORT), SYNC_SECRET: "rig-refresh", TELEGRAM_BUG_BOT_TOKEN: "", TELEGRAM_BOT_TOKEN: "" }, stdio: ["ignore", "pipe", "pipe"] });
 let log = ""; worker.stdout.on("data", (d) => { log += d.toString(); }); worker.stderr.on("data", (d) => { log += d.toString(); });
 const up = async () => { for (let i = 0; i < 60; i++) { try { const r = await fetch(`http://127.0.0.1:${PORT}/health`); if (r.ok) return true; } catch {} await new Promise((r) => setTimeout(r, 500)); } return false; };
 ok(await up(), "the worker starts against the scratch storage");
 const H = { "x-sync-secret": "rig-refresh" };
-const run = async (mode, limit = 500) => (await fetch(`http://127.0.0.1:${PORT}/refresh/run?mode=${mode}&limit=${limit}`, { method: "POST", headers: H })).json();
+const run = async (mode, limit = 500, scope = "all") => (await fetch(`http://127.0.0.1:${PORT}/refresh/run?mode=${mode}&limit=${limit}&scope=${scope}`, { method: "POST", headers: H })).json();
 const meta = (icao) => { const dir = path.join(STORAGE, "aip/ead-pdf"); const n = fs.readdirSync(dir).find((f) => f.endsWith(".meta.json") && new RegExp(`(_AD_2_${icao}_|^${icao}_AD2)`).test(f)); return n ? JSON.parse(fs.readFileSync(path.join(dir, n), "utf8")) : null; };
 const copiesOf = (icao) => fs.readdirSync(path.join(STORAGE, "aip/ead-pdf")).filter((f) => f.endsWith(".pdf") && new RegExp(`(_AD_2_${icao}_|^${icao}_AD2)`).test(f)).length;
 const noAuth = await fetch(`http://127.0.0.1:${PORT}/refresh/run?mode=check`, { method: "POST" }); ok(noAuth.status === 401, "a run needs the sync secret", noAuth.status);
 
-// 1. check-only: records, refetches nothing
+// 0. the default scope: only the airports with flights in the next 7 days (EYVI, LSGG with copies; EDDF without)
+const c0 = await run("check", 500, "upcoming"); const s0 = c0.summary;
+ok(c0.ok && s0.scope === "upcoming" && s0.planned === 3 && s0.checked === 2 && s0.wouldRefetch === 2 && s0.failed.length === 0, "scope upcoming (the default): three airports — the two with copies checked, EDDF noted as a fetch — nothing else touched", JSON.stringify({ planned: s0.planned, checked: s0.checked, wouldRefetch: s0.wouldRefetch, failed: s0.failed }));
+ok(meta("EVRA")?.lastCheck == null && meta("EGLL")?.lastCheck == null, "…EVRA and EGLL (no flights soon) were not even checked");
+
+// 1. check-only over the full order (AIP_REFRESH_SCOPE=all): records, refetches nothing
 const c1 = await run("check"); const s1 = c1.summary;
 ok(c1.ok && s1.mode === "check" && s1.airac === cycle.airac, "check-only run completes for the cycle in force", JSON.stringify({ airac: s1.airac, planned: s1.planned }));
 ok(s1.checked === 4 && s1.refetched === 0, "four copies checked (the fifth's check failed), none refetched in check-only", `${s1.checked} checked, ${s1.refetched} refetched`);

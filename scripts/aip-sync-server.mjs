@@ -1297,8 +1297,9 @@ const server = createServer(async (req, res) => {
     if (req.method !== "POST") { res.writeHead(405, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "POST" })); return; }
     const mode = url.searchParams.get("mode") === "download" ? "download" : "check";
     const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit")) || 500));
+    const scope = url.searchParams.get("scope"); // upcoming (default) | all
     try {
-      const summary = await refreshNow({ mode, limit, reason: "manual" });
+      const summary = await refreshNow({ mode, scope, limit, reason: "manual" });
       res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, summary }));
     } catch (e) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "The refresh run failed; see the worker log." })); }
     return;

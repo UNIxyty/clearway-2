@@ -162,15 +162,24 @@ async function stubSync(icao) {
   await saveFile(metaKeyFor(key), JSON.stringify({ icao, source: "ead", effectiveDate: src.effectiveDate ?? null, airac: airacForDate(src.effectiveDate ?? null), fetchedAt: new Date().toISOString(), revisionSource: "stub" }, null, 2));
 }
 
-export async function runRefresh({ mode = "check", syncIcao, limit = Infinity, log = () => {}, now = new Date(), reason = "scheduled" } = {}) {
+/**
+ * The run's scope (decided 2026-10-25, after reading EAD Basic's terms): "upcoming" — only airports with flights on the wall
+ * in the next 7 days, on the cycle date; everything else stays on demand (a person pressing Re-sync). A few dozen reads
+ * a cycle, what a person would do. "all" — the full order (the 52 oldest, older than a cycle, the rest) — stays behind
+ * AIP_REFRESH_SCOPE=all, off by default.
+ */
+export function refreshScope(override) { const v = String(override ?? process.env.AIP_REFRESH_SCOPE ?? "upcoming").toLowerCase(); return v === "all" ? "all" : "upcoming"; }
+
+export async function runRefresh({ mode = "check", scope, syncIcao, limit = Infinity, log = () => {}, now = new Date(), reason = "scheduled" } = {}) {
   if (readStub()) syncIcao = stubSync; // the rig has no EAD
   const state = await readState();
   const cycle = cycleInForce(now);
   const copies = await listCopies();
   const upcoming = upcomingAirports(now);
-  const plan = orderRun(copies, upcoming, cycle).slice(0, limit);
-  const summary = { airac: cycle?.airac ?? null, effective: cycle?.effective ?? null, startedAt: now.toISOString(), mode, reason, planned: plan.length, checked: 0, upToDate: 0, refetched: 0, wouldRefetch: 0, failed: [], noCopyFetched: 0, upcomingAirports: upcoming.size, copies: copies.length };
-  log(`refresh ${summary.airac ?? "?"} (${mode}, ${reason}): ${plan.length} airports, ${upcoming.size} with flights in 7 days, ${copies.length} copies`);
+  const scopeUsed = refreshScope(scope);
+  const plan = orderRun(copies, upcoming, cycle).filter((i) => scopeUsed === "all" || i.why.startsWith("flight in the next 7 days")).slice(0, limit);
+  const summary = { airac: cycle?.airac ?? null, effective: cycle?.effective ?? null, startedAt: now.toISOString(), mode, scope: scopeUsed, reason, planned: plan.length, checked: 0, upToDate: 0, refetched: 0, wouldRefetch: 0, failed: [], noCopyFetched: 0, upcomingAirports: upcoming.size, copies: copies.length };
+  log(`refresh ${summary.airac ?? "?"} (${mode}, ${scopeUsed}, ${reason}): ${plan.length} airports, ${upcoming.size} with flights in 7 days, ${copies.length} copies`);
   let first = true;
   for (const item of plan) {
     if (!first && PAUSE_MS > 0) await sleep(PAUSE_MS); first = false;
@@ -226,5 +235,5 @@ export async function tick({ syncIcao, log = () => {}, now = new Date() } = {}) 
     await saveFile(STATE_KEY, JSON.stringify({ ...state, runs: { ...(state.runs ?? {}), [due.cycle.airac]: { ...(state.runs?.[due.cycle.airac] ?? {}), missedNoted: true } } }, null, 2));
   }
   const mode = String(process.env.AIP_REFRESH_DOWNLOADS || "").toLowerCase() === "on" ? "download" : "check";
-  return runRefresh({ mode, syncIcao, log, now, reason: due.due });
+  return runRefresh({ mode, scope: refreshScope(), syncIcao, log, now, reason: due.due });
 }

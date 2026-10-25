@@ -19,11 +19,15 @@ import { leonForOperator } from "../leon-operators.mjs";
 import { audit } from "../store.mjs";
 import { rest } from "../knowledge/retrieval.mjs";
 import { can } from "../../../lib/permissions/grants.mjs";
+import { flightInScope } from "../../../lib/clients/scope.mjs";
 
 const err = (status, message) => Object.assign(new Error(message), { status });
 const WINDOW_MS = 10 * 60_000;
 export const REVEAL_LIMIT = 40; // per person per window, across flights
 export const BURST_FLIGHTS = 3; // more than this many different flights in a window is the unusual shape
+// A client (Stage 5): lower, by decision — a client checks their own passengers, not a manifest a day.
+export const CLIENT_REVEAL_LIMIT = 15;
+export const CLIENT_BURST_FLIGHTS = 1;
 export const SECONDS = 30; // the view closes itself after this; the same number on intake and in the mailbox
 
 const SEX = { MALE: "M", FEMALE: "F" };
@@ -135,28 +139,56 @@ async function burstAlreadyNoted(user, since) {
 }
 
 // ── Route table ────────────────────────────────────────────────────────────────────────────────────────
-export async function handlePassengerRoutes({ req, res, pathname, user, sendJson }) {
+/**
+ * `scope` (Stage 5): a client's scope from lib/clients/scope.mjs, or undefined for staff. For a client the flight must be
+ * theirs and their passenger level must allow the route — otherwise 404, the same words as everywhere: the flight (or
+ * the capability) is not on their account. Never 403, which would confirm the flight exists.
+ */
+export async function handlePassengerRoutes({ req, res, pathname, user, sendJson, scope }) {
   const send = (payload, status = 200) => { sendJson(res, payload, status); return true; };
+  const notOnAccount = () => send({ ok: false, message: "That is not on your account." }, 404);
+  const client = scope && !scope.nobody ? scope : null;
+  const revealLimit = client ? CLIENT_REVEAL_LIMIT : REVEAL_LIMIT, burstFlights = client ? CLIENT_BURST_FLIGHTS : BURST_FLIGHTS;
+  /**
+   * A client's flight: in scope by its operator (no Leon read needed), or by its registration / trip number, which are the
+   * flight's own in Leon — asked for in one small read that carries nothing of a passenger. A Leon error is "not theirs".
+   */
+  const clientMayRead = async (flightId) => {
+    if (!client) return true;
+    if (client.passengerLevel === "off") return false;
+    const { oprId, nid } = parseFlightId(flightId);
+    if (client.scope.operators.has(oprId)) return true;
+    if (!client.scope.registrations.size && !client.scope.trips.size) return false;
+    try {
+      const c = await leonForOperator(oprId);
+      const r = await c.graphql(`query { flight(flightNid: ${nid}) { tripNo acft { registration } } }`);
+      const f = r?.data?.flight; if (!f) return false;
+      return flightInScope(client, { oprId, aircraftRegistration: f.acft?.registration, tripNo: f.tripNo });
+    } catch { return false; }
+  };
   const fail = (e) => send({ ok: false, message: e.status ? e.message : "The passenger list could not be read. Try again in a few minutes. If it keeps failing, report it from Help & support." }, e.status ?? 500); // public-error-ok: an error with a status is one of this file's own sentences (err()); Leon's and the store's text never carries one
   let m;
   try {
     if ((m = /^\/api\/flights\/([^/]+)\/passengers$/.exec(pathname)) && req.method === "GET") {
       const flightId = decodeURIComponent(m[1]);
+      if (!(await clientMayRead(flightId))) return notOnAccount();
       const out = await listPassengers(flightId);
-      return send({ ok: true, ...out, canReveal: await can(user.agentRole, "intake.people.reveal"), seconds: SECONDS });
+      const canReveal = client ? client.passengerLevel === "documents" : await can(user.agentRole, "intake.people.reveal");
+      return send({ ok: true, ...out, canReveal, seconds: SECONDS });
     }
     if ((m = /^\/api\/flights\/([^/]+)\/passengers\/([^/]+)\/reveal$/.exec(pathname)) && req.method === "POST") {
       const flightId = decodeURIComponent(m[1]), id = decodeURIComponent(m[2]);
       parseFlightId(flightId);
+      if (client && (client.passengerLevel !== "documents" || !(await clientMayRead(flightId)))) return notOnAccount();
       const recent = await recentReveals(user);
-      if (recent.count >= REVEAL_LIMIT) {
+      if (recent.count >= revealLimit) {
         await audit({ kind: "intake.personal_reveal_limited", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: false, confirmationStatus: "not_required", detail: { flightId, count: recent.count, windowMin: WINDOW_MS / 60_000 } }).catch(() => {});
         return send({ ok: false, message: `That is ${recent.count} document views in 10 minutes. Wait a few minutes, then carry on; this stop is logged.` }, 429);
       }
       const p = await revealPassenger(flightId, id);
       const flights = new Set([...recent.flights, flightId]);
       await audit({ kind: "intake.personal_revealed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { flightId, row: p.row, seconds: SECONDS, viewsInWindow: recent.count + 1, flightsInWindow: flights.size } }).catch(() => {});
-      if (flights.size > BURST_FLIGHTS && !(await burstAlreadyNoted(user, recent.since))) {
+      if (flights.size > burstFlights && !(await burstAlreadyNoted(user, recent.since))) {
         await audit({ kind: "intake.personal_reveal_burst", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { flights: [...flights], count: recent.count + 1, windowMin: WINDOW_MS / 60_000 } }).catch(() => {});
       }
       return send({ ok: true, passenger: p, shownAt: new Date().toISOString(), seconds: SECONDS });

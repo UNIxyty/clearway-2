@@ -119,6 +119,7 @@ function roleFromMetadata(appMeta = {}) {
   const roleValue = String(appMeta.role || "").toLowerCase();
   if (roleValue === "developer") return "developer";
   if (roleValue === "admin") return "admin";
+  if (roleValue === "client") return "client"; // Stage 5: outside Clearway; no agent action, only their scope's passengers
   const rolesRaw = appMeta.roles;
   const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
   if (roles.includes("developer")) return "developer";
@@ -156,6 +157,7 @@ async function resolveAgentRole(user) {
   } catch {
     /* fall through: absence of a flag is not a grant */
   }
+  if (metaRole === "client") return "client"; // Stage 5: a client holds no agent action; the passenger routes read their scope
   if (prefs?.is_developer) return "developer";
   if (metaRole === "admin") return "admin";
   if (email && parseEmailList(process.env.ADMIN_EMAILS).includes(email)) return "admin";

@@ -28,7 +28,7 @@ export class SseHub {
     if (typeof this.heartbeat.unref === "function") this.heartbeat.unref();
   }
 
-  addClient({ req, res, user, surface = "display", deviceId = null }) {
+  addClient({ req, res, user, surface = "display", deviceId = null, filter = null }) {
     const id = this.nextClientId++;
     res.writeHead(200, {
       "content-type": "text/event-stream; charset=utf-8",
@@ -44,6 +44,7 @@ export class SseHub {
       user: user ?? null,
       surface: String(surface || "display"),
       deviceId: deviceId || null,
+      filter: typeof filter === "function" ? filter : null, // Stage 5: a client sees only events about their flights
       connectedAt: new Date().toISOString(),
     });
 
@@ -84,6 +85,7 @@ export class SseHub {
     const frame = eventFrame(event);
     for (const [id, client] of this.clients.entries()) {
       try {
+        if (client.filter) { const own = client.filter(event); if (own) client.res.write(eventFrame(own)); continue; }
         client.res.write(frame);
       } catch {
         this.removeClient(id);

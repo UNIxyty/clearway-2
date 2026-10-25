@@ -12,6 +12,8 @@ import {
   voiceEventsSecretMatches,
 } from "./lib/voice-readout.mjs";
 import { authenticateRequest, authEnabled, authMisconfigured, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
+import { scopeFor } from "../lib/clients/scope.mjs";
+import { clientReadRefusal, scopePayload, flightInfoForClient, clientStreamFilter, NOT_ON_ACCOUNT } from "./lib/client-scope.mjs";
 import { assertRigSafe } from "./lib/rig-guard.mjs";
 import { resolveRoleKey } from "./lib/roles.mjs";
 import { endpointFor, isWriteMethod } from "../lib/permissions/catalogue.mjs";
@@ -597,7 +599,15 @@ async function readMaybe(filePath) {
   }
 }
 
+// A client's request registers a sender here (the gate in the request handler): every JSON the handlers send for
+// that response is cut down to the client's scope first (Stage 5). Staff requests have no entry and go straight through.
+const scopedSenders = new WeakMap();
 function sendJson(res, payload, status = 200) {
+  const scoped = scopedSenders.get(res);
+  if (scoped) { scopedSenders.delete(res); return scoped(payload, status); }
+  return rawSendJson(res, payload, status);
+}
+function rawSendJson(res, payload, status = 200) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
 }
@@ -866,6 +876,38 @@ const server = http.createServer(async (req, res) => {
       // Permissions in the portal). An endpoint nobody listed is refused. Enforced here, before any handler, so a
       // hidden console button is never the only guard.
       if (requestUser) requestUser = { ...requestUser, permRole: await resolveRoleKey(requestUser) };
+      // ── Client access (Stage 5, 2026-10-25): a client's world is their scope and their switches, decided HERE for
+      // every request. Anything else — another operator's flight by id, a write, a console or display endpoint — is
+      // 404: it does not exist for them. Reads that list flights are cut down to their flights before they are sent
+      // (digital-wall/lib/client-scope.mjs); the handlers below run unchanged. ──
+      let clientScope = null;
+      if (requestUser && !requestUser.device && requestUser.permRole === "client") {
+        clientScope = await scopeFor(requestUser);
+        if (clientScope.nobody) { sendJson(res, { ok: false, error: "Unauthorized. Sign in through the Clearway portal first." }, 401); return; }
+        if (clientReadRefusal(clientScope, req.method, pathname)) { sendJson(res, NOT_ON_ACCOUNT, 404); return; }
+        if (pathname === "/api/flight-info") {
+          const found = timelineService.getFlightByNid(url.searchParams.get("flightNid"), url.searchParams.get("oprId") || "");
+          const pieces = flightInfoForClient(found, clientScope);
+          if (!pieces) { sendJson(res, NOT_ON_ACCOUNT, 404); return; }
+          requestUser = { ...requestUser, clientPieces: pieces };
+        }
+        if (pathname === "/api/stream") requestUser = { ...requestUser, streamFilter: clientStreamFilter(clientScope, timelineService) };
+        scopedSenders.set(res, (payload, status = 200) => {
+          if (status !== 200) return rawSendJson(res, payload, status);
+          let out = scopePayload({ pathname, payload, scope: clientScope, timelineService, importantStore, caaStore });
+          if (pathname === "/api/flight-info" && out && typeof out === "object") {
+            const p = requestUser.clientPieces;
+            const drop = (keys) => { for (const k of keys) delete out[k]; };
+            out = { ...out };
+            if (!p.notams) drop(["notams", "depNotams", "arrNotams"]);
+            if (!p.weather) drop(["weather", "depWeather", "arrWeather"]);
+            if (!p.aip) drop(["aip", "depAip", "arrAip"]);
+            if (!p.radar) drop(["radar", "position", "track"]);
+            drop(["checks", "limitations", "important"]);
+          }
+          return rawSendJson(res, out, status);
+        });
+      }
       if (isWriteMethod(req.method)) {
         const entry = endpointFor("wall", req.method, pathname);
         if (!entry) {
@@ -923,6 +965,7 @@ const server = http.createServer(async (req, res) => {
         user: requestUser?.device ? null : requestUser,
         surface,
         deviceId: requestUser?.device ? requestUser.deviceId : null,
+        filter: requestUser?.streamFilter ?? null, // a client's stream carries only their flights (Stage 5)
       });
       return;
     }

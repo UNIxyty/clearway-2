@@ -22,6 +22,7 @@ import { assertRigSafe } from "../lib/rig-guard.mjs";
 import { verifySvix, handleEvent as handleIntakeEvent } from "./lib/intake/resend.mjs";
 import { handleIntakeRoutes } from "./lib/intake/api.mjs";
 import { handlePassengerRoutes } from "./lib/passengers/api.mjs";
+import { scopeFor } from "../lib/clients/scope.mjs";
 import { recoverOnStart as recoverIntakeSends } from "./lib/intake/send.mjs";
 import { resumeWaiting as resumeIntakeQueue } from "./lib/intake/pipeline.mjs";
 import { startTzWatch, tzStatus } from "./lib/tzdata.mjs";
@@ -58,7 +59,7 @@ import { routeTurn } from "./lib/router.mjs";
 import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.mjs";
 import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment, keybinds, setKeybinds, KEYBIND_ACTIONS, KEYBIND_DEFAULTS } from "./lib/views.mjs";
 import { rest as knowledgeRest2 } from "./lib/knowledge/retrieval.mjs";
-import { AgentError, BadRequest } from "./lib/errors.mjs";
+import { AgentError, BadRequest, Unauthorized } from "./lib/errors.mjs";
 import { REPLY_FAILED, REPLY_FAILED_DEFAULT, logDetail, stepFailedText, storedError } from "./lib/public-errors.mjs";
 import { ATTACHMENT_LIMITS, AttachmentRejected, assertAcceptable, attachmentBlocks, publicReadStatus, truncateWithMarker } from "./lib/attachments.mjs";
 import { requestContext, clientOf } from "./lib/request-context.mjs";
@@ -338,6 +339,17 @@ async function handleRequest(req, res) {
     // Permissions in the portal). An endpoint nobody listed is refused. The grants are loaded here for the whole request
     // (the tool list reads them synchronously); handlers check finer actions themselves.
     await loadGrants();
+    // ── Client access (Stage 5, 2026-10-25): a client reaches the passenger routes only — for THEIR flights, at THEIR
+    // passenger level (the clients row decides; lib/clients/scope.mjs) — and nothing else of the agent: not the
+    // allowlist, not chat, not tools, not intake. Everything else answers 404: it does not exist for them. ──
+    if (user.agentRole === "client") {
+      if (pathname.startsWith("/api/flights/")) {
+        const scope = await scopeFor(user);
+        if (scope.nobody) throw Unauthorized();
+        if (await handlePassengerRoutes({ req, res, pathname, user, sendJson, scope })) return;
+      }
+      return sendJson(res, { ok: false, error: "not_found", message: "That is not on your account." }, 404);
+    }
     if (isWriteMethod(req.method)) {
       const entry = endpointFor("agent", req.method, pathname);
       if (!entry) return sendJson(res, { ok: false, error: "forbidden", message: "This endpoint is not in the permissions list, so it is refused." }, 403);

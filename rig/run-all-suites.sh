@@ -71,6 +71,7 @@ bash rig/approve-rig-accounts.sh >> $LOG 2>&1
 run permissions-browser $E rig/permissions-browser.mjs
 run self-promotion-check $E rig/self-promotion-check.mjs
 run temporary-access-check $E rig/temporary-access-check.mjs
+run client-scope-check $E rig/client-scope-check.mjs
 run wall/access-check $E rig/wall/access-check.mjs
 run wall/browser-access $E rig/wall/browser-access.mjs
 run wall/console-theme-check $E rig/wall/console-theme-check.mjs

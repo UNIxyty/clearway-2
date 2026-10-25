@@ -50,6 +50,14 @@ function failClosed(request: NextRequest, pathname: string) {
   return NextResponse.redirect(maintenanceUrl);
 }
 
+// Client access (Stage 5): the 404 a client gets for any page outside their world, and staff get under /client. Answered
+// here, not by a React not-found page: under a streamed root layout notFound() arrives after the 200 has gone out, and the
+// portal's root not-found payload would carry the docs. One sentence, the portal's tokens by name only, light and dark.
+function clientNotFoundResponse() {
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not found</title><meta name="robots" content="noindex"><style>:root{color-scheme:light dark}body{margin:0;min-height:100dvh;display:grid;place-items:center;font:16px/1.5 system-ui,sans-serif;background:#f6f7f9;color:#1b1f24}@media (prefers-color-scheme:dark){body{background:#0f1216;color:#e6e9ee}}main{max-width:560px;padding:32px 16px}h1{font-size:22px;margin:0 0 8px}p{opacity:.8;margin:0 0 20px}a{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid currentColor;color:inherit;text-decoration:none}</style></head><body><main data-client-notfound=""><h1>That is not on your account.</h1><p>If you reached this from a link, the flight or page is not one your account covers.</p><a href="/client">Your flights</a></main></body></html>`;
+  return new NextResponse(html, { status: 404, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+}
+
 export async function middleware(request: NextRequest) {
   // The test rig must never reach the production database (lib/rig-guard.mjs).
   // Checked twice: against the runtime env, and against the URL compiled into this build (Next.js inlines the
@@ -251,6 +259,37 @@ export async function middleware(request: NextRequest) {
     loginUrl.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(loginUrl);
   }
+
+  // Client access (Stage 5, 2026-10-25). A client (app_metadata.role "client", written only with the service key when ops
+  // decide) lives under /client and nowhere else. Their status (app_metadata.client_status, same writer) picks the page:
+  // requested → the waiting screen, refused / removed → their page, approved → the client wall. Every other address in
+  // the portal answers 404 for them — not 403, not a redirect to a page that exists: nothing outside their world is
+  // confirmed to exist. The holding pages render under a bare route, so the shell, its navigation and its counts are
+  // never in their page source.
+  const appMetaForClient = (user.app_metadata ?? {}) as Record<string, unknown>;
+  if (String(appMetaForClient.role ?? "").toLowerCase() === "client") {
+    const status = String(appMetaForClient.client_status ?? "requested").toLowerCase();
+    const holding = status === "approved" ? null : status === "refused" ? "/client/refused" : status === "removed" ? "/client/removed" : "/client/waiting";
+    const isApi = pathname.startsWith("/api/");
+    if (isApi) {
+      // Their own request and sign-out only; the wall's API is reached at /digital-wall/api and enforces scope itself.
+      if (pathname.startsWith("/api/client/") || pathname.startsWith("/api/auth/")) return response;
+      return NextResponse.json({ ok: false, error: "That is not on your account." }, { status: 404 });
+    }
+    // The root is where sign-in lands them: their world's front door (approved) or their holding page. Nothing else
+    // outside /client redirects — it is 404, so no portal page is confirmed to exist.
+    if (pathname === "/") { const to = request.nextUrl.clone(); to.pathname = holding ?? "/client"; to.search = ""; return NextResponse.redirect(to); }
+    if (holding) {
+      if (pathname === holding || pathname.startsWith("/api/auth/")) return response;
+      if (pathname.startsWith("/client")) { const to = request.nextUrl.clone(); to.pathname = holding; to.search = ""; return NextResponse.redirect(to); }
+      return clientNotFoundResponse();
+    }
+    if (pathname.startsWith("/client/waiting") || pathname.startsWith("/client/refused") || pathname.startsWith("/client/removed")) { const to = request.nextUrl.clone(); to.pathname = "/client"; to.search = ""; return NextResponse.redirect(to); }
+    if (pathname === "/client" || pathname.startsWith("/client/")) return response;
+    return clientNotFoundResponse();
+  }
+  // Staff never land in the client's world.
+  if (pathname === "/client" || pathname.startsWith("/client/")) return clientNotFoundResponse();
 
   // Approval lives in APP metadata (written only with the service key; a person cannot approve themselves by editing
   // their own user_metadata), and it must say true. A MISSING flag is NOT approved (2026-10-25): until then a missing

@@ -36,3 +36,12 @@ screenshot taken on the rig cannot show them either. Written 2026-10-15; add a l
   network outage on the Mac fails rig suites that have nothing wrong with them.
 - **One quiet machine.** No load, no other people, the Mac's own clock and time zone; suites stall if the Mac sleeps
   (`caffeinate` in `rig/run-all-suites.sh`).
+
+## Client access (Stage 5, 2026-10-25)
+The rig has no real Leon and no real clients. `rig/client-scope-check.mjs` proves the scope rules against the mock Leon’s
+invented operators (artlw, cwy-cwy): the two-client refusal by id at the wall and the agent, the board, the stream and the
+NOTAM round never carrying the other client, the forgery case, the passenger levels and the removed state. What it
+cannot prove: how production’s Leon tenants map to operator ids (ops type that into the scope), the email that tells a
+client their decision (no mail on the rig), and TRIP scope at the AGENT — the mock Leon’s flight has no trip number, so
+the agent’s one small scope read (tripNo, registration) answers “not theirs” on the rig, which is the closed default;
+the wall side of trip scope reads its own cache and is proven. Operator and registration scope are proven at both.

@@ -1,0 +1,17 @@
+/* The client's pages: portal tokens plus the --ca-* set from the design (shared/client-tokens.css in the design project).
+   Light and dark through the portal's own theme; nothing here reads the ops wall's palette. */
+.cl-root { min-height: 100dvh; background: var(--cw-bg-page); color: var(--cw-text); }
+.cl-hold { max-width: 560px; margin: 0 auto; padding: clamp(24px, 6vw, 64px) 16px; }
+.cl-hold header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 32px; }
+.cl-hold .cl-tile { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--cw-bg-sunken); color: var(--cw-text-muted); }
+.cl-hold h1 { font-size: 22px; margin: 16px 0 8px; text-wrap: balance; }
+.cl-hold p { color: var(--cw-text-muted); line-height: 1.5; max-width: 60ch; }
+.cl-steps { list-style: none; padding: 0; margin: 20px 0; display: grid; gap: 10px; }
+.cl-steps li { display: flex; gap: 10px; align-items: center; min-height: 44px; }
+.cl-steps .dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; background: var(--cw-bg-sunken); color: var(--cw-text-muted); flex: none; }
+.cl-steps .dot.done { background: var(--cw-success-bg, var(--cw-bg-sunken)); color: var(--cw-success-fg, var(--cw-text)); }
+.cl-steps .dot.now { border: 2px solid var(--cw-primary); }
+.cl-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
+.cl-btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--cw-border); background: var(--cw-bg-surface); color: var(--cw-text); font: inherit; cursor: pointer; display: inline-flex; align-items: center; }
+.cl-btn.primary { background: var(--cw-primary); color: var(--cw-on-primary, #fff); border-color: transparent; }
+.cl-meta { font-size: 13px; color: var(--cw-text-muted); }

@@ -11,7 +11,7 @@ export function parseEmailList(raw: string | undefined) {
     .filter(Boolean);
 }
 
-export type Role = "none" | "admin" | "developer";
+export type Role = "none" | "admin" | "developer" | "client";
 
 // APP metadata only. user_metadata is the person's own to edit (Supabase auth.updateUser), so a role written there is a
 // claim, not a grant — found 2026-10-20, when a plain user wrote role: "developer" into it and the portal believed it.
@@ -20,6 +20,7 @@ export function roleFromSupabaseUser(user: { app_metadata?: unknown; user_metada
   const roleValue = String(appMeta.role || "").toLowerCase();
   if (roleValue === "developer") return "developer";
   if (roleValue === "admin") return "admin";
+  if (roleValue === "client") return "client"; // Stage 5: a person outside Clearway; holds no action in the grid, sees only their scope
   const rolesRaw = appMeta.roles;
   const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
   if (roles.includes("developer")) return "developer";

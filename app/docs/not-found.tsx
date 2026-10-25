@@ -6,7 +6,11 @@ import MaskIcon from "@/components/portal/Icon";
 
 // Any /docs address that is not a page (design: Page Docs Not Found): 404, one line, search, and a few ways on.
 // Every link here exists: Home, the home page's starting point, the glossary if there is one, and support.
-export default function DocsNotFound() {
+// `bare`: rendered from the ROOT not-found page, whose payload Next ships with every page of the portal — the sign-in
+// page and a client's holding pages included. There the docs' navigation rows (section titles, page counts) stay out:
+// a person who cannot sign in, or a client, learns nothing of the portal's structure from a page they never asked for.
+// Under /docs itself (this segment's own not-found) the nav is rendered as the design has it.
+export default function DocsNotFound({ bare = false }: { bare?: boolean } = {}) {
   const docs = loadDocs();
   const b = brand();
   const start = loadHome(docs).start;
@@ -18,7 +22,7 @@ export default function DocsNotFound() {
     { title: b.supportLabel, href: b.supportHref, icon: "life-buoy" },
   ];
   return (
-    <DocsFrame brand={b} nav={navRows(docs, {})} toc={null} crumbs={crumbs(null, null, "Page not found")} prevNext={[]}>
+    <DocsFrame brand={b} nav={bare ? [] : navRows(docs, {})} toc={null} crumbs={crumbs(null, null, "Page not found")} prevNext={[]}>
       <div className="dx-page dx-notfound" data-docs-state="not-found">
         <div className="head">
           <span className="code dx-mono">404</span>

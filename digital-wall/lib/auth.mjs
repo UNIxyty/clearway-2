@@ -163,7 +163,8 @@ function mapSupabaseUser(payload) {
     email,
     name,
     initials,
-    role: String(payload.app_metadata?.role || meta.role || "user"),
+    role: String(payload.app_metadata?.role || "user"), // app_metadata only (2026-10-25: the person's own metadata never names a role)
+    appMetadata: payload.app_metadata || {}, // what lib/clients/scope.mjs reads to know a client
     // Only the role signals, for lib/roles.mjs (admin check on writes).
     claims: { app: pick(payload.app_metadata), user: pick(meta) },
   };

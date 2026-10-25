@@ -18,7 +18,7 @@ export default function NotFound() {
       <script dangerouslySetInnerHTML={{ __html: DOCS_404 }} />
       <style dangerouslySetInnerHTML={{ __html: SWITCH }} />
       <div className="nf-portal"><PortalNotFound /></div>
-      <div className="nf-docs"><DocsNotFound /></div>
+      <div className="nf-docs"><DocsNotFound bare /></div>
     </>
   );
 }

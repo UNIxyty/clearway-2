@@ -50,6 +50,7 @@ async function preferencesRow(userId) {
 export async function resolveRoleKey(user) {
   if (!user || user.device) return null;
   if (user.mock) return "developer";
+  if (String(user.appMetadata?.role || user.role || "").toLowerCase() === "client") return "client"; // Stage 5: no grid role; scope decides what they read
   const email = String(user.email || "").toLowerCase();
   if (email && emailList(process.env.DEVELOPER_EMAILS).includes(email)) return "developer";
   const meta = roleFromClaims(user.claims);

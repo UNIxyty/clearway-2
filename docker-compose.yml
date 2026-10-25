@@ -77,16 +77,9 @@ services:
       NODE_ENV: production
       NOTAM_SCRAPER: crewbriefing
       SYNC_SECRET: ${NOTAM_SYNC_SECRET}
-      # AIP refresh (docs/aip-refresh-plan.md): check-only until this says on — then it refetches what EAD's table shows
-      # as newer. WALL_DATA_DIR is the wall's data/portal folder, read-only — the only part of the wall's data another
-      # container may read — so airports with flights in the next 7 days go first.
-      AIP_REFRESH_DOWNLOADS: ${AIP_REFRESH_DOWNLOADS:-off}
-      AIP_REFRESH_SCOPE: ${AIP_REFRESH_SCOPE:-upcoming}   # upcoming: airports with flights in 7 days; all: the full order (off by default)
-      WALL_DATA_DIR: /wall-portal
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage
-      - ./digital-wall/data/portal:/wall-portal:ro
 
   weather-sync:
     build:
@@ -137,9 +130,16 @@ services:
       CACHE_ROOT: /cache
       NODE_ENV: production
       SYNC_SECRET: ${NOTAM_SYNC_SECRET}
+      # AIP refresh (docs/aip-refresh-plan.md): check-only until this says on — then it refetches what EAD's table shows
+      # as newer. WALL_DATA_DIR is the wall's data/portal folder, read-only — the only part of the wall's data another
+      # container may read — so airports with flights in the next 7 days go first.
+      AIP_REFRESH_DOWNLOADS: ${AIP_REFRESH_DOWNLOADS:-off}
+      AIP_REFRESH_SCOPE: ${AIP_REFRESH_SCOPE:-upcoming}   # upcoming: airports with flights in 7 days; all: the full order (off by default)
+      WALL_DATA_DIR: /wall-portal
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage
+      - ./digital-wall/data/portal:/wall-portal:ro
 
   digital-wall-backend:
     build:

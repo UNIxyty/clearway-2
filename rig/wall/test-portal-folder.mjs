@@ -43,6 +43,12 @@ ok(/\/wall-data:ro/.test(compose), "read-only");
 // Any other container that reads the wall's data (the AIP sync worker, 2026-10-25) reads the same folder, read-only.
 const others = wallMounts.filter(([, to]) => to !== "/wall-data" && to !== "/app/data");
 ok(others.every(([from, to]) => from === "./digital-wall/data/portal" && new RegExp(`${to}:ro`).test(compose)), "every other reader of the wall's data mounts data/portal only, read-only", JSON.stringify(others));
+// …and the reader is the service that runs the refresh: aip-sync, with WALL_DATA_DIR naming that mount. On 2026-10-25 the
+// mount and the AIP_REFRESH settings sat on notam-sync, every suite was green, and production's first run saw 0 airports.
+const services = Object.fromEntries([...compose.matchAll(/^  ([a-z-]+):\n([\s\S]*?)(?=^  [a-z-]+:|(?![\s\S]))/gm)].map((m) => [m[1], m[2]]));
+const aip = services["aip-sync"] ?? "";
+ok(/\.\/digital-wall\/data\/portal:\/wall-portal:ro/.test(aip) && /WALL_DATA_DIR: \/wall-portal/.test(aip) && /AIP_REFRESH_DOWNLOADS/.test(aip) && /AIP_REFRESH_SCOPE/.test(aip), "the aip-sync service (the one that runs scripts/aip-refresh.mjs) carries the wall-data mount, WALL_DATA_DIR and the AIP_REFRESH settings");
+ok(Object.entries(services).every(([name, body]) => name === "aip-sync" || !/wall-portal|AIP_REFRESH_|WALL_DATA_DIR/.test(body)), "no other service carries them", Object.entries(services).filter(([n, b]) => n !== "aip-sync" && /wall-portal|AIP_REFRESH_|WALL_DATA_DIR/.test(b)).map(([n]) => n).join(", "));
 
 // ── only the changelog's three stores live in data/portal/ ──
 const shared = execFileSync("git", ["grep", "-h", "-o", "-E", "PORTAL_SHARED\\}/[a-z-]+\\.json", "--", "digital-wall"], { cwd: ROOT, encoding: "utf8" })

@@ -63,6 +63,9 @@ COPY digital-wall/lib/flight-record.mjs /digital-wall/lib/flight-record.mjs
 COPY lib/rig-guard.mjs /lib/rig-guard.mjs
 # Permissions (docs/permissions.md): the catalogue and grants shared with the portal and the wall (../lib/permissions).
 COPY lib/permissions /lib/permissions
+# Client scope (Stage 5, docs/client-access.md): server.mjs and lib/passengers/api.mjs import ../lib/clients/scope.mjs.
+# Missing from the image on 2026-10-25: the agent crash-looped on deploy (the rig runs from source and never saw it).
+COPY lib/clients /lib/clients
 # No secret in the image, or no image (docs/security-image-secrets.md).
 COPY scripts/check-image-secrets.mjs /tmp/check-image-secrets.mjs
 RUN node /tmp/check-image-secrets.mjs /app && node /tmp/check-image-secrets.mjs /lib && node /tmp/check-image-secrets.mjs /digital-wall && rm /tmp/check-image-secrets.mjs

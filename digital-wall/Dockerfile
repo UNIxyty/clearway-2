@@ -16,6 +16,8 @@ COPY . .
 # Permissions (docs/permissions.md): the catalogue and grants shared with the portal and the agent, at the path the
 # server imports them from (../lib/permissions from /app).
 COPY --from=repo lib/permissions /lib/permissions
+# Client scope (Stage 5): lib/client-scope.mjs imports ../../lib/clients/scope.mjs. Missing on 2026-10-25 → crash loop.
+COPY --from=repo lib/clients /lib/clients
 # No secret in the image, or no image: the wall's .env and data/ (device keys) stay out (.dockerignore, compose mounts
 # data/ at run time). docs/security-image-secrets.md.
 COPY --from=repo scripts/check-image-secrets.mjs /tmp/check-image-secrets.mjs

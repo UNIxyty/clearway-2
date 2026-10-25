@@ -13,6 +13,8 @@ related: admin/service-status-editor
 Open it from the portal's sidebar: **AIP & Documents** › **Service status**. The top counts the countries in each
 state. **Recently changed** shows the latest changes.
 
+[screenshot: aip-and-documents-service-status | Service status: Shows, country by country, whether the portal can get AIP documents. You can read it; only admins change it.]
+
 :::statuses
 Fully operational (green): AIP documents for this country work.
 Partially works (amber): Some airports or documents may fail.

@@ -13,6 +13,8 @@ related: digital-wall/the-wall, digital-wall/limitations
 Open it from the portal's sidebar: **Digital Wall** › **Important**. Without permission to change it, the page says
 **View only.**
 
+[screenshot: digital-wall-important | Important: Important notices that apply to matching flights. They show as ! on the wall until someone checks them.]
+
 An important notice is a standing instruction, kept word for word as it was written. A flight that matches it shows
 **!** on the wall. The full text is in the flight's details, on the wall and on the **Flights** page.
 

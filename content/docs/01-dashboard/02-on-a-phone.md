@@ -14,6 +14,8 @@ Open the portal's address on your phone and sign in as usual. The pages that mat
 layout: the **Wall**, **Flights**, **Flight intake**, the **Ops Agent** and **airports**. Five tabs at the bottom
 move between them. The other pages open as they do on a desk, in your phone's browser.
 
+[screenshot: dashboard-on-a-phone | On a phone: The portal on a phone has its own pages for the wall, flights, Flight intake, the Ops Agent and airports, with tabs at the bottom. Everything else opens as on a desk.]
+
 | Tab | What it shows |
 |---|---|
 | **Wall** | Today's flights as cards, with what needs attention first |

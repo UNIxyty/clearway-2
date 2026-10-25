@@ -15,6 +15,8 @@ related: digital-wall/flights, digital-wall/notam-check, digital-wall/settings
 Open it from the portal's sidebar: **Digital Wall** › **Open wall**. The wall reads its flights from Leon. Nothing on
 the wall changes Leon.
 
+[screenshot: digital-wall-the-wall | The wall: Today's flights as a timeline, one row per aircraft. The same wall runs on the ops-room screen and on tablets; a phone opens the portal's own phone pages, with the same facts.]
+
 The wall picks its layout from the screen:
 
 | Screen | Layout |

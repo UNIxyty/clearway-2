@@ -12,6 +12,8 @@ related: digital-wall/the-wall, digital-wall/notam-check
 
 Open it from the portal's sidebar: **Digital Wall** › **Flights**. It is also the page the console opens on.
 
+[screenshot: digital-wall-flights | Flights: The console's list of flights, where you open one, put it on the big screen, or email yourself its AIP and GEN.]
+
 ## Find a flight
 The list shows today's flights, earliest first. Use the search and the filters to find one.
 

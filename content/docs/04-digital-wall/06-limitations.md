@@ -13,6 +13,8 @@ related: digital-wall/the-wall, digital-wall/important
 Open it from the portal's sidebar: **Digital Wall** › **Limitations**. Without permission to change it, the page
 says **View only.**
 
+[screenshot: digital-wall-limitations | Limitations: The airport and flight restrictions the wall shows on matching flights, as numbered circles on their pills.]
+
 A limitation is a short text that applies to some flights: by flight, by airport, by country, or a mix. On the wall,
 each one has a number. The number shows in a circle on every flight it applies to, and the list on the left of the
 wall gives its title.

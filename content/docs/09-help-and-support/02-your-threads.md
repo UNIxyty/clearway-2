@@ -14,6 +14,8 @@ related: help-and-support/get-help
 Your reports and chats are listed on **Help & support**, under **YOUR HISTORY**. You see only your own. When the
 developer answers, **Help & support** in the sidebar shows how many answers are new.
 
+[screenshot: help-and-support-your-threads | Your threads: Everything you sent from Help & support, with the developer's answers.]
+
 :::statuses
 UNTOUCHED (grey): The developer has not started on it.
 UNDER PROCESS (blue): The developer is working on it.

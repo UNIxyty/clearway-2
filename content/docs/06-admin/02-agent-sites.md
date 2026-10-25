@@ -13,6 +13,8 @@ roles: Admin and Developer by default
 Open it from the portal's sidebar: **Admin** › **Agent sites**. The Ops Agent's Chrome extension reads a page only on
 the sites listed here. It can still take a screenshot anywhere. Every decision is logged. All times are UTC.
 
+[screenshot: admin-agent-sites | Agent sites: The websites where the Ops Agent's Chrome extension may read a page.]
+
 You need Ops Agent access yourself to use this page. Without the right role, the page says **Agent sites is for
 admins**.
 

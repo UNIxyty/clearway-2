@@ -9,6 +9,8 @@ related: ops-agent/chat
 
 Open it from the portal's sidebar: **Ops Agent** › **Knowledge base**.
 
+[screenshot: ops-agent-knowledge-base | Knowledge base: The documents the agent answers from. Developers upload and approve them; an approved document is quoted to everyone as the source.]
+
 The agent uses two kinds of document. An **authoritative** document is quoted word for word, and names the person
 who approved it. A **reference** document is searched and cited, but never quoted as approved text. The agent never
 uses a document that is still awaiting approval.

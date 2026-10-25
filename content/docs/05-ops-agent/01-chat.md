@@ -14,6 +14,8 @@ related: ops-agent/history, ops-agent/settings, ops-agent/knowledge-base
 Open it from the portal's sidebar: **Ops Agent** › **Chat**. Or press ⌘J (Ctrl+J on Windows) on any page, to open
 the agent in a panel beside it.
 
+[screenshot: ops-agent-chat | Chat: Ask the agent in plain words, on its own page or in the panel beside any page. It answers with sources, and asks before it changes anything.]
+
 The agent reads the airport documents, the wall, NOTAMs and Leon. It changes something only after you confirm it,
 and it can never do more than you are allowed to do yourself.
 

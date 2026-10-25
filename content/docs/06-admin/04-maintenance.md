@@ -13,6 +13,8 @@ roles: Admin and Developer by default
 Open it from the portal's sidebar: **Admin** › **Maintenance**. The page is called **Maintenance control**. Under
 **CURRENT STATE** it says **The portal is live**, or **The portal is off for everyone**, since when and by whom.
 
+[screenshot: admin-maintenance | Maintenance: Closes the portal to everyone except admins and developers while work is done, with a message and a time it should end.]
+
 While the portal is off, the Ops Agent, the wall and the portal's services keep running. Admins and developers are
 taken to this page whenever they open the portal, so one of them can turn it back on.
 

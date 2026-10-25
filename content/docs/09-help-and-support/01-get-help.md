@@ -13,6 +13,8 @@ related: help-and-support/your-threads
 Open it from the portal's sidebar: **Help & support**, at the bottom. Or press `?` on any page. Reports go to the
 developer who builds Clearway. They are read between 06:00Z and 22:00Z.
 
+[screenshot: help-and-support-get-help | Get help: Tell the developer about something urgent, a bug or an idea, or ask how to do something.]
+
 The card at the top says whether the developer reads now: **Developer available**, or **Outside reading hours**. It
 goes by the clock only, not by whether the developer is really there.
 

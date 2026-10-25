@@ -14,6 +14,8 @@ Open it from the portal's sidebar: **AIP & Documents** › **Hidden airports**. 
 browse list. The page is called **Airports you hid**. It lists only the airports you hid, with when you hid them, in
 UTC.
 
+[screenshot: aip-and-documents-hidden-airports | Hidden airports: The airports you hid from your own browse list, and where you get them back.]
+
 ## Restore a hidden airport
 Roles: User, Admin and Developer by default
 Put a hidden airport back in your browse list.

@@ -13,6 +13,8 @@ related: developer/inbox
 Open it from the portal's sidebar: **Developer** › **Saved replies**. You use them from the inbox: see
 [Inbox](developer/inbox).
 
+[screenshot: developer-saved-replies | Saved replies: Answers you write once and reuse when replying in the inbox.]
+
 ## Add a saved reply
 Roles: Developer by default
 Write an answer you can use again.

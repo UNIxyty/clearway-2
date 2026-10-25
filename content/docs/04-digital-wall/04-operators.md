@@ -15,6 +15,8 @@ related: digital-wall/the-wall, digital-wall/webhooks, digital-wall/aircraft
 Open it from the portal's sidebar: **Digital Wall** › **Operators**. Everyone signed in can open the page. Without
 permission to change it, the page says **View only.** and its buttons are greyed out.
 
+[screenshot: digital-wall-operators | Operators: Operators are the airlines and charter companies whose flights the wall shows. Each one is a Leon account; the wall reads its flights through it.]
+
 ## Add an operator
 Roles: Admin and Developer by default
 Connect one Leon account to the wall, so its flights start to appear.
@@ -22,6 +24,7 @@ Connect one Leon account to the wall, so its flights start to appear.
 You need the operator's Leon subdomain and a Leon refresh token before you start.
 
 1. Press **Add operator**, at the top right.
+   [screenshot: operators-add-button | Add operator, at the top right of the page.]
 2. In **Operator name**, type the name people know the operator by. If you leave it empty, the wall uses the
    subdomain.
 3. In **Leon subdomain (oprId)**, type the part of the operator's Leon address before `.leon.aero`.

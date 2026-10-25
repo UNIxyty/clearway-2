@@ -18,7 +18,7 @@ function Missing({ video, title, body }: { video: boolean; title: string; body: 
   );
 }
 
-export function Shot({ src, caption, fig, demo }: { src: string | null; caption: string; fig: string; demo?: "loading" | "failed" }) {
+export function Shot({ src, srcDark = null, caption, fig, demo }: { src: string | null; srcDark?: string | null; caption: string; fig: string; demo?: "loading" | "failed" }) {
   const [live, setState] = useState<"loading" | "ready" | "failed">("loading");
   const state = demo ?? live;
   const [w, setW] = useState(0);
@@ -36,8 +36,11 @@ export function Shot({ src, caption, fig, demo }: { src: string | null; caption:
       ) : (
         <div className={`dx-media-stage${state === "loading" ? " loading" : ""}`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- the natural width decides the size (half of it) */}
-          {demo !== "loading" && <img key={attempt} src={attempt ? `${src}?retry=${attempt}` : src} alt={caption} style={{ width: w ? Math.round(w / 2) : undefined }}
+          {/* Both themes (2026-10-25): <name>.png is the light picture, <name>-dark.png the dark one; the tokens' --cw-show-* decide
+              which is shown, so a reader in dark mode sees the portal as they see it. One picture when only one exists. */}
+          {demo !== "loading" && <img key={attempt} src={attempt ? `${src}?retry=${attempt}` : src} alt={caption} style={{ width: w ? Math.round(w / 2) : undefined, display: srcDark ? "var(--cw-show-light)" : undefined }}
             onLoad={(e) => { setW((e.target as HTMLImageElement).naturalWidth); setState("ready"); }} onError={() => setState("failed")} />}
+          {demo !== "loading" && srcDark && <img key={`d${attempt}`} src={attempt ? `${srcDark}?retry=${attempt}` : srcDark} alt="" aria-hidden style={{ width: w ? Math.round(w / 2) : undefined, display: "var(--cw-show-dark)" }} />}
         </div>
       )}
       {caption && state !== "failed" && <figcaption>{fig && <span className="fig">Fig. {fig}</span>}<span>{caption}</span></figcaption>}

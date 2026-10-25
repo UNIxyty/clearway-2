@@ -13,6 +13,8 @@ related: help-and-support/get-help, developer/saved-replies
 Open it from the portal's sidebar: **Developer** › **Inbox**. Threads are grouped into **WAITING ON YOU**, **OPEN**
 and **DONE**. The line at the top counts them, for example **5 open · 1 unread · 5 waiting on you**.
 
+[screenshot: developer-inbox | Inbox: Every thread people send from Help & support: bugs, questions, suggestions and live chats.]
+
 Keys: J and K move through the list, E marks the open thread done, ⌘⏎ sends.
 
 ## Find a thread

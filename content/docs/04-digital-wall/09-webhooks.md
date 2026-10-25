@@ -14,6 +14,8 @@ related: digital-wall/operators
 Open it from the portal's sidebar: **Digital Wall** › **Webhooks**. Each active operator has a card. Without
 permission to change it, the page says **View only.**
 
+[screenshot: digital-wall-webhooks | Webhooks: The change notices Leon sends the wall for each operator, so flight changes arrive as they happen.]
+
 A webhook asks Leon to tell the wall when something changes: a landing, a cancellation, new times. The wall then
 reads that flight again. Without webhooks the wall still reads every operator every 2 minutes.
 

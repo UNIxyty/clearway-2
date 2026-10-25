@@ -13,6 +13,8 @@ related: ops-agent/chat
 Open it from the portal's sidebar: **Developer** › **Agent access**. Until someone has access, the agent does not
 appear anywhere for them: no menu, no page.
 
+[screenshot: developer-agent-access | Agent access: Who can use the Ops Agent, and the switch that turns it off for everyone.]
+
 ## Give someone access to the agent
 Roles: Developer by default
 Let a person use the Ops Agent.

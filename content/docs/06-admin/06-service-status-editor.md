@@ -13,6 +13,8 @@ related: aip-and-documents/service-status
 Open it from the portal's sidebar: **Admin** › **Service status editor**. The page is called **Country Service
 Status**. Each row is a country, with its status, a note, and **Save**.
 
+[screenshot: admin-service-status-editor | Service status editor: Where admins set, country by country, whether AIP retrieval works. Everyone reads it on AIP & Documents › Service status.]
+
 ## Set a country's service status
 Roles: Admin and Developer by default
 Say whether getting AIP documents works for a country.

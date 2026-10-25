@@ -10,6 +10,8 @@ related: ops-agent/chat
 Open it from the portal's sidebar: **Ops Agent** › **History**. It lists your own chats with the agent, newest first.
 Nobody else's chats are listed.
 
+[screenshot: ops-agent-history | History: Your earlier chats with the agent, to find and open again.]
+
 ## Find an earlier chat
 Find a chat by its title, a word in it, or a flight or airport it mentions.
 

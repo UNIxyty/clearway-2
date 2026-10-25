@@ -13,6 +13,8 @@ related: digital-wall/the-wall
 Open it from the portal's sidebar: **Digital Wall** › **CAA details**. Without permission to change it, the page says
 **View only.**
 
+[screenshot: digital-wall-caa-details | CAA details: Contact details of civil aviation authorities, shown as CAA on the flights they apply to.]
+
 Each entry is one authority: how to reach it and how long its permits take. A flight it applies to shows **CAA** on
 the wall. Its details are in the flight's details on the wall.
 

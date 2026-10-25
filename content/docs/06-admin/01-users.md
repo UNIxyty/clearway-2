@@ -12,6 +12,8 @@ related: admin/permissions
 
 Open it from the portal's sidebar: **Admin** › **Users**. The list is sorted by role, then name.
 
+[screenshot: admin-users | Users: Everyone with a portal account. New accounts wait here until an admin approves them.]
+
 Admins can make someone an admin, or remove it. Only developers can make someone a developer, or remove it. Nobody can
 change their own role. An admin can only copy a developer's user ID: the other actions are not offered on a
 developer's row.

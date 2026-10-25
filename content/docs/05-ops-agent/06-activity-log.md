@@ -10,6 +10,8 @@ related: ops-agent/chat
 Open it from the portal's sidebar: **Ops Agent** › **Activity log**. The log is read-only. Nobody can change or
 delete a row.
 
+[screenshot: ops-agent-activity-log | Activity log: What the agent did: its answers, the changes it made, what it sent and what it refused. You see your own rows; admins and developers see everyone's.]
+
 ## See what the agent did
 Read each thing the agent did, newest first.
 

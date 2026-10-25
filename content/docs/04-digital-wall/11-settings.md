@@ -13,6 +13,8 @@ related: digital-wall/the-wall, digital-wall/notam-check
 Open it from the portal's sidebar: **Digital Wall** › **Settings**. The page has five tabs: **Display & sizing**,
 **Colours**, **Font**, **Wall content**, and **NOTAM, alerts & WX**.
 
+[screenshot: digital-wall-settings | Settings: How the wall looks and what it shows: sizes, colours and font, the clocks, the screens allowed to show it, and the NOTAM and weather setup.]
+
 The first three tabs set how the wall looks. Each person has their own view; the big screen in the ops room has
 its own, called **Main wall**. The last two tabs apply to every wall. A part you may not change says
 **View only.** and is greyed out.

@@ -12,6 +12,8 @@ emails with passport numbers and dates of birth, so only some people can open it
 listed in **Agent mailbox access** in the agent's settings. Others see **You don't have access to the agent
 mailbox**.
 
+[screenshot: ops-agent-mailbox | Mailbox: Every email the agent's addresses received or sent, and what was done with each one.]
+
 The mailbox is not a mail program. You cannot write or answer emails here. All times are UTC.
 
 ## Find an email

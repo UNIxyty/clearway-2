@@ -13,6 +13,8 @@ related: digital-wall/settings, dashboard/the-dashboard
 Open it from the portal's sidebar: **Settings**. It has three parts: **Appearance**, **Customisation** and
 **Preferences**. Everything here is for you only, and is saved to your account as you change it.
 
+[screenshot: account-and-settings-settings | Settings: How the portal looks and behaves for you, saved to your account. The Digital Wall has its own settings.]
+
 ## Choose light or dark
 Roles: All roles
 Choose how the portal looks on every device you sign in on.

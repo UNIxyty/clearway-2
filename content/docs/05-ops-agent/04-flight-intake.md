@@ -13,6 +13,8 @@ related: ops-agent/mailbox, ops-agent/settings
 
 Open it from the sidebar: **Ops Agent** › **Flight intake**.
 
+[screenshot: ops-agent-flight-intake | Flight intake: Flight requests that arrive by email. The agent reads them, you check them, and then they are created in Leon.]
+
 Two kinds of request come in:
 
 - A **handling request**. A client emails the request. The agent reads the email and its attachments.

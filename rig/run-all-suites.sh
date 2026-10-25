@@ -75,6 +75,7 @@ run client-scope-check $E rig/client-scope-check.mjs
 run client-ui-check $E rig/client-ui-check.mjs
 run airac-dates-check node rig/airac-dates-check.mjs
 run aip-refresh-check $E rig/aip-refresh-check.mjs
+run docs-shots-check node rig/docs-shots-check.mjs
 run wall/access-check $E rig/wall/access-check.mjs
 run wall/browser-access $E rig/wall/browser-access.mjs
 run wall/console-theme-check $E rig/wall/console-theme-check.mjs

@@ -13,6 +13,8 @@ updated: 2026-10-14
 Open it from the portal's sidebar: **Digital Wall** › **Reports**. Reports are for everyone: everyone sees every
 report, and everyone can raise one.
 
+[screenshot: digital-wall-reports | Reports: Reports raised in the console, with a status, that can be emailed to a list of people.]
+
 :::statuses
 Untouched (grey): Nobody has started on it. New reports start here.
 Under process (blue): Someone is working on it.

@@ -14,6 +14,8 @@ Open it from the portal's sidebar: **Admin** › **Permissions**. Each row is an
 Admin, Developer. The actions are in three areas, one under the other: **Portal**, **Ops agent & flight intake** and
 **Digital Wall console**. Each area is split into groups, which open folded.
 
+[screenshot: admin-permissions | Permissions: What each role may do, one action at a time, with a log of every change.]
+
 A change takes effect within 10 seconds, everywhere, and is logged under your name.
 
 ## Give a role an action, or take it away

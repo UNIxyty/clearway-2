@@ -141,6 +141,11 @@ pictures later.
 
 - Take screenshots at **double size** (a Retina screen, or the browser zoomed to 200%). They are shown at half
   their width, so a single button appears at its real size and a whole screen fills the column.
+- **Both themes.** `<name>.png` is the light picture, `<name>-dark.png` the dark one; a reader in dark mode sees the
+  dark one. **The set is scripted:** `node --env-file=.env.rig scripts/capture-docs-shots.mjs` retakes every picture
+  on the rig at double size in both themes and writes `manifest.json` beside them; `--only name,name` retakes some.
+  Add a new picture to that script's list, not by hand. `rig/docs-shots-check.mjs` fails when a named picture is
+  missing in either theme, is not double size, or the manifest's passenger scan was not clean.
 - **Only invented data in pictures.** Take them on the test copy of the portal, never on the real one.
 - **Retaking means replacing files.** Save the new picture under the same name, and every page using it changes. No
   page is edited.

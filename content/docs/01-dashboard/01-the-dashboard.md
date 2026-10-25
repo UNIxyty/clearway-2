@@ -12,6 +12,8 @@ related: digital-wall/the-wall
 Open it from the sidebar: **Dashboard**. It is also the page you see when you go to the portal's address, unless you
 chose another start page in **Settings**.
 
+[screenshot: dashboard-the-dashboard | The dashboard: The page the portal opens on. It shows today's numbers from the wall, the airports you looked at last, whether the services work, and what changed.]
+
 The dashboard is made of blocks. Everyone has **Today**, **Recently used**, **Service monitors**, **Quick links** and
 the changelog. Admins and developers also have **Server health**. You can move, resize, add and remove blocks. Your
 changes are for you only.

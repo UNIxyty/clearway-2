@@ -13,6 +13,8 @@ related: digital-wall/operators, digital-wall/the-wall
 Open it from the portal's sidebar: **Digital Wall** › **Aircraft**. The list shows the aircraft of active operators
 that have a flight in the next 7 days. Without permission to change it, the page says **View only.**
 
+[screenshot: digital-wall-aircraft | Aircraft: The aircraft the wall knows about, and which of them it shows.]
+
 ## Find an aircraft
 Find an aircraft by its registration or its operator.
 

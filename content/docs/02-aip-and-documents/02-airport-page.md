@@ -16,6 +16,8 @@ coordinates and a **Map** link. Under them, the page says when the copy you are 
 **This copy is from 02 Oct 2026.** The document is on the left, with the tabs **AD 2** and **GEN**. NOTAMs and
 weather are on the right.
 
+[screenshot: aip-and-documents-airport-page | Airport page: One airport on one page: its AD 2 document, GEN 1.2, NOTAMs and weather.]
+
 :::warning Copies are not refreshed automatically
 The portal keeps a copy of each AIP document and does not fetch a new one by itself. A copy older than a day says
 **It is not refreshed automatically. Press Re-sync to fetch the current document.** A copy older than 28 days, one

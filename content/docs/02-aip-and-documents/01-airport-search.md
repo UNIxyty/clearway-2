@@ -12,6 +12,8 @@ related: aip-and-documents/airport-page, aip-and-documents/hidden-airports
 
 Open it from the portal's sidebar: **AIP & Documents** › **Airport search**.
 
+[screenshot: aip-and-documents-airport-search | Airport search: Find an airport by its ICAO code, name or country, or browse by region, and open its page.]
+
 ## Search for an airport
 Roles: All roles
 Find an airport by its ICAO code, its name or its country.

@@ -13,6 +13,8 @@ related: account-and-settings/settings
 Open it from the portal's sidebar: **Account** › **Profile**. The card **Account** has your display name, sign-in
 email, password, role and user ID. Your role is set by an admin, in **Admin** › **Users**.
 
+[screenshot: account-and-settings-profile | Profile: Your name, sign-in email and password, and where you sign out.]
+
 ## Change your display name
 Roles: All roles
 Choose the name the portal shows instead of your email address.

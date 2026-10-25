@@ -12,6 +12,8 @@ tabs: **Your preferences**, **Model tiers**, **Capabilities**, **Access & sites*
 **ADMIN** are for everyone in the organisation. Each change saves when you make it, unless the page shows a **Save**
 button.
 
+[screenshot: ops-agent-settings | Settings: Your own agent preferences, and for admins the agent's settings for everyone: models, capabilities, shortcuts and flight intake.]
+
 ## Choose your default model
 Choose how much thinking the agent puts into your answers.
 

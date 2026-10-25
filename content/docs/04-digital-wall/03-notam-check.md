@@ -13,6 +13,8 @@ related: digital-wall/the-wall, digital-wall/settings
 
 Open it from the portal's sidebar: **Digital Wall** › **NOTAM Check**.
 
+[screenshot: digital-wall-notam-check | NOTAM Check: The daily NOTAM check, airport by airport. When every airport is checked, the wall's sign reads NOTAM CHECKED.]
+
 Each day the check lists the airports of the day's flights, one card each. You read each airport's NOTAMs and mark
 the airport checked. When the last one is checked, the wall's sign turns green.
 

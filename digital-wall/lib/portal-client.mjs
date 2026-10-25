@@ -167,6 +167,8 @@ export async function resolveAipPdf(icao) {
     pdfPath: result.data.pdfPath,
     // When the cached copy was fetched (the portal's revision record), so an emailed copy can say so.
     fetchedAt: result.data.copyFetchedAt ?? result.data.revision?.fetchedAt ?? null,
+    // The refresh's last check (AIP refresh, 2026-10-25): a failure is said in the email next to the copy's date.
+    lastCheck: result.data.revision?.lastCheck ?? null,
   };
   cacheSet(key, value, value.cached ? 6 * 3600_000 : 5 * 60_000);
   return value;
@@ -203,7 +205,7 @@ export async function fetchAipPdfBuffer(icao) {
     if (!resolved.cached) cache.delete(`aip:${code}`);
     // A copy fetched just now is from now; a cached one carries its own date (null when no record says).
     const fetchedAt = resolved.cached ? resolved.fetchedAt ?? null : new Date().toISOString();
-    return { ok: true, buffer, source: resolved.source, cached: Boolean(resolved.cached), fetchedAt, filename: `${code}-AD2.pdf` };
+    return { ok: true, buffer, source: resolved.source, cached: Boolean(resolved.cached), fetchedAt, lastCheck: resolved.cached ? resolved.lastCheck ?? null : null, filename: `${code}-AD2.pdf` };
   } catch (error) {
     logPortal(`AIP PDF for ${code} failed`, errorDetail(error));
     return { ok: false, error: REASONS.aipUnavailable({ icao: code }) };

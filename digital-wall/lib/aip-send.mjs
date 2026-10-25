@@ -96,6 +96,7 @@ export class AipSendService {
         doc.status = "ready";
         doc.source = result.source;
         doc.fetchedAt = result.fetchedAt ?? null;
+        doc.lastCheck = result.lastCheck ?? null;
         // The copy says on itself when it was fetched, and so does its file name (aip-stamp.mjs).
         const filename = datedFilename(result.filename, doc.fetchedAt);
         doc.filename = filename;
@@ -130,7 +131,7 @@ export class AipSendService {
         const old = olderThanCycle(d.fetchedAt);
         // Anything we email goes to someone who will act on it: each document says when its copy was fetched.
         const sub = ready
-          ? `${day ? `Cached copy from ${escapeHtml(day)}` : "Cached copy, fetch date unknown"}${old ? " — more than one AIRAC cycle old. Check the current AIP before use." : ". Not refreshed automatically."}${d.source ? ` · source: ${escapeHtml(d.source)}` : ""}`
+          ? `${day ? `Cached copy from ${escapeHtml(day)}` : "Cached copy, fetch date unknown"}${old ? " — more than one AIRAC cycle old. Check the current AIP before use." : ". Not refreshed automatically."}${d.source ? ` · source: ${escapeHtml(d.source)}` : ""}` + (d.lastCheck && d.lastCheck.ok === false ? ` The refresh on ${escapeHtml(dayLong(d.lastCheck.at) || "its last run")} failed; this is the last copy fetched.` : "")
           : escapeHtml(d.error || "This document is not available right now. Try again in a few minutes.");
         return `
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:${index === 0 ? "0" : "12px 0 0 0"};"><tr>

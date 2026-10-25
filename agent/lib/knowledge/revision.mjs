@@ -200,6 +200,8 @@ export function revisionNotice(rev, { name } = {}) {
   if (!rev || rev.state === "current") return null;
   const who = name ? `${name}` : "This document";
   if (rev.state === "superseded") return `${who} is ${rev.revision ?? "an older revision"}, which has been superseded${rev.reason ? ` (${rev.reason})` : ""}. Check the current revision before acting on it.`;
+  // A failed scheduled refresh keeps the old copy; the agent never quotes it without saying so (AIP refresh, 2026-10-25).
+  if (rev.lastCheck && rev.lastCheck.ok === false) return `${who} could not be refreshed on ${dayWords(String(rev.lastCheck.at).slice(0, 10))}; this copy is from ${rev.fetchedAt ? dayWords(String(rev.fetchedAt).slice(0, 10)) : "an unknown date"}. Check the current AIP before relying on it.`;
   if (rev.state === "future") return `${who} is ${rev.revision ?? "a revision"} that is not yet effective${rev.effectiveFrom ? ` (effective ${dayWords(rev.effectiveFrom)})` : ""}. It does not apply today.`;
   return `${who} has no revision data — it is not known whether it is current.`;
 }
@@ -226,7 +228,7 @@ export const REVISION_SCHEMA = {
 export function revisionFromPortal(rev, cached = true) {
   if (!cached) return { state: "unknown", words: REVISION_WORDS.unknown, label: "revision unknown", revision: null, effectiveFrom: null, validUntil: null, fetchedAt: null, reason: "no cached copy — the revision is known once the document has been fetched", supersededBy: null };
   if (!rev || !REVISION_STATES.includes(rev.state)) return { state: "unknown", words: REVISION_WORDS.unknown, label: "revision unknown", revision: null, effectiveFrom: null, validUntil: null, fetchedAt: null, reason: "no revision record for this copy", supersededBy: null };
-  return { state: rev.state, words: rev.words ?? REVISION_WORDS[rev.state], label: rev.label ?? REVISION_WORDS[rev.state], revision: rev.revision ?? null, effectiveFrom: rev.effectiveFrom ?? null, validUntil: rev.validUntil ?? null, fetchedAt: rev.fetchedAt ?? null, reason: rev.reason ?? "", supersededBy: rev.supersededBy ?? null, previous: rev.previous ?? [] };
+  return { lastCheck: rev.lastCheck ?? null, state: rev.state, words: rev.words ?? REVISION_WORDS[rev.state], label: rev.label ?? REVISION_WORDS[rev.state], revision: rev.revision ?? null, effectiveFrom: rev.effectiveFrom ?? null, validUntil: rev.validUntil ?? null, fetchedAt: rev.fetchedAt ?? null, reason: rev.reason ?? "", supersededBy: rev.supersededBy ?? null, previous: rev.previous ?? [] };
 }
 
 /** Strip a revision to what the tool result / source chip carries. */

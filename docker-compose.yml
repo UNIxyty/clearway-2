@@ -77,9 +77,14 @@ services:
       NODE_ENV: production
       NOTAM_SCRAPER: crewbriefing
       SYNC_SECRET: ${NOTAM_SYNC_SECRET}
+      # AIP refresh (docs/aip-refresh-plan.md): check-only until this says on — then it refetches what EAD's table shows
+      # as newer. WALL_DATA_DIR is the wall's own cache, read-only, so airports with flights in the next 7 days go first.
+      AIP_REFRESH_DOWNLOADS: ${AIP_REFRESH_DOWNLOADS:-off}
+      WALL_DATA_DIR: /wall-data
     volumes:
       - /mnt/ssd-cache:/cache
       - /mnt/hdd-storage:/storage
+      - ./digital-wall/data:/wall-data:ro
 
   weather-sync:
     build:

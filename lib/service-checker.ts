@@ -17,6 +17,7 @@ import { STORAGE_ROOT, readFile as readStoredFile, saveFile } from "@/lib/storag
 import { internalDebugAuthHeaders } from "@/lib/internal-debug-auth";
 import { logError } from "@/lib/utils/logger";
 import { logFailure } from "@/lib/public-error";
+import { airacAt } from "@/lib/airac";
 
 export type CheckState = "operational" | "degraded" | "down" | "unknown";
 
@@ -355,6 +356,22 @@ function makeFreshnessCheck(relDir: string, sourceLabel: string): () => Promise<
  * monitor says so plainly instead of "Syncs may be failing" — no sync was attempted. */
 function checkAipCopiesAge(): Promise<Outcome> {
   return (async () => {
+    // The AIP refresh (scripts/aip-refresh.mjs) writes aip/refresh-state.json after every run: what it checked, refetched
+    // and failed, for which AIRAC cycle. The monitor says exactly that — degraded when anything failed, when the cycle
+    // in force has no run yet, or when the date table runs short. Before the first run ever, the old age check stands.
+    type RefreshState = { runs?: Record<string, { firstAt?: string; recheckAt?: string }>; last?: { airac: string | null; mode: string; checked: number; refetched: number; wouldRefetch: number; failed: string[]; finishedAt?: string }; tableHorizonOk?: boolean };
+    let state: RefreshState | null = null;
+    try { const raw = await readStoredFile("aip/refresh-state.json"); state = raw ? (JSON.parse(raw.toString("utf8")) as RefreshState) : null; } catch { state = null; }
+    const inForce = airacAt(new Date());
+    if (state?.last) {
+      const l = state.last;
+      const run = state.runs?.[inForce.cycle];
+      const line = `AIRAC ${l.airac ?? "?"} refresh (${l.mode}): ${l.checked} checked, ${l.refetched} refetched${l.wouldRefetch ? `, ${l.wouldRefetch} newer at the source` : ""}, ${l.failed.length} failed${l.failed.length ? ` (${l.failed.slice(0, 6).join(", ")}${l.failed.length > 6 ? "…" : ""})` : ""}.`;
+      if (!run?.firstAt) return { state: "degraded", error: `AIRAC ${inForce.cycle} took effect on ${inForce.effectiveFrom} and the refresh has not run for it yet. Last: ${line}` };
+      if (l.failed.length) return { state: "degraded", error: line };
+      if (state.tableHorizonOk === false) return { state: "degraded", error: `${line} The AIRAC date table (data/airac-dates.json) runs out within six months.` };
+      return { state: "operational", error: null };
+    }
     const dir = path.join(STORAGE_ROOT, "aip/ead-pdf");
     let names: string[];
     try {
@@ -374,7 +391,7 @@ function checkAipCopiesAge(): Promise<Outcome> {
     if (oldestMs === null) return { state: "unknown", error: "No cached AIP documents yet" };
     const days = Math.floor((Date.now() - oldestMs) / (24 * 3_600_000));
     if (days > 28) {
-      return { state: "degraded", error: `AIP documents are not refreshed automatically. Oldest copy: ${days} days.` };
+      return { state: "degraded", error: `The AIP refresh has not run yet on this server. Oldest copy: ${days} days.` };
     }
     return OK;
   })();

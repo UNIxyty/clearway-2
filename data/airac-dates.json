@@ -1,0 +1,162 @@
+{
+  "source": "ICAO Annex 15 §6.2 — AIRAC: 28-day cycles; the published 2026 schedule starts on 22 January 2026 (AIRAC 2601). Dates here are that arithmetic, continued through 2028; checked against lib/airac.ts by rig/airac-dates-check.mjs. Compare once with EUROCONTROL's published list when 2027 and 2028 are announced.",
+  "generatedAt": "2026-10-25",
+  "cycles": [
+    {
+      "airac": "2601",
+      "effective": "2026-01-22"
+    },
+    {
+      "airac": "2602",
+      "effective": "2026-02-19"
+    },
+    {
+      "airac": "2603",
+      "effective": "2026-03-19"
+    },
+    {
+      "airac": "2604",
+      "effective": "2026-04-16"
+    },
+    {
+      "airac": "2605",
+      "effective": "2026-05-14"
+    },
+    {
+      "airac": "2606",
+      "effective": "2026-06-11"
+    },
+    {
+      "airac": "2607",
+      "effective": "2026-07-09"
+    },
+    {
+      "airac": "2608",
+      "effective": "2026-08-06"
+    },
+    {
+      "airac": "2609",
+      "effective": "2026-09-03"
+    },
+    {
+      "airac": "2610",
+      "effective": "2026-10-01"
+    },
+    {
+      "airac": "2611",
+      "effective": "2026-10-29"
+    },
+    {
+      "airac": "2612",
+      "effective": "2026-11-26"
+    },
+    {
+      "airac": "2613",
+      "effective": "2026-12-24"
+    },
+    {
+      "airac": "2701",
+      "effective": "2027-01-21"
+    },
+    {
+      "airac": "2702",
+      "effective": "2027-02-18"
+    },
+    {
+      "airac": "2703",
+      "effective": "2027-03-18"
+    },
+    {
+      "airac": "2704",
+      "effective": "2027-04-15"
+    },
+    {
+      "airac": "2705",
+      "effective": "2027-05-13"
+    },
+    {
+      "airac": "2706",
+      "effective": "2027-06-10"
+    },
+    {
+      "airac": "2707",
+      "effective": "2027-07-08"
+    },
+    {
+      "airac": "2708",
+      "effective": "2027-08-05"
+    },
+    {
+      "airac": "2709",
+      "effective": "2027-09-02"
+    },
+    {
+      "airac": "2710",
+      "effective": "2027-09-30"
+    },
+    {
+      "airac": "2711",
+      "effective": "2027-10-28"
+    },
+    {
+      "airac": "2712",
+      "effective": "2027-11-25"
+    },
+    {
+      "airac": "2713",
+      "effective": "2027-12-23"
+    },
+    {
+      "airac": "2801",
+      "effective": "2028-01-20"
+    },
+    {
+      "airac": "2802",
+      "effective": "2028-02-17"
+    },
+    {
+      "airac": "2803",
+      "effective": "2028-03-16"
+    },
+    {
+      "airac": "2804",
+      "effective": "2028-04-13"
+    },
+    {
+      "airac": "2805",
+      "effective": "2028-05-11"
+    },
+    {
+      "airac": "2806",
+      "effective": "2028-06-08"
+    },
+    {
+      "airac": "2807",
+      "effective": "2028-07-06"
+    },
+    {
+      "airac": "2808",
+      "effective": "2028-08-03"
+    },
+    {
+      "airac": "2809",
+      "effective": "2028-08-31"
+    },
+    {
+      "airac": "2810",
+      "effective": "2028-09-28"
+    },
+    {
+      "airac": "2811",
+      "effective": "2028-10-26"
+    },
+    {
+      "airac": "2812",
+      "effective": "2028-11-23"
+    },
+    {
+      "airac": "2813",
+      "effective": "2028-12-21"
+    }
+  ]
+}

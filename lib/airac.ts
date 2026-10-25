@@ -27,7 +27,10 @@ export type AipRevisionMeta = {
   bytes: number | null;
   fetchedAt: string | null;
   history?: { effectiveDate: string | null; airac: string | null; sha256: string | null; fetchedAt: string | null }[];
+  /** The scheduled refresh's last look at the source (scripts/aip-refresh.mjs): ok with the source's date, or a failure that kept this copy. */
+  lastCheck?: AipLastCheck | null;
 };
+export type AipLastCheck = { at: string; ok: boolean; sourceEffectiveDate?: string | null; reason?: string; newer?: boolean; refetched?: boolean };
 
 export type Revision = {
   state: RevisionState;
@@ -42,6 +45,8 @@ export type Revision = {
   reason: string;
   /** For superseded copies: the id/key of the revision that replaced it, when we hold it. */
   supersededBy: string | null;
+  /** The refresh's last check of this copy against the source, when one has run (AIP refresh, 2026-10-25). */
+  lastCheck: AipLastCheck | null;
 };
 
 // 28-day cycles from a fixed epoch: 2026-01-22 is AIRAC 2601. ICAO Annex 15 §6.2.
@@ -107,10 +112,12 @@ export function aipRevision(meta: AipRevisionMeta | null, now: Date = new Date()
   if (!meta) { state = "unknown"; reason = "no revision record for this copy"; }
   else if (!effectiveFrom) { state = "unknown"; reason = `the source gave no effective date (fetched ${fetchedAt ? dayWords(fetchedAt.slice(0, 10)) : "at an unknown time"})`; }
   else if (effectiveFrom > today) { state = "future"; reason = `effective from ${dayWords(effectiveFrom)}`; }
+  else if (meta.lastCheck?.ok && meta.lastCheck.at.slice(0, 10) >= inForce.effectiveFrom && !meta.lastCheck.newer) { state = "current"; reason = `checked against the source ${dayWords(meta.lastCheck.at.slice(0, 10))}, nothing newer there`; }
+  else if (meta.lastCheck?.ok && meta.lastCheck.newer) { state = "superseded"; reason = `the source has a newer document (effective ${meta.lastCheck.sourceEffectiveDate ? dayWords(meta.lastCheck.sourceEffectiveDate) : "unknown"}); this copy has not been refetched yet`; }
   else if (fetchedAt && fetchedAt.slice(0, 10) < inForce.effectiveFrom) { state = "unknown"; reason = `not checked against the source since AIRAC ${inForce.cycle} took effect ${dayWords(inForce.effectiveFrom)} (fetched ${dayWords(fetchedAt.slice(0, 10))})`; }
   else { state = "current"; reason = `checked ${fetchedAt ? dayWords(fetchedAt.slice(0, 10)) : "this cycle"}, nothing newer known`; }
   const label = revisionLabel({ revision, effectiveFrom, state, airac: meta?.airac ?? null });
-  return { state, words: REVISION_WORDS[state], revision, effectiveFrom, validUntil: null, fetchedAt, label, reason, supersededBy: null };
+  return { state, words: REVISION_WORDS[state], revision, effectiveFrom, validUntil: null, fetchedAt, label, reason, supersededBy: null, lastCheck: meta?.lastCheck ?? null };
 }
 
 export function revisionLabel({ revision, effectiveFrom, state, airac }: { revision: string | null; effectiveFrom: string | null; state: RevisionState; airac?: string | null }): string {

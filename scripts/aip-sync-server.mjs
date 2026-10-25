@@ -17,6 +17,7 @@ import { deleteFile, readFile as readStorageFile, saveFile } from "../lib/storag
 import { buildRevisionMeta, metaKeyFor } from "../lib/aip-revision-meta.mjs";
 import { basename } from "path";
 import { logError, logInfo } from "../lib/utils/logger.mjs";
+import { runRefresh as runAipRefresh, tick as aipRefreshTick, readState as readAipRefreshState } from "./aip-refresh.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -1248,6 +1249,35 @@ const GEN_STEPS = [
   "GEN PDF ready",
 ];
 
+// AIP refresh (docs/aip-refresh-plan.md, 2026-10-25): the scheduled run's full fetch is exactly what /sync does for an EAD
+// airport — download, store, sidecar, extract — so a refetched copy is indistinguishable from one a person asked for.
+async function syncIcaoForRefresh(icao) {
+  await deleteOldFromS3(icao, "ead");
+  const downloadedPdfPath = await runDownload(icao, false);
+  await uploadPdfToS3(icao, "ead", downloadedPdfPath);
+  await runExtract(icao, downloadedPdfPath, null);
+  const data = readExtracted();
+  await uploadToS3();
+  await uploadPerIcaoToS3(icao, data, "ead");
+}
+let refreshRunning = false;
+async function refreshNow(opts) {
+  if (refreshRunning) return { skipped: "a refresh is already running" };
+  refreshRunning = true;
+  try { return await runAipRefresh({ ...opts, syncIcao: syncIcaoForRefresh, log: (m) => logInfo("AIP-REFRESH", m) }); }
+  finally { refreshRunning = false; }
+}
+// Every half hour: due? (the cycle in force has no run, or no recheck 24 h after the first). A missed date runs at the
+// next start — never a timer counted from today. Downloads only when AIP_REFRESH_DOWNLOADS=on; check-only otherwise.
+async function refreshTick() {
+  if (refreshRunning) return;
+  refreshRunning = true;
+  try { const r = await aipRefreshTick({ syncIcao: syncIcaoForRefresh, log: (m) => logInfo("AIP-REFRESH", m) }); if (r) logInfo("AIP-REFRESH", `run done: ${r.checked} checked, ${r.refetched} refetched, ${r.wouldRefetch} would refetch, ${r.failed.length} failed`); }
+  catch (e) { logError("AIP-REFRESH", "tick failed", e); }
+  finally { refreshRunning = false; }
+}
+if (process.env.AIP_REFRESH_SCHEDULE !== "off") { setTimeout(() => void refreshTick(), 2 * 60_000); setInterval(() => void refreshTick(), 30 * 60_000); }
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
@@ -1256,6 +1286,23 @@ const server = createServer(async (req, res) => {
   const scraperRequested = url.searchParams.get("scraper") === "1" || url.searchParams.get("scraper") === "true";
   // Health probe (platform audit §6.4): unauthenticated, no scraping — proves
   // the worker process answers.
+  if (url.pathname === "/refresh/status" || url.pathname === "/refresh/status/") {
+    if (!requireAuth(req)) { res.writeHead(401, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, running: refreshRunning, state: await readAipRefreshState() }));
+    return;
+  }
+  if (url.pathname === "/refresh/run" || url.pathname === "/refresh/run/") {
+    if (!requireAuth(req)) { res.writeHead(401, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    if (req.method !== "POST") { res.writeHead(405, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "POST" })); return; }
+    const mode = url.searchParams.get("mode") === "download" ? "download" : "check";
+    const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit")) || 500));
+    try {
+      const summary = await refreshNow({ mode, limit, reason: "manual" });
+      res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, summary }));
+    } catch (e) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "The refresh run failed; see the worker log." })); }
+    return;
+  }
   if (url.pathname === "/health" || url.pathname === "/health/") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, service: "aip-sync", time: new Date().toISOString() }));

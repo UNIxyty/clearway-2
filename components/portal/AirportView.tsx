@@ -614,6 +614,8 @@ export default function AirportView({ icao }: { icao: string }) {
   // When the AD 2 copy being shown was fetched (/api/aip/resolve: its revision record, or the file's date). The stored
   // extraction is dropped after a day, so this — not detailCacheEntry.updatedAt — is what says how old the PDF is.
   const [aipCopyFetchedAt, setAipCopyFetchedAt] = useState<Record<string, string | null>>({});
+  // The scheduled refresh's last look at this copy (AIP refresh, 2026-10-25): a failure keeps the old copy and the page says so.
+  const [aipLastCheck, setAipLastCheck] = useState<Record<string, { at: string; ok: boolean } | null>>({});
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [genPdfDownloadError, setGenPdfDownloadError] = useState<string | null>(null);
@@ -1443,9 +1445,10 @@ export default function AirportView({ icao }: { icao: string }) {
       .catch(() => {});
     fetch(`/api/aip/resolve?icao=${encodeURIComponent(icao)}`, { signal: controller.signal, cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { cached?: boolean; copyFetchedAt?: string | null } | null) => {
+      .then((d: { cached?: boolean; copyFetchedAt?: string | null; revision?: { lastCheck?: { at: string; ok: boolean } | null } | null } | null) => {
         if (cancelled || !d) return;
         setAipCopyFetchedAt((c) => (c[icao] && !d.copyFetchedAt ? c : { ...c, [icao]: d.cached ? d.copyFetchedAt ?? null : null }));
+        setAipLastCheck((c) => ({ ...c, [icao]: d.cached ? d.revision?.lastCheck ?? null : null }));
       })
       .catch(() => {});
     return () => {
@@ -1956,11 +1959,12 @@ export default function AirportView({ icao }: { icao: string }) {
                     const stale = expires != null && expires <= new Date();
                     const oldCycle = ageMs > 28 * 24 * 60 * 60 * 1000;
                     return (
-                      <p className={`m-0 mt-2 flex items-start gap-2 text-[14px] leading-snug ${oldCycle ? "font-semibold text-cw-warning-text" : "text-cw-text-body"}`} data-aip-copy-age={oldCycle ? "old-cycle" : stale ? "stale" : "fresh"}>
+                      <p className={`m-0 mt-2 flex items-start gap-2 text-[14px] leading-snug ${oldCycle ? "font-semibold text-cw-warning-text" : "text-cw-text-body"}`} data-aip-refresh-failed={aipLastCheck[icao] && aipLastCheck[icao]!.ok === false ? "1" : undefined} data-aip-copy-age={oldCycle ? "old-cycle" : stale ? "stale" : "fresh"}>
                         {oldCycle && <MaskIcon name="triangle-alert" size={15} color="var(--cw-warning)" />}
                         <span>
                           This copy is from <span className="font-mono">{dateLong(fetched)}</span>.
                           {oldCycle && " That is more than one AIRAC cycle (28 days) ago."}
+                          {aipLastCheck[icao] && aipLastCheck[icao]!.ok === false && <> The refresh on <span className="font-mono">{dateLong(new Date(aipLastCheck[icao]!.at))}</span> failed; this copy is from the date above. Press <strong>Re-sync</strong>, or use the Web AIP.</>}
                           {stale && (hasLiveSync ? <> It is not refreshed automatically. Press <strong>Re-sync</strong> to fetch the current document.</> : " It is not refreshed automatically.")}
                         </span>
                       </p>

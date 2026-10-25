@@ -45,3 +45,10 @@ cannot prove: how production’s Leon tenants map to operator ids (ops type that
 client their decision (no mail on the rig), and TRIP scope at the AGENT — the mock Leon’s flight has no trip number, so
 the agent’s one small scope read (tripNo, registration) answers “not theirs” on the rig, which is the closed default;
 the wall side of trip scope reads its own cache and is proven. Operator and registration scope are proven at both.
+
+## AIP refresh (2026-10-25)
+The rig has no EAD. `rig/aip-refresh-check.mjs` starts its own sync worker against a scratch storage with invented copies
+and a stub that answers EAD's table (`AIP_REFRESH_STUB`): it proves the schedule (due on the effective date, a recheck
+24 h later, a missed date runs at the next start), the order, the check-or-download decision, the sidecar records and
+the state file. It cannot prove the EAD session itself (`--check` mode of the download script runs a real browser) nor
+how long a run takes on production — the first real run must be watched, check-only first.

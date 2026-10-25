@@ -283,6 +283,8 @@ async function dismissTermsIfPresent(page) {
   } catch (_) {}
 }
 
+const CHECK_ONLY = process.argv.includes('--check'); // read EAD's table row for the airport; download nothing
+
 async function main() {
   const icao = (process.argv[2] || 'EVAD').toUpperCase().trim();
   if (!/^[A-Z0-9]{4}$/.test(icao)) {
@@ -612,6 +614,15 @@ async function main() {
       const fullUrl = href.startsWith('http') ? href : new URL(href, BASE).href;
       log('Downloading PDF: ' + fullUrl);
 
+      // Check-only mode (AIP refresh, 2026-10-25): the worker asks what EAD's table says is current for this airport and
+      // compares it with the copy's recorded effective date; it downloads only when the table has a newer date. One line
+      // of JSON on stdout, nothing saved, the session closed. Most cycles end here for most airports.
+      if (CHECK_ONLY) {
+        const out = { icao, effectiveDate: selectedRow?.effectiveDateText || null, airacText: selectedRow?.airacText || null, document: selectedRow?.linkText?.trim() || null, checkedAt: new Date().toISOString() };
+        console.log('EAD-CHECK ' + JSON.stringify(out));
+        try { await browser.close(); } catch { /* already closed */ }
+        process.exit(0);
+      }
       let savePath = join(outDir, normalizePdfFilename(filenameFromUrl(fullUrl, `${icao}_AD2.pdf`), icao));
       try {
         const [download] = await Promise.all([

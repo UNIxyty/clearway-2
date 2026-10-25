@@ -45,7 +45,7 @@ for (const [label, meta, holding] of [
   ok(write.status === 401, `${label} · wall write → 401 (not 403: nobody, not a user without a grant)`, write.status);
 }
 
-await setApp(uid, { role: null, is_temporary: null, is_approved: null }); s = await grant();
+await setApp(uid, { role: null, is_temporary: null, is_approved: true }); s = await grant(); // a missing flag is not approved
 const after = await ask(s, "/digital-wall/api/timeline/flights?allOperators=true");
 ok(after.status === 200, "restored: the plain rig user reads the wall again (200)", after.status);
 console.log(failures ? `${failures} FAILED` : "ALL PASSED");

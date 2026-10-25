@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# The rig's accounts carry is_approved: true in app_metadata (2026-10-25: a missing flag is NOT approved anywhere).
+# Leaves an explicit false alone (stage3-batch1 makes a pending account on purpose). Idempotent; run after rig/db.sh.
+docker exec supabase_db_rig psql -U postgres -qAt -c "update auth.users set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{\"is_approved\": true}'::jsonb where email like '%@rig.invalid' and coalesce(raw_app_meta_data->>'is_approved', '') <> 'false' and coalesce(raw_app_meta_data->>'is_approved', '') <> 'true'; select count(*) || ' rig accounts approved, ' || count(*) filter (where raw_app_meta_data->>'is_approved' = 'false') || ' pending on purpose' from auth.users where email like '%@rig.invalid'" || { echo "approve-rig-accounts: the rig database did not answer"; exit 2; }

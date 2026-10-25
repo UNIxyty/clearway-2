@@ -67,6 +67,7 @@ run permissions-check $E rig/permissions-check.mjs
 preview 5198   # the console against the sign-in-on wall
 docker exec supabase_db_rig psql -U postgres -q -c "alter table permission_changes disable trigger permission_changes_append_only; delete from permission_grants; alter table permission_changes enable trigger permission_changes_append_only;"
 docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.sql > /dev/null
+bash rig/approve-rig-accounts.sh >> $LOG 2>&1
 run permissions-browser $E rig/permissions-browser.mjs
 run self-promotion-check $E rig/self-promotion-check.mjs
 run temporary-access-check $E rig/temporary-access-check.mjs

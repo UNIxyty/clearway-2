@@ -26,8 +26,9 @@ stops; it never says "clear" by default. A gate that fails open only works when 
 | Flight gap | `scripts/flight-gap.sh` (before a wall deploy) | no movement within 30 minutes, from a fresh cache | **was open:** an ad-hoc loop parsed no movements out of an error and said GAP. Now: cache missing, unparseable, older than 20 min, or empty → CANNOT TELL, exit 2 | **fixed** |
 | Migration before deploy | `scripts/metadata-to-app.mjs` and the chain that runs it | the one-off script ran clean before the code that needs it | the script exits 2 without its env and 3 on a disagreement; **the 2026-10-20 Stage 4 chain was open:** its migration step's failure would not have stopped the deploy steps after it. Rule for chains: every step `|| exit`, and the deploy step is the last | **rule** |
 | Rig database | `rig/start.sh`, `rig/db.sh` | the rig points at the local stack only | `.env.rig` missing → exit 2; a hosted URL in it → REFUSING | closed |
+| **Approval** | `middleware.ts`, `digital-wall/lib/auth.mjs`, `agent/lib/auth.mjs` › `accountBlocked` | a signed-in person may use the product | **was open — the biggest one:** a MISSING `is_approved` was read as "an old account, let it through"; seven accounts at other companies were inside on that default. Now only an explicit `is_approved: true` in app_metadata (service-key writes) lets a person in; missing is pending. Zero real accounts relied on the default on 2026-10-25 (the 36 carry true since the migration; the 7 are now explicitly false and disabled) | **fixed** |
 
-Seventeen gates. Six were failing open and are fixed in code; one (the chain pattern) is a rule for every chain written
+Eighteen gates. Seven were failing open and are fixed in code; one (the chain pattern) is a rule for every chain written
 from now on. A new gate goes in this table with its "missing input" column filled in before it is trusted.
 
 Chains that run for hours keep their helpers in `rig/.scratch/` (gitignored, not pruned), never in a session

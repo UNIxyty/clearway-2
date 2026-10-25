@@ -21,7 +21,7 @@ const psql = (sql) => execFileSync("docker", ["exec", "-i", "supabase_db_rig", "
 
 async function account(email, flags) {
   const password = "rig-access-check-only";
-  const made = await (await sb("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, password, email_confirm: true }) })).json();
+  const made = await (await sb("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, password, email_confirm: true, app_metadata: { is_approved: true } }) })).json();
   let id = made.id;
   if (!id) id = (await (await sb("/auth/v1/admin/users?per_page=200")).json()).users.find((u) => u.email === email)?.id;
   await sb("/rest/v1/user_preferences?on_conflict=user_id", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ user_id: id, is_admin: false, is_developer: false, ...flags }) });

@@ -43,7 +43,7 @@ export async function GET() {
           displayName: pref?.display_name ?? null,
           isAdmin: Boolean(pref?.is_admin),
           isDeveloper: Boolean(pref?.is_developer),
-          isApproved: pref ? Boolean(pref.is_approved) : true,
+          isApproved: pref ? Boolean(pref.is_approved) : false, // no record means not approved (2026-10-25), as the gates read it
         };
       })
       .sort((a, b) => {

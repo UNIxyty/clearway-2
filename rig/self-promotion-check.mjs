@@ -49,7 +49,7 @@ ok(back.status !== 307 || !/\/pending-approval/.test(back.headers.get("location"
 
 // put the account back as it was
 await setOwnMeta(s, { role: null, roles: null, is_admin: null, is_developer: null, is_approved: null, is_temporary: null });
-await setAppMeta(uid, { is_approved: null });
+await setAppMeta(uid, { is_approved: true }); // approval is explicit now; a missing flag is not approved
 s = await refresh(s);
 ok(JSON.stringify(await status(s)) === '{"isAdmin":false,"isDeveloper":false}', "restored: a user again");
 console.log(failures ? `${failures} FAILED` : "ALL PASSED");

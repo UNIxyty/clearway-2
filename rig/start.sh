@@ -33,6 +33,7 @@ WALL_RIG="LEON_REFRESH_TOKEN_ENCRYPTION_KEY=rig-local-only-not-a-secret LEON_OPE
 # stand-ins (rig/wall/seed-portal.mjs), so mail, CAA country matching and the NOTAM check work there.
 for d in wall wall-auth; do mkdir -p "$SCR/$d/data"; ln -sfn "$ROOT/digital-wall/templates" "$SCR/$d/templates"; [ -f "$SCR/$d/data/geo-airports.json" ] || cp "$ROOT/digital-wall/data/geo-airports.json" "$SCR/$d/data/"; done
 node "$RIG/wall/seed-portal.mjs" > /dev/null
+bash "$RIG/approve-rig-accounts.sh"
 ( cd "$RIG/wall" && env -i PATH="$PATH" HOME="$HOME" PORT=3985 node mock-leon.mjs > "$SCR/wall-mock-leon.out" 2>&1 & )
 ( cd "$SCR/wall" && env -i PATH="$PATH" HOME="$HOME" PORT=5199 $WALL_RIG node --env-file="$ENV" "$ROOT/digital-wall/server.mjs" > "$SCR/wall.out" 2>&1 & )
 ( cd "$RIG" && env -i PATH="$PATH" HOME="$HOME" RIG_SCRATCH="$SCR" node proxy.mjs > "$SCR/proxy.out" 2>&1 & )

@@ -163,12 +163,13 @@ async function resolveAgentRole(user) {
   return "user";
 }
 
-/** APP metadata only: the temporary label, or approval explicitly withheld. Mirrors digital-wall/lib/auth.mjs. */
+/** APP metadata only — the temporary label, or approval not explicitly granted.: the temporary label, or approval explicitly withheld. Mirrors digital-wall/lib/auth.mjs. */
 export function accountBlocked(appMeta) {
   const app = appMeta && typeof appMeta === "object" ? appMeta : {};
   const role = String(app.role || "").toLowerCase();
   const roles = Array.isArray(app.roles) ? app.roles.map((r) => String(r).toLowerCase()) : [];
-  return role === "temporary" || roles.includes("temporary") || app.is_temporary === true || app.is_approved === false;
+  // A missing approval flag is NOT approval (2026-10-25): only an explicit true, written with the service key, lets a person in.
+  return role === "temporary" || roles.includes("temporary") || app.is_temporary === true || app.is_approved !== true;
 }
 
 function mapSupabaseUser(payload) {

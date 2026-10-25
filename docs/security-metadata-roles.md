@@ -58,7 +58,13 @@ account and lets it through).
 **Fix:** `accountBlocked(app_metadata)` in `digital-wall/lib/auth.mjs` and `agent/lib/auth.mjs` — a temporary or
 unapproved account verifies as nobody (401, nothing revealed), before the grid or the allowlist is asked.
 **Check:** `rig/temporary-access-check.mjs` (in the runner): both labels, portal 307/403, agent 401, wall 401 by cookie,
-by bearer and for a write. The 7 keyless accounts are a decision for ops (approve, or set `is_approved: false`).
+by bearer and for a write.
+
+**Done on production, 2026-10-25:** the closure deployed (agent-service, digital-wall-backend at 46ac0cb1); the 19
+temporary and the 7 keyless accounts disabled (a 100-year ban, reversible), `is_approved: false` written into their
+app_metadata, every row kept. **The default flipped:** a missing approval flag is NOT approved — in the middleware, the
+wall and the agent only an explicit `is_approved: true` lets a person in (docs/gates.md, gate 18). The rig's accounts
+carry the flag (`rig/approve-rig-accounts.sh`, run by `rig/start.sh` and the runner).
 
 ## Related
 The permissions grid (docs/permissions.md) decides what each *role* may do; this is about who *holds* a role.

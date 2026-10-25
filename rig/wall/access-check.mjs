@@ -18,7 +18,7 @@ const sb = (p, init = {}) => fetch(`${SB}${p}`, { ...init, headers: { apikey: KE
 
 async function account(email, isAdmin) {
   const password = "rig-access-check-only";
-  const made = await sb("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, password, email_confirm: true }) });
+  const made = await sb("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, password, email_confirm: true, app_metadata: { is_approved: true } }) });
   let id = (await made.json()).id;
   if (!id) {
     const list = await (await sb("/auth/v1/admin/users?per_page=200")).json();

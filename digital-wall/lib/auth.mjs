@@ -169,12 +169,13 @@ function mapSupabaseUser(payload) {
   };
 }
 
-/** APP metadata only (the person cannot edit it): the temporary label, or approval explicitly withheld. */
+/** APP metadata only — the temporary label, or approval not explicitly granted. (the person cannot edit it): the temporary label, or approval explicitly withheld. */
 export function accountBlocked(appMeta) {
   const app = appMeta && typeof appMeta === "object" ? appMeta : {};
   const role = String(app.role || "").toLowerCase();
   const roles = Array.isArray(app.roles) ? app.roles.map((r) => String(r).toLowerCase()) : [];
-  return role === "temporary" || roles.includes("temporary") || app.is_temporary === true || app.is_approved === false;
+  // A missing approval flag is NOT approval (2026-10-25): only an explicit true, written with the service key, lets a person in.
+  return role === "temporary" || roles.includes("temporary") || app.is_temporary === true || app.is_approved !== true;
 }
 
 async function verifyAccessToken(token) {

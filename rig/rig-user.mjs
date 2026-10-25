@@ -7,7 +7,7 @@ const URL_ = env.NEXT_PUBLIC_SUPABASE_URL, KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/127\.0\.0\.1|localhost/.test(URL_)) { console.error("refusing: not a local Supabase"); process.exit(78); }
 const H = { apikey: KEY, authorization: `Bearer ${KEY}`, "content-type": "application/json" };
 export const RIG_USER = { id: "00000000-7e57-4000-8000-000000000000", email: "rig-test@rig.invalid", password: "rig-test-password", name: "RIG TEST ACCOUNT (not a person)" };
-let r = await fetch(`${URL_}/auth/v1/admin/users`, { method: "POST", headers: H, body: JSON.stringify({ id: RIG_USER.id, email: RIG_USER.email, password: RIG_USER.password, email_confirm: true, user_metadata: { full_name: RIG_USER.name }, app_metadata: { role: "developer" } }) });
+let r = await fetch(`${URL_}/auth/v1/admin/users`, { method: "POST", headers: H, body: JSON.stringify({ id: RIG_USER.id, email: RIG_USER.email, password: RIG_USER.password, email_confirm: true, user_metadata: { full_name: RIG_USER.name }, app_metadata: { is_approved: true, role: "developer" } }) });
 const body = await r.json().catch(() => ({}));
 if (!r.ok && !/already|exists|duplicate/i.test(JSON.stringify(body))) { console.error("auth user:", r.status, JSON.stringify(body).slice(0, 200)); process.exit(1); }
 console.log(`auth user ${RIG_USER.email}: ${r.ok ? "created" : "already there"}`);

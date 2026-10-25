@@ -252,11 +252,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect accounts pending admin approval (is_approved explicitly false in APP metadata — written only with the
-  // service key; a person cannot approve themselves by editing their own user_metadata). Undefined means an existing
-  // account (not subject to the approval flow) → allowed through.
+  // Approval lives in APP metadata (written only with the service key; a person cannot approve themselves by editing
+  // their own user_metadata), and it must say true. A MISSING flag is NOT approved (2026-10-25): until then a missing
+  // flag was read as "an old account, let it through", and seven accounts at other companies were inside on that
+  // default alone. Every real account carries is_approved: true since scripts/metadata-to-app.mjs ran.
   const isApprovedMeta = (user.app_metadata as Record<string, unknown> | null)?.is_approved;
-  if (isApprovedMeta === false && !pathname.startsWith("/pending-approval")) {
+  if (isApprovedMeta !== true && !pathname.startsWith("/pending-approval")) {
     const pendingUrl = request.nextUrl.clone();
     pendingUrl.pathname = "/pending-approval";
     // Keep the deep link: once approved, the page returns the user there.

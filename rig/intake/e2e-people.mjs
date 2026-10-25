@@ -204,7 +204,6 @@ console.log("\n=== 7. A renewed passport: same name and date of birth, another n
   ok(w7.asks?.length === 2 && w7.asks.map((x) => x.row).join() === "4,6" && w7.asks.every((x) => x.contactNid === (x.row === 4 ? seedA.contactNid : seedB.contactNid)), "the write carries two asks: passengers 4 and 6, each naming the Leon contact", JSON.stringify(w7.asks?.map((x) => [x.row, x.contactNid])));
   ok(/passenger 4 of 16: Leon has a contact with this name and date of birth, but another passport — decide on the page/.test(w7.error) && !/none attached/.test(w7.error), "the reason says what to do; the old 'none attached' line is gone", w7.error.slice(0, 140));
   ok(w7.asks.every((x) => x.leon.country === x.request.country && x.leon.expires && x.request.expires && !("number" in x.leon) && !("number" in x.request)) && !leaks("", JSON.stringify(w7)), "each ask shows both passports by country and expiry only — no number, no name, no date of birth", JSON.stringify(w7.asks[0]));
-  ok(calls(/personCreate/).length === (await contactsInLeon()).length - 2 + 0 || true, "(create count noted)", `${calls(/personCreate/).length} creates so far`);
   let d7 = await detail(m7.request_id);
   ok(d7.request.ui.key === "needs_you" && d7.sent.people.some((p) => p.kind === "pax" && p.leg === 0 && p.detail?.asks?.length === 2), "the request is Needs you and the page's data carries both asks", d7.request.statusReason);
   const bad = await api(`/api/intake/requests/${m7.request_id}/people/passport-decision`, { key: "1/000000000000000000000000", decision: "renewal" });
@@ -215,7 +214,8 @@ console.log("\n=== 7. A renewed passport: same name and date of birth, another n
   ok(dec1.status === 200 && dec2.status === 200 && dec1.json.review.passportDecisions[w7.asks[0].key].decision === "renewal" && dec2.json.review.passportDecisions[w7.asks[1].key].decision === "different" && dec2.json.review.passportDecisions[w7.asks[0].key].row === 4, "a person decides: passenger 4 is a renewal, passenger 6 a different person — both kept on the request with who and when", JSON.stringify(Object.values(dec2.json.review.passportDecisions).map((x) => [x.row, x.decision, x.by])));
   const creates7 = calls(/personCreate/).length, updates7 = calls(/personUpdate/).length;
   const rs7 = await peopleSend(m7.request_id, 0);
-  const after7 = (await detail(m7.request_id)).sent.people.filter((p) => p.kind === "pax" && p.leg === 0).sort((x, y) => Date.parse(x.updatedAt) - Date.parse(y.updatedAt)).pop();
+  const d7a = await detail(m7.request_id); const stage7 = d7a.stages.find((s) => s.name === "Passengers and crew")?.note ?? "";
+  const after7 = d7a.sent.people.filter((p) => p.kind === "pax" && p.leg === 0).sort((x, y) => Date.parse(x.updatedAt) - Date.parse(y.updatedAt)).pop();
   ok(rs7.confirmed?.status === 200 && after7.state === "in_leon" && after7.detail.renewed === 1 && after7.detail.created === 1 && after7.detail.reused === 15 && after7.detail.people === 16, "sent again: 16 in Leon — 1 renewed passport added, 1 new contact, 14 found + the renewed one reused", JSON.stringify({ state: after7.state, ...after7.detail, asks: undefined, differs: undefined, notes: undefined, failed: undefined }));
   ok(calls(/personUpdate/).length === updates7 + 1 && calls(/personCreate/).length === creates7 + 1, "exactly one personUpdate (the renewal) and one personCreate (the different person)", `${calls(/personUpdate/).length - updates7} updates, ${calls(/personCreate/).length - creates7} creates`);
   const upd = calls(/personUpdate/).pop();
@@ -232,7 +232,7 @@ console.log("\n=== 7. A renewed passport: same name and date of birth, another n
   const f2 = await flightOf(r7.legs[1].flightNid);
   ok(leg2.state === "in_leon" && leg2.detail.renewed === 0 && leg2.detail.created === 0 && calls(/personUpdate/).length === updates7 + 1 && rowsMatching(f2, 3) === 16, "leg 2 sent: the decisions held, nothing updated or created again (the mapping knows both passports now)", JSON.stringify({ state: leg2.state, renewed: leg2.detail.renewed, created: leg2.detail.created, reused: leg2.detail.reused }));
   d7 = await detail(m7.request_id);
-  ok(d7.request.ui.key === "loaded" && /1 with a renewed passport added, as a person decided/.test(d7.stages.find((s) => s.name === "Passengers and crew")?.note ?? ""), "request Loaded; the stage says a renewed passport was added as a person decided", d7.stages.find((s) => s.name === "Passengers and crew")?.note?.slice(0, 160));
+  ok(d7.request.ui.key === "loaded" && /1 with a renewed passport added, as a person decided/.test(stage7), "request Loaded; after leg 1's send the stage said a renewed passport was added as a person decided", stage7.slice(0, 160));
   const aud7 = await db(`agent_audit_log?select=kind,detail&kind=in.(intake.passport_decided,intake.leon_passport_renewed)&order=created_at.desc&limit=5`).catch(() => []);
   ok(Array.isArray(aud7) && aud7.some((x) => x.kind === "intake.passport_decided") && aud7.some((x) => x.kind === "intake.leon_passport_renewed") && !leaks("", JSON.stringify(aud7)), "both the decision and the renewal are audited, without personal data", aud7.map?.((x) => x.kind).join(","));
 
@@ -245,7 +245,7 @@ console.log("\n=== 7. A renewed passport: same name and date of birth, another n
   faults({ refusePassportUpdate: true }); const creates8 = calls(/personCreate/).length;
   const rs8 = await peopleSend(m8.request_id, 0); faults({});
   const after8 = (await detail(m8.request_id)).sent.people.filter((p) => p.kind === "pax" && p.leg === 0).sort((x, y) => Date.parse(x.updatedAt) - Date.parse(y.updatedAt)).pop();
-  ok(rs8.confirmed?.status === 200 && after8.state === "not_in_leon" && /passenger 8 of 16: Leon did not add the renewed passport to the contact \(Leon: Passport list is locked by another user\) — add it to the contact in Leon by hand, then press Send passengers to Leon/.test(after8.error) && calls(/personCreate/).length === creates8, "Leon refuses the update: the person is told to add the passport in Leon by hand and send again; no contact was created for that passenger; nothing reached the flight", after8.error?.slice(0, 200));
+  ok(rs8.confirmed?.status === 200 && after8.state === "not_in_leon" && /passenger 8 of 16: Leon did not add the renewed passport to the contact \(Passport list is locked by another user\) — add it to the contact in Leon by hand, then press Send passengers to Leon/.test(after8.error) && calls(/personCreate/).length === creates8, "Leon refuses the update: the person is told to add the passport in Leon by hand and send again; no contact was created for that passenger; nothing reached the flight", after8.error?.slice(0, 200));
   ok(!(await flightOf(r8.legs[0].flightNid)).passengerList.passengerContactList, "…the flight holds no partial list");
   ok(seedC.contactNid > 0, "(seeded)"); }
 

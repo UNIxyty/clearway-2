@@ -117,7 +117,7 @@ const vidHave = [...videos.keys()].filter((n) => exists("videos", n, [".mp4"]));
 ok(true, `screenshots: ${shots.size} referenced, ${shotHave.length} present, ${shots.size - shotHave.length} shown as "Screenshot to come"`);
 ok(true, `videos: ${videos.size} referenced, ${vidHave.length} present, ${videos.size - vidHave.length} shown as "Video to come"`);
 const orphan = ["screenshots", "videos"].flatMap((d) => (fs.existsSync(`public/docs-media/${d}`) ? fs.readdirSync(`public/docs-media/${d}`) : [])
-  .filter((f) => !/^README/.test(f)).map((f) => [d, f])).filter(([d, f]) => !(d === "screenshots" ? shots : videos).has(f.replace(/\.[a-z0-9]+$/i, "").toLowerCase()) && !(d === "videos" && /\.(png|jpe?g|webp)$/i.test(f) && videos.has(f.replace(/\.[a-z0-9]+$/i, ""))));
+  .filter((f) => !/^README/.test(f) && f !== "manifest.json").map((f) => [d, f])).filter(([d, f]) => !(d === "screenshots" ? shots : videos).has(f.replace(/\.[a-z0-9]+$/i, "").replace(/-dark$/, "").toLowerCase()) && !(d === "videos" && /\.(png|jpe?g|webp)$/i.test(f) && videos.has(f.replace(/\.[a-z0-9]+$/i, ""))));
 ok(orphan.length === 0, "no file in public/docs-media that no page uses", orphan.map(([d, f]) => `${d}/${f}`).join(", "));
 // The component sheet's stand-in: one picture, in its own folder, which no page can reach.
 const sheetImgs = fs.existsSync("public/docs-media/sheet") ? fs.readdirSync("public/docs-media/sheet").filter((f) => /\.(png|jpe?g|webp|gif)$/i.test(f)) : [];

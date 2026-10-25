@@ -76,9 +76,13 @@ export async function listCopies() {
   return out;
 }
 
-/** Airports with flights on the wall in the next 7 days, from the wall's own cache (WALL_DATA_DIR/timeline-cache.json). */
+/** Airports with flights on the wall in the next 7 days: the wall writes data/portal/upcoming-airports.json (ICAO codes only). */
 export function upcomingAirports(now = new Date()) {
-  const dir = process.env.WALL_DATA_DIR || "/wall-data";
+  const dir = process.env.WALL_DATA_DIR || "/wall-portal";
+  try {
+    const small = JSON.parse(fs.readFileSync(path.join(dir, "upcoming-airports.json"), "utf8"));
+    if (Array.isArray(small?.airports)) return new Set(small.airports.map((i) => String(i).toUpperCase()));
+  } catch { /* an older wall: fall back to its cache when that is what is mounted */ }
   try {
     const c = JSON.parse(fs.readFileSync(path.join(dir, "timeline-cache.json"), "utf8"));
     const set = new Set(); const from = now.getTime() - DAY, to = now.getTime() + 7 * DAY;

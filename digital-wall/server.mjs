@@ -28,7 +28,7 @@ import {
   revokeDevice,
   validateDeviceToken,
 } from "./lib/devices.mjs";
-import { JsonFileStore } from "./lib/json-store.mjs";
+import { JsonFileStore, PORTAL_SHARED } from "./lib/json-store.mjs";
 import { ImportantStore } from "./lib/important-store.mjs";
 import { CaaStore } from "./lib/caa-store.mjs";
 import { getNotams, portalConfigured, resolveAipPdf, streamAipPdf } from "./lib/portal-client.mjs";
@@ -83,9 +83,25 @@ const sseHub = new SseHub();
 process.stdout.write(`Digital Wall auth: ${describeAuthPosture()}\n`);
 // Any sync cycle that changed flights pushes the wall to re-read the cache
 // immediately — updated timings/movement land in ~1-2s, not at the next poll.
+// The airports with flights in the next 7 days, for the AIP refresh's order (scripts/aip-refresh.mjs): written to
+// data/portal/ — the only part of the wall's data another container may read — on every change and at start. ICAO
+// codes and a time, nothing else of a flight.
+const upcomingAirportsStore = new JsonFileStore(`${PORTAL_SHARED}/upcoming-airports.json`, { updatedAt: null, airports: [] });
+async function writeUpcomingAirports() {
+  try {
+    const now = Date.now(); const set = new Set();
+    for (const [, f] of timelineService.flightsByNid.entries()) {
+      const t = Date.parse(f?.startTimeUTC ?? ""); if (!Number.isFinite(t) || t < now - 86_400_000 || t > now + 7 * 86_400_000 || f?.isCnl) continue;
+      for (const i of [f?.adep?.icao, f?.ades?.icao]) if (i) set.add(String(i).toUpperCase());
+    }
+    await upcomingAirportsStore.write({ updatedAt: new Date().toISOString(), airports: [...set].sort() });
+  } catch (e) { console.error("[wall] upcoming-airports.json not written:", e instanceof Error ? e.message : e); }
+}
 timelineService.onFlightsChanged = ({ updated, deleted }) => {
   sseHub.broadcast({ type: "flight.changed", via: "sync", updated, deleted });
+  void writeUpcomingAirports();
 };
+void writeUpcomingAirports();
 
 const alertsService = new AlertsService({ timelineService, sseHub });
 await alertsService.load();

@@ -13,7 +13,7 @@ Cached EAD AD 2 copies now refresh on the AIRAC schedule, record which cycle the
   a run is due: the cycle in force has no run yet (from 00:30Z on its effective date), or the recheck 24 hours after the
   first run has not happened. No timer counted from today: a missed date runs at the worker's next start. A run goes
   through the copies **one at a time with a pause** (`AIP_REFRESH_PAUSE_MS`, 20 s), in this order: airports with flights
-  on the wall in the next 7 days (the wall's cache, mounted read-only as `/wall-data`), copies over 90 days old, copies
+  on the wall in the next 7 days (the wall writes `data/portal/upcoming-airports.json`, ICAO codes only, and the worker mounts that folder read-only as `/wall-portal`, never the wall’s whole data folder), copies over 90 days old, copies
   older than one cycle, the rest; airports with flights and no copy are appended. For each copy it checks the source and
   **refetches only when the table has a newer date or the copy has no recorded date** — and only in download mode.
 - **Check-only is the default.** `AIP_REFRESH_DOWNLOADS=on` in the server's `.env` turns refetching on. Until then a
@@ -43,7 +43,7 @@ Cached EAD AD 2 copies now refresh on the AIRAC schedule, record which cycle the
 
 ## Production, in order
 1. Run migration-free: nothing to run on the database.
-2. Deploy `aip-sync` (the compose file now mounts the wall's data read-only and sets `AIP_REFRESH_DOWNLOADS` off) and the
+2. Deploy `aip-sync` (the compose file now mounts the wall’s `data/portal` read-only and sets `AIP_REFRESH_DOWNLOADS` off) and the
    `portal` (the revision types, the monitor, the page line) and `digital-wall-backend` (the email line) and
    `agent-service` (the answer line) — this block's one deploy.
 3. **The first run** is due at once (AIRAC 2610 has no run recorded): check-only, ~160 copies, about an hour with the

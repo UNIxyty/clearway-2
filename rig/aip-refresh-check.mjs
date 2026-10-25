@@ -28,7 +28,8 @@ copy("EYVI", 3, cycle.effective);        // current, has a flight soon → check
 copy("LSGG", 40, null);                  // undated → refetch
 copy("EGLL", 5, cycle.effective);        // current, source fails → recorded as a failure, copy kept
 copy("LFPG", 200);                       // no sidecar at all (fetched before sidecars existed) → undated → refetch
-// the wall's cache: flights in the next 7 days touch EYVI, LSGG and EDDF (no copy of EDDF yet)
+// what the wall writes to data/portal/: the airports with flights in the next 7 days — EYVI, LSGG and EDDF (no copy of EDDF yet)
+fs.writeFileSync(path.join(WALL, "upcoming-airports.json"), JSON.stringify({ updatedAt: new Date().toISOString(), airports: ["EDDF", "EYVI", "LSGG"] }));
 fs.writeFileSync(path.join(WALL, "timeline-cache.json"), JSON.stringify({ flights: [
   { key: "cwy-cwy:1", flight: { startTimeUTC: iso(now + 2 * DAY), adep: { icao: "EYVI" }, ades: { icao: "LSGG" } } },
   { key: "cwy-cwy:2", flight: { startTimeUTC: iso(now + 5 * DAY), adep: { icao: "EDDF" }, ades: { icao: "EYVI" } } },

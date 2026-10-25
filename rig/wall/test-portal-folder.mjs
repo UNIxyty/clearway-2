@@ -40,15 +40,18 @@ const wallMounts = [...compose.matchAll(/^\s*-\s*(\.\/digital-wall\/data[^\s:]*)
 const intoPortal = wallMounts.filter(([, to]) => to === "/wall-data");
 ok(intoPortal.length === 1 && intoPortal[0][0] === "./digital-wall/data/portal", "the portal mounts ./digital-wall/data/portal, never the whole data folder", JSON.stringify(wallMounts));
 ok(/\/wall-data:ro/.test(compose), "read-only");
+// Any other container that reads the wall's data (the AIP sync worker, 2026-10-25) reads the same folder, read-only.
+const others = wallMounts.filter(([, to]) => to !== "/wall-data" && to !== "/app/data");
+ok(others.every(([from, to]) => from === "./digital-wall/data/portal" && new RegExp(`${to}:ro`).test(compose)), "every other reader of the wall's data mounts data/portal only, read-only", JSON.stringify(others));
 
 // ── only the changelog's three stores live in data/portal/ ──
 const shared = execFileSync("git", ["grep", "-h", "-o", "-E", "PORTAL_SHARED\\}/[a-z-]+\\.json", "--", "digital-wall"], { cwd: ROOT, encoding: "utf8" })
   .split("\n").filter(Boolean).map((l) => l.replace("PORTAL_SHARED}/", ""));
-const allowed = ["important.json", "reports.json", "webhook-log.json"];
+const allowed = ["important.json", "reports.json", "webhook-log.json", "upcoming-airports.json"]; // the last: ICAO codes with flights in 7 days, for the AIP refresh
 ok(shared.length > 0 && shared.every((f) => allowed.includes(f)), `data/portal/ holds only ${allowed.join(", ")}`, [...new Set(shared)].join(", "));
 const read = fs.readFileSync(path.join(ROOT, "app/api/dashboard/changelog/route.ts"), "utf8").matchAll(/readWallJson<[\s\S]*?\(\s*"([a-z-]+\.json)"/g);
 const names = [...read].map((m) => m[1]);
-ok(names.length === 3 && names.every((f) => allowed.includes(f)), "the changelog reads exactly those three", names.join(", "));
+ok(names.length === 3 && names.every((f) => allowed.slice(0, 3).includes(f)), "the changelog reads exactly the first three", names.join(", "));
 
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");
 process.exit(failures ? 1 : 0);

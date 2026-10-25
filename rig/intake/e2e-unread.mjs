@@ -6,7 +6,7 @@
 // Truncates the intake tables like every intake e2e.
 import { execSync } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, renameSync } from "node:fs";
 import path from "node:path";
 if (!/127\.0\.0\.1|localhost/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")) { console.error("rig only (local DB)"); process.exit(78); }
 const AGENT = process.env.RIG_AGENT_URL || "http://127.0.0.1:5175";
@@ -68,13 +68,17 @@ console.log("\n=== 2. A read request whose stored copy later cannot be opened: R
   const root = roots.find((r) => existsSync(path.join(r, m.raw_key))) ?? roots[0];
   const rawFile = path.join(root, m.raw_key);
   ok(existsSync(rawFile), "its raw copy is on disk under the agent's intake root", rawFile.replace(root, "<root>"));
-  rmSync(rawFile, { force: true });
+  renameSync(rawFile, `${rawFile}.aside`); // moved, not deleted: put back below so later suites (the mailbox browser check) still find it
   const re = await api(`/api/intake/requests/${m.request_id}/reprocess`, { attachmentId: null });
   await sleep(1500);
   const r = await request(m.request_id); const m2 = (await db(`intake_messages?select=status,status_reason&id=eq.${m.id}`))[0];
   ok(r.status === "needs_you" && /^Could not be read/.test(r.status_reason) && reading(r)?.state === "fail" && /stored copy of the email could not be opened/.test(reading(r)?.note ?? ""), "Re-extract on a copy that cannot be opened: the request turns Needs you with the plain reason (it used to fail silently in the Mailbox)", `${re.status} · ${r.status} · ${reading(r)?.note?.slice(0, 80)}`);
   ok(m2.status === "failed" && /Could not read the stored message/.test(m2.status_reason), "…and the Mailbox row is Failed, as before", m2.status_reason);
-  ok(/Re-extract/.test(reading(r)?.note ?? "") && /enter the details by hand/.test(reading(r)?.note ?? ""), "the note names both ways on: Re-extract, or enter the details by hand"); }
+  ok(/Re-extract/.test(reading(r)?.note ?? "") && /enter the details by hand/.test(reading(r)?.note ?? ""), "the note names both ways on: Re-extract, or enter the details by hand");
+  renameSync(`${rawFile}.aside`, rawFile);
+  const re2 = await api(`/api/intake/requests/${m.request_id}/reprocess`, { attachmentId: null }); await sleep(1500);
+  const r3 = await request(m.request_id);
+  ok(re2.status === 200 && !/^Could not be read/.test(r3.status_reason ?? "") && reading(r3)?.state !== "fail", "with the copy back, Re-extract reads it again and the request moves on", `${r3.status} · ${r3.status_reason}`); }
 
 console.log("\n=== 3. Nothing personal in what was written ===");
 { const rows = await db("intake_requests?select=status_reason,stages,sender_name");

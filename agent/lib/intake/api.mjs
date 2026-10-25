@@ -157,10 +157,13 @@ async function requestDetail(id) {
 
 // ── Review edits ───────────────────────────────────────────────────────────────────────────────────────
 async function editRequest(id, user, body) {
-  const r = (await rest(`intake_requests?select=*&id=eq.${id}`))?.[0]; if (!r?.review) throw err(404, "No such request.");
+  const r = (await rest(`intake_requests?select=*&id=eq.${id}`))?.[0]; if (!r) throw err(404, "No such request.");
+  const op = String(body.op ?? "");
+  // A request the agent could not read has no review; closing it is still a person's right (2026-10-25). Every other edit needs the reading.
+  if (!r.review && op !== "close") throw err(409, "This request has no reading to edit. Re-extract it, or close it.");
   const ws = legStates((await rest(`intake_leon_writes?select=leg_index,state,created_at&request_id=eq.${id}&action=eq.create&order=created_at.asc`)) ?? []);
   if (Object.values(ws).some((w) => w.state === "sending")) throw err(409, "A send to Leon is running. Wait for Leon's answer.");
-  const review = r.review; const me = who(user); const op = String(body.op ?? "");
+  const review = r.review ?? { legs: [] }; const me = who(user);
   const leg = body.leg != null ? review.legs.find((l) => l.index === Number(body.leg)) : null;
   if (body.leg != null && !leg) throw err(404, "No such leg.");
   if (leg && ws[leg.index]?.state === "in_leon" && op !== "service_view") throw err(409, `This leg is in Leon as flight ${ws[leg.index].leon_flight_nid}. Values are read-only here; change them in Leon.`);

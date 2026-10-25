@@ -57,7 +57,9 @@ export function dueRun(state, now = new Date()) {
   return { due: null, cycle, missedDays: 0 };
 }
 
-const ICAO_RE = [/_AD_2_([A-Z0-9]{4})_/i, /^([A-Z0-9]{4})_AD2\b/i, /AD_2_([A-Z0-9]{4})\./i];
+// The sync server stores a copy as aip/ead-pdf/<ICAO>.pdf (scripts/aip-sync-server.mjs); EAD's own names and the rig's stub
+// names are read too. Production's first run on 2026-10-25 listed 0 of 5 copies because the plain name was missing here.
+const ICAO_RE = [/^([A-Z0-9]{4})\.pdf$/i, /_AD_2_([A-Z0-9]{4})_/i, /^([A-Z0-9]{4})_AD2\b/i, /AD_2_([A-Z0-9]{4})\./i];
 export function icaoFromFilename(name) { for (const re of ICAO_RE) { const m = re.exec(name); if (m) return m[1].toUpperCase(); } return null; }
 
 /** Every cached EAD copy: { icao, key, fetchedAt, effectiveDate, airac, lastCheck, ageDays }. */

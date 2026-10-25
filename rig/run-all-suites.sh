@@ -51,11 +51,11 @@ rig/signin-agent.sh stop >> $LOG 2>&1
 run intake/e2e $E rig/intake/e2e.mjs
 run intake/e2e-scheduled $E rig/intake/e2e-scheduled.mjs
 run intake/e2e-classify $E rig/intake/e2e-classify.mjs
+run intake/e2e-unread $E rig/intake/e2e-unread.mjs   # leaves an envelope-only message; e2e-cancel truncates before the browser checks
 run intake/e2e-cancel $E rig/intake/e2e-cancel.mjs
 run intake/browser-cancel $E rig/intake/browser-cancel.mjs
 run intake/browser-flows $E rig/intake/browser-flows.mjs
 run intake/e2e-people $E rig/intake/e2e-people.mjs
-run intake/e2e-unread $E rig/intake/e2e-unread.mjs
 rig/signin-agent.sh >> $LOG 2>&1
 run intake/browser-people $E rig/intake/browser-people.mjs
 run intake/browser-check $E rig/intake/browser-check.mjs

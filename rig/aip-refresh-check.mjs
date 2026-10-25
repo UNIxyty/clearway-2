@@ -17,14 +17,15 @@ const prevCycle = airacTable().filter((c) => c.effective < cycle.effective).pop(
 ok(Boolean(cycle && prevCycle), "the AIRAC table gives the cycle in force and the one before", `${cycle?.airac} ${cycle?.effective} · ${prevCycle?.airac}`);
 
 // invented copies: name → [fetched how long ago, sidecar effective date or null]
-const copy = (icao, ageDays, effectiveDate, extra = {}) => {
-  const key = `aip/ead-pdf/XX_AD_2_${icao}_en.pdf`; const p = path.join(STORAGE, key);
+const copy = (icao, ageDays, effectiveDate, extra = {}, plain = false) => {
+  // plain: named as the sync server stores a copy (aip/ead-pdf/<ICAO>.pdf, production's layout); else EAD's long name
+  const key = plain ? `aip/ead-pdf/${icao}.pdf` : `aip/ead-pdf/XX_AD_2_${icao}_en.pdf`; const p = path.join(STORAGE, key);
   fs.writeFileSync(p, "%PDF-1.4\n% rig copy\n%%EOF\n"); const t = new Date(now - ageDays * DAY); fs.utimesSync(p, t, t);
   if (effectiveDate !== undefined) fs.writeFileSync(path.join(STORAGE, key.replace(/\.pdf$/, ".meta.json")), JSON.stringify({ icao, source: "ead", effectiveDate, airac: null, fetchedAt: iso(now - ageDays * DAY), ...extra }, null, 2));
   return key;
 };
 copy("EVRA", 100, prevCycle.effective);  // over 90 days, dated last cycle; the source now says this cycle → refetch
-copy("EYVI", 3, cycle.effective);        // current, has a flight soon → checked first, up to date
+copy("EYVI", 3, cycle.effective, {}, true); // current, has a flight soon → checked first, up to date; named EYVI.pdf as on production (2026-10-26)
 copy("LSGG", 40, null);                  // undated → refetch
 copy("EGLL", 5, cycle.effective);        // current, source fails → recorded as a failure, copy kept
 copy("LFPG", 200);                       // no sidecar at all (fetched before sidecars existed) → undated → refetch
@@ -44,8 +45,8 @@ const up = async () => { for (let i = 0; i < 60; i++) { try { const r = await fe
 ok(await up(), "the worker starts against the scratch storage");
 const H = { "x-sync-secret": "rig-refresh" };
 const run = async (mode, limit = 500, scope = "all") => (await fetch(`http://127.0.0.1:${PORT}/refresh/run?mode=${mode}&limit=${limit}&scope=${scope}`, { method: "POST", headers: H })).json();
-const meta = (icao) => { const dir = path.join(STORAGE, "aip/ead-pdf"); const n = fs.readdirSync(dir).find((f) => f.endsWith(".meta.json") && new RegExp(`(_AD_2_${icao}_|^${icao}_AD2)`).test(f)); return n ? JSON.parse(fs.readFileSync(path.join(dir, n), "utf8")) : null; };
-const copiesOf = (icao) => fs.readdirSync(path.join(STORAGE, "aip/ead-pdf")).filter((f) => f.endsWith(".pdf") && new RegExp(`(_AD_2_${icao}_|^${icao}_AD2)`).test(f)).length;
+const meta = (icao) => { const dir = path.join(STORAGE, "aip/ead-pdf"); const n = fs.readdirSync(dir).find((f) => f.endsWith(".meta.json") && new RegExp(`(_AD_2_${icao}_|^${icao}_AD2|^${icao}\\.)`).test(f)); return n ? JSON.parse(fs.readFileSync(path.join(dir, n), "utf8")) : null; };
+const copiesOf = (icao) => fs.readdirSync(path.join(STORAGE, "aip/ead-pdf")).filter((f) => f.endsWith(".pdf") && new RegExp(`(_AD_2_${icao}_|^${icao}_AD2|^${icao}\\.)`).test(f)).length;
 const noAuth = await fetch(`http://127.0.0.1:${PORT}/refresh/run?mode=check`, { method: "POST" }); ok(noAuth.status === 401, "a run needs the sync secret", noAuth.status);
 
 // 0. the default scope: only the airports with flights in the next 7 days (EYVI, LSGG with copies; EDDF without)

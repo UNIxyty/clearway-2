@@ -297,7 +297,8 @@ export function bannerFor(detail: RequestDetail, now: number, closed: boolean): 
   // Nothing in Leon.
   if (closed) return { tone: "slate", icon: "circle-minus", title: `${r.ui.label}. Nothing was sent to Leon.`, body: r.statusReason };
   const reading = detail.stages.find((s) => s.name === "Reading request");
-  if (!detail.review && reading?.state === "fail") return { tone: "red", icon: "file-x", title: "Could not read the request. Nothing has been sent to Leon.", body: reading.note ?? "Open the original, then enter the details by hand." };
+  // A reading that failed — the first (no review) or a re-read (the earlier values stay below). The stage note says what to do.
+  if (reading?.state === "fail" && (!detail.review || /^Could not be read/.test(r.statusReason ?? ""))) return { tone: "red", icon: "file-x", title: "Could not read the request. Nothing has been sent to Leon.", body: `${reading.note ?? "Open the original, then enter the details by hand."}${detail.review ? " The values below are from the earlier reading." : ""}` };
   if (r.ui.key === "in_progress" && !detail.review) return { tone: "blue", icon: "circle-dot", title: "Reading the request. Nothing is in Leon yet.", body: null };
   const tzLeg = legs.find((l) => l.fields.some((f) => f.state === "tz_unknown"));
   if (tzLeg) {

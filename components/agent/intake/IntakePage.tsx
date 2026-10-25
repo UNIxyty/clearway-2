@@ -222,7 +222,8 @@ function Health({ overview, failed }: { overview: Overview | null; failed: boole
   if (!h) return <div style={{ display: "flex", gap: 8 }}>{failed ? pill("x", "Status", "unknown", "not available") : null}</div>;
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-      {pill("mail", "Intake mailbox", h.mailbox.ok ? "ok" : "down", h.mailbox.ok ? "Reachable" : `Not responding${h.mailbox.lastAt ? ` since ${hmZ(h.mailbox.lastAt)}` : ""}`, h.mailbox.note ?? undefined)}
+      {/* The truth, not "Reachable" (2026-10-25): when the last email came, and how many could not be read this week. */}
+      {pill("mail", "Intake mailbox", !h.mailbox.ok || h.mailbox.failed ? "down" : "ok", !h.mailbox.ok ? "Not set up" : h.mailbox.failed ? `${h.mailbox.failed} not read` : h.mailbox.lastAt ? `Last email ${ddMon(h.mailbox.lastAt)} ${hmZ(h.mailbox.lastAt)}` : "No email yet", h.mailbox.note ?? undefined)}
       {pill("leon", "Leon API", h.leon.ok ? "ok" : "down", h.leon.ok ? "Reachable" : "Not responding")}
       {pill("portals", "CNAIR portal", h.portals.lookup ? "ok" : "neutral", h.portals.lookup ? "Read after approval" : "Look-up off", h.portals.note)}
       {h.timezones && (!h.timezones.ok || h.timezones.behind) && pill("timezones", "Time zones", h.timezones.ok ? "neutral" : "down", h.timezones.ok ? `${h.timezones.version} · newer data published` : "Out of date · local times not converted", h.timezones.note)}

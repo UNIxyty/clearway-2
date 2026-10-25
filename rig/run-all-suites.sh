@@ -55,6 +55,7 @@ run intake/e2e-cancel $E rig/intake/e2e-cancel.mjs
 run intake/browser-cancel $E rig/intake/browser-cancel.mjs
 run intake/browser-flows $E rig/intake/browser-flows.mjs
 run intake/e2e-people $E rig/intake/e2e-people.mjs
+run intake/e2e-unread $E rig/intake/e2e-unread.mjs
 rig/signin-agent.sh >> $LOG 2>&1
 run intake/browser-people $E rig/intake/browser-people.mjs
 run intake/browser-check $E rig/intake/browser-check.mjs

@@ -41,6 +41,35 @@ export function setStage(stages, name, state, note = null, at = new Date().toISO
   return stages;
 }
 
+// ── an email the agent could not read (2026-10-25) ────────────────────────────────────────────────────────────────
+// Before: it went to the Mailbox as Failed (which most dispatchers cannot open) and nowhere else — a lost request with
+// no sign of it. Now it is a request on Flight intake, Needs you, with what is known (sender, time) and a plain statement
+// of what to do. The email stays Failed in the Mailbox too. A re-run that reads it takes the request through the normal
+// flow; a re-run that finds it was never a request closes it (closeUnread).
+const UNREAD_REASON = "Could not be read · a person must read the email";
+export const isUnread = (r) => !!r && r.status === "needs_you" && String(r.status_reason ?? "").startsWith("Could not be read");
+export async function unreadRequest(message, { why, sender = null, existing = null, stages = null } = {}) {
+  const req0 = existing ?? (await rest(`intake_requests?select=id,request_type,stages,sender_name&message_id=eq.${message.id}`))?.[0] ?? null;
+  const st = stages ?? (req0?.stages?.length ? req0.stages.map((s) => ({ ...s })) : freshStages("handling"));
+  if (!stages) for (const s of st) if (s.name !== "Request received") { s.state = "none"; s.at = null; s.ms = null; s.note = null; }
+  const from = sender || req0?.sender_name || message.from_addr || "unknown sender";
+  setStage(st, "Request received", "done", `From ${from}`, message.received_at ?? new Date().toISOString());
+  setStage(st, "Reading request", "fail", `The agent could not read this email: ${why}. Nothing has been sent to Leon, and the client has not been answered. Open the original email: if you can read it, press Re-extract to try again; if not, ask the sender to send it again, or enter the details by hand. The email is also in the Mailbox as Failed.`);
+  const row = { status: "needs_you", status_reason: UNREAD_REASON, stages: st, sender_name: from === "unknown sender" ? null : from };
+  let req = req0;
+  if (req) await patchRequest(req.id, row);
+  else req = (await rest("intake_requests?on_conflict=message_id", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify([{ message_id: message.id, request_type: "handling", ...row }]) }))?.[0]
+    ?? (await rest(`intake_requests?select=*&message_id=eq.${message.id}`))?.[0] ?? null;
+  if (req) await patchMessage(message.id, { request_id: req.id });
+  await audit({ kind: "intake.unread_request", success: false, error: why, confirmationStatus: "not_required", detail: { requestId: req?.id ?? null, messageId: message.id } }).catch(() => {});
+  return req;
+}
+async function closeUnread(req, reason) {
+  const stages = (req.stages ?? []).map((s) => ({ ...s }));
+  setStage(stages, "Reading request", "skip", `${reason}. Not a request after all: nothing to do.`);
+  await patchRequest(req.id, { status: "closed", closed_reason: "skipped", status_reason: reason.slice(0, 140), stages });
+}
+
 // ── Queue ─────────────────────────────────────────────────────────────────────────────────────────────
 const queue = []; let running = false;
 export function enqueue(messageId, opts = {}) { if (process.env.INTAKE_PIPELINE === "off") return; if (!queue.some((q) => q.messageId === messageId)) queue.push({ messageId, opts }); void drain(); }
@@ -170,9 +199,17 @@ export async function processMessage(messageId, opts = {}) {
   const message = (await rest(`intake_messages?select=*&id=eq.${messageId}`))?.[0];
   if (!message || message.direction !== "inbound") return { skipped: "not an inbound message" };
   const now = () => new Date().toISOString();
+  // A re-run reuses the message's request; a new message has NO request until its type is known — except one the agent
+  // could not read, which gets a request so that it is seen (unreadRequest).
+  const existing = (await rest(`intake_requests?select=*&message_id=eq.${message.id}`))?.[0];
   let parsed;
   try { ({ parsed } = await loadParsed(message)); }
-  catch (e) { await patchMessage(message.id, { status: "failed", status_reason: `Could not read the stored message: ${e.message}`, understood: { kind: "failed", title: "Failed: the message could not be read", body: String(e.message), checks: [] } }); return { failed: e.message }; }
+  catch (e) {
+    await patchMessage(message.id, { status: "failed", status_reason: `Could not read the stored message: ${e.message}`, understood: { kind: "failed", title: "Failed: the message could not be read", body: String(e.message), checks: [] } });
+    // A copy removed by retention is old news, not a lost request; anything else is.
+    if (!message.purged_at) await unreadRequest(message, { why: "the stored copy of the email could not be opened", existing }).catch(() => null);
+    return { failed: e.message };
+  }
 
   // The stored message is the truth about subject and sender (the webhook carried only Resend's metadata).
   if (parsed.subject && (parsed.subject !== message.subject || parsed.from?.text !== message.from_addr)) { message.subject = parsed.subject; message.from_addr = parsed.from?.text ?? message.from_addr; await patchMessage(message.id, { subject: message.subject, from_addr: message.from_addr }); }
@@ -180,14 +217,13 @@ export async function processMessage(messageId, opts = {}) {
   const automatic = forced ? null : classifyAutomatic(parsed);
   if (automatic) {
     await patchMessage(message.id, { status: "ignored", status_reason: automatic.reason, understood: { kind: "ignored", title: automatic.title, body: "Not a request, so the agent took no action on it.", checks: automatic.checks }, search_text: `${message.from_addr ?? ""}\n${message.subject ?? ""}` });
+    if (isUnread(existing)) await closeUnread(existing, `Read again: ${automatic.title}`);
     return { ignored: automatic.kind };
   }
 
   // A reply to the E1 "Process?" question is an answer, never a request: it is applied (or asked again) and stops here.
-  if (!forced && !opts.requestAttachmentId) { const answered = await handleApprovalReply(message, parsed); if (answered) return answered; }
+  if (!forced && !opts.requestAttachmentId) { const answered = await handleApprovalReply(message, parsed); if (answered) { if (isUnread(existing)) await closeUnread(existing, "Read again: an answer to the Process? question"); return answered; } }
 
-  // A re-run reuses the message's request; a new message has NO request until its type is known.
-  const existing = (await rest(`intake_requests?select=*&message_id=eq.${message.id}`))?.[0];
   if (existing) {
     const sent = (await rest(`intake_leon_writes?select=id&request_id=eq.${existing.id}&action=eq.create&state=in.(sending,in_leon,unknown)&limit=1`)) ?? [];
     if (sent.length) return { refused: "This request already has legs in Leon (or a send in progress); it is not read again." };
@@ -245,8 +281,9 @@ export async function processMessage(messageId, opts = {}) {
     x = enforce(await normalise(model.raw));
   } catch (e) {
     const why = e.schemaErrors ? `${e.message}` : `The model could not read it: ${String(e.message).slice(0, 200)}`;
-    setStage(stages, "Reading request", "fail", why);
-    if (req) await patchRequest(req.id, { status: "needs_you", status_reason: "Reading request · could not read", stages });
+    const plain = e.schemaErrors ? "its reading did not fit the expected shape" : /time|abort|ETIMEDOUT|respond/i.test(String(e.message)) ? "the reading service did not answer in time" : "the reading service failed";
+    // The request exists from here even unread: a person sees it on Flight intake (Needs you) instead of losing it.
+    req = await unreadRequest(message, { why: plain, sender, existing: req, stages }).catch(() => req);
     await patchMessage(message.id, { status: "failed", status_reason: `Could not read the request: ${String(e.message).slice(0, 120)}`, understood: { kind: "failed", title: "Failed: the request could not be read", body: why, checks: [] } });
     await audit({ kind: "intake.extraction_failed", success: false, error: String(e.message).slice(0, 200), confirmationStatus: "not_required", detail: { requestId: req?.id ?? null, messageId: message.id } }).catch(() => {});
     return { failed: e.message };

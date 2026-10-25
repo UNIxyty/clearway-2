@@ -64,8 +64,14 @@ function tzHealth() {
 async function health() {
   const last = (await rest("intake_messages?select=received_at&direction=eq.inbound&order=received_at.desc&limit=1").catch(() => []))?.[0]?.received_at ?? null;
   const lastLeon = (await rest("intake_leon_writes?select=state,updated_at&order=updated_at.desc&limit=1").catch(() => []))?.[0] ?? null;
+  // The mailbox label tells the truth (2026-10-25): when the last email came, and how many could not be read in the last
+  // 7 days (each of those is a request on this page, Needs you, until a person deals with it). "Reachable" said nothing.
+  const since = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const failed = ((await rest(`intake_messages?select=id&direction=eq.inbound&status=eq.failed&received_at=gte.${encodeURIComponent(since)}`).catch(() => [])) ?? []).length;
+  const unread = ((await rest("intake_requests?select=id&status=eq.needs_you&status_reason=like.Could%20not%20be%20read*").catch(() => [])) ?? []).length;
+  const secret = Boolean(process.env.RESEND_WEBHOOK_SECRET);
   return {
-    mailbox: { ok: Boolean(process.env.RESEND_WEBHOOK_SECRET), lastAt: last, note: process.env.RESEND_WEBHOOK_SECRET ? null : "No Resend webhook secret is set on the server, so nothing can arrive." },
+    mailbox: { ok: secret, lastAt: last, failed, unread, note: !secret ? "No Resend webhook secret is set on the server, so nothing can arrive." : failed ? `${failed} email${failed === 1 ? "" : "s"} in the last 7 days could not be read. ${unread ? `${unread} wait${unread === 1 ? "s" : ""} on this page as Needs you.` : "Each was dealt with by a person."}` : null },
     leon: { ok: leonConfigured(), lastWrite: lastLeon },
     portals: { built: true, lookup: lookupState().on, note: lookupState().on ? "Flight notifications are recognised; after ops approve, the record is read once from the CNAIR portal. Changes the provider makes after import are not detected." : "Flight notifications are recognised, but the CNAIR portal look-up is switched off on this server: approved requests wait for a person." },
     timezones: tzHealth(),
@@ -245,6 +251,26 @@ async function editRequest(id, user, body) {
   for (const e of edits) await rest("intake_field_edits", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify([{ request_id: id, extraction_id: review.extractionId ?? r.current_extraction_id, field_path: e.path, previous: e.previous, value: e.value, edited_by: user.userId, edited_by_email: user.email }]) }).catch(() => {});
   await audit({ kind: `intake.${op === "field" ? "edit" : op}`, userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: id, ...auditDetail } }).catch(() => {});
   return true;
+}
+
+/**
+ * A person's answer to a passport ask (leon-pax.mjs: same name and date of birth as a Leon contact, another passport):
+ * "renewal" (the request's passport is added to that contact on the next send) or "different" (a new contact). The key
+ * must be one the leg's last passenger write asked about; the decision is kept on the request and audited. Nothing is
+ * sent to Leon here — the person then presses Send passengers to Leon, with its confirmation.
+ */
+async function decidePassport(id, user, body) {
+  const decision = String(body.decision ?? "");
+  if (!["renewal", "different"].includes(decision)) throw err(400, "Choose: a renewed passport, or a different person.");
+  const key = String(body.key ?? "");
+  const writes = (await rest(`intake_leon_people_writes?select=leg_index,detail,updated_at&request_id=eq.${id}&kind=eq.pax&order=updated_at.desc`).catch(() => [])) ?? [];
+  const ask = writes.flatMap((w) => (w.detail?.asks ?? []).map((a) => ({ ...a, leg: w.leg_index }))).find((a) => a.key === key);
+  if (!ask) throw err(404, "No such passenger question on this request.");
+  const r = (await rest(`intake_requests?select=review,status&id=eq.${id}`))?.[0]; if (!r?.review) throw err(404, "No such request.");
+  const me = who(user);
+  const review = r.review; review.passportDecisions = { ...(review.passportDecisions ?? {}), [key]: { decision, by: me.name, at: me.at, row: ask.row, leg: ask.leg } };
+  await rest(`intake_requests?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ review, updated_at: me.at, updated_by: user.email }) });
+  await audit({ kind: "intake.passport_decided", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: id, leg: ask.leg, row: ask.row, decision, contactNid: ask.contactNid } }).catch(() => {});
 }
 
 async function peopleFor(id, reveal) {
@@ -444,6 +470,7 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/edit$/.exec(P)) && req.method === "POST") { await editRequest(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await requestDetail(m[1])) }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people$/.exec(P)) && req.method === "GET") return send({ ok: true, ...(await peopleFor(m[1], false)), canReveal: await can(user.agentRole, "intake.people.reveal") });
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/edit$/.exec(P)) && req.method === "POST") { await editPeople(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await peopleFor(m[1], false)), canReveal: await can(user.agentRole, "intake.people.reveal") }); }
+    if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/passport-decision$/.exec(P)) && req.method === "POST") { await decidePassport(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await requestDetail(m[1])) }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/reveal$/.exec(P)) && req.method === "POST") {
       const out = await peopleFor(m[1], true);
       await audit({ kind: "intake.personal_revealed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: m[1], seconds: 30 } }).catch(() => {});

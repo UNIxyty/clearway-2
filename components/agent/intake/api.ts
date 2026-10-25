@@ -37,7 +37,10 @@ export type ChecklistItem = { defNid: number; label: string; decision: "provide"
 export type ChecklistResult = ChecklistItem & { leg: number; filled: boolean; reason: string | null; wasOnFlight?: boolean };
 export type Write = { leg: number; state: LeonLegState["state"]; flightNid: string | null; tripNid: string | null; error: string | null; httpStatus: number | null; ms: number | null; at: string; updatedAt: string; by: string | null; resolvedBy: string | null; checklist: ChecklistResult[] | null; payload: Record<string, unknown> | null };
 // A leg's passengers (Leon's text passenger list) or crew (the flight's OPS notes, never an assignment): counts only.
-export type PaxDetail = { people: number; created: number; reused: number; differs: { row: number; fields: string[] }[]; notes: { row: number; notes: string[] }[]; failed: { row: number; reason: string }[] };
+/** A passenger whose name and date of birth match a Leon contact holding another passport: a person decides. Countries and expiry dates only, never a number. */
+export type PassportAsk = { key: string; row: number; contactNid: number; leon: { country: string | null; expires: string | null; passports: number }; request: { country: string | null; expires: string | null } };
+export type PassportDecision = { decision: "renewal" | "different"; by: string; at: string; row: number; leg: number };
+export type PaxDetail = { people: number; created: number; reused: number; renewed?: number; differs: { row: number; fields: string[] }[]; notes: { row: number; notes: string[] }[]; failed: { row: number; reason: string }[]; asks?: PassportAsk[] };
 export type PeopleWrite = { leg: number; kind: "pax" | "crew"; state: "sending" | "in_leon" | "not_in_leon" | "unknown"; people: number | null; detail?: PaxDetail | null; flightNid: string | null; error: string | null; httpStatus: number | null; at: string; updatedAt: string; by: string | null };
 export type PeopleOutcome = { kind: "pax" | "crew"; state: "in_leon" | "not_in_leon" | "unknown" | "none" | "not_sent"; people: number; count?: number | string | null; error?: string; already?: boolean };
 export type UiStatusKey = "needs_you" | "needs_review" | "waiting" | "stuck" | "in_progress" | "loaded" | "skipped" | "cancelled" | "handled";
@@ -46,6 +49,7 @@ export type RequestDetail = {
   request: { id: string; type: "handling" | "scheduled"; typeLabel: string; reference: string; referenceBuilt: boolean; status: string; ui: { key: UiStatusKey; label: string; escalated?: boolean }; statusReason: string | null; sender: string | null; fromAddr: string | null; toAddrs: string[] | null; subject: string | null; receivedAt: string | null; messageId: string; route: string | null; firstStd: string | null; legsCount: number | null; closedReason: string | null; duplicate: Duplicate | null; duplicateResolution: { action: string; by: string; at: string } | null; purged: boolean; hasPersonal: boolean };
   stageNames: string[]; stages: Stage[];
   review: { legs: Leg[]; notes: { text: string; source: string | null }[]; conflicts: unknown[]; requestSource: { attachment: string | null; attachmentId: string | null; why: string; by?: string | null } | null; version: number;
+    passportDecisions?: Record<string, PassportDecision>;
     // Type 1 (scheduled flight): the provider's notification and the look-ups of its reference. No legs: they are the provider's record, not this message.
     kind?: "notification"; notification?: Notification; lookup?: { attempts: { at: string; state: "found" | "not_found" | "unavailable"; why: string | null; listed: number | null; by: string | null }[]; nextAt: string | null; found?: { at: string; row: { quote: string; quoteDate: string; flightDate: string; aircraft: string; typeCode: string } } };
     // E1: the question to ops and its answer (tokens are hashes; never shown).
@@ -99,7 +103,7 @@ async function call<T>(path: string, init?: RequestInit & { json?: unknown }): P
   return j as T;
 }
 export const intakeApi = {
-  overview: () => call<{ health: { mailbox: { ok: boolean; lastAt: string | null; note: string | null }; leon: { ok: boolean }; portals: { built: boolean; lookup: boolean; note: string }; timezones?: { ok: boolean; version: string; minimum: string; latest: string | null; behind: boolean; note: string } }; queue: number }>("/api/intake/overview"),
+  overview: () => call<{ health: { mailbox: { ok: boolean; lastAt: string | null; failed?: number; unread?: number; note: string | null }; leon: { ok: boolean }; portals: { built: boolean; lookup: boolean; note: string }; timezones?: { ok: boolean; version: string; minimum: string; latest: string | null; behind: boolean; note: string } }; queue: number }>("/api/intake/overview"),
   list: (q: { tab?: string; q?: string; type?: string }) => call<{ rows: ListRow[]; counts: { all: number; needs: number; progress: number; loaded: number; closed: number } }>(`/api/intake/requests?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`),
   detail: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}`),
   /** The request's one original email, masked, logged (intake.requests.email) — not the mailbox. */
@@ -109,6 +113,8 @@ export const intakeApi = {
   decline: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}/decline`, { json: {} }),
   peoplePrepare: (id: string, leg: number) => call<{ confirmation: Confirmation; people: number; undeclaredSplits: number; lastState: string | null; flightNid: string }>(`/api/intake/requests/${id}/legs/${leg}/people/prepare`, { json: {} }),
   peopleConfirm: (token: string) => call<{ accepted: boolean; outcome?: unknown }>(`/api/intake/people/${token}/confirm`, { json: {} }),
+  /** A person's answer to a passport ask: the same person with a renewed passport, or a different person. */
+  passportDecision: (id: string, body: { key: string; decision: "renewal" | "different" }) => call<RequestDetail>(`/api/intake/requests/${id}/people/passport-decision`, { json: body }),
   cancelAnswer: (id: string, yes: boolean) => call<RequestDetail>(`/api/intake/requests/${id}/cancel-${yes ? "approve" : "decline"}`, { json: {} }),
   edit: (id: string, body: Record<string, unknown>) => call<RequestDetail>(`/api/intake/requests/${id}/edit`, { json: body }),
   reprocess: (id: string, attachmentId?: string | null) => call<RequestDetail>(`/api/intake/requests/${id}/reprocess`, { json: { attachmentId: attachmentId ?? null } }),

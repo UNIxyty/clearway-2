@@ -15,7 +15,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { simpleParser } from "mailparser";
 import { rest } from "../knowledge/retrieval.mjs";
 import { putContent, putRaw, sniff } from "./blobstore.mjs";
-import { enqueue } from "./pipeline.mjs";
+import { enqueue, unreadRequest } from "./pipeline.mjs";
 
 const TOLERANCE_S = 5 * 60;
 
@@ -84,6 +84,8 @@ async function receive(emailId, data, audit) {
   const message = rows[0];
   const stored = await fetchAndStore(message).catch(async (e) => {
     await rest(`intake_messages?id=eq.${message.id}`, { method: "PATCH", body: JSON.stringify({ fetch_status: "failed", fetch_error: String(e.message).slice(0, 300), status: "failed", status_reason: "Could not fetch the message from Resend", understood: { kind: "failed", title: "Failed: the message could not be fetched from Resend", body: `Only the envelope arrived. ${String(e.message).slice(0, 160)}`, checks: [] } }) }).catch(() => null);
+    // Only the envelope is known, and that is enough for a person to see it on Flight intake and chase the sender.
+    await unreadRequest(message, { why: "the email itself could not be fetched from the mail provider (only the envelope arrived)" }).catch(() => null);
     return { error: String(e.message) };
   });
   // 3. Reading happens off the response path; one request per message is enforced there (unique key).

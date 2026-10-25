@@ -80,8 +80,10 @@ review** and **Needs you**. The column after the route is the date of the first 
 Labels at the top of the page show whether the agent can reach the mailbox, Leon and the provider's portal.
 
 1. Look at the top of the page, under the title.
-2. Read **Intake mailbox**. **Reachable** means new emails arrive. **Not responding since** a time means they do not.
-   Unverified: Not responding was never shown: the mailbox was reachable.
+2. Read **Intake mailbox**. **Last email** and a time means that is when the newest email arrived; **No email yet**
+   means none has. **N not read**, in red, means that many emails in the last 7 days could not be read: each is on this
+   page as **Needs you**, with what is known (the sender and the time) and what to do. **Not set up** means the server
+   cannot receive email at all. The label never says "Reachable": it reports what happened, not a guess.
 3. Read **Leon API**. **Reachable** means the agent can create flights. **Not responding** means it cannot.
    Unverified: Not responding was never shown: Leon was reachable.
 4. Read **CNAIR portal**. **Read after approval** means the agent reads a scheduled flight after ops say yes. **Look-up
@@ -391,7 +393,7 @@ Created: 14:58Z, as flights 90000012 and 90000013
 The window expires 5 minutes after it opens. For each flight, Leon gets:
 
 - the client's request, word for word, in the flight's OPS notes, marked **NOT ACTIONED**. No checklist status is set: every item stays at Leon's **?**.
-- the passengers, as contacts in Leon's address book with their passports. A passenger already in Leon is reused and not changed. The agent looks first for the same passport, then for the same name and date of birth.
+- the passengers, as contacts in Leon's address book with their passports. A passenger already in Leon is reused and not changed. The agent looks first for the same passport, then for the same name and date of birth. When the name and date of birth match but the passport does not, it stops for that passenger and asks you (see below).
 - the crew, as a note in the OPS notes. They are not assigned to the flight in Leon.
 
 The agent then emails ops that the request is loaded.
@@ -506,11 +508,22 @@ After a request is sent, see what Leon got, and the emails the agent sent about 
 
 Step 6 needs access to the agent mailbox.
 
-:::note When a passenger has no passport in Leon
-If a passenger's name and date of birth match a contact in Leon, but the passport does not, the agent reuses the
-contact and attaches no passport. The leg then has a line for that passenger: **Passenger 3: the existing contact
-holds no passport with this number: none attached (the contact was not edited).** The request still says **Loaded**.
-That passenger's passport is not on the flight in Leon.
+:::note When a passenger's passport differs from the one Leon holds
+If a passenger's name and date of birth match a contact in Leon, but the passport number does not, the agent cannot tell a
+renewed passport from two people with the same name and birthday, and a manifest goes to border authorities. So it
+stops: nothing of that leg's passenger list is written, the request says **Needs you**, and the leg shows an amber card,
+**Passenger 4: Leon has a contact with this name and date of birth, but another passport. Which is it?**, with both
+passports by country and expiry (the numbers stay in the passenger's document above and in Leon).
+
+1. Open the passenger's document (**Show personal data**) and, if needed, the contact in Leon, and compare.
+2. Press **Same person · renewed passport** or **Different person**. The decision is kept on the request with your name
+   and the time, and holds for every leg.
+3. Press **Send passengers to Leon** and confirm. A renewal adds the request's passport to the contact in Leon and puts
+   it on the flight; a different person gets a new contact. The line then reads **16 passengers in the flight's passenger
+   database in Leon … (1 with a renewed passport added)**.
+
+If Leon does not accept the added passport, the line says so and asks you to add it to the contact in Leon by hand, then
+press **Send passengers to Leon** again. Nothing partial is written in the meantime.
 :::
 
 # Scheduled flights

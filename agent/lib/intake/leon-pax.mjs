@@ -14,9 +14,15 @@
 //   1. our own mapping first (intake_leon_contacts): passport number + issuing country → the Leon contact and passport we
 //      created or found. The passport number is never stored: the key is an HMAC with a server secret.
 //   2. else Leon, by name (what its search can do): a contact holding the same passport (number and country) is the
-//      person; without that, a contact with the same name AND the same date of birth is — one only, never a guess.
-//   3. else a new contact. A reused contact is never edited; where it differs from the request, the difference is a
-//      warning (field names only) for a person.
+//      person; without that, a contact with the same name AND the same date of birth is — one only, never a guess —
+//      UNLESS the request gives a passport the contact does not hold (a renewed passport, or another person with the
+//      same name and birthday: a manifest to a border authority cannot tell). Then the agent STOPS for that passenger
+//      and asks (ask: both passports' country and expiry, never the numbers). A person decides on the page (2026-10-25):
+//      "renewal" → the request's passport is added to that contact (phonebook.personUpdate, the whole passport list
+//      re-sent with the new one as default) and goes on the flight; "different" → a new contact. Decisions live in the
+//      request's review.passportDecisions, keyed by contact and passport HMAC, so they hold across legs and resends.
+//   3. else a new contact. A reused contact is otherwise never edited; where it differs from the request, the difference
+//      is a warning (field names only) for a person.
 // Nothing invented: a value the request did not give is left out of the contact (never a placeholder). The request gives
 // no passport issuing country: the passport's country is the passenger's nationality (stated in the warning count).
 //
@@ -121,6 +127,9 @@ const Q = {
   byName: `query($f:ContactDuplicationFilter!){ contactByWildcardForDuplicationList(filter:$f){ contactNid name surname passportList { passportNid countryCode number } } }`,
   byNids: `query($l:[ContactNid!]!){ contact { contactsByNids(contactsNids:$l){ ${CONTACT_FIELDS} } } }`,
   create: `mutation($p:PhonebookPersonCreateInput!){ phonebook { personCreate(person:$p){ ... on NonNullContactValue { value { ${CONTACT_FIELDS} } } ... on ErrorList { errorList { message category } } } } }`,
+  // apidoc.leonsoftware.com: personUpdate(person: PhonebookPersonUpdateInput!) — personNid plus the same documents
+  // input as create (passportList: PhonebookPassportCreateInput, nid optional). Used only on a person's "renewal".
+  update: `mutation($p:PhonebookPersonUpdateInput!){ phonebook { personUpdate(person:$p){ ... on NonNullContactValue { value { ${CONTACT_FIELDS} } } ... on ErrorList { errorList { message category } } } } }`,
   list: `mutation($f:FlightNid!,$l:[PassengerContactInput!]){ passengerList { addPassengersToList(flightNid:$f, passengerContactList:$l){ count realCount isDataSourceContact passengerContactList { contact { contactNid } } } } }`,
 };
 export const LEON_PAX_DOCUMENTS = Q;
@@ -154,7 +163,7 @@ const settle = (id, patch) => rest(`intake_leon_people_writes?id=eq.${id}`, { me
  * One passenger → { contactNid, passportNid, how: 'mapped'|'found'|'created', differs: [field…], notes: [..] } or
  * { failed: reason }. `row` is the passenger's position in the leg's list (1-based), the only way it is named.
  */
-async function resolve(plan, { requestId, leg, flightNid, row, user, tokens }) {
+async function resolve(plan, { requestId, leg, flightNid, row, user, tokens, decisions = {} }) {
   if (!plan.given || !plan.surname) return { failed: `Leon needs a given name and a surname, and the name splits into ${plan.surname ? "a surname only" : "nothing"} — correct the split on the review screen` };
   const notes = [];
   const nat = plan.nationality ? await countryFor(plan.nationality) : null;
@@ -197,8 +206,17 @@ async function resolve(plan, { requestId, leg, flightNid, row, user, tokens }) {
     if (full.length === 1) {
       const c = full[0];
       const pp = withPassport ? c.passportList.find((p) => p.countryCode === issuing && p.number.toUpperCase().replace(/[\s-]+/g, "") === plan.passport.toUpperCase()) ?? null : c.passportList[0] ?? null;
-      if (withPassport && !pp) notes.push("the existing contact holds no passport with this number: none attached (the contact was not edited)");
-      return { contactNid: c.contactNid, passportNid: pp?.passportNid ?? null, how: "found", differs: differences(c, plan, nat, pp), notes };
+      if (!withPassport || pp) return { contactNid: c.contactNid, passportNid: pp?.passportNid ?? null, how: "found", differs: differences(c, plan, nat, pp), notes };
+      // Same name, same date of birth, another passport: a person decides (see the header). Nothing is guessed.
+      const key = askKey(c.contactNid, hmac);
+      const decision = decisions?.[key]?.decision ?? null;
+      if (decision === "renewal") return addPassport(c, plan, { issuing, nat, hmac, requestId, leg, flightNid, row, user, tokens, notes });
+      if (decision !== "different") {
+        const held = c.passportList[0] ?? null;
+        return { failed: "Leon has a contact with this name and date of birth, but another passport — decide on the page: a renewed passport, or a different person",
+          ask: { key, row, contactNid: c.contactNid, leon: { country: held?.countryCode ?? null, expires: held?.expiresDate ?? null, passports: c.passportList.length }, request: { country: issuing, expires: plan.expiry ?? null } } };
+      }
+      // "different": a new contact for this passport (step 3), as if the name had not matched.
     }
   }
   // 3. A new contact, recorded before the call.
@@ -228,23 +246,57 @@ async function resolve(plan, { requestId, leg, flightNid, row, user, tokens }) {
   return { failed: refused ? `Leon refused the contact (${msg})` : `Leon did not confirm the contact (${msg}); check its address book before sending again` };
 }
 
+/** The ask's key: the contact and the request's passport (its HMAC, never the number). The same across legs and resends. */
+const askKey = (contactNid, hmac) => `${contactNid}/${String(hmac).slice(0, 24)}`;
+
+/**
+ * A person said "renewal": the request's passport is added to the existing contact — the whole passport list goes back
+ * to Leon (its merge rule is not documented, so nothing is left out), the old ones as they are (not default), the new
+ * one default. Recorded in the send log before the call, like a create. If Leon does not take it, the person is told to
+ * add the passport in Leon by hand and send again (the resend then finds it by number).
+ */
+async function addPassport(c, plan, { issuing, nat, hmac, requestId, leg, flightNid, row, user, tokens, notes }) {
+  const same = (p) => p.countryCode === issuing && String(p.number).toUpperCase().replace(/[\s-]+/g, "") === plan.passport.toUpperCase();
+  const keep = c.passportList.map((p) => ({ nid: p.passportNid, country: p.countryCode, number: p.number, name: clean(c.name), middleName: "", surname: clean(c.surname), ...(p.expiresDate ? { dateOfExpiry: p.expiresDate } : {}), isDefault: false, deleted: false }));
+  const fresh = { country: issuing, ...(nat ? { nationality: nat } : {}), number: plan.passport, name: plan.given, middleName: "", surname: plan.surname, ...(plan.expiry ? { dateOfExpiry: plan.expiry } : {}), isDefault: true, deleted: false };
+  const { row: att, fresh: isFresh } = await attempt({ request_id: requestId, leg_index: leg.index, kind: "contact", leon_flight_nid: String(flightNid), content_sha256: `renew:${hmac}`, people_count: 1, state: "sending", sent_by_email: user.email, detail: { row, renewal: true, contactNid: c.contactNid } });
+  if (!isFresh) return att?.state === "in_leon" && att.detail?.passportNid ? { contactNid: c.contactNid, passportNid: att.detail.passportNid, how: "renewed", differs: [], notes } : { failed: "an earlier passport update for this contact is still unfinished — check Leon's address book" };
+  const t0 = Date.now(); let r = null, thrown = null;
+  try { r = await leonGraphql(Q.update, { p: { personNid: c.contactNid, documents: { passportList: [...keep, fresh] } } }, timeout()); } catch (e) { thrown = e; }
+  const ms = Date.now() - t0;
+  const u = r?.data?.phonebook?.personUpdate?.value ?? null;
+  const pp = u?.contactNid ? (u.passportList ?? []).find(same) ?? null : null;
+  if (pp) {
+    await remember({ passport_hmac: hmac, issuing_country: issuing, contact_nid: String(c.contactNid), passport_nid: String(pp.passportNid), source: "found_in_leon", request_id: requestId, leg_index: leg.index, flight_nid: String(flightNid) }).catch(() => {});
+    await settle(att.id, { state: "in_leon", leon_contact_nid: String(c.contactNid), http_status: r.httpStatus, answered_ms: ms, detail: { row, renewal: true, contactNid: c.contactNid, passportNid: pp.passportNid } });
+    await audit({ kind: "intake.leon_passport_renewed", userId: user.userId, userEmail: user.email, toolName: "intake.leon_send", toolArgs: { requestId, leg: leg.index, row }, toolResult: { contactNid: c.contactNid, passports: u.passportList?.length ?? null }, success: true, confirmationStatus: "confirmed", latencyMs: ms }).catch(() => {});
+    return { contactNid: c.contactNid, passportNid: pp.passportNid, how: "renewed", differs: differences(u, plan, nat, pp), notes };
+  }
+  const refused = !thrown && r && r.httpStatus < 500 && (r.errors?.length || r.data?.phonebook?.personUpdate?.errorList || u);
+  const msg = scrubString(String(r?.errors?.[0]?.message ?? r?.data?.phonebook?.personUpdate?.errorList?.[0]?.message ?? thrown?.message ?? (u ? "the contact came back without the new passport" : `HTTP ${r?.httpStatus}`)), tokens).replace(/got invalid value "[^"]*"/g, "got an invalid value").slice(0, 160);
+  await settle(att.id, { state: refused ? "not_in_leon" : "unknown", leon_error: `Leon: ${msg}`, http_status: r?.httpStatus ?? null, answered_ms: ms });
+  await audit({ kind: "intake.leon_passport_renewal_failed", userId: user.userId, userEmail: user.email, toolName: "intake.leon_send", toolArgs: { requestId, leg: leg.index, row }, toolResult: { contactNid: c.contactNid }, success: false, error: `Leon: ${msg}`, confirmationStatus: "confirmed", latencyMs: ms }).catch(() => {});
+  return { failed: `Leon did not add the renewed passport to the contact (${msg}) — add it to the contact in Leon by hand, then press Send passengers to Leon` };
+}
+
 /**
  * A created leg's passengers into its passenger database: every passenger resolved to a contact, then the WHOLE list in
  * one call. → { kind: 'pax', state: 'in_leon'|'not_in_leon'|'unknown'|'none', people, created, reused, differs: [{row, fields}],
- *   notes: [{row, notes}], failed: [{row, reason}], error? }
+ *   notes: [{row, notes}], failed: [{row, reason}], asks: [{key, row, contactNid, leon: {country, expires, passports}, request: {country, expires}}], renewed, error? }
+ * `decisions` = the request's review.passportDecisions ({ [askKey]: { decision: 'renewal'|'different', by, at } }).
  */
-export async function writeLegPax({ requestId, leg, flightNid, pax, nameOrder, user, people }) {
+export async function writeLegPax({ requestId, leg, flightNid, pax, nameOrder, user, people, decisions = {} }) {
   if (!pax.length) return { kind: "pax", state: "none", people: 0 };
   const tokens = personalTokens(people ?? pax);
   const plans = pax.map((p) => contactPlan(p, nameOrder));
   const resolved = [];
   for (const [i, plan] of plans.entries()) {
-    let r; try { r = await resolve(plan, { requestId, leg, flightNid, row: i + 1, user, tokens }); } catch (e) { r = { failed: `stopped: ${scrubString(String(e.message), tokens).slice(0, 120)}` }; }
+    let r; try { r = await resolve(plan, { requestId, leg, flightNid, row: i + 1, user, tokens, decisions }); } catch (e) { r = { failed: `stopped: ${scrubString(String(e.message), tokens).slice(0, 120)}` }; }
     resolved.push({ row: i + 1, ...r });
   }
   const failed = resolved.filter((x) => x.failed).map((x) => ({ row: x.row, reason: x.failed }));
-  const summary = { people: pax.length, created: resolved.filter((x) => x.how === "created").length, reused: resolved.filter((x) => x.how === "mapped" || x.how === "found").length,
-    differs: resolved.filter((x) => x.differs?.length).map((x) => ({ row: x.row, fields: x.differs })), notes: resolved.filter((x) => x.notes?.length).map((x) => ({ row: x.row, notes: x.notes })), failed };
+  const summary = { people: pax.length, created: resolved.filter((x) => x.how === "created").length, reused: resolved.filter((x) => x.how === "mapped" || x.how === "found" || x.how === "renewed").length, renewed: resolved.filter((x) => x.how === "renewed").length,
+    differs: resolved.filter((x) => x.differs?.length).map((x) => ({ row: x.row, fields: x.differs })), notes: resolved.filter((x) => x.notes?.length).map((x) => ({ row: x.row, notes: x.notes })), failed, asks: resolved.filter((x) => x.ask).map((x) => x.ask) };
   const listKey = sha(`list:${resolved.map((x) => `${x.contactNid ?? "-"}/${x.passportNid ?? "-"}`).join(",")}`);
   if (failed.length) {
     // Nothing goes to the flight: a partial list looks right and is not.

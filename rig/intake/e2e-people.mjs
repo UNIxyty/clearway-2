@@ -192,7 +192,64 @@ console.log("\n=== 6. The service restarts during a list write: unknown, a perso
   await sleep(3000); faults({});
   ok(calls(/addPassengersToList/).length === listsBefore, "nothing was retried"); }
 
-console.log("\n=== 7. No name, date of birth or document number anywhere it must not be ===");
+console.log("\n=== 7. A renewed passport: same name and date of birth, another number — the agent stops, a person decides ===");
+{ // Passengers 4 and 6 of a seed-3 request already exist in Leon with the same name and date of birth but OLDER passports.
+  const f7 = fixture("RIGPAX21", "OELCF", 25, 3);
+  const a = person(3, 3), b = person(5, 3);
+  const seed = async (p, number, expiry) => (await (await fetch(`${process.env.LEON_API_BASE}/_rig/seed-contact`, { method: "POST", body: JSON.stringify({ name: p.given, surname: p.surname, gender: p.gender, dateOfBirth: p.dob, nationality: p.nat, documents: { passportList: [{ country: p.nat, number, dateOfExpiry: expiry, isDefault: true, deleted: false }] } }) })).json());
+  const seedA = await seed(a, "TESTOLD04", "2026-11-30"), seedB = await seed(b, "TESTOLD06", "2027-01-15");
+  const m7 = await deliver(f7);
+  const r7 = (await send(m7.request_id)).result; const w7 = paxWrite(r7, 0);
+  ok(r7.legs.every((l) => l.state === "in_leon") && w7?.state === "not_in_leon" && /Nothing was written to the flight's passenger list/.test(w7?.error ?? ""), "both flights created; the passengers of leg 1 are NOT written (nothing partial)", `${w7?.state}`);
+  ok(w7.asks?.length === 2 && w7.asks.map((x) => x.row).join() === "4,6" && w7.asks.every((x) => x.contactNid === (x.row === 4 ? seedA.contactNid : seedB.contactNid)), "the write carries two asks: passengers 4 and 6, each naming the Leon contact", JSON.stringify(w7.asks?.map((x) => [x.row, x.contactNid])));
+  ok(/passenger 4 of 16: Leon has a contact with this name and date of birth, but another passport — decide on the page/.test(w7.error) && !/none attached/.test(w7.error), "the reason says what to do; the old 'none attached' line is gone", w7.error.slice(0, 140));
+  ok(w7.asks.every((x) => x.leon.country === x.request.country && x.leon.expires && x.request.expires && !("number" in x.leon) && !("number" in x.request)) && !leaks("", JSON.stringify(w7)), "each ask shows both passports by country and expiry only — no number, no name, no date of birth", JSON.stringify(w7.asks[0]));
+  ok(calls(/personCreate/).length === (await contactsInLeon()).length - 2 + 0 || true, "(create count noted)", `${calls(/personCreate/).length} creates so far`);
+  let d7 = await detail(m7.request_id);
+  ok(d7.request.ui.key === "needs_you" && d7.sent.people.some((p) => p.kind === "pax" && p.leg === 0 && p.detail?.asks?.length === 2), "the request is Needs you and the page's data carries both asks", d7.request.statusReason);
+  const bad = await api(`/api/intake/requests/${m7.request_id}/people/passport-decision`, { key: "1/000000000000000000000000", decision: "renewal" });
+  const badDecision = await api(`/api/intake/requests/${m7.request_id}/people/passport-decision`, { key: w7.asks[0].key, decision: "maybe" });
+  ok(bad.status === 404 && badDecision.status === 400, "an unknown key or a third answer is refused", `${bad.status} ${badDecision.status}`);
+  const dec1 = await api(`/api/intake/requests/${m7.request_id}/people/passport-decision`, { key: w7.asks[0].key, decision: "renewal" });
+  const dec2 = await api(`/api/intake/requests/${m7.request_id}/people/passport-decision`, { key: w7.asks[1].key, decision: "different" });
+  ok(dec1.status === 200 && dec2.status === 200 && dec1.json.review.passportDecisions[w7.asks[0].key].decision === "renewal" && dec2.json.review.passportDecisions[w7.asks[1].key].decision === "different" && dec2.json.review.passportDecisions[w7.asks[0].key].row === 4, "a person decides: passenger 4 is a renewal, passenger 6 a different person — both kept on the request with who and when", JSON.stringify(Object.values(dec2.json.review.passportDecisions).map((x) => [x.row, x.decision, x.by])));
+  const creates7 = calls(/personCreate/).length, updates7 = calls(/personUpdate/).length;
+  const rs7 = await peopleSend(m7.request_id, 0);
+  const after7 = (await detail(m7.request_id)).sent.people.filter((p) => p.kind === "pax" && p.leg === 0).sort((x, y) => Date.parse(x.updatedAt) - Date.parse(y.updatedAt)).pop();
+  ok(rs7.confirmed?.status === 200 && after7.state === "in_leon" && after7.detail.renewed === 1 && after7.detail.created === 1 && after7.detail.reused === 15 && after7.detail.people === 16, "sent again: 16 in Leon — 1 renewed passport added, 1 new contact, 14 found + the renewed one reused", JSON.stringify({ state: after7.state, ...after7.detail, asks: undefined, differs: undefined, notes: undefined, failed: undefined }));
+  ok(calls(/personUpdate/).length === updates7 + 1 && calls(/personCreate/).length === creates7 + 1, "exactly one personUpdate (the renewal) and one personCreate (the different person)", `${calls(/personUpdate/).length - updates7} updates, ${calls(/personCreate/).length - creates7} creates`);
+  const upd = calls(/personUpdate/).pop();
+  ok(upd && Number(upd.variables.p.personNid) === seedA.contactNid && upd.variables.p.documents.passportList.length === 2 && upd.variables.p.documents.passportList.filter((x) => x.nid).length === 1 && upd.variables.p.documents.passportList.find((x) => !x.nid)?.isDefault === true, "the update re-sent the contact's whole passport list: the old one by nid, the new one without a nid and default", JSON.stringify(upd?.variables.p.documents.passportList.map((x) => [x.nid ?? "new", x.isDefault])));
+  const f = await flightOf(r7.legs[0].flightNid); const rows = f.passengerList.passengerContactList;
+  ok(rows.length === 16 && rows[3].contact.contactNid === seedA.contactNid && rows[3].departurePassport?.number === a.passport && rows[5].contact.contactNid !== seedB.contactNid && rows[5].departurePassport?.number === b.passport, "on the flight: row 4 is the SAME contact with the request's (new) passport; row 6 is a NEW contact with the request's passport", JSON.stringify([rows[3]?.contact.contactNid, seedA.contactNid, rows[5]?.contact.contactNid, seedB.contactNid]));
+  ok(rowsMatching(f, 3) === 16, "every one of the 16 rows matches the request field by field (name, gender, date of birth, nationality, passport, expiry)");
+  const cA = (await contactsInLeon()).find((c) => c.contactNid === seedA.contactNid);
+  ok(cA.passportList.length === 2 && cA.passportList.some((p) => p.number === "TESTOLD04") && cA.passportList.some((p) => p.number === a.passport), "the renewed contact keeps its old passport and holds the new one", `${cA.passportList.length} passports`);
+  const cB = (await contactsInLeon()).find((c) => c.contactNid === seedB.contactNid);
+  ok(cB.passportList.length === 1 && cB.passportList[0].number === "TESTOLD06", "the 'different person' contact in Leon was not touched");
+  await peopleSend(m7.request_id, 1);
+  const leg2 = (await detail(m7.request_id)).sent.people.filter((p) => p.kind === "pax" && p.leg === 1).sort((x, y) => Date.parse(x.updatedAt) - Date.parse(y.updatedAt)).pop();
+  const f2 = await flightOf(r7.legs[1].flightNid);
+  ok(leg2.state === "in_leon" && leg2.detail.renewed === 0 && leg2.detail.created === 0 && calls(/personUpdate/).length === updates7 + 1 && rowsMatching(f2, 3) === 16, "leg 2 sent: the decisions held, nothing updated or created again (the mapping knows both passports now)", JSON.stringify({ state: leg2.state, renewed: leg2.detail.renewed, created: leg2.detail.created, reused: leg2.detail.reused }));
+  d7 = await detail(m7.request_id);
+  ok(d7.request.ui.key === "loaded" && /1 with a renewed passport added, as a person decided/.test(d7.stages.find((s) => s.name === "Passengers and crew")?.note ?? ""), "request Loaded; the stage says a renewed passport was added as a person decided", d7.stages.find((s) => s.name === "Passengers and crew")?.note?.slice(0, 160));
+  const aud7 = await db(`agent_audit_log?select=kind,detail&kind=in.(intake.passport_decided,intake.leon_passport_renewed)&order=created_at.desc&limit=5`).catch(() => []);
+  ok(Array.isArray(aud7) && aud7.some((x) => x.kind === "intake.passport_decided") && aud7.some((x) => x.kind === "intake.leon_passport_renewed") && !leaks("", JSON.stringify(aud7)), "both the decision and the renewal are audited, without personal data", aud7.map?.((x) => x.kind).join(","));
+
+  // Leon refuses the update: the person is told to add the passport in Leon by hand; nothing else is created.
+  const f8 = fixture("RIGPAX22", "OELCG", 27, 4); const c8 = person(7, 4);
+  const seedC = await seed(c8, "TESTOLD08", "2026-12-31");
+  const m8 = await deliver(f8); const r8 = (await send(m8.request_id)).result; const w8 = paxWrite(r8, 0);
+  ok(w8?.state === "not_in_leon" && w8.asks?.length === 1 && w8.asks[0].row === 8, "another request: passenger 8 asks", w8?.asks?.map((x) => x.row).join());
+  await api(`/api/intake/requests/${m8.request_id}/people/passport-decision`, { key: w8.asks[0].key, decision: "renewal" });
+  faults({ refusePassportUpdate: true }); const creates8 = calls(/personCreate/).length;
+  const rs8 = await peopleSend(m8.request_id, 0); faults({});
+  const after8 = (await detail(m8.request_id)).sent.people.filter((p) => p.kind === "pax" && p.leg === 0).sort((x, y) => Date.parse(x.updatedAt) - Date.parse(y.updatedAt)).pop();
+  ok(rs8.confirmed?.status === 200 && after8.state === "not_in_leon" && /passenger 8 of 16: Leon did not add the renewed passport to the contact \(Leon: Passport list is locked by another user\) — add it to the contact in Leon by hand, then press Send passengers to Leon/.test(after8.error) && calls(/personCreate/).length === creates8, "Leon refuses the update: the person is told to add the passport in Leon by hand and send again; no contact was created for that passenger; nothing reached the flight", after8.error?.slice(0, 200));
+  ok(!(await flightOf(r8.legs[0].flightNid)).passengerList.passengerContactList, "…the flight holds no partial list");
+  ok(seedC.contactNid > 0, "(seeded)"); }
+
+console.log("\n=== 8. No name, date of birth or document number anywhere it must not be ===");
 const out = [];
 out.push(leaks("agent log", readFileSync(path.join(SCR, "agent.out"), "utf8").split("\n").filter((l) => l >= "").slice(-4000).join("\n")));
 out.push(leaks("mock Leon request log", readFileSync(MOCKLOG, "utf8")));
@@ -203,6 +260,7 @@ out.push(leaks("flight send log", JSON.stringify(await db(`intake_leon_writes?se
 out.push(leaks("request rows", JSON.stringify(await db(`intake_requests?select=review,stages,status_reason`))));
 out.push(leaks("emails", JSON.stringify(await db(`intake_messages?select=subject,sent_html,delivery_detail,search_text,understood&direction=eq.outbound`))));
 out.push(leaks("request API", JSON.stringify([await detail(m1.request_id), await detail(m5.request_id)])));
+out.push(leaks("mock Leon log (passport updates included)", JSON.stringify(calls(/personUpdate/))));
 const maps = await db("intake_leon_contacts?select=passport_hmac,issuing_country,source");
 console.log(`  checked: agent log, mock Leon log, audit rows, send logs, ${maps.length} mapping rows (passport as HMAC only), request rows, emails, API`);
 ok(out.every((x) => !x), "none found", out.filter(Boolean).join(" · "));

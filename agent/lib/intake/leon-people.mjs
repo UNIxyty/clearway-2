@@ -132,7 +132,9 @@ export function payloadForLog(payload, crew, paxBlock = null) {
 
 /** One created leg's passengers into Leon's passenger database (leon-pax.mjs); its crew went with the create. */
 export async function writeLegPeople({ requestId, leg, flightNid, people, nameOrder = null, user }) {
-  return [await writeLegPax({ requestId, leg, flightNid, pax: peopleForLeg(people, leg.index).pax, nameOrder, user, people })];
+  // A person's passport decisions (renewed passport, or another person) live on the request and hold for every leg.
+  const decisions = (await rest(`intake_requests?select=review&id=eq.${requestId}`).catch(() => []))?.[0]?.review?.passportDecisions ?? {};
+  return [await writeLegPax({ requestId, leg, flightNid, pax: peopleForLeg(people, leg.index).pax, nameOrder, user, people, decisions })];
 }
 
 /** On start: a passenger/crew write that never recorded its outcome is unknown. Nothing retries. */
@@ -150,7 +152,7 @@ export function outcomeWords(o) {
   const n = (k, c) => `${c} ${k === "pax" ? (c === 1 ? "passenger" : "passengers") : "crew"}`;
   if (o.kind === "pax") {
     if (o.state === "none") return "No passenger names in the request: nothing written to Leon's passenger database.";
-    if (o.state === "in_leon") return `${n("pax", o.people)} in the flight's passenger database in Leon (PAX → DATABASE): ${o.created ?? 0} new contact${o.created === 1 ? "" : "s"}, ${o.reused ?? 0} existing contact${o.reused === 1 ? "" : "s"} reused${o.differs?.length ? `; ${o.differs.length} reused contact${o.differs.length === 1 ? " differs" : "s differ"} from the request (${o.differs.map((d) => `passenger ${d.row}: ${d.fields.join(", ")}`).join("; ")}) — the contacts were not changed, a person decides` : ""}${o.notes?.length ? `; left out where the request gave nothing usable (${o.notes.map((x) => `passenger ${x.row}: ${x.notes.join(", ")}`).join("; ")})` : ""}${o.already ? " (already there)" : ""}.`;
+    if (o.state === "in_leon") return `${n("pax", o.people)} in the flight's passenger database in Leon (PAX → DATABASE): ${o.created ?? 0} new contact${o.created === 1 ? "" : "s"}, ${o.reused ?? 0} existing contact${o.reused === 1 ? "" : "s"} reused${o.renewed ? ` (${o.renewed} with a renewed passport added, as a person decided)` : ""}${o.differs?.length ? `; ${o.differs.length} reused contact${o.differs.length === 1 ? " differs" : "s differ"} from the request (${o.differs.map((d) => `passenger ${d.row}: ${d.fields.join(", ")}`).join("; ")}) — the contacts were not changed, a person decides` : ""}${o.notes?.length ? `; left out where the request gave nothing usable (${o.notes.map((x) => `passenger ${x.row}: ${x.notes.join(", ")}`).join("; ")})` : ""}${o.already ? " (already there)" : ""}.`;
     return `Passengers NOT in Leon's passenger database: ${o.error ?? "no answer"}`;
   }
   if (o.state === "none") return "No crew in the request.";

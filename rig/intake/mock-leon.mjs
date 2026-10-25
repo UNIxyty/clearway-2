@@ -73,6 +73,18 @@ http.createServer(async (req, res) => {
       if (num && (faults().refuseContactPassport ?? []).includes(num)) return reply(res, 200, { data: { phonebook: { personCreate: { errorList: [{ message: `Passport number "${num}" is not valid for the issuing country`, category: "argumentValidation", path: ["documents"] }] } } } });
       return reply(res, 200, { data: { phonebook: { personCreate: { value: contactOut(newContact(p)) } } } });
     }
+    if (q.includes("personUpdate(")) { // apidoc: personUpdate(person: PhonebookPersonUpdateInput!) — personNid + the same documents input as create
+      const p = variables.p ?? {}; const c = contacts.find((x) => x.contactNid === Number(p.personNid));
+      if (!c) return reply(res, 200, { data: { phonebook: { personUpdate: { errorList: [{ message: "Contact not found", category: "businessLogic" }] } } } });
+      if (faults().refusePassportUpdate) return reply(res, 200, { data: { phonebook: { personUpdate: { errorList: [{ message: "Passport list is locked by another user", category: "businessLogic" }] } } } });
+      if (Array.isArray(p.documents?.passportList)) { // an entry with a nid updates that passport; one without is added; deleted drops it (the agent sends the whole list)
+        const next = [];
+        for (const d of p.documents.passportList) { const old = d.nid ? c.passports.find((x) => x.passportNid === Number(d.nid)) : null; if (d.deleted) continue; next.push(old ? { ...old, ...d, passportNid: old.passportNid } : { passportNid: nextPassport++, ...d }); }
+        c.passports = next;
+      }
+      for (const k of ["name", "surname", "gender", "dateOfBirth", "nationality"]) if (p[k] !== undefined) c[k] = p[k];
+      return reply(res, 200, { data: { phonebook: { personUpdate: { value: contactOut(c) } } } });
+    }
     if (q.includes("addPassengersToList(")) { // REPLACES the flight's list (seen on the real Leon)
       const f = created.find((x) => x.flightNid === Number(variables.f));
       if (!f) return reply(res, 200, { data: null, errors: [{ message: "Flight not found", extensions: { category: "businessLogic" } }] });

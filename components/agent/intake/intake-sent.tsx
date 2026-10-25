@@ -9,7 +9,7 @@ import { useState } from "react";
 import { TONE, mono } from "../ui/tokens";
 import { Icon, dayTimeZ, hmsZ } from "../ui/primitives";
 import { Tag } from "./controls";
-import { intakeApi, type Leg, type PeopleWrite, type RequestDetail, type Write } from "./api";
+import { intakeApi, type Leg, type PassportAsk, type PeopleWrite, type RequestDetail, type Write } from "./api";
 import { CARD, EYEBROW, LeonPill, fmtDur, legRoute, plural, writeKey } from "./intake-shared";
 import { SmallButton } from "./intake-fields";
 import { cw } from "@/lib/portal-tokens";
@@ -136,7 +136,7 @@ function PeopleLines({ leg, detail, reload }: { leg: number; detail: RequestDeta
     if (!p) { if (inRequest[kind]) lines.push({ key: kind, tone: "warn", text: `${kind === "pax" ? "Passengers" : "Crew"}: NOT in Leon. No ${kind === "pax" ? "passenger" : "crew"} write is recorded for this leg (${inRequest[kind]} in the request).` }); continue; }
     const d = p.detail;
     if (p.state === "in_leon" && kind === "pax") {
-      lines.push({ key: kind, tone: "ok", text: `${n} ${noun} in the flight's passenger database in Leon (PAX → DATABASE)${d ? `: ${d.created} new contact${d.created === 1 ? "" : "s"}, ${d.reused} existing contact${d.reused === 1 ? "" : "s"} reused` : ""}. The request's own list is in the OPS notes.` });
+      lines.push({ key: kind, tone: "ok", text: `${n} ${noun} in the flight's passenger database in Leon (PAX → DATABASE)${d ? `: ${d.created} new contact${d.created === 1 ? "" : "s"}, ${d.reused} existing contact${d.reused === 1 ? "" : "s"} reused${d.renewed ? ` (${d.renewed} with a renewed passport added)` : ""}` : ""}. The request's own list is in the OPS notes.` });
       for (const x of d?.differs ?? []) lines.push({ key: `d${x.row}`, tone: "warn", text: `Passenger ${x.row}: the existing contact in Leon differs from the request in ${x.fields.join(", ")}. It was reused and not changed — a person decides which is right.` });
       for (const x of d?.notes ?? []) lines.push({ key: `n${x.row}`, tone: "warn", text: `Passenger ${x.row}: ${x.notes.join("; ")}.` });
       continue;
@@ -148,15 +148,52 @@ function PeopleLines({ leg, detail, reload }: { leg: number; detail: RequestDeta
   if (!lines.length) return null;
   const color = { ok: cw.successText, bad: cw.dangerText, warn: TONE.amber.fg, muted: cw.textMuted };
   const paxState = latest.get("pax")?.state;
-  const canSend = inRequest.pax > 0 && paxState !== "in_leon" && paxState !== "sending";
+  const asks = paxState === "not_in_leon" ? latest.get("pax")?.detail?.asks ?? [] : [];
+  const undecided = asks.filter((a) => !detail.review?.passportDecisions?.[a.key]).length;
+  const canSend = inRequest.pax > 0 && paxState !== "in_leon" && paxState !== "sending" && !undecided;
   return (
     <div style={{ margin: "0 14px 10px 90px", display: "flex", flexDirection: "column", gap: 4 }}>
+      {asks.map((a) => <PassportAskCard key={a.key} ask={a} detail={detail} reload={reload} />)}
       {canSend && <SendPassengers detail={detail} leg={leg} people={inRequest.pax} unknown={paxState === "unknown"} reload={reload} />}
       {lines.map((x) => (
         <span key={x.key} role={x.tone === "bad" ? "alert" : undefined} style={{ display: "flex", gap: 6, alignItems: "baseline", fontSize: 12.5, lineHeight: 1.45, color: color[x.tone], fontWeight: x.tone === "bad" ? 600 : 400 }}>
           <Icon name={x.tone === "ok" ? "circle-check" : x.tone === "bad" ? "circle-x" : "circle-alert"} size={12} color={color[x.tone]} />{x.text}
         </span>
       ))}
+    </div>
+  );
+}
+
+/**
+ * A passenger whose name and date of birth match a contact in Leon that holds ANOTHER passport (2026-10-25). A manifest
+ * goes to border authorities, and a name and birthday cannot tell a renewed passport from two people, so the agent stopped
+ * and a person decides here. Both passports are shown by country and expiry; the numbers stay where they are (the
+ * request's in the passenger's document above, Leon's in the contact's record in Leon).
+ */
+function PassportAskCard({ ask, detail, reload }: { ask: PassportAsk; detail: RequestDetail; reload: () => Promise<void> }) {
+  const [busy, setBusy] = useState<"renewal" | "different" | null>(null); const [msg, setMsg] = useState<string | null>(null);
+  const decided = detail.review?.passportDecisions?.[ask.key] ?? null;
+  const passport = (p: { country: string | null; expires: string | null }) => `${p.country ? `${p.country} passport` : "passport, country not given"}${p.expires ? `, expires ${dayTimeZ(p.expires).replace(/ \d\d:\d\dZ$/, "")}` : ", no expiry given"}`;
+  const decide = async (decision: "renewal" | "different") => { setBusy(decision); setMsg(null); try { await intakeApi.passportDecision(detail.request.id, { key: ask.key, decision }); await reload(); } catch (e) { setMsg(e instanceof Error ? e.message : "Not saved."); } setBusy(null); };
+  return (
+    <div data-passport-ask={ask.row} style={{ background: TONE.amber.bg, border: `1.5px solid ${TONE.amber.bd}`, borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
+      <span role="alert" style={{ fontSize: 13, lineHeight: 1.5, color: TONE.amber.fg, fontWeight: 600 }}>Passenger {ask.row}: Leon has a contact with this name and date of birth, but another passport. Which is it?</span>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8, fontSize: 12.5, lineHeight: 1.45, color: cw.textBody }}>
+        <span><strong>In Leon:</strong> {passport(ask.leon)}{ask.leon.passports > 1 ? ` (${ask.leon.passports} passports on the contact)` : ""}.</span>
+        <span><strong>In the request:</strong> {passport(ask.request)}.</span>
+      </div>
+      <span style={{ fontSize: 12, color: cw.textMuted }}>The numbers differ. The request&apos;s number is in the passenger&apos;s document above (Show personal data); Leon&apos;s is in the contact&apos;s record in Leon.</span>
+      {decided ? (
+        <span style={{ fontSize: 12.5, color: cw.textBody }}>
+          <Icon name="circle-check" size={12} color={cw.successText} /> Decided by {decided.by}, {dayTimeZ(decided.at)}: {decided.decision === "renewal" ? "the same person with a renewed passport — the request's passport is added to the contact in Leon when you send." : "a different person — a new contact is created when you send."}
+        </span>
+      ) : (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <SmallButton icon="refresh-cw" busy={busy === "renewal"} busyLabel="Saving…" disabled={busy !== null} onClick={() => void decide("renewal")}>Same person · renewed passport</SmallButton>
+          <SmallButton icon="user-plus" busy={busy === "different"} busyLabel="Saving…" disabled={busy !== null} onClick={() => void decide("different")}>Different person</SmallButton>
+        </div>
+      )}
+      {msg && <span role="alert" style={{ fontSize: 12.5, color: cw.dangerText }}>{msg}</span>}
     </div>
   );
 }

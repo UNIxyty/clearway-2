@@ -3,7 +3,7 @@
 Entries marked **Fixed 2026-10-14** were fixed after review: every time UTC with a Z, the service status editor's
 unsaved edits, names of four letters, hidden airports in search, Done · show, the profile's failed email, Email logs
 removed, and raw error text replaced by our own wording across the portal, the Ops Agent (outside Flight intake) and
-the Digital Wall. Flight intake, the renewed-passport safeguard and the missing-email problem are left for a decision.
+the Digital Wall. The renewed-passport safeguard, the missing-email problem and the `[object Object]` times were fixed on 2026-10-25.
 
 Kept while the docs are written (step 10). Each section adds to both lists. Nothing here is fixed by the docs work:
 these are for the owners to decide. "Rig" is the test system (`rig/`).
@@ -12,11 +12,11 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 
 ### Serious
 
-- **Flight intake: an email the agent could not read never reaches Flight intake, and nobody is told.** It goes to the
+- **Fixed 2026-10-25 (the email becomes a request: Needs you, with what is known and what to do; the mailbox label counts emails not read).** **Flight intake: an email the agent could not read never reaches Flight intake, and nobody is told.** It goes to the
   Mailbox as failed ("Could not read the request: The model did not respond in time."), which most dispatchers cannot
   open, while the **Intake mailbox** label still says Reachable. A lost flight request with no sign of it. Seen twice
   on the rig on 2026-10-13.
-- **Flight intake: the "Process?" email (E1) shows `Times in the invite [object Object], [object Object]`.** It goes
+- **Fixed 2026-10-25 (one time per leg, "HH:MM AIRPORT").** **Flight intake: the "Process?" email (E1) shows `Times in the invite [object Object], [object Object]`.** It goes
   out with every scheduled flight, to the people whose job is to trust it. The departures became per-leg objects and
   are joined as text (`agent/lib/intake/notify.mjs:66`).
 
@@ -48,7 +48,7 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 
 ### Missing safeguard
 
-- **Flight intake: a renewed passport does not stop for a person.** Agreed rule: when the name and date of birth match
+- **Fixed 2026-10-25 (the agent stops for that passenger and asks; a person decides renewal or different person; on renewal the request's passport is added to the contact and reaches the flight).** **Flight intake: a renewed passport does not stop for a person.** Agreed rule: when the name and date of birth match
   a Leon contact but the passport differs, stop and ask a person (a manifest goes to border authorities, and a name
   and date of birth cannot tell a renewed passport from two people). What the code does
   (`agent/lib/intake/leon-pax.mjs:192-201`): reuses the contact, attaches **no passport** (not the old one), and adds

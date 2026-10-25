@@ -53,7 +53,10 @@ const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { a
   ok(Number(await page.locator(".dx-toc .dx-toc-item.on .num").innerText()) === N, "at the bottom of the page the last task is current");
   // Missing media show their empty state, never a broken image.
   const missing = await page.locator('[data-media-state="missing"]').count();
-  ok(missing >= 1 && await page.locator(".dx-media img").count() === 0, "every screenshot and the video show 'to come', no broken image", `${missing} empty states`);
+  // Since 2026-10-25 the pages carry their pictures (scripts/capture-docs-shots.mjs): every screenshot loads and is shown; only
+  // the video is still "to come"; nothing is broken.
+  const shotStates = await page.locator(".dx-media[data-media-state]").evaluateAll((els) => els.map((e) => e.getAttribute("data-media-state")));
+  ok(missing >= 1 && shotStates.includes("ready") && !shotStates.includes("failed"), "every screenshot is shown and the video says 'to come'; no broken image", `${missing} to come · states ${[...new Set(shotStates)].join(",")}`);
   ok(/Video to come · about 30 seconds/.test(await page.locator("body").innerText()), "the missing video says 'Video to come · about 30 seconds'");
   // Previous / next resolve.
   const pn = await page.locator(".dx-pn a").evaluateAll((as) => as.map((a) => a.getAttribute("href")));

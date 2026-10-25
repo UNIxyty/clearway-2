@@ -63,7 +63,10 @@ export function composeReview(req, review, ctx) {
 
 // ── E1: the approval gate for a scheduled flight ────────────────────────────────────────────────────────────
 const notifSummary = (req, review) => { const n = review.notification ?? {}; return { n, route: (n.route ?? []).join(" → ") || req.route || "route not given", legs: req.legs_count ?? Math.max(1, (n.route?.length ?? 2) - 1), when: n.date ?? "date not given", provider: n.providerName ?? "the provider" }; };
-const notifRows = (req, review) => { const { n, route, legs, when, provider } = notifSummary(req, review); return [["Reference", req.reference, true], ["Provider", provider], ["Route", route, true], ["Date", when, true], ["Legs", String(legs)], ["Times in the invite", (n.etd ?? []).length ? `${n.etd.join(", ")} (local, as the provider wrote them — not used)` : "not given"], ["Received", `${hm(req.created_at)}Z · ${req.sender_name ?? "unknown sender"}`]]; };
+/** The invite's departure times as the provider wrote them, one per leg: "HH:MM AIRPORT" (classify.mjs reads each as
+ *  { time, airport }; joined as text they printed "[object Object]" — fixed 2026-10-25). Older rows held plain strings. */
+export const inviteTimes = (n) => (Array.isArray(n?.etd) ? n.etd : []).map((e) => (typeof e === "string" ? e : [e?.time, e?.airport].filter(Boolean).join(" "))).filter(Boolean);
+const notifRows = (req, review) => { const { n, route, legs, when, provider } = notifSummary(req, review); const times = inviteTimes(n); return [["Reference", req.reference, true], ["Provider", provider], ["Route", route, true], ["Date", when, true], ["Legs", String(legs)], ["Times in the invite", times.length ? `${times.join(", ")} (local, as the provider wrote them — not used)` : "not given"], ["Received", `${hm(req.created_at)}Z · ${req.sender_name ?? "unknown sender"}`]]; };
 const reSubject = (req, tail, question = "process") => `Re: ${question === "cancel" ? "Cancel in Leon?" : "Process?"} ${req.reference} · ${tail}`;
 
 /**

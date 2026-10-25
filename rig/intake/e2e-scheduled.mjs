@@ -63,6 +63,7 @@ ok(e1 && /^Process\? 2613613 · LEBL → EGJJ → LEBL · 05\/10\/26 · 2 legs$/
 let links = linksFrom(e1?.delivery_detail?.text);
 ok(!!links.yes && !!links.no && links.yes.includes("/intake/answer?t=") && links.yes !== links.no, "the plain-text part carries both answer URLs", `${links.yes?.slice(0, 60)}…`);
 ok(/Or just reply yes or no/.test(e1?.delivery_detail?.text ?? "") && /No answer by \d\d:\d\dZ/.test(e1?.delivery_detail?.text ?? ""), "…the reply line and the deadline");
+ok(!/\[object Object\]/.test(`${e1?.delivery_detail?.text ?? ""}${e1?.sent_html ?? ""}`) && /Times in the invite\s+\d\d:\d\d [A-Z]{4}, \d\d:\d\d [A-Z]{4} \(local, as the provider wrote them/.test(e1?.delivery_detail?.text ?? ""), "…the invite's times read as HH:MM AIRPORT per leg, never [object Object] (2026-10-25)", (e1?.delivery_detail?.text ?? "").match(/Times in the invite[^\n]*/)?.[0]);
 let peek = await api(`/api/intake/answer?t=${encodeURIComponent(tokenOf(links.no))}`);
 ok(peek.status === 200 && peek.json.state === "open" && peek.json.answer === "no" && peek.json.reference === "2613613" && !JSON.stringify(peek.json).includes("XXA"), "L1: the No link peeks open, with the reference, without personal data", JSON.stringify(peek.json).slice(0, 160));
 let ans = await api("/api/intake/answer", { t: tokenOf(links.no) });

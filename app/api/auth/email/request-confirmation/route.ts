@@ -40,7 +40,20 @@ export async function POST(request: Request) {
     name?: string;
     email?: string;
     next?: string;
+    // Client access (Stage 5): an operator or broker asking from the sign-in page. Everyone signs in with email and
+    // password; the request carries a company name, never a trip or a registration — ops set the scope when they approve.
+    kind?: string;
+    company?: string;
+    clientKind?: string;
+    note?: string;
   };
+  const isClient = String(body.kind ?? "") === "client";
+  const company = String(body.company ?? "").trim().slice(0, 120);
+  const clientKind = String(body.clientKind ?? "operator").toLowerCase() === "broker" ? "broker" : "operator";
+  const note = String(body.note ?? "").trim().slice(0, 1000);
+  if (isClient && !company) {
+    return NextResponse.json({ error: "Company is required." }, { status: 400 });
+  }
 
   const name = String(body.name ?? "").trim();
   const email = normalizeEmail(body.email);
@@ -116,9 +129,17 @@ export async function POST(request: Request) {
   if (invitedUserId) {
     await service
       .from("email_confirmations")
-      .update({ purpose: `signup:${invitedUserId}` })
+      .update({ purpose: `${isClient ? "client" : "signup"}:${invitedUserId}` })
       .eq("token_hash", tokenHash)
       .is("used_at", null);
+    if (isClient) {
+      // The account is a client from the first moment (app_metadata: the person cannot change it), not yet approved,
+      // and their request is on file for Admin › Clients. The portal's middleware shows them the waiting screen only.
+      await service.auth.admin.updateUserById(invitedUserId, { app_metadata: { role: "client", is_approved: false, client_status: "requested" } });
+      await service.from("clients").upsert({ user_id: invitedUserId, email, person_name: name, company, kind: clientKind, note, status: "requested", requested_at: new Date().toISOString() }, { onConflict: "user_id" });
+      const { data: row } = await service.from("clients").select("id").eq("user_id", invitedUserId).maybeSingle();
+      if (row?.id) await service.from("client_decisions").insert({ client_id: row.id, kind: "requested", actor_id: invitedUserId, actor_email: email, detail: { company, kind: clientKind } });
+    }
   }
 
   return NextResponse.json({

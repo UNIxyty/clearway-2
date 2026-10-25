@@ -59,10 +59,12 @@ async function loadConfirmation(token: string) {
 
 function parseUserIdFromPurpose(purpose: string | null | undefined): string | null {
   const value = String(purpose || "");
-  if (!value.startsWith("signup:")) return null;
-  const maybeUserId = value.slice("signup:".length).trim();
+  const prefix = value.startsWith("signup:") ? "signup:" : value.startsWith("client:") ? "client:" : null; // client: a Stage 5 access request
+  if (!prefix) return null;
+  const maybeUserId = value.slice(prefix.length).trim();
   return maybeUserId || null;
 }
+const isClientPurpose = (purpose: string | null | undefined) => String(purpose || "").startsWith("client:");
 
 async function findUserIdByEmail(email: string) {
   const service = createSupabaseServiceRoleClient();
@@ -89,7 +91,7 @@ async function findUserIdByEmail(email: string) {
   return { error: "We could not find the account for this link. Sign up again to get a new link.", userId: null as string | null };
 }
 
-async function notifyApprovalNeeded(userId: string, email: string): Promise<void> {
+async function notifyApprovalNeeded(userId: string, email: string, who: "staff" | "client" = "staff"): Promise<void> {
   const botToken = String(
     process.env.TELEGRAM_BUG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || ""
   ).trim();
@@ -115,14 +117,21 @@ async function notifyApprovalNeeded(userId: string, email: string): Promise<void
 
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const dateStr = dayTimeZ(new Date(), { alwaysDate: true });
-  const text = [
+  // A client's request (Stage 5) is decided in Admin › Clients, where the scope is set — never from a chat button.
+  const text = who === "client" ? [
+    "<b>New client access request</b>",
+    `Name: ${esc(name || "-")}`,
+    `Email: ${esc(email)}`,
+    "Decide under Admin › Clients (set their scope and switches there).",
+    `Date: ${dateStr}`,
+  ].join("\n") : [
     "<b>New account pending approval</b>",
     `Name: ${esc(name || "-")}`,
     `Email: ${esc(email)}`,
     `ID: ${userId}`,
     `Date: ${dateStr}`,
   ].join("\n");
-  const replyMarkup = {
+  const replyMarkup = who === "client" ? undefined : {
     inline_keyboard: [
       [
         { text: "Confirm", callback_data: `approval:approve:${userId}` },
@@ -225,6 +234,14 @@ export async function POST(request: Request) {
 
   await syncDisplayNameFromMetadata(targetUserId);
 
+  if (isClientPurpose(confirmation.row.purpose)) {
+    // A client (Stage 5): the keys were set at the request; keep them whole here (role, not approved, requested) and tell
+    // ops a client is waiting. No user_preferences approval row — that flow is staff's.
+    const { data: current } = await service.auth.admin.getUserById(targetUserId);
+    await service.auth.admin.updateUserById(targetUserId, { app_metadata: { ...((current?.user?.app_metadata ?? {}) as Record<string, unknown>), role: "client", is_approved: false, client_status: "requested" } });
+    await service.from("clients").update({ email: confirmation.row.email }).eq("user_id", targetUserId);
+    await notifyApprovalNeeded(targetUserId, confirmation.row.email, "client");
+  } else {
   // Mark account as pending approval and notify Telegram.
   await service.auth.admin.updateUserById(targetUserId, {
     app_metadata: { is_approved: false }, // app_metadata: the person cannot change it themselves
@@ -233,6 +250,7 @@ export async function POST(request: Request) {
     .from("user_preferences")
     .upsert({ user_id: targetUserId, is_approved: false }, { onConflict: "user_id" });
   await notifyApprovalNeeded(targetUserId, confirmation.row.email);
+  }
 
   const { error: markUsedError } = await service
     .from("email_confirmations")

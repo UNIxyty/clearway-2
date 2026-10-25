@@ -337,6 +337,24 @@ export default function LoginCard() {
               Forgot password?
             </button>
           </div>
+          <p style={{ fontSize: 13, lineHeight: 1.5, color: "var(--cw-text-muted)", margin: "14px 0 0" }}>
+            Clearway staff: your account is set up by an admin. You don’t need to ask for access.
+          </p>
+          {/* Client access (Stage 5, design: Sign In): operators and brokers have their own way in — a block of its own,
+              not a small link. Everyone signs in with email and password; the request carries a company name only. */}
+          <div data-client-ask style={{ marginTop: 22, paddingTop: 22, borderTop: "1px solid var(--cw-border)", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "var(--cw-text)" }}>Operator or broker without an account?</span>
+              <span style={{ fontSize: 14, lineHeight: 1.5, color: "var(--cw-text-body)" }}>Ask for access with your name, company and work email. Clearway ops approves every request.</span>
+            </div>
+            <a
+              href="/request-access"
+              className="cw-auth-link"
+              style={{ height: 44, borderRadius: 10, border: "1px solid var(--cw-border-control)", background: "var(--cw-bg-surface)", color: "var(--cw-text)", fontSize: 15, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none" }}
+            >
+              Ask for access
+            </a>
+          </div>
         </>
       )}
     </div>

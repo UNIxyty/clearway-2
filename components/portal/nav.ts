@@ -101,6 +101,7 @@ export const NAV_TOPICS: NavTopic[] = [
     roles: ["admin"],
     items: [
       { id: "adm-users", label: "Users", icon: "users", href: "/admin/users" },
+      { id: "adm-clients", label: "Clients", icon: "building-2", href: "/admin/clients" }, // operators and brokers who see only their own flights (Stage 5)
       { id: "adm-agent-sites", label: "Agent sites", icon: "globe", href: "/admin/agent-sites" }, // Chrome extension site list: approve requests, add, revoke
       { id: "adm-perms", label: "Permissions", icon: "key-round", href: "/admin/permissions" }, // what each role may do (docs/permissions.md)
       { id: "adm-maint", label: "Maintenance", icon: "power", href: "/admin/maintenance" },

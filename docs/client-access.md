@@ -37,6 +37,33 @@ and tries everything again — still 404, still a client. Plus the waiting scree
 twenty-odd addresses outside their world, and the removed state. See docs/rig-vs-production.md for what the rig
 cannot prove.
 
+## The screens (built after the test was green)
+- **Sign in** (`app/login`): under the form, "Clearway staff: your account is set up by an admin", then a block of its own
+  for operators and brokers with **Ask for access** → `/request-access`: full name, company (required), work email,
+  You are (Operator / Broker), an optional note. No password here: the email link sets it; confirming the email sends the
+  request. No trip, flight or reference field exists — those identify a flight, not a person.
+- **The request** (`app/api/auth/email/request-confirmation`, kind "client"): the invited account is a client from the
+  first moment (app_metadata, service key), not approved, status requested; a clients row is opened; ops are told in
+  Telegram "New client access request — decide under Admin › Clients" (no chat button approves a client: the scope is
+  set on the page). The confirm step keeps the client keys and skips the staff pending flow.
+- **Waiting, refused, removed** (`app/client/*`): shell-less, three steps on the waiting screen, "You will get an email
+  when it is decided." The root sends a client to their world or their holding page; every other page is 404.
+- **Admin › Clients** (`app/admin/clients`, action `clients.manage`): Waiting (review → the editor in the row),
+  Approved (scope chips, the 11-dot matrix, the passenger chip, granted by whom), the decision log. The editor keeps
+  scope and access apart; Flight board is required; no scope, no Approve; documents need the consent line; the summary
+  says what the client will see; Remove access asks for the company typed and lists what happens. The live "matches N
+  flights in the next 7 days" and the suggestion row read the wall as the admin.
+- **The email** (`lib/clients/mail.ts`): approved / refused (with ops' note) / access ended, through Resend; the only
+  promise the waiting screen makes.
+- **The client wall** (`app/client/wall.tsx`): builds itself from the switches. Board (Today / Tomorrow / 7 days, or
+  trips grouped for trip-scoped clients) and the open flight side by side from 700px; the board first and the flight full
+  screen below it, with "← All flights". Cards per switch: weather, NOTAMs, radar, passengers (the one passenger viewer,
+  at the client's level), documents; Airports and Documents become header tabs, or a bottom tab bar on the phone, only
+  when switched on. Every number comes from the wall backend's scoped answers.
+- **Checks**: `rig/client-ui-check.mjs` (in the runner) approves a client through the page, looks at the wall as the
+  client at 1440 and 390 in both themes, checks no horizontal scroll and no shell in the client's pages, changes and
+  removes through the page, and finds the row kept, emptied.
+
 ## Decisions taken (2026-10-20)
 404 outside scope; documents for clients are the same logged reveal, off by default, with lower thresholds; removing
 access empties, never deletes; no promise of a time — "You will get an email when it is decided."

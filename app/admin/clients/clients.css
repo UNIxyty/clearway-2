@@ -1,0 +1,10 @@
+/* Admin › Clients (Stage 5): the --ca-* tokens from shared/client-tokens.css, by class. Rose marks passenger data only. */
+.cl-sens-block { border: 1.5px solid var(--ca-sens-border); background: var(--ca-sens-tint); }
+.cl-sens-tile { background: var(--ca-sens-solid); color: var(--ca-sens-on-solid); }
+.cl-sens-badge { background: var(--ca-sens-tint); color: var(--ca-sens-text); border-color: var(--ca-sens-border); }
+.cl-sens-selected { border-color: var(--ca-sens-solid); background: var(--cw-bg-surface); color: var(--ca-sens-text); }
+.cl-sens-radio { border: 5px solid var(--ca-sens-solid); }
+.cl-sens-border { border-color: var(--ca-sens-border); }
+.cl-scope-operator { background: var(--ca-scope-op-bg); color: var(--ca-scope-op-fg); border-color: var(--ca-scope-op-bd); }
+.cl-scope-registration { background: var(--ca-scope-reg-bg); color: var(--ca-scope-reg-fg); border-color: var(--ca-scope-reg-bd); }
+.cl-scope-trip { background: var(--ca-scope-trip-bg); color: var(--ca-scope-trip-fg); border-color: var(--ca-scope-trip-bd); }

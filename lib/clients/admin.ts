@@ -4,6 +4,7 @@
 // Removing access EMPTIES: status removed, scope and switches emptied, the row kept (decided 2026-10-20).
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CLIENT_STATUSES, PASSENGER_LEVELS, REQUIRED_SWITCHES, normaliseScope, normaliseSwitches } from "@/lib/clients/switches.mjs";
+import { sendDecisionMail } from "@/lib/clients/mail";
 
 export type ClientRow = {
   id: string; user_id: string; email: string; person_name: string; company: string; kind: string; note: string;
@@ -78,6 +79,7 @@ export async function saveAccess(service: SupabaseClient, row: ClientRow, change
   const levelChanged = before.passengerLevel !== after.passenger_level;
   await log(service, row.id, decision, actor, { before, after: { scope: after.scope, switches: after.switches, passengerLevel: after.passenger_level } }, String(change.note ?? ""));
   if (decision === "changed" && levelChanged) await log(service, row.id, "passengers", actor, { from: before.passengerLevel, to: after.passenger_level, consent: after.consent });
+  if (decision === "approved") void sendDecisionMail({ to: after.email, personName: after.person_name, company: after.company, decision: "approved" });
   return { row: after };
 }
 
@@ -95,5 +97,6 @@ export async function closeAccess(service: SupabaseClient, row: ClientRow, statu
     await service.auth.admin.signOut(row.user_id, "global").catch(() => {});
   }
   await log(service, row.id, status, actor, { before }, note);
+  void sendDecisionMail({ to: after.email, personName: after.person_name, company: after.company, decision: status, note });
   return { row: after };
 }

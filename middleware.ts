@@ -228,7 +228,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isAuthEntryPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
+  const isAuthEntryPage = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/request-access"); // request-access: a client asking for access (Stage 5)
 
   let user;
   try {

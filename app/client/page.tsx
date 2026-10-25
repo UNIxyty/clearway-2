@@ -1,12 +1,9 @@
-// The client wall (Stage 5): built in the block's fourth step from Client Wall.dc.html. Until then an honest, shell-less
-// page: the person is approved and this is where their flights will appear.
+import ClientWall from "./wall";
+
+// The client's front door (Stage 5): their wall, built from their switches. The middleware lets only an approved client
+// reach this; the wall backend's scoped answers are all it draws from.
 export const metadata = { title: "Your flights" };
 
 export default function ClientHome() {
-  return (
-    <main className="cl-hold" data-client-home="">
-      <h1>Your flights</h1>
-      <p>Your access is approved. The flight board for your account is being prepared.</p>
-    </main>
-  );
+  return <ClientWall />;
 }

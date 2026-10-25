@@ -23,6 +23,8 @@ const NOT_PORTAL = {
   "/telegram/support": "the Telegram mini app takes Telegram's theme",
   "/greece-hitl-auto-test/viewer": "a test harness for a scraper, not a product page", "/lithuania-hitl-auto-test/viewer": "the same", "/netherlands-hitl-auto-test/viewer": "the same",
   "/admin/debug/raw": "raw debug output (text/plain)",
+  // A client's world (Stage 5): staff get 404 there by design; rig/client-ui-check.mjs audits it as a client, in both themes.
+  "/client": "the client wall — audited by client-ui-check", "/client/waiting": "the same", "/client/refused": "the same", "/client/removed": "the same",
 };
 // Pages people see signed out: audited in a signed-out browser. Sign-in sits on a dark backdrop in both themes (the
 // night-* tokens); its card, fields and text follow the theme like any page.

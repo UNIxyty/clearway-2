@@ -27,7 +27,9 @@ mkdir -p "$SCR/wall"
 # The wall's Leon is its own per-operator mock (:3985, rig/wall/mock-leon.mjs: a day of invented flights in every
 # state); they reach the board through the wall's real sync. LEON_OPERATOR_API_BASE keeps every Leon call (sync and webhook registration) on the mock, and the
 # key decrypts the rig's operator tokens (rig/manifest/operators.mjs). The wall's mail goes to the mock Resend (:3996).
-WALL_RIG="LEON_REFRESH_TOKEN_ENCRYPTION_KEY=rig-local-only-not-a-secret LEON_OPERATOR_API_BASE=http://127.0.0.1:3985/{opr} LEON_WEBHOOK_KEY_BASE_URL=http://127.0.0.1:3985/cwy-cwy RESEND_BASE_URL=http://127.0.0.1:3996"
+# FLIGHT_INFO_CACHE_TTL_MS: the wall caches the portal's per-airport answers (AIP resolve, NOTAMs) for 10 min; on the rig a
+# suite that changes a copy and asks again within that time must see the change (fixes/aip-copy-date after client-scope, 2026-10-25).
+WALL_RIG="FLIGHT_INFO_CACHE_TTL_MS=5000 LEON_REFRESH_TOKEN_ENCRYPTION_KEY=rig-local-only-not-a-secret LEON_OPERATOR_API_BASE=http://127.0.0.1:3985/{opr} LEON_WEBHOOK_KEY_BASE_URL=http://127.0.0.1:3985/cwy-cwy RESEND_BASE_URL=http://127.0.0.1:3996"
 # Both rig walls (:5199 here, the sign-in-on :5198 started by hand, see rig/wall/access-check.mjs) run from scratch
 # folders: give them the wall's email templates and airport countries, and the portal its invented NOTAMs and AIP
 # stand-ins (rig/wall/seed-portal.mjs), so mail, CAA country matching and the NOTAM check work there.

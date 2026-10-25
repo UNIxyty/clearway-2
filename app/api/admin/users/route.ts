@@ -33,8 +33,11 @@ export async function GET() {
     }));
 
     const rows = users
+      // Clients (Stage 5) are decided under Admin › Clients, never here: an approval from this page would make a client a staff user.
+      .filter((u) => String((u.app_metadata as Record<string, unknown> | undefined)?.role ?? "").toLowerCase() !== "client")
       .map((u) => {
         const pref = prefMap.get(u.id);
+        const appMeta = (u.app_metadata ?? {}) as Record<string, unknown>;
         return {
           id: u.id,
           email: u.email ?? null,
@@ -43,7 +46,8 @@ export async function GET() {
           displayName: pref?.display_name ?? null,
           isAdmin: Boolean(pref?.is_admin),
           isDeveloper: Boolean(pref?.is_developer),
-          isApproved: pref ? Boolean(pref.is_approved) : false, // no record means not approved (2026-10-25), as the gates read it
+          // Approval is what the gates read: app_metadata.is_approved === true (service-key writes); a missing flag is pending (2026-10-25).
+          isApproved: appMeta.is_approved === true,
         };
       })
       .sort((a, b) => {

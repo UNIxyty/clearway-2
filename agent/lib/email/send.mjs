@@ -187,6 +187,8 @@ export async function sendAgentEmail({ to, prepared, attachments = [], user, con
     subject: prepared.subject,
     html: prepared.html,
     attachments: attachments.map((a) => ({ filename: a.filename, content: a.content })),
+    // The live status row (mailer.mjs recordSend): what the card reads until the mail service says delivered or not.
+    record: { kind: "agent-email", by: user?.email ?? null, ref: prepared.reference ?? null },
   });
 
   // The provider's own words go to the server log (digital-wall/lib/mailer.mjs logs them) and to the send log's
@@ -204,8 +206,8 @@ export async function sendAgentEmail({ to, prepared, attachments = [], user, con
   });
 
   return result.ok
-    ? { ok: true, id: result.id ?? null, recipients, reference: prepared.reference }
-    : { ok: false, error: NOT_SENT, recipients };
+    ? { ok: true, id: result.id ?? null, emailId: result.recordId ?? null, recipients, reference: prepared.reference }
+    : { ok: false, error: NOT_SENT, emailId: result.recordId ?? null, recipients };
 }
 
 async function logSend({ user, conversationId, recipients, subject, attachments, status, error, shownError, providerId, external, reference }) {

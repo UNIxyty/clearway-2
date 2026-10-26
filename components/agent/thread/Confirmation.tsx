@@ -217,6 +217,28 @@ function DestructiveBar({ confirmation: c, busy, error, mmss, onHoldComplete, on
 export function ConfirmationRecord({ confirmation: c, outcome, panel = false }: { confirmation: PendingConfirmation; outcome: Outcome; panel?: boolean }) {
   const isEmail = /^(send_email|email_document)$/.test(c.toolName);
   const ref = (outcome.result?.actionId ?? outcome.result?.id ?? outcome.result?.resendId ?? null) as string | null;
+  // An email claims nothing until the mail service has said so (2026-10-26): a send the tool reported as failed is
+  // NOT sent, in red, with what to do; a send the service accepted is "handed over" until its delivery status says
+  // delivered — or bounced. The old card said "Sent" the moment the button was pressed.
+  if (outcome.status === "applied" && isEmail) {
+    const r = outcome.result ?? {};
+    const notSent = r.sent === false || !!r.error;
+    const to = c.target ? ` to ${c.target}` : "";
+    return (
+      <div className="ag-record-in" role={notSent ? "alert" : undefined} style={{ background: cw.bgSurface, border: `1px solid ${notSent ? cw.danger : cw.border}`, borderRadius: panel ? 12 : 14, padding: panel ? "10px 12px" : "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Icon name={notSent ? "mail-x" : "mail"} size={panel ? 15 : 16} color={notSent ? cw.dangerText : cw.textMuted} />
+          <span style={{ fontSize: 14, fontWeight: 700, flex: 1, color: notSent ? cw.dangerText : cw.text }}>{notSent ? `NOT sent${to}` : `Handed to the mail service${to}`}</span>
+          <span style={{ fontSize: 12.5, color: cw.textMuted, whiteSpace: "nowrap" }}>Confirmed by you · <span style={mono()}>{hmsZ(outcome.at)}</span></span>
+        </div>
+        {notSent ? (
+          <div style={{ fontSize: 12.5, color: cw.dangerText }}>{String(r.error ?? "The mail service did not accept it.")} Nothing left the building. Check the address and send it again; if it keeps failing, tell your administrator.</div>
+        ) : (
+          <EmailDelivery emailId={typeof r.emailId === "string" ? r.emailId : null} sentAt={outcome.at} panel={panel} />
+        )}
+      </div>
+    );
+  }
   if (outcome.status === "applied") {
     return (
       <div className="ag-record-in" style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: panel ? 12 : 14, padding: panel ? "10px 12px" : "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -281,3 +303,42 @@ export function ConfirmationModal({ confirmation: c, onSettled }: { confirmation
 }
 
 export type { Outcome as ConfirmationOutcome };
+
+
+/** The mail service's word on one email, asked every 10 s until it is final (delivered, bounced, complained, failed) or 20 minutes pass. */
+function EmailDelivery({ emailId, sentAt, panel }: { emailId: string | null; sentAt: string; panel: boolean }) {
+  const [st, setSt] = useState<{ status: string; at: string | null; error: string | null; bounce: { type?: string | null; message?: string | null } | null; final: boolean; missing?: boolean } | null>(null);
+  useEffect(() => {
+    if (!emailId) return;
+    let alive = true; let timer: ReturnType<typeof setTimeout> | null = null; const started = Date.now();
+    const ask = async () => {
+      try {
+        const r = await fetch(`${AGENT_BASE}/api/email/status?id=${encodeURIComponent(emailId)}`, { credentials: "same-origin" });
+        const b = await r.json().catch(() => null);
+        if (!alive) return;
+        if (!r.ok || !b?.ok) { setSt({ status: "unknown", at: null, error: null, bounce: null, final: true, missing: true }); return; }
+        setSt({ status: String(b.status), at: b.at ?? null, error: b.error ?? null, bounce: b.bounce ?? null, final: !!b.final });
+        if (!b.final && Date.now() - started < 20 * 60_000) timer = setTimeout(() => void ask(), 10_000);
+      } catch { if (alive && Date.now() - started < 20 * 60_000) timer = setTimeout(() => void ask(), 15_000); }
+    };
+    void ask();
+    return () => { alive = false; if (timer) clearTimeout(timer); };
+  }, [emailId]);
+  const line = (tone: "ok" | "warn" | "bad" | "muted", icon: string, text: string) => (
+    <div role={tone === "bad" ? "alert" : undefined} style={{ display: "flex", alignItems: "baseline", gap: 6, fontSize: panel ? 12.5 : 13, color: tone === "ok" ? cw.successText : tone === "bad" ? cw.dangerText : tone === "warn" ? cw.warningText : cw.textMuted, fontWeight: tone === "bad" ? 600 : 400 }}>
+      <Icon name={icon} size={12} color={tone === "ok" ? cw.successText : tone === "bad" ? cw.dangerText : tone === "warn" ? cw.warningText : cw.textMuted} />{text}
+    </div>
+  );
+  if (!emailId) return line("muted", "circle-help", `Accepted by the mail service at ${hmsZ(sentAt)}. Delivery is not tracked for this email, so ask the recipient to confirm.`);
+  if (!st) return line("muted", "circle-dot", `Accepted by the mail service at ${hmsZ(sentAt)} · asking whether it was delivered…`);
+  if (st.missing) return line("warn", "circle-help", `Accepted by the mail service at ${hmsZ(sentAt)}. Its delivery status cannot be read right now; ask the recipient to confirm.`);
+  const when = st.at ? hmZ(st.at) : hmsZ(sentAt);
+  switch (st.status) {
+    case "delivered": return line("ok", "circle-check", `Delivered ${when}.`);
+    case "bounced": return line("bad", "circle-x", `NOT delivered: the address bounced it ${when}${st.bounce?.message ? ` (${st.bounce.message})` : ""}. Check the address and send it again.`);
+    case "complained": return line("bad", "circle-x", `Delivered ${when}, then reported as unwanted by the recipient. Do not send to this address again without asking them.`);
+    case "failed": case "suppressed": return line("bad", "circle-x", `NOT delivered: the mail service ${st.status === "suppressed" ? "refuses this address (it bounced before)" : "could not send it"}${st.error ? ` — ${st.error}` : ""}. Check the address and send it again; if it keeps failing, tell your administrator.`);
+    case "delivery_delayed": return line("warn", "clock", `Delayed: the mail service is still trying (since ${when}). Not delivered yet.`);
+    default: return line("warn", "circle-dot", `Accepted by the mail service at ${hmsZ(sentAt)} · waiting for delivery. If this line never turns to Delivered, ask the recipient.`);
+  }
+}

@@ -451,6 +451,21 @@ async function handleRequest(req, res) {
     }
     // Slash commands (§4.20), config-driven: agent/config/commands.json merged with the admin override in
     // agent_settings `commands`; only commands whose tools this user has are returned (item 10).
+    // The live status of an email we sent (mailer.mjs recordSend; the Resend webhook keeps it current). Any agent user
+    // may ask: the answer carries the state, its times and the recipients, never a body. "Sent" = accepted by the mail
+    // service; final states are delivered, bounced, complained, failed, suppressed.
+    if (pathname === "/api/email/status" && req.method === "GET") {
+      await assertMayUseAgent(user);
+      const id = String(url.searchParams.get("id") || "").trim();
+      if (!/^[0-9a-f-]{36}$/i.test(id)) throw BadRequest("An email id is required.");
+      const row = (await knowledgeRest(`intake_messages?select=id,received_at,to_addrs,subject,sent_kind,delivery_status,delivery_detail,delivery_events&id=eq.${id}&direction=eq.outbound`).catch(() => []))?.[0];
+      if (!row) return sendJson(res, { ok: false, error: "No such email.", code: "not_found" }, 404);
+      const status = String(row.delivery_status || "sent");
+      const events = Array.isArray(row.delivery_events) ? row.delivery_events : [];
+      const last = events[events.length - 1] ?? null;
+      return sendJson(res, { ok: true, id: row.id, status, final: ["delivered", "bounced", "complained", "failed", "suppressed"].includes(status), at: last?.at ?? row.received_at, sentAt: row.received_at, to: row.to_addrs ?? [], subject: row.subject ?? null, kind: row.sent_kind ?? null, error: row.delivery_detail?.error ?? null, bounce: row.delivery_detail?.bounce ?? null, events: events.map((e) => ({ event: e.event, at: e.at, detail: e.detail ?? null })) });
+    }
+
     if (pathname === "/api/commands" && req.method === "GET") {
       await assertMayUseAgent(user);
       return sendJson(res, { ok: true, commands: await commandsFor(user) });

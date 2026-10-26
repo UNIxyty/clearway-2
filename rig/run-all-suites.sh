@@ -39,6 +39,7 @@ run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/inta
 run intake/test-no-calendar-response node rig/intake/test-no-calendar-response.mjs
 run intake/test-retention $E rig/intake/test-retention.mjs
 run intake/test-webhook $E rig/intake/test-webhook.mjs
+run email-status-check $E rig/email-status-check.mjs
 run wall/test-portal-folder node rig/wall/test-portal-folder.mjs
 run airport-sheets-check node rig/airport-sheets-check.mjs
 run manifest/test-generator node rig/manifest/test-generator.mjs

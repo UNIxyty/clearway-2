@@ -228,6 +228,7 @@ defineTool({
       external,
       recipients,
       messageId: result.id ?? null,
+      emailId: result.emailId ?? null, // the live delivery status row: the card asks /api/email/status until delivered or not
       // A failed send is said plainly, never swallowed — that has cost this project weeks. The provider's
       // own words are in the server log and agent_email_log (email/send.mjs), not here.
       error: result.ok ? null : String(result.error ?? "Send failed."),
@@ -301,6 +302,7 @@ defineTool({
       needsConfirmation: Boolean(result.needsConfirmation),
       external, recipients,
       messageId: result.id ?? null,
+      emailId: result.emailId ?? null, // the live delivery status row: the card asks /api/email/status until delivered or not
       error: result.ok ? null : String(result.error ?? "Send failed."),
     };
   },

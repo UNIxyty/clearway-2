@@ -1160,7 +1160,7 @@ const server = http.createServer(async (req, res) => {
         bodyHtml: escapeHtml(report.body || "(no description)").replaceAll("\n", "<br/>"),
         link: `${base}/console/reports?report=${encodeURIComponent(report.id)}`,
       });
-      const result = await sendEmail({ to, subject, html });
+      const result = await sendEmail({ to, subject, html, record: { kind: "wall-report", ref: id } });
       if (!result.ok) {
         console.error(`[reports] send FAILED for ${id} -> ${to.join(", ")}: ${result.error}`);
         sendJson(res, { ok: false, error: "Couldn't send the email. Try again in a few minutes. If it keeps failing, report it from Help & support.", code: "email_not_sent" }, 500); // a failed email is not a gateway, and Cloudflare swaps 502 bodies

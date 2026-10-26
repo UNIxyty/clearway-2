@@ -172,10 +172,11 @@ export class AipSendService {
       subject: subjectLine,
       html,
       attachments,
+      record: { kind: "aip-send", by: job.to?.[0] ?? null, ref: job.flightNo ?? null }, // the live status row (mailbox › Sent)
     });
 
     if (result.ok) {
-      this.update(job, { stage: "sent" });
+      this.update(job, { stage: "sent", emailId: result.recordId ?? null }); // "sent" = handed to the mail service; delivery is the row's later event
     } else {
       // sendEmail already logged the provider's answer; the person gets our sentence.
       console.error(`[aip-send] job ${job.jobId}: email not sent`);

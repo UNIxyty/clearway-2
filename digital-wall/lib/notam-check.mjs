@@ -562,7 +562,7 @@ export class NotamCheckService {
       return fail(REASONS.notamEmailFailed(), `template ${template} failed to render: ${errorDetail(error)}`);
     }
 
-    const result = await sendEmail({ to, subject, html });
+    const result = await sendEmail({ to, subject, html, record: { kind: "notam-digest" } });
     if (!result.ok) return fail(REASONS.notamEmailFailed(), `send failed (see the [mailer] line above)`);
 
     s.emailError = null;

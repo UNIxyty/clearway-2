@@ -140,24 +140,55 @@ async function deliverViaResend({ from, to, subject, html, text, attachments }) 
  * carry Resend's answer): callers log or record it and show a person their own
  * sentence (lib/public-error.mjs) — the wall's callers never send it to a screen.
  */
-export async function sendEmail({ to, subject, html, text, from = defaultFrom(), attachments }) {
+/**
+ * One live status for every email the platform sends (2026-10-26). A send that names its `record` ({ kind, by?, ref? })
+ * gets an outbound row in intake_messages — the mailbox's Sent box, the one store the Resend webhook already updates
+ * with Sent / Delivered / Delayed / Bounced / Complained (agent/lib/intake/resend.mjs) — and the row's id comes back as
+ * `recordId` for whatever shows the email (the agent's card, a job). "Sent" there means accepted by the mail service;
+ * delivered is a later event. No body is stored for these rows (a manifest's names stay in its attachment). The
+ * intake's own emails record themselves (notify.mjs) and pass no record.
+ */
+async function recordSend({ record, from, recipients, subject, ok, id, error }) {
+  if (!record?.kind) return null;
+  const base = String(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+  const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+  if (!base || !key) { console.error(`[mailer] send of "${subject}" not recorded: no database settings in this service`); return null; }
+  const now = new Date().toISOString();
+  const row = {
+    provider: "resend", provider_message_id: id ?? `failed-${now}-${Math.random().toString(36).slice(2, 10)}`, direction: "outbound", received_at: now,
+    from_addr: from, to_addrs: recipients, subject, status: "sent", status_reason: record.kind, sent_kind: record.kind, sent_html: null,
+    delivery_status: ok ? "sent" : "failed",
+    delivery_detail: { ...(ok ? {} : { error: String(error ?? "send failed") }), by: record.by ?? null, ref: record.ref ?? null },
+    delivery_events: [{ event: ok ? "Queued" : "Failed", at: now, detail: ok ? null : String(error ?? "send failed") }],
+  };
+  try {
+    const r = await fetch(`${base}/rest/v1/intake_messages`, { method: "POST", headers: { apikey: key, authorization: `Bearer ${key}`, "content-type": "application/json", prefer: "return=representation" }, body: JSON.stringify([row]), signal: AbortSignal.timeout(10_000) });
+    if (!r.ok) { console.error(`[mailer] send of "${subject}" not recorded: database answered ${r.status}`); return null; }
+    const rows = await r.json().catch(() => null);
+    return rows?.[0]?.id ?? null;
+  } catch (e) { console.error(`[mailer] send of "${subject}" not recorded: ${e instanceof Error ? e.message : e}`); return null; }
+}
+
+export async function sendEmail({ to, subject, html, text, from = defaultFrom(), attachments, record = null }) {
   const recipients = (Array.isArray(to) ? to : [to]).map((v) => String(v || "").trim()).filter(Boolean);
   if (recipients.length === 0) {
     console.error(`[mailer] NOT sending "${subject}": no recipients configured.`);
-    return { ok: false, error: "No recipients configured." };
+    return { ok: false, error: "No recipients configured.", recordId: await recordSend({ record, from, recipients, subject, ok: false, id: null, error: "No recipients configured." }) };
   }
   if (!mailerConfigured()) {
     console.error(`[mailer] NOT sending "${subject}" to ${recipients.join(", ")}: RESEND_API_KEY is not configured.`);
-    return { ok: false, error: "RESEND_API_KEY is not configured; email skipped." }; // public-error-ok: detail for the caller's log, see above
+    const error = "RESEND_API_KEY is not configured; email skipped."; // public-error-ok: detail for the caller's log, see above
+    return { ok: false, error, recordId: await recordSend({ record, from, recipients, subject, ok: false, id: null, error }) };
   }
   console.log(`[mailer] sending "${subject}" to ${recipients.join(", ")} from "${from}"`);
   try {
     const result = await deliverViaResend({ from, to: recipients, subject, html, text, attachments });
     console.log(`[mailer] sent ok — Resend id ${result?.id ?? "(none)"}`);
-    return { ok: true, id: result?.id ?? null };
+    const id = result?.id ?? null;
+    return { ok: true, id, recordId: await recordSend({ record, from, recipients, subject, ok: true, id, error: null }) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error); // public-error-ok: detail for the caller's log, see above
     console.error(`[mailer] send FAILED: ${message}`);
-    return { ok: false, error: message };
+    return { ok: false, error: message, recordId: await recordSend({ record, from, recipients, subject, ok: false, id: null, error: message }) };
   }
 }

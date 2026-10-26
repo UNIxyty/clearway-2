@@ -52,6 +52,9 @@ changed="$(git status --short | grep -v '^??' | grep -v ' digital-wall/data/' ||
 # 3. Build. A failure stops here and restarts nothing.
 say "building ${SERVICES[*]} from $(git log --oneline -1 | cut -c1-70) ${NOCACHE:+(no cache)}"
 compose build $NOCACHE "${SERVICES[@]}" || { say "BUILD FAILED. Nothing was restarted; the running containers are unchanged."; exit 1; }
+# 3b. Each image must RUN before anything is restarted (scripts/check-image-runs.sh, 2026-10-26: a built image whose
+# process dies on start — a file the Dockerfile forgot — is caught here, not by a crash loop on production).
+bash scripts/check-image-runs.sh "${SERVICES[@]}" || { say "IMAGE CHECK FAILED. Nothing was restarted; the running containers are unchanged."; exit 1; }
 
 # 4. Restart, wait for health, record.
 compose up -d "${SERVICES[@]}"

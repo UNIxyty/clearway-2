@@ -170,7 +170,10 @@ export async function resolveAipPdf(icao) {
     // The refresh's last check (AIP refresh, 2026-10-25): a failure is said in the email next to the copy's date.
     lastCheck: result.data.revision?.lastCheck ?? null,
   };
-  cacheSet(key, value, value.cached ? 6 * 3600_000 : 5 * 60_000);
+  // A cached copy's answer was kept for 6 hours; after a Re-sync or the AIP refresh replaced the copy, an emailed one
+  // could carry the old fetch date for that long (seen on the rig at midnight, 2026-10-26). The resolve is a stat and a
+  // sidecar read, no scrape: 10 minutes is plenty.
+  cacheSet(key, value, value.cached ? 10 * 60_000 : 5 * 60_000);
   return value;
 }
 

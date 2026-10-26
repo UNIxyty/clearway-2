@@ -52,7 +52,9 @@ async function telegramApi(method: string, payload: Record<string, unknown>): Pr
     if (body?.ok) return { ok: true, result: body.result, reason: null };
     return { ok: false, reason: `Telegram refused the message (${body?.description ? String(body.description).slice(0, 80) : `HTTP ${res.status}`})` };
   } catch (e) {
-    return { ok: false, reason: `Telegram could not be reached (${e instanceof Error && /abort|timeout/i.test(e.message) ? "no answer in 10 seconds" : "network error"})` };
+    // Our words only (lib/public-error.ts): the provider's text stays out of the thread.
+    const timedOut = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+    return { ok: false, reason: timedOut ? "Telegram gave no answer in 10 seconds" : "Telegram could not be reached" };
   }
 }
 

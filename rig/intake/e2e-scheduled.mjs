@@ -205,7 +205,9 @@ await api(`/api/intake/requests/${r.id}/approve`, {});
 r = await until(async () => { const x = await requestOf(m.request_id); return x.status === "needs_you" ? x : null; }, 200000);
 rmSync(MOCKLOG + ".break", { force: true });
 ok(!!r && r.review.lookup.attempts.length === 3 && r.review.lookup.attempts.every((a) => a.state === "unavailable" && /refused to start the program/.test(a.why)) && stage(r, "Collecting data")?.state === "fail", "down for all three tries → stop, record, alert: a person decides", r?.status_reason);
-ok((await emails(r.id)).some((e) => /portal not readable/.test(e.subject)), "alert email captured");
+// The status flips to Needs you first and the alert email follows a moment later (notification.mjs: patch, then send,
+// then record), so the email is waited for, not read once — red once in a full run on 2026-10-26.
+ok(!!(await until(async () => ((await emails(r.id)).some((e) => /portal not readable/.test(e.subject)) ? true : null), 30000)), "alert email captured (within 30 s of the status)");
 
 console.log(`\n${failures ? `${failures} FAILED` : "ALL PASSED"}`);
 process.exit(failures ? 1 : 0);

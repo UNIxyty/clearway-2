@@ -156,6 +156,26 @@ ok(Boolean(threadId), "a help thread filed as a User", `${created.status} ${JSON
   await dark.page.getByRole("button", { name: /Rig s3b3/ }).first().click(); await sleep(1500);
   await dark.page.screenshot({ path: `${OUT}/s3b3-inbox-dark.png` }); await dark.ctx.close();
 }
+// ── A chat whose Telegram alert cannot go (the rig has no Telegram): the thread says so at once, in red; a nudge that
+// does not go says NOT sent (2026-10-26). Nobody is told "notified" when nobody was.
+const chat = await api("user", "/api/help/threads", { type: "chat", title: "Rig s3b3 — chat now", blocks: [{ type: "paragraph", text: "Is anyone there? The wall is blank." }], context: { page: "/digital-wall" } });
+const chatThread = chat.body?.thread ?? chat.body; const chatId = chatThread?.id;
+ok(Boolean(chatId) && chatThread?.presence === "not_notified" && chatThread?.context?.alert?.state === "failed" && /Telegram is not set up on this server/.test(chatThread?.context?.alert?.reason ?? ""), "a chat thread on a server without Telegram: presence stays not notified and the thread records that the alert did NOT go, with the reason", `${chat.status} ${JSON.stringify(chatThread?.context?.alert ?? null)}`);
+if (chatId) {
+  const nudge = await api("user", `/api/help/threads/${chatId}/presence`, { action: "nudge" });
+  const ev = (await (await rest(`help_events?thread_id=eq.${chatId}&kind=eq.nudged&order=created_at.desc&limit=1`)).json().catch(() => []))?.[0];
+  ok(nudge.status === 200 && ev?.kind === "nudged" && /^failed: Telegram is not set up/.test(ev?.payload?.note ?? ""), "Nudge again on that server: the event says the nudge did NOT go, with the reason", JSON.stringify(ev?.payload ?? null));
+  const { ctx, page } = await as("user");
+  await page.goto(`${BASE}/help/${chatThread.reference}`, { waitUntil: "load" }); await page.waitForSelector('[role="alert"]', { timeout: 30000 }); await sleep(600);
+  const strip = norm(await page.locator('[role="alert"]').first().innerText());
+  ok(/The nudge was NOT sent|The Telegram alert was NOT sent/.test(strip) && /Nobody has been pinged/.test(strip) && /Telegram is not set up on this server/.test(strip), "the thread page says in red that nobody has been pinged, with the reason and what to do", strip.slice(0, 200));
+  const events = norm(await page.locator("body").innerText());
+  ok(/Nudge NOT sent/.test(events) && !/Nudge sent to Telegram/.test(events), "…and the event line reads Nudge NOT sent, never Nudge sent", events.match(/Nudge[^.]{0,80}/)?.[0]);
+  await page.screenshot({ path: `${OUT}/s3b3-alert-failed.png` });
+  await ctx.close();
+  for (const t of ["help_events", "help_messages", "help_attachments"]) await rest(`${t}?thread_id=eq.${chatId}`, { method: "DELETE" });
+  await rest(`help_threads?id=eq.${chatId}`, { method: "DELETE" });
+}
 if (threadId) for (const t of ["help_events", "help_messages", "help_attachments"]) await rest(`${t}?thread_id=eq.${threadId}`, { method: "DELETE" });
 if (threadId) await rest(`help_threads?id=eq.${threadId}`, { method: "DELETE" });
 

@@ -34,9 +34,13 @@ export function miniAppLink(reference: string): string {
   return base ? `${base}?startapp=${encodeURIComponent(reference)}` : "";
 }
 
-async function telegramApi(method: string, payload: Record<string, unknown>): Promise<{ ok: boolean; result?: unknown }> {
+/** Why an alert did not go: said to the person in the thread (2026-10-26), never guessed. */
+export type TelegramOutcome = { ok: true; reason: null } | { ok: false; reason: string };
+const NOT_SET_UP = "Telegram is not set up on this server";
+
+async function telegramApi(method: string, payload: Record<string, unknown>): Promise<{ ok: boolean; result?: unknown; reason: string | null }> {
   const token = botToken();
-  if (!token) return { ok: false };
+  if (!token) return { ok: false, reason: NOT_SET_UP };
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
       method: "POST",
@@ -44,10 +48,11 @@ async function telegramApi(method: string, payload: Record<string, unknown>): Pr
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10_000),
     });
-    const body = (await res.json().catch(() => null)) as { ok?: boolean; result?: unknown } | null;
-    return { ok: Boolean(body?.ok), result: body?.result };
-  } catch {
-    return { ok: false };
+    const body = (await res.json().catch(() => null)) as { ok?: boolean; result?: unknown; description?: string } | null;
+    if (body?.ok) return { ok: true, result: body.result, reason: null };
+    return { ok: false, reason: `Telegram refused the message (${body?.description ? String(body.description).slice(0, 80) : `HTTP ${res.status}`})` };
+  } catch (e) {
+    return { ok: false, reason: `Telegram could not be reached (${e instanceof Error && /abort|timeout/i.test(e.message) ? "no answer in 10 seconds" : "network error"})` };
   }
 }
 
@@ -80,9 +85,9 @@ export function helpStatusKeyboard(thread: HelpThread) {
  * everything else is the filed-report framing. Best-effort — a Telegram
  * failure never fails the request that created the thread.
  */
-export async function notifyTelegramNewThread(thread: HelpThread, firstMessageText: string): Promise<boolean> {
+export async function notifyTelegramNewThread(thread: HelpThread, firstMessageText: string): Promise<TelegramOutcome> {
   const chatId = helpChatId();
-  if (!chatId) return false;
+  if (!chatId) return { ok: false, reason: NOT_SET_UP };
   const meta = HELP_TYPE_META[thread.type];
   const who = thread.userName || thread.userEmail || "someone in ops";
   const head =
@@ -115,20 +120,20 @@ export async function notifyTelegramNewThread(thread: HelpThread, firstMessageTe
       }).catch(() => {});
     }
   }
-  return sent.ok;
+  return sent.ok ? { ok: true, reason: null } : { ok: false, reason: sent.reason ?? "Telegram did not take it" };
 }
 
 /** Reply / nudge notifications on an existing thread. */
-export async function notifyTelegramThreadActivity(thread: HelpThread, text: string): Promise<boolean> {
+export async function notifyTelegramThreadActivity(thread: HelpThread, text: string): Promise<TelegramOutcome> {
   const chatId = thread.userId && helpChatId();
-  if (!chatId) return false;
+  if (!chatId) return { ok: false, reason: NOT_SET_UP };
   const sent = await telegramApi("sendMessage", {
     chat_id: chatId,
     text: `${thread.reference} · ${text}`.slice(0, 1000),
     disable_web_page_preview: true,
     reply_markup: helpStatusKeyboard(thread),
   });
-  return sent.ok;
+  return sent.ok ? { ok: true, reason: null } : { ok: false, reason: sent.reason ?? "Telegram did not take it" };
 }
 
 export function parseHelpCallbackData(value: string):

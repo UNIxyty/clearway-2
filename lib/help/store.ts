@@ -383,6 +383,21 @@ export async function setPresence(input: {
   return data ? mapThread(data as Row) : null;
 }
 
+/** Record that a Telegram send did not go (context.alert), or clear it when one went. Read-modify-write of the context. */
+export async function setThreadAlert(input: { threadId: string; alert: NonNullable<HelpContext["alert"]> | null }): Promise<HelpThread | null> {
+  const now = new Date().toISOString();
+  const { data: current } = await service().from("help_threads").select("context").eq("id", input.threadId).single();
+  const context = { ...((current?.context as HelpContext | null) || {}) };
+  if (input.alert) context.alert = input.alert; else delete context.alert;
+  const { data } = await service()
+    .from("help_threads")
+    .update({ context, updated_at: now })
+    .eq("id", input.threadId)
+    .select(THREAD_COLS)
+    .single();
+  return data ? mapThread(data as Row) : null;
+}
+
 export async function markRead(threadId: string, side: "ops" | "developer"): Promise<void> {
   const now = new Date().toISOString();
   await service()

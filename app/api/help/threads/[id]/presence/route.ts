@@ -42,8 +42,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   let eventPayload: { kind: "nudged" | "joined" | "chat_closed" | "presence_changed"; note?: string } | null = null;
 
   if (action === "nudge" && isOwner) {
-    await notifyTelegramThreadActivity(thread, `${thread.userName || "ops"} is still waiting in the chat`);
-    eventPayload = { kind: "nudged" };
+    const sent = await notifyTelegramThreadActivity(thread, `${thread.userName || "ops"} is still waiting in the chat`);
+    // "Nudge sent" only when Telegram took it (2026-10-26); otherwise the event and the thread say it did NOT go.
+    const { setThreadAlert } = await import("@/lib/help/store");
+    updated = (await setThreadAlert({ threadId: thread.id, alert: sent.ok ? null : { state: "failed", what: "nudge", at: new Date().toISOString(), reason: sent.reason } })) ?? thread;
+    eventPayload = sent.ok ? { kind: "nudged" } : { kind: "nudged", note: `failed: ${sent.reason}` };
   } else if (action === "joining" && answers) {
     updated = (await setPresence({ threadId: thread.id, presence: "joining" })) ?? thread;
     eventPayload = { kind: "presence_changed", note: "joining" };

@@ -125,9 +125,13 @@ export async function POST(request: Request) {
   // Chats/urgent: the alert is the presence transition not notified → notified.
   const notified = await notifyTelegramNewThread(thread, firstText);
   let finalThread = thread;
-  if (notified && (type === "chat" || type === "urgent")) {
+  if (notified.ok && (type === "chat" || type === "urgent")) {
     const { setPresence } = await import("@/lib/help/store");
     finalThread = (await setPresence({ threadId: thread.id, presence: "notified" })) ?? thread;
+  } else if (!notified.ok) {
+    // Nothing claims success until it succeeded (2026-10-26): the thread says the alert did NOT go, and why.
+    const { setThreadAlert } = await import("@/lib/help/store");
+    finalThread = (await setThreadAlert({ threadId: thread.id, alert: { state: "failed", what: "alert", at: new Date().toISOString(), reason: notified.reason } })) ?? thread;
   }
 
   publishHelpEvent({

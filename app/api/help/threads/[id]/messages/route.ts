@@ -11,6 +11,7 @@ import {
 } from "@/lib/help/store";
 import { publishHelpEvent } from "@/lib/help/stream";
 import { notifyTelegramNewThread, notifyTelegramThreadActivity } from "@/lib/help/telegram";
+import { setThreadAlert } from "@/lib/help/store";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
 
 export const runtime = "nodejs";
@@ -72,10 +73,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // First ops message on a chat that was never delivered: notify → presence 'notified'.
   let updatedThread = thread;
   if (author === "ops" && (thread.type === "chat" || thread.type === "urgent") && thread.presence === "not_notified") {
-    const ok = await notifyTelegramNewThread(thread, summarizeBlocks(blocks as HelpBlock[], 800));
-    if (ok) updatedThread = (await setPresence({ threadId: thread.id, presence: "notified" })) ?? thread;
+    const sent = await notifyTelegramNewThread(thread, summarizeBlocks(blocks as HelpBlock[], 800));
+    if (sent.ok) { await setThreadAlert({ threadId: thread.id, alert: null }).catch(() => null); updatedThread = (await setPresence({ threadId: thread.id, presence: "notified" })) ?? thread; }
+    else updatedThread = (await setThreadAlert({ threadId: thread.id, alert: { state: "failed", what: "alert", at: new Date().toISOString(), reason: sent.reason } })) ?? thread;
   } else if (author === "ops") {
-    await notifyTelegramThreadActivity(thread, `${displayName || "ops"}: ${summarizeBlocks(blocks as HelpBlock[], 300)}`);
+    const sent = await notifyTelegramThreadActivity(thread, `${displayName || "ops"}: ${summarizeBlocks(blocks as HelpBlock[], 300)}`);
+    // A reply that did not reach Telegram is said in the thread; one that did clears an earlier failure.
+    updatedThread = (await setThreadAlert({ threadId: thread.id, alert: sent.ok ? null : { state: "failed", what: "reply", at: new Date().toISOString(), reason: sent.reason } }).catch(() => null)) ?? thread;
   }
 
   publishHelpEvent({

@@ -59,6 +59,8 @@ export const HELP_BLOCK_TYPES = [
 // Auto-collected context: six read-only fields, fixed order. `services` and
 // `lastRequest` are the two that render red when they carry a problem.
 export type HelpContext = {
+  /** The last Telegram send that did NOT go (2026-10-26): shown in the thread until a later one goes. Nobody was pinged. */
+  alert?: { state: "failed"; what: "alert" | "nudge" | "reply"; at: string; reason: string };
   page?: string;
   role?: string;
   browser?: string;

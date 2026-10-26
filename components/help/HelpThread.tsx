@@ -60,7 +60,7 @@ function eventText(e: Event): string {
     }
     case "joined": return `${DEVELOPER_NAME} joined the chat`;
     case "chat_closed": return `${DEVELOPER_NAME} closed the chat`;
-    case "nudged": return "Nudge sent to Telegram";
+    case "nudged": { const note = (p as { note?: unknown }).note; return typeof note === "string" && note.startsWith("failed: ") ? `Nudge NOT sent — ${note.slice(8)}. Nobody was pinged.` : "Nudge sent to Telegram"; }
     case "linked_report": return `Filed a linked report ${p.reference || ""}`;
     case "presence_changed": return `${DEVELOPER_NAME} is opening the chat`;
     default: return e.kind;
@@ -94,6 +94,24 @@ function PresenceStrip({ thread, onNudge, onFileReport }: { thread: Thread; onNu
       action: { label: "File as report", onClick: onFileReport, primary: true } },
     none: null,
   }[thread.presence];
+  // A Telegram send that did NOT go (2026-10-26): said here, in red, with the reason and the time, until one goes.
+  const failed = thread.context?.alert;
+  if (failed?.state === "failed") {
+    const what = failed.what === "nudge" ? "The nudge was NOT sent" : failed.what === "reply" ? "Your last message did NOT reach Telegram" : "The Telegram alert was NOT sent";
+    const canNudge = thread.type === "chat" || thread.type === "urgent";
+    return (
+      <div role="alert" className="flex items-center gap-[11px] rounded-[11px] border px-3.5 py-3" style={{ background: "var(--cw-danger-tint)", borderColor: "var(--cw-danger-border)" }}>
+        <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: "var(--cw-danger)" }} />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-[13.5px] font-bold" style={{ color: "var(--cw-danger-text)" }}>{what}</span>
+          <span className="text-[12.5px] leading-[1.45]" style={{ color: "var(--cw-danger-text)" }}>{failed.reason} ({utcTime(failed.at)}). Nobody has been pinged. {canNudge ? "Press Nudge again; if it fails again, use the number on the Help page." : "Your report is kept and the developer sees it when they open their inbox."}</span>
+        </div>
+        {canNudge && (
+          <button onClick={onNudge} className="inline-flex h-[34px] flex-none cursor-pointer items-center rounded-[9px] border px-3 text-[12.5px] font-bold" style={{ background: "var(--cw-bg-surface)", borderColor: "var(--cw-danger-border)", color: "var(--cw-danger-text)" }}>Nudge again</button>
+        )}
+      </div>
+    );
+  }
   if (!cfg) return null;
   return (
     <div className="flex items-center gap-[11px] rounded-[11px] border px-3.5 py-3" style={{ background: cfg.bg, borderColor: cfg.border }}>

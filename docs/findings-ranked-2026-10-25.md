@@ -11,26 +11,26 @@ stay in their band, marked **Fixed** with the date. Nothing is dropped.
 
 | Band | Open | Fixed | Total |
 |---|---|---|---|
-| 1 | 3 | 3 | 6 |
+| 1 | 0 | 6 | 6 |
 | 2 | 0 | 2 | 2 |
-| 3 | 15 | 6 | 21 |
+| 3 | 14 | 7 | 21 |
 | 4 | 6 | 2 | 8 |
 | 5 | 53 | 5 | 58 |
-| **All** | **77** | **18** | **95** |
+| **All** | **73** | **22** | **95** |
 
 ## Band 1 — lost and nobody told
 
 - **Fixed 2026-10-25.** Flight intake: an email the agent could not read never reached Flight intake. Why: a flight
   request vanishes into a Mailbox most dispatchers cannot open, and the label said Reachable. (Production was checked
   first: 13 inbound emails since the start, 12 processed, 1 ignored, none failed or without a request — nothing was lost.)
-- Ops Agent: an email that failed to send is shown as **Sent · Confirmed by you**. Why: the dispatcher believes the
+- **Fixed 2026-10-26.** Ops Agent: an email that failed to send is shown as **Sent · Confirmed by you**. Why: the dispatcher believes the
   manifest went out; the recipient never gets it, and nothing says so.
-- Help & support: when the Telegram alert does not go out, an urgent report does not say so. Why: someone blocked at
+- **Fixed 2026-10-26.** Help & support: when the Telegram alert does not go out, an urgent report does not say so. Why: someone blocked at
   night thinks the developer was pinged; nobody was.
-- Ops Agent: **Limitation…** and **IMPORTANT…** on selected document text send a request whose card is shown nowhere.
+- **Fixed 2026-10-26.** Ops Agent: **Limitation…** and **IMPORTANT…** on selected document text send a request whose card is shown nowhere.
   Why: the person believes a limitation was created; it expires unseen.
-- Gap: no way to see that an email we sent failed to arrive (Email logs removed, outbound failures shown nowhere). Why:
-  an approval email that bounces, or a client confirmation that never arrives, is invisible. Nothing built; a decision.
+- **Fixed 2026-10-26.** Gap: no way to see that an email we sent failed to arrive (Email logs removed, outbound failures shown nowhere). Why:
+  an approval email that bounces, or a client confirmation that never arrives, is invisible. Now every sent email is a row in the Mailbox's Sent box with its live delivery status.
 - **Fixed 2026-10-14.** Account › Profile: "Check your email" when the password link was not sent. Why: a real failure
   hidden from a signed-in person.
 
@@ -72,7 +72,7 @@ stay in their band, marked **Fixed** with the date. Nothing is dropped.
 - Flight intake: when passengers did not reach Leon, the box says add them by hand while the leg offers **Send
   passengers to Leon**. Why: one of the two instructions is wrong.
 - Admin › Users: a bulk password reset skips developers' rows without saying so. Why: the toast says sent; one was not.
-- Help & support: **Nudge again** says "Nudge sent to Telegram" whether or not it was. Why: the person stops asking.
+- **Fixed 2026-10-26.** Help & support: **Nudge again** says "Nudge sent to Telegram" whether or not it was. Why: the person stops asking.
 - **Fixed 2026-10-14.** Dashboard › Service monitors showed raw error text, whole HTML pages included.
 - **Fixed 2026-10-14.** Digital Wall showed raw server and upstream text (setting names, JSON, file paths).
 - **Fixed 2026-10-14.** Admin › Permissions gave local time beside a UTC log.

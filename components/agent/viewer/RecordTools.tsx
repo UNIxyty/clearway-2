@@ -18,11 +18,28 @@ import { cw } from "@/lib/portal-tokens";
 import { apiMessage } from "../ui/errorText";
 
 export const COMPOSE_EVENT = "cw-agent-compose";
-export type ComposeDetail = { text: string; send: boolean };
+export type ComposeDetail = { text: string; send: boolean; retry?: boolean; accepted?: boolean };
 
 /** Hand a prepared request to whichever agent surface is open (panel or full-page chat). */
-export function composeToAgent(text: string, send = true) {
-  window.dispatchEvent(new CustomEvent<ComposeDetail>(COMPOSE_EVENT, { detail: { text, send } }));
+export function composeToAgent(text: string, send = true, retry = false): boolean {
+  // Listeners that take the request set `accepted` on the detail (AgentPanel, FullPageChat). With no agent surface
+  // mounted yet (the panel is closed), the first dispatch opens it (portal Shell) and the caller retries.
+  const detail: ComposeDetail = { text, send, retry, accepted: false };
+  window.dispatchEvent(new CustomEvent<ComposeDetail>(COMPOSE_EVENT, { detail }));
+  return detail.accepted === true;
+}
+/** Hand a request to the agent and say what happened (2026-10-26): accepted → "it is in the chat, confirm it there";
+ *  nobody there after the panel had 3 s to open → "nothing was sent". A proposal that lands in a chat nobody sees
+ *  was the same lie as a card saying Sent: the person believed a limitation was on the wall. */
+export function composeToAgentAndTell(text: string, tell: (note: { ok: boolean; text: string }) => void) {
+  if (composeToAgent(text)) { tell({ ok: true, text: "Sent to the Ops Agent. Its proposal is in the chat — confirm it there, or nothing is created." }); return; }
+  let tries = 0;
+  const again = () => {
+    tries += 1;
+    if (composeToAgent(text, true, true)) { tell({ ok: true, text: "Sent to the Ops Agent. Its proposal is in the chat — confirm it there, or nothing is created." }); return; }
+    if (tries < 12) setTimeout(again, 250); else tell({ ok: false, text: "Nothing was sent to the Ops Agent — the chat did not open. Open the chat and ask there." });
+  };
+  setTimeout(again, 250);
 }
 
 type Record = { title: string; source: string | null; version: string | null; effectiveDate: string | null; icao: string | null; country: string | null; tags: string[]; tier: string | null; status: string };
@@ -70,6 +87,7 @@ export function RecordEditor({ docRef, onClose, onSaved }: { docRef: DocRef & { 
 /** Floating actions for text selected inside the canvas. */
 export function SelectionActions({ host, docRef, page }: { host: HTMLElement | null; docRef: DocRef; page: number }) {
   const [sel, setSel] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [note, setNote] = useState<{ ok: boolean; text: string; x: number; y: number } | null>(null);
   useEffect(() => {
     if (!host) return;
     const onUp = () => window.setTimeout(() => {
@@ -82,10 +100,13 @@ export function SelectionActions({ host, docRef, page }: { host: HTMLElement | n
     host.addEventListener("mouseup", onUp); host.addEventListener("keyup", onUp); document.addEventListener("mousedown", onDown);
     return () => { host.removeEventListener("mouseup", onUp); host.removeEventListener("keyup", onUp); document.removeEventListener("mousedown", onDown); };
   }, [host]);
+  if (note && !sel) return (
+    <div role={note.ok ? "status" : "alert"} data-selection-note style={{ position: "absolute", left: note.x, top: note.y, transform: "translateX(-50%)", zIndex: 9, maxWidth: 360, padding: "8px 12px", borderRadius: 9, background: note.ok ? cw.ink : cw.danger, color: cw.textOnPrimary, fontSize: 12.5, lineHeight: 1.4, boxShadow: SHADOW.menu }}>{note.text}</div>
+  );
   if (!sel) return null;
   const where = `${docRef.filename}${page ? `, p. ${page}` : ""}`;
   const quote = `"""\n${sel.text}\n"""`;
-  const act = (text: string) => { composeToAgent(text); setSel(null); window.getSelection()?.removeAllRanges(); };
+  const act = (text: string) => { const at = { x: sel.x, y: sel.y }; setSel(null); window.getSelection()?.removeAllRanges(); composeToAgentAndTell(text, (n) => { setNote({ ...n, ...at }); setTimeout(() => setNote(null), n.ok ? 7000 : 12000); }); };
   const btn = (icon: string, label: string, text: string) => (
     <button type="button" onClick={() => act(text)} className="ag-hover ag-focus" style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 30, padding: "0 10px", border: "none", borderRadius: 7, background: "transparent", color: cw.textOnPrimary, fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
       <Icon name={icon} size={13} color={cw.textOnPrimary} />{label}

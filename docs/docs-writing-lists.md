@@ -24,7 +24,7 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
   a function": the box passes the event instead of the text (`opsboard-react/src/components/console/ReportsPage.jsx:604`).
   Seen on the rig on 2026-10-14. The phone version works. The docs warn people not to use it.
 
-- **Ops Agent: an email that failed to send is shown as sent.** The card turned to "Sent · Confirmed by you" while the
+- **Fixed 2026-10-26 (the card says NOT sent in red, or Handed to the mail service until the service says Delivered or bounced).** **Ops Agent: an email that failed to send is shown as sent.** The card turned to "Sent · Confirmed by you" while the
   mailer logged "send FAILED: Resend request failed (401)" and the audit has an `email.failed` row (seen on the rig on
   2026-10-14, when the rig's key was refused). A dispatcher would believe the manifest went out. The docs tell people
   to ask the recipient to confirm.
@@ -134,11 +134,11 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 - **Admin › Users: a bulk password reset skips developers' rows without saying so.** An admin selects 2 rows, one a
   Developer; the bar says "2 selected", the toast says "Password reset sent to <one address>", and nothing says the
   other was skipped (`app/admin/users/page.tsx:173` filters protected rows out). Seen on the rig.
-- **Help & support: when the Telegram alert does not go out, an urgent report does not say so.** After **Send — it pings
+- **Fixed 2026-10-26 (the thread says in red that the alert was NOT sent, with the reason).** **Help & support: when the Telegram alert does not go out, an urgent report does not say so.** After **Send — it pings
   now** the thread says "Not notified yet · Send your first message and the developer gets a Telegram alert", though the
   person has just sent it. Nothing says the alert failed (`app/api/help/threads/route.ts:126`; seen on the rig, which
   has no Telegram).
-- **Help & support: "Nudge again" says "Nudge sent to Telegram" whether or not it was sent.** The route does not look
+- **Fixed 2026-10-26 ("Nudge NOT sent — reason").** **Help & support: "Nudge again" says "Nudge sent to Telegram" whether or not it was sent.** The route does not look
   at Telegram's answer (`app/api/help/threads/[id]/presence/route.ts:45`). Seen on the rig, which has no Telegram.
 - **Help & support: "How do I…" searches only the old Digital Wall guide** (`digital-wall/guide/index.html`, read by
   `app/api/help/guide-search/route.ts:23`), not the portal's docs. "hide an airport" offered three wall flight-row
@@ -224,7 +224,7 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
   two had already arrived). Neither is wrong arithmetic; they count different things, and the agent's words ("flights
   today", "delayed") say the dashboard's.
 
-- **Gap: no way to see that an email we sent failed to arrive.** Admin › Email logs was removed on 2026-10-14 (it had
+- **Fixed 2026-10-26 (every email we send is a row in the Mailbox's Sent box with its live delivery status from Resend's events; the agent's cards read it).** **Gap: no way to see that an email we sent failed to arrive.** Admin › Email logs was removed on 2026-10-14 (it had
   shown nothing since 10 October). Inbound email failures show in Ops Agent › Mailbox; outbound ones show nowhere. If
   an approval email to ops bounces, or a confirmation to a client never arrives, nothing in the portal says so. To
   decide (Dmitry and the product owner): a real page fed by Resend's delivery events, or nothing. Nothing is built.
@@ -250,7 +250,7 @@ these are for the owners to decide. "Rig" is the test system (`rig/`).
 - **Digital Wall: keyboard and screen readers.** The My view / Main wall rows cannot be reached by keyboard; the font
   choices and the × on words and addresses have no accessible names (seen in the page's markup).
 
-- **Ops Agent: "Limitation…" and "IMPORTANT…" on selected document text send the request to the agent, but its card
+- **Fixed 2026-10-26 (the hand-over is acknowledged by the chat or retried while the panel opens; the person is told "sent to the Ops Agent — confirm it there" or "nothing was sent").** **Ops Agent: "Limitation…" and "IMPORTANT…" on selected document text send the request to the agent, but its card
   is shown nowhere**, so nothing is created and it expires (seen twice; the Activity log has the two proposals). The
   docs give the asking-in-words route.
 - **Ops Agent: a React "too many updates" error (#185) is thrown each time a question is sent** (seen); the page keeps

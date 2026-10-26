@@ -723,6 +723,6 @@ export function PortalFrame({ children }: { children: ReactNode }) {
 }
 
 function ComposeOpensPanel({ onOpen }: { onOpen: () => void }) {
-  useEffect(() => { const f = () => { if (!document.querySelector("[data-cw-thread-column]")) onOpen(); }; window.addEventListener("cw-agent-compose", f); return () => window.removeEventListener("cw-agent-compose", f); }, [onOpen]);
+  useEffect(() => { const f = (e: Event) => { if ((e as CustomEvent<{ retry?: boolean }>).detail?.retry) return; if (!document.querySelector("[data-cw-thread-column]")) onOpen(); }; window.addEventListener("cw-agent-compose", f); return () => window.removeEventListener("cw-agent-compose", f); }, [onOpen]);
   return null;
 }

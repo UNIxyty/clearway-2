@@ -54,7 +54,7 @@ export default function FullPageChat({ conversationId = null }: { conversationId
   const docContext: AgentContext | null = viewer?.open && viewer.active ? { kind: "document", label: viewer.active.ref.filename, icon: "file-text", page: viewer.active.page, pages: viewer.active.ref.pages ?? null, document: { source: viewer.active.ref.source, id: viewer.active.ref.id, filename: viewer.active.ref.filename } } : null;
   useEffect(() => { if (docContext) t.setPinnedContext(docContext); }, [docContext?.label, docContext?.page]); // eslint-disable-line react-hooks/exhaustive-deps
   // Selection actions in the viewer hand a prepared request to the open agent surface (item 15).
-  useEffect(() => { const compose = (e: Event) => { const d = (e as CustomEvent<{ text: string; send: boolean }>).detail; if (d?.text && d.send) void t.send(d.text); }; window.addEventListener("cw-agent-compose", compose); const stop = () => t.stop(); window.addEventListener("cw-agent-stop", stop); return () => { window.removeEventListener("cw-agent-compose", compose); window.removeEventListener("cw-agent-stop", stop); }; }, [t]);
+  useEffect(() => { const compose = (e: Event) => { const d = (e as CustomEvent<{ text: string; send: boolean; accepted?: boolean }>).detail; if (d?.text && d.send) { d.accepted = true; void t.send(d.text); } }; window.addEventListener("cw-agent-compose", compose); const stop = () => t.stop(); window.addEventListener("cw-agent-stop", stop); return () => { window.removeEventListener("cw-agent-compose", compose); window.removeEventListener("cw-agent-stop", stop); }; }, [t]);
   const live = useLiveSuggestions(null);
   const empty = useMemo(() => suggestionsFor(null, live, true), [live]);
 

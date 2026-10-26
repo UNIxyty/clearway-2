@@ -70,7 +70,7 @@ export default function AgentPanel({ open, onClose, context, initials = null, in
   useEffect(() => {
     const attach = (e: Event) => { const d = (e as CustomEvent<{ ref: { filename: string }; page: number }>).detail; t.setPinnedContext(null); document.querySelector<HTMLTextAreaElement>('[data-cw-agent-panel] textarea')?.focus(); void d; };
     const email = (e: Event) => { const d = (e as CustomEvent<{ ref: { filename: string } }>).detail; void t.send(`Email me the document "${d.ref.filename}".`); };
-    const compose = (e: Event) => { const d = (e as CustomEvent<{ text: string; send: boolean }>).detail; if (!d?.text) return; if (d.send) void t.send(d.text); else { const ta = document.querySelector<HTMLTextAreaElement>('[data-cw-agent-panel] textarea'); if (ta) { ta.value = d.text; ta.focus(); } } };
+    const compose = (e: Event) => { const d = (e as CustomEvent<{ text: string; send: boolean; accepted?: boolean }>).detail; if (!d?.text) return; d.accepted = true; if (d.send) void t.send(d.text); else { const ta = document.querySelector<HTMLTextAreaElement>('[data-cw-agent-panel] textarea'); if (ta) { ta.value = d.text; ta.focus(); } } };
     window.addEventListener("cw-agent-attach-open-doc", attach); window.addEventListener("cw-agent-email-doc", email); window.addEventListener("cw-agent-compose", compose); const stop = () => t.stop(); window.addEventListener("cw-agent-stop", stop);
     return () => { window.removeEventListener("cw-agent-attach-open-doc", attach); window.removeEventListener("cw-agent-email-doc", email); window.removeEventListener("cw-agent-compose", compose); window.removeEventListener("cw-agent-stop", stop); };
   }, [t]);

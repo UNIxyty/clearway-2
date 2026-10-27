@@ -32,6 +32,7 @@ run no-real-passenger-data node rig/check-no-real-passenger-data.mjs
 run docs-check node --no-warnings rig/docs-check.mjs
 run utc-times node rig/check-utc-times.mjs
 run error-text node rig/check-error-text.mjs
+run style-text node rig/check-style-text.mjs
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
@@ -77,6 +78,7 @@ run self-promotion-check $E rig/self-promotion-check.mjs
 run temporary-access-check $E rig/temporary-access-check.mjs
 run client-scope-check $E rig/client-scope-check.mjs
 run client-ui-check $E rig/client-ui-check.mjs
+run signin-perf node rig/signin-perf.mjs --check   # Sign In v2: budgets, the form first, the photograph after
 run airac-dates-check node rig/airac-dates-check.mjs
 run aip-refresh-check $E rig/aip-refresh-check.mjs
 run docs-shots-check node rig/docs-shots-check.mjs

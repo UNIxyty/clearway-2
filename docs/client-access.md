@@ -38,8 +38,8 @@ twenty-odd addresses outside their world, and the removed state. See docs/rig-vs
 cannot prove.
 
 ## The screens (built after the test was green)
-- **Sign in** (`app/login`): under the form, "Clearway staff: your account is set up by an admin", then a block of its own
-  for operators and brokers with **Ask for access** → `/request-access`: full name, company (required), work email,
+- **Sign in** (`app/login`, Sign In v2 since 2026-10-28): under the form, one line for operators and brokers with
+  **Ask for access** → `/request-access`, and "Clearway staff: your account is set up by an admin". `/request-access`: full name, company (required), work email,
   You are (Operator / Broker), an optional note. No password here: the email link sets it; confirming the email sends the
   request. No trip, flight or reference field exists — those identify a flight, not a person.
 - **The request** (`app/api/auth/email/request-confirmation`, kind "client"): the invited account is a client from the

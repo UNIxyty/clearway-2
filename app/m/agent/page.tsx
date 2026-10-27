@@ -49,7 +49,7 @@ export default function AgentPhonePage() {
       {/* The shared composer's icon buttons are 30–36 px on a desk; on a phone every target is 44 px. The keyboard hint for
           voice (⌥⇧ Space) means nothing on a phone and is hidden. The context chip's small × keeps its footprint (negative
           margins) while its hit box grows. */}
-      <style>{`[data-phone-shell] [data-cw-agent-composer] button{min-width:44px!important;min-height:44px!important}[data-phone-shell] [data-cw-agent-composer] span[style*="flex: 1"]+span{display:none!important}[data-phone-shell] button[aria-label="Clear context"]{width:44px!important;height:44px!important;margin:-13px!important;background:transparent!important}`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `[data-phone-shell] [data-cw-agent-composer] button{min-width:44px!important;min-height:44px!important}[data-phone-shell] [data-cw-agent-composer] span[style*="flex: 1"]+span{display:none!important}[data-phone-shell] button[aria-label="Clear context"]{width:44px!important;height:44px!important;margin:-13px!important;background:transparent!important}` }} />
       {history ? (
         <div className="flex flex-col px-4 pb-6 pt-3.5">
           <span className="pb-1 text-[12px] font-bold tracking-[.06em] text-cw-text-muted">RECENT THREADS</span>

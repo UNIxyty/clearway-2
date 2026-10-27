@@ -724,7 +724,7 @@ A list, not a plan. Counts exclude `node_modules`, `dist`, `rig` and `*.md`.
 - "Verxyl" (the builder) appears 142 times across UI, emails and footers.
 - Most visible:
   - The page title "Clearway AIP Data Lookup Portal" (`app/layout.tsx:26`).
-  - Login and auth logos with alt "Clearway Handling & Operations" (`app/login/page.tsx:25-26`,
+  - Login and auth logos with alt "Clearway Handling & Operations" (sign-in: the inline `ClearwayLogo` since 2026-10-28,
     `app/auth/ui/auth-kit.tsx:18-20`).
   - "Request access to the Clearway suite" (`app/signup/page.tsx:114`).
   - "States are set by the Clearway team" (`app/aip/service-status/page.tsx:102`).

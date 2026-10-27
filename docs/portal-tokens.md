@@ -13,6 +13,7 @@ Wall is a separate system: it keeps its own per-account colours and fonts, reads
 | `lib/portal-tokens.ts` | For code: `cw.textMuted` → `"var(--cw-text-muted)"`, `v("text-muted")`, `alpha(token, 0.1)`, `resolveColour()` for canvas. |
 | `shared/client-tokens.css` | `--ca-*` additions from the Claude Design project (client access): the sensitive-data rose, the six flight-status pills, scope kinds. Loaded after `portal-tokens.css`; never redefines a `--cw-*` token. The wall console uses `--ca-st-*` for status pills (since 2026-10-18); the client view (Stage 5) the rest. |
 | `shared/mobile-tokens.css` | `--mx-*` additions (the phone): shell, now-line, search mark, the five check chips, paper. Loaded after the two above; never redefines a `--cw-*` token. The wall console uses `--mx-chk-*` for its check chips; the phone pages (Stages 2–3) the rest. |
+| `shared/signin-tokens.css` | `--si-*`: the sign-in photograph panel (Sign In v2, 2026-10-28) — its base colour behind the photograph and the light-on-dark overlay. The design named them `--ca-*`; renamed so one prefix means one thing. Same values in both themes (the panel is always a dark photograph). |
 | `tailwind.config.ts` | One class per token: `bg-cw-bg-surface`, `text-cw-text-muted`, `border-cw-border`; `/10` opacity modifiers mix with transparent. |
 | `components/portal/theme-script.ts` | The inline `<head>` script that sets `data-theme` before first paint. |
 | `components/portal/theme.ts` | The choice: `system` (match this device, default), `light`, `dark`. |

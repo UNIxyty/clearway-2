@@ -1,0 +1,15 @@
+/* Sign-in photograph panel (Sign In v2). From the Claude Design project "Clearway Portal", shared/signin-tokens.css
+   (etag 1792329584077018), with its prefix changed: the design wrote these as --ca-*, the client view's prefix, and a
+   prefix that means two things is how the design-tokens.json clash happened — so here they are --si-*.
+   The panel is always a dark photograph, so its colours are the same in both themes. Load after portal-tokens.css;
+   never redefines a --cw-* token (docs/portal-tokens.md). */
+:root, [data-theme="light"], [data-theme="dark"] {
+  --si-hero-base: #0b0f17;
+  --si-hero-text: #ffffff;
+  --si-hero-muted: rgba(255,255,255,.82);
+  --si-glass: rgba(10,14,22,.38);
+  --si-glass-border: rgba(255,255,255,.22);
+  --si-hero-card: #ffffff;
+  --si-hero-card-text: #0b0f17;
+  --si-hero-scrim: linear-gradient(to top, rgba(6,8,12,.78) 0%, rgba(6,8,12,.40) 40%, rgba(6,8,12,0) 70%);
+}

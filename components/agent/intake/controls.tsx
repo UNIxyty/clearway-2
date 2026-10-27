@@ -12,7 +12,7 @@ import { cw } from "@/lib/portal-tokens";
 // ── Styles: pulse, transitions, hatch, reduced motion ───────────────────────────────────────────────────
 export function IntakeStyles() {
   return (
-    <style>{`
+    <style dangerouslySetInnerHTML={{ __html: `
       @keyframes cwpulse { 0%,100% { opacity: .35 } 50% { opacity: 1 } }
       .cw-pulse { animation: cwpulse ${INTAKE.pulse} ease-in-out infinite; }
       .cw-t-field { transition: background-color 120ms cubic-bezier(.2,.8,.2,1), border-color 120ms cubic-bezier(.2,.8,.2,1); }
@@ -37,7 +37,7 @@ export function IntakeStyles() {
         .cw-t-field, .cw-fade, .cw-expand, .cw-drawer, .cw-scrim, .cw-flash-blue, .cw-flash-red { animation: none !important; transition: none !important; }
       }
       @media print { .cw-reveal-value { display: none !important; } .cw-reveal-mask { display: inline !important; } }
-    `}</style>
+    ` }} />
   );
 }
 

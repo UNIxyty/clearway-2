@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { dayTimeZ } from "@/lib/time";
 import { WrenchIcon, ShieldCheckIcon, RefreshCwIcon } from "lucide-react";
+import { ClearwayLogo } from "@/components/portal/ClearwayLogo";
 
 type MaintenancePayload = {
   enabled: boolean;
@@ -31,17 +32,16 @@ export default function MaintenancePage() {
       <Card className="relative w-full max-w-2xl border-cw-border/70 bg-cw-bg-surface/95 backdrop-blur-sm shadow-2xl">
         <CardHeader className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <img
-              src="/header_logo_white.svg"
-              alt="Clearway"
-              className="h-8 sm:h-10 w-auto object-contain opacity-90"
-              style={{ filter: "invert(1)" }}
-            />
-            <img
-              src="/logo.png"
-              alt="Verxyl"
-              className="h-8 sm:h-10 w-auto object-contain opacity-90"
-            />
+            {/* The logos follow the theme (2026-10-28): the Clearway logo in currentColor (one file, the text colour), and
+                Verxyl's dark and white files swapped by --cw-show-light / --cw-show-dark, as the shell's footer does. The
+                white logo used to be inverted to black, so on the dark theme both logos were black on a dark card. */}
+            <span className="text-cw-text"><ClearwayLogo height={40} className="h-8 sm:h-10" title="Clearway" /></span>
+            <span className="inline-flex items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/verxyl-footer.png" srcSet="/brand/verxyl-footer.png 1x, /brand/verxyl-footer@2x.png 2x, /brand/verxyl-footer@3x.png 3x" alt="Verxyl" className="h-5 sm:h-6 w-auto" style={{ display: "var(--cw-show-light)" }} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/verxyl-footer-white.png" srcSet="/brand/verxyl-footer-white.png 1x, /brand/verxyl-footer-white@2x.png 2x, /brand/verxyl-footer-white@3x.png 3x" alt="Verxyl" className="h-5 sm:h-6 w-auto" style={{ display: "var(--cw-show-dark)" }} />
+            </span>
           </div>
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-cw-primary/30 bg-cw-primary/10 px-3 py-1 text-xs text-cw-text-link">
             <WrenchIcon className="size-3.5" />

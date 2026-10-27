@@ -79,6 +79,7 @@ run temporary-access-check $E rig/temporary-access-check.mjs
 run client-scope-check $E rig/client-scope-check.mjs
 run client-ui-check $E rig/client-ui-check.mjs
 run signin-perf node rig/signin-perf.mjs --check   # Sign In v2: budgets, the form first, the photograph after
+run maintenance-logos node rig/maintenance-logos-check.mjs
 run airac-dates-check node rig/airac-dates-check.mjs
 run aip-refresh-check $E rig/aip-refresh-check.mjs
 run docs-shots-check node rig/docs-shots-check.mjs

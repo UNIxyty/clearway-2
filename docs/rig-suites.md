@@ -50,9 +50,10 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | wall/access-check | 65 | 2026-10-12 |
 | wall/browser-access | 9 | 2026-10-12 |
 | wall/console-theme-check | 40 | 2026-10-18 |
-| mobile/tier1-check | 229 | 2026-10-20 |
-| mobile/tier2-check | 437 | 2026-10-20 |
-| mobile/pax-check | 47 | 2026-10-20 |
+| mobile/tier1-check | 201 | 2026-10-28 |
+| mobile/tier2-check | 437 | 2026-10-28 |
+| mobile/phone-wall-check | 38 | 2026-10-28 |
+| mobile/pax-check | 47 | 2026-10-28 |
 | self-promotion-check | 12 | 2026-10-20 |
 | temporary-access-check | 24 | 2026-10-21 |
 | client-scope-check | 57 | 2026-10-25 |
@@ -63,7 +64,7 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | group2-check | 13 | 2026-10-12 |
 | group4-check | 33 | 2026-10-12 |
 | shell-check | 10 | 2026-10-12 |
-| stage1-check | 19 | 2026-10-18 |
+| stage1-check | 23 | 2026-10-28 |
 | portal-foundations-check | 30 | 2026-10-12 |
 | stage2-check | 58 | 2026-10-12 |
 | stage3-batch1-check | 39 | 2026-10-12 |

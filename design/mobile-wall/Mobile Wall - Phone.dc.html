@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="clearway-mobile-tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400..900&family=IBM+Plex+Mono:wght@400;500;600&family=Montserrat:wght@400..800&display=swap" rel="stylesheet">
+<style>body{background:var(--doc-bg);font-family:var(--cw-font);-webkit-font-smoothing:antialiased;} a{color:var(--doc-ink);text-decoration:underline;} a:hover{color:var(--doc-suggest);}</style>
+</helmet>
+<section style="padding:44px 48px 80px;display:flex;flex-direction:column;gap:18px;background:var(--doc-bg);color:var(--doc-ink);font-family:var(--cw-font);">
+  <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;">
+    <h1 style="font-size:32px;font-weight:900;letter-spacing:-0.02em;margin:0;">Digital Wall — phone</h1>
+    <span style="font-size:14px;font-weight:700;color:var(--doc-ink-3);">Flight list (new) · Open flight (6 changes) · Mobile settings · 390 × 844, list also at 360 and 430</span>
+  </div>
+  <p style="margin:0;max-width:900px;font-size:15px;line-height:1.6;color:var(--doc-ink-2);text-wrap:pretty;">Every frame is live: tap pills, range buttons, the funnel, the bell, rail buttons, PAX, airports, Service status and the check items. Use Tweaks to swap the font (wide / narrow) and the palette across all frames. Build values are in <strong>mobile-design-spec.md</strong>.</p>
+
+  <div style="background:var(--doc-card);border:1px solid var(--doc-line);border-radius:16px;padding:22px 24px;max-width:1240px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px 28px;">
+    <sc-for list="{{ answers }}" as="a" hint-placeholder-count="7">
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <span style="font-size:11px;font-weight:900;letter-spacing:0.1em;color:var(--doc-ink-3);">{{ a.q }}</span>
+        <span style="font-size:15px;font-weight:800;color:var(--doc-ink);">{{ a.a }}</span>
+        <span style="font-size:13.5px;line-height:1.55;color:var(--doc-ink-2);text-wrap:pretty;">{{ a.why }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <sc-for list="{{ sections }}" as="s" hint-placeholder-count="3">
+    <div id="{{ s.id }}" style="display:flex;align-items:center;gap:12px;margin-top:36px;">
+      <span style="font-size:14px;font-weight:900;color:var(--doc-badge-fg);background:var(--doc-badge);border-radius:7px;padding:5px 10px;">{{ s.n }}</span>
+      <h2 style="font-size:24px;font-weight:900;letter-spacing:-0.015em;margin:0;">{{ s.title }}</h2>
+      <span style="font-size:14px;color:var(--doc-ink-3);">{{ s.sub }}</span>
+    </div>
+    <sc-for list="{{ s.groups }}" as="g" hint-placeholder-count="2">
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:10px;">
+        <div style="display:flex;flex-direction:column;gap:3px;max-width:980px;">
+          <span style="font-size:16px;font-weight:900;color:var(--doc-ink);">{{ g.title }}</span>
+          <sc-if value="{{ g.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:13.5px;line-height:1.55;color:var(--doc-ink-2);text-wrap:pretty;">{{ g.note }}</span></sc-if>
+        </div>
+        <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;">
+          <sc-for list="{{ g.frames }}" as="f" hint-placeholder-count="3">
+            <div id="{{ f.id }}" data-frame="1" style="flex:none;width:{{ f.wpx }};display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;align-items:center;gap:8px;min-height:24px;">
+                <span style="font-size:11.5px;font-weight:900;color:var(--doc-badge-fg);background:var(--doc-badge);border-radius:5px;padding:3px 7px;">{{ f.id }}</span>
+                <span style="font-size:14px;font-weight:800;color:var(--doc-ink);">{{ f.title }}</span>
+                <sc-if value="{{ f.suggest }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:900;letter-spacing:0.06em;color:var(--doc-suggest);background:var(--doc-suggest-soft);border-radius:5px;padding:3px 7px;">SUGGESTION</span></sc-if>
+              </div>
+              <div style="width:100%;height:{{ f.h }};border-radius:{{ f.r }};overflow:hidden;position:relative;border:6px solid var(--doc-bezel);background:var(--cw-bg-1);box-shadow:0 18px 40px rgba(11,17,30,.22);">
+                <div style="position:absolute;left:0;right:0;top:{{ f.top }};height:832px;">
+                  <sc-if value="{{ f.mList }}" hint-placeholder-val="{{ false }}">
+                    <dc-import name="Mobile Flight List" scenario="{{ f.scenario }}" clocks="{{ f.clocks }}" w="{{ f.w }}" badge="{{ f.badge }}" range="{{ f.range }}" hint-size="100%,100%" style="width:100%;height:100%;"></dc-import>
+                  </sc-if>
+                  <sc-if value="{{ f.mFlight }}" hint-placeholder-val="{{ false }}">
+                    <dc-import name="Mobile Open Flight" popup="{{ f.popup }}" checks="{{ f.checks }}" has-lim="{{ f.hasLim }}" map="{{ f.map }}" state="{{ f.state }}" hint-size="100%,100%" style="width:100%;height:100%;"></dc-import>
+                  </sc-if>
+                  <sc-if value="{{ f.mSettings }}" hint-placeholder-val="{{ false }}">
+                    <dc-import name="Mobile Settings" page="{{ f.page }}" state="{{ f.state }}" hint-size="100%,100%" style="width:100%;height:100%;"></dc-import>
+                  </sc-if>
+                </div>
+              </div>
+              <sc-if value="{{ f.note }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;line-height:1.55;color:var(--doc-ink-2);text-wrap:pretty;">{{ f.note }}</div></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <sc-if value="{{ s.chips }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:14px;background:var(--doc-card);border:1px solid var(--doc-line);border-radius:16px;padding:20px 22px;max-width:980px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font-size:16px;font-weight:900;">The five checks — one set of chips on all three screens</span>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:14px;border-radius:12px;background:var(--cw-bg-1);">
+          <sc-for list="{{ chipKey }}" as="c" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="height:22px;padding:0 7px;border-radius:5px;background:{{ c.b }};color:{{ c.c }};border:1px solid {{ c.br }};font-size:10.5px;font-weight:900;display:flex;align-items:center;">{{ c.k }}</span><span style="font-size:13px;font-weight:700;color:var(--cw-text-2);">{{ c.name }}</span></div>
+          </sc-for>
+        </div>
+        <span style="font-size:13.5px;line-height:1.55;color:var(--doc-ink-2);text-wrap:pretty;">Fixed order IMP · NTM · WX · CAA · LIM. A card shows the first three outstanding checks; <strong>+N</strong> stands for the rest, in that order (on BYS1004, +2 = CAA and LIM). +N is not tappable on its own — it sits inside the card, whose whole area opens the flight with the checks visible.</span>
+      </div>
+    </sc-if>
+  </sc-for>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;font&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Nunito (default)&quot;,&quot;Wide — Avenir&quot;,&quot;Narrow — Arial&quot;],&quot;default&quot;:&quot;Nunito (default)&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;palette&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Clearway Night&quot;,&quot;High contrast&quot;,&quot;Dusk&quot;],&quot;default&quot;:&quot;Clearway Night&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const FONTS = { 'Nunito (default)': "'Nunito',system-ui,sans-serif", 'Wide — Avenir': "'Avenir Next','Avenir','Montserrat',sans-serif", 'Narrow — Arial': "Arial,'Helvetica Neue',sans-serif" };
+const PAL = { 'Clearway Night': '', 'High contrast': 'contrast', 'Dusk': 'dusk' };
+const L = (id, title, o) => ({ ...o, id, title, list: true, w: o.w || 390, wpx: (o.w || 390) + 12 + 'px', h: (o.h || 844) + 'px', top: (o.top || 0) + 'px', r: o.h ? '18px' : '46px' });
+const O = (id, title, o) => ({ id, title, flight: true, wpx: '402px', h: '844px', top: '0px', r: '46px', checks: 'A', hasLim: true, map: 'off', state: 'normal', popup: 'none', ...o });
+const S3 = (id, title, o) => ({ id, title, settings: true, wpx: '402px', h: '844px', top: '0px', r: '46px', state: 'normal', ...o });
+
+class Component extends DCLogic {
+  apply() {
+    const key = this.props.font + '|' + this.props.palette;
+    if (this._k === key) return;
+    this._k = key;
+    const r = document.documentElement;
+    r.style.setProperty('--cw-font', FONTS[this.props.font] || FONTS['Nunito (default)']);
+    const p = PAL[this.props.palette] || '';
+    if (p) r.setAttribute('data-palette', p); else r.removeAttribute('data-palette');
+  }
+  componentDidMount() {
+    this.apply();
+    this.timer = setInterval(() => { const n = (this.state.mounted || 0) + 3; this.setState({ mounted: n }); if (n > 80) clearInterval(this.timer); }, 350);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  componentDidUpdate() { this.apply(); }
+  renderVals() {
+    const chipKey = [['IMP', 'Important'], ['NTM', 'NOTAM'], ['WX', 'Weather'], ['CAA', 'CAA'], ['LIM', 'Limitations']].map(([k, name]) => { const t = k.toLowerCase(); return { k, name, b: `var(--chk-${t}-bg)`, c: `var(--chk-${t}-fg)`, br: `var(--chk-${t}-line)` }; }).concat([{ k: '+2', name: 'the rest, in order', b: 'var(--cw-surface-4)', c: 'var(--cw-text-2)', br: 'var(--cw-line-3)' }]);
+    const answers = [
+      { q: '1 · TIMELINE TAB', a: 'B — the Timeline tab is removed. Cards view keeps Now and Attention.', why: 'With A the same timeline is reachable two ways, and the tab bar inside “cards” would lead out of cards. The rail already switches the whole view; one route per screen.' },
+      { q: '2 · 6H / 12H / DAY', a: '6H = now −1h to +5h. 12H = −2h to +10h. DAY = −4h to +20h.', why: 'Always one sixth behind now, so the now-line stays at the same x in every range and just-landed flights stay visible. The window is printed above the axis.' },
+      { q: '3 · CLOCK SECONDS', a: 'No. HH:MM only, changing on the minute with no animation.', why: 'Movement times are minute-resolution, and five ticking seconds is peripheral motion all shift. The OS status bar already carries seconds if anyone needs them.' },
+      { q: '4 · RED 00:30', a: 'Unresolved — both drawn. Next day: neutral “+1” after the time. Changed: time in delay colour plus an “ETA +30” tag.', why: 'Red is kept for cancelled. A next-day arrival is normal and must not look like a problem. Ops to confirm which the reference meant.' },
+      { q: '5 · MARK CHECKED', a: 'Recommend B — each popup marks its own items; the bottom bar becomes “3 of 5 checked” + “Next”.', why: 'The initials and time only mean something if they’re recorded where the thing was read. One button at the bottom signs all five without opening any of them.' },
+      { q: '6 · STATUS COLOUR ON A CUSTOM PALETTE', a: 'Yes, kept — the palette sets the shade, never the meaning.', why: 'Status colours are tokens every palette must fill. Each status also carries a non-colour cue (+20, CNX, LDG, progress line), so a poor palette can’t hide one.' },
+      { q: '7 · +2 ON THE CHIPS', a: 'The outstanding checks beyond the first three, in fixed order. Not tappable alone.', why: 'A 20px chip inside a card can’t be a 44px target; the card is the target and opens the flight with all five shown.' }
+    ];
+    const sections = [
+      { id: 's1', n: '1', title: 'Flight list', sub: 'Timeline view (new) + cards view (kept)', chips: true, groups: [
+        { title: 'Timeline — normal, at three widths', note: 'Thumb rule moved the range buttons, funnel and bell from the top (reference) to a bottom bar; the rail sits low on the left. Clocks are read-only so they can stay at the top. Pills are as wide as their text; only their left edge marks time.', frames: [
+          L('1a', '390 · 4 flights · 4 clocks', { scenario: 'normal', clocks: 4 }),
+          L('1b', '360 · 5 clocks → city codes', { scenario: 'normal', clocks: 5, w: 360, note: 'At five clocks the cell is under 84px, so each city shows its 3-letter code. Nothing clips; no horizontal scroll.' }),
+          L('1c', '430 · 4 clocks', { scenario: 'normal', clocks: 4, w: 430 })
+        ] },
+        { title: 'Ranges and pill states', note: 'Every status has a non-colour cue. Delayed: “+20”. Cancelled: dashed outline, struck times, “CNX”. Landed: muted, “LDG”. Airborne: blue outline and progress line. Next-day arrival: “+1”. Changed arrival: “ETA +30”. A dot above each pill marks the true departure time when a pill has to be pushed in from the right edge.', frames: [
+          L('1d', '12H', { scenario: 'normal', range: '12H' }),
+          L('1e', 'DAY · every pill state', { scenario: 'states' }),
+          L('1f', '1 flight', { scenario: 'one' }),
+          L('1g', '20 flights · scrolls', { scenario: 'twenty', note: 'Rows scroll; the axis, now label and bottom bar stay. Native scrollbar hidden, drawn thumb shown while scrolling.' })
+        ] },
+        { title: 'Empty, loading, failed', frames: [
+          L('1h', 'Empty — a normal Sunday', { scenario: 'empty', note: 'Plain statement of the window, the next flight, one way to widen. No warning colour.' }),
+          L('1i', 'Empty because of the filter', { scenario: 'emptyFiltered', note: 'Says it is the filter, not a quiet day.' }),
+          L('1j', 'Loading', { scenario: 'loading' }),
+          L('1k', 'Failed — nothing cached', { scenario: 'failed' }),
+          L('1l', 'Failed — stale list kept', { scenario: 'stale', note: 'LIVE becomes STALE 12 MIN; list dims to 55%; banner with the last good time.' })
+        ] },
+        { title: 'Filter and notifications', frames: [
+          L('1m', 'Aircraft filter', { scenario: 'filterOpen', note: 'Toggles are drawn, not native. “Show all” clears. Done button states the result.' }),
+          L('1n', 'Filter active', { scenario: 'filterActive', note: 'Three marks: filled funnel, count badge, and a banner above the timeline that can’t scroll away.' }),
+          L('1o', 'Notifications', { scenario: 'notifications', badge: 3, note: 'Flight events only. Passenger data never appears here.' })
+        ] },
+        { title: 'Bell badge at 1, 9, 25 and 100+', frames: [
+          L('1p', 'Badge 1', { scenario: 'normal', badge: 1, h: 92, top: -740 }),
+          L('1q', 'Badge 9', { scenario: 'normal', badge: 9, h: 92, top: -740 }),
+          L('1r', 'Badge 25', { scenario: 'normal', badge: 25, h: 92, top: -740 }),
+          L('1s', 'Badge 120 → 99+', { scenario: 'normal', badge: 120, h: 92, top: -740 })
+        ] },
+        { title: 'World clocks at 2, 3, 4, 5 and off', note: 'UTC is always the tinted cell. Turned off, the row is removed and UTC moves into the title bar, so it never disappears.', frames: [
+          L('1t', '2 cities', { scenario: 'normal', clocks: 2, h: 168, top: 0 }),
+          L('1u', '3 cities', { scenario: 'normal', clocks: 3, h: 168, top: 0 }),
+          L('1v', '5 cities · 390', { scenario: 'normal', clocks: 5, h: 168, top: 0 }),
+          L('1w', 'Off', { scenario: 'normal', clocks: 0, h: 168, top: 0 })
+        ] },
+        { title: 'Cards view — the current mobile view, kept (rail button 2)', note: 'Unchanged except: the Timeline tab is gone (answer 1), the “Open timeline” footer is gone (the rail does it), and the bottom bar carries filter and bell so both views share them.', frames: [
+          L('1x', 'Now', { scenario: 'cards' }),
+          L('1y', 'Attention', { scenario: 'cardsAttention' }),
+          L('1z', 'Attention — empty', { scenario: 'cardsEmpty' }),
+          L('1aa', 'Loading', { scenario: 'cardsLoading' })
+        ] }
+      ] },
+      { id: 's2', n: '2', title: 'Open flight', sub: 'Six changes only. Callsign, status, close, reg, operator, route, VFR/IFR, STD/STA, ETD/ETA and +20 are as today.', groups: [
+        { title: 'The screen, both header variants, both Mark-checked options', frames: [
+          O('2a', 'Option A · with limitations', { note: 'Airports are bordered buttons with “Weather · NOTAM 3 ›” so they read as tappable without hover.' }),
+          O('2b', 'No limitations → pill absent', { hasLim: false, note: 'The row is 44px either way because PAX stays, so nothing below moves.' }),
+          O('2c', 'Option B · recommended', { checks: 'B', note: 'Bottom bar becomes progress + “Next: CAA ›”, which opens the popup holding the first unchecked item.' }),
+          O('2d', 'Option B · Limitations and CAA popup', { checks: 'B', popup: 'checks' }),
+          O('2e', 'Option B · Limitations popup', { checks: 'B', popup: 'lim' }),
+          O('2f', 'Option A · popup is read only', { popup: 'checks' })
+        ] },
+        { title: 'Change 1 — PAX', note: 'Masked: last 2 characters. Tapping a card reveals that card only; closing the sheet re-masks everything. Expiry within 6 months of today is marked “soon”.', frames: [
+          O('2g', '2 passengers', { popup: 'pax' }),
+          O('2h', '12 passengers · one revealed', { popup: 'paxRevealed' }),
+          O('2i', 'Loading', { popup: 'paxLoading' }),
+          O('2j', 'Empty', { popup: 'paxEmpty' }),
+          O('2k', 'Failed', { popup: 'paxFailed' })
+        ] },
+        { title: 'Change 3 — airport weather and NOTAMs', note: 'NOTAMs show a one-line plain-English summary above the raw text, never instead of it: the raw text is the legal source, the summary is for scanning.', frames: [
+          O('2l', 'Weather', { popup: 'airport' }),
+          O('2m', 'NOTAMs', { popup: 'airportNotams' }),
+          O('2n', 'NOTAMs — 14, scrolling', { popup: 'airportLong' }),
+          O('2o', 'None available', { popup: 'airportNone' }),
+          O('2p', 'Failed to fetch', { popup: 'airportFailed' })
+        ] },
+        { title: 'Change 4 — FlightRadar24', frames: [
+          O('2q', 'Not connected — ships', { note: 'No empty map, no aircraft icon, no “no signal”. Says the feed isn’t set up and that status above is current. One action: open the flight on FR24 in the browser.' }),
+          O('2r', 'Live — later, sketch only', { map: 'live' })
+        ] },
+        { title: 'Change 5 — service status', note: 'Not applicable rows are hidden; date/time pairs (six digits / six digits) are stripped. Awaiting reply is the only solid badge.', frames: [
+          O('2s', '10 services shown', { popup: 'services', suggest: true, note: 'The “3 not applicable · show” line at the foot is a suggestion ops can reject.' }),
+          O('2t', 'Not applicable revealed', { popup: 'servicesNA', suggest: true }),
+          O('2u', 'Loading', { popup: 'servicesLoading' }),
+          O('2v', 'Empty', { popup: 'servicesEmpty' }),
+          O('2w', 'Failed', { popup: 'servicesFailed' })
+        ] },
+        { title: 'Change 2 (read-only limitations) and whole-screen states', frames: [
+          O('2x', 'Limitations popup · Option A', { popup: 'lim' }),
+          O('2y', 'Loading', { state: 'loading' }),
+          O('2z', 'Failed', { state: 'failed' }),
+          O('2aa', 'Flight removed', { state: 'gone' })
+        ] }
+      ] },
+      { id: 's3', n: '3', title: 'Mobile settings', sub: 'Independent of the wall. The wall’s settings are reachable, framed in amber.', groups: [
+        { title: 'Settings', frames: [
+          S3('3a', 'Main', { page: 'main' }),
+          S3('3b', 'Font · this phone', { page: 'font', note: 'Each option is drawn in the font the phone actually has. Missing fonts say so and preview as Nunito.' }),
+          S3('3c', 'Colours · this phone', { page: 'colours' }),
+          S3('3d', 'Loading', { page: 'main', state: 'loading' }),
+          S3('3e', 'Failed', { page: 'main', state: 'failed' })
+        ] },
+        { title: 'World clocks', frames: [
+          S3('3f', 'List', { page: 'clocks' }),
+          S3('3g', 'Renaming', { page: 'clocksEdit' }),
+          S3('3h', 'Full — 5 of 5', { page: 'clocksFull' }),
+          S3('3i', 'Row off', { page: 'clocksOff' })
+        ] },
+        { title: 'Wall settings — editing the room, not the phone', note: 'Amber band, amber frame and a changed back label on every wall page. Changes need “Apply to wall”.', frames: [
+          S3('3j', 'Wall settings', { page: 'wall' }),
+          S3('3k', 'Wall font · what the display machine renders', { page: 'wallFont', note: '3 of 6 fonts are not on the display machine; the preview shows what the wall will really draw.' })
+        ] }
+      ] }
+    ];
+    const limit = this.state.mounted || 0;
+    let idx = 0;
+    sections.forEach(s => s.groups.forEach(g => g.frames.forEach(f => { const on = idx++ < limit; f.mList = on && f.list; f.mFlight = on && f.flight; f.mSettings = on && f.settings; })));
+    return { answers, sections, chipKey };
+  }
+}
+</script>
+</body>
+</html>

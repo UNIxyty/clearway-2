@@ -229,6 +229,40 @@ ok(totalBad === 0, `contrast measured on ${PAGES.length} views × 2 themes: ever
   }
 }
 
+// ── 6. The wall on a phone is the wall too (2026-10-27) ─────────────────────────────────────────────────────────────
+// The Wall tab in /m frames the wall's own phone page (/digital-wall/timeline/?in=m, served by the rig proxy from a
+// production-style build). Same rule as the display: no data-theme, no --cw-* token, the same pixels with the portal in
+// Light and Dark. The rest of /m (the shell around it) follows the portal.
+{
+  const phone = async (device) => {
+    const ctx = await context("user", { viewport: { width: 390, height: 844 }, colorScheme: device, isMobile: true, hasTouch: true });
+    await ctx.addInitScript((c) => { try { localStorage.setItem("cw-theme", c); } catch { /* */ } }, device);
+    await ctx.route(/\/api\/user\/preferences/, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ preferences: { theme: device } }) }));
+    const page = await ctx.newPage();
+    await page.goto(`${BASE}/m/wall`, { waitUntil: "load" });
+    const handle = await page.waitForSelector("iframe[title='Digital Wall']", { timeout: 20000 }).catch(() => null);
+    const frame = handle ? await handle.contentFrame() : null;
+    await frame?.waitForSelector("[data-mobile-wall]", { timeout: 30000 }).catch(() => {});
+    await sleep(2500);
+    const wall = frame ? await frame.evaluate(() => {
+      const cssText = [...document.styleSheets].map((s) => { try { return [...s.cssRules].map((r) => r.cssText).join("\n"); } catch { return ""; } }).join("\n");
+      const root = document.querySelector("[data-mobile-wall]");
+      const inline = root ? [root, ...root.querySelectorAll("*")].map((e) => e.getAttribute("style") || "").join(";") : "";
+      const sample = root ? [root, ...root.querySelectorAll("*")].slice(0, 400).map((e) => { const s = getComputedStyle(e); return `${s.color}|${s.backgroundColor}|${s.fontFamily}`; }) : [];
+      return { present: !!root, dataTheme: document.documentElement.getAttribute("data-theme"), readsCw: /var\(--cw-/.test(cssText) || /--cw-[a-z]/.test(inline) || /--cw-[a-z]/.test(document.documentElement.getAttribute("style") ?? ""), sample: sample.join(";") };
+    }) : { present: false };
+    const shell = await page.evaluate(() => ({ dataTheme: document.documentElement.getAttribute("data-theme"), tabBg: getComputedStyle(document.querySelector("nav[aria-label='Sections']") || document.body).backgroundColor }));
+    await page.screenshot({ path: `${OUT}/stage1-phone-wall-${device}.png` });
+    await ctx.close();
+    return { wall, shell };
+  };
+  const pl = await phone("light"), pd = await phone("dark");
+  ok(pl.wall.present && pd.wall.present, "the phone wall renders behind the Wall tab (signed in, 390 × 844)");
+  ok(pd.wall.dataTheme === null && !pd.wall.readsCw && pl.wall.dataTheme === null && !pl.wall.readsCw, "wall on a phone: no data-theme, no --cw-* token read (portal set to Dark on a dark device, and Light)", JSON.stringify({ dark: [pd.wall.dataTheme, pd.wall.readsCw], light: [pl.wall.dataTheme, pl.wall.readsCw] }));
+  ok(pd.wall.sample && pd.wall.sample === pl.wall.sample, "wall on a phone: the same colours and fonts with the portal in Dark as in Light");
+  ok(pd.shell.dataTheme === "dark" && pl.shell.dataTheme === "light" && pd.shell.tabBg !== pl.shell.tabBg, "…while the /m shell around it follows the portal (its tab bar changes with the theme)", JSON.stringify({ dark: pd.shell, light: pl.shell }));
+}
+
 await browser.close();
 console.log(`\n${failures ? `${failures} FAILED` : "ALL PASSED"} · ${OUT}/stage1-*.png`);
 process.exit(failures ? 1 : 0);

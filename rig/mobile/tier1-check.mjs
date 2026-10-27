@@ -86,9 +86,8 @@ async function audit(name, theme, page, errors) {
 // ── the Tier 1 pages, both themes ──
 const enc = encodeURIComponent;
 const PAGES = [
-  { name: "wall", path: "/m/wall", readyText: /Nothing open|No flights in the next|→/ },
-  { name: "wall-flight", path: `/m/wall/${enc(flightId)}`, ready: "text=Checks" },
-  { name: "wall-check", path: `/m/wall/${enc(flightId)}?check=wx`, ready: "[role=dialog]" },
+  // The Wall tab is a door into the wall's own phone page since 2026-10-27; its screens are rig/mobile/phone-wall-check.mjs.
+  { name: "wall", path: "/m/wall", ready: "iframe[title='Digital Wall']" },
   { name: "flights", path: "/m/flights", ready: "a[href^='/m/flights/']" },
   { name: "flight", path: `/m/flights/${enc(flightId)}`, ready: "text=UTC" },
   { name: "flight-passengers", path: `/m/flights/${enc(flightId)}/passengers`, ready: "[data-passenger-viewer]", settle: 4000 },
@@ -106,7 +105,7 @@ const PAGES = [
   { name: "airport-weather", path: `/m/airport/${ICAO}?tab=weather`, ready: "[data-phone-shell]" },
   { name: "airport-docs", path: `/m/airport/${ICAO}?tab=docs`, ready: "text=AD 2" },
   { name: "airport-doc", path: `/m/airport/${ICAO}?doc=ad2`, ready: "[aria-label='Next page']", settle: 4000 },
-  { name: "more", path: "/m/wall", readyText: /Nothing open|No flights in the next|→/, then: async (p) => { await p.getByRole("button", { name: "More", exact: true }).click(); await p.waitForTimeout(600); } },
+  { name: "more", path: "/m/flights", ready: "a[href^='/m/flights/']", then: async (p) => { await p.getByRole("button", { name: "More", exact: true }).click(); await p.waitForTimeout(600); } },
 ].filter((p) => p.path);
 for (const theme of ["light", "dark"]) {
   const ctx = await context({ theme });
@@ -125,10 +124,8 @@ for (const theme of ["light", "dark"]) {
 
 // ── loading, empty, error — by holding, emptying or failing the page's own data ──
 const STATES = [
-  { name: "wall", path: "/m/wall", route: /\/digital-wall\/api\/timeline\/flights/, empty: { ok: true, aircraft: [] }, emptyText: /No flights|Nothing open/, errorText: /Couldn’t load the board|Not updating/ },
   { name: "flights", path: "/m/flights", route: /\/digital-wall\/api\/flights\/normalized/, empty: { ok: true, flights: [] }, emptyText: /No flights/, errorText: /Couldn’t load the flights/ },
   { name: "intake", path: "/m/intake", route: /\/agent\/api\/intake\/requests(\?|$)/, empty: { ok: true, rows: [] }, emptyText: /Nothing needs you/, errorText: /Couldn’t load intake/ },
-  { name: "wall-flight", path: `/m/wall/${enc(flightId)}`, route: /\/digital-wall\/api\/timeline\/flights/, empty: { ok: true, aircraft: [] }, emptyText: /not on the wall/, errorText: /Couldn’t load the flight/ },
   { name: "intake-request", path: `/m/intake/${req.id}`, route: new RegExp(`/agent/api/intake/requests/${req.id}(\\?|$)`), empty: null, errorText: /Couldn’t load the request/ },
   { name: "airport-notams", path: `/m/airport/${ICAO}`, route: /\/api\/notams\?/, empty: { icao: ICAO, notams: [], updatedAt: new Date().toISOString() }, emptyText: /No NOTAMs/, errorText: /isn’t answering/ },
   { name: "airport-weather", path: `/m/airport/${ICAO}?tab=weather`, route: /\/api\/weather\?/, empty: { weather: "", updatedAt: null }, emptyText: /No weather held/, errorText: /Couldn’t get the weather/ },
@@ -225,33 +222,43 @@ const STATES = [
   }
 }
 
-// ── the facts: the phone shows what shared/wall-facts.mjs computes from the wall's data ──
+// ── the facts: the wall's phone page shows what shared/wall-facts.mjs computes from the wall's data ──
+const wallFrame = async (page, path) => {
+  await page.goto(`${BASE}${path}`, { waitUntil: "load" });
+  const h = await page.waitForSelector("iframe[title='Digital Wall']", { timeout: 20000 });
+  const f = await h.contentFrame(); await f.waitForSelector("[data-mobile-wall]", { timeout: 30000 }); await page.waitForTimeout(2500);
+  return f;
+};
 {
   const t = flightTimes(pick.flight); const status = statusFromFlight(pick.flight);
   const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
-  await page.goto(`${BASE}/m/wall/${enc(flightId)}`, { waitUntil: "load" }); await page.waitForTimeout(1800);
-  const text = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
+  const f = await wallFrame(page, `/m/wall/${enc(flightId)}`);
+  const text = (await f.locator("[role=dialog][aria-label=Flight]").innerText({ timeout: 15000 }).catch(() => "")).replace(/\s+/g, " ");
   ok(text.includes(t.depHm) && text.includes(t.arrHm), `facts: ${pick.flight.flightNo} shows the shared module's departure ${t.depHm} and arrival ${t.arrHm}`, text.slice(0, 200));
-  ok(new RegExp(STATUS_LABEL[status], "i").test(text), `facts: the status reads "${STATUS_LABEL[status]}" (${status})`, text.slice(0, 120));
+  const WALL_WORD = { scheduled: "SCHEDULED", delayed: "DELAYED", ctot: "CTOT", airborne: "AIRBORNE", arrived: "ARRIVED", cancelled: "CANCELLED" };
+  ok(new RegExp(`${WALL_WORD[status]}|${STATUS_LABEL[status]}`, "i").test(text), `facts: the status reads the wall's word for "${status}"`, text.slice(0, 120));
   await page.goto(`${BASE}/m/flights/${enc(flightId)}`, { waitUntil: "load" }); await page.waitForTimeout(1500);
   const text2 = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
   ok(text2.includes(t.stdHm) && text2.includes(t.staHm), `facts: the flight record shows STD ${t.stdHm} and STA ${t.staHm} from the same module`, text2.slice(0, 200));
   await ctx.close();
 }
 
-// ── marking from the phone: Weather on the picked flight is marked from the sheet, then put back by the API ──
+// ── marking from the phone: the open checks in the Limitations and CAA sheet are marked there, then put back ──
 {
   const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
-  await page.goto(`${BASE}/m/wall/${enc(flightId)}?check=wx`, { waitUntil: "load" }); await page.waitForTimeout(1800);
-  const btn = page.getByRole("button", { name: /^Mark Weather checked$/ });
-  if ((await btn.count()) === 1 && (await btn.isEnabled())) {
-    ok(true, "marking: the Weather sheet offers 'Mark Weather checked' (the rig account may)");
-    await btn.click(); await page.waitForTimeout(2000);
-    const row = page.getByRole("button", { name: /^Weather: checked$/ });
-    ok((await row.count()) === 1, "marking: after the tap the Weather row reads checked, with who did it", (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ").slice(0, 200));
-    const r = await fetch(`${BASE}/digital-wall/api/flight-checks`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ oprId: pick.oprId, flightNid: pick.flightNid, types: ["wx"], checked: false }) });
+  const f = await wallFrame(page, `/m/wall/${enc(flightId)}`);
+  const openHere = openChecksOf(pick.flight).filter((k) => ["imp", "wx", "caa"].includes(k));
+  const ntmOpen = openChecksOf(pick.flight).includes("ntm");
+  await f.getByRole("button", { name: /^LIMITATIONS AND CAA/ }).click(); await page.waitForTimeout(800);
+  const btn = f.getByRole("button", { name: /^Mark \d checked$/ });
+  if (openHere.length && !ntmOpen && (await btn.count()) === 1 && (await btn.isEnabled())) {
+    ok(true, `marking: the sheet offers '${await btn.textContent()}' for ${openHere.join(", ")}`);
+    await btn.click(); await page.waitForTimeout(2500);
+    const foot = (await f.locator("[role=dialog][aria-label='Limitations and CAA']").innerText().catch(() => "")).replace(/\s+/g, " ");
+    ok(/All four here are checked|of 4 here still to check/.test(foot) && !/Mark \d checked/.test(foot), "marking: after the tap the sheet reads them checked, with who did it", foot.slice(0, 200));
+    const r = await fetch(`${BASE}/digital-wall/api/flight-checks`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ oprId: pick.oprId, flightNid: pick.flightNid, types: openHere, checked: false }) });
     ok(r.ok, "marking: put back (unchecked by the API) so the rig is as it was", String(r.status));
-  } else ok(!openChecksOf(pick.flight).includes("wx"), "marking: no flight on the board has an open Weather check right now, so the sheet rightly offers nothing to mark", (await page.locator("[role=dialog]").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 160));
+  } else ok(!openHere.length || ntmOpen, `marking: ${!openHere.length ? "nothing open among IMP / WX / CAA on the picked flight" : "its NOTAMs are open too (an airport-wide acknowledgement this check will not make)"}, so nothing is marked here`, openChecksOf(pick.flight).join(","));
   await ctx.close();
 }
 

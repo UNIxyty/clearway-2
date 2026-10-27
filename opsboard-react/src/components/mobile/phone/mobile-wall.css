@@ -1,0 +1,68 @@
+/* The Digital Wall on a phone — its own tokens (design: clearway-mobile-tokens.css, imported 2026-10-27 into
+   design/mobile-wall/). The design gave them the portal's prefix; the wall must read no portal token
+   (rig/stage1-check.mjs scans every stylesheet on the wall's pages for one), so here they are --mw-*.
+   These are the design's defaults, painted only until the room's palette arrives: phoneTokens() (tokens.js) sets
+   every one of them on the root from the wall's own colour settings, the same source the ops-room display reads.
+   Scoped to [data-mobile-wall]: nothing here reaches the display or the console. */
+[data-mobile-wall] {
+  --mw-font: 'Nunito', system-ui, sans-serif;
+  --mw-font-raw: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --mw-scrim: rgba(3, 6, 12, .72);
+  --mw-bg-0: #070b14; --mw-bg-1: #0b111e; --mw-bg-2: #0e1524;
+  --mw-surface-1: #0f1725; --mw-surface-2: #121a2b; --mw-surface-3: #182234; --mw-surface-4: #24304a;
+  --mw-line-1: #182234; --mw-line-2: #232c3d; --mw-line-3: #2c384f;
+  --mw-text-1: #e7ecf5; --mw-text-2: #c3cede; --mw-text-3: #8ea0ba; --mw-text-4: #6b7a93;
+  --mw-on-solid: #0b111e; --mw-on-accent: #ffffff;
+
+  --mw-accent: #2563eb; --mw-accent-text: #7fb6ea; --mw-accent-soft: rgba(75, 159, 224, .16); --mw-accent-line: rgba(75, 159, 224, .45);
+  --mw-utc: #67d3f0; --mw-utc-soft: rgba(103, 211, 240, .11); --mw-utc-line: rgba(103, 211, 240, .45);
+  --mw-ok: #4ade80; --mw-ok-soft: rgba(22, 163, 74, .16); --mw-ok-line: rgba(22, 163, 74, .45);
+  --mw-warn: #f0a350; --mw-warn-soft: rgba(240, 163, 80, .14); --mw-warn-line: rgba(240, 163, 80, .45);
+  --mw-bad: #f87171; --mw-bad-solid: #e5484d; --mw-bad-soft: rgba(229, 72, 77, .16); --mw-bad-line: rgba(229, 72, 77, .5);
+  --mw-wall-edit: #f0a350; --mw-wall-edit-soft: rgba(240, 163, 80, .12);
+
+  /* flight status — the room's state colours (scheduled, delayed, CTOT, airborne, arrived, cancelled) */
+  --mw-st-scheduled: #e7ecf5; --mw-st-delayed: #f0a350; --mw-st-ctot: #af92e8;
+  --mw-st-airborne: #7fb6ea; --mw-st-arrived: #dd93bd; --mw-st-cancelled: #a7aec4;
+
+  /* the five checks — identical on cards, open flight and sheets */
+  --mw-chk-imp-bg: #fbe3bf; --mw-chk-imp-fg: #8a4b09; --mw-chk-imp-line: #e3a45f;
+  --mw-chk-ntm-bg: #f6dcc4; --mw-chk-ntm-fg: #9a4d10; --mw-chk-ntm-line: #dda06a;
+  --mw-chk-wx-bg: #26324a; --mw-chk-wx-fg: #c3cede; --mw-chk-wx-line: #38455f;
+  --mw-chk-caa-bg: #c7ede6; --mw-chk-caa-fg: #0b6b62; --mw-chk-caa-line: #77cebe;
+  --mw-chk-lim-bg: #e2dcf7; --mw-chk-lim-fg: #4b3a8f; --mw-chk-lim-line: #b3a5e6;
+
+  /* flight category */
+  --mw-fc-vfr: #4ade80; --mw-fc-mvfr: #7fb6ea; --mw-fc-ifr: #f87171; --mw-fc-lifr: #e879f9;
+
+  background: var(--mw-bg-1);
+  color: var(--mw-text-1);
+  font-family: var(--mw-font);
+  font-variant-numeric: tabular-nums slashed-zero;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+[data-mobile-wall] *, [data-mobile-wall] *::before, [data-mobile-wall] *::after { box-sizing: border-box; }
+[data-mobile-wall] button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: inherit; }
+[data-mobile-wall] button:focus-visible, [data-mobile-wall] a:focus-visible { outline: 2px solid var(--mw-accent-text); outline-offset: 2px; }
+/* §1.6: no native scrollbars; a drawn thumb shows while scrolling */
+[data-mobile-wall] .mw-scroll { overflow-y: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+[data-mobile-wall] .mw-scroll::-webkit-scrollbar { display: none; }
+[data-mobile-wall] .mw-thumb { position: absolute; right: 4px; width: 3px; border-radius: 2px; background: var(--mw-line-3); opacity: 0; transition: opacity 300ms ease-out; pointer-events: none; z-index: 8; }
+[data-mobile-wall] .mw-thumb[data-on="1"] { opacity: 1; transition: none; }
+/* §1.7 motion */
+[data-mobile-wall] .mw-sheet { animation: mw-sheet-in 280ms cubic-bezier(.2, .8, .2, 1); }
+[data-mobile-wall] .mw-scrim { animation: mw-fade-in 280ms cubic-bezier(.2, .8, .2, 1); }
+[data-mobile-wall] .mw-seg > * { transition: background 160ms ease-out, color 160ms ease-out; }
+[data-mobile-wall] .mw-knob { transition: left 160ms ease-out; }
+[data-mobile-wall] .mw-pill-row > .mw-spacer { transition: flex-basis 220ms ease-in-out; }
+[data-mobile-wall] .mw-skel { animation: mw-shimmer 1200ms ease-in-out infinite; }
+@keyframes mw-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes mw-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mw-shimmer { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) {
+  [data-mobile-wall] .mw-sheet, [data-mobile-wall] .mw-scrim { animation: none; }
+  [data-mobile-wall] .mw-seg > *, [data-mobile-wall] .mw-knob, [data-mobile-wall] .mw-pill-row > .mw-spacer, [data-mobile-wall] .mw-thumb { transition: none; }
+  [data-mobile-wall] .mw-skel { animation: none; }
+}

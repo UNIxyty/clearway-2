@@ -1,0 +1,50 @@
+/* Clearway mobile — design tokens. The ONLY place raw colour values and font families appear.
+   The phone's Settings > Colours / Font overwrite these custom properties at runtime (phone only). */
+:root{
+  --cw-font:'Nunito',system-ui,sans-serif;          /* wall default; production loads patched Nunito-CW with dotted zero */
+  --cw-font-raw:'IBM Plex Mono',ui-monospace,monospace; /* raw METAR/TAF/NOTAM text only */
+
+  --cw-scrim:rgba(3,6,12,.72);
+  --cw-bg-0:#070b14; --cw-bg-1:#0b111e; --cw-bg-2:#0e1524;
+  --cw-surface-1:#0f1725; --cw-surface-2:#121a2b; --cw-surface-3:#182234; --cw-surface-4:#24304a;
+  --cw-band:rgba(255,255,255,.022);
+  --cw-line-1:#182234; --cw-line-2:#232c3d; --cw-line-3:#2c384f;
+  --cw-text-1:#e7ecf5; --cw-text-2:#c3cede; --cw-text-3:#8ea0ba; --cw-text-4:#6b7a93;
+  --cw-on-solid:#0b111e; --cw-on-accent:#ffffff;
+
+  --cw-accent:#2563eb; --cw-accent-text:#7fb6ea; --cw-accent-soft:rgba(75,159,224,.16); --cw-accent-line:rgba(75,159,224,.45);
+  --cw-utc:#67d3f0; --cw-utc-soft:rgba(103,211,240,.11); --cw-utc-line:rgba(103,211,240,.45);
+  --cw-ok:#4ade80; --cw-ok-soft:rgba(22,163,74,.16); --cw-ok-line:rgba(22,163,74,.45);
+  --cw-warn:#f0a350; --cw-warn-soft:rgba(240,163,80,.14); --cw-warn-line:rgba(240,163,80,.45);
+  --cw-bad:#f87171; --cw-bad-solid:#e5484d; --cw-bad-soft:rgba(229,72,77,.16); --cw-bad-line:rgba(229,72,77,.5);
+  --cw-wall-edit:#f0a350; --cw-wall-edit-soft:rgba(240,163,80,.12);
+
+  /* flight status (callsign colour, pill accents) */
+  --st-ontime:var(--cw-ok); --st-delayed:var(--cw-warn); --st-cancelled:var(--cw-bad);
+  --st-airborne:#7fb6ea; --st-landed:var(--cw-text-3); --st-scheduled:var(--cw-text-1);
+
+  /* the five checks — identical on cards, open flight and popups */
+  --chk-imp-bg:#fbe3bf; --chk-imp-fg:#8a4b09; --chk-imp-line:#e3a45f;
+  --chk-ntm-bg:#f6dcc4; --chk-ntm-fg:#9a4d10; --chk-ntm-line:#dda06a;
+  --chk-wx-bg:#26324a;  --chk-wx-fg:#c3cede;  --chk-wx-line:#38455f;
+  --chk-caa-bg:#c7ede6; --chk-caa-fg:#0b6b62; --chk-caa-line:#77cebe;
+  --chk-lim-bg:#e2dcf7; --chk-lim-fg:#4b3a8f; --chk-lim-line:#b3a5e6;
+
+  /* presentation canvas only (not shipped) */
+  --doc-bg:#eceef2; --doc-card:#ffffff; --doc-ink:#17181c; --doc-ink-2:#454a54; --doc-ink-3:#7d838d; --doc-line:#dfe2e7;
+  --doc-badge:#17181c; --doc-badge-fg:#ffffff; --doc-suggest:#6d28d9; --doc-suggest-soft:#efe9fb; --doc-bezel:#1d2433;
+
+  /* flight category */
+  --fc-vfr:#4ade80; --fc-mvfr:#7fb6ea; --fc-ifr:#f87171; --fc-lifr:#e879f9;
+}
+/* alternative account palettes (Settings > Colours). Applied by setting data-palette on the phone root. */
+[data-palette="contrast"]{
+  --cw-bg-1:#000000; --cw-surface-2:#10141c; --cw-text-1:#ffffff; --cw-text-3:#b4c0d3;
+  --st-ontime:#5cf08f; --st-delayed:#ffb547; --st-cancelled:#ff6b6b; --st-airborne:#8cc8ff; --cw-utc:#7ee6ff;
+}
+[data-palette="dusk"]{
+  --cw-bg-1:#120f1c; --cw-surface-2:#1c1830; --cw-text-1:#efeaf7; --cw-text-3:#a59cbc;
+  --st-ontime:#7bd88f; --st-delayed:#e8b45a; --st-cancelled:#ef7f8a; --st-airborne:#a3a6ff; --cw-utc:#f2c879;
+}
+html,body{margin:0;padding:0;}
+*{box-sizing:border-box;}

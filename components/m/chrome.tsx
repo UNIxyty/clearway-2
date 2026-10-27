@@ -17,6 +17,8 @@ export type PhoneChrome = {
   actions?: PhoneAction[];
   tab?: PhoneTab;
   tabs?: boolean;
+  /** false: no app bar — the Wall tab's door, where the wall draws its own header (2026-10-27). */
+  bar?: boolean;
 };
 
 type Ctx = { chrome: PhoneChrome; setChrome: (c: PhoneChrome) => void };

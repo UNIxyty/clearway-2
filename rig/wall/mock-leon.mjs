@@ -85,7 +85,14 @@ http.createServer((req, res) => {
     const mine = opr === OPR;
     const type = /__type\(name:\s*"(\w+)"\)/.exec(query)?.[1];
     if (type) return json({ data: { __type: { fields: (FIELDS[type] ?? []).map((name) => ({ name })) } } });
+    // The phone wall's Service status (2026-10-27) asks for captions as the intake does (statuses{ checklistStatusId caption }).
+    const CAPTION = { "?": "?", REQUESTED: "Requested", CONFIRMED: "Confirmed" };
+    if (/getAvailableDefinitions/.test(query) && /checklistStatusId/.test(query)) return json({ data: { checklist: { getAvailableDefinitions: mine ? DEFS.map((d) => ({ nid: d.nid, label: d.label, section: d.label === "Slot" ? "Slots" : "Handling", statuses: d.statuses.map((st) => ({ checklistStatusId: st.status, caption: CAPTION[st.status] ?? st.status })) })) : [] } } });
     if (/getAvailableDefinitions/.test(query)) return json({ data: { checklist: { getAvailableDefinitions: mine ? DEFS : [] } } });
+    if (/flight\(flightNid:\s*\$n\)/.test(query) && /allItems\s*{\s*cdNid csId comment/.test(query)) {
+      const f = mine ? FLIGHTS.find((x) => x.flightNid === Number(variables?.n)) : null;
+      return json({ data: { flight: f ? { checklist: { allItems: (f.checklist?.allItems ?? []).map((it, k) => ({ cdNid: it.cdNid, csId: it.csId, comment: k === 0 ? `Invented handler for the rig · ARR ${String(f.endTimeUTC).slice(11, 16).replace(":", "")}Z\n261027 / 261027\nhttps://example.invalid/slot` : null })) } } : null } });
+    }
     if (/aircraftList/.test(query)) return json({ data: { aircraftList: mine ? AIRCRAFT : [] } });
     if (/getModifiedFlightList/.test(query)) return json({ data: { getModifiedFlightList: [] } });
     if (/operator\s*{\s*oprNid/.test(query)) return json({ data: { operator: { oprNid: 1 } } });

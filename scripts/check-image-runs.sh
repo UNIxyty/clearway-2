@@ -19,6 +19,7 @@ spec() {
     agent-service)         echo "clearway-2-agent-service 5175 /api/health";;
     digital-wall-backend)  echo "clearway-2-digital-wall-backend 5174 /api/health";;
     portal)                echo "clearway-selfhosted:latest 3000 /api/health";;
+    digital-wall-frontend) echo "clearway-2-digital-wall-frontend 80 /";;   # nginx serving the built wall pages
     aip-sync)              echo "clearway-selfhosted-worker $(grep -E '^AIP_SYNC_PORT=' .env | cut -d= -f2 | tr -d '"'"'"'' || true) /health";;
     *) return 1;;
   esac
@@ -56,6 +57,7 @@ for s in "$@"; do
     digital-wall-backend) cmd=(node server.mjs);;
     portal) cmd=(node server.js);;
     agent-service) cmd=(node server.mjs);;
+    digital-wall-frontend) cmd=();;   # the image's own nginx
   esac
   if ! docker run -d --name "$name" --network none --env-file .env "${extra[@]}" "$image" "${cmd[@]}" > /dev/null 2>"/tmp/image-runs-$s.run"; then
     say "FAIL $s: the container did not start ($(head -c 200 "/tmp/image-runs-$s.run"))"; failed=1; continue
@@ -66,8 +68,14 @@ for s in "$@"; do
     say "FAIL $s: not running after ${START_SECONDS}s (state $state). Last lines:"; docker logs --tail 12 "$name" 2>&1 | grep -viE 'token|secret|password' | sed 's/^/    /'
     docker rm -f "$name" >/dev/null 2>&1; failed=1; continue
   fi
-  # The health route, asked from inside the container (no network outside it). node is in every image.
+  # The health route, asked from inside the container (no network outside it). node is in every image but the wall's
+  # pages, which are nginx: there busybox wget asks for the page and the answer must be the built index (its root div).
+  if [ "$s" = digital-wall-frontend ]; then
+    body=$(docker exec "$name" wget -q -T 8 -O- "http://127.0.0.1:$port$path" 2>&1 | head -c 4000)
+    if printf '%s' "$body" | grep -q 'id="root"'; then probe="200 index"; else probe="NO $(printf '%s' "$body" | head -c 80)"; fi
+  else
   probe=$(docker exec "$name" node -e "fetch('http://127.0.0.1:$port$path',{signal:AbortSignal.timeout(8000)}).then(r=>r.text().then(t=>console.log(r.status+' '+t.slice(0,80)))).catch(e=>{console.log('NO '+e.message);process.exit(1)})" 2>&1 | tail -1)
+  fi
   case "$probe" in
     200*) say "OK   $s: running, $path answered 200";;
     *) say "FAIL $s: $path did not answer 200 ($probe). Last lines:"; docker logs --tail 12 "$name" 2>&1 | grep -viE 'token|secret|password' | sed 's/^/    /'; failed=1;;

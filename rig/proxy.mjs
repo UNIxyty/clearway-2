@@ -18,7 +18,22 @@ function route(url) {
   if (url.startsWith("/digital-wall/api")) return [T.wall, url.slice("/digital-wall".length)];
   return [T.portal, url];
 }
+// The wall's own pages (2026-10-27), as production's gateway serves them: /digital-wall/timeline/ is the display app
+// built with VITE_BASE_PATH=/digital-wall/timeline/ and VITE_API_BASE_URL=/digital-wall (rig/run-all-suites.sh builds it
+// into rig/.scratch/display-dist). The phone shell's Wall tab frames it, so the rig needs it on this one origin.
+const DISPLAY_DIST = process.env.RIG_DISPLAY_DIST || path.join(here, ".scratch", "display-dist");
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".ico": "image/x-icon" };
+function serveDisplay(req, res) {
+  const rel = decodeURIComponent(new URL(req.url, "http://x").pathname).replace(/^\/digital-wall\/timeline\/?/, "");
+  let file = path.normalize(path.join(DISPLAY_DIST, rel));
+  if (!file.startsWith(DISPLAY_DIST)) { res.writeHead(403); res.end(); return; }
+  if (!rel || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DISPLAY_DIST, "index.html"); // SPA fallback
+  if (!fs.existsSync(file)) { res.writeHead(404, { "content-type": "text/plain" }); res.end("display not built (rig/.scratch/display-dist)"); return; }
+  res.writeHead(200, { "content-type": TYPES[path.extname(file)] || "application/octet-stream", "cache-control": "no-store" });
+  fs.createReadStream(file).pipe(res);
+}
 const server = http.createServer((req, res) => {
+  if (req.url.startsWith("/digital-wall/timeline")) { serveDisplay(req, res); return; }
   const [target, p] = route(req.url);
   if (req.url.startsWith("/agent/api")) {
     // A file `rig-strip-ext-cookie` drops the Cookie header from the EXTENSION's requests only (identified by

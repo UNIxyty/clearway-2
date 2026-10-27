@@ -150,8 +150,8 @@ function Frame({ children }: { children: ReactNode }) {
     // A phone takes the whole screen; a wider screen gets the phone column, centred, so /m stays usable on a laptop.
     <div className="min-h-[100dvh] bg-cw-bg-sunken">
       <div data-phone-shell className="relative mx-auto flex h-[100dvh] max-w-[430px] flex-col overflow-hidden bg-cw-bg-page text-cw-text">
-        <AppBar />
-        <main className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">{children}</main>
+        {c.bar !== false && <AppBar />}
+        <main className={cx("relative flex min-h-0 flex-1 flex-col overflow-x-hidden", c.bar === false ? "overflow-hidden" : "overflow-y-auto")}>{children}</main>
         {showTabs && <TabBar tab={c.tab} hasAgent={hasAgent} intakeNeeds={intakeNeeds} onMore={() => setMore(true)} />}
         <MoreSheet open={more} onClose={() => setMore(false)} hasAgent={hasAgent} />
       </div>

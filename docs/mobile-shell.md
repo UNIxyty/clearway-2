@@ -14,13 +14,31 @@ phone's browser. Tier 3 pages (a grid or a runner that needs a wide screen — o
 it the Tier 1 desktop pages send the person to their counterpart, once, after the first measurement
 (`components/m/PhoneRedirect.tsx`: `/agent` → `/m/agent`, `/agent/intake` → `/m/intake`, `/aip` → `/m/airport`,
 `/aip/<ICAO>` → `/m/airport/<ICAO>`), and the ops-room display at `/digital-wall/timeline` sends a **signed-in person** on a
-phone-sized screen, upright or sideways, to `/m/wall` (`opsboard-react/src/components/mobile/ResponsiveWall.jsx`;
-`PhoneWall.jsx` is retired). Who is asking decides, not the orientation: a **registered screen** — one with a device
+phone-sized screen, upright or sideways, to `/m/wall` (`opsboard-react/src/components/mobile/ResponsiveWall.jsx`).
+Who is asking decides, not the orientation: a **registered screen** — one with a device
 token, `AuthGate`'s `deviceMode`, or one still waiting to be paired — stays on the display at any size, because a
 small screen mounted sideways in an ops room is a wall, not a phone; with no session and the backend unreachable
 nobody is redirected. A screen that is phone-sized gets the mini timeline sideways (design A6) and the reduced
 timeline upright; a tablet keeps the tablet layout. At or above the breakpoint the `/m`
 pages still work, as a 430 px column, and the desktop pages keep their own layout — nothing redirects the other way.
+
+## The Wall tab is a door into the wall (2026-10-28)
+
+`/m` is the portal, on portal tokens. The **Wall** tab is not a portal page: `app/m/wall/page.tsx` drops the app bar
+(`usePhonePage({ bar: false })`), keeps the tab bar, and frames the wall's own page, `/digital-wall/timeline/?in=m`
+(`?flight=<oprId:nid>` opens one flight; `/m/wall/<id>` redirects there). Behind the door is the wall app
+(`opsboard-react/src/components/mobile/phone/`, from `design/mobile-wall/`): it looks like the wall — the room's own
+palette, font and slashed zero from the wall settings, exactly as the display paints them — and reads no `--cw-*`
+token and no `data-theme`. Its tokens are `--mw-*` on `[data-mobile-wall]` (`mobile-wall.css`, values from
+`tokens.js` › `phoneTokens(useWallColors())`), so portal Light and Dark change the tab bar around it and nothing inside
+it. `ResponsiveWall` draws it only for a signed-in person inside that frame; anywhere else a person on a phone is sent
+to `/m/wall`, and a registered screen stays on the display at any size and orientation. The seam is the tab: the rest of
+`/m` (Flights, Important, NOTAM check, the agent) stays the portal and links into the wall by `/m/wall?flight=…`.
+
+What is the phone's own, stored per person on that phone (`mw-phone-prefs:<email>`): the world clocks (first run copies
+the room's), the view and range it opens in, keep-awake. Font and colours are the room's and say "From the wall". The
+amber Wall settings row (only with `wall.bigscreen.settings`) opens the portal's `/m/wall-settings`. Where the build
+differs from the design is in `design/mobile-wall/README.md`.
 
 ## The facts are shared, not copied
 
@@ -42,8 +60,8 @@ the wall holds no overrides either.
 
 | Page | Data | Loading · empty · error |
 | --- | --- | --- |
-| `/m/wall` | the board, 30 s poll and on return to the tab; Attention (open checks, soonest first) / All with the now-line; 6H · 12H · DAY | card skeleton · "Nothing open" / "No flights in the next N hours" with a way out · the last good board stays under a "Not updating" banner |
-| `/m/wall/[id]` | one flight: status, times, the five checks with who checked and when, Weather and NOTAMs links; `?check=k` opens the sheet | row skeleton · "not on the wall" · "Couldn't load the flight" with Try again |
+| `/m/wall` (the wall's page, framed) | the board as the display fetches it; Timeline (6H −1/+5 h · 12H −2/+10 h · DAY −4/+20 h, the now-line at the same x in each) or Cards (Now / Attention); aircraft filter; flight events seen this session | skeleton · a plain empty window with a way to widen, or "it is the filter" · failed with nothing held, or the last good board dimmed under STALE |
+| `/m/wall?flight=<id>` | one flight: status, times, airports (Weather · NOTAMs), FR24 link, service status from Leon (`/api/flight-services`), PAX through the shared viewer, the five checks marked from their own sheets ("n of 5 checked · Next") | skeleton · "This flight isn't on the wall" · each sheet fails on its own |
 | `/m/flights`, `/m/flights/[id]` | every cached flight, by UTC day, search over callsign / reg / airport / trip | row skeleton · "No flights on …" / "Nothing matches" · error with Try again |
 | `/m/intake`, `[id]`, `[id]/leg/[n]`, `[id]/confirm` | the intake API as the desktop uses it (`intakeApi`); the question first, answered from the list; legs with issues; the existing `ConfirmDialog` | card/row skeleton · "Nothing needs you" · error with Try again |
 | `/m/agent` | `useThread`, the same composer, suggestions; context from `?icao=` / `?flight=` or the wall | the thread · suggestions · the failed send is said in the thread and the composer stays |
@@ -170,7 +188,7 @@ reveal, away, no permission, a refused reveal, the burst row, the stop, and the 
 
 ## Tokens
 
-`shared/mobile-tokens.css` (`--mx-*`): the shell, the now-line, the search mark, the five check chips, paper. Loaded
+The Wall tab's inside is the wall's, `--mw-*` (above). Everything else in `/m`: `shared/mobile-tokens.css` (`--mx-*`): the shell, the now-line, the search mark, the five check chips, paper. Loaded
 after the portal's tokens and never redefines a `--cw-*` token; `tailwind.config.ts` exposes them as `mx.*`. The
 phone follows the portal's one stored theme choice (`cw-theme`) and motion choice (`cw-motion`), like every portal
 page — docs/portal-tokens.md.
@@ -178,7 +196,9 @@ page — docs/portal-tokens.md.
 ## Deliberate differences from the spec
 
 - **No Edit of times on a phone flight.** The wall holds no overrides, so the phone cannot either.
-- **Passengers, radar and services links are not on the phone flight page** until Stage 4 (the passenger viewer).
+- **The phone wall's departures from its design** (the room's font and colours rather than the phone's, the shared
+  passenger viewer rather than masked cards, notifications from this session only, clocks reordered by arrows, no
+  plain-English NOTAM summary, no TAF): `design/mobile-wall/README.md`.
 - **The display's redirect asks who, not which way up** (decided 2026-10-19): a person on a phone-sized screen goes
   to `/m/wall` in either orientation; a registered screen never does.
 - **The shared composer's icon buttons are 30–36 px on a desk.** On a phone a scoped rule makes every composer
@@ -191,4 +211,11 @@ at 390 × 844 in light and in dark — no horizontal overflow (nothing past the 
 sideways), every target ≥ 44 px, no page error, photographed at 2× to `rig/.scratch/shots/m-*.png`; each page's
 loading, empty and error state by holding, emptying or failing its own route; the redirects at 390 and not at 1024;
 the display redirect for a person upright and sideways, and not for a registered screen; the facts (the phone's flight page shows the
-times and status `shared/wall-facts.mjs` computes from the wall's data); marking Weather from the sheet, then put back.
+times and status `shared/wall-facts.mjs` computes from the wall's data); marking from the sheet, then put back.
+
+`node --env-file=.env.rig rig/mobile/phone-wall-check.mjs` (needs `rig/.scratch/display-dist`, the wall built at
+`/digital-wall/timeline/`; the runner builds it): the door; inside it no `var(--cw-`, no `data-theme`, the same colours
+in portal Light and Dark, the room's board colour and font; 360 / 390 / 430; the ranges, cards, filter and
+notifications; the open flight, its service rows and PAX; a deep link and a flight that is gone; settings, clocks off;
+empty and failed states; a registered screen stays on the display. `rig/stage1-check.mjs` § 6 holds the phone wall to
+the same no-portal-token rule as the display.

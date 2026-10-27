@@ -1478,6 +1478,35 @@ export class LeonTimelineService {
     return selection;
   }
 
+  /**
+   * A flight's services as Leon holds them (the phone wall's Service status sheet, 2026-10-27): the OPS checklist
+   * items on the flight, each with its definition's label and its status caption, and the item's comment. Read on
+   * demand when a person opens the sheet — one flight query plus the operator's definitions (cached 10 min) — with
+   * the same two queries the intake proved against Leon (agent/lib/intake/leon-lookup.mjs). Cached 60 s per flight.
+   * → [{ nid, label, section, status, caption, comment }] in Leon's order, or throws with Leon's words for the log.
+   */
+  async getFlightServices(flightNid, oprId = this.operatorId) {
+    const key = `${oprId}:${flightNid}`;
+    this.servicesCache = this.servicesCache || new Map();
+    const hit = this.servicesCache.get(key);
+    if (hit && Date.now() - hit.at < 60_000) return hit.value;
+    this.serviceDefs = this.serviceDefs || new Map();
+    let defs = this.serviceDefs.get(oprId);
+    if (!defs || Date.now() - defs.at > 10 * 60_000) {
+      const d = await this.graphqlRequest(`query{ checklist{ getAvailableDefinitions(groupId: OPS){ nid label section statuses{ checklistStatusId caption } } } }`, undefined, oprId);
+      defs = { at: Date.now(), map: new Map((d?.checklist?.getAvailableDefinitions ?? []).map((x) => [String(x.nid), { label: x.label ?? null, section: x.section ?? null, captions: Object.fromEntries((x.statuses ?? []).map((st) => [st.checklistStatusId, String(st.caption ?? '').trim()])) }])) };
+      this.serviceDefs.set(oprId, defs);
+    }
+    const f = await this.graphqlRequest(`query($n:FlightNid!){ flight(flightNid:$n){ checklist{ allItems{ cdNid csId comment } } } }`, { n: Number(flightNid) }, oprId);
+    const items = f?.flight?.checklist?.allItems ?? [];
+    const value = items.map((it) => {
+      const def = defs.map.get(String(it.cdNid)) || {};
+      return { nid: String(it.cdNid), label: def.label || `Service ${it.cdNid}`, section: def.section || null, status: it.csId ?? null, caption: def.captions?.[it.csId] || it.csId || null, comment: it.comment ?? null };
+    });
+    this.servicesCache.set(key, { at: Date.now(), value });
+    return value;
+  }
+
   /** Checklist status definitions (id -> ordered statuses + colors), cached. */
   async ensureChecklistDefs(oprId) {
     if (this.checklistDefsByOperator.has(oprId)) {

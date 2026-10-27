@@ -68,7 +68,8 @@ export function useRoute() {
     if (typeof window === 'undefined') return;
     const canonical = routeToPath(route);
     if (window.location.pathname !== canonical) {
-      window.history.replaceState({}, '', canonical);
+      // Keep the query and the hash (2026-10-27): the phone shell's door passes ?in=m&flight=… and lost them here.
+      window.history.replaceState({}, '', `${canonical}${window.location.search}${window.location.hash}`);
     }
   }, [route]);
 

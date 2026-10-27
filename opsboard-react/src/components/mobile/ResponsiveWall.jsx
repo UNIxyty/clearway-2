@@ -9,6 +9,7 @@ import { MONO } from './mobileChrome';
 import { flattenFlights, hmZ } from './mobileUtil';
 import { ConnChip, StaleBanner } from './WallChrome';
 import useConnection from './useConnection';
+import PhoneWall from './phone/PhoneWall';
 
 // The Digital Wall below the ops-room breakpoint (design sections A + B):
 //   a signed-in PERSON on a phone-sized screen, upright or sideways → the portal's phone wall at /m/wall
@@ -34,6 +35,8 @@ export default function ResponsiveWall({
   error = '',
   dataUpdatedAt = 0,
   onReload = null,
+  notamState = null,
+  loadedOnce = false,
 }) {
   const conn = useConnection(dataUpdatedAt);
   const chrome = chromeFor(useWallColors());
@@ -74,8 +77,22 @@ export default function ResponsiveWall({
   // runs in deviceMode (or is waiting to be paired, and never reaches here). With no session and the backend
   // unreachable nobody is redirected: the display degrades in place.
   const { user, deviceMode } = useAuth();
-  const leaving = Boolean(user) && !deviceMode && (vp.isPhone || phoneLandscape);
-  useEffect(() => { if (leaving && /\/digital-wall\//.test(window.location.pathname)) window.location.replace('/m/wall'); }, [leaving]);
+  // The phone wall (2026-10-27): the Wall tab in /m frames this page with ?in=m, and a signed-in person there gets the
+  // wall's own phone screens (phone/PhoneWall.jsx) in the room's colours and font. A person on a phone anywhere else
+  // is sent to /m/wall, so the one app keeps its tabs; a registered screen (deviceMode) never gets either.
+  const params = new URLSearchParams(window.location.search);
+  const framed = params.get('in') === 'm' && window.top !== window.self;
+  const person = Boolean(user) && !deviceMode;
+  const phoneWall = person && framed;
+  const leaving = person && !framed && (vp.isPhone || phoneLandscape);
+  useEffect(() => {
+    if (!leaving || !/\/digital-wall\//.test(window.location.pathname)) return;
+    const flight = params.get('flight');
+    window.location.replace(`/m/wall${flight ? `?flight=${encodeURIComponent(flight)}` : ''}`);
+  }, [leaving]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (phoneWall) {
+    return <PhoneWall aircraft={aircraft} limitations={limitations} clocks={clocks} notamState={notamState} loadedOnce={loadedOnce} error={error} dataUpdatedAt={dataUpdatedAt} onReload={onReload} initialFlightId={params.get('flight')} />;
+  }
   let view;
   if (leaving) {
     view = null; // leaving for /m/wall

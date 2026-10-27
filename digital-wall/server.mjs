@@ -1270,6 +1270,21 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ── Flight info fan-out: timings + NOTAMs + weather + AIP availability ──
+    // A flight's services from Leon, for the phone wall's Service status sheet (2026-10-27). Staff only: a client's
+    // reads are an allow-list (lib/client-scope.mjs) and this is not on it.
+    if (pathname === "/api/flight-services" && req.method === "GET") {
+      const found = timelineService.getFlightByNid(url.searchParams.get("flightNid"), url.searchParams.get("oprId") || "");
+      if (!found) { sendJson(res, { ok: false, error: "That flight is not on the wall any more." }, 404); return; }
+      const oprId = found.aircraft?.oprId || url.searchParams.get("oprId") || undefined;
+      try {
+        const items = await timelineService.getFlightServices(found.flight.flightNid ?? url.searchParams.get("flightNid"), oprId);
+        sendJson(res, { ok: true, items, readAt: new Date().toISOString() });
+      } catch (error) {
+        sendFailure(res, 502, "Couldn't read this flight's services from Leon. Try again in a minute.", "flight-services", error);
+      }
+      return;
+    }
+
     if (pathname === "/api/flight-info" && req.method === "GET") {
       const flightNid = url.searchParams.get("flightNid");
       const oprId = url.searchParams.get("oprId") || "";

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="clearway-mobile-tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400..900&family=IBM+Plex+Mono:wght@400;500;600&family=Montserrat:wght@400..800&display=swap" rel="stylesheet">
+<style>body{background:var(--cw-bg-0);} a{color:var(--cw-accent-text);} a:hover{color:var(--cw-text-1);}</style>
+</helmet>
+<div style="width:100%;height:100%;position:relative;overflow:hidden;background:var(--cw-scrim);color:var(--cw-text-1);font-family:var(--cw-font);font-variant-numeric:tabular-nums slashed-zero;display:flex;flex-direction:column;">
+  <div style="height:56px;flex:none;"></div>
+  <div style="flex:1;min-height:0;background:var(--cw-bg-1);border-top:1px solid var(--cw-line-3);border-radius:24px 24px 0 0;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="flex:none;padding:8px 0 0;display:flex;justify-content:center;"><span style="width:40px;height:4px;border-radius:3px;background:var(--cw-line-3);"></span></div>
+
+    <sc-if value="{{ showMain }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:none;padding:4px 10px 8px 18px;border-bottom:1px solid var(--cw-line-1);display:flex;flex-direction:column;gap:2px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <span style="font-size:25px;font-weight:900;letter-spacing:-0.01em;color:var(--cw-text-1);">BYS1004</span>
+            <span style="height:24px;padding:0 9px;border-radius:6px;background:var(--cw-warn-soft);border:1px solid var(--cw-warn-line);font-size:10.5px;font-weight:900;letter-spacing:0.08em;color:var(--cw-warn);display:flex;align-items:center;">DELAYED</span>
+          </div>
+          <div onClick="{{ close }}" style="flex:none;width:44px;height:44px;border-radius:12px;background:var(--cw-surface-3);display:flex;align-items:center;justify-content:center;color:var(--cw-text-3);cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div>
+        </div>
+        <div style="height:44px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="font-size:13.5px;font-weight:700;color:var(--cw-text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">FC-OMU · Clearway</span>
+          <div style="display:flex;gap:6px;flex:none;">
+            <div onClick="{{ openPax }}" style="height:44px;display:flex;align-items:center;cursor:pointer;"><span style="height:34px;padding:0 10px;border-radius:9px;background:var(--cw-surface-3);border:1px solid var(--cw-line-3);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:var(--cw-text-1);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>PAX {{ paxCount }}</span></div>
+            <sc-if value="{{ hasLim }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ openLim }}" style="height:44px;display:flex;align-items:center;cursor:pointer;"><span style="height:34px;padding:0 10px;border-radius:9px;background:var(--chk-lim-bg);border:1px solid var(--chk-lim-line);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:900;color:var(--chk-lim-fg);">Limitations<span style="min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--chk-lim-fg);color:var(--chk-lim-bg);font-size:11px;display:flex;align-items:center;justify-content:center;">2</span></span></div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:14px 16px 16px;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:stretch;gap:8px;">
+          <div onClick="{{ openAdep }}" style="flex:1;min-width:0;padding:9px 11px;border-radius:12px;background:var(--cw-surface-2);border:1px solid var(--cw-line-3);display:flex;flex-direction:column;gap:3px;cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:7px;"><span style="font-size:24px;font-weight:900;color:var(--cw-text-1);">UUWW</span><span style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:900;color:var(--fc-vfr);"><i style="width:7px;height:7px;border-radius:50%;background:var(--fc-vfr);display:block;"></i>VFR</span></div>
+            <span style="font-size:12px;font-weight:800;color:var(--cw-accent-text);white-space:nowrap;">Weather · NOTAM 3 ›</span>
+          </div>
+          <div style="flex:none;width:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+            <span style="font-size:16px;font-weight:900;color:var(--cw-text-3);">→</span>
+            <span style="font-size:11px;font-weight:800;color:var(--cw-text-4);white-space:nowrap;">3h 10m</span>
+          </div>
+          <div onClick="{{ openAdes }}" style="flex:1;min-width:0;padding:9px 11px;border-radius:12px;background:var(--cw-surface-2);border:1px solid var(--cw-line-3);display:flex;flex-direction:column;align-items:flex-end;gap:3px;cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:7px;"><span style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:900;color:var(--fc-ifr);"><i style="width:7px;height:7px;border-radius:50%;background:var(--fc-ifr);display:block;"></i>IFR</span><span style="font-size:24px;font-weight:900;color:var(--cw-text-1);">UBBQ</span></div>
+            <span style="font-size:12px;font-weight:800;color:var(--cw-accent-text);white-space:nowrap;">Weather · NOTAM 1 ›</span>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px;">
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            <div style="display:flex;gap:8px;align-items:baseline;"><span style="font-size:11px;font-weight:800;color:var(--cw-text-4);width:30px;">STD</span><span style="font-size:14px;font-weight:800;color:var(--cw-text-2);">10:30Z</span></div>
+            <div style="display:flex;gap:8px;align-items:baseline;"><span style="font-size:11px;font-weight:800;color:var(--cw-text-4);width:30px;">ETD</span><span style="font-size:15px;font-weight:900;color:var(--cw-text-1);">10:50Z</span><span style="font-size:13px;font-weight:900;color:var(--cw-warn);">+20</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
+            <div style="display:flex;gap:8px;align-items:baseline;"><span style="font-size:11px;font-weight:800;color:var(--cw-text-4);">STA</span><span style="font-size:14px;font-weight:800;color:var(--cw-text-2);">13:40Z</span></div>
+            <div style="display:flex;gap:8px;align-items:baseline;"><span style="font-size:11px;font-weight:800;color:var(--cw-text-4);">ETA</span><span style="font-size:15px;font-weight:900;color:var(--cw-text-1);">14:00Z</span><span style="font-size:13px;font-weight:900;color:var(--cw-warn);">+20</span></div>
+          </div>
+        </div>
+
+        <sc-if value="{{ mapOff }}" hint-placeholder-val="{{ true }}">
+          <div style="border-radius:14px;border:1px solid var(--cw-line-2);background-color:var(--cw-surface-1);background-image:linear-gradient(var(--cw-line-1) 1px,transparent 1px),linear-gradient(90deg,var(--cw-line-1) 1px,transparent 1px);background-size:28px 28px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="height:20px;padding:0 6px;border-radius:5px;background:var(--cw-surface-3);border:1px solid var(--cw-line-3);font-size:10px;font-weight:900;letter-spacing:0.06em;color:var(--cw-text-3);display:flex;align-items:center;">FR24</span><span style="font-size:14px;font-weight:800;color:var(--cw-text-1);">Live tracking isn’t connected yet</span></div>
+            <div style="font-size:12.5px;line-height:1.5;color:var(--cw-text-3);text-wrap:pretty;">The map fills in once the FlightRadar24 data feed is set up. Times and status above come from Leon and are current.</div>
+            <div style="align-self:flex-start;height:44px;padding:0 14px;border-radius:11px;background:var(--cw-surface-3);border:1px solid var(--cw-line-3);display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:800;color:var(--cw-text-1);cursor:pointer;">Open BYS1004 in FlightRadar24<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ mapLive }}" hint-placeholder-val="{{ false }}">
+          <div style="height:170px;border-radius:14px;border:1px solid var(--cw-line-2);background-color:var(--cw-surface-1);background-image:linear-gradient(var(--cw-line-1) 1px,transparent 1px),linear-gradient(90deg,var(--cw-line-1) 1px,transparent 1px);background-size:28px 28px;position:relative;overflow:hidden;">
+            <span style="position:absolute;left:12%;top:68%;width:58%;height:0;border-top:2px dashed var(--cw-line-3);transform:rotate(-18deg);transform-origin:left;"></span>
+            <span style="position:absolute;left:12%;top:68%;width:26%;height:0;border-top:2px solid var(--st-airborne);transform:rotate(-18deg);transform-origin:left;"></span>
+            <span style="position:absolute;left:10%;top:64%;font-size:10px;font-weight:900;color:var(--cw-text-3);">UUWW</span>
+            <span style="position:absolute;left:66%;top:34%;font-size:10px;font-weight:900;color:var(--cw-text-3);">UBBQ</span>
+            <span style="position:absolute;left:35%;top:52%;width:14px;height:14px;background:var(--cw-text-1);clip-path:polygon(50% 0,100% 100%,50% 75%,0 100%);transform:rotate(72deg);"></span>
+            <div style="position:absolute;left:8px;right:8px;bottom:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <span style="height:24px;padding:0 8px;border-radius:6px;background:var(--cw-bg-1);border:1px solid var(--cw-line-3);font-size:11.5px;font-weight:900;color:var(--cw-text-1);display:flex;align-items:center;">FL350 · 452 kt</span>
+              <span style="height:24px;padding:0 8px;border-radius:6px;background:var(--cw-bg-1);border:1px solid var(--cw-line-3);font-size:11.5px;font-weight:700;color:var(--cw-text-3);display:flex;align-items:center;">updated 12 s ago</span>
+              <span style="margin-left:auto;font-size:10px;font-weight:900;letter-spacing:0.06em;color:var(--cw-text-4);">FR24</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <div onClick="{{ openServices }}" style="min-height:56px;padding:0 14px;border-radius:12px;background:var(--cw-surface-2);border:1px solid var(--cw-line-3);display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <span style="flex:1;font-size:15px;font-weight:800;color:var(--cw-text-1);">Service status</span>
+          <span style="height:22px;padding:0 8px;border-radius:6px;background:var(--cw-warn);color:var(--cw-on-solid);font-size:11px;font-weight:900;display:flex;align-items:center;">1 awaiting</span>
+          <span style="font-size:12.5px;font-weight:700;color:var(--cw-text-3);">9 answered</span>
+          <span style="font-size:18px;color:var(--cw-text-3);">›</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div onClick="{{ openChecks }}" style="min-height:44px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+            <span style="font-size:11px;font-weight:900;letter-spacing:0.12em;color:var(--cw-text-3);">LIMITATIONS AND CAA</span>
+            <span style="font-size:13px;font-weight:800;color:var(--cw-accent-text);">{{ checksLink }}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;">
+            <sc-for list="{{ checks }}" as="c" hint-placeholder-count="5">
+              <div style="padding:8px 2px 7px;border-radius:10px;background:{{ c.cellBg }};border:1px {{ c.cellStyle }} {{ c.cellLine }};display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;">
+                <span style="height:20px;padding:0 6px;border-radius:5px;background:{{ c.b }};color:{{ c.c }};border:1px solid {{ c.br }};font-size:10px;font-weight:900;display:flex;align-items:center;">{{ c.k }}</span>
+                <span style="font-size:11.5px;font-weight:900;color:{{ c.stColor }};white-space:nowrap;">{{ c.l1 }}</span>
+                <span style="font-size:11px;font-weight:700;color:var(--cw-text-3);white-space:nowrap;">{{ c.l2 }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:none;border-top:1px solid var(--cw-line-1);padding:12px 16px 26px;background:var(--cw-bg-2);">
+        <sc-if value="{{ optA }}" hint-placeholder-val="{{ true }}">
+          <div onClick="{{ markAll }}" style="height:50px;border-radius:12px;background:{{ markBg }};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:{{ markFg }};cursor:pointer;">{{ markLabel }}</div>
+        </sc-if>
+        <sc-if value="{{ optB }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
+              <span style="font-size:14px;font-weight:800;color:var(--cw-text-1);">{{ doneN }} of 5 checked</span>
+              <div style="display:flex;gap:3px;"><sc-for list="{{ checks }}" as="c" hint-placeholder-count="5"><span style="flex:1;height:4px;border-radius:2px;background:{{ c.seg }};"></span></sc-for></div>
+            </div>
+            <sc-if value="{{ nextOpen }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ nextOpen.on }}" style="flex:none;height:48px;padding:0 14px;border-radius:12px;background:var(--cw-surface-3);border:1px solid var(--cw-line-3);display:flex;align-items:center;font-size:14px;font-weight:800;color:var(--cw-text-1);cursor:pointer;white-space:nowrap;">{{ nextOpen.label }}</div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ mainLoading }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:14px 18px;display:flex;flex-direction:column;gap:14px;">
+        <div style="width:150px;height:28px;border-radius:8px;background:var(--cw-surface-3);"></div>
+        <div style="width:200px;height:16px;border-radius:6px;background:var(--cw-surface-3);opacity:0.7;"></div>
+        <div style="display:flex;gap:8px;"><div style="flex:1;height:64px;border-radius:12px;background:var(--cw-surface-2);"></div><div style="flex:1;height:64px;border-radius:12px;background:var(--cw-surface-2);"></div></div>
+        <div style="height:150px;border-radius:14px;background:var(--cw-surface-1);"></div>
+        <div style="height:56px;border-radius:12px;background:var(--cw-surface-2);opacity:0.6;"></div>
+        <div style="font-size:13px;font-weight:700;color:var(--cw-text-3);">Loading BYS1004 from Leon…</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ mainMsg }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:6px 10px 0 18px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:25px;font-weight:900;color:var(--cw-text-1);">BYS1004</span>
+        <div onClick="{{ close }}" style="width:44px;height:44px;border-radius:12px;background:var(--cw-surface-3);display:flex;align-items:center;justify-content:center;color:var(--cw-text-3);cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div>
+      </div>
+      <div style="margin:18px 16px;padding:16px;border-radius:14px;background:var(--cw-surface-2);border:1px solid {{ mainMsg.line }};display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;">
+        <div style="font-size:16px;font-weight:800;color:var(--cw-text-1);">{{ mainMsg.title }}</div>
+        <div style="font-size:13.5px;line-height:1.5;color:var(--cw-text-3);text-wrap:pretty;">{{ mainMsg.body }}</div>
+        <div style="margin-top:4px;height:44px;padding:0 18px;border-radius:12px;background:{{ mainMsg.btnBg }};display:flex;align-items:center;font-size:14px;font-weight:800;color:{{ mainMsg.btnFg }};cursor:pointer;">{{ mainMsg.btn }}</div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ sheet }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;z-index:10;background:var(--cw-scrim);"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;z-index:11;height:{{ sheet.h }};background:var(--cw-bg-1);border-top:1px solid var(--cw-line-3);border-radius:22px 22px 0 0;display:flex;flex-direction:column;">
+      <div style="flex:none;padding:8px 0 0;display:flex;justify-content:center;"><span style="width:40px;height:4px;border-radius:3px;background:var(--cw-line-3);"></span></div>
+      <div style="flex:none;padding:4px 8px 10px 18px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+          <span style="font-size:19px;font-weight:900;color:var(--cw-text-1);">{{ sheet.title }}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--cw-text-3);">{{ sheet.sub }}</span>
+        </div>
+        <div onClick="{{ closeSheet }}" style="flex:none;width:44px;height:44px;border-radius:12px;background:var(--cw-surface-3);display:flex;align-items:center;justify-content:center;color:var(--cw-text-3);cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></div>
+      </div>
+
+      <sc-if value="{{ isAirport }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:none;padding:0 16px 10px;">
+          <div style="display:flex;gap:3px;height:44px;padding:3px;border-radius:12px;background:var(--cw-surface-2);border:1px solid var(--cw-line-2);">
+            <sc-for list="{{ apTabs }}" as="t" hint-placeholder-count="2">
+              <div onClick="{{ t.on }}" style="flex:1;border-radius:9px;background:{{ t.bg }};color:{{ t.fg }};display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;font-weight:800;cursor:pointer;">{{ t.label }}<span style="font-size:11px;font-weight:900;opacity:0.8;">{{ t.n }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="flex:1;min-height:0;position:relative;overflow-y:auto;scrollbar-width:none;border-top:1px solid var(--cw-line-1);padding:12px 16px 20px;display:flex;flex-direction:column;gap:10px;">
+
+        <sc-if value="{{ privacyNote }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--cw-surface-1);border:1px solid var(--cw-line-2);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none;margin-top:2px;color:var(--cw-text-3);"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+            <span style="font-size:12.5px;line-height:1.5;color:var(--cw-text-3);text-wrap:pretty;">Passport data. Document numbers and dates of birth stay hidden until you tap a passenger, and hide again when you close this list.</span>
+          </div>
+        </sc-if>
+
+        <sc-for list="{{ pax }}" as="p" hint-placeholder-count="2">
+          <div onClick="{{ p.toggle }}" style="flex:none;border-radius:12px;background:var(--cw-surface-2);border:1px solid {{ p.line }};padding:11px 13px 10px;display:flex;flex-direction:column;gap:9px;cursor:pointer;">
+            <div style="display:flex;align-items:flex-start;gap:9px;">
+              <span style="font-size:12px;font-weight:800;color:var(--cw-text-4);padding-top:2px;">{{ p.i }}</span>
+              <span style="flex:1;min-width:0;font-size:15px;font-weight:900;color:var(--cw-text-1);line-height:1.3;overflow-wrap:anywhere;">{{ p.surname }} <span style="font-weight:700;color:var(--cw-text-2);">{{ p.name }}</span></span>
+              <span style="flex:none;width:24px;height:22px;border-radius:5px;background:var(--cw-surface-4);font-size:11px;font-weight:900;color:var(--cw-text-2);display:flex;align-items:center;justify-content:center;">{{ p.sex }}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:8px 12px;">
+              <sc-for list="{{ p.fields }}" as="f" hint-placeholder-count="6">
+                <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+                  <span style="font-size:10px;font-weight:900;letter-spacing:0.08em;color:var(--cw-text-4);">{{ f.l }}</span>
+                  <span style="font-size:14px;font-weight:800;color:{{ f.c }};letter-spacing:{{ f.ls }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ f.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:{{ p.hintColor }};">{{ p.hint }}</div>
+          </div>
+        </sc-for>
+
+        <sc-for list="{{ lims }}" as="l" hint-placeholder-count="2">
+          <div style="flex:none;border-radius:12px;background:var(--cw-surface-2);border:1px solid var(--cw-line-2);padding:12px 13px;display:flex;flex-direction:column;gap:7px;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="height:20px;padding:0 6px;border-radius:5px;background:var(--cw-surface-4);font-size:11px;font-weight:900;color:var(--cw-text-1);display:flex;align-items:center;">{{ l.ap }}</span><span style="font-size:14.5px;font-weight:800;color:var(--cw-text-1);">{{ l.title }}</span></div>
+            <div style="font-size:13.5px;line-height:1.5;color:var(--cw-text-2);text-wrap:pretty;">{{ l.body }}</div>
+            <div style="font-size:12px;font-weight:700;color:var(--cw-text-4);">{{ l.valid }}</div>
+          </div>
+        </sc-for>
+
+        <sc-for list="{{ wx }}" as="x" hint-placeholder-count="2">
+          <div style="flex:none;border-radius:12px;background:var(--cw-surface-2);border:1px solid var(--cw-line-2);padding:12px 13px;display:flex;flex-direction:column;gap:9px;opacity:{{ x.o }};">
+            <div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;font-weight:900;letter-spacing:0.1em;color:var(--cw-text-3);">{{ x.kind }}</span><span style="font-size:12px;font-weight:700;color:var(--cw-text-4);">{{ x.when }}</span></div>
+            <sc-if value="{{ x.grid }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+                <sc-for list="{{ x.grid }}" as="g" hint-placeholder-count="6">
+                  <div style="display:flex;flex-direction:column;gap:1px;min-width:0;"><span style="font-size:10px;font-weight:900;letter-spacing:0.08em;color:var(--cw-text-4);">{{ g.l }}</span><span style="font-size:14px;font-weight:800;color:{{ g.c }};">{{ g.v }}</span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <div style="font-family:var(--cw-font-raw);font-size:12px;line-height:1.55;color:var(--cw-text-2);white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 10px;border-radius:8px;background:var(--cw-bg-1);">{{ x.raw }}</div>
+          </div>
+        </sc-for>
+
+        <sc-for list="{{ notams }}" as="n" hint-placeholder-count="3">
+          <div style="flex:none;border-radius:12px;background:var(--cw-surface-2);border:1px solid {{ n.line }};padding:12px 13px;display:flex;flex-direction:column;gap:7px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span style="font-size:12.5px;font-weight:900;color:var(--cw-text-2);">{{ n.id }}</span><sc-if value="{{ n.isNew }}" hint-placeholder-val="{{ false }}"><span style="height:20px;padding:0 6px;border-radius:5px;background:var(--chk-ntm-bg);color:var(--chk-ntm-fg);border:1px solid var(--chk-ntm-line);font-size:10px;font-weight:900;display:flex;align-items:center;">NEW</span></sc-if></div>
+            <div style="font-size:14.5px;font-weight:800;line-height:1.35;color:var(--cw-text-1);text-wrap:pretty;">{{ n.title }}</div>
+            <div style="font-size:12.5px;font-weight:700;color:var(--cw-text-3);">{{ n.when }}</div>
+            <div style="font-family:var(--cw-font-raw);font-size:11.5px;line-height:1.55;color:var(--cw-text-3);white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 10px;border-radius:8px;background:var(--cw-bg-1);">{{ n.raw }}</div>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{ svcSummary }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-bottom:2px;">
+            <span style="height:26px;padding:0 9px;border-radius:7px;background:var(--cw-warn);color:var(--cw-on-solid);font-size:12px;font-weight:900;display:flex;align-items:center;gap:6px;"><i style="width:7px;height:7px;border-radius:50%;background:var(--cw-on-solid);display:block;"></i>1 awaiting reply</span>
+            <span style="font-size:13px;font-weight:700;color:var(--cw-text-3);">9 answered</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ svcRows.length }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:none;border-radius:12px;border:1px solid var(--cw-line-2);overflow:hidden;">
+            <sc-for list="{{ svcRows }}" as="r" hint-placeholder-count="6">
+              <div style="padding:11px 13px;background:{{ r.bg }};border-top:1px solid var(--cw-line-1);display:flex;flex-direction:column;gap:6px;opacity:{{ r.o }};">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                  <div style="display:flex;flex-direction:column;gap:1px;min-width:0;"><span style="font-size:12.5px;font-weight:900;letter-spacing:0.04em;color:var(--cw-text-1);line-height:1.35;">{{ r.name }}</span><sc-if value="{{ r.meta }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;color:var(--cw-text-3);">{{ r.meta }}</span></sc-if></div>
+                  <span style="flex:none;height:24px;padding:0 8px;border-radius:6px;background:{{ r.badge.bg }};color:{{ r.badge.fg }};border:1px solid {{ r.badge.line }};font-size:11.5px;font-weight:900;display:flex;align-items:center;gap:5px;white-space:nowrap;">{{ r.badge.label }}</span>
+                </div>
+                <sc-for list="{{ r.lines }}" as="ln" hint-placeholder-count="1">
+                  <span style="font-size:13px;line-height:1.4;color:{{ ln.c }};text-decoration:{{ ln.u }};overflow-wrap:anywhere;">{{ ln.t }}</span>
+                </sc-for>
+                <sc-for list="{{ r.groups }}" as="g" hint-placeholder-count="1">
+                  <div style="margin-top:2px;padding:9px 10px;border-radius:9px;background:var(--cw-bg-1);border:1px solid var(--cw-line-1);display:flex;flex-direction:column;gap:3px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span style="font-size:13.5px;font-weight:800;color:var(--cw-text-1);">{{ g.h }}</span><span style="height:22px;padding:0 7px;border-radius:6px;background:var(--cw-ok-soft);color:var(--cw-ok);border:1px solid var(--cw-ok-line);font-size:11px;font-weight:900;display:flex;align-items:center;">✓ Confirmed</span></div>
+                    <sc-for list="{{ g.lines }}" as="ln" hint-placeholder-count="4"><span style="font-size:13px;line-height:1.4;color:var(--cw-text-2);">{{ ln }}</span></sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ naLine }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ toggleNA }}" style="flex:none;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:700;color:var(--cw-text-3);cursor:pointer;">{{ naLine }}</div>
+        </sc-if>
+
+        <sc-for list="{{ checkRows }}" as="c" hint-placeholder-count="4">
+          <div style="flex:none;border-radius:12px;background:var(--cw-surface-2);border:1px solid var(--cw-line-2);padding:11px 13px;display:flex;flex-direction:column;gap:7px;">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <span style="height:22px;padding:0 7px;border-radius:5px;background:{{ c.b }};color:{{ c.c }};border:1px solid {{ c.br }};font-size:10.5px;font-weight:900;display:flex;align-items:center;">{{ c.k }}</span>
+              <span style="flex:1;font-size:14.5px;font-weight:800;color:var(--cw-text-1);">{{ c.name }}</span>
+              <span style="font-size:12.5px;font-weight:900;color:{{ c.stColor }};white-space:nowrap;">{{ c.stLong }}</span>
+            </div>
+            <div style="font-size:13px;line-height:1.5;color:var(--cw-text-2);text-wrap:pretty;">{{ c.body }}</div>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{ sheetSkel }}" hint-placeholder-val="{{ false }}">
+          <div style="height:120px;border-radius:12px;background:var(--cw-surface-2);"></div>
+          <div style="height:120px;border-radius:12px;background:var(--cw-surface-2);opacity:0.6;"></div>
+          <div style="height:120px;border-radius:12px;background:var(--cw-surface-2);opacity:0.3;"></div>
+        </sc-if>
+        <sc-if value="{{ sheetMsg }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:none;padding:16px;border-radius:14px;background:var(--cw-surface-2);border:1px solid {{ sheetMsg.line }};display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;">
+            <div style="font-size:15.5px;font-weight:800;color:var(--cw-text-1);">{{ sheetMsg.title }}</div>
+            <div style="font-size:13.5px;line-height:1.5;color:var(--cw-text-3);text-wrap:pretty;">{{ sheetMsg.body }}</div>
+            <sc-if value="{{ sheetMsg.btn }}" hint-placeholder-val="{{ false }}"><div style="margin-top:4px;height:44px;padding:0 18px;border-radius:12px;background:var(--cw-accent);display:flex;align-items:center;font-size:14px;font-weight:800;color:var(--cw-on-accent);cursor:pointer;">{{ sheetMsg.btn }}</div></sc-if>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ sheetThumb }}" hint-placeholder-val="{{ false }}">
+        <span style="position:absolute;right:4px;top:{{ sheetThumb }};width:3px;height:90px;border-radius:2px;background:var(--cw-line-3);z-index:12;"></span>
+      </sc-if>
+
+      <sc-if value="{{ sheetFoot }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:none;border-top:1px solid var(--cw-line-1);padding:12px 16px 26px;background:var(--cw-bg-2);display:flex;align-items:center;gap:12px;">
+          <span style="flex:1;min-width:0;font-size:13px;line-height:1.4;font-weight:700;color:var(--cw-text-3);">{{ sheetFoot.note }}</span>
+          <sc-if value="{{ sheetFoot.btn }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ sheetFoot.on }}" style="flex:none;height:48px;padding:0 16px;border-radius:12px;background:{{ sheetFoot.bg }};display:flex;align-items:center;font-size:14.5px;font-weight:800;color:{{ sheetFoot.fg }};cursor:pointer;white-space:nowrap;">{{ sheetFoot.btn }}</div>
+          </sc-if>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;popup&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;pax&quot;,&quot;pax12&quot;,&quot;paxRevealed&quot;,&quot;paxLoading&quot;,&quot;paxEmpty&quot;,&quot;paxFailed&quot;,&quot;lim&quot;,&quot;airport&quot;,&quot;airportNotams&quot;,&quot;airportLong&quot;,&quot;airportNone&quot;,&quot;airportFailed&quot;,&quot;services&quot;,&quot;servicesNA&quot;,&quot;servicesLoading&quot;,&quot;servicesFailed&quot;,&quot;servicesEmpty&quot;,&quot;checks&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;checks&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A&quot;,&quot;B&quot;],&quot;default&quot;:&quot;A&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;hasLim&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;map&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;off&quot;,&quot;live&quot;],&quot;default&quot;:&quot;off&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;state&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;loading&quot;,&quot;failed&quot;,&quot;gone&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;allChecked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;embedded&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;boolean&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+const CHK = [
+  { k: 'IMP', name: 'Important', body: 'Crew to carry printed GenDec; VIPPORT will not accept it on a tablet.' },
+  { k: 'NTM', name: 'NOTAM', body: 'UUWW 3 in force (1 new) · UBBQ 1 in force. Tap an airport on the flight to read them.' },
+  { k: 'WX', name: 'Weather', body: 'UUWW VFR · UBBQ IFR, BKN008 with TEMPO 1500 BR until 14:00 UTC.' },
+  { k: 'CAA', name: 'CAA', body: 'Russian Federation: landing permit FAVT 52/2909-26. Azerbaijan: AZA-2656/01.10.26. Both confirmed.' },
+  { k: 'LIM', name: 'Limitations', body: 'UBBQ night curfew; UUWW GenDec 2 h before departure.' }
+];
+const ck = k => { const t = k.toLowerCase(); return { b: `var(--chk-${t}-bg)`, c: `var(--chk-${t}-fg)`, br: `var(--chk-${t}-line)` }; };
+// Invented passengers (replaced on import, 2026-10-28: the repo holds no real passenger data). Expiry dates kept, the
+// design's "soon" marker reads them.
+const PAX = [
+  ['EXAMPLE', 'Anna', 'F', '1900-01-01', 'XX 0000001', 'XXX', '2031-06-07', 'XX 0000001'],
+  ['SAMPLE', 'Boris', 'M', '1900-01-02', 'XX 0000002', 'XXX', '2031-06-05', 'XX 0000002'],
+  ['PLACEHOLDER', 'Clara', 'F', '1900-01-03', 'XX 0000003', 'XXX', '2029-11-30', 'XX 0000003'],
+  ['INVENTED', 'Davit', 'M', '1900-01-04', 'XX 0000004', 'XXX', '2030-04-14', 'XX 0000004'],
+  ['FICTIVE', 'Elif', 'F', '1900-01-05', 'XX 0000005', 'XXX', '2032-02-18', 'XX 0000005'],
+  ['MADEUP', 'Farid', 'M', '1900-01-06', 'XX 0000006', 'XXX', '2028-12-01', 'XX 0000006'],
+  ['TESTOV', 'Gleb', 'M', '1900-01-07', 'XX 0000007', 'XXX', '2027-08-22', 'XX 0000007'],
+  ['DUMMY', 'Hana', 'F', '1900-01-08', 'XX 0000008', 'XXX', '2031-01-09', 'XX 0000008'],
+  ['LONGNAME-OF-EXAMPLE', 'Irina-Maria', 'F', '1900-01-09', 'XX 0000009', 'XXX', '2033-05-27', 'XX 0000009'],
+  ['NOTREAL', 'Jamal', 'M', '1900-01-10', 'XX 0000010', 'XXX', '2030-09-15', 'XX 0000010'],
+  ['IMAGINED', 'Kira', 'F', '1900-01-11', 'XX 0000011', 'XXX', '2026-12-04', 'XX 0000011'],
+  ['PRETEND', 'Lev', 'M', '1900-01-12', 'XX 0000012', 'XXX', '2031-03-03', 'XX 0000012']
+];
+const mask = v => '•••••' + v.slice(-2);
+const NOTAMS = [
+  { id: 'A3418/26', isNew: true, title: 'Runway 01/19 closed for maintenance', when: '07 OCT 21:00 – 08 OCT 03:00 UTC', raw: 'A3418/26 NOTAMN\nQ) UUWV/QMRLC/IV/NBO/A/000/999/5536N03716E005\nA) UUWW B) 2610072100 C) 2610080300\nE) RWY 01/19 CLSD DUE TO MAINT.' },
+  { id: 'A3392/26', title: 'Taxiway M closed between M2 and M4', when: 'Until 15 OCT 23:59 UTC', raw: 'A3392/26 NOTAMN\nA) UUWW B) 2610010000 C) 2610152359\nE) TWY M BTN TWY M2 AND M4 CLSD.' },
+  { id: 'A3350/26', title: 'ILS runway 24 glide path unserviceable', when: 'Until 09 OCT 18:00 UTC', raw: 'A3350/26 NOTAMN\nA) UUWW B) 2609281200 C) 2610091800\nE) ILS RWY 24 GP U/S. LOC AVBL.' }
+];
+const EXTRA = ['Crane 46 m AGL 1.2 km NE of ARP, lit', 'Apron 3 stands 31–34 closed', 'Bird activity reported, RWY 06/24', 'VOR VNK unserviceable', 'PAPI RWY 19 unserviceable', 'Fuel: Jet A-1 by prior request only', 'De-icing pad D2 closed', 'ATIS frequency changed to 126.775', 'Parachute jumping 12 km S, up to FL120', 'Taxiway K wingspan limited to 36 m', 'Obstacle light U/S on mast 3.4 km W'];
+const SVC = [
+  { name: 'ATC FLIGHT PLAN', s: 'ack', lines: [] },
+  { name: 'NOTAM', s: 'ack', lines: [] },
+  { name: 'OPERATIONAL FLIGHT PLAN', s: 'yes', lines: [] },
+  { name: 'LANDING PERMIT(S)', s: 'conf', lines: ['290635 / 300824'], groups: [{ h: 'Russian Federation', lines: ['Sup: CAA', 'No: FAVT 52/2909-26', 'Validity: 48', 'Revalidation: 0'] }, { h: 'Azerbaijan', lines: ['Sup: CAA', 'No: AZA-2656/01.10.26', 'Validity: 72', 'Revalidation: 0'] }] },
+  { name: 'OVERFLIGHT PERMIT(S)', s: 'na', lines: [] },
+  { name: 'SLOT (UUWW)', meta: 'STD 10:30', s: 'conf', lines: ['VIPPORT VNUKOVO-3', 'K BYS1004 03OCT 004H25 10300BB D', '280440 / 280555', '290904 / 291007', '300806 / 300929'] },
+  { name: 'SLOT (UBBQ)', meta: 'STA 13:40', s: 'conf', lines: ['ASG BUSINESS AVIATION', 'ARR 1340Z', '211257 / 240904', '241443 / 281401'] },
+  { name: 'FUEL [KG]', s: 'yes', lines: ['VIA VIPPORT', '280440 / 280555'] },
+  { name: 'WEATHER & NOTAMS', s: 'yes', lines: [] },
+  { name: 'SUPERVISION', s: 'na', lines: [] },
+  { name: 'PASSENGER HANDLING ADEP', s: 'conf', lines: ['VKO-3', '280440 / 280555'] },
+  { name: 'HANDLING (UUWW)', s: 'conf', lines: ['VIPPORT VNUKOVO-3', 'https://vis.vipport.ru/#/flight/a1LJv', '280440 / 280555', '290904 / 291007'] },
+  { name: 'HANDLING (UBBQ)', s: 'none', lines: ['ASG BUSINESS AVIATION', 'Requested 04 OCT 09:12 UTC'] },
+  { name: 'CREW HOTEL', s: 'na', lines: [] }
+];
+const STRIP = /^\s*\d{6}\s*\/\s*\d{6}\s*$/;
+const BADGE = {
+  ack: { label: 'Acknowledged', bg: 'var(--cw-accent-soft)', fg: 'var(--cw-accent-text)', line: 'var(--cw-accent-line)' },
+  yes: { label: 'Yes', bg: 'var(--cw-ok-soft)', fg: 'var(--cw-ok)', line: 'var(--cw-ok-line)' },
+  conf: { label: '✓ Confirmed', bg: 'var(--cw-ok-soft)', fg: 'var(--cw-ok)', line: 'var(--cw-ok-line)' },
+  na: { label: 'Not applicable', bg: 'transparent', fg: 'var(--cw-text-3)', line: 'var(--cw-line-3)' },
+  none: { label: '● Awaiting reply', bg: 'var(--cw-warn)', fg: 'var(--cw-on-solid)', line: 'var(--cw-warn)' }
+};
+
+class Component extends DCLogic {
+  state = {};
+  st() {
+    const p = this.props, pop = p.popup || 'none';
+    const done = { IMP: ['JTA', '10:05'], NTM: ['JTA', '10:05'], WX: ['JTA', '10:05'] };
+    if (p.allChecked) { done.CAA = ['JTA', '10:06']; done.LIM = ['JTA', '10:06']; }
+    return { pop, revealed: pop === 'paxRevealed' ? 0 : null, apTab: /Notams|Long/.test(pop) ? 'notam' : 'wx', showNA: pop === 'servicesNA', done, ...this.state };
+  }
+  renderVals() {
+    const p = this.props, S = this.st(), set = o => this.setState(o);
+    const optB = p.checks === 'B';
+    const hasLim = p.hasLim ?? true;
+    const done = { ...S.done };
+    if (!hasLim) done.LIM = ['—', 'none'];
+    const mark = keys => { const d = { ...S.done }; keys.forEach(k => { if (!d[k]) d[k] = ['AKR', '10:12']; }); set({ done: d }); };
+    const checks = CHK.map(c => {
+      const d = done[c.k], none = d && d[1] === 'none';
+      return { ...c, ...ck(c.k), cellBg: d ? 'var(--cw-surface-2)' : 'transparent', cellStyle: d ? 'solid' : 'dashed', cellLine: d ? 'var(--cw-line-2)' : 'var(--cw-warn-line)',
+        l1: none ? 'None' : d ? '✓ ' + d[0] : 'To check', l2: none ? 'on flight' : d ? d[1] : '—', stColor: none ? 'var(--cw-text-3)' : d ? 'var(--cw-ok)' : 'var(--cw-warn)',
+        stLong: none ? 'None on flight' : d ? '✓ ' + d[0] + ' ' + d[1] : 'Not checked', seg: d ? 'var(--cw-ok)' : 'var(--cw-surface-4)' };
+    });
+    const doneN = checks.filter(c => done[c.k]).length;
+    const close = () => { if (p.onClose) p.onClose(); };
+    const pop = S.pop;
+    const openP = k => () => set({ pop: k, revealed: null, apTab: 'wx', ap: undefined });
+    const closeSheet = () => set({ pop: 'none', revealed: null });
+    const bottomKeys = ['IMP', 'NTM', 'WX', 'CAA'];
+    const firstOpen = checks.find(c => !done[c.k]);
+
+    let sheet = null, pax = [], lims = [], wx = [], notams = [], svcRows = [], checkRows = [], sheetMsg = null, sheetSkel = false, sheetFoot = null, privacyNote = false, isAirport = false, apTabs = [], svcSummary = false, naLine = null, sheetThumb = null;
+    const full = '88%';
+    if (pop.startsWith('pax')) {
+      const many = pop === 'pax12' || pop === 'paxRevealed';
+      const list = pop === 'pax' ? PAX.slice(0, 2) : many ? PAX : [];
+      sheet = { title: 'Passengers', sub: (pop === 'paxEmpty' ? '0' : list.length || 2) + ' of 12 seats · from Leon', h: many ? full : pop === 'pax' ? '62%' : '50%' };
+      privacyNote = !['paxFailed'].includes(pop);
+      pax = list.map((r, i) => {
+        const shown = S.revealed === i;
+        const soon = r[6] < '2027-04-06';
+        const M = v => shown ? v : mask(v);
+        const mc = shown ? 'var(--cw-text-1)' : 'var(--cw-text-3)', ls = shown ? '0' : '0.06em';
+        return { i: String(i + 1).padStart(2, '0'), surname: r[0], name: r[1], sex: r[2], line: shown ? 'var(--cw-accent-line)' : 'var(--cw-line-2)',
+          fields: [{ l: 'DATE OF BIRTH', v: M(r[3]), c: mc, ls }, { l: 'DOC COUNTRY', v: r[5], c: 'var(--cw-text-1)', ls: '0' }, { l: 'DEPARTURE DOC', v: M(r[4]), c: mc, ls }, { l: 'DOC EXPIRES', v: r[6] + (soon ? ' · soon' : ''), c: soon ? 'var(--cw-warn)' : 'var(--cw-text-1)', ls: '0' }, { l: 'ARRIVAL DOC', v: M(r[7]), c: mc, ls }],
+          hint: shown ? 'Showing documents · tap to hide' : 'Tap to show documents', hintColor: shown ? 'var(--cw-accent-text)' : 'var(--cw-text-4)',
+          toggle: () => set({ revealed: S.revealed === i ? null : i }) };
+      });
+      if (pop === 'paxLoading') sheetSkel = true;
+      if (pop === 'paxEmpty') sheetMsg = { title: 'No passengers in Leon yet', body: 'The manifest for BYS1004 hasn’t been entered. 12 seats on this aircraft.', line: 'var(--cw-line-2)' };
+      if (pop === 'paxFailed') sheetMsg = { title: 'Couldn’t load passengers', body: 'Leon didn’t answer. Nothing is cached on this phone, by design.', btn: 'Retry', line: 'var(--cw-bad-line)' };
+      if (many) sheetThumb = '170px';
+    } else if (pop === 'lim') {
+      sheet = { title: 'Limitations', sub: '2 on this flight', h: '62%' };
+      lims = [
+        { ap: 'UBBQ', title: 'Night curfew', body: 'No arrivals 22:00–06:00 local (18:00–02:00 UTC) without prior permission from the airport authority.', valid: 'Permanent' },
+        { ap: 'UUWW', title: 'VIP terminal — GenDec', body: 'Crew submit the General Declaration to VIPPORT Vnukovo-3 at least 2 hours before departure.', valid: 'Until 31 OCT 2026' }
+      ];
+      const d = done.LIM;
+      sheetFoot = optB ? { note: d ? 'Limitations ✓ ' + d[0] + ' ' + d[1] : 'Limitations not checked yet', btn: d ? null : 'Mark checked', on: () => mark(['LIM']), bg: 'var(--cw-accent)', fg: 'var(--cw-on-accent)' } : { note: 'Read only. Mark checked is at the bottom of the flight.' };
+    } else if (pop.startsWith('airport')) {
+      isAirport = true;
+      const ades = S.ap === 'UBBQ' || pop === 'airportNone';
+      const code = ades ? 'UBBQ' : 'UUWW';
+      const nN = pop === 'airportLong' ? 14 : pop === 'airportNone' ? 0 : ades ? 1 : 3;
+      sheet = { title: code, sub: ades ? 'Baku Heydar Aliyev · arrival' : 'Moscow Vnukovo · departure', h: full };
+      apTabs = [{ k: 'wx', label: 'Weather', n: '' }, { k: 'notam', label: 'NOTAMs', n: pop === 'airportFailed' ? '' : String(nN) }].map(t => ({ ...t, bg: S.apTab === t.k ? 'var(--cw-text-1)' : 'transparent', fg: S.apTab === t.k ? 'var(--cw-on-solid)' : 'var(--cw-text-3)', on: () => set({ apTab: t.k }) }));
+      if (pop === 'airportFailed') {
+        sheetMsg = { title: 'Couldn’t fetch weather or NOTAMs for UUWW', body: 'The last good data, from 08:12 UTC, is below and may be out of date.', btn: 'Retry', line: 'var(--cw-bad-line)' };
+        wx = [{ kind: 'METAR · 31 MIN OLD', when: '08:12Z', raw: 'METAR UUWW 060812Z 22006MPS 9999 BKN025 09/05 Q1012 NOSIG', o: 0.55 }];
+      } else if (S.apTab === 'wx') {
+        if (pop === 'airportNone') sheetMsg = { title: 'No weather published for UBBQ', body: 'No METAR or TAF is on file for this airport right now. Checked 08:41 UTC.', line: 'var(--cw-line-2)' };
+        else wx = [
+          { kind: 'METAR', when: '08:30Z · 13 min ago', o: 1, raw: 'METAR UUWW 060830Z 22007MPS 9999 BKN023 OVC066 09/05 Q1012 R01/290050 NOSIG',
+            grid: [{ l: 'WIND', v: '220° 7 m/s', c: 'var(--cw-text-1)' }, { l: 'VIS', v: '10 km +', c: 'var(--cw-text-1)' }, { l: 'CLOUD', v: 'BKN 2300 ft', c: 'var(--cw-text-1)' }, { l: 'TEMP / DEW', v: '9° / 5°', c: 'var(--cw-text-1)' }, { l: 'QNH', v: '1012', c: 'var(--cw-text-1)' }, { l: 'CATEGORY', v: 'VFR', c: 'var(--fc-vfr)' }] },
+          { kind: 'TAF', when: 'issued 07:58Z', o: 1, raw: 'TAF UUWW 060758Z 0609/0709 22006MPS 9999 BKN020\n  TEMPO 0612/0618 4000 -SHRA BKN012' }
+        ];
+      } else {
+        if (nN === 0) sheetMsg = { title: 'No NOTAMs in force for UBBQ', body: 'Checked 08:41 UTC. New ones appear here and in notifications.', line: 'var(--cw-line-2)' };
+        else {
+          const base = NOTAMS.slice(0, Math.min(3, nN));
+          const ext = pop === 'airportLong' ? EXTRA.map((t, i) => ({ id: 'A' + (3340 - i * 7) + '/26', title: t, when: 'Until ' + (10 + i) + ' OCT 23:59 UTC', raw: 'A' + (3340 - i * 7) + '/26 NOTAMN\nA) UUWW\nE) ' + t.toUpperCase().replace(/,/g, '') + '.' , isNew: i === 0 })) : [];
+          notams = base.concat(ext).map(n => ({ ...n, line: n.isNew ? 'var(--chk-ntm-line)' : 'var(--cw-line-2)' }));
+          if (pop === 'airportLong') sheetThumb = '210px';
+        }
+      }
+      if (optB) sheetFoot = null;
+    } else if (pop.startsWith('services')) {
+      sheet = { title: 'Service status', sub: 'BYS1004 · from Leon', h: full };
+      if (pop === 'servicesLoading') sheetSkel = true;
+      else if (pop === 'servicesFailed') sheetMsg = { title: 'Couldn’t load services', body: 'Leon didn’t answer. Last loaded 08:20 UTC.', btn: 'Retry', line: 'var(--cw-bad-line)' };
+      else if (pop === 'servicesEmpty') sheetMsg = { title: 'No services requested yet', body: 'Nothing has been ordered for BYS1004 in Leon.', line: 'var(--cw-line-2)' };
+      else {
+        svcSummary = true;
+        const na = SVC.filter(r => r.s === 'na');
+        svcRows = SVC.filter(r => S.showNA || r.s !== 'na').map(r => ({
+          name: r.name, meta: r.meta, badge: BADGE[r.s], bg: r.s === 'none' ? 'var(--cw-warn-soft)' : 'var(--cw-surface-2)', o: r.s === 'na' ? 0.6 : 1,
+          lines: r.lines.filter(l => !STRIP.test(l)).map(t => /^https?:/.test(t) ? { t: t + ' ↗', c: 'var(--cw-accent-text)', u: 'underline' } : { t, c: 'var(--cw-text-2)', u: 'none' }),
+          groups: r.groups || []
+        }));
+        naLine = S.showNA ? 'Hide ' + na.length + ' not applicable' : na.length + ' not applicable · show';
+        sheetThumb = '150px';
+      }
+    } else if (pop === 'checks') {
+      sheet = { title: 'Limitations and CAA', sub: optB ? 'Read each, then mark checked' : 'Read only', h: full };
+      const keys = optB ? bottomKeys : CHK.map(c => c.k);
+      checkRows = checks.filter(c => keys.includes(c.k));
+      const open = bottomKeys.filter(k => !done[k]);
+      sheetFoot = optB ? (open.length ? { note: open.length + ' of 4 here still to check', btn: 'Mark ' + open.length + ' checked', on: () => mark(bottomKeys), bg: 'var(--cw-accent)', fg: 'var(--cw-on-accent)' } : { note: 'All four here are checked.' }) : { note: 'Read only. Mark checked is at the bottom of the flight.' };
+    }
+
+    const state = p.state || 'normal';
+    const mainMsg = state === 'failed' ? { title: 'Couldn’t load this flight', body: 'Leon didn’t answer. The list behind is still live.', btn: 'Retry', btnBg: 'var(--cw-accent)', btnFg: 'var(--cw-on-accent)', line: 'var(--cw-bad-line)' }
+      : state === 'gone' ? { title: 'BYS1004 is no longer on the schedule', body: 'It was removed in Leon at 08:39 UTC. Nothing here was changed by you.', btn: 'Back to flights', btnBg: 'var(--cw-surface-3)', btnFg: 'var(--cw-text-1)', line: 'var(--cw-line-3)' } : null;
+    const allDone = doneN === 5;
+    return {
+      showMain: state === 'normal', mainLoading: state === 'loading', mainMsg,
+      close, hasLim, paxCount: '2/12',
+      openPax: openP('pax'), openLim: openP('lim'), openServices: openP('services'), openChecks: openP('checks'),
+      openAdep: () => set({ pop: 'airport', ap: 'UUWW', apTab: 'wx' }), openAdes: () => set({ pop: 'airport', ap: 'UBBQ', apTab: 'wx' }),
+      mapOff: p.map !== 'live', mapLive: p.map === 'live',
+      checks, doneN, optA: !optB, optB, checksLink: optB ? 'Open to check ›' : 'View ›',
+      markLabel: allDone ? '✓ All 5 checked' : 'Mark checked', markBg: allDone ? 'var(--cw-ok-soft)' : 'var(--cw-accent)', markFg: allDone ? 'var(--cw-ok)' : 'var(--cw-on-accent)', markAll: () => mark(CHK.map(c => c.k)),
+      nextOpen: firstOpen ? { label: 'Next: ' + firstOpen.k + ' ›', on: firstOpen.k === 'LIM' ? openP('lim') : openP('checks') } : null,
+      sheet, closeSheet, pax, privacyNote, lims, wx, notams, isAirport, apTabs, svcSummary, svcRows, naLine, toggleNA: () => set({ showNA: !S.showNA }),
+      checkRows, sheetMsg, sheetSkel, sheetFoot, sheetThumb
+    };
+  }
+}
+</script>
+</body>
+</html>
+

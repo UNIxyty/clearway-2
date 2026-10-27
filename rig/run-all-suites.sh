@@ -66,6 +66,8 @@ run intake/browser-edits $E rig/intake/browser-edits.mjs "$CIMOG"
 # ── permissions, wall, portal, extension
 run permissions-check $E rig/permissions-check.mjs
 ( cd opsboard-react && npx vite build > ../rig/.scratch/vite-build.out 2>&1 ) || echo "vite build failed — see rig/.scratch/vite-build.out" >> $LOG   # the console check and the phone check read the built dist
+# the wall's pages as production serves them, at /digital-wall/timeline/ (rig/proxy.mjs serves this folder): the phone wall
+( cd opsboard-react && VITE_BASE_PATH=/digital-wall/timeline/ VITE_API_BASE_URL=/digital-wall npx vite build --outDir ../rig/.scratch/display-dist --emptyOutDir > ../rig/.scratch/display-build.out 2>&1 ) || echo "display build failed — see rig/.scratch/display-build.out" >> $LOG
 preview 5198   # the console against the sign-in-on wall
 docker exec supabase_db_rig psql -U postgres -q -c "alter table permission_changes disable trigger permission_changes_append_only; delete from permission_grants; alter table permission_changes enable trigger permission_changes_append_only;"
 docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.sql > /dev/null
@@ -84,6 +86,7 @@ run wall/console-theme-check $E rig/wall/console-theme-check.mjs
 preview 5199   # back to the normal wall
 run mobile/tier1-check $E rig/mobile/tier1-check.mjs
 run mobile/tier2-check $E rig/mobile/tier2-check.mjs
+run mobile/phone-wall-check $E rig/mobile/phone-wall-check.mjs
 # The passenger check reads the manifest's mock Leon through the agent, which needs the manifest key in its environment
 # (rig/manifest/start.sh); anything that restarted :5175 in between (rig/start.sh has no key) would leave it unable to read
 # the operators' credentials. Start it fresh here, as at the top.

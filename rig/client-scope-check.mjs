@@ -56,6 +56,13 @@ let sA = await grant(A.email);
   const dash = await ask(sA, "/dashboard"); ok(dash.status === 404, "requested client · /dashboard: 404 (nothing outside their world exists, approved or not)", dash.status);
   const wall = await ask(sA, "/digital-wall/api/timeline/flights?allOperators=true"); ok(wall.status === 401, "requested client · the wall answers 401 (nobody yet)", wall.status);
   const waiting = await ask(sA, "/client/waiting");
+  // the door and nothing else (2026-10-28): no link or label of what is behind it in the page SOURCE — the root
+  // not-found's docs block (Help & support, the glossary, /dashboard, the portal's address) used to ride in its payload.
+  // The only way out allowed is the brand settings' contact address, absent while it is empty.
+  const behind = ["/dashboard", '"/help"', "/help\\", "glossary", "supportLabel", "Help \\u0026 support", "Help &amp; support", "/docs", "portalUrl", "suggestions"].filter((w) => waiting.text.includes(w));
+  ok(behind.length === 0, "waiting screen source: nothing of what is behind the door (no docs, dashboard, help or glossary)", behind.join(" "));
+  const contact = (await import("../content/docs/site.json", { with: { type: "json" } })).default.supportEmail;
+  ok(contact ? waiting.text.includes(`mailto:${contact}`) : !waiting.text.includes("data-client-contact"), contact ? "waiting screen: the brand settings' contact address is the one way out" : "waiting screen: no contact line while the brand settings' address is empty", contact || "(empty)");
   ok(waiting.status === 200 && !/data-cw-sidebar|Dashboard|\bAdmin\b|Flight intake|Ops Agent|Permissions|Developer/.test(waiting.text) && !/\b\d+ (flights|requests|notices)\b/.test(waiting.text), "waiting screen's page source: no navigation, no counts, no page titles of the portal", `${waiting.status} ${waiting.text.length}B`);
 }
 

@@ -1,4 +1,5 @@
 import { Hold } from "../_hold";
+import { clientContactEmail } from "../contact";
 
 export const metadata = { title: "Your request" };
 
@@ -6,7 +7,7 @@ export const metadata = { title: "Your request" };
 // decided." (decided 2026-10-20). The middleware brings every not-yet-approved client here and nowhere else.
 export default function ClientWaitingPage() {
   return (
-    <Hold icon="…" title="Your request is with ops">
+    <Hold icon="…" title="Your request is with ops" contact={clientContactEmail()}>
       <ol className="cl-steps">
         <li><span className="dot done">✓</span>Request sent</li>
         <li><span className="dot done">✓</span>Email confirmed</li>

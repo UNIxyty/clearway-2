@@ -6,7 +6,8 @@ import DocsFrame from "@/components/docs/DocsFrame";
 import PageView from "@/components/docs/PageView";
 
 // One page per file: content/docs/<NN-section>/<NN-page>.md → /docs/<section>/<page>. Built at build time.
-export const dynamicParams = false;
+// Unknown pages render and call notFound() (the docs' own not-found); see [section]/page.tsx.
+export const dynamicParams = true;
 export function generateStaticParams() {
   return loadDocs().sections.flatMap((s) => s.pages.map((p) => ({ section: s.slug, page: p.slug })));
 }

@@ -181,5 +181,5 @@ Your changes appear on the site with the next deploy of the portal.
 
 The docs are behind the portal's sign-in. To open them to everyone, change `"public": false` to `"public": true` in
 `content/docs/site.json`, and deploy. That is the only change. The same file holds the product name, the logo, the
-address of the portal, the support link (`supportEmail` empty means the portal's Help & support page) and the credit
+address of the portal, the support link (`supportEmail` empty means the portal's Help & support page; the same address is the one contact line on a client's holding pages, which show none while it is empty) and the credit
 in the footer.

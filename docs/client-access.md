@@ -48,6 +48,12 @@ cannot prove.
   set on the page). The confirm step keeps the client keys and skips the staff pending flow.
 - **Waiting, refused, removed** (`app/client/*`): shell-less, three steps on the waiting screen, "You will get an email
   when it is decided." The root sends a client to their world or their holding page; every other page is 404.
+  **The door and nothing else** (2026-10-28): the page source carries no link or label of what is behind it. The root
+  not-found used to ride in every page's payload with the docs' 404 block (Help & support, the glossary, `/dashboard`,
+  the portal's address); it is now a client component with no props, and unknown `/docs` addresses get the docs' own
+  404 inside the docs (`app/docs/[section]/[page]/[...rest]`). The one way out is a contact address from the brand
+  settings, `content/docs/site.json` › `supportEmail` (`app/client/contact.ts`): shown on the three holding pages as
+  "Questions: write to …" once someone fills it in, and nothing at all while it is empty.
 - **Admin › Clients** (`app/admin/clients`, action `clients.manage`): Waiting (review → the editor in the row),
   Approved (scope chips, the 11-dot matrix, the passenger chip, granted by whom), the decision log. The editor keeps
   scope and access apart; Flight board is required; no scope, no Approve; documents need the consent line; the summary

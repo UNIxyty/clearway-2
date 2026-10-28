@@ -10,9 +10,7 @@ import MaskIcon from "@/components/portal/Icon";
 // A section's landing page (design: Page Docs Section): version, updated date and page count; the section's video;
 // its pages; what's new and the version history. All of it from content/docs/<NN-section>/_section.md and the page
 // files next to it. While no page in the section is written, it says so and lists what is planned.
-// dynamicParams on (2026-10-28): an unknown section renders here and calls notFound(), so it gets the docs' own
-// not-found inside the docs layout. The portal's root not-found no longer carries a docs version.
-export const dynamicParams = true;
+export const dynamicParams = false;
 export function generateStaticParams() { return loadDocs().sections.map((s) => ({ section: s.slug })); }
 export function generateMetadata({ params }: { params: { section: string } }): Metadata {
   const s = loadDocs().sections.find((x) => x.slug === params.section);

@@ -11,6 +11,11 @@ import { SITE } from "@/lib/docs/content";
 // Who can read it: content/docs/site.json "public" (false = behind the portal's sign-in; middleware.ts).
 export const metadata: Metadata = { title: { default: `${SITE.product} ${SITE.docsName}`, template: `%s · ${SITE.product} ${SITE.docsName}` } };
 
+// Static, always (2026-10-28): the root not-found reads the request (app/not-found.tsx, the x-cw-docs mark), which would
+// otherwise turn every docs page into a per-request render and lose the prebuilt pages and their routing-level 404s.
+// The docs read nothing from the request, so forcing static changes nothing they show.
+export const dynamic = "force-static";
+
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return children;
 }

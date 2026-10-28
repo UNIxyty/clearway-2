@@ -58,7 +58,36 @@ function clientNotFoundResponse() {
   return new NextResponse(html, { status: 404, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
+// Every response the middleware lets through (next or rewrite) tells the page whether this request is under /docs, as
+// the request header x-cw-docs ("1" / "0"). app/not-found.tsx reads it: the docs' not-found, with its links, is drawn
+// only for /docs, never into the payload of another page — a pending client's waiting screen above all (2026-10-28).
+// The value is always set here, so a visitor who sends their own x-cw-docs has it overwritten. Redirects and refusals
+// carry no page and are left alone.
 export async function middleware(request: NextRequest) {
+  const response = await gate(request);
+  return markDocs(request, response);
+}
+
+function markDocs(request: NextRequest, response: NextResponse | Response): NextResponse | Response {
+  const passes = response.headers.get("x-middleware-next") === "1" || response.headers.has("x-middleware-rewrite");
+  if (!passes) return response;
+  const p = request.nextUrl.pathname;
+  const flag = p === "/docs" || p.startsWith("/docs/") ? "1" : "0";
+  // The same two headers NextResponse.next({ request: { headers } }) writes. With no override yet, the request's own
+  // headers are listed first so none is dropped.
+  let keys = (response.headers.get("x-middleware-override-headers") ?? "").split(",").filter(Boolean);
+  if (keys.length === 0) {
+    for (const [k, v] of request.headers) response.headers.set(`x-middleware-request-${k}`, v);
+    keys = [...request.headers.keys()];
+  }
+  keys = keys.filter((k) => k !== "x-cw-docs");
+  keys.push("x-cw-docs");
+  response.headers.set("x-middleware-request-x-cw-docs", flag);
+  response.headers.set("x-middleware-override-headers", keys.join(","));
+  return response;
+}
+
+async function gate(request: NextRequest) {
   // The test rig must never reach the production database (lib/rig-guard.mjs).
   // Checked twice: against the runtime env, and against the URL compiled into this build (Next.js inlines the
   // literal process.env.NEXT_PUBLIC_SUPABASE_URL at build time — a build made from .env carries production).

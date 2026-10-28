@@ -6,9 +6,9 @@ import MaskIcon from "@/components/portal/Icon";
 
 // Any /docs address that is not a page (design: Page Docs Not Found): 404, one line, search, and a few ways on.
 // Every link here exists: Home, the home page's starting point, the glossary if there is one, and support.
-// Only ever rendered under /docs (this segment's own not-found). Until 2026-10-28 the root not-found also rendered it
-// `bare` (no nav rows) for unknown /docs addresses; that put its links in every page's payload, a pending client's
-// waiting screen included, so the root not-found no longer does. `bare` stays for a caller that wants it.
+// Rendered for /docs addresses only: this segment's own not-found, and the root not-found when the middleware has
+// marked the request as /docs (app/not-found.tsx, 2026-10-28). Never in another page's payload. `bare` (no nav rows)
+// stays for a caller that wants it.
 export default function DocsNotFound({ bare = false }: { bare?: boolean } = {}) {
   const docs = loadDocs();
   const b = brand();

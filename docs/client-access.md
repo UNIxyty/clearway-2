@@ -50,8 +50,11 @@ cannot prove.
   when it is decided." The root sends a client to their world or their holding page; every other page is 404.
   **The door and nothing else** (2026-10-28): the page source carries no link or label of what is behind it. The root
   not-found used to ride in every page's payload with the docs' 404 block (Help & support, the glossary, `/dashboard`,
-  the portal's address); it is now a client component with no props, and unknown `/docs` addresses get the docs' own
-  404 inside the docs (`app/docs/[section]/[page]/[...rest]`). The one way out is a contact address from the brand
+  the portal's address). Now `middleware.ts` marks every request it lets through with `x-cw-docs` (1 under `/docs`, 0
+  elsewhere, overwriting any copy a visitor sends) and `app/not-found.tsx` draws the docs version only for 1; everywhere
+  else it is the portal's page as a client component with no props (`components/portal/PortalNotFound.tsx`), so the
+  payload holds a module reference and none of its words. The docs segment is `force-static`, so the docs stay
+  prebuilt and their unknown addresses keep a routing-level 404. The one way out is a contact address from the brand
   settings, `content/docs/site.json` › `supportEmail` (`app/client/contact.ts`): shown on the three holding pages as
   "Questions: write to …" once someone fills it in, and nothing at all while it is empty.
 - **Admin › Clients** (`app/admin/clients`, action `clients.manage`): Waiting (review → the editor in the row),

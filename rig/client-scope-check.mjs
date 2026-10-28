@@ -61,6 +61,8 @@ let sA = await grant(A.email);
   // The only way out allowed is the brand settings' contact address, absent while it is empty.
   const behind = ["/dashboard", '"/help"', "/help\\", "glossary", "supportLabel", "Help \\u0026 support", "Help &amp; support", "/docs", "portalUrl", "suggestions"].filter((w) => waiting.text.includes(w));
   ok(behind.length === 0, "waiting screen source: nothing of what is behind the door (no docs, dashboard, help or glossary)", behind.join(" "));
+  const forged = await ask(sA, "/client/waiting", { headers: { "x-cw-docs": "1" } });
+  ok(forged.status === 200 && !["glossary", "supportLabel", "/dashboard"].some((w) => forged.text.includes(w)), "waiting screen: a visitor's own x-cw-docs header is overwritten (the docs block stays out)");
   const contact = (await import("../content/docs/site.json", { with: { type: "json" } })).default.supportEmail;
   ok(contact ? waiting.text.includes(`mailto:${contact}`) : !waiting.text.includes("data-client-contact"), contact ? "waiting screen: the brand settings' contact address is the one way out" : "waiting screen: no contact line while the brand settings' address is empty", contact || "(empty)");
   ok(waiting.status === 200 && !/data-cw-sidebar|Dashboard|\bAdmin\b|Flight intake|Ops Agent|Permissions|Developer/.test(waiting.text) && !/\b\d+ (flights|requests|notices)\b/.test(waiting.text), "waiting screen's page source: no navigation, no counts, no page titles of the portal", `${waiting.status} ${waiting.text.length}B`);

@@ -64,6 +64,14 @@ cannot prove.
   picks its six columns by its own width (a container query), not the window's. Between 900 and 1250px with the
   sidebar it used to run past the card. `rig/clients-page-check.mjs` checks the padding and the overlap at six widths,
   and types a whole word into every field, asserting the value and the focus.
+- **Smart search (2026-11-02)**: as ops type, suggestions from real records only — operators by name and code
+  (`leon_operators`), the fleet's registrations and the trips on the wall's flights (read as the admin,
+  `lib/clients/catalogue.ts`, `GET /api/admin/clients/catalogue`), and the people and companies who asked or were
+  approved. Prefix matches rank first (`lib/clients/suggest.mjs`). ↑↓ move, ↵ takes, Esc closes; nothing matching is
+  said in words. The editor's scope field takes only a suggestion, and saving or approving refuses a new scope entry
+  that does not exist (an operator not in Leon, an aircraft not in the fleet, a trip not on the wall; if the wall cannot
+  be read, new aircraft and trips are refused rather than let through). The page search opens a person's client, or
+  lists the approved clients who can see an operator, aircraft or trip — directly or through their operator or aircraft.
 - **Admin › Clients** (`app/admin/clients`, action `clients.manage`): Waiting (review → the editor in the row),
   Approved (scope chips, the 11-dot matrix, the passenger chip, granted by whom), the decision log. The editor keeps
   scope and access apart; Flight board is required; no scope, no Approve; documents need the consent line; the summary

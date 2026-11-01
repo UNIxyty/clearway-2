@@ -132,6 +132,63 @@ async function typeWord(page, locator, word, what) {
   await page.getByRole("button", { name: "Keep access" }).click();
   await ctx.close();
 }
+// ── smart search: real records only, prefix first, keyboard first, says so when nothing matches ──
+{
+  const { rankSuggestions } = await import("../lib/clients/suggest.mjs");
+  const order = rankSuggestions([{ kind: "client", value: "c", label: "Cevennes Air", keys: ["Cevennes Air"] }, { kind: "operator", value: "evr", label: "EVRA Jets", keys: ["evr", "EVRA Jets"] }], "ev").map((i) => i.label);
+  ok(order[0] === "EVRA Jets", "ranking: a prefix match comes before a match inside a word (EV → EVRA before Cevennes)", order.join(" › "));
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  await ctx.addCookies([cookie(admin)]);
+  const page = await ctx.newPage();
+  await page.goto(`${B}/admin/clients`, { waitUntil: "load" });
+  await page.locator(`[data-client-request="${waitingRow.id}"] [data-review]`).click();
+  const ed = page.locator(`[data-client-editor="${waitingRow.id}"]`); await ed.waitFor({ timeout: 10000 });
+  const scopeBox = ed.getByRole("combobox", { name: "Add to scope" });
+  const firstOption = async () => (await page.locator("[data-suggestions] [role=option]").first().getAttribute("data-option").catch(() => null));
+  await scopeBox.click(); await page.keyboard.type("kla");
+  await page.locator("[data-suggestions] [role=option]").first().waitFor({ timeout: 10000 }).catch(() => {});
+  ok(await firstOption() === "operator:klj", "scope: “kla” suggests the operator KlasJet first (by name; the code is klj)", await firstOption());
+  await page.keyboard.press("Enter");
+  ok(await ed.locator('[data-scope-entry="operator:klj"]').count() === 1, "scope: ↵ adds it", await ed.locator("[data-scope-entry]").evaluateAll((els) => els.map((e) => e.getAttribute("data-scope-entry")).join(", ")));
+  await scopeBox.fill(""); await page.keyboard.type("ly-t");
+  await page.locator('[data-suggestions] [data-option^="registration:"]').first().waitFor({ timeout: 10000 }).catch(() => {});
+  const regs = await page.locator('[data-suggestions] [data-option^="registration:"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-option")));
+  ok(regs.includes("registration:LY-TST"), "scope: “ly-t” suggests the fleet's LY-TST", regs.join(", "));
+  const idx = (await page.locator("[data-suggestions] [role=option]").evaluateAll((els) => els.map((e) => e.getAttribute("data-option")))).indexOf("registration:LY-TST");
+  for (let i = 0; i < idx; i += 1) await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  ok(await ed.locator('[data-scope-entry="registration:LY-TST"]').count() === 1, "scope: ↓ then ↵ takes the highlighted one");
+  await scopeBox.fill(""); await page.keyboard.type("11-2026/3");
+  await page.locator('[data-suggestions] [data-option^="trip:"]').first().waitFor({ timeout: 10000 }).catch(() => {});
+  ok(await page.locator('[data-suggestions] [data-option^="trip:"]').count() >= 1, "scope: a trip number suggests real trips from the wall", await page.locator('[data-suggestions] [data-option^="trip:"]').count());
+  await scopeBox.fill(""); await page.keyboard.type("zzqq-none");
+  await page.locator("[data-no-match]").waitFor({ timeout: 5000 }).catch(() => {});
+  ok(/No operator, aircraft or trip matches “zzqq-none”/.test(await page.locator("[data-no-match]").innerText().catch(() => "")), "scope: nothing matches → it says so (and offers no free-text add)");
+  await page.keyboard.press("Escape");
+  ok(await page.locator("[data-suggestions]").count() === 0, "scope: Esc closes the suggestions");
+  await page.getByRole("button", { name: "Cancel" }).first().click();
+  // the page search: a person opens their row; an aircraft filters to who can see it
+  const find = page.getByRole("combobox", { name: "Find a client, an operator, an aircraft or a trip" });
+  await find.click(); await page.keyboard.type("Rig Approved");
+  await page.locator(`[data-suggestions] [data-option="client:${approvedRow.id}"]`).waitFor({ timeout: 10000 }).catch(() => {});
+  const ci = (await page.locator("[data-suggestions] [role=option]").evaluateAll((els) => els.map((e) => e.getAttribute("data-option")))).indexOf(`client:${approvedRow.id}`);
+  for (let i = 0; i < ci; i += 1) await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  ok(await page.locator(`[data-client-editor="${approvedRow.id}"]`).count() === 1, "page search: a person's name opens their client", ci);
+  await page.getByRole("button", { name: "Cancel" }).first().click();
+  await find.click(); await page.keyboard.type("LY-TST");
+  await page.locator('[data-suggestions] [data-option="registration:LY-TST"]').waitFor({ timeout: 10000 }).catch(() => {});
+  const ri = (await page.locator("[data-suggestions] [role=option]").evaluateAll((els) => els.map((e) => e.getAttribute("data-option")))).indexOf("registration:LY-TST");
+  for (let i = 0; i < ri; i += 1) await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  const filt = await page.locator("[data-clients-filter]").innerText().catch(() => "");
+  ok(/can see LY-TST/.test(filt) && await page.locator(`[data-client-approved="${approvedRow.id}"]`).count() === 1, "page search: an aircraft lists the approved clients who can see it", filt.replace(/\s+/g, " "));
+  await ctx.close();
+  // the server refuses a scope entry that does not exist, whatever the page sends
+  const res = await fetch(`${B}/api/admin/clients/${approvedRow.id}`, { method: "PATCH", headers: { "content-type": "application/json", cookie: `${cookie(admin).name}=${cookie(admin).value}` }, body: JSON.stringify({ scope: [{ kind: "operator", value: "no-such-operator" }, { kind: "operator", value: "cwy-cwy" }], switches: ["flight_board"], passengerLevel: "off" }) });
+  const body = await res.json().catch(() => ({}));
+  ok(res.status === 400 && /no operator no-such-operator in Leon/i.test(String(body.error)), "server: an operator that does not exist is refused, nothing saved", `${res.status} ${body.error ?? ""}`);
+}
 await browser.close();
 
 for (const r of [waitingRow, approvedRow]) { await svc(`/rest/v1/clients?id=eq.${r.id}`, { method: "DELETE" }); await svc(`/auth/v1/admin/users/${r.user_id}`, { method: "DELETE" }); }

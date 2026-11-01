@@ -9,10 +9,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
 import PageContent from "@/components/portal/PageContent";
-import { Button, EmptyState, Modal, Segmented, Skeleton, TableCard, TextInput, useToast } from "@/components/kit";
+import { Button, EmptyState, Modal, Skeleton, TableCard, TextInput, useToast } from "@/components/kit";
 import { OFFLINE } from "@/lib/error-text";
 import "./clients.css";
-import { SWITCHES, STARTING_SWITCHES, SCOPE_KINDS, normaliseScope, normaliseSwitches } from "@/lib/clients/switches.mjs";
+import SmartSearch, { type SuggestItem } from "./SmartSearch";
+import { SWITCHES, STARTING_SWITCHES, normaliseScope, normaliseSwitches } from "@/lib/clients/switches.mjs";
 
 type ScopeEntry = { kind: "operator" | "registration" | "trip"; value: string };
 type Level = "off" | "names" | "documents";
@@ -21,6 +22,8 @@ type ClientRow = {
   status: "requested" | "approved" | "refused" | "removed"; scope: ScopeEntry[]; switches: string[]; passenger_level: Level; consent: boolean;
   requested_at: string; decided_at: string | null; decided_by_email: string | null; decision_note: string;
 };
+type Catalogue = { operators: Array<{ oprId: string; name: string }>; registrations: Array<{ registration: string; oprId: string; operatorName: string; type: string }>; trips: Array<{ trip: string; oprId: string; operatorName: string; registrations: string[]; first: string; last: string }>; operatorsOk: boolean; wallOk: boolean };
+type Filter = { kind: "operator" | "registration" | "trip"; value: string; label: string };
 type Decision = { id: number; client_id: string; kind: string; actor_email: string | null; detail: Record<string, unknown>; note: string; created_at: string };
 type Editor = { scope: ScopeEntry[]; switches: string[]; level: Level; consent: boolean; note: string; kind: ScopeEntry["kind"]; value: string };
 
@@ -52,8 +55,9 @@ type EditorProps = {
   c: ClientRow; ed: Editor; setEd: (e: Editor) => void; busy: boolean;
   matchCount: (scope: ScopeEntry[]) => number; suggestionFor: (c: ClientRow) => { kind: ScopeEntry["kind"]; value: string; why: string } | null;
   onSave: (c: ClientRow) => void; onRefuse: (c: ClientRow) => void; onCancel: () => void; onRemove: (c: ClientRow) => void;
+  scopeItems: SuggestItem[]; scopeLoading: boolean; scopeUnavailable: string | null;
 };
-function ClientEditor({ c, ed, setEd, busy, matchCount, suggestionFor, onSave, onRefuse, onCancel, onRemove }: EditorProps) {
+function ClientEditor({ c, ed, setEd, busy, matchCount, suggestionFor, onSave, onRefuse, onCancel, onRemove, scopeItems, scopeLoading, scopeUnavailable }: EditorProps) {
   const isEdit = c.status === "approved";
   const base = { scope: normaliseScope(c.scope) as ScopeEntry[], switches: normaliseSwitches(c.switches), level: c.passenger_level };
   const blocked = !ed.scope.length || !ed.switches.includes("flight_board") || (ed.level === "documents" && !ed.consent);
@@ -85,11 +89,9 @@ function ClientEditor({ c, ed, setEd, busy, matchCount, suggestionFor, onSave, o
             </div>
             <div className="flex flex-col gap-2 border-t border-cw-divider pt-3">
               <span className="text-[12.5px] font-semibold text-cw-text-muted">Add to scope</span>
-              <div className="flex flex-wrap gap-2">
-                <Segmented label="Scope kind" size="sm" value={ed.kind} onChange={(k) => setEd({ ...ed, kind: k, value: "" })} options={SCOPE_KINDS.map((k) => ({ value: k as ScopeEntry["kind"], label: KIND_META[k as ScopeEntry["kind"]].short }))} />
-                <div className="min-w-[140px] flex-1"><TextInput value={ed.value} onChange={(e) => setEd({ ...ed, value: e.target.value })} placeholder={KIND_META[ed.kind].placeholder} mono onKeyDown={(e) => { if (e.key === "Enter" && ed.value.trim()) add(ed.kind, ed.value); }} aria-label="Scope value" /></div>
-                <Button variant="secondary" disabled={!ed.value.trim()} onClick={() => add(ed.kind, ed.value)}>Add</Button>
-              </div>
+              {/* only what exists: an operator in Leon, an aircraft in the fleet, a trip on the wall (2026-11-02) */}
+              <SmartSearch items={scopeItems} kinds={["operator", "registration", "trip"]} label="Add to scope" placeholder="Operator, registration or trip number" loading={scopeLoading} unavailable={scopeUnavailable}
+                onPick={(it) => add(it.kind as ScopeEntry["kind"], it.value)} dataAttr="data-scope-search" />
             </div>
             <div className="flex items-center gap-2 text-[13px] text-cw-text-body"><MaskIcon name="plane" size={14} className="text-cw-text-muted" />{ed.scope.length ? `Matches ${n} flight${n === 1 ? "" : "s"} in the next 7 days` : "Matches no flights"}</div>
           </div>
@@ -155,6 +157,9 @@ export default function AdminClientsPage() {
   const [removing, setRemoving] = useState<ClientRow | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [operators, setOperators] = useState<Array<{ oprId: string; name: string }>>([]);
+  const [cat, setCat] = useState<Catalogue | null>(null);
+  const [catState, setCatState] = useState<"loading" | "ready" | "error">("loading");
+  const [filter, setFilter] = useState<Filter | null>(null);
   const [flights, setFlights] = useState<Array<{ oprId: string; registration: string; tripNo: string | null; startTimeUTC: string }>>([]);
 
   const load = useCallback(async () => {
@@ -171,6 +176,7 @@ export default function AdminClientsPage() {
   // The wall's own answers, as this admin: operator names for the suggestion row, and the next 7 days of flights for the
   // live "matches N flights" count. Informational — the wall backend enforces scope on every request regardless.
   useEffect(() => {
+    fetch("/api/admin/clients/catalogue", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then((d) => { setCat(d as Catalogue); setCatState("ready"); }).catch(() => setCatState("error"));
     fetch("/digital-wall/api/operators", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { const list = (d?.operators ?? d ?? []) as Array<{ oprId?: string; id?: string; name?: string }>; setOperators(list.map((o) => ({ oprId: String(o.oprId ?? o.id ?? ""), name: String(o.name ?? o.oprId ?? "") })).filter((o) => o.oprId)); }).catch(() => {});
     const to = new Date(Date.now() + 7 * 86400e3).toISOString();
     fetch(`/digital-wall/api/flights/normalized?window=all-cached&limit=500&from=${encodeURIComponent(new Date().toISOString())}&to=${encodeURIComponent(to)}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { setFlights(((d?.flights ?? []) as Array<{ oprId: string; registration: string; flight?: { tripNo?: string | null; startTimeUTC?: string } }>).map((r) => ({ oprId: r.oprId, registration: r.registration, tripNo: r.flight?.tripNo ?? null, startTimeUTC: r.flight?.startTimeUTC ?? "" }))); }).catch(() => {});
@@ -178,6 +184,31 @@ export default function AdminClientsPage() {
 
   const waiting = useMemo(() => clients.filter((c) => c.status === "requested").sort((a, b) => a.requested_at.localeCompare(b.requested_at)), [clients]);
   const approved = useMemo(() => clients.filter((c) => c.status === "approved").sort((a, b) => a.company.localeCompare(b.company)), [clients]);
+  // what a scope may name, and who exists to find: real records only (lib/clients/catalogue.ts, the clients list)
+  const scopeItems = useMemo<SuggestItem[]>(() => !cat ? [] : [
+    ...cat.operators.map((o) => ({ kind: "operator" as const, value: o.oprId, label: o.name, detail: `Operator · ${o.oprId}`, keys: [o.oprId, o.name] })),
+    ...cat.registrations.map((a) => ({ kind: "registration" as const, value: a.registration, label: a.registration, detail: [a.type, a.operatorName].filter(Boolean).join(" · "), keys: [a.registration] })),
+    ...cat.trips.map((t) => ({ kind: "trip" as const, value: t.trip, label: t.trip, detail: [t.operatorName, t.registrations.join(", "), t.first ? t.first.slice(0, 10) : ""].filter(Boolean).join(" · "), keys: [t.trip] })),
+  ], [cat]);
+  const clientItems = useMemo<SuggestItem[]>(() => clients.filter((c) => c.status === "requested" || c.status === "approved").map((c) => ({ kind: "client" as const, value: c.id, label: c.company, detail: [c.person_name, c.email, c.status === "requested" ? "waiting" : "approved"].filter(Boolean).join(" · "), keys: [c.company, c.person_name, c.email] })), [clients]);
+  const scopeUnavailable = catState === "error" ? "The list of what exists did not load, so nothing can be added to a scope right now." : cat && (!cat.operatorsOk || !cat.wallOk) ? (!cat.wallOk ? "The Digital Wall did not answer: aircraft and trips are missing from these suggestions." : "The operator list did not load: operators are missing from these suggestions.") : null;
+  // does this client's scope reach the thing searched for: directly, through its operator, or through its aircraft
+  const covers = (c: ClientRow, f: Filter) => normaliseScope(c.scope).some((e: { kind: string; value: string }) => {
+    if (e.kind === f.kind && e.value.toLowerCase() === f.value.toLowerCase()) return true;
+    const reg = f.kind === "registration" ? cat?.registrations.find((a) => a.registration === f.value) : null;
+    const trip = f.kind === "trip" ? cat?.trips.find((t) => t.trip === f.value) : null;
+    if (e.kind === "operator") return (reg && reg.oprId.toLowerCase() === e.value.toLowerCase()) || (trip && trip.oprId.toLowerCase() === e.value.toLowerCase());
+    if (e.kind === "registration") return Boolean(trip && trip.registrations.some((r) => r.toUpperCase() === e.value.toUpperCase()));
+    return false;
+  });
+  const shownApproved = useMemo(() => (filter ? approved.filter((c) => covers(c, filter)) : approved), [approved, filter, cat]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pick = (it: SuggestItem) => {
+    if (it.kind === "client") {
+      const c = clients.find((x) => x.id === it.value); if (!c) return;
+      setFilter(null); open(c);
+      setTimeout(() => document.querySelector(`[data-client-request="${c.id}"], [data-client-approved="${c.id}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" }), 50);
+    } else setFilter({ kind: it.kind, value: it.value, label: it.label === it.value ? it.value : `${it.label} (${it.value})` });
+  };
   const byId = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
 
   const open = (c: ClientRow) => {
@@ -235,6 +266,10 @@ export default function AdminClientsPage() {
       <PageContent className="flex flex-col gap-5" data-admin-clients>
         {forbidden ? <TableCard><EmptyState icon="lock" title="Clients is for Admins">Your role can’t approve or change client access. An admin can, under Admin → Clients.</EmptyState></TableCard> : (
           <>
+            <div className="flex flex-col gap-2" data-clients-search>
+              <SmartSearch items={[...clientItems, ...scopeItems]} kinds={["operator", "registration", "trip", "client"]} label="Find a client, an operator, an aircraft or a trip" placeholder="Find a client, an operator, an aircraft or a trip" loading={catState === "loading"} unavailable={scopeUnavailable} onPick={pick} />
+              {filter && <div className="flex flex-wrap items-center gap-2 text-[13.5px] text-cw-text-body" data-clients-filter><span>Approved clients who can see <span className="font-mono font-semibold text-cw-text">{filter.label}</span>: {shownApproved.length}</span><Button size="sm" variant="secondary" icon="x" onClick={() => setFilter(null)}>Show all</Button></div>}
+            </div>
             <TableCard className={waiting.length ? "border-cw-warning-border" : ""}>
               {header("Waiting for a decision", <><span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-[10px] px-1.5 font-mono text-[11px] font-semibold ${waiting.length ? "bg-cw-warning-tint text-cw-warning-text" : "bg-cw-bg-sunken text-cw-text-muted"}`}>{waiting.length}</span><span className="flex-1" /><span className="hidden text-[13px] text-cw-text-muted min-[900px]:block">From the sign-in page · oldest last</span></>)}
               {state === "loading" && [46, 38].map((w) => <div key={w} className="flex h-[76px] items-center gap-3.5 border-b border-cw-divider px-5"><Skeleton w={36} h={36} round={18} /><Skeleton w={`${w}%`} h={11} /></div>)}
@@ -253,7 +288,7 @@ export default function AdminClientsPage() {
                       {openId !== r.id && <div className="flex gap-2"><Button variant="secondary" size="sm" disabled={busy} onClick={() => void refuse(r)}>Refuse</Button><Button size="sm" icon="chevron-down" onClick={() => open(r)} data-review>Review</Button></div>}
                     </div>
                   </div>
-                  {openId === r.id && ed && <ClientEditor c={r} ed={ed} setEd={setEd} busy={busy} matchCount={matchCount} suggestionFor={suggestionFor} onSave={(c) => void save(c)} onRefuse={(c) => void refuse(c)} onCancel={close} onRemove={(c) => { setRemoving(c); setConfirmText(""); }} />}
+                  {openId === r.id && ed && <ClientEditor c={r} ed={ed} setEd={setEd} busy={busy} matchCount={matchCount} suggestionFor={suggestionFor} onSave={(c) => void save(c)} onRefuse={(c) => void refuse(c)} onCancel={close} onRemove={(c) => { setRemoving(c); setConfirmText(""); }} scopeItems={scopeItems} scopeLoading={catState === "loading"} scopeUnavailable={scopeUnavailable} />}
                 </div>
               ))}
             </TableCard>
@@ -263,8 +298,9 @@ export default function AdminClientsPage() {
               {state === "ready" && approved.length > 0 && <div className="cl-approved-head items-end gap-4 border-b border-cw-border bg-cw-bg-sunken px-5 pb-2 pt-2.5 text-[11px] font-bold tracking-[.06em] text-cw-text-muted"><span>CLIENT</span><span>SCOPE</span><span className="grid grid-cols-[repeat(11,22px)] gap-1">{SWITCHES.map((s) => <span key={s.key} title={s.label} className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] border border-cw-border bg-cw-bg-surface text-cw-text-body"><MaskIcon name={SWITCH_ICON[s.key]} size={12} /></span>)}</span><span>PASSENGERS</span><span>GRANTED</span><span /></div>}
               {state === "loading" && [52, 40, 60].map((w) => <div key={w} className="flex h-14 items-center border-b border-cw-divider px-5"><Skeleton w={`${w}%`} h={10} /></div>)}
               {state === "error" && <div className="flex flex-wrap items-center gap-3 p-5 text-[13.5px]"><MaskIcon name="cloud-off" size={17} className="text-cw-danger-text" /><span className="min-w-[220px] flex-1"><strong>Couldn’t load clients.</strong> <span className="text-cw-text-muted">Clients keep the access they had; nothing has changed for them. <span className="font-mono">{loadError}</span></span></span><Button size="sm" onClick={() => void load()}>Try again</Button></div>}
+              {state === "ready" && filter && approved.length > 0 && !shownApproved.length && <div className="px-5 py-4 text-[13.5px] text-cw-text-body">No approved client can see {filter.label}.</div>}
               {state === "ready" && !approved.length && <EmptyState icon="building-2" title="No clients yet" compact>When an operator or broker asks for access on the sign-in page, they appear under Waiting. Approving them adds them here.</EmptyState>}
-              {approved.map((a) => (
+              {shownApproved.map((a) => (
                 <div key={a.id} data-client-approved={a.id}>
                   <div className={`cl-approved-row grid items-center gap-x-4 gap-y-2 border-b border-cw-divider px-5 py-3 ${openId === a.id ? "bg-cw-bg-selected" : "hover:bg-cw-bg-hover"}`}>
                     <span className="flex min-w-0 flex-col gap-0.5"><span className="text-[14.5px] font-semibold">{a.company}</span><span className="truncate text-[12.5px] text-cw-text-muted">{a.person_name || a.email} · {a.kind === "broker" ? "Broker" : "Operator"}</span></span>
@@ -275,7 +311,7 @@ export default function AdminClientsPage() {
                     <span className="cl-approved-wide-flex flex-col gap-0.5 font-mono text-[12.5px] text-cw-text-body"><span>{(a.decided_at ?? "").slice(0, 10)}</span><span className="font-sans text-[12px] text-cw-text-muted">by {a.decided_by_email ?? "—"}</span></span>
                     <span className="flex justify-end gap-1.5">{openId !== a.id && <Button variant="secondary" size="sm" icon="sliders-horizontal" onClick={() => open(a)} data-change>Change</Button>}</span>
                   </div>
-                  {openId === a.id && ed && <ClientEditor c={a} ed={ed} setEd={setEd} busy={busy} matchCount={matchCount} suggestionFor={suggestionFor} onSave={(c) => void save(c)} onRefuse={(c) => void refuse(c)} onCancel={close} onRemove={(c) => { setRemoving(c); setConfirmText(""); }} />}
+                  {openId === a.id && ed && <ClientEditor c={a} ed={ed} setEd={setEd} busy={busy} matchCount={matchCount} suggestionFor={suggestionFor} onSave={(c) => void save(c)} onRefuse={(c) => void refuse(c)} onCancel={close} onRemove={(c) => { setRemoving(c); setConfirmText(""); }} scopeItems={scopeItems} scopeLoading={catState === "loading"} scopeUnavailable={scopeUnavailable} />}
                 </div>
               ))}
             </TableCard>

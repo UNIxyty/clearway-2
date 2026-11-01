@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { scopeCatalogue, unknownScope } from "@/lib/clients/catalogue";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
 import { getClient, saveAccess } from "@/lib/clients/admin";
@@ -21,6 +22,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!row) return NextResponse.json({ ok: false, error: "No such client." }, { status: 404 });
     if (row.status !== "approved") return NextResponse.json({ ok: false, error: "Only an approved client can be changed; approve them first." }, { status: 409 });
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    // a NEW scope entry must name something that exists (2026-11-02): an operator in Leon, an aircraft in the fleet, a trip
+    const cat = await scopeCatalogue(service, (await auth.supabase.auth.getSession()).data.session?.access_token ?? null);
+    const unknown = unknownScope(row.scope, body.scope === undefined ? row.scope : body.scope, cat);
+    if (unknown.length) return NextResponse.json({ ok: false, error: unknown.join(" "), problems: unknown }, { status: 400 });
     const out = await saveAccess(service, row, body, { id: auth.user.id, email: auth.user.email ?? null }, "changed");
     if (out.problems) return NextResponse.json({ ok: false, error: out.problems.join(" "), problems: out.problems }, { status: 400 });
     forgetScope(row.user_id);

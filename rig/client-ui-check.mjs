@@ -49,8 +49,11 @@ for (const theme of ["light", "dark"]) {
       await page.locator("[data-review]").first().click(); await page.waitForSelector("[data-client-editor]", { timeout: 10000 });
       const approve = page.locator("[data-approve]");
       ok(await approve.isDisabled(), "editor: Approve is disabled with no scope");
-      await page.getByLabel("Scope kind").getByText("Registration").click().catch(() => {});
-      await page.getByLabel("Scope value").fill("LY-TST"); await page.getByLabel("Scope value").press("Enter");
+      // the scope field suggests real records only (2026-11-02): type, then take the fleet's LY-TST from the suggestions
+      const scopeBox = page.getByRole("combobox", { name: "Add to scope" });
+      await scopeBox.click(); await page.keyboard.type("LY-TST");
+      const opt = page.locator('[data-suggestions] [data-option="registration:LY-TST"]');
+      await opt.waitFor({ timeout: 15000 }); await opt.dispatchEvent("mousedown");
       ok(await page.locator('[data-scope-entry="registration:LY-TST"]').count() === 1, "editor: the registration is in the scope list");
       ok(await page.locator('[data-switch="flight_board"]').isDisabled(), "editor: Flight board is required (cannot be turned off)");
       await page.locator('[data-switch="limitations"]').click();

@@ -11,6 +11,7 @@
 // 390 (below 900 px the panel is gone and so is its download); the photograph's request starts after the form is on
 // screen; it fades in (opacity 0 → 1); no render-blocking resource is the photograph or its script.
 import { chromium } from "playwright";
+import { settled } from "./lib/settle.mjs";
 
 const BASE = process.env.RIG_SIGNIN_URL || "http://127.0.0.1:3989";
 const CHECK = process.argv.includes("--check");
@@ -56,7 +57,10 @@ async function once(p, theme) {
   // when can a person type and press Sign in? the field must take a key and React must be attached to it
   await page.waitForFunction(() => { const i = document.querySelector("input#email, input[type=email]"); return !!i && Object.keys(i).some((k) => k.startsWith("__reactProps")); }, null, { timeout: 30000 });
   const typeable = Date.now() - t0;
-  await page.waitForTimeout(3500);   // let a late image arrive and fade
+  // until the photograph has arrived and faded in (desk), or the page has nothing left to do (phone, no photograph);
+  // was a fixed 3.5 s per load (2026-11-01). The form-first measures above are already taken.
+  if (p.viewport.width >= 900) await page.waitForFunction(() => { const i = document.querySelector("[data-signin-photo] img"); return !!i && i.complete && getComputedStyle(i).opacity === "1"; }, null, { timeout: 15000 }).catch(() => {});
+  else await settled(page);
   const m = await page.evaluate(() => {
     const nav = performance.getEntriesByType("navigation")[0];
     const fcp = performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? NaN;

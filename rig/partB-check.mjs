@@ -10,6 +10,7 @@
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
 
+import { settled } from "./lib/settle.mjs";
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(SB)) { console.error("refusing: not the rig's local Supabase"); process.exit(2); }
@@ -29,13 +30,13 @@ const GONE = /Debug runner|Component sheet|Reports & Issues|Search statistics|No
 
 for (const who of ["user", "admin", "dev"]) {
   const { ctx, page } = await as(who);
-  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await page.waitForSelector("[data-cw-sidebar]"); await sleep(2500);
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await page.waitForSelector("[data-cw-sidebar]"); await settled(page);
   // Every group open.
   for (let i = 0; i < 12; i++) { const shut = page.locator('[data-cw-sidebar] button[aria-expanded="false"]'); if (!(await shut.count())) break; await shut.first().click(); await sleep(250); }
   const nav = await page.locator("[data-cw-sidebar]").innerText();
   ok(!GONE.test(nav), `${who}: the nav (every group open) has no Debug runner, Component sheet, Reports & Issues, Search statistics or Notification settings`, (nav.match(GONE) ?? [""])[0]);
   for (const [path, label] of [["/admin/debug", "debug runner"], ["/admin/debug/raw", "debug runner's raw stream"], ["/developer/components", "component sheet"]]) {
-    await page.goto(`${BASE}${path}`, { waitUntil: "load" }); await sleep(1500);
+    await page.goto(`${BASE}${path}`, { waitUntil: "load" }); await settled(page);
     const refused = /\/forbidden/.test(page.url());
     if (who === "dev") {
       const body = await page.locator("body").innerText();
@@ -50,8 +51,8 @@ for (const who of ["user", "admin", "dev"]) {
 
 {
   const { ctx, page } = await as("user");
-  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await page.waitForSelector("[data-cw-sidebar]"); await sleep(2000);
-  await page.locator("[data-cw-sidebar]").getByText("Help & support", { exact: true }).first().click(); await page.waitForURL(/\/help(\?|$)/, { timeout: 15000 }); await sleep(1000);
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await page.waitForSelector("[data-cw-sidebar]"); await settled(page);
+  await page.locator("[data-cw-sidebar]").getByText("Help & support", { exact: true }).first().click(); await page.waitForURL(/\/help(\?|$)/, { timeout: 15000 }); await settled(page);
   await page.getByRole("button", { name: /Something is broken/ }).click(); await page.waitForURL(/\/help\/new\?type=bug/, { timeout: 15000 });
   ok(true, "bug reports: Help & support → Something is broken files a bug report (not the debug runner)");
   for (const path of ["/account/search-stats", "/account/notifications", "/stats", "/settings/notifications"]) {

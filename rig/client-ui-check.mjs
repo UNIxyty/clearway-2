@@ -6,6 +6,7 @@
 //   node --env-file=.env.rig rig/client-ui-check.mjs
 import { chromium } from "playwright";
 import fs from "node:fs";
+import { settled } from "./lib/settle.mjs";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, SVC = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
 const B = "http://127.0.0.1:3989", OUT = "rig/.scratch/shots"; fs.mkdirSync(OUT, { recursive: true });
@@ -38,7 +39,7 @@ for (const theme of ["light", "dark"]) {
     const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, colorScheme: theme });
     await ctx.addCookies([cookie(admin)]); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
     const page = await ctx.newPage();
-    await page.goto(`${B}/admin/clients`, { waitUntil: "load" }); await page.waitForSelector("[data-admin-clients]", { timeout: 20000 }); await page.waitForTimeout(1500);
+    await page.goto(`${B}/admin/clients`, { waitUntil: "load" }); await page.waitForSelector("[data-admin-clients]", { timeout: 20000 }); await settled(page);
     // The first pass approves the client through the page; every later pass finds them under Approved.
     const approvedYet = !(theme === "light" && width === 1440);
     ok(approvedYet ? await page.locator(`[data-client-approved]`).count() >= 1 : await page.locator(`[data-client-request]`).count() >= 1, `Clients page ${theme} ${width}: the client is under ${approvedYet ? "Approved" : "Waiting"}`);
@@ -56,7 +57,7 @@ for (const theme of ["light", "dark"]) {
       await page.locator('[data-level="names"]').click();
       ok(await approve.isEnabled(), "editor: Approve enabled with a scope, the board and a level");
       await page.screenshot({ path: `${OUT}/client-admin-editor.png`, fullPage: true });
-      await approve.click(); await page.waitForSelector(`[data-client-approved]`, { timeout: 15000 }); await page.waitForTimeout(800);
+      await approve.click(); await page.waitForSelector(`[data-client-approved]`, { timeout: 15000 }); await settled(page);
       ok(await page.locator("[data-client-approved]").count() >= 1 && await page.locator("[data-client-request]").count() === 0, "approved through the page: moved from Waiting to Approved");
       ok(await page.locator('[data-decision="approved"]').count() >= 1, "the decision log shows APPROVED");
       const row = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=status,scope,switches,passenger_level`)).json();
@@ -75,20 +76,20 @@ for (const theme of ["light", "dark"]) {
     const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, colorScheme: theme });
     await ctx.addCookies([cookie(cs)]); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
     const page = await ctx.newPage();
-    await page.goto(`${B}/client`, { waitUntil: "load" }); await page.waitForSelector("[data-client-wall]", { timeout: 20000 }); await page.waitForTimeout(2500);
+    await page.goto(`${B}/client`, { waitUntil: "load" }); await page.waitForSelector("[data-client-wall]", { timeout: 20000 }); await settled(page);
     const n = await page.locator("[data-flight]").count();
     ok(n >= 1, `client wall ${theme} ${width}: the board lists their flights`, `${n} rows`);
     ok(await page.locator("[data-cw-sidebar]").count() === 0 && !(await page.content()).includes("Flight intake"), `client wall ${theme} ${width}: no portal shell in the page`);
     ok(await noOverflow(page), `client wall ${theme} ${width}: no horizontal page scroll`);
     if (width === 390) ok(await page.locator("[data-detail]").isHidden(), "client wall 390: the board comes first, the flight is not shown yet");
     await page.screenshot({ path: `${OUT}/client-wall-board-${theme}-${width}.png`, fullPage: width === 390 });
-    await page.locator("[data-flight]").first().click(); await page.waitForTimeout(2500);
+    await page.locator("[data-flight]").first().click(); await settled(page);
     ok(await page.locator("[data-detail]").isVisible(), `client wall ${theme} ${width}: a flight opens`);
     ok(await page.locator('[data-card="weather"]').count() === 1 && await page.locator('[data-card="notams"]').count() === 1 && await page.locator('[data-card="passengers"]').count() === 1, `client wall ${theme} ${width}: weather, NOTAMs and passengers (names) cards — their switches`);
     ok(await page.locator('[data-card="documents"]').count() === 0 && await page.locator(".clw-bottomnav").count() === 0 && await page.locator(".clw-topnav").count() === 0, `client wall ${theme} ${width}: no documents card, no area tabs — switches off add nothing`);
     ok(await noOverflow(page), `client wall ${theme} ${width}: no horizontal scroll with a flight open`);
     await page.screenshot({ path: `${OUT}/client-wall-flight-${theme}-${width}.png`, fullPage: width === 390 });
-    if (width === 390) { await page.locator(".clw-back").click(); await page.waitForTimeout(300); ok(await page.locator("[data-board]").isVisible(), "client wall 390: ← All flights returns to the board"); }
+    if (width === 390) { await page.locator(".clw-back").click(); await settled(page); ok(await page.locator("[data-board]").isVisible(), "client wall 390: ← All flights returns to the board"); }
     await ctx.close();
   }
 }
@@ -103,7 +104,7 @@ for (const theme of ["light", "dark"]) {
   await page.screenshot({ path: `${OUT}/client-request-390.png`, fullPage: true });
   await ctx.close();
   const l = await browser.newContext({ viewport: { width: 1440, height: 900 } }); const lp = await l.newPage();
-  await lp.goto(`${B}/login`, { waitUntil: "load" }); await lp.waitForTimeout(800);
+  await lp.goto(`${B}/login`, { waitUntil: "load" }); await settled(lp);
   ok(await lp.locator("[data-client-ask]").count() === 1 && await lp.getByText("Ask for access").count() >= 1, "sign-in: the operators-and-brokers block with Ask for access");
   await lp.screenshot({ path: `${OUT}/client-signin-1440.png` });
   await l.close();
@@ -112,19 +113,19 @@ for (const theme of ["light", "dark"]) {
 // change, then remove through the page: the row stays, emptied
 {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }); await ctx.addCookies([cookie(admin)]); const page = await ctx.newPage();
-  await page.goto(`${B}/admin/clients`, { waitUntil: "load" }); await page.waitForSelector("[data-client-approved]", { timeout: 20000 }); await page.waitForTimeout(800);
+  await page.goto(`${B}/admin/clients`, { waitUntil: "load" }); await page.waitForSelector("[data-client-approved]", { timeout: 20000 }); await settled(page);
   await page.locator("[data-change]").first().click(); await page.waitForSelector("[data-client-editor]", { timeout: 10000 });
-  await page.locator('[data-switch="weather"]').click(); await page.locator("[data-approve]").click(); await page.waitForTimeout(1500);
+  await page.locator('[data-switch="weather"]').click(); await page.locator("[data-approve]").click(); await settled(page);
   const changed = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=switches`)).json();
   ok(!changed[0]?.switches.includes("weather"), "Change: a switch turned off is saved", JSON.stringify(changed[0]?.switches));
   ok(await page.locator('[data-decision="changed"]').count() >= 1, "the decision log shows CHANGED");
   await page.locator("[data-change]").first().click(); await page.waitForSelector("[data-client-editor]", { timeout: 10000 });
-  await page.getByRole("button", { name: "Remove access" }).first().click(); await page.waitForTimeout(500);
+  await page.getByRole("button", { name: "Remove access" }).first().click(); await settled(page);
   ok(await page.locator("[data-remove-confirm]").isDisabled(), "Remove: confirm is disabled until the company is typed");
   await page.getByLabel("Company name to confirm").fill(COMPANY);
   ok(await page.locator("[data-remove-confirm]").isEnabled(), "Remove: typing the company enables it");
   await page.screenshot({ path: `${OUT}/client-admin-remove.png` });
-  await page.locator("[data-remove-confirm]").click(); await page.waitForTimeout(2000);
+  await page.locator("[data-remove-confirm]").click(); await settled(page);
   const gone = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=status,scope,switches`)).json();
   ok(gone[0]?.status === "removed" && gone[0]?.scope.length === 0 && gone[0]?.switches.length === 0, "Removed: the row stays, emptied", JSON.stringify(gone[0]));
   const au = await (await svc(`/auth/v1/admin/users/${uid}`)).json();

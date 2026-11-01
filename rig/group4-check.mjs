@@ -3,7 +3,9 @@
 //   node --env-file=.env.rig rig/group4-check.mjs
 import { chromium } from "playwright";
 import { execFileSync } from "node:child_process";
-const AUTH = "http://127.0.0.1:3992"; const WALL = "http://127.0.0.1:5199";
+import { settled } from "./lib/settle.mjs";
+// the sign-in-on proxy (portal :3992 + its agent :5176), as production is behind its gateway
+const AUTH = "http://127.0.0.1:3989"; const WALL = "http://127.0.0.1:5199";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 160)}` : ""}`); if (!c) failures += 1; };
@@ -32,17 +34,17 @@ for (const email of ["rig-access-user@rig.invalid", "rig-access-admin@rig.invali
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 950 } });
   await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(await session(email))).toString("base64")}`, url: AUTH }]);
   const p = await ctx.newPage();
-  await p.goto(`${AUTH}/dashboard`, { waitUntil: "load" }); await sleep(2500);
+  await p.goto(`${AUTH}/dashboard`, { waitUntil: "load" }); await settled(p);
   for (const t of ["Admin"]) await p.getByRole("button", { name: t, exact: true }).first().click().catch(() => {});
-  await sleep(500);
+  await settled(p);
   const nav = await p.evaluate(() => [...document.querySelectorAll("button, a")].map((e) => e.textContent.trim()).join(" | "));
   ok(!/Pickem|Pick'em|Email tools|Email console/.test(nav), `${email.split("@")[0]}: no Pickem section, no Email tools / Email console entry — gone, not a dead link`);
   if (email.includes("admin")) {
     // Part B1: the debug runner (and its raw stream) is developer only; an admin is refused. rig/partB-check.mjs opens
     // it as the developer and checks the raw page explains itself without a run.
-    await p.goto(`${AUTH}/admin/debug/raw`, { waitUntil: "load" }); await sleep(2000);
+    await p.goto(`${AUTH}/admin/debug/raw`, { waitUntil: "load" }); await settled(p);
     ok(/\/forbidden/.test(p.url()), "the debug runner's raw stream refuses an admin (developer only)", p.url());
-    await p.goto(`${AUTH}/agent/doc`, { waitUntil: "load" }); await sleep(2500);
+    await p.goto(`${AUTH}/agent/doc`, { waitUntil: "load" }); await settled(p);
     ok(/could not be opened/.test(await p.locator("body").innerText()), "/agent/doc with nothing to open says so (no endless 'Opening…')");
   }
   await ctx.close();

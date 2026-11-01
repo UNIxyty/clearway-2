@@ -3,6 +3,7 @@
 // or clips sideways, and every touch target at least 44 × 44.
 import { mkdirSync } from "node:fs";
 
+import { settled } from "../lib/settle.mjs";
 export const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3999";
 export const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
 export const PHONE = { width: 390, height: 844 };
@@ -19,11 +20,13 @@ export async function context(browser, { theme = "light", viewport = PHONE } = {
   return ctx;
 }
 
-export async function open(ctx, path, { settle = 1800 } = {}) {
+// Opens a page and returns once it has settled (rig/lib/settle.mjs: no request in flight, no DOM change, no skeleton,
+// for 250 ms); was a fixed 1.8 s on every open (2026-11-01). `settle` is now the most it waits, in ms.
+export async function open(ctx, path, { settle = 10000 } = {}) {
   const page = await ctx.newPage();
   const errors = []; page.on("pageerror", (e) => errors.push(String(e.message || e)));
   await page.goto(`${BASE}${path}`, { waitUntil: "load" });
-  await page.waitForTimeout(settle);
+  await settled(page, { timeout: settle });
   return { page, errors };
 }
 

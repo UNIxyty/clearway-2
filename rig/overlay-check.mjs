@@ -6,6 +6,7 @@
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
 
+import { settled } from "./lib/settle.mjs";
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(SB)) { console.error("refusing: not the rig's local Supabase"); process.exit(2); }
@@ -37,12 +38,12 @@ for (const [w, label] of [[1440, "full width"], [1024, "rail"]]) {
     return out;
   });
   // The check must be able to fail: a box like the old "User Bug Reports" one, planted over the sidebar, is found.
-  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await sleep(2000);
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await settled(page);
   await page.evaluate(() => { const d = document.createElement("div"); d.textContent = "User Bug Reports"; d.style.cssText = "position:fixed;top:98px;left:12px;width:200px;height:60px;z-index:2000;background:#fff"; document.body.appendChild(d); });
   ok((await probe()).length > 0, `${label}: the check finds a box planted over the sidebar (so it can fail)`);
   for (const path of PAGES) {
     await page.goto(`${BASE}${path}`, { waitUntil: "load" }).catch(() => {});
-    await sleep(2500);
+    await settled(page);
     const hits = await probe();
     if (hits.length) covered.push(`${path} — ${hits.slice(0, 2).join(" | ")}`);
   }

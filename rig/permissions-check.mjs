@@ -10,6 +10,7 @@ import path from "node:path";
 import { ACTIONS, ENDPOINTS, ROLES, defaultGrants } from "../lib/permissions/catalogue.mjs";
 import { checkCodeRoutes, checkPortal } from "../lib/permissions/check.mjs";
 
+import { until } from "./lib/settle.mjs";
 const PORTAL = "http://127.0.0.1:3992"; const WALL = "http://127.0.0.1:5198"; const AGENT = "http://127.0.0.1:5176";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
@@ -36,6 +37,11 @@ const call = async (base, who, method, p, body) => {
   return { status: r.status, body: await r.json().catch(() => ({})) };
 };
 const grid = (who, changes) => call(PORTAL, who, "POST", "/api/admin/permissions", { changes });
+// The grants cache (lib/permissions/grants.mjs) is 1 s on the rig (PERMISSIONS_TTL_MS in rig/start.sh and the rig's
+// portal starts), 10 s in production. Where a change has a signal, the check polls it (2026-11-01; were fixed 10.5 s).
+const wallCan = async (who) => (await call(WALL, who, "GET", "/api/users/me")).body?.user?.can ?? [];
+const canIncludes = (c, a) => Array.isArray(c) ? c.includes(a) : !!(c && (c[a] === true || c.has?.(a)));
+const GRANTS_TTL_MS = 1000;
 const grants = () => JSON.parse(psql("select coalesce(json_agg(json_build_object('role', role, 'action', action, 'allowed', allowed)), '[]') from permission_grants"));
 const logRows = (since) => JSON.parse(psql(`select coalesce(json_agg(json_build_object('actor', actor_email, 'role', role, 'action', action, 'allowed', allowed, 'via', via) order by id), '[]') from permission_changes where at >= '${since}'`));
 const restore = () => {
@@ -98,7 +104,7 @@ let r = await call(WALL, user, "DELETE", "/api/aircraft", { oprId: tail?.oprId ?
 ok(r.status === 403 && r.body.permission === "wall.aircraft.delete", "before: the ops user is refused deleting an aircraft (default)", `${r.status}`);
 r = await grid(admin, [{ role: "user", action: "wall.aircraft.delete", allowed: true }]);
 ok(r.status === 200 && r.body.changed === 1, "an admin grants User 'Delete an aircraft' on the Permissions screen", `${r.status} ${r.body.error ?? ""}`);
-await sleep(10_500);
+ok(!!(await until(async () => canIncludes(await wallCan(user), "wall.aircraft.delete"), { timeout: 15000, every: 200 })), "the wall sees the grant (within its cache period)");
 r = await call(WALL, user, "DELETE", "/api/aircraft", { oprId: tail?.oprId ?? tail?.opr_id, registration: tail?.registration });
 ok(r.status === 200 && r.body.ok === true, "the ops user deletes the aircraft (the server runs the delete)", `${r.status} purged ${r.body.purged}`);
 const vis = (await call(WALL, admin, "GET", "/api/aircraft/visibility")).body;
@@ -110,7 +116,7 @@ for (const [m, p, b] of [["DELETE", "/api/operators/rig-none"], ["POST", "/api/o
 }
 r = await grid(admin, [{ role: "user", action: "wall.aircraft.delete", allowed: false }]);
 ok(r.status === 200, "the admin takes the permission away again");
-await sleep(10_500);
+ok(!!(await until(async () => !canIncludes(await wallCan(user), "wall.aircraft.delete"), { timeout: 15000, every: 200 })), "the wall sees it taken away (within its cache period)");
 r = await call(WALL, user, "DELETE", "/api/aircraft", { oprId: tail?.oprId ?? tail?.opr_id, registration: tail?.registration });
 ok(r.status === 403 && r.body.permission === "wall.aircraft.delete", "…and the SERVER refuses the ops user (a direct request, no console involved)", `${r.status}`);
 
@@ -175,8 +181,7 @@ r = await grid(dev, [{ role: "developer", action: "permissions.manage", allowed:
 ok(r.status === 409, "…but not from Developer, now the last role holding it", `${r.status} ${r.body.error ?? ""}`);
 r = await sb("/rest/v1/rpc/permission_apply", { method: "POST", body: JSON.stringify({ p_changes: [{ role: "user", action: "permissions.manage", allowed: false }], p_actor_id: null, p_actor_email: "rig", p_via: "rig" }) });
 ok(r.ok, "(sanity) the database function applies an ordinary change");
-await sleep(10_500);
-r = await call(PORTAL, admin, "GET", "/api/admin/permissions");
+r = await until(async () => { const x = await call(PORTAL, admin, "GET", "/api/admin/permissions"); return x.status === 403 ? x : null; }, { timeout: 15000, every: 200 }) ?? await call(PORTAL, admin, "GET", "/api/admin/permissions");
 ok(r.status === 403, "Admin, without the permission, can no longer open the screen", `${r.status}`);
 r = await grid(dev, [{ role: "admin", action: "permissions.manage", allowed: true }]);
 ok(r.status === 200, "the developer gives it back");
@@ -187,7 +192,9 @@ ok(r.status === 403, "an ops user cannot open the grid", `${r.status}`);
 r = await grid(user, [{ role: "user", action: "wall.operators.delete", allowed: true }]);
 ok(r.status === 403, "an ops user cannot grant themselves anything (refused by the middleware and the handler)", `${r.status}`);
 await grid(admin, [{ role: "user", action: "portal.users.set-admin", allowed: true }]);
-await sleep(10_500);
+// No signal here: the request must be refused both before and after the cache takes the grant, so wait out the
+// cache's own period (1 s on the rig) rather than a fixed 10.5 s.
+await sleep(GRANTS_TTL_MS + 250);
 r = await call(PORTAL, user, "POST", "/api/admin/users", { userId: dev.id, isAdmin: true });
 ok(r.status === 403, "an ops role given 'make someone an admin' still cannot (it needs Manage permissions too)", `${r.status} ${r.body.error ?? ""}`);
 r = await call(PORTAL, admin, "POST", "/api/admin/users", { userId: admin.id, isAdmin: false });

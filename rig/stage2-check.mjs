@@ -14,6 +14,7 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
+import { settled } from "./lib/settle.mjs";
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
@@ -32,7 +33,7 @@ const ctx = await signedIn("dev");
 const page = await ctx.newPage();
 const errors = []; page.on("pageerror", (e) => errors.push(String(e.message).slice(0, 120)));
 await page.goto(`${BASE}/developer/components`, { waitUntil: "load" });
-await page.waitForSelector('[data-theme="dark"] section[aria-label^="2.6"]', { timeout: 20000 }); await sleep(1500);
+await page.waitForSelector('[data-theme="dark"] section[aria-label^="2.6"]', { timeout: 20000 }); await settled(page);
 const halves = await page.evaluate(() => ["light", "dark"].map((t) => { const el = document.querySelector(`div[data-theme="${t}"]`); return { t, sections: el?.querySelectorAll("section[aria-label]").length ?? 0, bg: el ? getComputedStyle(el).backgroundColor : null }; }));
 ok(halves[0].sections >= 7 && halves[1].sections >= 7 && halves[0].bg !== halves[1].bg, "the sheet renders every section in both themes, each half in its own theme", JSON.stringify(halves));
 await page.screenshot({ path: `${OUT}/stage2-sheet.png`, fullPage: true });
@@ -89,7 +90,7 @@ ok(await dialog.isVisible(), "modal opens");
 ok(await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]'))), "…focus is inside it");
 for (let i = 0; i < 5; i++) await page.keyboard.press("Tab");
 ok(await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]'))), "…Tab stays inside it");
-await page.keyboard.press("Escape"); await sleep(200);
+await page.keyboard.press("Escape"); await settled(page);
 ok(!(await dialog.count()) && await opener.evaluate((el) => el === document.activeElement), "…Esc closes it and focus returns to the button that opened it");
 
 // ── 4. Table ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -100,14 +101,14 @@ for (let i = 0; i < 3; i++) { await actionTh.getByRole("button").click(); sorts.
 ok(sorts.join(",") === "ascending,descending,none", "sort: a header click sorts ascending, again descending, a third clears", sorts.join(" → "));
 const footer = L.locator("div", { hasText: /^1–50 of 500/ }).first();
 ok(await L.getByText(/1–50/).first().isVisible() && (await dense.locator("tbody tr").count()) === 50, "500 rows paginate, 50 a page", `${await dense.locator("tbody tr").count()} rows shown`);
-await L.getByRole("navigation", { name: "Pages" }).getByRole("button", { name: "Next page" }).click(); await sleep(200);
+await L.getByRole("navigation", { name: "Pages" }).getByRole("button", { name: "Next page" }).click(); await settled(page);
 ok(await L.getByText(/51–100/).first().isVisible(), "…next page shows 51–100");
 const rpp = L.getByRole("combobox", { name: "Rows per page" }).last();
-await rpp.click(); await page.getByRole("option", { name: "100", exact: true }).click(); await sleep(200);
+await rpp.click(); await page.getByRole("option", { name: "100", exact: true }).click(); await settled(page);
 ok((await dense.locator("tbody tr").count()) === 100 && await L.getByText(/1–100/).first().isVisible(), "…rows per page: 100", `${await dense.locator("tbody tr").count()} rows`);
 void footer;
 // Sticky header and page scroll.
-await dense.locator("tbody tr").nth(60).scrollIntoViewIfNeeded(); await sleep(300);
+await dense.locator("tbody tr").nth(60).scrollIntoViewIfNeeded(); await settled(page);
 const stick = await dense.evaluate((t) => {
   const th = t.querySelector("thead th"); const r = th.getBoundingClientRect();
   let scroller = null; for (let e = t.parentElement; e && e !== document.body; e = e.parentElement) { const s = getComputedStyle(e); if (/(auto|scroll)/.test(s.overflowY) && e.scrollHeight > e.clientHeight) { scroller = e.tagName; break; } }
@@ -116,23 +117,23 @@ const stick = await dense.evaluate((t) => {
 ok(stick.top === 56 && stick.pageScrolled && stick.scroller === null && stick.shadow, "the header sticks under the top bar (56px), gains its shadow, and the PAGE scrolls — no scrolling box", JSON.stringify(stick));
 await page.screenshot({ path: `${OUT}/stage2-sticky.png` });
 const stateSeg = L.getByRole("radiogroup", { name: "Table state" });
-await stateSeg.getByRole("radio", { name: "Loading" }).click(); await sleep(150);
+await stateSeg.getByRole("radio", { name: "Loading" }).click(); await settled(page);
 ok(await dense.getAttribute("aria-busy") === "true" && await dense.locator('[role="status"][aria-busy="true"]').count() === 1, "loading draws skeleton rows (aria-busy), not \"Loading…\"");
-await stateSeg.getByRole("radio", { name: "Error" }).click(); await sleep(150);
+await stateSeg.getByRole("radio", { name: "Error" }).click(); await settled(page);
 const alert = dense.locator('[role="alert"]');
 ok(/Couldn't load the change log/.test(await alert.innerText()) && /502 · GET \/api\/admin\/permissions · \d\d:\d\d:\d\dZ/.test(await alert.innerText()), "error names what failed and keeps the status and time visible", (await alert.innerText()).replace(/\s+/g, " "));
-await alert.getByRole("button", { name: "Try again" }).click(); await sleep(150);
+await alert.getByRole("button", { name: "Try again" }).click(); await settled(page);
 ok((await dense.locator("tbody tr").count()) > 0 && !(await dense.locator('[role="alert"]').count()), "…Try again retries (back to rows)");
 
 // ── 5. Filters ───────────────────────────────────────────────────────────────────────────────────────────────────────
 const strip = L.locator('[role="status"]', { hasText: "Showing 4 of 231" });
 ok(await strip.isVisible() && /3 filters and a search are hiding 227/.test(await strip.innerText()), "filtered: the strip says how many rows are hidden and why", (await strip.innerText()).replace(/\s+/g, " "));
 ok(await L.getByRole("button", { name: "Clear Status" }).isVisible() && await L.getByRole("button", { name: "More filters" }).isVisible(), "…active filters are chips with an ✕; the rest wait behind More filters");
-await strip.getByRole("button", { name: "Clear all" }).click(); await sleep(200);
+await strip.getByRole("button", { name: "Clear all" }).click(); await settled(page);
 ok(!(await L.locator('[role="status"]', { hasText: "Showing 4 of 231" }).count()), "…Clear all clears them and the strip goes");
 
 // ── 7. Contrast on the sheet ─────────────────────────────────────────────────────────────────────────────────────────
-await page.evaluate(() => window.scrollTo(0, 0)); await sleep(300);
+await page.evaluate(() => window.scrollTo(0, 0)); await settled(page);
 const bad = await page.evaluate(() => {
   const parse = (c) => { const m = c.match(/[\d.]+/g); if (!m) return null; const n = m.map(Number); return /^color\(srgb/.test(c) ? [n[0] * 255, n[1] * 255, n[2] * 255, n[3] ?? 1] : n; };
   const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
@@ -165,7 +166,7 @@ for (const who of ["admin", "dev"]) {
   for (const [as, path] of PAGES) {
     if (as !== who) continue;
     const p = await c.newPage(); const errs = []; p.on("pageerror", (e) => errs.push(String(e.message).match(/#\d+/)?.[0] ?? String(e.message).slice(0, 60)));
-    await p.goto(`${BASE}${path}`, { waitUntil: "load" }); await sleep(3000);
+    await p.goto(`${BASE}${path}`, { waitUntil: "load" }); await settled(p);
     const natives = await p.evaluate(() => [...document.querySelectorAll('select, input[type="checkbox"], input[type="radio"], input[type="date"], input[type="time"], input[type="datetime-local"]')].map((e) => e.outerHTML.slice(0, 80)));
     ok(natives.length === 0 && errs.length === 0, `${path}: no native select/checkbox/radio/date, no page error`, [...natives, ...errs].join(" | "));
     if (path === "/admin/users") {
@@ -186,7 +187,7 @@ for (const who of ["admin", "dev"]) {
   for (const [w, h] of [[1600, 1000], [1280, 640]]) {
     const c = await signedIn("dev", { viewport: { width: w, height: h } });
     const p = await c.newPage();
-    await p.goto(`${BASE}/developer/components`, { waitUntil: "load" }); await p.waitForSelector('[data-theme="light"] [role="combobox"][aria-label="Default model"]'); await sleep(800);
+    await p.goto(`${BASE}/developer/components`, { waitUntil: "load" }); await p.waitForSelector('[data-theme="light"] [role="combobox"][aria-label="Default model"]'); await settled(p);
     const S = p.locator('div[data-theme="light"]');
     const checks = [
       ["select", S.getByRole("combobox", { name: "Default model", exact: true }), '[role="listbox"][aria-label="Default model"]'],
@@ -199,10 +200,10 @@ for (const who of ["admin", "dev"]) {
       await trigger.click(); await sleep(350);
       const r = await rectOf(p, panel);
       ok(inside(r, h, w), `${w}×${h}: a ${name} opened at the bottom of the window is wholly inside it`, JSON.stringify(r));
-      await p.keyboard.press("Escape"); await sleep(150);
+      await p.keyboard.press("Escape"); await settled(p);
     }
     const tipBtn = S.getByRole("button", { name: "Open the agent" });
-    await atEdge(tipBtn, "top", 60); await sleep(150); await tipBtn.hover(); await sleep(700);
+    await atEdge(tipBtn, "top", 60); await sleep(150); await tipBtn.hover(); await settled(p);
     const tip = await rectOf(p, '[role="tooltip"]');
     ok(inside(tip, h, w), `${w}×${h}: a tooltip near the top of the window is wholly inside it`, JSON.stringify(tip));
     await c.close();
@@ -210,16 +211,16 @@ for (const who of ["admin", "dev"]) {
   // Too short either way: the list takes the roomier side and scrolls inside itself.
   const c = await signedIn("dev", { viewport: { width: 1280, height: 230 } });
   const p = await c.newPage();
-  await p.goto(`${BASE}/developer/components`, { waitUntil: "load" }); await p.waitForSelector('[data-theme="light"] [role="combobox"][aria-label="Default model"]'); await sleep(800);
+  await p.goto(`${BASE}/developer/components`, { waitUntil: "load" }); await p.waitForSelector('[data-theme="light"] [role="combobox"][aria-label="Default model"]'); await settled(p);
   const sel2 = p.locator('div[data-theme="light"]').getByRole("combobox", { name: "Default model", exact: true });
-  await sel2.evaluate((el) => { const r = el.getBoundingClientRect(); window.scrollBy(0, r.top - (innerHeight / 2 - r.height / 2)); }); await sleep(150);
-  await sel2.click(); await sleep(350);
+  await sel2.evaluate((el) => { const r = el.getBoundingClientRect(); window.scrollBy(0, r.top - (innerHeight / 2 - r.height / 2)); }); await settled(p);
+  await sel2.click(); await settled(p);
   const r = await rectOf(p, '[role="listbox"][aria-label="Default model"]');
   ok(inside(r, 230, 1280) && r.scrolls, "a window too short either way: the list stays inside it and scrolls inside itself", JSON.stringify(r));
-  await p.keyboard.press("End"); await sleep(200);
+  await p.keyboard.press("End"); await settled(p);
   const last = await p.evaluate(() => { const l = document.querySelector('[role="listbox"][aria-label="Default model"]'); const o = [...l.querySelectorAll('[role="option"]')].pop(); const a = l.getBoundingClientRect(), b = o.getBoundingClientRect(); return b.top >= a.top - 1 && b.bottom <= a.bottom + 1; });
   ok(last, "…and the chosen option (here the last) is scrolled into view");
-  await p.keyboard.press("Home"); await sleep(250);
+  await p.keyboard.press("Home"); await settled(p);
   const firstIn = await p.evaluate(() => { const l = document.querySelector('[role="listbox"][aria-label="Default model"]'); const o = l.querySelector('[role="option"]'); const a = l.getBoundingClientRect(), b = o.getBoundingClientRect(); return b.top >= a.top - 1 && b.bottom <= a.bottom + 1; });
   ok(firstIn, "…and the arrow keys bring the option they reach into view (Home → the first)");
   await c.close();

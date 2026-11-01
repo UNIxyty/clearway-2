@@ -15,6 +15,7 @@ import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { flightTimes, openChecksOf, statusFromFlight, STATUS_LABEL } from "../../shared/wall-facts.mjs";
 
+import { settled } from "../lib/settle.mjs";
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3999";
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 220)}` : ""}`); if (!c) failures += 1; };
@@ -90,27 +91,27 @@ const PAGES = [
   { name: "wall", path: "/m/wall", ready: "iframe[title='Digital Wall']" },
   { name: "flights", path: "/m/flights", ready: "a[href^='/m/flights/']" },
   { name: "flight", path: `/m/flights/${enc(flightId)}`, ready: "text=UTC" },
-  { name: "flight-passengers", path: `/m/flights/${enc(flightId)}/passengers`, ready: "[data-passenger-viewer]", settle: 4000 },
+  { name: "flight-passengers", path: `/m/flights/${enc(flightId)}/passengers`, ready: "[data-passenger-viewer]" },
   { name: "intake", path: "/m/intake", ready: "a[href^='/m/intake/']" },
   { name: "intake-request", path: `/m/intake/${req.id}`, ready: "text=Legs" },
   { name: "intake-leg", path: `/m/intake/${req.id}/leg/1`, ready: "main, [data-phone-shell]" },
-  { name: "intake-email", path: `/m/intake/${req.id}/email`, ready: "text=As received", settle: 2500 },
+  { name: "intake-email", path: `/m/intake/${req.id}/email`, ready: "text=As received" },
   { name: "intake-confirm", path: `/m/intake/${req.id}/confirm`, ready: "[data-phone-shell]" },
   { name: "agent", path: "/m/agent", ready: "textarea, [contenteditable]" },
-  { name: "agent-history", path: "/m/agent", ready: "textarea, [contenteditable]", then: async (p) => { await p.getByRole("button", { name: "Recent threads" }).click(); await p.waitForTimeout(800); } },
+  { name: "agent-history", path: "/m/agent", ready: "textarea, [contenteditable]", then: async (p) => { await p.getByRole("button", { name: "Recent threads" }).click(); await settled(p); } },
   { name: "airport", path: "/m/airport", ready: "input" },
-  { name: "airport-search", path: "/m/airport", ready: "input", then: async (p) => { await p.fill("input", ICAO.slice(0, 3)); await p.waitForTimeout(1200); } },
+  { name: "airport-search", path: "/m/airport", ready: "input", then: async (p) => { await p.fill("input", ICAO.slice(0, 3)); await settled(p); } },
   { name: "airport-notams", path: `/m/airport/${ICAO}`, ready: "[role=radiogroup]" },
   { name: "airport-notam", path: firstNotam ? `/m/airport/${ICAO}?notam=${enc(firstNotam)}` : null, ready: "text=AS PUBLISHED" },
   { name: "airport-weather", path: `/m/airport/${ICAO}?tab=weather`, ready: "[data-phone-shell]" },
   { name: "airport-docs", path: `/m/airport/${ICAO}?tab=docs`, ready: "text=AD 2" },
-  { name: "airport-doc", path: `/m/airport/${ICAO}?doc=ad2`, ready: "[aria-label='Next page']", settle: 4000 },
-  { name: "more", path: "/m/flights", ready: "a[href^='/m/flights/']", then: async (p) => { await p.getByRole("button", { name: "More", exact: true }).click(); await p.waitForTimeout(600); } },
+  { name: "airport-doc", path: `/m/airport/${ICAO}?doc=ad2`, ready: "[aria-label='Next page']" },
+  { name: "more", path: "/m/flights", ready: "a[href^='/m/flights/']", then: async (p) => { await p.getByRole("button", { name: "More", exact: true }).click(); await settled(p); } },
 ].filter((p) => p.path);
 for (const theme of ["light", "dark"]) {
   const ctx = await context({ theme });
   for (const spec of PAGES) {
-    const { page, errors } = await open(ctx, spec.path, { settle: spec.settle ?? 1800 });
+    const { page, errors } = await open(ctx, spec.path);
     try {
       if (spec.readyText) await page.waitForFunction((re) => new RegExp(re).test(document.body.innerText) && !document.querySelector("[role=status][aria-busy='true']"), spec.readyText.source, { timeout: 8000 });
       else await page.locator(spec.ready).first().waitFor({ timeout: 8000 });
@@ -137,7 +138,7 @@ const STATES = [
     {
       const page = await ctx.newPage(); let release;
       await page.route(s.route, (route) => { release = () => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ ok: false, error: "held" }) }); });
-      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.waitForTimeout(900);
+      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await settled(page);
       const busy = await page.locator("[role=status][aria-busy='true']").count();
       ok(busy > 0, `${s.name} · loading: a skeleton while the data is held`, `role=status×${busy}`);
       const o = await overflow(page); ok(o.n === 0 && o.pageScroll <= 0, `${s.name} · loading: no horizontal overflow`, o.out.join(" | "));
@@ -147,7 +148,7 @@ const STATES = [
     if (s.empty) {
       const page = await ctx.newPage();
       await page.route(s.route, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(s.empty) }));
-      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.waitForTimeout(1500);
+      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await settled(page);
       const text = await page.locator("[data-phone-shell]").innerText();
       ok(s.emptyText.test(text), `${s.name} · empty: says so`, text.replace(/\s+/g, " ").slice(0, 160));
       const t = await targets(page); ok(t.length === 0, `${s.name} · empty: targets ≥ 44 px`, t.slice(0, 4).join(" | "));
@@ -156,7 +157,7 @@ const STATES = [
     {
       const page = await ctx.newPage();
       await page.route(s.route, (route) => route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ ok: false, error: "The rig failed this on purpose." }) }));
-      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.waitForTimeout(1800);
+      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await settled(page);
       const alerts = await page.locator("[role=alert]").allInnerTexts();
       const text = alerts.join(" ") + " " + (await page.locator("[data-phone-shell]").innerText());
       ok(alerts.length > 0 && s.errorText.test(text), `${s.name} · error: an alert that says what happened and what still works`, text.replace(/\s+/g, " ").slice(0, 200));
@@ -168,9 +169,9 @@ const STATES = [
   {
     const page = await ctx.newPage();
     await page.route(/\/agent\/api\/chat/, (route) => route.abort("connectionfailed"));
-    await page.goto(`${BASE}/m/agent`, { waitUntil: "load" }); await page.waitForTimeout(1500);
+    await page.goto(`${BASE}/m/agent`, { waitUntil: "load" }); await settled(page);
     const box = page.locator("textarea, [contenteditable]").first();
-    await box.fill("Which flights are open tonight?"); await page.keyboard.press("Enter"); await page.waitForTimeout(2500);
+    await box.fill("Which flights are open tonight?"); await page.keyboard.press("Enter"); await settled(page);
     const text = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
     ok(/offline|not sent|couldn|try again|failed/i.test(text), "agent · error: the failed send is said in the thread", text.slice(-220));
     ok((await page.locator("textarea, [contenteditable]").count()) > 0, "agent · error: the composer stays");
@@ -189,7 +190,7 @@ const STATES = [
   }
   await ctx.close();
   const wide = await browser.newContext({ viewport: { width: 1024, height: 800 } });
-  for (const from of ["/agent", "/aip"]) { const page = await wide.newPage(); await page.goto(`${BASE}${from}`, { waitUntil: "load" }); await page.waitForTimeout(1500); ok(new URL(page.url()).pathname === from, `1024 px: ${from} stays`, page.url()); await page.close(); }
+  for (const from of ["/agent", "/aip"]) { const page = await wide.newPage(); await page.goto(`${BASE}${from}`, { waitUntil: "load" }); await page.locator("[data-cw-sidebar]").first().waitFor({ timeout: 10000 }).catch(() => {}); await settled(page); ok(new URL(page.url()).pathname === from, `1024 px: ${from} stays`, page.url()); await page.close(); }
   await wide.close();
   // the ops-room display: the built dist fulfilled on the portal's origin (the proxy forwards only the wall's API)
   // The local dist (plain vite build) calls /api/…; production builds it with VITE_API_BASE_URL=/digital-wall. On the
@@ -215,7 +216,7 @@ const STATES = [
       await ctx.route(/\/api\/user(\?|$)/, (route) => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ ok: false, error: "Sign in" }) }));
     }
     const page = await ctx.newPage(); await page.goto(`${BASE}/digital-wall/timeline`, { waitUntil: "load" });
-    try { await page.waitForURL((u) => u.pathname === expect, { timeout: 6000 }); } catch {} await page.waitForTimeout(1500);
+    try { await page.waitForURL((u) => u.pathname === expect, { timeout: 6000 }); } catch {} await settled(page);
     const shown = who === "screen" ? await page.locator("[data-wall-display], canvas, [class*=timeline], [data-count-line]").count() : 0;
     ok(new URL(page.url()).pathname === expect, what, `${page.url()}${who === "screen" ? ` · display elements ${shown}` : ""}`);
     await ctx.close();
@@ -226,7 +227,7 @@ const STATES = [
 const wallFrame = async (page, path) => {
   await page.goto(`${BASE}${path}`, { waitUntil: "load" });
   const h = await page.waitForSelector("iframe[title='Digital Wall']", { timeout: 20000 });
-  const f = await h.contentFrame(); await f.waitForSelector("[data-mobile-wall]", { timeout: 30000 }); await page.waitForTimeout(2500);
+  const f = await h.contentFrame(); await f.waitForSelector("[data-mobile-wall]", { timeout: 30000 }); await settled(page);
   return f;
 };
 {
@@ -237,7 +238,7 @@ const wallFrame = async (page, path) => {
   ok(text.includes(t.depHm) && text.includes(t.arrHm), `facts: ${pick.flight.flightNo} shows the shared module's departure ${t.depHm} and arrival ${t.arrHm}`, text.slice(0, 200));
   const WALL_WORD = { scheduled: "SCHEDULED", delayed: "DELAYED", ctot: "CTOT", airborne: "AIRBORNE", arrived: "ARRIVED", cancelled: "CANCELLED" };
   ok(new RegExp(`${WALL_WORD[status]}|${STATUS_LABEL[status]}`, "i").test(text), `facts: the status reads the wall's word for "${status}"`, text.slice(0, 120));
-  await page.goto(`${BASE}/m/flights/${enc(flightId)}`, { waitUntil: "load" }); await page.waitForTimeout(1500);
+  await page.goto(`${BASE}/m/flights/${enc(flightId)}`, { waitUntil: "load" }); await settled(page);
   const text2 = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
   ok(text2.includes(t.stdHm) && text2.includes(t.staHm), `facts: the flight record shows STD ${t.stdHm} and STA ${t.staHm} from the same module`, text2.slice(0, 200));
   await ctx.close();
@@ -249,11 +250,11 @@ const wallFrame = async (page, path) => {
   const f = await wallFrame(page, `/m/wall/${enc(flightId)}`);
   const openHere = openChecksOf(pick.flight).filter((k) => ["imp", "wx", "caa"].includes(k));
   const ntmOpen = openChecksOf(pick.flight).includes("ntm");
-  await f.getByRole("button", { name: /^LIMITATIONS AND CAA/ }).click(); await page.waitForTimeout(800);
+  await f.getByRole("button", { name: /^LIMITATIONS AND CAA/ }).click(); await settled(page);
   const btn = f.getByRole("button", { name: /^Mark \d checked$/ });
   if (openHere.length && !ntmOpen && (await btn.count()) === 1 && (await btn.isEnabled())) {
     ok(true, `marking: the sheet offers '${await btn.textContent()}' for ${openHere.join(", ")}`);
-    await btn.click(); await page.waitForTimeout(2500);
+    await btn.click(); await settled(page);
     const foot = (await f.locator("[role=dialog][aria-label='Limitations and CAA']").innerText().catch(() => "")).replace(/\s+/g, " ");
     ok(/All four here are checked|of 4 here still to check/.test(foot) && !/Mark \d checked/.test(foot), "marking: after the tap the sheet reads them checked, with who did it", foot.slice(0, 200));
     const r = await fetch(`${BASE}/digital-wall/api/flight-checks`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ oprId: pick.oprId, flightNid: pick.flightNid, types: openHere, checked: false }) });
@@ -265,13 +266,14 @@ const wallFrame = async (page, path) => {
 // ── the confirm step refuses until the original email was read on this phone ──
 {
   const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
-  await page.goto(`${BASE}/m/intake/${req.id}/confirm`, { waitUntil: "load" }); await page.waitForTimeout(1500);
+  await page.goto(`${BASE}/m/intake/${req.id}/confirm`, { waitUntil: "load" }); await settled(page);
   ok((await page.getByRole("link", { name: /Read the original email first/ }).count()) === 1 && (await page.getByRole("button", { name: /send to Leon/ }).count()) === 0, "confirm: without the email read, the only action is Read the original email first (no dead Confirm)");
-  await page.getByRole("link", { name: /Read the original email first/ }).click(); await page.waitForTimeout(2500);
+  // a client-side route change: the signal is the address and the email's own heading (settled cannot see a transition)
+  await page.getByRole("link", { name: /Read the original email first/ }).click(); await page.waitForURL(/\/email(\?|$)/, { timeout: 10_000 }).catch(() => {}); await page.getByText("As received").first().waitFor({ timeout: 10_000 }).catch(() => {});
   const text = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
   const bodyShown = !/shown to the mailbox’s readers/.test(text);
   ok(/As received/.test(text) && /Subject/.test(text), "email: the headers are shown", text.slice(0, 160));
-  await page.goBack(); await page.waitForTimeout(1500);
+  await page.goBack(); await page.waitForURL(/\/confirm(\?|$)/, { timeout: 10_000 }).catch(() => {}); await settled(page);
   if (bodyShown) ok((await page.getByRole("button", { name: /send to Leon/ }).count()) === 1, "confirm: after reading the email, Confirm and send to Leon is offered");
   else ok((await page.getByRole("link", { name: /Read the original email first/ }).count()) === 1, "confirm: this account cannot read bodies (not a mailbox reader), so the phone still refuses to confirm");
   await ctx.close();
@@ -281,10 +283,10 @@ const wallFrame = async (page, path) => {
 {
   const flagged = (intake.rows ?? []).find((r) => r.statusKey === "needs_review") ?? req;
   const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
-  await page.goto(`${BASE}/m/intake/${flagged.id}/leg/1`, { waitUntil: "load" }); await page.waitForTimeout(1800);
+  await page.goto(`${BASE}/m/intake/${flagged.id}/leg/1`, { waitUntil: "load" }); await settled(page);
   const btn = page.getByRole("button", { name: /^Looks right$/ }).first();
   if (await btn.count()) {
-    await btn.click(); await page.waitForTimeout(2500);
+    await btn.click(); await settled(page);
     const alerts = await page.locator("[role=alert]").allInnerTexts();
     ok(alerts.length === 0, "intake: Looks right is accepted by the agent (no alert)", alerts.join(" | ").slice(0, 200));
   } else console.log("skip  intake: no field to mark Looks right on the rig's flagged request");

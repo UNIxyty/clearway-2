@@ -7,6 +7,7 @@
 //   node --env-file=.env.rig rig/error-text-browser-check.mjs
 import { chromium } from "playwright";
 
+import { settled } from "./lib/settle.mjs";
 const BASE = "http://127.0.0.1:3989";
 const CONSOLE = process.env.RIG_CONSOLE_URL || "http://127.0.0.1:4173";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -46,17 +47,17 @@ try {
   const page = await ctx.newPage();
   for (const p of PORTAL) {
     await page.goto(`${BASE}${p}`, { waitUntil: "load", timeout: 60000 }).catch(() => {});
-    await sleep(4000);
+    await settled(page);
     const bad = leaksIn(await shown(page));
     ok(bad.length === 0, `${p}: no raw error text on screen`, bad.slice(0, 2).join(" | "));
   }
   // The airport page's actions that fail on the rig.
-  await page.goto(`${BASE}/aip/EVRA`, { waitUntil: "load" }); await sleep(4000);
-  await page.getByRole("button", { name: "Re-sync" }).click().catch(() => {}); await sleep(6000);
+  await page.goto(`${BASE}/aip/EVRA`, { waitUntil: "load" }); await settled(page);
+  await page.getByRole("button", { name: "Re-sync" }).click().catch(() => {}); await settled(page);
   let bad = leaksIn(await shown(page));
   ok(bad.length === 0, "/aip/EVRA after Re-sync fails: no raw error text", bad.slice(0, 2).join(" | "));
-  await page.getByText(/^GEN · /).first().click().catch(() => {}); await sleep(2500);
-  await page.getByRole("button", { name: /Get GEN 1\.2/ }).click().catch(() => {}); await sleep(6000);
+  await page.getByText(/^GEN · /).first().click().catch(() => {}); await settled(page);
+  await page.getByRole("button", { name: /Get GEN 1\.2/ }).click().catch(() => {}); await settled(page);
   bad = leaksIn(await shown(page));
   ok(bad.length === 0, "/aip/EVRA after Get GEN 1.2 fails: no raw error text", bad.slice(0, 2).join(" | "));
   await ctx.close();
@@ -67,7 +68,7 @@ try {
   const wall = await wctx.newPage();
   for (const k of WALL) {
     await wall.goto(`${CONSOLE}/console/${k}`, { waitUntil: "load", timeout: 60000 }).catch(() => {});
-    await sleep(3500);
+    await settled(wall);
     const b = leaksIn(await shown(wall));
     ok(b.length === 0, `wall console ${k}: no raw error text on screen`, b.slice(0, 2).join(" | "));
   }

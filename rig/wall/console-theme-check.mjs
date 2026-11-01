@@ -13,6 +13,7 @@
 //   node --env-file=.env.rig rig/wall/console-theme-check.mjs
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { settled } from "../lib/settle.mjs";
 const BASE = process.env.RIG_CONSOLE_URL || "http://127.0.0.1:4173";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -40,7 +41,7 @@ for (const theme of ["light", "dark"]) {
   const ctx = await context({ theme });
   const page = await ctx.newPage(); const errs = errorsOf(page);
   for (const p of PAGES) {
-    await page.goto(`${BASE}/console/${p}`, { waitUntil: "load" }); await page.waitForTimeout(2200);
+    await page.goto(`${BASE}/console/${p}`, { waitUntil: "load" }); await settled(page);
     const [dt, bg, title] = [await htmlTheme(page), await shellBg(page), await page.locator("h2").first().textContent().catch(() => "")];
     ok(dt === theme && bg === TOKENS[theme].bgPage, `${theme} · ${p}: data-theme and the page background follow the choice`, `${dt} · ${bg} · ${title}`);
     await page.screenshot({ path: `${OUT}/console-theme-${p}-${theme}.png` });
@@ -50,9 +51,10 @@ for (const theme of ["light", "dark"]) {
 }
 { // match this device
   const ctx = await context({ theme: "system", scheme: "dark" }); const page = await ctx.newPage();
-  await page.goto(`${BASE}/console/flights`, { waitUntil: "load" }); await page.waitForTimeout(1500);
+  await page.goto(`${BASE}/console/flights`, { waitUntil: "load" }); await settled(page);
   ok(await htmlTheme(page) === "dark" && await shellBg(page) === TOKENS.dark.bgPage, "match this device: a dark device gives a dark console");
-  await page.emulateMedia({ colorScheme: "light" }); await page.waitForTimeout(300);
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "light", null, { timeout: 5000 }).catch(() => {});   // the console follows (no request to wait on)
   ok(await htmlTheme(page) === "light" && await shellBg(page) === TOKENS.light.bgPage, "…and follows the device when it changes, with no reload");
   await ctx.close();
 }
@@ -62,7 +64,9 @@ for (const theme of ["light", "dark"]) {
   const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
   await page.route("**/api/user", async (route) => { await new Promise((r) => setTimeout(r, 1500)); await route.continue(); });
   await page.goto(`${BASE}/console/operators`, { waitUntil: "commit" });
-  await page.waitForSelector(".cw-console", { timeout: 5000 }); await page.waitForTimeout(250);
+  await page.waitForSelector(".cw-console", { timeout: 5000 });
+  // sampled while /api/user is still held (that is the test): the signal is the boot skeleton on screen, not "settled"
+  await page.waitForSelector("[data-boot='true']", { timeout: 5000 }).catch(() => {});
   const navCount = await page.locator(".cw-rail button:has-text('Flights'), .cw-rail button:has-text('Settings')").count();
   const title = await page.locator("h2").first().textContent().catch(() => "");
   const mainDisabled = await page.getByRole("button", { name: "Add operator" }).first().isDisabled().catch(() => null);
@@ -73,7 +77,8 @@ for (const theme of ["light", "dark"]) {
   // rule 02: role slots hold their space, so the nav never shifts when the person arrives
   const tops = () => page.evaluate(() => ({ settings: Math.round(document.querySelector(".cw-rail button[title='Settings']")?.getBoundingClientRect().top ?? -1), card: Math.round(document.querySelector("[data-wall-display-card]")?.getBoundingClientRect().top ?? -1), collapse: Math.round(document.querySelector(".cw-rail button[title='Collapse sidebar']")?.getBoundingClientRect().top ?? -1) }));
   const atBoot = await tops();
-  await page.waitForTimeout(2200);
+  await page.locator(".cw-rail").getByText("rig-access-admin").first().waitFor({ timeout: 10000 }).catch(() => {});   // the person has arrived
+  await settled(page);
   ok(await page.locator(".cw-rail").getByText("rig-access-admin").count() === 1 && (await page.locator("[data-boot='true']").count()) === 0, "…then the person arrives and the page takes over");
   const after = await tops();
   ok(JSON.stringify(atBoot) === JSON.stringify(after), "…and nothing in the nav moved (the badge held its space)", `boot ${JSON.stringify(atBoot)} · after ${JSON.stringify(after)}`);
@@ -108,7 +113,7 @@ for (const [delay, want] of [[0, "none"], [200, "hold"]]) {
 async function displayShot(theme) {
   const ctx = await context({ theme }); const page = await ctx.newPage();
   await page.clock.install({ time: new Date("2026-10-18T14:00:00Z") });
-  await page.goto(`${BASE}/timeline`, { waitUntil: "load" }); await page.waitForTimeout(3500);
+  await page.goto(`${BASE}/timeline`, { waitUntil: "load" }); await settled(page);
   await page.evaluate(() => document.getAnimations().forEach((a) => { a.pause(); try { a.currentTime = 0; } catch { /* finished */ } }));
   const facts = await page.evaluate(() => ({ dt: document.documentElement.getAttribute("data-theme"), cw: getComputedStyle(document.documentElement).getPropertyValue("--cw-bg-page"), style: document.documentElement.style.colorScheme }));
   const png = await page.screenshot({ path: `${OUT}/console-theme-display-${theme}.png` });
@@ -120,7 +125,7 @@ ok(dl.facts.dt === null && dd.facts.dt === null && dl.facts.cw === "" && dd.fact
 ok(dl.png.equals(dd.png), "the display is pixel-identical with the portal in light and in dark", `${dl.png.length} vs ${dd.png.length} bytes`);
 async function previewShot(theme) {
   const ctx = await context({ theme }); const page = await ctx.newPage();
-  await page.goto(`${BASE}/console/settings`, { waitUntil: "load" }); await page.waitForTimeout(2500);
+  await page.goto(`${BASE}/console/settings`, { waitUntil: "load" }); await settled(page);
   const el = page.locator("[data-wall-display='true']").first();
   // the inside of the frame: its rounded corners show the page behind, which does change with the theme
   const box = await el.boundingBox();
@@ -149,40 +154,42 @@ ok(pl.around !== pd.around && pl.png.equals(pd.png), "Settings: the wall preview
   });
   // the one place: start from Light, Match device
   const B = await ctx.newPage();
-  await B.goto(`${PORTAL}/settings`, { waitUntil: "load" }); await B.waitForTimeout(2500);
+  await B.goto(`${PORTAL}/settings`, { waitUntil: "load" }); await settled(B);
   // a card's accessible name is its label plus its subtitle ("Dark For the ops room at night"): match the start
   const theme = (name) => B.locator("#appearance").getByRole("radio", { name: new RegExp(`^${name}`) }).click({ timeout: 8000 });
   const motion = (name) => B.locator("#preferences").getByRole("radio", { name }).click();
-  await theme("Light"); await motion(/^Match device/); await B.waitForTimeout(800);
+  await theme("Light"); await motion(/^Match device/); await settled(B);
   // the followers, open and then never touched
   const A = await ctx.newPage();
   await A.route("**/digital-wall/api/operators**", async (route) => { await new Promise((r) => setTimeout(r, 12000)); await route.continue(); }); // keep a skeleton on screen
-  await A.goto(`${PORTAL}/digital-wall/console/operators`, { waitUntil: "load" }); await A.waitForTimeout(2000);
+  await A.goto(`${PORTAL}/digital-wall/console/operators`, { waitUntil: "load" }); await A.waitForSelector(".cw-console .cw-skel, .cw-console .cw-skel-still", { timeout: 10000 }).catch(() => {});
   await A.evaluate(() => { window.__untouched = 1; });
   const C = await ctx.newPage(); await C.clock.install({ time: new Date("2026-10-18T14:00:00Z") });
-  await C.goto(`${PORTAL}/digital-wall/timeline/`, { waitUntil: "load" }); await C.waitForTimeout(3500);
+  await C.goto(`${PORTAL}/digital-wall/timeline/`, { waitUntil: "load" }); await settled(C);
   const still = () => C.evaluate(() => document.getAnimations().forEach((a) => { a.pause(); try { a.currentTime = 0; } catch { /* finished */ } }));
-  await still(); const cBefore = await C.screenshot();
+  // the display has finished drawing when two screenshots in a row are the same (was a fixed 3.5 s, 2026-11-01)
+  const stable = async () => { let prev = null; for (let i = 0; i < 40; i += 1) { await still(); const shot = await C.screenshot(); if (prev && prev.equals(shot)) return shot; prev = shot; await new Promise((r) => setTimeout(r, 250)); } return prev; };
+  const cBefore = await stable();
   const D = await ctx.newPage();
-  await D.goto(`${PORTAL}/digital-wall/guide/`, { waitUntil: "load" }); await D.waitForTimeout(3000);
+  await D.goto(`${PORTAL}/digital-wall/guide/`, { waitUntil: "load" }); await settled(D);
   const stateA = () => A.evaluate(() => ({ theme: document.documentElement.getAttribute("data-theme"), motion: document.documentElement.getAttribute("data-motion"), untouched: window.__untouched === 1, bg: getComputedStyle(document.querySelector(".cw-console")).backgroundColor, skel: (() => { const e = document.querySelector(".cw-skel"); return e ? getComputedStyle(e).animationDuration : null; })() }));
   const a0 = await stateA();
   ok(a0.theme === "light" && a0.motion === null && a0.skel && a0.skel !== "0.001ms", "console tab A starts light, motion as the device, a skeleton animating", JSON.stringify(a0));
   ok((await D.locator(".gw-theme-btn").count()) === 0 && (await D.evaluate(() => document.documentElement.getAttribute("data-theme"))) === "light", "the wall's guide has no theme button and starts light");
   // the change, in the portal only
-  await theme("Dark"); await A.waitForTimeout(1200);
+  await theme("Dark"); await settled(A);
   const a1 = await stateA();
   ok(a1.theme === "dark" && a1.bg === TOKENS.dark.bgPage && a1.untouched, "portal → Dark: the open console tab is dark at once, without a reload", JSON.stringify(a1));
   ok((await D.evaluate(() => document.documentElement.getAttribute("data-theme"))) === "dark", "…and so is the open guide tab");
   await still(); const cAfter = await C.screenshot({ path: `${OUT}/console-theme-display-untouched.png` });
   ok(cBefore.equals(cAfter) && (await C.evaluate(() => document.documentElement.getAttribute("data-theme"))) === null, "…and the open display tab did not react: pixel-identical, no data-theme", `${cBefore.length} vs ${cAfter.length} bytes`);
-  await motion(/^Reduce/); await A.waitForTimeout(1200);
+  await motion(/^Reduce/); await settled(A);
   const a2 = await stateA();
   ok(a2.motion === "reduce" && (a2.skel === "0s" || a2.skel === "0.001ms") && a2.untouched, "portal → Motion Reduce: the open console tab stops its animations at once", JSON.stringify(a2));
   ok((await D.evaluate(() => document.documentElement.getAttribute("data-motion"))) === "reduce" && (await C.evaluate(() => document.documentElement.getAttribute("data-motion"))) === null, "…the guide follows; the display does not");
   await A.screenshot({ path: `${OUT}/console-theme-followed.png` });
   // back to where we found it
-  await theme("Light"); await motion(/^Match device/); await A.waitForTimeout(1000);
+  await theme("Light"); await motion(/^Match device/); await settled(A);
   const a3 = await stateA();
   ok(a3.theme === "light" && a3.motion === null, "portal → Light, Match device: the console follows back", JSON.stringify(a3));
   await ctx.close();

@@ -4,6 +4,7 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
+import { settled } from "./lib/settle.mjs";
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(SB)) { console.error("refusing: not the rig's local Supabase"); process.exit(2); }
@@ -34,18 +35,18 @@ const admin = { "content-type": "application/json", apikey: KEY, authorization: 
   ok(/Users & access\s*\d+ actions?/.test(summary) && /(None|All|\d+\/\d+)/.test(summary), "a folded group shows how much of it each role holds", summary);
   await users.getByRole("button", { expanded: false }).first().click();
   ok(await users.getByRole("checkbox").count() >= 3, "opening a group shows its actions");
-  await page.getByRole("button", { name: "Expand all" }).click(); await sleep(200);
+  await page.getByRole("button", { name: "Expand all" }).click(); await settled(page);
   const allOpen = await page.locator('table[aria-label="Permissions"] tbody button[aria-expanded="false"]').count();
-  await page.getByRole("button", { name: "Collapse all" }).click(); await sleep(200);
+  await page.getByRole("button", { name: "Collapse all" }).click(); await settled(page);
   const allShut = await page.locator('table[aria-label="Permissions"] tbody button[aria-expanded="true"]').count();
   ok(allOpen === 0 && allShut === 0, "Expand all / Collapse all");
   // Search keeps its existing behaviour, restyled; a miss says so and offers to clear.
-  await page.getByRole("searchbox", { name: "Find an action" }).fill("operator"); await sleep(200);
+  await page.getByRole("searchbox", { name: "Find an action" }).fill("operator"); await settled(page);
   const strip = (await page.locator('[role="status"]', { hasText: "Showing" }).first().innerText()).replace(/\s+/g, " ");
   ok(/Showing \d+ of \d+ actions · matching “operator”/.test(strip) && await page.locator('table[aria-label="Permissions"] [role="checkbox"]').count() > 0, "searching opens the matching groups and the strip says what is hidden", strip.replace(/\s+/g, " "));
-  await page.getByRole("searchbox", { name: "Find an action" }).fill("zzzz"); await sleep(200);
+  await page.getByRole("searchbox", { name: "Find an action" }).fill("zzzz"); await settled(page);
   ok(await page.getByText("No actions match “zzzz”").isVisible(), "no match: says so, and the change log is not affected");
-  await page.locator("button", { hasText: "Clear search" }).click(); await sleep(200);
+  await page.locator("button", { hasText: "Clear search" }).click(); await settled(page);
   // Differs from default: change one cell, see it, put it back.
   const before = await page.getByRole("radio", { name: /Differs from default/ }).innerText();
   await page.locator("tbody[aria-label='Developer tools']").getByRole("button", { expanded: false }).first().click();
@@ -53,22 +54,22 @@ const admin = { "content-type": "application/json", apikey: KEY, authorization: 
   const label = await cell.getAttribute("aria-label");
   const wasOn = (await cell.getAttribute("aria-checked")) === "true";
   await cell.click(); if (await page.getByRole("dialog").count()) await page.getByRole("dialog").getByRole("button", { name: "Grant" }).click();
-  await sleep(1500);
-  await page.getByRole("radio", { name: /Differs from default/ }).click(); await sleep(300);
+  await settled(page);
+  await page.getByRole("radio", { name: /Differs from default/ }).click(); await settled(page);
   const changedCell = page.locator(`td:has([role="checkbox"][aria-label="${label}"])`);
   ok(/default (on|off)/.test(await changedCell.innerText()) && await page.locator("tbody[aria-label='Developer tools']").getByText(/1 differ/).isVisible(), "a changed cell is tinted with its default written beneath; its group counts it", `${label}: ${(await changedCell.innerText()).replace(/\s+/g, " ")} · filter was “${before.replace(/\s+/g, " ")}”`);
   await page.screenshot({ path: `${OUT}/s3b1-permissions-differs.png` });
   await page.locator(`[role="checkbox"][aria-label="${label}"]`).click(); if (await page.getByRole("dialog").count()) await page.getByRole("dialog").getByRole("button", { name: "Grant" }).click();
-  await sleep(1500);
+  await settled(page);
   ok((await page.locator(`[role="checkbox"][aria-label="${label}"]`).count() === 0 || (await page.locator(`[role="checkbox"][aria-label="${label}"]`).getAttribute("aria-checked")) === String(wasOn)) && await page.getByText("Nothing differs from the defaults").isVisible(), "…put back: nothing differs, and the empty filter says so");
   await page.getByRole("radio", { name: /^All/ }).click();
   // Sticky role header, page scroll.
-  await page.getByRole("button", { name: "Expand all" }).click(); await page.mouse.wheel(0, 2500); await sleep(400);
+  await page.getByRole("button", { name: "Expand all" }).click(); await page.mouse.wheel(0, 2500); await settled(page);
   const head = await page.evaluate(() => Math.round(document.querySelector('table[aria-label="Permissions"] thead').getBoundingClientRect().top));
   ok(head === 56, "the role header sticks under the top bar", `${head}px`);
   const log = page.locator('table[aria-label="Permission history"]');
   ok(/granted|took away/.test(await log.innerText()), "the change log is below the matrix, newest first");
-  await page.getByRole("searchbox", { name: "Filter the change log" }).fill("zzzz"); await sleep(200);
+  await page.getByRole("searchbox", { name: "Filter the change log" }).fill("zzzz"); await settled(page);
   ok(await page.getByText("No changes match “zzzz”").isVisible(), "…and its filter says when nothing matches");
   await ctx.close();
 }
@@ -80,10 +81,10 @@ await fetch(`${SB}/rest/v1/user_preferences`, { method: "POST", headers: { ...ad
 try {
   const { ctx, page } = await as("admin");
   await page.goto(`${BASE}/admin/users`, { waitUntil: "load" });
-  await page.waitForSelector('table[aria-label="Users"] tbody tr', { timeout: 30000 }); await sleep(800);
+  await page.waitForSelector('table[aria-label="Users"] tbody tr', { timeout: 30000 }); await settled(page);
   const tabs = (await page.getByRole("tablist", { name: "Show" }).innerText()).replace(/\s+/g, " ");
   ok(/All \d+/.test(tabs) && /Pending 1/.test(tabs), "role tabs with counts", tabs);
-  await page.getByRole("tab", { name: /Pending/ }).click(); await sleep(200);
+  await page.getByRole("tab", { name: /Pending/ }).click(); await settled(page);
   const pendRows = page.locator('table[aria-label="Users"] tbody tr');
   ok((await pendRows.count()) === 1 && /Waiting for approval/.test(await pendRows.first().innerText()), "Pending tab: the one waiting account");
   ok(await page.locator('[role="status"]', { hasText: /Showing 1 of \d+/ }).isVisible(), "…and the strip says the rest are hidden");
@@ -91,10 +92,10 @@ try {
   await pendRows.first().getByRole("button", { name: "Approve" }).click();
   await page.waitForSelector('[role="status"]:has-text("is approved")', { timeout: 8000 }).catch(() => {});
   ok(await page.locator('[role="status"]', { hasText: "is approved" }).count() > 0, "Approve sits inline on a pending row and says it worked");
-  await page.getByRole("tab", { name: /^All/ }).click(); await sleep(200);
-  await page.getByRole("searchbox").first().fill("zzzz"); await sleep(200);
+  await page.getByRole("tab", { name: /^All/ }).click(); await settled(page);
+  await page.getByRole("searchbox").first().fill("zzzz"); await settled(page);
   ok(await page.getByText("No users match “zzzz”").isVisible(), "no match: says so, offers to clear");
-  await page.getByRole("button", { name: "Clear search and filters" }).or(page.getByRole("button", { name: "Clear filters" })).first().click(); await sleep(200);
+  await page.getByRole("button", { name: "Clear search and filters" }).or(page.getByRole("button", { name: "Clear filters" })).first().click(); await settled(page);
   // Row menu: make admin → toast with Undo → undone.
   const row = page.locator('table[aria-label="Users"] tbody tr', { hasText: "rig-access-user@rig.invalid" });
   await row.getByRole("button", { name: "Row actions" }).click();
@@ -133,7 +134,7 @@ try {
   // A user does not reach the page at all; the API says what an admin may do.
   const u = await as("user");
   await u.page.goto(`${BASE}/admin/users`, { waitUntil: "load" });
-  await sleep(1500);
+  await u.page.getByText("Users is for Admins").first().waitFor({ timeout: 10000 }).catch(() => {}); await settled(u.page);
   ok(await u.page.getByText("Users is for Admins").isVisible() && await u.page.locator('table[aria-label="Users"]').count() === 0, "an ops user who opens the URL is told it is for Admins (the API refuses them: 403)");
   await u.ctx.close();
 } finally {
@@ -145,10 +146,10 @@ try {
   const { ctx, page } = await as("dev");
   // Error state first: the switch stays locked while the state is unknown.
   await page.route("**/api/admin/maintenance", (r) => (r.request().method() === "GET" ? r.fulfill({ status: 504, body: "{}" }) : r.continue()));
-  await page.goto(`${BASE}/admin/maintenance`, { waitUntil: "load" }); await sleep(1500);
+  await page.goto(`${BASE}/admin/maintenance`, { waitUntil: "load" }); await settled(page);
   ok(await page.getByText("Can't tell whether the portal is on or off").isVisible() && !(await page.getByRole("button", { name: /Turn the portal/ }).count()), "can't load the state: says so, no switch, Try again");
   await page.unroute("**/api/admin/maintenance");
-  await page.getByRole("button", { name: "Try again" }).click(); await sleep(1500);
+  await page.getByRole("button", { name: "Try again" }).click(); await settled(page);
   ok(await page.getByText("The portal is live").isVisible(), "…Try again: the portal is live");
   ok(await page.getByText("When you turn it off").isVisible() && await page.getByText(/next page load/).first().isVisible(), "what turning it off does is listed before the button");
   await page.getByLabel("Message").fill("Rig check — back soon."); await page.getByLabel("Expected back").fill("10 minutes");
@@ -183,7 +184,7 @@ try {
   await page.getByRole("button", { name: "Cancel" }).click();
   await ctx.close();
   const a = await as("admin");
-  await a.page.goto(`${BASE}/admin/maintenance`, { waitUntil: "load" }); await sleep(1500);
+  await a.page.goto(`${BASE}/admin/maintenance`, { waitUntil: "load" }); await settled(a.page);
   ok(!(await a.page.getByRole("button", { name: "Turn the portal off…" }).count()) && await a.page.getByText(/needs “Turn maintenance on”/).isVisible(), "an admin without “Turn maintenance on” is told so — no dead button");
   await a.ctx.close();
 }

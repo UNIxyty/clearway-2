@@ -4,6 +4,7 @@
 // Records a video of the walk-through.   node --env-file=.env.rig rig/shell-check.mjs → rig/.scratch/shots/shell-*.{png,webm}
 import { chromium } from "playwright";
 import { mkdirSync, readdirSync, renameSync } from "node:fs";
+import { settled } from "./lib/settle.mjs";
 // Sign-in ON (portal :3992, agent :5176, wall :5198) behind a second proxy, as a real admin with agent access:
 //   RIG_PROXY_PORT=3989 RIG_PORTAL_PORT=3992 RIG_AGENT_PORT=5176 RIG_WALL_PORT=5198 node rig/proxy.mjs
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
@@ -18,7 +19,7 @@ const sess = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { met
 await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(sess)).toString("base64")}`, url: BASE }]);
 const page = await ctx.newPage();
 await page.goto(`${BASE}/dashboard`, { waitUntil: "load" });
-await page.waitForSelector("[data-cw-sidebar]"); await sleep(2500);
+await page.waitForSelector("[data-cw-sidebar]"); await settled(page);
 // The role-gated groups and the account line are skeletons until the account is known (Shell §4.1): wait for that,
 // not a fixed time — on a busy machine 2.5 s was not always enough, and the check then read a half-drawn nav.
 await page.waitForFunction(() => !document.querySelector("[data-cw-sidebar] .bg-cw-skeleton"), null, { timeout: 30000 }).catch(() => {});
@@ -43,10 +44,10 @@ const nav = async (label, url, topics = []) => {
   // Open a folded nav section only if the item is not already visible (a click on an open section folds it).
   for (const t of topics) {
     if (await page.locator("[data-cw-sidebar]").getByRole("button", { name: label, exact: true }).count()) break;
-    await page.locator("[data-cw-sidebar]").getByRole("button", { name: t, exact: true }).first().click(); await sleep(300);
+    await page.locator("[data-cw-sidebar]").getByRole("button", { name: t, exact: true }).first().click(); await settled(page);
   }
   await page.locator("[data-cw-sidebar]").getByRole("button", { name: label, exact: true }).first().click();
-  await page.waitForURL(url, { timeout: 20000 }); await sleep(1500);
+  await page.waitForURL(url, { timeout: 20000 }); await settled(page);
 };
 const hasAdmin = await page.evaluate(() => Boolean(window.__adminRow)); const hasAgent = await page.evaluate(() => Boolean(window.__agentRow));
 ok(hasAdmin && hasAgent, "the rig account sees Admin and Ops Agent in the sidebar");
@@ -59,21 +60,21 @@ ok(s.admin && s.agent, "…Admin and Ops Agent did not re-appear late: the same 
 
 // Scroll down a long page, then move on: the new page starts at the top; Back returns to the long page.
 await nav("Permissions", /\/admin\/permissions$/, ["Admin"]);
-await page.waitForSelector('table[aria-label^="Permissions"]'); await sleep(800);
-await page.mouse.move(900, 600); await page.mouse.wheel(0, 1800); await sleep(800);
+await page.waitForSelector('table[aria-label^="Permissions"]'); await settled(page);
+await page.mouse.move(900, 600); await page.mouse.wheel(0, 1800); await settled(page);
 const before = await page.evaluate(() => window.scrollY);
 ok(before > 1000, "the Permissions grid is long enough to scroll", `${before}px`);
 await nav("Dashboard", /\/dashboard$/);
 const after = await page.evaluate(() => window.scrollY);
 ok(after === 0, "a new page opens at its top", `scrolled ${before}px on Permissions, ${after}px on arrival at Dashboard`);
-await page.goBack(); await page.waitForURL(/\/admin\/permissions$/); await sleep(2000);
+await page.goBack(); await page.waitForURL(/\/admin\/permissions$/); await settled(page);
 const back = await page.evaluate(() => window.scrollY);
 ok((await same()).sidebar, "Back: still the same sidebar", `scroll after Back: ${back}px (was ${before}px)`);
 
 // The agent panel stays open across pages.
 await nav("Airport search", /\/aip$/, ["AIP & Documents"]);
 await page.evaluate(() => window.dispatchEvent(new Event("cw-agent-open")));
-await page.waitForSelector("[data-cw-agent-panel]"); await sleep(1200);
+await page.waitForSelector("[data-cw-agent-panel]"); await settled(page);
 await page.evaluate(() => { window.__panel = document.querySelector("[data-cw-agent-panel]"); });
 await page.screenshot({ path: `${OUT}/shell-2-panel-open-aip.png` });
 await nav("Dashboard", /\/dashboard$/);
@@ -89,23 +90,23 @@ await page.screenshot({ path: `${OUT}/shell-3-panel-still-open.png` });
   const dsess = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: "rig-access-dev@rig.invalid", password: "rig-access-check-only" }) })).json();
   await dctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(dsess)).toString("base64")}`, url: BASE }]);
   const dp = await dctx.newPage();
-  await dp.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await dp.waitForSelector("[data-cw-sidebar]"); await sleep(2000);
+  await dp.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await dp.waitForSelector("[data-cw-sidebar]"); await settled(dp);
   await dp.evaluate(() => { const w = window; w.__sidebar = document.querySelector("[data-cw-sidebar]"); w.__gone = 0; const tick = () => { if (!document.querySelector("[data-cw-sidebar]")) w.__gone += 1; requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
   const dsame = () => dp.evaluate(() => ({ sidebar: document.querySelector("[data-cw-sidebar]") === window.__sidebar, gone: window.__gone }));
   await dp.evaluate(() => window.next.router.push("/admin/debug"));
-  await dp.waitForURL(/\/admin\/debug$/, { timeout: 20000 }); await sleep(1500);
+  await dp.waitForURL(/\/admin\/debug$/, { timeout: 20000 }); await settled(dp);
   const deep = await dp.locator("[data-cw-sidebar]").innerText();
   const ds = await dsame();
   ok(/All services/.test(deep) && ds.sidebar && ds.gone === 0, "a page with its own nav (the debug runner, by URL): the sidebar switches to it in place", deep.split("\n").slice(0, 3).join(" | "));
   await dp.locator("[data-cw-sidebar]").getByRole("button", { name: "All services" }).click();
-  await dp.waitForURL(/\/$|\/dashboard$/, { timeout: 15000 }); await sleep(1500);
+  await dp.waitForURL(/\/$|\/dashboard$/, { timeout: 15000 }); await settled(dp);
   ok(!/All services/.test(await dp.locator("[data-cw-sidebar]").innerText()) && (await dsame()).sidebar, "…and back: the normal nav, the same sidebar");
   await dctx.close();
 }
 
 // Full-screen routes stay bare.
 const bare = await ctx.newPage();
-await bare.goto(`${BASE}/maintenance`, { waitUntil: "load" }); await sleep(1500);
+await bare.goto(`${BASE}/maintenance`, { waitUntil: "load" }); await bare.getByText(/under maintenance/i).first().waitFor({ timeout: 10000 }).catch(() => {}); await settled(bare);   // the page is drawn before its absence of a frame counts
 ok(await bare.locator("[data-cw-sidebar]").count() === 0, "a full-screen route (/maintenance) has no portal frame");
 await bare.close();
 

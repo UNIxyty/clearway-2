@@ -6,6 +6,7 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
+import { settled } from "../lib/settle.mjs";
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3999";
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 240)}` : ""}`); if (!c) failures += 1; };
@@ -25,7 +26,7 @@ async function door(ctx, path = "/m/wall") {
   const frame = page.frameLocator("iframe[title='Digital Wall']");
   await frame.locator("[data-mobile-wall]").waitFor({ timeout: 30000 });
   await frame.locator("[data-live]").first().waitFor({ timeout: 20000 });
-  await page.waitForTimeout(2500);
+  await settled(page);
   const handle = await page.$("iframe[title='Digital Wall']");
   return { page, frame, inner: await handle.contentFrame(), errors };
 }
@@ -86,24 +87,24 @@ for (const width of [360, 390, 430]) {
   const { page, inner, frame } = await door(ctx);
   const caption = () => inner.evaluate(() => document.querySelector("[data-mobile-wall] main span")?.textContent ?? "");
   const before = await caption();
-  await frame.getByRole("radio", { name: "12H" }).click(); await page.waitForTimeout(400);
+  await frame.getByRole("radio", { name: "12H" }).click(); await settled(page);
   const after = await caption();
   ok(before !== after && /UTC/.test(after), "12H changes the window printed above the axis", `${before} → ${after}`);
-  await frame.getByRole("radio", { name: "DAY" }).click(); await page.waitForTimeout(400);
+  await frame.getByRole("radio", { name: "DAY" }).click(); await settled(page);
   ok(/−4h · \+20h/.test(await inner.evaluate(() => document.querySelector("[data-mobile-wall] main")?.textContent ?? "")), "DAY reads −4h · +20h (the past is always one sixth)");
-  await frame.getByRole("button", { name: "Cards view" }).click(); await page.waitForTimeout(500);
+  await frame.getByRole("button", { name: "Cards view" }).click(); await settled(page);
   const cards = await inner.evaluate(() => ({ view: document.querySelector("[data-mobile-wall]")?.getAttribute("data-view"), cards: document.querySelectorAll("[data-card]").length, tabs: [...document.querySelectorAll("[role=radiogroup][aria-label=Cards] [role=radio]")].map((x) => x.textContent) }));
   ok(cards.view === "cards" && cards.tabs.join() .includes("Now") && cards.tabs.join().includes("Attention"), "Cards view: Now and Attention, no Timeline tab", JSON.stringify(cards));
   await page.screenshot({ path: `${OUT}/phone-wall-cards.png` });
-  await frame.getByRole("button", { name: "Timeline view" }).click(); await page.waitForTimeout(300);
-  await frame.getByRole("button", { name: /^Aircraft filter/ }).click(); await page.waitForTimeout(500);
-  const sw = frame.getByRole("switch").first(); await sw.click(); await page.waitForTimeout(300);
-  await frame.getByRole("button", { name: /^Show \d+ aircraft$/ }).click(); await page.waitForTimeout(400);
+  await frame.getByRole("button", { name: "Timeline view" }).click(); await settled(page);
+  await frame.getByRole("button", { name: /^Aircraft filter/ }).click(); await settled(page);
+  const sw = frame.getByRole("switch").first(); await sw.click(); await settled(page);
+  await frame.getByRole("button", { name: /^Show \d+ aircraft$/ }).click(); await settled(page);
   const filtered = await inner.evaluate(() => ({ banner: document.querySelector("[data-filter-banner]")?.textContent ?? null, pressed: document.querySelector("button[aria-label^='Aircraft filter,']")?.getAttribute("aria-label") }));
   ok(/^Filtered · \d+ of \d+ aircraft/.test(filtered.banner ?? "") && /shown/.test(filtered.pressed ?? ""), "the filter: three marks — the banner, the filled funnel with its count", JSON.stringify(filtered));
-  await frame.locator("[data-filter-banner] button").click(); await page.waitForTimeout(300);
+  await frame.locator("[data-filter-banner] button").click(); await settled(page);
   ok(!(await inner.evaluate(() => !!document.querySelector("[data-filter-banner]"))), "Show all clears it");
-  await frame.getByRole("button", { name: /^Notifications/ }).click(); await page.waitForTimeout(400);
+  await frame.getByRole("button", { name: /^Notifications/ }).click(); await settled(page);
   const notif = await inner.evaluate(() => document.querySelector("[role=dialog][aria-label=Notifications]")?.textContent ?? "");
   ok(/Flight events since you opened the wall at \d\d:\d\d UTC/.test(notif) && /Passenger data never does|New|Earlier/.test(notif), "Notifications: flight events seen on this phone, never passenger data", notif.slice(0, 140));
   await ctx.close();
@@ -114,7 +115,7 @@ for (const width of [360, 390, 430]) {
   const ctx = await context();
   const { page, frame, inner, errors } = await door(ctx);
   const cs = await inner.evaluate(() => document.querySelector("[data-pill]")?.getAttribute("data-pill"));
-  await frame.locator("[data-pill]").first().click(); await page.waitForTimeout(1500);
+  await frame.locator("[data-pill]").first().click(); await settled(page);
   const fl = await inner.evaluate(() => ({ title: document.querySelector("[role=dialog][aria-label=Flight] h2")?.textContent, grid: document.querySelectorAll("[data-check]").length, airports: [...document.querySelectorAll("[data-airport]")].map((x) => x.getAttribute("data-airport")), fr24: document.querySelector("[data-fr24]")?.textContent ?? "", pax: !!document.querySelector("button[aria-label=Passengers]"), next: [...document.querySelectorAll("button")].map((b) => b.textContent).find((t) => /^Next: /.test(t)) ?? null, done: document.querySelector("[role=dialog][aria-label=Flight]")?.textContent.match(/\d of 5 checked|All 5 checked/)?.[0] ?? null }));
   ok(fl.title === cs, "a pill opens its flight", `${cs} → ${fl.title}`);
   ok(fl.grid === 5 && /of 5 checked|All 5 checked/.test(fl.done ?? ""), "the five checks as a grid, with progress at the bottom (Option B)", JSON.stringify({ grid: fl.grid, done: fl.done, next: fl.next }));
@@ -122,16 +123,16 @@ for (const width of [360, 390, 430]) {
   ok(/Live tracking isn’t connected yet/.test(fl.fr24) && !/no signal/i.test(fl.fr24), "the FR24 slot says plainly it isn't connected — no empty map, no 'no signal'", fl.fr24.slice(0, 80));
   ok(fl.pax, "PAX is in the header");
   await page.screenshot({ path: `${OUT}/phone-wall-flight.png` });
-  await frame.locator("[data-airport]").first().click(); await page.waitForTimeout(1200);
+  await frame.locator("[data-airport]").first().click(); await settled(page);
   const ap = await inner.evaluate(() => { const d = [...document.querySelectorAll("[role=dialog]")].pop(); return { tabs: [...d.querySelectorAll("[role=radio]")].map((x) => x.textContent), text: d.textContent.slice(0, 200) }; });
   ok(ap.tabs.some((t) => /^Weather/.test(t)) && ap.tabs.some((t) => /^NOTAMs/.test(t)), "an airport opens Weather | NOTAMs", ap.tabs.join(" | "));
-  await page.keyboard.press("Escape"); await page.waitForTimeout(300);
-  await frame.getByRole("button", { name: /^Service status/ }).click(); await page.waitForTimeout(2500);
+  await page.keyboard.press("Escape"); await settled(page);
+  await frame.getByRole("button", { name: /^Service status/ }).click(); await settled(page);
   const svc = await inner.evaluate(() => { const d = [...document.querySelectorAll("[role=dialog]")].pop(); return { title: d.getAttribute("aria-label"), rows: d.querySelectorAll("[data-service]").length, text: d.textContent.slice(0, 220) }; });
   ok(svc.title === "Service status" && (svc.rows > 0 || /No services requested yet|Couldn’t read the services from Leon/.test(svc.text)), "Service status opens from Leon: its rows, or a plain empty or failed state", `${svc.rows} rows · ${svc.text.slice(0, 120)}`);
   await page.screenshot({ path: `${OUT}/phone-wall-services.png` });
-  await page.keyboard.press("Escape"); await page.waitForTimeout(300);
-  await frame.getByRole("button", { name: "Passengers" }).click(); await page.waitForTimeout(2500);
+  await page.keyboard.press("Escape"); await settled(page);
+  await frame.getByRole("button", { name: "Passengers" }).click(); await settled(page);
   const pax = await inner.evaluate(() => { const v = document.querySelector("[data-passenger-viewer]"); const styles = [v, ...(v ? v.querySelectorAll("*") : [])].map((el) => el?.getAttribute("style") || "").join(";"); return { viewer: v?.getAttribute("data-passenger-viewer") ?? null, cw: /--cw-[a-z]|var\(--cw-/.test(styles), docs: document.querySelectorAll("[data-pax-doc]").length }; });
   ok(pax.viewer === "phone" && !pax.cw, "PAX is the one shared passenger viewer, in the room's colours — no portal token in its styles", JSON.stringify(pax));
   ok(pax.docs === 0, "no passenger document is open until one is asked for");
@@ -152,7 +153,7 @@ for (const width of [360, 390, 430]) {
   const frame = page.frameLocator("iframe[title='Digital Wall']");
   const title = await frame.locator("[role=dialog][aria-label=Flight] h2").textContent({ timeout: 20000 }).catch(() => null);
   ok(title === f.flight.flightNo, "/m/wall/<flight> opens the Wall tab with that flight open", `${f.flight.flightNo} → ${title}`);
-  await page.goto(`${BASE}/m/wall/${encodeURIComponent("cwy-cwy:1")}`, { waitUntil: "load" }); await page.waitForTimeout(5000);
+  await page.goto(`${BASE}/m/wall/${encodeURIComponent("cwy-cwy:1")}`, { waitUntil: "load" }); await settled(page);
   const gone = await page.frameLocator("iframe[title='Digital Wall']").locator("[role=dialog][aria-label=Flight]").textContent({ timeout: 15000 }).catch(() => "");
   ok(/This flight isn’t on the wall/.test(gone) && /outside the wall’s time window/.test(gone), "a link to a flight not on the board says so, without guessing why", gone.slice(0, 100));
   await ctx.close();
@@ -162,13 +163,13 @@ for (const width of [360, 390, 430]) {
 {
   const ctx = await context();
   const { page, frame, inner } = await door(ctx);
-  await frame.getByRole("button", { name: "Phone settings" }).click(); await page.waitForTimeout(500);
+  await frame.getByRole("button", { name: "Phone settings" }).click(); await settled(page);
   const st = await inner.evaluate(() => document.querySelector("[role=dialog][aria-label='Phone settings']")?.textContent ?? "");
   ok(/Display — from the wall/i.test(st) && /From the wall/.test(st) && /World clocks/.test(st) && /Opens in/.test(st) && /Passenger data/.test(st), "Settings: font and colours shown as the wall's, clocks / view / range as this phone's, passenger data masked", st.slice(0, 160));
-  await frame.getByRole("button", { name: /^World clocks/ }).click(); await page.waitForTimeout(300);
-  await frame.getByRole("button", { name: /^Show world clocks/ }).click(); await page.waitForTimeout(200);
-  await frame.getByRole("button", { name: /Settings$/ }).first().click(); await page.waitForTimeout(200);
-  await frame.getByRole("button", { name: /Flights$/ }).first().click(); await page.waitForTimeout(500);
+  await frame.getByRole("button", { name: /^World clocks/ }).click(); await settled(page);
+  await frame.getByRole("button", { name: /^Show world clocks/ }).click(); await settled(page);
+  await frame.getByRole("button", { name: /Settings$/ }).first().click(); await settled(page);
+  await frame.getByRole("button", { name: /Flights$/ }).first().click(); await settled(page);
   const off = await inner.evaluate(() => ({ clocks: !!document.querySelector("[data-clocks]"), header: document.querySelector("[data-mobile-wall] header")?.textContent ?? "" }));
   ok(!off.clocks && /\d\d:\d\d UTC/.test(off.header), "clocks off: the row goes and UTC moves into the title bar", off.header.slice(0, 80));
   await ctx.close();
@@ -183,7 +184,7 @@ for (const [kind, reply, want] of [
   await ctx.route(/\/digital-wall\/api\/timeline\/flights/, (route) => route.fulfill(reply));
   const page = await ctx.newPage(); await page.goto(`${BASE}/m/wall`, { waitUntil: "load" });
   const h = await page.waitForSelector("iframe[title='Digital Wall']", { timeout: 20000 }); const f = await h.contentFrame();
-  await f.waitForSelector("[data-mobile-wall]", { timeout: 30000 }); await page.waitForTimeout(4000);
+  await f.waitForSelector("[data-mobile-wall]", { timeout: 30000 }); await settled(page);
   const r = await f.evaluate(() => ({ text: document.querySelector("[data-mobile-wall] main")?.textContent ?? "", pills: document.querySelectorAll("[data-pill]").length, now: !!document.querySelector("[data-now-label]"), live: document.querySelector("[data-live]")?.getAttribute("data-live") }));
   ok(want.test(r.text) && r.pills === 0 && !r.now, `${kind}: ${kind === "empty" ? "names the window, no now-line on an empty board" : "a failure card with Retry, never an empty timeline"}`, `${r.live} · ${r.text.slice(0, 120)}`);
   if (kind === "failed") ok(r.live === "none", "failed: the pill reads NO DATA", r.live);
@@ -197,7 +198,7 @@ for (const [kind, reply, want] of [
   await ctx.route(/\/api\/device\/state/, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, status: "approved" }) }));
   await ctx.route(/\/api\/user(\?|$)/, (route) => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ ok: false, error: "Sign in" }) }));
   const page = await ctx.newPage();
-  await page.goto(`${BASE}/digital-wall/timeline/?in=m`, { waitUntil: "load" }); await page.waitForTimeout(3500);
+  await page.goto(`${BASE}/digital-wall/timeline/?in=m`, { waitUntil: "load" }); await settled(page);
   const r = await page.evaluate(() => ({ phone: !!document.querySelector("[data-mobile-wall]"), path: location.pathname }));
   ok(!r.phone && r.path.startsWith("/digital-wall/timeline"), "a screen with a device token at phone size stays on the display (no phone wall, no redirect)", JSON.stringify(r));
   await ctx.close();

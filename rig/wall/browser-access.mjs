@@ -6,6 +6,7 @@
 //   node --env-file=.env.rig rig/wall/browser-access.mjs  → rig/.scratch/shots/access-*.png
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { settled } from "../lib/settle.mjs";
 const BASE = process.env.RIG_CONSOLE_URL || "http://127.0.0.1:4173";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -24,24 +25,24 @@ const disabledNamed = (page, re) => page.getByRole("button", { name: re }).first
 
 const user = await as("rig-access-user@rig.invalid");
 await user.goto(`${BASE}/console/operators`, { waitUntil: "load" });
-await user.waitForTimeout(2500);
+await settled(user);
 ok(await user.getByText("View only.").count() >= 1, "Operators (ordinary user): the view-only note is shown");
 ok(await disabledNamed(user, /Add operator/i), "…Add operator is disabled");
 ok(!(await disabledNamed(user, /Force sync/i)), "…Force sync (a read) still works");
 await user.screenshot({ path: `${OUT}/access-operators-user.png` });
 
 await user.goto(`${BASE}/console/settings`, { waitUntil: "load" });
-await user.waitForTimeout(2500);
+await settled(user);
 await user.getByText("Main wall (ops room)").click();
-await user.waitForTimeout(2500);
+await settled(user);
 ok(await user.getByText(/You don't have permission to change the big screen's settings/).count() === 1, "Settings → Main wall (ordinary user): locked, with the reason");
 ok(await user.locator("fieldset[disabled] input").count() > 0, "…its sliders and inputs are disabled");
 await user.screenshot({ path: `${OUT}/access-settings-bigscreen-user.png` });
 await user.getByText("rig-access-user@rig.invalid", { exact: true }).click();
-await user.waitForTimeout(2500);
+await settled(user);
 ok(await user.locator("fieldset[disabled]").count() === 0, "Settings → My view (ordinary user): editable");
 await user.getByRole("button", { name: "Wall content" }).click();
-await user.waitForTimeout(600);
+await settled(user);
 // Since d35554e (2026-10-10) every locked group carries its own note, so the reason sits beside each one.
 { const notes = await user.getByText("This applies to every wall, and you don't have permission to change it.").count(), locked = await user.locator("fieldset[disabled]").count();
   ok(notes >= 1 && notes === locked, "Settings → Wall content (ordinary user): locked, with the reason beside every locked group", `${notes} notes, ${locked} locked groups`); }
@@ -49,12 +50,12 @@ await user.screenshot({ path: `${OUT}/access-settings-wall-user.png` });
 
 const admin = await as("rig-access-admin@rig.invalid");
 await admin.goto(`${BASE}/console/operators`, { waitUntil: "load" });
-await admin.waitForTimeout(2500);
+await settled(admin);
 ok(await admin.getByText("View only.").count() === 0 && !(await disabledNamed(admin, /Add operator/i)), "Operators (admin): no note, Add operator enabled");
 await admin.goto(`${BASE}/console/settings`, { waitUntil: "load" });
-await admin.waitForTimeout(2500);
+await settled(admin);
 await admin.getByText("Main wall (ops room)").click();
-await admin.waitForTimeout(600);
+await settled(admin);
 ok(await admin.locator("fieldset[disabled]").count() === 0, "Settings → Main wall (admin): editable");
 await admin.screenshot({ path: `${OUT}/access-settings-bigscreen-admin.png` });
 

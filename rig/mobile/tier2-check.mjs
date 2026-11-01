@@ -11,6 +11,7 @@
 import { chromium } from "playwright";
 import { BASE, PHONE, audit, context, disabledButtons, makeOk, open, overflow, targets } from "./lib.mjs";
 
+import { settled } from "../lib/settle.mjs";
 const { ok, state } = makeOk();
 const W = "/digital-wall/api", A = "/agent/api";
 const PAGES = [
@@ -81,7 +82,7 @@ for (const theme of ["light", "dark"]) {
     if (spec.detail && theme === "light") {
       const first = page.locator(`[data-phone-shell] a[href^='${spec.path}?']`).first();
       if (await first.count()) {
-        await first.click(); await page.waitForTimeout(1500);
+        await first.click(); await page.waitForURL(/\?/, { timeout: 10_000 }).catch(() => {}); await page.getByRole("button", { name: "Back" }).first().waitFor({ timeout: 10_000 }).catch(() => {});
         const errs2 = []; page.on("pageerror", (e) => errs2.push(String(e)));
         await audit(ok, `${spec.name}-detail`, theme, page, errs2);
         ok((await page.getByRole("button", { name: "Back" }).count()) === 1, `${spec.name}-detail: the app bar has Back`);
@@ -99,21 +100,21 @@ for (const theme of ["light", "dark"]) {
     const pre = async (page) => { for (const [re, body] of s.pre ?? []) await page.route(re, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) })); };
     { const page = await ctx.newPage(); await pre(page); let release;
       await page.route(s.route, (route) => { release = () => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ ok: false, error: "held" }) }); });
-      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.waitForTimeout(900);
+      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.locator("[role=status][aria-busy='true']").first().waitFor({ timeout: 10_000 }).catch(() => {});
       const busy = await page.locator("[role=status][aria-busy='true']").count();
       ok(busy > 0, `${s.name} · loading: a skeleton while the data is held`, `role=status×${busy}`);
       const o = await overflow(page); ok(o.n === 0 && o.pageScroll <= 0, `${s.name} · loading: no horizontal overflow`, o.out.join(" | "));
       release?.(); await page.close(); }
     if (s.empty) { const page = await ctx.newPage(); await pre(page);
       await page.route(s.route, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, ...s.empty }) }));
-      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.waitForTimeout(1800);
+      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.waitForFunction((src) => new RegExp(src.s, src.f).test((document.querySelector("[data-phone-shell]")?.innerText ?? "").replace(/\s+/g, " ")), { s: s.emptyText.source, f: s.emptyText.flags }, { timeout: 10_000 }).catch(() => {});
       const text = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
       ok(s.emptyText.test(text), `${s.name} · empty: says so, in its own words`, text.slice(0, 160));
       const t = await targets(page); ok(t.length === 0, `${s.name} · empty: targets ≥ 44 px`, t.slice(0, 4).join(" | "));
       await page.screenshot({ path: `rig/.scratch/shots/m-${s.name}-empty.png` }); await page.close(); }
     { const page = await ctx.newPage(); await pre(page);
       await page.route(s.route, (route) => route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ ok: false, error: "The rig failed this on purpose." }) }));
-      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.waitForTimeout(2000);
+      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.locator("[role=alert]").first().waitFor({ timeout: 10_000 }).catch(() => {});
       const alerts = await page.locator("[role=alert]").allInnerTexts();
       const text = (alerts.join(" ") + " " + (await page.locator("[data-phone-shell]").innerText())).replace(/\s+/g, " ");
       ok(alerts.length > 0 && s.error.test(text), `${s.name} · error: an alert in the page's own words`, text.slice(0, 200));
@@ -126,8 +127,8 @@ for (const theme of ["light", "dark"]) {
 // ── the More sheet lists every Tier 2 page with its phone route, and marks Permissions Desk ──
 {
   const ctx = await context(browser, { theme: "light" }); const page = await ctx.newPage();
-  await page.goto(`${BASE}/m/wall`, { waitUntil: "load" }); await page.waitForTimeout(1500);
-  await page.getByRole("button", { name: "More", exact: true }).click(); await page.waitForTimeout(700);
+  await page.goto(`${BASE}/m/wall`, { waitUntil: "load" }); await page.getByRole("button", { name: "More", exact: true }).waitFor({ timeout: 10_000 }).catch(() => {});
+  await page.getByRole("button", { name: "More", exact: true }).click(); await page.locator("[role=dialog][aria-label='Every page'] a[href]").first().waitFor({ timeout: 10_000 }).catch(() => {}); await settled(page);   // the agent's pages join once the person's access has been read
   const links = await page.locator("[role=dialog][aria-label='Every page'] a[href]").evaluateAll((as) => as.map((a) => ({ href: a.getAttribute("href"), text: a.textContent.replace(/\s+/g, " ").trim() })));
   const want = ["/m/dashboard", "/m/service-status", "/m/hidden-airports", "/m/notam-check", "/m/operators", "/m/aircraft", "/m/limitations", "/m/important", "/m/caa", "/m/webhooks", "/m/reports", "/m/wall-settings", "/m/history", "/m/knowledge", "/m/activity", "/m/agent-settings", "/m/profile", "/m/settings", "/m/help",
     ...(isAdmin || isDev ? ["/m/users", "/m/maintenance", "/m/agent-sites", "/m/desk/permissions"] : []), ...(isDev ? ["/m/inbox"] : [])];
@@ -143,14 +144,14 @@ for (const theme of ["light", "dark"]) {
 // ── asking a person from the phone creates a thread, which then opens on the phone ──
 {
   const ctx = await context(browser, { theme: "light" }); const page = await ctx.newPage();
-  await page.goto(`${BASE}/m/help?new=1`, { waitUntil: "load" }); await page.waitForTimeout(1200);
+  await page.goto(`${BASE}/m/help?new=1`, { waitUntil: "load" }); await page.getByRole("radio", { name: "A question" }).waitFor({ timeout: 10_000 }).catch(() => {});
   await page.getByRole("radio", { name: "A question" }).click();
   await page.locator("input").first().fill("Phone check: does the Wall tab show tomorrow’s flights?");
   await page.locator("textarea").fill("Asked from the Tier 2 check on the rig. Invented, no action needed.");
   await page.getByRole("button", { name: /^Send$/ }).click();
   try { await page.waitForURL((u) => /^\/m\/help\/[^/]+$/.test(u.pathname), { timeout: 10_000 }); } catch {}
   ok(/^\/m\/help\/[^/]+$/.test(new URL(page.url()).pathname), "Ask a person creates a thread and opens it on the phone", page.url());
-  await page.waitForTimeout(1500);
+  await page.waitForFunction(() => /Asked from the Tier 2 check/.test(document.querySelector("[data-phone-shell]")?.innerText ?? ""), null, { timeout: 10_000 }).catch(() => {});
   const text = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
   ok(/Phone check: does the Wall tab/.test(text) && /Asked from the Tier 2 check/.test(text), "the thread shows the title and the message", text.slice(0, 160));
   const errs = []; page.on("pageerror", (e) => errs.push(String(e)));

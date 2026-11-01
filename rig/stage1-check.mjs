@@ -17,6 +17,7 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
+import { settled } from "./lib/settle.mjs";
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
@@ -51,8 +52,10 @@ const near = (a, b, tol = 3) => { const [x, y] = [rgbOf(a), rgbOf(b)]; return x.
 for (const [device, choice, expect] of [["light", "dark", "dark"], ["dark", "light", "light"], ["dark", null, "dark"], ["light", null, "light"]]) {
   const ctx = await context("admin", { colorScheme: device });
   if (choice) await ctx.addInitScript((c) => { try { localStorage.setItem("cw-theme", c); } catch { /* */ } }, choice);
-  let scriptsReleased = false;
-  await ctx.route("**/_next/static/chunks/**", async (route) => { await sleep(3000); scriptsReleased = true; await route.continue(); });
+  // The app's scripts are held back until this check has read the first paint (2026-11-01; was a fixed 3 s each time),
+  // with 15 s as a ceiling so a stuck page cannot hang the run.
+  let scriptsReleased = false; let releaseScripts; const gate = new Promise((r) => { releaseScripts = r; });
+  await ctx.route("**/_next/static/chunks/**", async (route) => { await Promise.race([gate, sleep(15000)]); scriptsReleased = true; await route.continue().catch(() => {}); });
   const page = await ctx.newPage();
   await page.goto(`${BASE}/dashboard`, { waitUntil: "commit" });
   await page.waitForFunction(() => performance.getEntriesByType("paint").length > 0, null, { timeout: 15000 });
@@ -64,6 +67,7 @@ for (const [device, choice, expect] of [["light", "dark", "dark"], ["dark", "lig
   ok(state.theme === expect && near(state.bg, want) && near(painted, want) && early,
     `first paint, before any app script runs: device ${device}, chosen ${choice ?? "Match this device"} → ${expect}`, `data-theme=${state.theme}, body ${state.bg}, painted ${painted}, app scripts still held back: ${early}`);
   if (device === "light" && choice === "dark") await page.screenshot({ path: `${OUT}/stage1-first-paint-dark.png` });
+  releaseScripts();
   await ctx.close();
 }
 for (const device of ["dark", "light"]) {
@@ -80,7 +84,7 @@ for (const device of ["dark", "light"]) {
 {
   const ctx = await context("user");
   const page = await ctx.newPage();
-  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await sleep(2500);
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await settled(page);
   const saved = page.waitForResponse((r) => r.url().includes("/api/user/preferences") && r.request().method() === "POST");
   await page.getByRole("button", { name: /^Theme:/ }).click();
   await page.getByRole("menuitemradio", { name: "Dark" }).click();
@@ -111,7 +115,7 @@ for (const who of ["user", "admin"]) {
   let release; const held = new Promise((r) => { release = r; });
   await ctx.route(/\/api\/(admin\/status|assistant\/availability)/, async (route) => { await held; await route.continue(); });
   const page = await ctx.newPage();
-  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await sleep(1500);
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await settled(page);
   const boot = await page.evaluate(() => {
     const side = document.querySelector("[data-cw-sidebar]");
     const text = side?.innerText ?? "";
@@ -153,8 +157,8 @@ for (const theme of ["light", "dark"]) for (const who of ["admin", "dev"]) {
   const page = await ctx.newPage();
   for (const [as, path] of PAGES) {
     if (as !== who) continue;
-    await page.goto(`${BASE}${path.replace("#panel", "")}`, { waitUntil: "load" }); await sleep(2500);
-    if (path.endsWith("#panel")) { await page.evaluate(() => window.dispatchEvent(new Event("cw-agent-open"))); await page.waitForSelector("[data-cw-agent-panel]", { timeout: 15000 }).catch(() => {}); await sleep(2000); }
+    await page.goto(`${BASE}${path.replace("#panel", "")}`, { waitUntil: "load" }); await settled(page);
+    if (path.endsWith("#panel")) { await page.evaluate(() => window.dispatchEvent(new Event("cw-agent-open"))); await page.waitForSelector("[data-cw-agent-panel]", { timeout: 15000 }).catch(() => {}); await settled(page); }
     await page.screenshot({ path: `${OUT}/stage1-${theme}-${path.replace(/\W+/g, "_")}.png` });
     const bad = await page.evaluate(() => {
       const parse = (c) => { const m = c.match(/[\d.]+/g); if (!m) return null; const n = m.map(Number); if (/^color\(srgb/.test(c)) return [n[0] * 255, n[1] * 255, n[2] * 255, n[3] ?? 1]; return n; };
@@ -204,7 +208,7 @@ ok(totalBad === 0, `contrast measured on ${PAGES.length} views × 2 themes: ever
     const page = await ctx.newPage();
     const out = {};
     for (const path of ["/digital-wall/timeline/", "/digital-wall/console/flights"]) {
-      await page.goto(`${BASE}${path}`, { waitUntil: "load" }); await sleep(3000);
+      await page.goto(`${BASE}${path}`, { waitUntil: "load" }); await settled(page);
       out[path] = await page.evaluate(() => {
         const cssText = [...document.styleSheets].map((s) => { try { return [...s.cssRules].map((r) => r.cssText).join("\n"); } catch { return ""; } }).join("\n");
         const sample = [...document.querySelectorAll("body, body *")].slice(0, 400).map((e) => { const s = getComputedStyle(e); return `${s.color}|${s.backgroundColor}|${s.fontFamily}`; });
@@ -243,7 +247,8 @@ ok(totalBad === 0, `contrast measured on ${PAGES.length} views × 2 themes: ever
     const handle = await page.waitForSelector("iframe[title='Digital Wall']", { timeout: 20000 }).catch(() => null);
     const frame = handle ? await handle.contentFrame() : null;
     await frame?.waitForSelector("[data-mobile-wall]", { timeout: 30000 }).catch(() => {});
-    await sleep(2500);
+    await frame?.waitForSelector("[data-live]", { timeout: 20000 }).catch(() => {});   // the room's palette has arrived
+    await settled(page);
     const wall = frame ? await frame.evaluate(() => {
       const cssText = [...document.styleSheets].map((s) => { try { return [...s.cssRules].map((r) => r.cssText).join("\n"); } catch { return ""; } }).join("\n");
       const root = document.querySelector("[data-mobile-wall]");

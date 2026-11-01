@@ -2,6 +2,7 @@
 //   node --env-file=.env.rig rig/docs-browser.mjs        screenshots → rig/.scratch/shots/docs-*.png
 import { chromium } from "playwright";
 import fs, { mkdirSync } from "node:fs";
+import { settled } from "./lib/settle.mjs";
 const BASE = process.env.RIG_URL || "http://127.0.0.1:3999";
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 300)}` : ""}`); if (!c) failures += 1; };
@@ -16,7 +17,7 @@ async function open(path, { width = 1440, height = 900, theme = null, expect404 
   page.on("console", (m) => { if (m.type() === "error" && !(expect404 && /status of 404/.test(m.text()))) errors.push(`${path}: ${m.text().slice(0, 160)}`); });
   page.on("pageerror", (e) => errors.push(`${path}: ${e.message.slice(0, 160)}`));
   const res = await page.goto(`${BASE}${path}`, { waitUntil: "load" });
-  await sleep(800);
+  await settled(page);
   return { ctx, page, status: res?.status() ?? 0 };
 }
 const LONG = "/docs/digital-wall/the-wall", SHORT = "/docs/digital-wall/operators";
@@ -40,16 +41,16 @@ const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { a
   await page.screenshot({ path: `${OUT}/docs-long-top.png` });
   // The list follows the scroll: task 12's top passes 120px below the header → 12 is current.
   await page.evaluate(() => { const el = document.querySelector('article[data-fn="12"]'); window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 64 - 60); });
-  await sleep(400);
+  await settled(page);
   const cur = await page.locator(".dx-toc .dx-toc-item.on .num").innerText().catch(() => "");
   ok(cur === "12", "scrolling to a task makes it current in 'On this page'", cur);
   ok(new RegExp(`12 / ${N}`).test(await page.locator(".dx-toc-title").innerText()), `the counter reads 12 / ${N}`);
   // Click a task in the list: it scrolls there.
-  await page.locator(".dx-toc .dx-toc-item").nth(2).click(); await sleep(300); await settle(page);
+  await page.locator(".dx-toc .dx-toc-item").nth(2).click(); await settled(page); await settle(page);
   const top3 = await page.evaluate(() => document.querySelector('article[data-fn="3"]').getBoundingClientRect().top);
   ok(top3 > 40 && top3 < 140, "clicking a task in the list scrolls to it", Math.round(top3));
   // At the very bottom the last task is current.
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await sleep(300); await settle(page);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await settled(page); await settle(page);
   ok(Number(await page.locator(".dx-toc .dx-toc-item.on .num").innerText()) === N, "at the bottom of the page the last task is current");
   // Missing media show their empty state, never a broken image.
   const missing = await page.locator('[data-media-state="missing"]').count();
@@ -75,7 +76,7 @@ const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { a
   ok(await page.locator(".dx-toc .dx-toc-item .dx-danger-ic").count() === 1, "the task list marks the one task that cannot be undone");
   ok(await page.locator(".dx-example").count() === 1 && /sampleaviation/.test(await page.locator(".dx-example").innerText()), "the example uses an invented operator");
   await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE });
-  await page.locator("#fn-edit-an-operator .dx-copylink").click(); await sleep(200);
+  await page.locator("#fn-edit-an-operator .dx-copylink").click(); await settled(page);
   const clip = await page.evaluate(() => navigator.clipboard.readText()).catch(() => "");
   ok(/\/docs\/digital-wall\/operators#fn-edit-an-operator$/.test(clip) && /Copied/.test(await page.locator("#fn-edit-an-operator .dx-copylink").innerText()), "the link button copies the task's address and says Copied", clip);
   const foot = await page.locator(".dx-foot").innerText();
@@ -88,13 +89,13 @@ const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { a
 {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
-  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await sleep(1500);
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await settled(page);
   await page.evaluate(() => localStorage.setItem("cw-theme", "dark"));   // what the portal's theme menu saves
   let firstPaint = null;
   page.on("domcontentloaded", async () => { firstPaint = await page.evaluate(() => document.documentElement.getAttribute("data-theme")).catch(() => null); });
   await page.goto(`${BASE}${SHORT}`, { waitUntil: "commit" });
   const atCommit = await page.evaluate(() => document.documentElement.getAttribute("data-theme")).catch(() => null);
-  await page.waitForLoadState("load"); await sleep(500);
+  await page.waitForLoadState("load"); await settled(page);
   ok((atCommit === "dark" || atCommit === null) && firstPaint === "dark", "dark chosen in the portal → the docs open dark, set before the first paint", `commit ${atCommit}, DOMContentLoaded ${firstPaint}`);
   const bg = await page.evaluate(() => getComputedStyle(document.querySelector(".dx")).backgroundColor);
   ok(bg !== "rgb(255, 255, 255)", "the docs page itself is dark", bg);
@@ -107,10 +108,10 @@ const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { a
   const { ctx, page } = await open(LONG, { width: 1024, height: 800 });
   ok(!(await page.locator(".dx-nav").isVisible()) && await page.locator(".dx-menu-btn").isVisible(), "at 1024 the left nav moves behind the menu button");
   ok(await page.locator(".dx-toc").isVisible(), "at 1024 the task list stays");
-  await page.locator(".dx-menu-btn").click(); await sleep(300);
+  await page.locator(".dx-menu-btn").click(); await settled(page);
   ok(await page.locator(".dx-drawer").isVisible() && /Digital Wall/.test(await page.locator(".dx-drawer").innerText()), "the drawer opens with the sections");
   await page.screenshot({ path: `${OUT}/docs-1024-drawer.png` });
-  await page.keyboard.press("Escape"); await sleep(200);
+  await page.keyboard.press("Escape"); await settled(page);
   ok(await page.locator(".dx-drawer").count() === 0, "Esc closes the drawer");
   await ctx.close();
 }
@@ -121,12 +122,12 @@ const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { a
   ok(!(await page.locator(".dx-toc").isVisible()) && await page.locator(".dx-tocbar").isVisible(), "at 390 the task list becomes a bar under the header");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   ok(overflow <= 0, "no sideways scroll at 390", overflow);
-  await page.locator(".dx-tocbar").click(); await sleep(300);
+  await page.locator(".dx-tocbar").click(); await settled(page);
   ok(await page.locator(".dx-sheet").isVisible() && await page.locator(".dx-sheet .dx-toc-item").count() === N, "the bar opens a sheet with every task");
   const rowH = await page.locator(".dx-sheet .dx-toc-item").first().evaluate((e) => e.getBoundingClientRect().height);
   ok(rowH >= 44, "sheet rows are at least 44px (touch)", rowH);
   await page.screenshot({ path: `${OUT}/docs-390-sheet.png` });
-  await page.locator(".dx-sheet .dx-toc-item").nth(5).click(); await sleep(300); await settle(page);
+  await page.locator(".dx-sheet .dx-toc-item").nth(5).click(); await settled(page); await settle(page);
   ok(await page.locator(".dx-sheet").count() === 0 && /06/.test(await page.locator(".dx-tocbar .num").innerText()), "choosing a task closes the sheet and the bar shows it");
   await ctx.close();
 }
@@ -144,7 +145,7 @@ const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { a
   ok(bad.length === 0, `every link on the docs pages answers (${hrefs.size} addresses)`, bad.join(", "));
   const nf = await fetch(`${BASE}/docs/no-such-section/no-such-page`);
   ok(nf.status === 404, "a page that does not exist answers 404", nf.status);
-  await page.goto(`${BASE}/help`, { waitUntil: "load" }); await sleep(1500);
+  await page.goto(`${BASE}/help`, { waitUntil: "load" }); await settled(page);
   ok(await page.locator('a[href="/docs"]').filter({ hasText: "Read the docs" }).count() === 1, "Help & support (where ? and the sidebar link go) leads into the docs");
   await ctx.close();
 }
@@ -170,38 +171,38 @@ const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { a
 
   const { ctx, page } = await open(SHORT);
   ok(await page.locator(".dx-searchfield .dx-kbd").innerText() === "⌘K", "the header's search field shows ⌘K");
-  await page.keyboard.press("Meta+k"); await sleep(300);
+  await page.keyboard.press("Meta+k"); await settled(page);
   ok(await page.locator(".dx-search").isVisible() && await page.evaluate(() => document.activeElement?.getAttribute("aria-label")) === "Search the docs", "⌘K opens search with the cursor in the box");
   ok(await page.locator(".dx-search-try button").count() >= 1, "before typing, it offers words to try");
-  await page.keyboard.type("operator"); await sleep(500);
+  await page.keyboard.type("operator"); await settled(page);
   const groups = await page.locator('.dx-search [role="group"]').count();
   const marks = await page.locator(".dx-search .dx-mark").count();
   ok(groups >= 1 && marks >= 1 && await page.locator(".dx-search-row.on").count() === 1, "results are grouped by section, the match is marked, the first is selected", `${groups} groups, ${marks} marks`);
-  await page.keyboard.press("ArrowDown"); await sleep(100);
+  await page.keyboard.press("ArrowDown"); await settled(page);
   const sel = await page.locator(".dx-search-row.on").getAttribute("href");
   ok(sel && (await page.locator(".dx-search-row").nth(1).getAttribute("href")) === sel, "↓ moves to the next result", sel);
-  await page.keyboard.press("Enter"); await page.waitForLoadState("load"); await sleep(400);
+  await page.keyboard.press("Enter"); await page.waitForLoadState("load"); await settled(page);
   ok(page.url().endsWith(sel) && await page.locator(".dx-search").count() === 0, "↵ opens it, and search closes (even for a task on this page)", page.url());
   // "/" opens search, but not while typing in a field.
-  await page.keyboard.press("/"); await sleep(300);
+  await page.keyboard.press("/"); await settled(page);
   ok(await page.locator(".dx-search").isVisible(), "'/' opens search when the focus is not in a field");
-  await page.keyboard.type("x/y"); await sleep(200);
+  await page.keyboard.type("x/y"); await settled(page);
   ok(await page.locator(".dx-search input").inputValue() === "x/y", "'/' typed inside the search box is a character, not a shortcut");
-  await page.keyboard.press("Escape"); await sleep(200);
+  await page.keyboard.press("Escape"); await settled(page);
   ok(await page.locator(".dx-search").count() === 0, "Esc closes search");
-  await page.keyboard.press("Meta+k"); await page.keyboard.type("zzqxv"); await sleep(400);
+  await page.keyboard.press("Meta+k"); await page.keyboard.type("zzqxv"); await settled(page);
   ok(/Nothing matches “zzqxv”/.test(await page.locator(".dx-search").innerText()) && await page.locator('.dx-search-empty a[href="/docs/glossary"]').count() === 1, "no match: says so, with the glossary and support");
-  await page.locator(".dx-search input").fill("delete operator"); await sleep(400);
+  await page.locator(".dx-search input").fill("delete operator"); await settled(page);
   ok(/Cannot be undone/.test(await page.locator(".dx-search-row").first().innerText()), "a task that cannot be undone is tagged in results");
-  await page.locator(".dx-search input").fill("notam"); await sleep(300);
-  await page.keyboard.press("Shift+Enter"); await page.waitForLoadState("load"); await sleep(800);
+  await page.locator(".dx-search input").fill("notam"); await settled(page);
+  await page.keyboard.press("Shift+Enter"); await page.waitForLoadState("load"); await settled(page);
   ok(/\/docs\/search\?q=notam$/.test(page.url()) && /\d+ results?/.test(await page.locator("h1").innerText()), "⇧↵ opens every result on its own page", page.url());
   ok(await page.locator(".dx-chips button").count() >= 2 && await page.locator(".dx-results-row").count() >= 1, "the results page has a chip per section and the results");
   await page.screenshot({ path: `${OUT}/docs-search-page.png`, fullPage: true });
   // On the results page the box is a field: "/" types.
-  await page.locator(".dx-results-field input").fill(""); await page.locator(".dx-results-field input").type("a/b"); await sleep(200);
+  await page.locator(".dx-results-field input").fill(""); await page.locator(".dx-results-field input").type("a/b"); await settled(page);
   ok(await page.locator(".dx-results-field input").inputValue() === "a/b" && await page.locator(".dx-search").count() === 0, "'/' in the results page's field types, and does not open the dialog");
-  await page.goto(`${BASE}/docs/search?q=zzqxv`, { waitUntil: "load" }); await sleep(800);
+  await page.goto(`${BASE}/docs/search?q=zzqxv`, { waitUntil: "load" }); await settled(page);
   ok(/Nothing matches/.test(await page.locator("h1").innerText()) && await page.locator(".dx-results-none .card a").count() >= 4, "results page with no match: common tasks and the glossary");
   await ctx.close();
 }
@@ -210,7 +211,7 @@ const settle = async (page) => { let last = -1; for (let i = 0; i < 40; i++) { a
 {
   const { ctx, page } = await open(LONG, { width: 390, height: 844 });
   ok(!(await page.locator(".dx-searchfield").isVisible()) && await page.locator(".dx-searchicon").isVisible(), "at 390 search is an icon");
-  await page.locator(".dx-searchicon").click(); await sleep(300);
+  await page.locator(".dx-searchicon").click(); await settled(page);
   const box = await page.locator(".dx-search").boundingBox();
   ok(box && box.width >= 389 && box.y === 0, "at 390 search is full screen", JSON.stringify(box));
   await page.screenshot({ path: `${OUT}/docs-390-search.png` });
@@ -240,7 +241,7 @@ for (const p of ["/docs/no-such-section", "/docs/digital-wall/no-such-page", "/d
   const { ctx, page, status } = await open(p, { expect404: true });
   ok(status === 404 && /This page isn’t here/.test(await page.locator("h1:visible").first().innerText()) && await page.locator(".dx-nav").count() === 1, `${p} answers 404 with the docs' own not-found page`, status);
   if (p === "/docs/no-such-section") {
-    await page.locator(".dx-searchopener").click(); await sleep(300);
+    await page.locator(".dx-searchopener").click(); await settled(page);
     ok(await page.locator(".dx-search").isVisible(), "not found: its search field opens search");
     await page.screenshot({ path: `${OUT}/docs-404.png` });
   }
@@ -258,7 +259,7 @@ for (const p of ["/docs/no-such-section", "/docs/digital-wall/no-such-page", "/d
   const page = await ctx.newPage();
   page.on("console", (m) => { if (m.type() === "error") errors.push(`sheet: ${m.text().slice(0, 160)}`); });
   page.on("pageerror", (e) => errors.push(`sheet: ${e.message.slice(0, 160)}`));
-  const res = await page.goto(`${SHELL}/developer/docs-components`, { waitUntil: "load" }); await sleep(2500);
+  const res = await page.goto(`${SHELL}/developer/docs-components`, { waitUntil: "load" }); await settled(page);
   const status = new URL(page.url()).pathname === "/developer/docs-components" ? res?.status() : `${res?.status()} at ${new URL(page.url()).pathname}`;
   ok(status === 200, "the docs component sheet answers 200 for a developer", status);
   const themes = await page.locator("[data-sheet-theme]").evaluateAll((els) => els.map((e) => [e.getAttribute("data-sheet-theme"), getComputedStyle(e).backgroundColor]));
@@ -275,7 +276,7 @@ for (const p of ["/docs/no-such-section", "/docs/digital-wall/no-such-page", "/d
   const pics = await page.locator(".dx-media img").evaluateAll((els) => [...new Set(els.map((e) => new URL(e.src).pathname))]);
   ok(pics.length <= 1 && pics.every((p) => p.startsWith("/docs-media/sheet/")), "the one stand-in picture, from the sheet's own folder", pics.join(", "));
   await ctx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: SHELL });
-  await dark.locator(".dx-codecopy").first().click(); await sleep(200);
+  await dark.locator(".dx-codecopy").first().click(); await settled(page);
   const clip = await page.evaluate(() => navigator.clipboard.readText()).catch(() => "");
   ok(clip === "SCHED EXA123 EVRA-EGLF 14OCT 1420Z" && /Copied/.test(await dark.locator(".dx-codecopy").first().innerText()), "Copy on a code block copies the text without its # explanation lines", JSON.stringify(clip));
   const muted = await dark.locator(".dx-codeblock pre .note").evaluate((e) => [getComputedStyle(e).color, getComputedStyle(e.closest("pre")).color]);

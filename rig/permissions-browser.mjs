@@ -5,6 +5,7 @@
 //   node --env-file=.env.rig rig/permissions-browser.mjs  → rig/.scratch/shots/perm-*.png
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { settled, until } from "./lib/settle.mjs";
 const PORTAL = "http://127.0.0.1:3992"; const CONSOLE = "http://127.0.0.1:4173";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
@@ -41,18 +42,19 @@ await admin.getByRole("button", { name: "Grant everything in Aircraft for User" 
 await admin.waitForSelector('[role="dialog"]');
 ok(/Delete an aircraft from the wall → User/.test(await admin.locator('[role="dialog"]').innerText()), "a group grant that includes something hard to undo asks first, naming it");
 await admin.locator('[role="dialog"]').getByRole("button", { name: "Grant" }).click();
-await sleep(1500);
+// the signal: both cells of the group are on and the drift count has caught up (the grid updates after the dialog closes)
+await admin.waitForFunction(() => ["Delete an aircraft from the wall — User", "Show or hide aircraft on the wall — User"].every((l) => document.querySelector(`[role="checkbox"][aria-label="${l}"]`)?.getAttribute("aria-checked") === "true") && /2 cells changed from the defaults/.test(document.body.innerText), null, { timeout: 10000 }).catch(() => {});
 const a = admin.locator("tbody[aria-label='Aircraft']");
 ok(await admin.locator('[role="checkbox"][aria-label="Delete an aircraft from the wall — User"]').isChecked() && await admin.locator('[role="checkbox"][aria-label="Show or hide aircraft on the wall — User"]').isChecked(), "one click grants a whole group (Aircraft → User)");
 ok(/2 cells changed from the defaults/.test(await admin.locator("body").innerText()), "the drift count says what changed since the defaults");
 await a.screenshot({ path: `${OUT}/perm-group.png` });
 await admin.getByRole("button", { name: "Take away everything in Aircraft for User" }).click();
-await sleep(1200);
+await settled(admin);
 await admin.locator('[role="checkbox"][aria-label="Delete an aircraft from the wall — User"]').click();
 await admin.locator('[role="dialog"]').getByRole("button", { name: "Grant" }).click(); // hard to undo: confirmed
-await sleep(1500);
+await settled(admin);
 await admin.getByRole("radio", { name: /Differs from default/ }).click();
-await sleep(400);
+await settled(admin);
 await admin.screenshot({ path: `${OUT}/perm-drift.png`, fullPage: false });
 const history = await admin.locator('table[aria-label="Permission history"]').innerText();
 ok(/rig-access-admin@rig\.invalid\s+granted\s+Delete an aircraft from the wall\s+to User/.test(history), "the history names who granted what to whom", history.split("\n").slice(0, 3).join(" | "));
@@ -60,10 +62,10 @@ await admin.getByRole("radio", { name: /^All/ }).click();
 await admin.locator('table[aria-label="Permission history"]').scrollIntoViewIfNeeded();
 await admin.screenshot({ path: `${OUT}/perm-history.png` });
 
-await sleep(10_500); // the wall's grants cache
+// The wall's grants cache (lib/permissions/grants.mjs): 1 s on the rig (PERMISSIONS_TTL_MS), 10 s in production. Polls
+// the console until the grant shows (was a fixed 10.5 s, then 3 s).
 const ops = await page("rig-access-user@rig.invalid", CONSOLE);
-await ops.goto(`${CONSOLE}/console/aircraft`, { waitUntil: "load" });
-await sleep(3000);
+await until(async () => { await ops.goto(`${CONSOLE}/console/aircraft`, { waitUntil: "load" }); await settled(ops); return (await ops.getByText("View only.").count()) === 0; }, { timeout: 20000, every: 300 });
 const del = ops.getByRole("button", { name: /Delete aircraft/ }).first();
 const hasRows = await del.count();
 ok(await ops.getByText("View only.").count() === 0, "Aircraft (ops user with 'delete aircraft'): not view-only");
@@ -71,12 +73,12 @@ ok(!hasRows || !(await del.isDisabled()), "…the delete button is live", hasRow
 ok(await ops.getByRole("button", { name: "Show all" }).isDisabled(), "…showing and hiding stays locked (not granted)");
 await ops.screenshot({ path: `${OUT}/perm-console-aircraft.png` });
 await ops.goto(`${CONSOLE}/console/operators`, { waitUntil: "load" });
-await sleep(2500);
+await settled(ops);
 ok(await ops.getByText("View only.").count() >= 1 && await ops.getByRole("button", { name: /Add operator/ }).isDisabled(), "Operators stays view-only for them");
 
 // Back to the defaults for the next run.
 await admin.locator('[role="checkbox"][aria-label="Delete an aircraft from the wall — User"]').click();
-await sleep(1200);
+await settled(admin);
 await browser.close();
 console.log(`\n${failures ? `${failures} FAILED` : "ALL PASSED"} · screenshots in ${OUT}/perm-*.png`);
 process.exit(failures ? 1 : 0);

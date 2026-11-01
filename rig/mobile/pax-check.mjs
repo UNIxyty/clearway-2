@@ -16,6 +16,7 @@ import { chromium } from "playwright";
 import { execFileSync } from "node:child_process";
 import { BASE, PHONE, audit, context, makeOk, overflow, targets } from "./lib.mjs";
 
+import { settled, until } from "../lib/settle.mjs";
 const { ok, state } = makeOk();
 const A = `${BASE}/agent/api`;
 const psql = (sql) => execFileSync("docker", ["exec", "supabase_db_rig", "psql", "-U", "postgres", "-tAc", sql], { encoding: "utf8" }).trim();
@@ -102,10 +103,11 @@ for (const theme of ["light", "dark"]) {
   const { ctx, page } = await phonePage("light");
   // 2/4: hold for a second → the document covers the list; the fields are there only now
   const hold = page.getByRole("button", { name: /^Hold to show the document of/ }).first();
-  await hold.dispatchEvent("pointerdown"); await page.waitForTimeout(400); await hold.dispatchEvent("pointerup"); await page.waitForTimeout(500);
+  // durations that ARE the test (a press shorter than the one-second hold, then long enough to show nothing opened)
+  await hold.dispatchEvent("pointerdown"); await page.waitForTimeout(400); await hold.dispatchEvent("pointerup"); await page.waitForTimeout(700);
   ok((await page.getByRole("dialog").count()) === 0, "phone: letting go before one second cancels (nothing shown)");
-  await hold.dispatchEvent("pointerdown"); await page.waitForTimeout(1300);
-  await page.getByRole("dialog").waitFor({ timeout: 10_000 });
+  // a full hold: the signal is the document appearing while the pointer is still down (was a fixed 1.3 s)
+  await hold.dispatchEvent("pointerdown"); await page.getByRole("dialog").waitFor({ timeout: 10_000 });
   const dlg = page.getByRole("dialog");
   const text = (await dlg.innerText()).replace(/\s+/g, " ");
   ok(/DOCUMENT NUMBER/.test(text) && /TEST\d{5}/.test(text) && /DATE OF BIRTH/.test(text) && /EXPIRES/.test(text), "phone: after a one-second hold the document covers the list with the four fields", text.slice(0, 160));
@@ -120,29 +122,44 @@ for (const theme of ["light", "dark"]) {
   // 6: Copy all details is a reveal → another audit row
   const c0 = Number(psql("select count(*) from agent_audit_log where kind='intake.personal_revealed'"));
   await ctx.grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});
-  await dlg.getByRole("button", { name: /Copy all details/ }).click(); await page.waitForTimeout(1500);
-  const c1 = Number(psql("select count(*) from agent_audit_log where kind='intake.personal_revealed'"));
+  await dlg.getByRole("button", { name: /Copy all details/ }).click();
+  // the audit row is written after the answer: poll the log for it (was a fixed 1.5 s)
+  const c1 = (await until(() => { const n = Number(psql("select count(*) from agent_audit_log where kind='intake.personal_revealed'")); return n > c0 ? n : null; }, { timeout: 10_000, every: 200 })) ?? c0;
   ok(c1 === c0 + 1, "phone: Copy all details is a reveal — one more audit row", `${c0} → ${c1}`);
   // Hide now
-  await dlg.getByRole("button", { name: /Hide now/ }).click(); await page.waitForTimeout(400);
+  await dlg.getByRole("button", { name: /Hide now/ }).click(); await settled(page);
   ok((await page.getByRole("dialog").count()) === 0, "phone: Hide now closes the document");
   ok(!DOC_VALUES.test(await page.content()), "phone: after hiding, no document value is left in the page");
-  // the view closes itself after 30 s
-  await hold.dispatchEvent("pointerdown"); await page.waitForTimeout(1300); await page.getByRole("dialog").waitFor({ timeout: 10_000 });
-  await page.waitForTimeout(31_500);
-  ok((await page.getByRole("dialog").count()) === 0, "phone: the document closes itself after 30 s");
+  // the view closes itself after 30 s (was a real 31.5 s wait, 2026-11-01): in a page of its own whose clock is
+  // installed before its first script, run through the one-second hold and then past the 30 s with clock.runFor
+  // (which fires every tick; fastForward fires each due timer once). The main page keeps the real clock.
+  {
+    const c2 = await context(browser, { theme: "light" }); await c2.clock.install();
+    const p2 = await c2.newPage();
+    await p2.goto(`${BASE}/m/flights/${idOf(FID)}/passengers`, { waitUntil: "load" });
+    await p2.locator("[data-passenger-viewer]").waitFor({ timeout: 15_000 }).catch(() => {});
+    const h2 = p2.getByRole("button", { name: /^Hold to show the document of/ }).first();
+    await h2.waitFor({ timeout: 15_000 }).catch(() => {});
+    await h2.dispatchEvent("pointerdown"); await p2.clock.runFor(1_200);
+    await p2.getByRole("dialog").waitFor({ timeout: 10_000 }).catch(() => {});
+    const opened = (await p2.getByRole("dialog").count()) === 1;
+    await p2.clock.runFor(31_000);
+    await p2.getByRole("dialog").waitFor({ state: "detached", timeout: 5_000 }).catch(() => {});
+    ok(opened && (await p2.getByRole("dialog").count()) === 0, "phone: the document closes itself after 30 s", opened ? "" : "the document did not open under the test clock");
+    await c2.close();
+  }
   // away: leaving the foreground hides names and closes any open document
-  await hold.dispatchEvent("pointerdown"); await page.waitForTimeout(1300); await page.getByRole("dialog").waitFor({ timeout: 10_000 });
+  await hold.dispatchEvent("pointerdown"); await page.getByRole("dialog").waitFor({ timeout: 10_000 });
   // pagehide is the earliest of the events a phone fires on its way to the switcher; the blur must be in the SAME frame
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   const sameFrame = await page.evaluate(() => ({ attr: document.documentElement.getAttribute("data-pax-away"), blur: getComputedStyle(document.querySelector("[data-pax-list]")).filter, doc: document.querySelector("[data-pax-doc]") ? getComputedStyle(document.querySelector("[data-pax-doc]")).visibility : "gone" }));
   ok(sameFrame.attr === "1" && /blur\(7px\)/.test(sameFrame.blur) && (sameFrame.doc === "hidden" || sameFrame.doc === "gone"), "phone: on pagehide the names are blurred and the document hidden synchronously, before any re-render", JSON.stringify(sameFrame));
-  await page.waitForTimeout(400);
+  await settled(page);
   const cover = (await page.locator("[data-passenger-viewer]").innerText()).replace(/\s+/g, " ");
   ok((await page.getByRole("dialog").count()) === 0 && /Hidden while you were away/.test(cover), "phone: leaving the foreground closes the document and covers the names");
   const blur = await page.locator("[data-passenger-viewer] [data-pax-list]").first().evaluate((el) => getComputedStyle(el).filter);
   ok(/blur/.test(blur), "phone: the names are blurred under the cover", blur);
-  await page.getByRole("button", { name: "Show names" }).click(); await page.waitForTimeout(300);
+  await page.getByRole("button", { name: "Show names" }).click(); await settled(page);
   ok(!/Hidden while you were away/.test((await page.locator("[data-passenger-viewer]").innerText())), "phone: Show names lifts the cover");
   await ctx.close();
 }
@@ -150,7 +167,7 @@ for (const theme of ["light", "dark"]) {
 {
   const ctx = await context(browser); const page = await ctx.newPage();
   await page.route(/\/agent\/api\/flights\/[^/]+\/passengers$/, async (route) => { const r = await route.fetch(); const j = await r.json(); await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...j, canReveal: false }) }); });
-  await page.goto(`${BASE}/m/flights/${idOf(FID)}/passengers`, { waitUntil: "load" }); await page.waitForTimeout(2500);
+  await page.goto(`${BASE}/m/flights/${idOf(FID)}/passengers`, { waitUntil: "load" }); await page.getByText(/Your role shows names/).first().waitFor({ timeout: 10_000 }).catch(() => {}); await settled(page);
   ok((await page.getByRole("button", { name: /^Hold to show/ }).count()) === 0 && /Your role shows names/.test(await page.locator("[data-passenger-viewer]").innerText()), "phone: without the permission there is no Hold and the strip says why");
   await ctx.close();
 }
@@ -158,9 +175,9 @@ for (const theme of ["light", "dark"]) {
 {
   const ctx = await context(browser); const page = await ctx.newPage();
   await page.route(/\/reveal$/, (route) => route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ ok: false, message: "You don't have permission to do this." }) }));
-  await page.goto(`${BASE}/m/flights/${idOf(FID)}/passengers`, { waitUntil: "load" }); await page.waitForTimeout(2500);
+  await page.goto(`${BASE}/m/flights/${idOf(FID)}/passengers`, { waitUntil: "load" }); await settled(page);
   const hold = page.getByRole("button", { name: /^Hold to show the document of/ }).first();
-  await hold.dispatchEvent("pointerdown"); await page.waitForTimeout(1600);
+  await hold.dispatchEvent("pointerdown"); await page.locator("[role=alert]").first().waitFor({ timeout: 10_000 }).catch(() => {});   // the refusal is said
   ok((await page.getByRole("dialog").count()) === 0 && !DOC_VALUES.test(await page.content()) && (await page.locator("[role=alert]").count()) > 0, "phone: a refused reveal shows nothing and says so");
   await ctx.close();
 }
@@ -176,24 +193,24 @@ for (const theme of ["light", "dark"]) {
   const wallKey = wall.flights?.[0]?.key; if (!wallKey) { ok(false, "console: the rig wall has a flight to select"); }
   await ctx.route(/\/agent\/api\/flights\/[^/]+\/passengers/, (route) => route.continue({ url: route.request().url().replace(/\/agent\/api\/flights\/[^/]+\//, `/agent/api/flights/${encodeURIComponent(FID)}/`) }));
   const page = await ctx.newPage();
-  await page.goto(`${BASE}/digital-wall/console/flights`, { waitUntil: "load" }); await page.waitForTimeout(3500);
+  await page.goto(`${BASE}/digital-wall/console/flights`, { waitUntil: "load" }); await settled(page);
   // select a flight as a person does: the first row's callsign
   const callsigns = (wall.flights ?? []).map((f) => f.flight?.flightNo).filter(Boolean);
   for (const cs of callsigns) { const cell = page.getByText(cs, { exact: true }).first(); if (await cell.count()) { await cell.click(); break; } }
-  await page.waitForTimeout(2500);
+  await settled(page);
   const show = page.getByRole("button", { name: "Show names" });
   if (await show.count()) {
     const html0 = await page.content();
     ok(!DOC_VALUES.test(html0), "console: before anything is opened, no document value is in the page");
     await show.click(); await page.waitForFunction(() => !document.querySelector("[role=status][aria-busy='true']"), null, { timeout: 30_000 }).catch(() => {});
-    await page.waitForTimeout(500);
+    await settled(page);
     ok(!DOC_KEYS.test((await page.content()).replace(/documents hidden until opened|Documents stay hidden|Document details/g, "")) && !DOC_VALUES.test(await page.content()), "console: the names list carries no document field or value");
-    await page.getByRole("button", { name: /^Show the document of/ }).first().click(); await page.waitForTimeout(2500);
+    await page.getByRole("button", { name: /^Show the document of/ }).first().click(); await settled(page);
     const panel = (await page.locator("[data-passenger-viewer]").innerText()).replace(/\s+/g, " ");
     ok(/DOCUMENT NUMBER/.test(panel) && /TEST\d{5}/.test(panel) && /Your name and the time are on this view/.test(panel), "console: Show opens one passenger's document inline, watermarked, with the fact said");
     const second = page.getByRole("button", { name: /^Show the document of/ }).nth(0);
     ok(await second.isDisabled().catch(() => false), "console: while one is open, the others' Show is held (one at a time)");
-    await page.getByRole("button", { name: /^Hide the document of/ }).click(); await page.waitForTimeout(300);
+    await page.getByRole("button", { name: /^Hide the document of/ }).click(); await settled(page);
     ok(!DOC_VALUES.test(await page.content()), "console: Hide leaves no document value in the page");
     await page.screenshot({ path: "rig/.scratch/shots/console-passengers.png" });
   } else { const t = (await page.locator("body").innerText()).slice(0, 200).replace(/\s+/g, " "); ok(false, "console: the Flights panel offers Show names for the selected flight", t); }

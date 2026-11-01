@@ -5,6 +5,7 @@
 //   node --env-file=.env.rig rig/utc-browser-check.mjs
 import { chromium } from "playwright";
 
+import { settled } from "./lib/settle.mjs";
 const BASE = "http://127.0.0.1:3989";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -49,7 +50,7 @@ try {
   const page = await ctx.newPage();
   for (const p of PAGES) {
     await page.goto(`${BASE}${p}`, { waitUntil: "load", timeout: 60000 }).catch(() => {});
-    await sleep(2500);
+    await settled(page);
     const text = await page.locator("body").innerText().catch(() => "");
     const bad = findBad(text);
     ok(bad.length === 0, `${p}: every time shown is UTC with a Z (browser in New York time, en-US)`, bad.slice(0, 3).join(" | "));

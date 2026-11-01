@@ -4,6 +4,7 @@
 // and 390; the logo's colour is measured against the card it sits on (contrast ≥ 3, the bar for large graphics).
 //   node rig/maintenance-logos-check.mjs
 import { chromium } from "playwright";
+import { settled } from "./lib/settle.mjs";
 const BASE = process.env.RIG_SIGNIN_URL || "http://127.0.0.1:3989";
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 200)}` : ""}`); if (!c) failures += 1; };
 const browser = await chromium.launch();
@@ -11,7 +12,7 @@ for (const theme of ["light", "dark"]) for (const width of [1440, 390]) {
   const ctx = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: theme });
   await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
   const page = await ctx.newPage();
-  await page.goto(`${BASE}/maintenance`, { waitUntil: "load" }); await page.waitForTimeout(800);
+  await page.goto(`${BASE}/maintenance`, { waitUntil: "load" }); await settled(page);
   const m = await page.evaluate(() => {
     const lum = (c) => { const unit = /^color\(srgb/.test(c) ? 1 : 255; const v = c.replace(/^color\(srgb/, "").match(/[\d.]+/g).slice(0, 3).map((x) => { x = Number(x) / unit; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
     const svg = document.querySelector('svg[aria-label="Clearway"]');

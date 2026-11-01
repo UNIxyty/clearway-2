@@ -22,6 +22,10 @@ ARG NEXT_PUBLIC_SITE_URL
 ARG NEXT_PUBLIC_AGENT_BASE_URL=""
 RUN NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
     NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" NEXT_PUBLIC_AGENT_BASE_URL="$NEXT_PUBLIC_AGENT_BASE_URL" npm run build
+# The worker image (aip-sync, notam-sync, weather-sync) runs scripts/*.mjs only. It gets this tree WITHOUT the portal's
+# build output (.next, whose source maps carry the source) and WITHOUT middleware.ts: rig-only code must not be in any
+# production image (scripts/check-image-contents.mjs, 2026-11-02 — it caught both in the worker image).
+RUN mkdir -p /worker && cp -a /app/. /worker/ && rm -rf /worker/.next /worker/middleware.ts
 
 FROM node:20-bookworm-slim AS base-runtime
 WORKDIR /app
@@ -85,7 +89,7 @@ ENV NODE_ENV=production
 ENV STORAGE_ROOT=/storage
 ENV CACHE_ROOT=/cache
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-COPY --from=builder /app ./
+COPY --from=builder /worker ./
 RUN node scripts/check-image-secrets.mjs /app
 RUN npx playwright install chromium
 ENTRYPOINT ["dumb-init", "--"]

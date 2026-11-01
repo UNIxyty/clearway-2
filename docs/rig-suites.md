@@ -11,7 +11,15 @@ number of checks passed in the last full run.
 
 ## Known failures
 
-None.
+- **Since 2026-11-01: every suite that calls the model** (intake/e2e, e2e-scheduled, e2e-classify, e2e-unread,
+  e2e-cancel, e2e-people, intake/browser-*, manifest/browser). AWS refuses the rig's access key
+  (UnrecognizedClientException), so the model cannot answer. Not a code fault. It clears when `.env.rig` holds a working
+  key.
+- **Since 2026-11-01: permissions-check, three reveal checks** ("a User cannot reveal…", "…the review screen is told
+  so", "an Admin can…"). They read the intake request RIGPAX19, which only the model-dependent intake suites create.
+  They clear with the key.
+- Speed work in progress (docs/rig-speed.md): no full run since 2026-10-27. The counts below are from the last full
+  runs.
 
 Every suite below passed in the full run of 2026-10-13 (43 suites, after the wall folder, the voice stand-in,
 the extension fix, the airport-sheets rule and docs stage 4). Two earlier runs that day were stopped: the machine

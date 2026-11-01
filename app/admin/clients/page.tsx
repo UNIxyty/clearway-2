@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
+import PageContent from "@/components/portal/PageContent";
 import { Button, EmptyState, Modal, Segmented, Skeleton, TableCard, TextInput, useToast } from "@/components/kit";
 import { OFFLINE } from "@/lib/error-text";
 import "./clients.css";
@@ -41,6 +42,105 @@ const initials = (s: string) => s.split(/[\s@.]+/).filter(Boolean).slice(0, 2).m
 const whenUtc = (iso: string | null | undefined) => (iso ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}Z` : "");
 const ago = (iso: string) => { const ms = Date.now() - new Date(iso).getTime(); if (ms < 3600e3) return `${Math.max(1, Math.floor(ms / 60e3))} min ago`; if (ms < 86400e3) return `${Math.floor(ms / 3600e3)} h ago`; return `${Math.floor(ms / 86400e3)} d ago`; };
 const sameScope = (a: ScopeEntry[], b: ScopeEntry[]) => JSON.stringify(normaliseScope(a)) === JSON.stringify(normaliseScope(b));
+
+const groups = [{ name: "ON THE WALL", items: SWITCHES.filter((s) => s.group === "wall") }, { name: "REFERENCE", items: SWITCHES.filter((s) => s.group === "reference") }];
+
+// The editor, at module scope (2026-11-02). It was declared inside the page, so every render of the page made a new
+// component type and React remounted the whole editor: an input lost focus after each letter (the page re-renders on
+// each keystroke because the value lives in its state). Everything it needs comes in as props.
+type EditorProps = {
+  c: ClientRow; ed: Editor; setEd: (e: Editor) => void; busy: boolean;
+  matchCount: (scope: ScopeEntry[]) => number; suggestionFor: (c: ClientRow) => { kind: ScopeEntry["kind"]; value: string; why: string } | null;
+  onSave: (c: ClientRow) => void; onRefuse: (c: ClientRow) => void; onCancel: () => void; onRemove: (c: ClientRow) => void;
+};
+function ClientEditor({ c, ed, setEd, busy, matchCount, suggestionFor, onSave, onRefuse, onCancel, onRemove }: EditorProps) {
+  const isEdit = c.status === "approved";
+  const base = { scope: normaliseScope(c.scope) as ScopeEntry[], switches: normaliseSwitches(c.switches), level: c.passenger_level };
+  const blocked = !ed.scope.length || !ed.switches.includes("flight_board") || (ed.level === "documents" && !ed.consent);
+  const n = matchCount(ed.scope);
+  const sug = !isEdit && !ed.scope.length ? suggestionFor(c) : null;
+  const add = (kind: ScopeEntry["kind"], value: string) => { const next = normaliseScope([...ed.scope, { kind, value }]) as ScopeEntry[]; setEd({ ...ed, scope: next, value: "" }); };
+  const added = SWITCHES.filter((s) => ed.switches.includes(s.key) && !base.switches.includes(s.key)).map((s) => `+ ${s.label}`);
+  const removed = SWITCHES.filter((s) => !ed.switches.includes(s.key) && base.switches.includes(s.key)).map((s) => `− ${s.label}`);
+  const levelLabel = LEVELS.find((l) => l.k === ed.level)?.label ?? "";
+  const summary = isEdit
+    ? (added.length || removed.length || ed.level !== base.level || !sameScope(ed.scope, base.scope) ? `Changes: ${[...added, ...removed, ...(ed.level !== base.level ? [`Passengers: ${levelLabel}`] : []), ...(!sameScope(ed.scope, base.scope) ? ["scope"] : [])].join(", ")}` : "No changes yet.")
+    : `${c.company} will see: ${SWITCHES.filter((s) => ed.switches.includes(s.key)).map((s) => s.label).join(", ") || "nothing"}. Passengers: ${levelLabel.toLowerCase()}.`;
+  return (
+    <div className="border-b border-cw-divider bg-cw-bg-selected px-5 pb-5 pt-4" data-client-editor={c.id}>
+      <div className="overflow-hidden rounded-[12px] border border-cw-primary-tint-border bg-cw-bg-surface">
+        <div className="grid grid-cols-1 min-[900px]:grid-cols-2">
+          <div className="flex flex-col gap-3.5 border-b border-cw-divider p-5 min-[900px]:border-b-0 min-[900px]:border-r">
+            <div className="flex flex-col gap-0.5"><span className="text-[15px] font-bold"><span className="mr-2 font-mono text-cw-text-muted">1</span>Scope · which flights exist for them</span><span className="text-[13px] leading-normal text-cw-text-muted">{isEdit ? "Removing a trip takes its flights away at once. You can add it back." : "A data boundary. Flights outside it don’t exist for this client anywhere in the product."}</span></div>
+            <div className="flex flex-col gap-2">
+              {ed.scope.map((e, i) => (
+                <div key={`${e.kind}:${e.value}`} className="grid grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[10px] border border-cw-border bg-cw-bg-sunken py-2 pl-2.5 pr-2" data-scope-entry={`${e.kind}:${e.value}`}>
+                  <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-cw-bg-surface text-cw-text-body"><MaskIcon name={KIND_META[e.kind].icon} size={15} /></span>
+                  <span className="flex min-w-0 flex-col"><span className="font-mono text-[14px] font-semibold">{e.value}</span><span className="text-[12.5px] text-cw-text-muted">{KIND_META[e.kind].short} · {KIND_META[e.kind].means}</span></span>
+                  <button type="button" aria-label={`Remove ${e.value} from scope`} className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] text-cw-text-muted hover:bg-cw-bg-hover hover:text-cw-text" onClick={() => setEd({ ...ed, scope: ed.scope.filter((_, j) => j !== i) })}><MaskIcon name="x" size={15} /></button>
+                </div>
+              ))}
+              {!ed.scope.length && <span className="rounded-[10px] border border-dashed border-cw-warning-border bg-cw-warning-tint p-3 text-[13.5px] text-cw-warning-text">No scope yet. They gave a company name only; you decide what they can see. Without a scope, they see no flights.</span>}
+              {sug && <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-cw-border bg-cw-bg-sunken px-3 py-2.5"><MaskIcon name="lightbulb" size={15} className="text-cw-text-muted" /><span className="min-w-[180px] flex-1 text-[13px] leading-snug text-cw-text-body">Suggested: <span className="font-mono font-semibold text-cw-text">{sug.value}</span> · {sug.why}</span><Button size="sm" variant="secondary" icon="plus" onClick={() => add(sug.kind, sug.value)}>Add</Button></div>}
+            </div>
+            <div className="flex flex-col gap-2 border-t border-cw-divider pt-3">
+              <span className="text-[12.5px] font-semibold text-cw-text-muted">Add to scope</span>
+              <div className="flex flex-wrap gap-2">
+                <Segmented label="Scope kind" size="sm" value={ed.kind} onChange={(k) => setEd({ ...ed, kind: k, value: "" })} options={SCOPE_KINDS.map((k) => ({ value: k as ScopeEntry["kind"], label: KIND_META[k as ScopeEntry["kind"]].short }))} />
+                <div className="min-w-[140px] flex-1"><TextInput value={ed.value} onChange={(e) => setEd({ ...ed, value: e.target.value })} placeholder={KIND_META[ed.kind].placeholder} mono onKeyDown={(e) => { if (e.key === "Enter" && ed.value.trim()) add(ed.kind, ed.value); }} aria-label="Scope value" /></div>
+                <Button variant="secondary" disabled={!ed.value.trim()} onClick={() => add(ed.kind, ed.value)}>Add</Button>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[13px] text-cw-text-body"><MaskIcon name="plane" size={14} className="text-cw-text-muted" />{ed.scope.length ? `Matches ${n} flight${n === 1 ? "" : "s"} in the next 7 days` : "Matches no flights"}</div>
+          </div>
+          <div className="flex flex-col gap-3 p-5">
+            <div className="flex items-start gap-2.5">
+              <div className="flex flex-1 flex-col gap-0.5"><span className="text-[15px] font-bold"><span className="mr-2 font-mono text-cw-text-muted">2</span>Access · what they see of those flights</span><span className="text-[13px] leading-normal text-cw-text-muted">{isEdit ? "Their current switches. Changes apply the next time they load a page." : "Starting set applied. Every switch is yours to change."}</span></div>
+              <button type="button" className="whitespace-nowrap pt-0.5 text-[13px] font-semibold text-cw-text-link" onClick={() => setEd({ ...ed, switches: [...STARTING_SWITCHES] })}>Reset to starting set</button>
+            </div>
+            {groups.map((g) => (
+              <div key={g.name} className="flex flex-col">
+                <span className="py-1 text-[11px] font-bold tracking-[.08em] text-cw-text-muted">{g.name}</span>
+                {g.items.map((s) => { const v = ed.switches.includes(s.key); const changed = isEdit && v !== base.switches.includes(s.key); const required = Boolean(s.required); return (
+                  <button type="button" key={s.key} role="switch" aria-checked={v} aria-label={s.label} disabled={required && v} data-switch={s.key} className="grid min-h-[44px] grid-cols-[20px_minmax(0,1fr)_36px] items-center gap-2.5 border-t border-cw-divider py-1 text-left" onClick={() => setEd({ ...ed, switches: v ? ed.switches.filter((k) => k !== s.key) : [...ed.switches, s.key] })}>
+                    <MaskIcon name={SWITCH_ICON[s.key]} size={15} className={v ? "text-cw-text" : "text-cw-text-muted"} />
+                    <span className="flex min-w-0 flex-col"><span className={v ? "text-[14px] font-semibold text-cw-text" : "text-[14px] font-medium text-cw-text-body"}>{s.label}{required && <span className="ml-2 text-[11px] font-bold text-cw-text-muted">REQUIRED</span>}{changed && <span className="ml-2 text-[11px] font-bold text-cw-text-link">CHANGED</span>}</span><span className="hidden text-[12.5px] text-cw-text-muted min-[900px]:block">{SWITCH_HINT[s.key]}</span></span>
+                    <span aria-hidden className={`relative h-5 w-9 rounded-[10px] transition-colors ${v ? "bg-cw-primary" : "bg-cw-border-strong"}`}><span className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left]" style={{ left: v ? 18 : 2 }} /></span>
+                  </button>); })}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="cl-sens-block mx-5 mb-4 flex flex-col gap-3 rounded-[12px] p-4" data-passenger-level>
+          <div className="flex items-start gap-3">
+            <span className="cl-sens-tile flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[9px]"><MaskIcon name="id-card" size={17} /></span>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5"><span className="flex flex-wrap items-center gap-2"><span className="text-[15px] font-extrabold">Passenger details</span><span className="cl-sens-tile inline-flex h-5 items-center rounded-[5px] px-1.5 text-[11px] font-bold tracking-[.04em]">PERSONAL DATA</span></span><span className="text-[13.5px] leading-normal text-cw-text-body">A mistake here shows someone’s passport number to a stranger. Choose the least this client needs.</span></div>
+          </div>
+          <div className="grid grid-cols-1 gap-2 min-[900px]:grid-cols-3" role="radiogroup" aria-label="Passenger level">
+            {LEVELS.map((l) => { const sel = ed.level === l.k; return (
+              <button type="button" role="radio" aria-checked={sel} key={l.k} data-level={l.k} className={`flex gap-2.5 rounded-[10px] border-[1.5px] px-3 py-2.5 text-left ${sel ? (l.k === "documents" ? "cl-sens-selected" : "border-cw-focus bg-cw-bg-surface") : "border-cw-border-control bg-transparent"}`} onClick={() => setEd({ ...ed, level: l.k, consent: l.k === "documents" ? ed.consent : false })}>
+                <span aria-hidden className={`mt-0.5 h-[18px] w-[18px] flex-none rounded-full bg-cw-bg-surface ${sel ? (l.k === "documents" ? "cl-sens-radio" : "border-[5px] border-cw-primary") : "border-[1.5px] border-cw-border-strong"}`} />
+                <span className="flex flex-col gap-0.5"><span className="text-[14px] font-semibold">{l.label}</span><span className="text-[12.5px] leading-snug text-cw-text-muted">{l.d}</span></span>
+              </button>); })}
+          </div>
+          {ed.level === "documents" && (
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-[10px] border bg-cw-bg-surface px-3 py-2.5 text-[13.5px] leading-normal cl-sens-border">
+              <input type="checkbox" className="mt-0.5 h-[18px] w-[18px]" checked={ed.consent} onChange={(e) => setEd({ ...ed, consent: e.target.checked })} data-consent />
+              <span>I’ve confirmed {c.company} may see passport details for these flights: they are the operator, or we hold the operator’s written consent.</span>
+            </label>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 border-t border-cw-border bg-cw-bg-sunken px-5 py-3">
+          {isEdit && <Button variant="danger-quiet" icon="user-x" onClick={() => onRemove(c)}>Remove access</Button>}
+          <span className="min-w-[220px] flex-1 text-[13px] leading-normal text-cw-text-body">{summary}</span>
+          {!isEdit && <Button variant="secondary" disabled={busy} onClick={() => onRefuse(c)}>Refuse</Button>}
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button icon="check" disabled={blocked || busy} loading={busy} onClick={() => onSave(c)} data-approve>{isEdit ? "Save changes" : `Approve ${c.company}`}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminClientsPage() {
   const toast = useToast();
@@ -128,103 +228,11 @@ export default function AdminClientsPage() {
     finally { setBusy(false); }
   };
 
-  const groups = [{ name: "ON THE WALL", items: SWITCHES.filter((s) => s.group === "wall") }, { name: "REFERENCE", items: SWITCHES.filter((s) => s.group === "reference") }];
-
-  function Editor({ c }: { c: ClientRow }) {
-    if (!ed) return null;
-    const isEdit = c.status === "approved";
-    const base = { scope: normaliseScope(c.scope) as ScopeEntry[], switches: normaliseSwitches(c.switches), level: c.passenger_level };
-    const blocked = !ed.scope.length || !ed.switches.includes("flight_board") || (ed.level === "documents" && !ed.consent);
-    const n = matchCount(ed.scope);
-    const sug = !isEdit && !ed.scope.length ? suggestionFor(c) : null;
-    const add = (kind: ScopeEntry["kind"], value: string) => { const next = normaliseScope([...ed.scope, { kind, value }]) as ScopeEntry[]; setEd({ ...ed, scope: next, value: "" }); };
-    const added = SWITCHES.filter((s) => ed.switches.includes(s.key) && !base.switches.includes(s.key)).map((s) => `+ ${s.label}`);
-    const removed = SWITCHES.filter((s) => !ed.switches.includes(s.key) && base.switches.includes(s.key)).map((s) => `− ${s.label}`);
-    const levelLabel = LEVELS.find((l) => l.k === ed.level)?.label ?? "";
-    const summary = isEdit
-      ? (added.length || removed.length || ed.level !== base.level || !sameScope(ed.scope, base.scope) ? `Changes: ${[...added, ...removed, ...(ed.level !== base.level ? [`Passengers: ${levelLabel}`] : []), ...(!sameScope(ed.scope, base.scope) ? ["scope"] : [])].join(", ")}` : "No changes yet.")
-      : `${c.company} will see: ${SWITCHES.filter((s) => ed.switches.includes(s.key)).map((s) => s.label).join(", ") || "nothing"}. Passengers: ${levelLabel.toLowerCase()}.`;
-    return (
-      <div className="border-b border-cw-divider bg-cw-bg-selected px-5 pb-5 pt-4" data-client-editor={c.id}>
-        <div className="overflow-hidden rounded-[12px] border border-cw-primary-tint-border bg-cw-bg-surface">
-          <div className="grid grid-cols-1 min-[900px]:grid-cols-2">
-            <div className="flex flex-col gap-3.5 border-b border-cw-divider p-5 min-[900px]:border-b-0 min-[900px]:border-r">
-              <div className="flex flex-col gap-0.5"><span className="text-[15px] font-bold"><span className="mr-2 font-mono text-cw-text-muted">1</span>Scope · which flights exist for them</span><span className="text-[13px] leading-normal text-cw-text-muted">{isEdit ? "Removing a trip takes its flights away at once. You can add it back." : "A data boundary. Flights outside it don’t exist for this client anywhere in the product."}</span></div>
-              <div className="flex flex-col gap-2">
-                {ed.scope.map((e, i) => (
-                  <div key={`${e.kind}:${e.value}`} className="grid grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[10px] border border-cw-border bg-cw-bg-sunken py-2 pl-2.5 pr-2" data-scope-entry={`${e.kind}:${e.value}`}>
-                    <span className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-cw-bg-surface text-cw-text-body"><MaskIcon name={KIND_META[e.kind].icon} size={15} /></span>
-                    <span className="flex min-w-0 flex-col"><span className="font-mono text-[14px] font-semibold">{e.value}</span><span className="text-[12.5px] text-cw-text-muted">{KIND_META[e.kind].short} · {KIND_META[e.kind].means}</span></span>
-                    <button type="button" aria-label={`Remove ${e.value} from scope`} className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] text-cw-text-muted hover:bg-cw-bg-hover hover:text-cw-text" onClick={() => setEd({ ...ed, scope: ed.scope.filter((_, j) => j !== i) })}><MaskIcon name="x" size={15} /></button>
-                  </div>
-                ))}
-                {!ed.scope.length && <span className="rounded-[10px] border border-dashed border-cw-warning-border bg-cw-warning-tint p-3 text-[13.5px] text-cw-warning-text">No scope yet. They gave a company name only; you decide what they can see. Without a scope, they see no flights.</span>}
-                {sug && <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-cw-border bg-cw-bg-sunken px-3 py-2.5"><MaskIcon name="lightbulb" size={15} className="text-cw-text-muted" /><span className="min-w-[180px] flex-1 text-[13px] leading-snug text-cw-text-body">Suggested: <span className="font-mono font-semibold text-cw-text">{sug.value}</span> · {sug.why}</span><Button size="sm" variant="secondary" icon="plus" onClick={() => add(sug.kind, sug.value)}>Add</Button></div>}
-              </div>
-              <div className="flex flex-col gap-2 border-t border-cw-divider pt-3">
-                <span className="text-[12.5px] font-semibold text-cw-text-muted">Add to scope</span>
-                <div className="flex flex-wrap gap-2">
-                  <Segmented label="Scope kind" size="sm" value={ed.kind} onChange={(k) => setEd({ ...ed, kind: k, value: "" })} options={SCOPE_KINDS.map((k) => ({ value: k as ScopeEntry["kind"], label: KIND_META[k as ScopeEntry["kind"]].short }))} />
-                  <div className="min-w-[140px] flex-1"><TextInput value={ed.value} onChange={(e) => setEd({ ...ed, value: e.target.value })} placeholder={KIND_META[ed.kind].placeholder} mono onKeyDown={(e) => { if (e.key === "Enter" && ed.value.trim()) add(ed.kind, ed.value); }} aria-label="Scope value" /></div>
-                  <Button variant="secondary" disabled={!ed.value.trim()} onClick={() => add(ed.kind, ed.value)}>Add</Button>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-[13px] text-cw-text-body"><MaskIcon name="plane" size={14} className="text-cw-text-muted" />{ed.scope.length ? `Matches ${n} flight${n === 1 ? "" : "s"} in the next 7 days` : "Matches no flights"}</div>
-            </div>
-            <div className="flex flex-col gap-3 p-5">
-              <div className="flex items-start gap-2.5">
-                <div className="flex flex-1 flex-col gap-0.5"><span className="text-[15px] font-bold"><span className="mr-2 font-mono text-cw-text-muted">2</span>Access · what they see of those flights</span><span className="text-[13px] leading-normal text-cw-text-muted">{isEdit ? "Their current switches. Changes apply the next time they load a page." : "Starting set applied. Every switch is yours to change."}</span></div>
-                <button type="button" className="whitespace-nowrap pt-0.5 text-[13px] font-semibold text-cw-text-link" onClick={() => setEd({ ...ed, switches: [...STARTING_SWITCHES] })}>Reset to starting set</button>
-              </div>
-              {groups.map((g) => (
-                <div key={g.name} className="flex flex-col">
-                  <span className="py-1 text-[11px] font-bold tracking-[.08em] text-cw-text-muted">{g.name}</span>
-                  {g.items.map((s) => { const v = ed.switches.includes(s.key); const changed = isEdit && v !== base.switches.includes(s.key); const required = Boolean(s.required); return (
-                    <button type="button" key={s.key} role="switch" aria-checked={v} aria-label={s.label} disabled={required && v} data-switch={s.key} className="grid min-h-[44px] grid-cols-[20px_minmax(0,1fr)_36px] items-center gap-2.5 border-t border-cw-divider py-1 text-left" onClick={() => setEd({ ...ed, switches: v ? ed.switches.filter((k) => k !== s.key) : [...ed.switches, s.key] })}>
-                      <MaskIcon name={SWITCH_ICON[s.key]} size={15} className={v ? "text-cw-text" : "text-cw-text-muted"} />
-                      <span className="flex min-w-0 flex-col"><span className={v ? "text-[14px] font-semibold text-cw-text" : "text-[14px] font-medium text-cw-text-body"}>{s.label}{required && <span className="ml-2 text-[11px] font-bold text-cw-text-muted">REQUIRED</span>}{changed && <span className="ml-2 text-[11px] font-bold text-cw-text-link">CHANGED</span>}</span><span className="hidden text-[12.5px] text-cw-text-muted min-[900px]:block">{SWITCH_HINT[s.key]}</span></span>
-                      <span aria-hidden className={`relative h-5 w-9 rounded-[10px] transition-colors ${v ? "bg-cw-primary" : "bg-cw-border-strong"}`}><span className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left]" style={{ left: v ? 18 : 2 }} /></span>
-                    </button>); })}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="cl-sens-block mx-5 mb-4 flex flex-col gap-3 rounded-[12px] p-4" data-passenger-level>
-            <div className="flex items-start gap-3">
-              <span className="cl-sens-tile flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[9px]"><MaskIcon name="id-card" size={17} /></span>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5"><span className="flex flex-wrap items-center gap-2"><span className="text-[15px] font-extrabold">Passenger details</span><span className="cl-sens-tile inline-flex h-5 items-center rounded-[5px] px-1.5 text-[11px] font-bold tracking-[.04em]">PERSONAL DATA</span></span><span className="text-[13.5px] leading-normal text-cw-text-body">A mistake here shows someone’s passport number to a stranger. Choose the least this client needs.</span></div>
-            </div>
-            <div className="grid grid-cols-1 gap-2 min-[900px]:grid-cols-3" role="radiogroup" aria-label="Passenger level">
-              {LEVELS.map((l) => { const sel = ed.level === l.k; return (
-                <button type="button" role="radio" aria-checked={sel} key={l.k} data-level={l.k} className={`flex gap-2.5 rounded-[10px] border-[1.5px] px-3 py-2.5 text-left ${sel ? (l.k === "documents" ? "cl-sens-selected" : "border-cw-focus bg-cw-bg-surface") : "border-cw-border-control bg-transparent"}`} onClick={() => setEd({ ...ed, level: l.k, consent: l.k === "documents" ? ed.consent : false })}>
-                  <span aria-hidden className={`mt-0.5 h-[18px] w-[18px] flex-none rounded-full bg-cw-bg-surface ${sel ? (l.k === "documents" ? "cl-sens-radio" : "border-[5px] border-cw-primary") : "border-[1.5px] border-cw-border-strong"}`} />
-                  <span className="flex flex-col gap-0.5"><span className="text-[14px] font-semibold">{l.label}</span><span className="text-[12.5px] leading-snug text-cw-text-muted">{l.d}</span></span>
-                </button>); })}
-            </div>
-            {ed.level === "documents" && (
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-[10px] border bg-cw-bg-surface px-3 py-2.5 text-[13.5px] leading-normal cl-sens-border">
-                <input type="checkbox" className="mt-0.5 h-[18px] w-[18px]" checked={ed.consent} onChange={(e) => setEd({ ...ed, consent: e.target.checked })} data-consent />
-                <span>I’ve confirmed {c.company} may see passport details for these flights: they are the operator, or we hold the operator’s written consent.</span>
-              </label>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 border-t border-cw-border bg-cw-bg-sunken px-5 py-3">
-            {isEdit && <Button variant="danger-quiet" icon="user-x" onClick={() => { setRemoving(c); setConfirmText(""); }}>Remove access</Button>}
-            <span className="min-w-[220px] flex-1 text-[13px] leading-normal text-cw-text-body">{summary}</span>
-            {!isEdit && <Button variant="secondary" disabled={busy} onClick={() => void refuse(c)}>Refuse</Button>}
-            <Button variant="secondary" onClick={close}>Cancel</Button>
-            <Button icon="check" disabled={blocked || busy} loading={busy} onClick={() => void save(c)} data-approve>{isEdit ? "Save changes" : `Approve ${c.company}`}</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const header = (title: string, right?: React.ReactNode) => <div className="flex h-[52px] items-center gap-2.5 border-b border-cw-divider px-5"><span className="text-[15px] font-bold">{title}</span>{right}</div>;
 
   return (
     <PortalShell title="Clients" subtitle="Operators and brokers who sign in to see their own flights. Scope decides which flights exist for a client. Access decides what they see of those flights. Every decision is logged.">
-      <div className="flex flex-col gap-5" data-admin-clients>
+      <PageContent className="flex flex-col gap-5" data-admin-clients>
         {forbidden ? <TableCard><EmptyState icon="lock" title="Clients is for Admins">Your role can’t approve or change client access. An admin can, under Admin → Clients.</EmptyState></TableCard> : (
           <>
             <TableCard className={waiting.length ? "border-cw-warning-border" : ""}>
@@ -245,29 +253,29 @@ export default function AdminClientsPage() {
                       {openId !== r.id && <div className="flex gap-2"><Button variant="secondary" size="sm" disabled={busy} onClick={() => void refuse(r)}>Refuse</Button><Button size="sm" icon="chevron-down" onClick={() => open(r)} data-review>Review</Button></div>}
                     </div>
                   </div>
-                  {openId === r.id && <Editor c={r} />}
+                  {openId === r.id && ed && <ClientEditor c={r} ed={ed} setEd={setEd} busy={busy} matchCount={matchCount} suggestionFor={suggestionFor} onSave={(c) => void save(c)} onRefuse={(c) => void refuse(c)} onCancel={close} onRemove={(c) => { setRemoving(c); setConfirmText(""); }} />}
                 </div>
               ))}
             </TableCard>
 
-            <TableCard>
+            <TableCard className="cl-approved">
               {header("Approved clients", <><span className="font-mono text-[12.5px] font-medium text-cw-text-muted">{approved.length}</span><span className="flex-1" /><span className="hidden items-center gap-3.5 text-[12.5px] text-cw-text-muted min-[900px]:flex"><span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-cw-primary" />Can see</span><span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-[1.5px] border-cw-border-strong" />Can’t</span></span></>)}
-              {state === "ready" && approved.length > 0 && <div className="hidden grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_286px_120px_120px_96px] items-end gap-4 border-b border-cw-border bg-cw-bg-sunken px-5 pb-2 pt-2.5 text-[11px] font-bold tracking-[.06em] text-cw-text-muted min-[900px]:grid"><span>CLIENT</span><span>SCOPE</span><span className="grid grid-cols-[repeat(11,22px)] gap-1">{SWITCHES.map((s) => <span key={s.key} title={s.label} className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] border border-cw-border bg-cw-bg-surface text-cw-text-body"><MaskIcon name={SWITCH_ICON[s.key]} size={12} /></span>)}</span><span>PASSENGERS</span><span>GRANTED</span><span /></div>}
+              {state === "ready" && approved.length > 0 && <div className="cl-approved-head items-end gap-4 border-b border-cw-border bg-cw-bg-sunken px-5 pb-2 pt-2.5 text-[11px] font-bold tracking-[.06em] text-cw-text-muted"><span>CLIENT</span><span>SCOPE</span><span className="grid grid-cols-[repeat(11,22px)] gap-1">{SWITCHES.map((s) => <span key={s.key} title={s.label} className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] border border-cw-border bg-cw-bg-surface text-cw-text-body"><MaskIcon name={SWITCH_ICON[s.key]} size={12} /></span>)}</span><span>PASSENGERS</span><span>GRANTED</span><span /></div>}
               {state === "loading" && [52, 40, 60].map((w) => <div key={w} className="flex h-14 items-center border-b border-cw-divider px-5"><Skeleton w={`${w}%`} h={10} /></div>)}
               {state === "error" && <div className="flex flex-wrap items-center gap-3 p-5 text-[13.5px]"><MaskIcon name="cloud-off" size={17} className="text-cw-danger-text" /><span className="min-w-[220px] flex-1"><strong>Couldn’t load clients.</strong> <span className="text-cw-text-muted">Clients keep the access they had; nothing has changed for them. <span className="font-mono">{loadError}</span></span></span><Button size="sm" onClick={() => void load()}>Try again</Button></div>}
               {state === "ready" && !approved.length && <EmptyState icon="building-2" title="No clients yet" compact>When an operator or broker asks for access on the sign-in page, they appear under Waiting. Approving them adds them here.</EmptyState>}
               {approved.map((a) => (
                 <div key={a.id} data-client-approved={a.id}>
-                  <div className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b border-cw-divider px-5 py-3 min-[900px]:grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_286px_120px_120px_96px] ${openId === a.id ? "bg-cw-bg-selected" : "hover:bg-cw-bg-hover"}`}>
+                  <div className={`cl-approved-row grid items-center gap-x-4 gap-y-2 border-b border-cw-divider px-5 py-3 ${openId === a.id ? "bg-cw-bg-selected" : "hover:bg-cw-bg-hover"}`}>
                     <span className="flex min-w-0 flex-col gap-0.5"><span className="text-[14.5px] font-semibold">{a.company}</span><span className="truncate text-[12.5px] text-cw-text-muted">{a.person_name || a.email} · {a.kind === "broker" ? "Broker" : "Operator"}</span></span>
-                    <span className="order-3 col-span-2 flex min-w-0 flex-wrap gap-1.5 min-[900px]:order-none min-[900px]:col-span-1">{normaliseScope(a.scope).map((e) => <span key={`${e.kind}:${e.value}`} className={`cl-scope-${e.kind} inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-[6px] border px-1.5 font-mono text-[12px] font-medium`}><MaskIcon name={KIND_META[e.kind as ScopeEntry["kind"]].icon} size={11} />{e.value}</span>)}</span>
-                    <span className="hidden grid-cols-[repeat(11,22px)] gap-1 min-[900px]:grid" aria-label={`${normaliseSwitches(a.switches).length} of ${SWITCHES.length} switches`}>{SWITCHES.map((s) => { const v = normaliseSwitches(a.switches).includes(s.key); return <span key={s.key} title={`${s.label}: ${v ? "on" : "off"}`} className="flex h-[22px] w-[22px] items-center justify-center"><span className={`h-2.5 w-2.5 rounded-full ${v ? "bg-cw-primary" : "border-[1.5px] border-cw-border-strong"}`} /></span>; })}</span>
-                    <span className="order-4 text-[12.5px] text-cw-text-body min-[900px]:hidden">{normaliseSwitches(a.switches).length} of {SWITCHES.length} switches</span>
+                    <span className="cl-approved-scope flex min-w-0 flex-wrap gap-1.5">{normaliseScope(a.scope).map((e) => <span key={`${e.kind}:${e.value}`} className={`cl-scope-${e.kind} inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-[6px] border px-1.5 font-mono text-[12px] font-medium`}><MaskIcon name={KIND_META[e.kind as ScopeEntry["kind"]].icon} size={11} />{e.value}</span>)}</span>
+                    <span className="cl-approved-wide-grid grid-cols-[repeat(11,22px)] gap-1" aria-label={`${normaliseSwitches(a.switches).length} of ${SWITCHES.length} switches`}>{SWITCHES.map((s) => { const v = normaliseSwitches(a.switches).includes(s.key); return <span key={s.key} title={`${s.label}: ${v ? "on" : "off"}`} className="flex h-[22px] w-[22px] items-center justify-center"><span className={`h-2.5 w-2.5 rounded-full ${v ? "bg-cw-primary" : "border-[1.5px] border-cw-border-strong"}`} /></span>; })}</span>
+                    <span className="cl-approved-count text-[12.5px] text-cw-text-body">{normaliseSwitches(a.switches).length} of {SWITCHES.length} switches</span>
                     <span><span className={`inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-[6px] border px-2 text-[12px] font-semibold ${a.passenger_level === "documents" ? "cl-sens-badge" : a.passenger_level === "names" ? "border-cw-border-control bg-cw-bg-surface text-cw-text-body" : "border-cw-border text-cw-text-muted"}`}><MaskIcon name={a.passenger_level === "documents" ? "id-card" : a.passenger_level === "names" ? "users" : "minus"} size={12} />{a.passenger_level === "documents" ? "Documents" : a.passenger_level === "names" ? "Names" : "Off"}</span></span>
-                    <span className="hidden flex-col gap-0.5 font-mono text-[12.5px] text-cw-text-body min-[900px]:flex"><span>{(a.decided_at ?? "").slice(0, 10)}</span><span className="font-sans text-[12px] text-cw-text-muted">by {a.decided_by_email ?? "—"}</span></span>
+                    <span className="cl-approved-wide-flex flex-col gap-0.5 font-mono text-[12.5px] text-cw-text-body"><span>{(a.decided_at ?? "").slice(0, 10)}</span><span className="font-sans text-[12px] text-cw-text-muted">by {a.decided_by_email ?? "—"}</span></span>
                     <span className="flex justify-end gap-1.5">{openId !== a.id && <Button variant="secondary" size="sm" icon="sliders-horizontal" onClick={() => open(a)} data-change>Change</Button>}</span>
                   </div>
-                  {openId === a.id && <Editor c={a} />}
+                  {openId === a.id && ed && <ClientEditor c={a} ed={ed} setEd={setEd} busy={busy} matchCount={matchCount} suggestionFor={suggestionFor} onSave={(c) => void save(c)} onRefuse={(c) => void refuse(c)} onCancel={close} onRemove={(c) => { setRemoving(c); setConfirmText(""); }} />}
                 </div>
               ))}
             </TableCard>
@@ -286,7 +294,7 @@ export default function AdminClientsPage() {
             </TableCard>
           </>
         )}
-      </div>
+      </PageContent>
       <Modal open={Boolean(removing)} onClose={() => { if (!busy) { setRemoving(null); setConfirmText(""); } }} tone="danger" icon="octagon-alert" title="This cannot be undone" width={520} busy={busy}
         actions={<><Button variant="secondary" onClick={() => { setRemoving(null); setConfirmText(""); }} disabled={busy}>Keep access</Button><Button variant="danger" icon="user-x" disabled={!removing || confirmText.trim().toLowerCase() !== removing.company.trim().toLowerCase() || busy} loading={busy} onClick={() => void remove()} data-remove-confirm>Remove access</Button></>}>
         {removing && (

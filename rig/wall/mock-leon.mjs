@@ -45,7 +45,8 @@ const FLIGHTS = LEGS.map(([a, no, from, to, off, len, state, pax], i) => {
   const done = state === "arrived" || state === "airborne";
   return {
     flightNid: 660001 + i, flightNo: no, status: state === "option" ? "OPTION" : "CONFIRMED", isConfirmed: state !== "option",
-    trip: { tripStatus: state === "option" ? "option" : "confirmed" },
+    // trip numbers (invented, one per aircraft, 2026-11-02): the Clients page suggests real trips and checks a trip in scope exists
+    trip: { tripStatus: state === "option" ? "option" : "confirmed", tripNumber: `11-2026/${String(31 + a).padStart(2, "0")}` },
     isCnl: false, isActive: true, iconType: null, isSimulator: false, flightType: "COMMERCIAL", isCommercial: true, icaoType: ac.defaultFlightType, isFerry: pax === 0,
     startTimeUTC: s, endTimeUTC: e, startAirport: { code: { icao: from } }, endAirport: { code: { icao: to } },
     acft: { aircraftNid: ac.aircraftNid, registration: ac.registration }, flightWatch: fw,

@@ -184,13 +184,17 @@ export function Modal({ open, onClose, title, icon, tone = "primary", children, 
   const box = useRef<HTMLDivElement>(null);
   const opener = useRef<Element | null>(null);
   const titleId = useId();
+  // onClose and busy through refs (2026-11-02): pages pass an inline onClose, so depending on it re-ran this effect on every
+  // render (every keystroke in a field inside the modal), sending focus back to the opener and in again each time.
+  const closeRef = useRef(onClose); closeRef.current = onClose;
+  const busyRef = useRef(busy); busyRef.current = busy;
   useEffect(() => {
     if (!open) return;
     opener.current = document.activeElement;
     const first = box.current?.querySelector<HTMLElement>("[data-autofocus], input, textarea, button:not([disabled])");
     first?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) { e.stopPropagation(); onClose(); }
+      if (e.key === "Escape" && !busyRef.current) { e.stopPropagation(); closeRef.current(); }
       if (e.key === "Tab" && box.current) {
         const f = [...box.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])")];
         if (!f.length) return;
@@ -200,7 +204,7 @@ export function Modal({ open, onClose, title, icon, tone = "primary", children, 
     };
     document.addEventListener("keydown", onKey, true);
     return () => { document.removeEventListener("keydown", onKey, true); (opener.current as HTMLElement | null)?.focus?.(); };
-  }, [open, onClose, busy]);
+  }, [open]);
   if (!open || typeof document === "undefined") return null;
   const tint = { primary: "bg-cw-primary-tint text-cw-text-link", danger: "bg-cw-danger-tint text-cw-danger-text", warning: "bg-cw-warning-tint text-cw-warning-text" }[tone];
   return createPortal(

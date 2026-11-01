@@ -295,43 +295,8 @@ export default function CaaPage() {
 
   // Desktop: the editor column as-is. <1024: the same editor content inside
   // a pushed page (C6) with a fixed save bar; the list takes the full width.
-  const EditorWrap = ({ children }) => {
-    if (!isMobileView) return <div style={{ flex: 1, minWidth: 0 }}>{children}</div>;
-    if (!form) return null;
-    return (
-      <PushedPage
-        title={form.id ? 'Edit CAA entry' : 'New authority'}
-        subtitle={dirty ? 'Unsaved changes' : form.country || form.authorityName || ''}
-        subtitleColor={dirty ? t.amber : undefined}
-        onBack={() => setSelectedId('')}
-        bottomBar={
-          <>
-            <Button
-              variant="primary"
-              disabled={saving || (!form.country.trim() && !form.authorityName.trim())}
-              spin={saving}
-              action={selectedId === '__new__' ? 'wall.caa.create' : 'wall.caa.edit'}
-              onClick={save}
-              style={{ flex: 1, height: 48, fontSize: 14.5, fontWeight: 700, borderRadius: 12 }}
-            >
-              Save changes
-            </Button>
-            <Button
-              variant={form.reviewed ? 'soft' : 'successSoft'}
-              icon={form.reviewed ? undefined : 'check'}
-              disabled={saving}
-              onClick={() => setForm((prev) => ({ ...prev, reviewed: !prev.reviewed }))}
-              style={{ height: 48, borderRadius: 12, fontWeight: 700 }}
-            >
-              {form.reviewed ? 'Reviewed ✓' : 'Mark reviewed'}
-            </Button>
-          </>
-        }
-      >
-        {children}
-      </PushedPage>
-    );
-  };
+  // (an unused EditorWrap component declared here was removed 2026-11-02: declared inside this component, wrapping the
+  // form in it would have remounted every field on each keystroke)
 
   return (
     <div>

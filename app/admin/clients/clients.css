@@ -8,3 +8,21 @@
 .cl-scope-operator { background: var(--ca-scope-op-bg); color: var(--ca-scope-op-fg); border-color: var(--ca-scope-op-bd); }
 .cl-scope-registration { background: var(--ca-scope-reg-bg); color: var(--ca-scope-reg-fg); border-color: var(--ca-scope-reg-bd); }
 .cl-scope-trip { background: var(--ca-scope-trip-bg); color: var(--ca-scope-trip-fg); border-color: var(--ca-scope-trip-bd); }
+
+/* The approved-clients table switches to its six columns by its OWN width, not the window's (2026-11-02): with the rail
+   or the full sidebar open, a 900–1250px window left the table narrower than the columns need (1042px), and "Change" ran
+   past the card's edge. Narrow: client and button on one line, scope and the switch count below. */
+.cl-approved { container-type: inline-size; }
+.cl-approved-head { display: none; }
+.cl-approved-row { grid-template-columns: minmax(0, 1fr) auto; }
+.cl-approved-scope { order: 3; grid-column: span 2 / span 2; }
+.cl-approved-count { order: 4; }
+.cl-approved-wide-grid, .cl-approved-wide-flex { display: none; }
+@container (min-width: 1060px) {
+  .cl-approved-head { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) 286px 120px 120px 96px; }
+  .cl-approved-row { grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) 286px 120px 120px 96px; }
+  .cl-approved-scope { order: 0; grid-column: auto; }
+  .cl-approved-count { display: none; }
+  .cl-approved-wide-grid { display: grid; }
+  .cl-approved-wide-flex { display: flex; }
+}

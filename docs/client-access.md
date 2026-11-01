@@ -58,6 +58,12 @@ cannot prove.
   prebuilt and their unknown addresses keep a routing-level 404. The one way out is a contact address from the brand
   settings, `content/docs/site.json` › `supportEmail` (`app/client/contact.ts`): shown on the three holding pages as
   "Questions: write to …" once someone fills it in, and nothing at all while it is empty.
+- **Admin › Clients, fixed 2026-11-02**: typing put one letter in a field and then lost focus. The editor was a component
+  declared inside the page, so every render made a new component type and React remounted it. It is now at module scope.
+  The page uses the portal's padding (`components/portal/PageContent.tsx`, `--cw-page-pad`), and the approved table
+  picks its six columns by its own width (a container query), not the window's. Between 900 and 1250px with the
+  sidebar it used to run past the card. `rig/clients-page-check.mjs` checks the padding and the overlap at six widths,
+  and types a whole word into every field, asserting the value and the focus.
 - **Admin › Clients** (`app/admin/clients`, action `clients.manage`): Waiting (review → the editor in the row),
   Approved (scope chips, the 11-dot matrix, the passenger chip, granted by whom), the decision log. The editor keeps
   scope and access apart; Flight board is required; no scope, no Approve; documents need the consent line; the summary

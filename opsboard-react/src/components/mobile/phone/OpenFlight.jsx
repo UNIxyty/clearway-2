@@ -152,7 +152,8 @@ export default function OpenFlight({ flight: p, limitations = [], notamState, no
   const awaiting = svcRows.filter((r) => r.kind === 'await').length;
   const answered = svcRows.filter((r) => r.kind !== 'await' && r.kind !== 'na').length;
 
-  const Airport = ({ side }) => {
+  // a plain function, not a component declared inside this one (a new type each render remounted it; 2026-11-02)
+  const airport = (side) => {
     const code = side === 'dep' ? p.adep : p.ades;
     const cat = side === 'dep' ? f.wxDep : f.wxArr;
     const n = ntmCount(side);
@@ -203,12 +204,12 @@ export default function OpenFlight({ flight: p, limitations = [], notamState, no
 
       <Scroll innerStyle={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
-          <Airport side="dep" />
+          {airport('dep')}
           <div style={{ flex: 'none', width: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
             <span style={{ fontSize: 16, fontWeight: 900, color: v('text-3') }}>→</span>
             <span style={{ fontSize: 11, fontWeight: 800, color: v('text-4'), whiteSpace: 'nowrap' }}>{durMs > 0 ? spanText(durMs) : ''}</span>
           </div>
-          <Airport side="arr" />
+          {airport('arr')}
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

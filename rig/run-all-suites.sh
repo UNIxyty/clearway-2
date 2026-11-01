@@ -78,6 +78,7 @@ run self-promotion-check $E rig/self-promotion-check.mjs
 run temporary-access-check $E rig/temporary-access-check.mjs
 run client-scope-check $E rig/client-scope-check.mjs
 run client-ui-check $E rig/client-ui-check.mjs
+run clients-page-check $E rig/clients-page-check.mjs   # Admin › Clients: padding, overlap at 6 widths, a whole word in every field
 run maintenance-logos node rig/maintenance-logos-check.mjs
 run airac-dates-check node rig/airac-dates-check.mjs
 run aip-refresh-check $E rig/aip-refresh-check.mjs

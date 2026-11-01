@@ -48,7 +48,9 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
     .map(([type, c]) => `${TYPE_LABEL[type]} ✓${c.by ? ` ${String(c.by).split('@')[0]}` : ''} ${c.at ? `${String(c.at).slice(11, 16)}Z` : ''}`)
     .join(' · ');
 
-  function Section({ typeKey, title, children }) {
+  // Called as a function, not mounted as <Section> (2026-11-02): declared inside this component, a new type each render
+  // made React remount it, and the Checked button lost focus after a click.
+  function section(typeKey, title, children) {
     const done = Boolean(checks[typeKey]);
     return (
       <div style={s.section}>
@@ -94,27 +96,27 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
       </div>
       <div style={s.bodyScroll}>
         {limEntries.length > 0 && (
-          <Section typeKey="lim" title={`LIMITATIONS (${limEntries.length})`}>
+          section("lim", `LIMITATIONS (${limEntries.length})`, <>
             {limEntries.map((entry) => (
               <div key={entry.id} style={s.entry}>
                 <div style={s.entryTitle}>{entry.title}</div>
                 {entry.description && <div style={s.entryBody}>{entry.description}</div>}
               </div>
             ))}
-          </Section>
+          </>)
         )}
         {impEntries.length > 0 && (
-          <Section typeKey="imp" title={`IMPORTANT (${impEntries.length})`}>
+          section("imp", `IMPORTANT (${impEntries.length})`, <>
             {impEntries.map((entry) => (
               <div key={entry.id} style={s.entry}>
                 <div style={s.entryTitle}>{entry.title}</div>
                 {entry.description && <div style={s.entryBody}>{entry.description}</div>}
               </div>
             ))}
-          </Section>
+          </>)
         )}
         {ntmEntries.length > 0 && (
-          <Section typeKey="ntm" title={`NOTAM (${ntmEntries.length})`}>
+          section("ntm", `NOTAM (${ntmEntries.length})`, <>
             {ntmEntries.map((entry) => (
               <div key={entry.id} style={s.entry}>
                 <div style={s.entryTitle}>{entry.icao ? `${entry.icao} — ` : ''}{entry.title}</div>
@@ -127,10 +129,10 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
                 {flight.arr} {info.notams.arr?.ok ? (info.notams.arr.notams?.length ?? 0) : '—'} (full text on the NOTAM Check page)
               </div>
             )}
-          </Section>
+          </>)
         )}
         {hasWx && (
-          <Section typeKey="wx" title="WEATHER">
+          section("wx", "WEATHER", <>
             {[['dep', flight.dep, flight.wxDep], ['arr', flight.arr, flight.wxArr]].map(([side, icao, cat]) => {
               const summary = info?.weather?.[side];
               if (!cat && !summary) return null;
@@ -151,10 +153,10 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
                 {entry.description && <div style={s.entryBody}>{entry.description}</div>}
               </div>
             ))}
-          </Section>
+          </>)
         )}
         {caaEntries.length > 0 && (
-          <Section typeKey="caa" title={`CAA (${caaEntries.length})`}>
+          section("caa", `CAA (${caaEntries.length})`, <>
             {caaEntries.map((entry) => {
               const caa = entry.caa || {};
               return (
@@ -167,7 +169,7 @@ export default function FlightInfoTab({ flight, left, top, width, height, onClos
                 </div>
               );
             })}
-          </Section>
+          </>)
         )}
         {!anyContent && <div style={s.allDone}>All checked for this flight ✓</div>}
         {checkedLine && <div style={s.meta}>Checked: {checkedLine}</div>}

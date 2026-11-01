@@ -117,7 +117,8 @@ export default function ProfilePage() {
 
   const name = savedName || email;
   const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "?";
-  const roleKey = isDeveloper ? "developer" : role === "admin" ? "admin" : "user";
+  // named roles only (2026-11-02): a role the shell could not name shows as no role, never as User
+  const roleKey = isDeveloper ? "developer" : role === "admin" ? "admin" : role === "user" ? "user" : null;
   const since = createdAt ? new Date(createdAt) : null;
 
   return (
@@ -128,7 +129,7 @@ export default function ProfilePage() {
           <div className="min-w-0">
             <div className="truncate text-[20px] font-extrabold tracking-[-0.01em] text-cw-text">{state === "ready" ? name : " "}</div>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[13.5px] text-cw-text-muted">
-              {roleKnown && <RoleBadge role={roleKey} />}
+              {roleKnown && roleKey && <RoleBadge role={roleKey} />}
               {since && <span>Member since <span className="font-mono">{String(since.getUTCDate()).padStart(2, "0")} {since.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })} {since.getUTCFullYear()}</span></span>}
             </div>
           </div>
@@ -190,7 +191,7 @@ export default function ProfilePage() {
                   )}
                 </Row>
                 <Row label="Role">
-                  <span className="text-[13.5px] text-cw-text-body">{roleKnown ? ROLE_TEXT[roleKey] : "…"} — set by an admin in Admin → Users.</span>
+                  <span className="text-[13.5px] text-cw-text-body">{roleKnown ? (roleKey ? ROLE_TEXT[roleKey] : "No role") : "…"} — set by an admin in Admin → Users.</span>
                 </Row>
                 <Row label="User ID" last>
                   <div className="flex items-center gap-1.5"><span className="min-w-0 truncate font-mono text-[13px] text-cw-text-body">{userId}</span>

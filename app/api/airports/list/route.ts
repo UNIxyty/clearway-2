@@ -3,10 +3,12 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
+import { staffGate } from "@/lib/admin-auth";
 
 const NOT_LOADED = `The airport list could not be loaded. ${TRY_AGAIN}`;
 
 export async function GET(request: NextRequest) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const searchParams = request.nextUrl.searchParams;
   const country = searchParams.get("country")?.trim() || null;
   const state = searchParams.get("state")?.trim() || null;

@@ -800,6 +800,14 @@ const server = http.createServer(async (req, res) => {
         res.end();
         return;
       }
+      // Staff only, by name (2026-11-02): the guide ran before the client gate, so an approved client — or a role nobody
+      // planned for — could read the staff guide and its screenshots. Devices have their own pages.
+      const guideRole = guideUser.device ? null : await resolveRoleKey(guideUser);
+      if (!["user", "admin", "developer"].includes(String(guideRole))) {
+        res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+        res.end("Not found.");
+        return;
+      }
       const rel = pathname === "/guide/" ? "index.html" : pathname.slice("/guide/".length);
       const guideRoot = path.resolve(cwd, "guide");
       const filePath = safeJoin(guideRoot, rel);
@@ -892,6 +900,9 @@ const server = http.createServer(async (req, res) => {
       // Permissions in the portal). An endpoint nobody listed is refused. Enforced here, before any handler, so a
       // hidden console button is never the only guard.
       if (requestUser) requestUser = { ...requestUser, permRole: await resolveRoleKey(requestUser) };
+      // An unknown role gets nothing (2026-11-02): not the plain reads every signed-in person gets, not the User role.
+      // permRole is null only for a person whose role marker nobody planned for (devices are handled by their own gate).
+      if (requestUser && !requestUser.device && !requestUser.permRole) { sendJson(res, { ok: false, error: "Not found" }, 404); return; }
       // ── Client access (Stage 5, 2026-10-25): a client's world is their scope and their switches, decided HERE for
       // every request. Anything else — another operator's flight by id, a write, a console or display endpoint — is
       // 404: it does not exist for them. Reads that list flights are cut down to their flights before they are sent

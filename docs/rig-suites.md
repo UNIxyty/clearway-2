@@ -77,6 +77,8 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | client-ui-check | 60 | 2026-10-28 |
 | clients-page-check | 41 (red on the pre-fix page: padding ×6, past the edge at 1250, focus; `CLIENTS_CHECK_SELFTEST=overlap` turns the overlap assertion red) | 2026-11-02 |
 | client-onboarding-check | 54 | 2026-11-02 |
+| files-route-check | 9 (red on 1b3fbbf1: another person read a help draft through /files) | 2026-11-02 |
+| client-gate-check | 14 (red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client) | 2026-11-02 |
 | own-mail | 1 (red on a planted `resetPasswordForEmail`) | 2026-11-02 |
 | portal-colours | 1 (5 exceptions printed with their reasons) | 2026-11-02 |
 | style-text | 1 | 2026-10-28 |
@@ -86,7 +88,7 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | docs-shots-check | 7 | 2026-10-25 |
 | group2-check | 13 | 2026-10-12 |
 | group4-check | 33 | 2026-10-12 |
-| shell-check | 10 | 2026-10-12 |
+| shell-check | 10 (red from at least 8d627e99 until 2026-11-02: a page opened from the sidebar kept the old scroll; fixed in the shell) | 2026-11-02 |
 | stage1-check | 23 | 2026-10-28 |
 | portal-foundations-check | 30 | 2026-10-12 |
 | stage2-check | 58 | 2026-10-12 |

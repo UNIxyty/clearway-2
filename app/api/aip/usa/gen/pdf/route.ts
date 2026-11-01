@@ -4,6 +4,7 @@ import { GEN_PDF_FAILED } from "@/lib/aip-sync-failure";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
 import { requirePermission } from "@/lib/permissions/server";
+import { staffGate } from "@/lib/admin-auth";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 const PRIMARY_GEN_KEY = "aip/usa-gen-pdf/GEN-1.2.pdf";
@@ -46,7 +47,8 @@ async function readFromStorage(): Promise<Uint8Array | null> {
   return null;
 }
 
-export async function HEAD() {
+export async function HEAD(request: Request) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const [primary, ...fallback] = await Promise.all([
     storageObjectExists(PRIMARY_GEN_KEY),
     ...FALLBACK_GEN_KEYS.map((key) => storageObjectExists(key)),

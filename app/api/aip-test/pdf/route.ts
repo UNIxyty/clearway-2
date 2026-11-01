@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { staffGate } from "@/lib/admin-auth";
 
 const EAD_AIP_DIR = join(process.cwd(), "data", "ead-aip");
 
 export async function GET(request: NextRequest) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const filename = request.nextUrl.searchParams.get("filename")?.trim() ?? "";
   if (!filename || !/^[A-Za-z0-9_\-.]+\.pdf$/i.test(filename)) {
     return NextResponse.json({ error: "Valid filename required (e.g. ES_AD_2_ESGG_en_2026-01-22.pdf)" }, { status: 400 });

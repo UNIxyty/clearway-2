@@ -17,8 +17,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const auth = await requireAuthenticatedUser();
-    // Fail closed, and without distinguishing "not signed in" from "no access".
-    if ("error" in auth) return NextResponse.json({ available: false, reason: "not_signed_in" });
+    // A client, an unknown role or nobody: the gate's own refusal (404 / 401), not a 200 that says false (2026-11-02).
+    // The shell reads any non-OK answer as "no agent".
+    if ("error" in auth) return auth.error;
 
     const [killSwitch, allowed] = await Promise.all([getKillSwitch(), hasAgentAccess(auth.user.id)]);
     if (!killSwitch.enabled) return NextResponse.json({ available: false, reason: "disabled_globally" });

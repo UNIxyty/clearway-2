@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
+import { staffGate } from "@/lib/admin-auth";
 
 const MIN_SAMPLES = 5;
 
 export async function GET(request: NextRequest) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const source = request.nextUrl.searchParams.get("source")?.trim().toLowerCase() ?? "";
 

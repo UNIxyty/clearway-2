@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { requireAuthenticatedUser } from "@/lib/admin-auth";
+import { requireClient } from "@/lib/admin-auth";
 import { normaliseScope, normaliseSwitches } from "@/lib/clients/switches.mjs";
 
 export const dynamic = "force-dynamic";
@@ -9,10 +9,8 @@ export const dynamic = "force-dynamic";
 // and passenger level their wall builds itself from. Never another client, never the scope's matching flights (the
 // wall backend answers those, scoped). Staff asking get 404: there is no client here.
 export async function GET() {
-  const auth = await requireAuthenticatedUser();
+  const auth = await requireClient();   // clients only; staff and unknown roles get 404
   if ("error" in auth) return auth.error;
-  const appMeta = (auth.user.app_metadata ?? {}) as Record<string, unknown>;
-  if (String(appMeta.role ?? "").toLowerCase() !== "client") return NextResponse.json({ ok: false, error: "That is not on your account." }, { status: 404 });
   const service = createSupabaseServiceRoleClient();
   if (!service) return NextResponse.json({ ok: false, error: "Not available right now." }, { status: 503 });
   const { data } = await service.from("clients").select("company,person_name,kind,note,status,switches,passenger_level,scope,requested_at,decided_at,decision_note").eq("user_id", auth.user.id).maybeSingle();

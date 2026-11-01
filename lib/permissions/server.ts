@@ -3,7 +3,7 @@
 // only check for a handler whose action depends on the request, e.g. turning maintenance on vs off).
 import { NextResponse } from "next/server";
 import type { createServerClient } from "@supabase/ssr";
-import { accessCheckUnavailable, makeSupabaseFromCookies } from "@/lib/admin-auth";
+import { accessCheckUnavailable, makeSupabaseFromCookies, notForYou } from "@/lib/admin-auth";
 import { resolveRole } from "@/lib/role-resolve";
 import { can, canAny, REFUSED, roleKey } from "@/lib/permissions/grants.mjs";
 
@@ -23,7 +23,9 @@ export async function currentPerson(): Promise<PermissionFailure | PermissionSuc
   }
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user?.id) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
-  const role = roleKey(await resolveRole(supabase, user, user.id, user.email ?? null)) as PermissionSuccess["role"];
+  const role = roleKey(await resolveRole(supabase, user, user.id, user.email ?? null)) as PermissionSuccess["role"] | null;
+  // no role (a client, an unknown marker) → refused at the endpoint, 404 (2026-11-02). It used to pass with role null.
+  if (!role) return { error: notForYou() };
   return { user, supabase, role, isDeveloper: role === "developer" };
 }
 

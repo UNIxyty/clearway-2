@@ -136,12 +136,14 @@ export const NAV_TOPICS: NavTopic[] = [
 ];
 
 
-export type Role = "admin" | "user" | "guest";
+// "none": a role the shell could not name (a client, an unknown role, a failed probe). No topic lists it, so it gets no
+// menu at all — an unknown role gets nothing, never "user" (2026-11-02, docs/permissions.md › Unknown roles).
+export type Role = "admin" | "user" | "guest" | "none";
 
 export function topicsForRole(role: Role, isDeveloper = false, hasAgent = false): NavTopic[] {
   return NAV_TOPICS.filter(
     (t) =>
-      t.roles.includes(role) &&
+      role !== "none" && t.roles.includes(role) &&   // "none" is on no topic: nothing
       (!t.developerOnly || isDeveloper) &&
       // hasAgent defaults to false, so the agent is absent until proven
       // available — a failed probe never reveals it.

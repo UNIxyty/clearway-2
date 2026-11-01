@@ -77,7 +77,7 @@ function MoreSheet({ open, onClose, hasAgent }: { open: boolean; onClose: () => 
         <div className="flex justify-center pt-2"><span className="h-[5px] w-[38px] rounded-[3px] bg-mx-handle" /></div>
         <div className="flex h-14 flex-none items-center gap-3 border-b border-cw-border pl-5 pr-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-cw-primary text-[13px] font-bold text-cw-text-on-primary">{initials || "?"}</span>
-          <span className="flex min-w-0 flex-1 flex-col"><span className="truncate text-[15px] font-bold text-cw-text">{display || "Signed in"}</span><span className="text-[12.5px] text-cw-text-muted">{role === "admin" ? "Admin" : "User"}</span></span>
+          <span className="flex min-w-0 flex-1 flex-col"><span className="truncate text-[15px] font-bold text-cw-text">{display || "Signed in"}</span><span className="text-[12.5px] text-cw-text-muted">{role === "admin" ? "Admin" : role === "user" ? "User" : "No role"}</span></span>
           <button type="button" onClick={onClose} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-[12px] text-cw-text-muted"><MaskIcon name="x" size={20} color="currentColor" /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-3 pb-[max(34px,env(safe-area-inset-bottom))] pt-1">

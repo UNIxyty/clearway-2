@@ -5,6 +5,7 @@ import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { readPdfFromStorage, storageObjectExists } from "@/lib/aip-storage";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
+import { staffGate } from "@/lib/admin-auth";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
 async function recordStat(icao: string, source: string, duration_ms: number) {
@@ -45,6 +46,7 @@ async function triggerPdfOnlySync(icao: string): Promise<void> {
 }
 
 export async function HEAD(request: NextRequest) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   if (!/^[A-Z0-9]{4}$/.test(icao)) return new NextResponse(null, { status: 400 });
   const exists = await storageObjectExists(`${PDF_PREFIX}/${icao}.pdf`);

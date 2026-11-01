@@ -350,6 +350,8 @@ async function handleRequest(req, res) {
       }
       return sendJson(res, { ok: false, error: "not_found", message: "That is not on your account." }, 404);
     }
+    // An unknown role gets nothing (2026-11-02): not the allowlist's reads, not the User role. 404, as for a client.
+    if (user.agentRole === "unknown") return sendJson(res, { ok: false, error: "not_found" }, 404);
     if (isWriteMethod(req.method)) {
       const entry = endpointFor("agent", req.method, pathname);
       if (!entry) return sendJson(res, { ok: false, error: "forbidden", message: "This endpoint is not in the permissions list, so it is refused." }, 403);
@@ -437,7 +439,8 @@ async function handleRequest(req, res) {
         res.writeHead(200, { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="agent-activity-${new Date().toISOString().slice(0, 10)}.csv"` });
         return res.end(activityCsv(data.rows));
       }
-      return sendJson(res, { ok: true, ...data, scope: user.agentRole === "user" ? "mine" : "all" });
+      // named (2026-11-02): it was `=== "user" ? "mine" : "all"`, so any other role would have seen everyone's activity
+      return sendJson(res, { ok: true, ...data, scope: user.agentRole === "admin" || user.agentRole === "developer" ? "all" : "mine" });
     }
     if (/^\/api\/activity\/[0-9]+\/request$/.test(pathname) && req.method === "GET") {
       await assertMayUseAgent(user);

@@ -6,6 +6,9 @@
 //   user_preferences.is_admin / is_developer (read with the service-role key; the wall has no user-scoped client).
 
 const VERDICT_TTL_MS = 60 * 1000;
+// The app_metadata.role values the platform writes ("" = ordinary staff). Any other value gets NOTHING (2026-11-02,
+// docs/permissions.md › Unknown roles): no grid role, and the server answers 404 to every request of theirs.
+export const KNOWN_META_ROLES = new Set(["", "user", "developer", "admin", "client", "temporary"]);
 const verdicts = new Map(); // userId -> { row, expiresAtMs } (user_preferences flags)
 
 function emailList(raw) {
@@ -50,7 +53,9 @@ async function preferencesRow(userId) {
 export async function resolveRoleKey(user) {
   if (!user || user.device) return null;
   if (user.mock) return "developer";
-  if (String(user.appMetadata?.role || user.role || "").toLowerCase() === "client") return "client"; // Stage 5: no grid role; scope decides what they read
+  const metaRole = String(user.appMetadata?.role ?? user.claims?.app?.role ?? "").toLowerCase();
+  if (metaRole === "client") return "client"; // Stage 5: no grid role; scope decides what they read
+  if (!KNOWN_META_ROLES.has(metaRole)) return null; // a role nobody planned for: nothing (server.mjs answers 404)
   const email = String(user.email || "").toLowerCase();
   if (email && emailList(process.env.DEVELOPER_EMAILS).includes(email)) return "developer";
   const meta = roleFromClaims(user.claims);

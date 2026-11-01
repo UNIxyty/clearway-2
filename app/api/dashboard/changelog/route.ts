@@ -19,6 +19,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import fs from "fs/promises";
 import path from "path";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
+import { staffGate } from "@/lib/admin-auth";
 
 const NOT_LOADED = `The changelog could not be loaded. ${TRY_AGAIN}`;
 
@@ -60,6 +61,7 @@ async function readWallJson<T>(file: "important.json" | "reports.json" | "webhoo
 }
 
 export async function GET(request: NextRequest) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -84,7 +86,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Admin or developer → everyone's activity; anyone else → their own. The rig's auth-off mode is the mock admin.
-    const everyone = user ? (await resolveRole(supabase, user, user.id, user.email ?? null)) !== "none" : disableAuthForTesting;
+    // named roles (2026-11-02): it was `!== "none"`, which would show everyone's activity to any role added later
+    const everyone = user ? ["admin", "developer"].includes(await resolveRole(supabase, user, user.id, user.email ?? null)) : disableAuthForTesting;
     const myId = user?.id ?? "";
     const myEmail = String(user?.email ?? "").toLowerCase();
     // Emails are stored as auth gives them (lower case); matched exactly, never as a pattern.

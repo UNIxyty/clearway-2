@@ -4,11 +4,13 @@ import { storageObjectExists } from "@/lib/aip-storage";
 import { readAipRevision } from "@/lib/aip-revision";
 import { stat } from "node:fs/promises";
 import { storagePathForKey } from "@/lib/storage";
+import { staffGate } from "@/lib/admin-auth";
 
 const EAD_GEN_PDF_PREFIX = "aip/gen-pdf";
 const NON_EAD_GEN_PDF_PREFIX = "aip/non-ead-gen-pdf";
 
 export async function GET(request: NextRequest) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const prefixParam = request.nextUrl.searchParams.get("prefix")?.trim().toUpperCase() ?? "";
   const prefix = resolveGenPrefix(icao, prefixParam);

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
+import { staffGate } from "@/lib/admin-auth";
 import { sanitizeLayout } from "@/lib/dashboard-layout";
 import { isDensity, isMotion, isStartPage, sanitizePins } from "@/lib/user-settings";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
@@ -24,7 +25,8 @@ type Optional = (typeof OPTIONAL)[number];
 const missingColumn = (e: { message?: string; code?: string }, col: string) => (e.message ?? "").includes(col) && (e.code === "42703" || e.code === "PGRST204" || /does not exist|schema cache/.test(e.message ?? ""));
 const missingOptional = (e: { message?: string; code?: string } | null, cols: readonly Optional[]) => (e ? cols.find((c) => missingColumn(e, c)) ?? null : null);
 
-export async function GET() {
+export async function GET(request: Request) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

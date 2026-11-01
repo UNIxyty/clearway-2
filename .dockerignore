@@ -53,3 +53,29 @@ cursor-chat-export/
 out/
 design_handoff_*/
 164.92.164.35/
+
+# Key material never enters an image (2026-11-02). None is in the tree; nothing stops one arriving, and whoever drops a
+# key into the repo is not thinking about the build context. scripts/check-image-contents.mjs catches it in the built
+# image too: both, not one.
+*.pem
+**/*.pem
+*.key
+**/*.key
+*.p12
+**/*.p12
+*.pfx
+**/*.pfx
+*.keystore
+**/*.keystore
+*.jks
+**/*.jks
+*.ppk
+**/*.ppk
+id_rsa*
+**/id_rsa*
+id_dsa*
+**/id_dsa*
+id_ecdsa*
+**/id_ecdsa*
+id_ed25519*
+**/id_ed25519*

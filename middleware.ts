@@ -222,7 +222,8 @@ async function gate(request: NextRequest) {
           signedIn = true;
           // Admins and developers, and anyone the grid lets switch maintenance (Admin → Permissions), reach the off switch.
           const role = await resolveRole(supabase, who, who.id, who.email ?? null);
-          staff = role !== "none" || (await canAny(roleKey(role), ["portal.maintenance.disable", "portal.maintenance.enable"]));
+          // named roles (2026-11-02): it was `role !== "none"`, so any role other than "none" counted as staff
+          staff = role === "admin" || role === "developer" || (await canAny(roleKey(role), ["portal.maintenance.disable", "portal.maintenance.enable"]));
         }
       } catch {
         // Unknown → treated as not staff: they see /maintenance, which links to sign-in.
@@ -301,7 +302,10 @@ async function gate(request: NextRequest) {
   // confirmed to exist. The holding pages render under a bare route, so the shell, its navigation and its counts are
   // never in their page source.
   const appMetaForClient = (user.app_metadata ?? {}) as Record<string, unknown>;
-  if (String(appMetaForClient.role ?? "").toLowerCase() === "client") {
+  // RIG ONLY (2026-11-02): RIG_CLIENT_MIDDLEWARE_OFF=1 skips this block and the write gate below, so
+  // rig/client-gate-check.mjs can prove every endpoint refuses a client on its own. It works only against the rig's local Supabase — never with a production URL.
+  const clientBlockOff = process.env.RIG_CLIENT_MIDDLEWARE_OFF === "1" && /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(process.env.NEXT_PUBLIC_SUPABASE_URL || ""));
+  if (!clientBlockOff && String(appMetaForClient.role ?? "").toLowerCase() === "client") {
     const status = String(appMetaForClient.client_status ?? "").toLowerCase();
     const holding = status === "approved" ? null : status === "refused" ? "/client/refused" : "/client/removed";
     const isApi = pathname.startsWith("/api/");
@@ -351,7 +355,8 @@ async function gate(request: NextRequest) {
 
   // Permissions (docs/permissions.md): every write must be in lib/permissions/catalogue.mjs, and the person's role must
   // hold its action. An endpoint nobody listed is refused, not open. The handler checks again where the work happens.
-  if (isWriteMethod(request.method)) {
+  // (RIG ONLY: the same switch as the client block above, so the check proves the handlers refuse writes themselves)
+  if (isWriteMethod(request.method) && !clientBlockOff) {
     const entry = endpointFor("portal", request.method, pathname);
     if (!entry) {
       return NextResponse.json({ error: "This endpoint is not in the permissions list, so it is refused." }, { status: 403 });

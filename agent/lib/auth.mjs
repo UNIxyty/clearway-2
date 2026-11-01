@@ -115,11 +115,15 @@ function parseEmailList(raw) {
 
 // APP metadata only. user_metadata is the person's own to edit (Supabase auth.updateUser), so a role written there is a
 // claim, not a grant — found 2026-10-20, when a plain user wrote role: "developer" into it and the portal believed it.
+// The app_metadata.role values the platform writes ("" = ordinary staff). Anything else: "unknown", which gets nothing
+// (docs/permissions.md › Unknown roles) — it used to fall through to "user".
+const KNOWN_META_ROLES = new Set(["", "user", "developer", "admin", "client", "temporary"]);
 function roleFromMetadata(appMeta = {}) {
   const roleValue = String(appMeta.role || "").toLowerCase();
   if (roleValue === "developer") return "developer";
   if (roleValue === "admin") return "admin";
   if (roleValue === "client") return "client"; // Stage 5: outside Clearway; no agent action, only their scope's passengers
+  if (!KNOWN_META_ROLES.has(roleValue)) return "unknown"; // a role nobody planned for gets nothing (2026-11-02)
   const rolesRaw = appMeta.roles;
   const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
   if (roles.includes("developer")) return "developer";
@@ -137,10 +141,12 @@ function roleFromMetadata(appMeta = {}) {
  * Fails to "user" — the least privileged answer — on any lookup failure.
  */
 async function resolveAgentRole(user) {
+  // A client, or a role nobody planned for, is decided FIRST (2026-11-02): no email list can make either one staff.
+  const metaRole = roleFromMetadata(user.appMetadata);
+  if (metaRole === "client" || metaRole === "unknown") return metaRole;
+
   const email = user.email ? user.email.toLowerCase() : null;
   if (email && parseEmailList(process.env.DEVELOPER_EMAILS).includes(email)) return "developer";
-
-  const metaRole = roleFromMetadata(user.appMetadata);
   if (metaRole === "developer") return "developer";
 
   let prefs = null;
@@ -157,7 +163,6 @@ async function resolveAgentRole(user) {
   } catch {
     /* fall through: absence of a flag is not a grant */
   }
-  if (metaRole === "client") return "client"; // Stage 5: a client holds no agent action; the passenger routes read their scope
   if (prefs?.is_developer) return "developer";
   if (metaRole === "admin") return "admin";
   if (email && parseEmailList(process.env.ADMIN_EMAILS).includes(email)) return "admin";

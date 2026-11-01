@@ -14,6 +14,7 @@ import { getEadWebAipUrlByIcaoOrCountry } from "@/lib/ead-web-aip";
 import { USA_WEB_AIP_URL, getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
 import { getScraperMetaResolverByCountry } from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
+import { staffGate } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -618,6 +619,7 @@ async function flattenScraperBatchCountry(countryName: string): Promise<AIPAirpo
 }
 
 export async function GET(request: NextRequest) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const { searchParams } = new URL(request.url);
   const country = searchParams.get("country")?.trim() || null;
   const baseCountry = country ? normalizeCountryLabel(country) : null;

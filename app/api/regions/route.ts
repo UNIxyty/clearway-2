@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import regionsData from "@/data/regions.json";
 import eadCountryIcaos from "@/lib/ead-country-icaos.generated.json";
+import { staffGate } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,8 @@ function resolveRegionForEadLabel(countryLabel: string, regions: RegionEntry[]):
   return "Europe";
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const regions = regionsData as RegionEntry[];
   const eadCountries = getEadCountryIcaos();
   const eadCountryKeys = Object.keys(eadCountries);

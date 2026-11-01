@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
+import { staffGate } from "@/lib/admin-auth";
 
 const NOT_LOADED = `Your recent airports could not be loaded. ${TRY_AGAIN}`;
 
@@ -22,7 +23,8 @@ type RecentItem = {
   href: string;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

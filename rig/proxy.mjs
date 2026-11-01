@@ -16,6 +16,8 @@ const LOG = path.join(process.env.RIG_SCRATCH || here, "rig-proxy.log");
 function route(url) {
   if (url.startsWith("/agent/api")) return [T.agent, url.slice("/agent".length)];
   if (url.startsWith("/digital-wall/api")) return [T.wall, url.slice("/digital-wall".length)];
+  // the wall's staff guide: production's gateway sends everything under /digital-wall/ that is not a page to the wall
+  if (url === "/digital-wall/guide" || url.startsWith("/digital-wall/guide/")) return [T.wall, url.slice("/digital-wall".length)];
   return [T.portal, url];
 }
 // The wall's own pages (2026-10-27), as production's gateway serves them: /digital-wall/timeline/ is the display app

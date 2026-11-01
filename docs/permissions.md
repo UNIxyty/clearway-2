@@ -68,6 +68,33 @@ Every service caches grants for 10 seconds, so a change in the grid reaches all 
    therefore means removing its actions too, and deleting their grant rows in the SQL (history stays). Pick'em's were
    removed this way (`docs/pickem-archive.md`).
 
+8. **An unknown role gets nothing** (2026-11-02). Not User, not guest: nothing. A role is checked by naming the roles
+   that pass, never by what it is not. `role !== "none"` meant "staff" in three places (admin pages, the changelog's
+   everyone switch, the maintenance gate), so any new role, the client role first, would have been staff there.
+   - The role markers the platform writes are `""` (ordinary staff), `user`, `developer`, `admin`, `client` and
+     `temporary`. Any other value resolves to `unknown` in all three services (`lib/role-resolve.ts`,
+     `digital-wall/lib/roles.mjs`, `agent/lib/auth.mjs`). It holds no action, and the wall and the agent answer it 404.
+   - `client` and `unknown` are decided first, before any email list or preference flag, so nothing can make a client
+     staff.
+   - `roleKey()` maps only named roles. A client or an unknown role is `null`, which holds nothing, pinned or granted.
+   - The portal's shell builds its menu from a role the server names (`/api/admin/status` › `role`). A role it cannot
+     name, or a failed probe, gets no menu. It used to fall back to the User menu.
+   - Same rule as a gate whose input is missing: no answer means no.
+9. **Gates live at the endpoint; the middleware is the second layer** (2026-11-02). Every portal route handler calls a
+   gate (`lib/permissions/route-gates.mjs` › `GATES`): `staffGate`, `requireAuthenticatedUser`, `currentPerson`,
+   `requirePermission`, `requireAdmin`, `requireDeveloper` or `requireClient`. Otherwise its file is on `UNGATED` with
+   the reason it needs no check (sign-in flows, signed links, webhooks, the health probe). A handler on neither side
+   fails the build (`lib/permissions/check.mjs`).
+   - The staff helpers refuse a client or an unknown role with 404, whether or not the middleware ran.
+   - A client passes only `requireClient`; today that is `GET /api/client/me`. That set is the client allow-list.
+   - Clients get an allow-list, not filtering, because only 19 portal endpoints hold rows that cannot be traced to an
+     operator, an aircraft or a trip. Those must be refused, not filtered. The flight and passenger rows are already
+     scoped by the wall and the agent. Do not build per-row filtering into portal endpoints for clients: put the
+     endpoint on the allow-list, or leave it refused.
+   - Cloudflare sends `/digital-wall/*` and `/agent/api/*` straight to the wall and the agent, past the portal's
+     middleware. Each of those services enforces clients on its own (`digital-wall/lib/client-scope.mjs`, the agent's
+     client branch). The portal middleware protects only the portal.
+
 ## Way out from the server
 
 Use this when the screen itself cannot be reached, or the grid has been set up badly. It puts every role back to the

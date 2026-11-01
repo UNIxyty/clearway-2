@@ -82,6 +82,13 @@ run client-scope-check $E rig/client-scope-check.mjs
 run client-ui-check $E rig/client-ui-check.mjs
 run clients-page-check $E rig/clients-page-check.mjs   # Admin › Clients: padding, overlap at 6 widths, a whole word in every field
 run client-onboarding-check $E rig/client-onboarding-check.mjs   # ask → ops mail → approve → set-password link → account; our own sign-in emails, all in Mailbox › Sent
+run files-route-check $E rig/files-route-check.mjs   # /files serves only its allow-list: AIP PDFs; a new folder, a .json, another's draft → 404
+# A third rig portal with the middleware's client block and write gate off (RIG_CLIENT_MIDDLEWARE_OFF=1, honoured only
+# against the rig's local Supabase): every endpoint must refuse a client and an unknown role on its own (2026-11-02).
+( env -i PATH="$PATH" HOME="$HOME" PORT=3981 HOSTNAME=127.0.0.1 PERMISSIONS_TTL_MS=1000 DISABLE_AUTH_FOR_TESTING=false AGENT_TEST_ROLE= ADMIN_EMAILS= DEVELOPER_EMAILS= RIG_CLIENT_MIDDLEWARE_OFF=1 nohup node --env-file=.env.rig .next/standalone/server.js > "$SCR/portal-gateless.out" 2>&1 & )
+for _ in $(seq 40); do [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3981/login)" = 200 ] && break; sleep 1; done
+run client-gate-check $E rig/client-gate-check.mjs   # 115 portal handlers refuse a client / unknown role without the middleware; the wall and agent directly
+pid=$(lsof -tiTCP:3981 -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid
 run maintenance-logos node rig/maintenance-logos-check.mjs
 run airac-dates-check node rig/airac-dates-check.mjs
 run aip-refresh-check $E rig/aip-refresh-check.mjs

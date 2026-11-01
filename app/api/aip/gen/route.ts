@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import { readJsonFromStorage } from "@/lib/aip-storage";
+import { staffGate } from "@/lib/admin-auth";
 
 const GEN_PREFIX = "aip/gen";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -67,6 +68,7 @@ async function getGenFromStorage(prefix: string): Promise<GenPayload | null> {
 }
 
 export async function GET(request: NextRequest) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const prefixParam = request.nextUrl.searchParams.get("prefix")?.trim().toUpperCase() ?? "";
 

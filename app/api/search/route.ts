@@ -14,6 +14,7 @@ import { USA_WEB_AIP_URL, getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip"
 import { listScraperMetaResolvers } from "@/lib/scraper-batch-meta";
 import { getScraperCountryByIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 import { filterBlockedIcaos } from "@/lib/blocked-airports";
+import { staffGate } from "@/lib/admin-auth";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -555,6 +556,7 @@ async function searchVisibleAirportsFromDb(q: string, userId: string | null): Pr
 }
 
 export async function GET(request: NextRequest) {
+  const notStaff = await staffGate(request); if (notStaff) return notStaff; // staff (or the platform's own services) only, checked here (2026-11-02)
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() || "";
   const qUpper = q.toUpperCase();

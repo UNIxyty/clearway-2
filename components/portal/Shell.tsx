@@ -57,8 +57,10 @@ const FrameContext = createContext<FrameApi | null>(null);
 // Layout effect in the browser (the sidebar switches to a page's deep nav before paint); plain effect on the server.
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-const ROLE_LABEL: Record<"developer" | "admin" | "user", string> = { developer: "DEVELOPER", admin: "ADMIN", user: "USER" };
+const ROLE_LABEL: Record<"developer" | "admin" | "user" | "none", string> = { developer: "DEVELOPER", admin: "ADMIN", user: "USER", none: "NO ROLE" };
 const IDENTITY_CACHE = "cw-shell-identity";
+// set by the sidebar's go(), read once the new page renders; module level, because the shell remounts with each page
+let scrollTopOnArrival = false;
 type IdentityState = { email: string | null; name: string | null; role: Role | null; isDeveloper: boolean | null; hasAgent: boolean | null };
 
 /**
@@ -97,8 +99,10 @@ export function useIdentity() {
     // (fail closed): the Admin and Developer groups only appear on a confirmed answer.
     fetch("/api/admin/status", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { isAdmin: false, isDeveloper: false }))
-      .then((d) => merge({ role: d?.isAdmin ? "admin" : "user", isDeveloper: Boolean(d?.isDeveloper) }))
-      .catch(() => merge({ role: "user", isDeveloper: false }));
+      // The role is NAMED by the probe (2026-11-02): admin, or user for ordinary staff. Anything else — a client, an
+      // unknown role, a failed probe — is "none": no topics at all. It used to fall back to "user", the staff menu.
+      .then((d) => merge({ role: d?.isAdmin ? "admin" : d?.role === "user" ? "user" : "none", isDeveloper: Boolean(d?.isDeveloper) }))
+      .catch(() => merge({ role: "none", isDeveloper: false }));
     // Agent availability is a runtime allowlist check, not a role; a failed probe leaves the agent invisible.
     fetch("/api/assistant/availability", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { available: false }))
@@ -111,7 +115,7 @@ export function useIdentity() {
     email: s.email,
     display,
     initials,
-    role: s.role ?? ("user" as Role),
+    role: s.role ?? ("none" as Role),   // not known yet → no topics (skeleton slots below), never the user menu by default
     roleKnown: s.role !== null,
     isDeveloper: Boolean(s.isDeveloper),
     hasAgent: Boolean(s.hasAgent),
@@ -309,8 +313,16 @@ function ShellFrame({ children }: { children: ReactNode }) {
     setDrawerOpen(false);
     setFlyout(null);
     if (external) window.location.assign(href);
-    else startNavTransition(() => router.push(href));
+    else { scrollTopOnArrival = true; startNavTransition(() => router.push(href)); }
   };
+  // A page opened from the sidebar starts at its top (rig/shell-check.mjs). Next resets the scroll only when it judges
+  // the new page's first element out of view, and with the sticky sidebar it did not (found 2026-11-02; the check had
+  // failed since at least 8d627e99). Back and Forward keep the browser's own restore: they do not come through go().
+  useEffect(() => {
+    if (!scrollTopOnArrival) return;
+    scrollTopOnArrival = false;
+    window.scrollTo(0, 0);
+  }, [pathname]);
   async function signOut() {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
@@ -396,7 +408,9 @@ function ShellFrame({ children }: { children: ReactNode }) {
               // A role-gated group whose answer is not in yet holds a skeleton slot (§4.1); once known it is either
               // there or absent — never a gap.
               const gated = topic.roles.length < 3 && !topic.roles.includes("user") ? "role" : topic.developerOnly ? "role" : topic.agentOnly ? "agent" : null;
-              if ((gated === "role" && !roleKnown) || (gated === "agent" && !agentKnown)) {
+              // Until the role is known every group is a skeleton slot (2026-11-02: the user groups used to show at once,
+              // as if every signed-in person were staff).
+              if (!roleKnown || (gated === "role" && !roleKnown) || (gated === "agent" && !agentKnown)) {
                 return (
                   <div key={topic.id} aria-hidden className="cw-item flex h-9 flex-none items-center gap-2.5 px-2.5">
                     <Shimmer w={18} h={18} round={5} />
@@ -494,7 +508,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
             <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-cw-primary text-[12px] font-bold text-cw-text-on-primary">{initials}</span>
             <span className="cw-full-only min-w-0 flex-1 flex-col gap-0.5" style={{ display: "flex" }}>
               <span className="truncate text-[13.5px] font-semibold text-cw-text">{display}</span>
-              <span className="text-[10.5px] font-bold tracking-[0.08em] text-cw-text-link">{ROLE_LABEL[isDeveloper ? "developer" : role === "admin" ? "admin" : "user"]}</span>
+              <span className="text-[10.5px] font-bold tracking-[0.08em] text-cw-text-link">{ROLE_LABEL[isDeveloper ? "developer" : role === "admin" ? "admin" : role === "user" ? "user" : "none"]}</span>
             </span>
           </>
         ) : (

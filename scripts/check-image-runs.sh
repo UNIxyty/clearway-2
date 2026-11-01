@@ -2,7 +2,8 @@
 # Does the image RUN, not just build? (2026-10-26, after the agent and the wall crash-looped on a deploy: neither
 # Dockerfile copied lib/clients/, every suite was green because the rig runs from source, and production found out.)
 # Runs ON THE SERVER:   scripts/check-image-runs.sh agent-service digital-wall-backend portal aip-sync
-# For each service: build the image as compose would, start a throwaway container from it with the server's .env but
+# For each service: build the image as compose would, check what is inside it (scripts/check-image-contents.mjs: no .env,
+# no .git, no private key — before anything starts), start a throwaway container from it with the server's .env but
 # NO network (so it can register nothing, patch nothing, send nothing), and require that after the start period the
 # process is still alive and its health route answers from inside the container. A crash on import, a refused start,
 # a missing file: the container is gone or the route is silent → FAIL. Exit 0 all ran, 1 one did not, 2 cannot tell.
@@ -40,6 +41,12 @@ for s in "$@"; do
   [ -n "$port" ] || { say "CANNOT TELL: no port known for $s"; exit 2; }
   say "building $s"
   docker compose build "$s" > "/tmp/image-runs-$s.build" 2>&1 || { say "FAIL $s: the image did not build (/tmp/image-runs-$s.build)"; failed=1; continue; }
+  # What is IN the built image, before anything starts from it (2026-11-02): no .env, no .git, no private key. Read
+  # from the image itself (docker export), not the build context. A finding or a "cannot tell" stops this service here.
+  approot=/app; [ "$s" = digital-wall-frontend ] && approot=/usr/share/nginx/html   # nginx serving the built wall pages
+  node scripts/check-image-contents.mjs "$image" "$approot" > "/tmp/image-runs-$s.contents" 2>&1; rc=$?
+  if [ "$rc" -ne 0 ]; then say "FAIL $s: $( [ "$rc" -eq 1 ] && echo 'the image holds a secret file' || echo 'its contents could not be read') — $(tail -n +1 "/tmp/image-runs-$s.contents" | head -8 | tr '\n' ' ')"; failed=1; continue; fi
+  say "contents ok $s: $(tail -1 "/tmp/image-runs-$s.contents" | cut -c1-160)"
   name="imgcheck-$s-$$"
   docker rm -f "$name" >/dev/null 2>&1 || true
   # The service's own command and env, no network, no volumes: the question is only whether it starts.

@@ -142,7 +142,8 @@ function AttachmentsCard({ message }: { message: MailMessage }) {
               {a.personal && !a.purged && <span style={{ fontSize: 12, color: TONE.amber.fg }}>Contains personal data. Opening or downloading it is logged under your name.</span>}
               {a.purged && <span style={{ fontSize: 12, color: cw.textMuted }}>Removed by retention.</span>}
             </div>
-            {!a.purged && (
+            {!a.purged && a.locked && <span style={{ fontSize: 12, color: cw.textMuted, maxWidth: 220 }} data-attachment-locked>{a.locked}</span>}
+            {!a.purged && !a.locked && a.url && (
               <span style={{ display: "flex", gap: 6, flex: "none" }}>
                 <a href={a.url} target="_blank" rel="noopener noreferrer" className="ag-focus ag-hover" aria-label={`Open ${a.name} in a new tab`} style={attBtn}><Icon name="eye" size={13} color={cw.textBody} />Open</a>
                 <a href={`${a.url}?download=1`} className="ag-focus ag-hover" aria-label={`Download ${a.name}`} style={attBtn}><Icon name="download" size={13} color={cw.textBody} />Download</a>

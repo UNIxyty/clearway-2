@@ -72,7 +72,8 @@ export default function TelegramSupportApp() {
   const [tg, setTg] = useState<TG | null>(null);
   const [threads, setThreads] = useState<ThreadRow[] | null>(null);
   const [savedReplies, setSavedReplies] = useState<SavedReply[]>([]);
-  const [mediaToken, setMediaToken] = useState("");
+  // per attachment, per person (lib/help/telegram-webapp.ts): the thread call issues one token for each file it shows
+  const [mediaTokens, setMediaTokens] = useState<Record<string, string>>({});
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [lost, setLost] = useState(false);
   const [denied, setDenied] = useState(false);
@@ -153,7 +154,6 @@ export default function TelegramSupportApp() {
       const d = await api({ qs: "?op=inbox" });
       setThreads(d.threads);
       setSavedReplies(d.savedReplies || []);
-      setMediaToken(d.mediaToken || "");
       setFetchedAt(d.fetchedAt);
       setLost(false);
       try { localStorage.setItem("tg-help-inbox", JSON.stringify({ threads: d.threads, at: d.fetchedAt })); } catch { /* full */ }
@@ -175,7 +175,7 @@ export default function TelegramSupportApp() {
     try {
       const d = await api({ qs: `?op=thread&id=${encodeURIComponent(id)}` });
       setDetail(d);
-      setMediaToken(d.mediaToken || "");
+      setMediaTokens(d.mediaTokens || {});
       // A waiting chat opened from the push lands on the invitation screen.
       const t: HelpThread = d.thread;
       if (helpThreadHasPresence(t.type) && ["notified", "joining", "no_answer"].includes(t.presence) && viewRef.current.name !== "join") {
@@ -379,7 +379,7 @@ export default function TelegramSupportApp() {
             return <div key={i} style={{ height: 1, background: theme.border }} />;
           case "image": {
             // Inline in the flow on the constrained surface too.
-            const src = `/api/telegram/support/attachment/${b.id}?mt=${mediaToken}`;
+            const src = `/api/telegram/support/attachment/${b.id}?mt=${encodeURIComponent(mediaTokens[b.id] ?? "")}`;
             return (
               <figure key={i} style={{ margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
                 <a href={src} target="_blank" rel="noreferrer" style={{ display: "block", maxWidth: "100%" }}>
@@ -393,7 +393,7 @@ export default function TelegramSupportApp() {
           case "attachment": {
             const a = atts.get(b.id);
             if (!a) return null;
-            const href = `/api/telegram/support/attachment/${a.id}?mt=${mediaToken}`;
+            const href = `/api/telegram/support/attachment/${a.id}?mt=${encodeURIComponent(mediaTokens[a.id] ?? "")}`;
             if (a.isImage) {
               return (
                 <a key={i} href={href} target="_blank" rel="noreferrer" style={{ display: "block", width: 140 }}>

@@ -1,0 +1,8 @@
+{
+  "$comment": "The known-failures record (docs/rig-suites.md). Each entry is ONE cause, with the date it was recorded and every suite under it BY NAME (no wildcards). rig/verdict.mjs reads it at the end of every run: a red suite not listed here is UNLISTED and named in the verdict; a listed suite that passed is reported so its entry can go. Nothing here makes a run green.",
+  "no-model-key": {
+    "since": "2026-11-01",
+    "cause": "AWS Bedrock refuses the rig's access key (UnrecognizedClientException), so every call to the model fails. Clears when the agent moves to the Anthropic API with a working key.",
+    "suites": ["manifest/browser", "intake/e2e", "intake/e2e-scheduled", "intake/e2e-classify", "intake/e2e-unread", "intake/e2e-cancel", "intake/e2e-people", "intake/browser-cancel", "intake/browser-flows", "intake/browser-people", "intake/browser-check", "intake/browser-edits"]
+  }
+}

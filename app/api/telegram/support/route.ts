@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireTelegramDeveloper, currentMediaToken } from "@/lib/help/telegram-webapp";
+import { requireTelegramDeveloper, mediaTokenFor } from "@/lib/help/telegram-webapp";
 import { helpEffectivePresence, summarizeBlocks, type HelpStatus } from "@/lib/help/shared";
 import {
   ReasonRequiredError,
@@ -54,7 +54,8 @@ export async function GET(request: Request) {
       messages,
       events,
       attachments,
-      mediaToken: currentMediaToken(),
+      // one token per attachment, issued to the developer asking: it opens that file, for that person, for 15 minutes
+      mediaTokens: Object.fromEntries(attachments.map((a) => [a.id, mediaTokenFor(a.id, user.id)])),
     });
   }
 
@@ -71,7 +72,6 @@ export async function GET(request: Request) {
       unread: unread.get(t.id) || 0,
     })),
     savedReplies: await listSavedReplies(),
-    mediaToken: currentMediaToken(),
     fetchedAt: new Date().toISOString(),
   });
 }

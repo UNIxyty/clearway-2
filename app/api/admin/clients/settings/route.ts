@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
-import { notifyList, setNotifyList } from "@/lib/clients/onboarding";
+import { NOT_READY, notifyList, onboardingReady, setNotifyList } from "@/lib/clients/onboarding";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,7 @@ export async function GET() {
     const auth = await requirePermission("clients.manage"); if ("error" in auth) return auth.error;
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_SAVED, { tag: "ADMIN-CLIENTS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
+    if (!(await onboardingReady(service))) return NextResponse.json({ ok: false, error: NOT_READY, notReady: true }, { status: 503 }); // migration 0028 not applied yet
     return NextResponse.json({ ok: true, emails: await notifyList(service) });
   } catch (error) { return failure(500, NOT_SAVED, { tag: "ADMIN-CLIENTS", what: "settings read failed", detail: error }); }
 }
@@ -21,6 +22,7 @@ export async function PUT(request: Request) {
     const auth = await requirePermission("clients.manage"); if ("error" in auth) return auth.error;
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_SAVED, { tag: "ADMIN-CLIENTS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
+    if (!(await onboardingReady(service))) return NextResponse.json({ ok: false, error: NOT_READY, notReady: true }, { status: 503 }); // migration 0028 not applied yet
     const body = (await request.json().catch(() => ({}))) as { emails?: unknown };
     const out = await setNotifyList(service, Array.isArray(body.emails) ? body.emails.map(String) : [], auth.user.email ?? null);
     if ("problems" in out) return NextResponse.json({ ok: false, error: out.problems!.join(" ") }, { status: 400 });

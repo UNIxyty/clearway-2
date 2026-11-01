@@ -11,6 +11,12 @@ number of checks passed in the last full run.
 
 ## Known failures
 
+**The record is `rig/known-failures.json`** (2026-11-02, the second time today). The runner's last step,
+`rig/verdict.mjs`, sorts every red suite into LISTED (a recorded cause) or UNLISTED, and names every unlisted one in
+the verdict. Any red, listed or not, is RED, exit 1; there is no "green except". A listed suite that passed is named
+too, so its entry goes. shell-check was red and on no list from mid-October to 2026-11-02; this is what stops that.
+The list below says the same as the JSON, in words.
+
 **How this list works (2026-11-02):** each entry names one cause and lists, by name, every check it covers, with a
 count. Nothing joins an entry because it failed in the same run. A failure not named here is a live finding until it
 is investigated. If it has the same cause, it is added by name, with the date and the evidence, and the count changes.
@@ -79,6 +85,9 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | client-onboarding-check | 54 | 2026-11-02 |
 | files-route-check | 9 (red on 1b3fbbf1: another person read a help draft through /files) | 2026-11-02 |
 | client-gate-check | 14 (red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client) | 2026-11-02 |
+| personal-data-paths-check | 16 (red on the code before: a person without the reveal permission got the scan, the list and the .eml; one row of four; no limit) | 2026-11-02 |
+| mail-image-check | 11 (red on the code before: "show images" fetched a loopback listener) | 2026-11-02 |
+| telegram-media-token | 9 (the old hourly token opened every file and named no one) | 2026-11-02 |
 | own-mail | 1 (red on a planted `resetPasswordForEmail`) | 2026-11-02 |
 | portal-colours | 1 (5 exceptions printed with their reasons) | 2026-11-02 |
 | style-text | 1 | 2026-10-28 |

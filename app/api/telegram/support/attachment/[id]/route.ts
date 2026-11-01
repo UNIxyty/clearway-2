@@ -8,11 +8,12 @@ export const dynamic = "force-dynamic";
 
 /**
  * Attachment bytes for the mini app. <img> cannot send the initData header,
- * so this route takes the short-lived media token minted by the inbox call.
+ * so this route takes the media token the thread call minted for THIS attachment and THIS person (15 minutes).
  */
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const token = new URL(request.url).searchParams.get("mt") || "";
-  if (!validateMediaToken(token)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // the token names this attachment and the person it was issued to (lib/help/telegram-webapp.ts); anything else: 401
+  if (!validateMediaToken(token, params.id)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const attachment = await getAttachment(params.id);
   if (!attachment) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const data = await readFile(attachment.storageKey);

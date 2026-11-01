@@ -231,6 +231,7 @@ function Sources({ detail, anyInLeon, closed, reprocess, reprocessing, msg }: { 
                 <SmallButton disabled={!canSwitch || reprocessing !== null} busyLabel="Reading…" busy={reprocessing === a.id} onClick={() => setAsking(a.id)}>Use this file instead</SmallButton>
               )}
               {a.url && <a href={a.url} target="_blank" rel="noopener noreferrer" className="ag-focus" style={{ fontSize: 12.5, fontWeight: 600, color: cw.textLink, whiteSpace: "nowrap" }}>Open ↗</a>}
+              {!a.url && a.locked && <span style={{ fontSize: 12, color: cw.textMuted }} data-attachment-locked>{a.locked}</span>}
             </div>
           </div>
         );

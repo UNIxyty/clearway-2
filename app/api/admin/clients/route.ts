@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { onboardingReady } from "@/lib/clients/onboarding";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { listClients, listDecisions } from "@/lib/clients/admin";
@@ -18,7 +19,7 @@ export async function GET() {
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_LOADED, { tag: "ADMIN-CLIENTS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
     const [clients, decisions] = await Promise.all([listClients(service), listDecisions(service)]);
-    return NextResponse.json({ ok: true, clients, decisions, catalogue: { switches: SWITCHES, starting: STARTING_SWITCHES, passengerLevels: PASSENGER_LEVELS, scopeKinds: SCOPE_KINDS } });
+    return NextResponse.json({ ok: true, onboardingReady: await onboardingReady(service), clients, decisions, catalogue: { switches: SWITCHES, starting: STARTING_SWITCHES, passengerLevels: PASSENGER_LEVELS, scopeKinds: SCOPE_KINDS } });
   } catch (error) {
     return failure(500, NOT_LOADED, { tag: "ADMIN-CLIENTS", what: "list failed", detail: error });
   }

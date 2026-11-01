@@ -34,6 +34,7 @@ run utc-times node rig/check-utc-times.mjs
 run error-text node rig/check-error-text.mjs
 run style-text node rig/check-style-text.mjs
 run own-mail node rig/check-own-mail.mjs
+run telegram-media-token node rig/telegram-media-token-check.mjs   # one file, one person, 15 minutes
 run portal-colours node scripts/check-portal-colours.mjs   # every portal colour a --cw-* token; prints its exceptions and why
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
@@ -88,6 +89,8 @@ run files-route-check $E rig/files-route-check.mjs   # /files serves only its al
 ( env -i PATH="$PATH" HOME="$HOME" PORT=3981 HOSTNAME=127.0.0.1 PERMISSIONS_TTL_MS=1000 DISABLE_AUTH_FOR_TESTING=false AGENT_TEST_ROLE= ADMIN_EMAILS= DEVELOPER_EMAILS= RIG_CLIENT_MIDDLEWARE_OFF=1 nohup node --env-file=.env.rig .next/standalone/server.js > "$SCR/portal-gateless.out" 2>&1 & )
 for _ in $(seq 40); do [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3981/login)" = 200 ] && break; sleep 1; done
 run client-gate-check $E rig/client-gate-check.mjs   # 115 portal handlers refuse a client / unknown role without the middleware; the wall and agent directly
+run personal-data-paths-check $E rig/personal-data-paths-check.mjs   # text, scan, list, .eml and forward: one permission, one bucket, one row each
+run mail-image-check $E rig/mail-image-check.mjs   # a stranger's image aimed at loopback: held back, then refused; nothing fetched
 pid=$(lsof -tiTCP:3981 -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid
 run maintenance-logos node rig/maintenance-logos-check.mjs
 run airac-dates-check node rig/airac-dates-check.mjs
@@ -153,6 +156,8 @@ EXPECTED=$(grep -cE '^run ' "$0"); RAN=$(grep -cE ' rc=' $LOG); RED=$(grep -E ' 
 SLEPT=$(grep -E ' rc=' $LOG | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+s$/) { sub(/s$/, "", $i); if ($i + 0 > 7200) print $1 } }' | head -3 | tr '\n' ' ')
 if [ -n "$SLEPT" ]; then echo "VERDICT: INCOMPLETE — the machine slept during: $SLEPT(a suite over two hours); rerun from there" | tee -a $LOG; echo DONE >> $LOG; exit 2; fi
 if [ "$RAN" != "$EXPECTED" ]; then echo "VERDICT: INCOMPLETE — $RAN of $EXPECTED suites ran ($RED red)" | tee -a $LOG; echo DONE >> $LOG; exit 2; fi
-if [ "$RED" != 0 ]; then echo "VERDICT: RED — $RED of $RAN suites failed" | tee -a $LOG; echo DONE >> $LOG; exit 1; fi
-echo "VERDICT: GREEN — all $RAN suites passed" | tee -a $LOG
+# Every red suite is LISTED (a recorded cause, rig/known-failures.json) or UNLISTED, and the unlisted are named (2026-11-02).
+# Any red is RED; there is no "green except".
+node rig/verdict.mjs "$LOG" "$EXPECTED" | tee -a $LOG; rc=${PIPESTATUS[0]}
 echo DONE >> $LOG
+exit $rc

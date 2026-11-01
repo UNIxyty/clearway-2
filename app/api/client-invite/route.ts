@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { activate, readLink } from "@/lib/clients/onboarding";
+import { NOT_READY, activate, onboardingReady, readLink } from "@/lib/clients/onboarding";
 import { failure } from "@/lib/public-error";
 import { TRY_AGAIN_SIGNED_OUT } from "@/lib/error-text";
 
@@ -13,6 +13,7 @@ export async function GET(request: Request) {
   try {
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_DONE, { tag: "CLIENT-INVITE", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
+    if (!(await onboardingReady(service))) return NextResponse.json({ ok: false, error: NOT_READY, notReady: true }, { status: 503 }); // migration 0028 not applied yet
     const token = new URL(request.url).searchParams.get("token") ?? "";
     const { state, email, company } = await readLink(service, token);
     return NextResponse.json({ ok: true, state, email: email ?? null, company: company ?? null });
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
   try {
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_DONE, { tag: "CLIENT-INVITE", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
+    if (!(await onboardingReady(service))) return NextResponse.json({ ok: false, error: NOT_READY, notReady: true }, { status: 503 }); // migration 0028 not applied yet
     const body = (await request.json().catch(() => ({}))) as { token?: string; password?: string };
     const out = await activate(service, String(body.token ?? ""), String(body.password ?? ""));
     if ("problems" in out) return NextResponse.json({ ok: false, error: out.problems.join(" ") }, { status: 400 });

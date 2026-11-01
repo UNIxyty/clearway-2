@@ -47,7 +47,16 @@ export function newAttachmentId() {
 }
 
 /** Store bytes; returns { storagePath, backend }. */
+// The entry and attachment ids become a storage PATH, posted with the service key (2026-11-02). An id like
+// "../../../../../rest/v1/<table>#" (decoded twice on the way in) turned that into a service-key POST to any Supabase
+// table. Ids are letters, digits, dash and underscore only, checked here so every caller gets it.
+const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/;
+export function assertSafeIds(entryId, attachmentId) {
+  if (!SAFE_ID.test(String(entryId ?? "")) || (attachmentId != null && !SAFE_ID.test(String(attachmentId)))) throw Object.assign(new Error("Not an attachment of a known entry."), { status: 400 });
+}
+
 export async function saveAttachmentBytes({ entryId, attachmentId, filename, contentType, buffer }) {
+  assertSafeIds(entryId, attachmentId);
   const cleanName = sanitizeFilename(filename);
   const relPath = `important-attachments/${entryId}/${attachmentId}/${cleanName}`;
   const env = supabaseEnv();

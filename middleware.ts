@@ -303,8 +303,10 @@ async function gate(request: NextRequest) {
   // never in their page source.
   const appMetaForClient = (user.app_metadata ?? {}) as Record<string, unknown>;
   // RIG ONLY (2026-11-02): RIG_CLIENT_MIDDLEWARE_OFF=1 skips this block and the write gate below, so
-  // rig/client-gate-check.mjs can prove every endpoint refuses a client on its own. It works only against the rig's local Supabase — never with a production URL.
-  const clientBlockOff = process.env.RIG_CLIENT_MIDDLEWARE_OFF === "1" && /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(process.env.NEXT_PUBLIC_SUPABASE_URL || ""));
+  // rig/client-gate-check.mjs can prove every endpoint refuses a client on its own. Two layers: it exists only in the
+  // rig's build (CW_RIG_BUILD is a build-time literal, "0" everywhere else, so the minifier removes this line), and even
+  // there it works only against the rig's local Supabase.
+  const clientBlockOff = process.env.CW_RIG_BUILD === "1" && process.env.RIG_CLIENT_MIDDLEWARE_OFF === "1" && /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(process.env.NEXT_PUBLIC_SUPABASE_URL || ""));
   if (!clientBlockOff && String(appMetaForClient.role ?? "").toLowerCase() === "client") {
     const status = String(appMetaForClient.client_status ?? "").toLowerCase();
     const holding = status === "approved" ? null : status === "refused" ? "/client/refused" : "/client/removed";

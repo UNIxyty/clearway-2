@@ -31,7 +31,7 @@ export type Leg = {
   services: Service[]; tzChoice: { choice: "utc" | "local"; by: string; at: string } | null; leon: LeonLegState; inLeon: boolean; tz?: TzOptions;
 };
 export type Stage = { name: string; state: "done" | "prog" | "wait" | "fail" | "part" | "hold" | "skip" | "none"; at: string | null; doneAt?: string | null; ms: number | null; note: string | null; email?: string | null };
-export type AttachmentRole = { id: string | null; name: string; bytes: number; type: string; pages: number | null; inline: boolean; role: "request" | "supporting" | "noise" | "unreadable"; kind: string; why: string; read: boolean; byCode: boolean; override: { by: string | null; at: string } | null; personal: boolean; url: string | null };
+export type AttachmentRole = { id: string | null; name: string; bytes: number; type: string; pages: number | null; inline: boolean; role: "request" | "supporting" | "noise" | "unreadable"; kind: string; why: string; read: boolean; byCode: boolean; override: { by: string | null; at: string } | null; personal: boolean; url: string | null; locked?: string };
 export type Duplicate = { error?: string; matches: { leg: number; why: string; leon: { nid: number; flightNo: string; std: string; sta: string; adep: string; ades: string; registration: string | null; created: string; tripNumber: string | null } }[]; ours: { id: string; reference: string; status: string }[]; rows: { field: string; mine: string; theirs: string; differs: boolean }[]; leonIds: number[]; created: string | null; tripNumber: string | null };
 export type ChecklistItem = { defNid: number; label: string; decision: "provide" | "to_confirm" | "note"; statusId: string; statusCaption: string; note: string | null; services?: string[]; serviceId?: string };
 export type ChecklistResult = ChecklistItem & { leg: number; filled: boolean; reason: string | null; wasOnFlight?: boolean };
@@ -89,7 +89,7 @@ export type MailMessage = {
   understood: Understood | null; history: { at: string; status?: string; reason?: string; by: string; action: string; to?: string }[]; request: { id: string; reference: string; state: string } | null;
   hasPersonal: boolean; purged: boolean; retention: string; ignored: { by: string; reason: string; note: string | null } | null; auth: { spf?: string; dkim?: string; dmarc?: string } | null; rfcMessageId: string | null;
   thread: { id: string; kind: "in" | "out" | "ev"; title: string; sub: string; at: string; current: boolean }[];
-  attachments: { id: string; name: string; type: string; declared: string | null; bytes: number; purged: boolean; role: string | null; why: string | null; personal: boolean; url: string }[];
+  attachments: { id: string; name: string; type: string; declared: string | null; bytes: number; purged: boolean; role: string | null; why: string | null; personal: boolean; url: string | null; locked?: string }[];
   sent?: { kind: string; resendId: string | null; delivery: string | null; events: { event: string; at: string; detail: string | null }[]; detail: string | null };
 };
 export type MailBody = { unavailable?: string; purged?: boolean; purgedAt?: string; mode: "html" | "text"; html?: string; text?: string; masks: number; remoteImages?: { host: string; name: string }[]; links?: { text: string; url: string; host: string }[]; hasHtml?: boolean; hasText?: boolean };

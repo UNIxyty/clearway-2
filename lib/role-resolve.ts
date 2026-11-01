@@ -11,7 +11,11 @@ export function parseEmailList(raw: string | undefined) {
     .filter(Boolean);
 }
 
-export type Role = "none" | "admin" | "developer" | "client";
+// "none" is an ordinary staff account (the User role in the grid). "client" is a person outside Clearway. "unknown" is a
+// role marker nobody planned for: it gets NOTHING — not user, not guest (2026-11-02, docs/permissions.md › Unknown roles).
+export type Role = "none" | "admin" | "developer" | "client" | "unknown";
+// The app_metadata.role values the platform writes. "" = an ordinary staff account (no marker). Anything else is unknown.
+const KNOWN_META_ROLES = new Set(["", "user", "developer", "admin", "client", "temporary"]);
 
 // APP metadata only. user_metadata is the person's own to edit (Supabase auth.updateUser), so a role written there is a
 // claim, not a grant — found 2026-10-20, when a plain user wrote role: "developer" into it and the portal believed it.
@@ -21,6 +25,7 @@ export function roleFromSupabaseUser(user: { app_metadata?: unknown; user_metada
   if (roleValue === "developer") return "developer";
   if (roleValue === "admin") return "admin";
   if (roleValue === "client") return "client"; // Stage 5: a person outside Clearway; holds no action in the grid, sees only their scope
+  if (!KNOWN_META_ROLES.has(roleValue)) return "unknown";
   const rolesRaw = appMeta.roles;
   const roles = Array.isArray(rolesRaw) ? rolesRaw.map((v) => String(v).toLowerCase()) : [];
   if (roles.includes("developer")) return "developer";
@@ -40,10 +45,14 @@ export async function resolveRole(
   // from explicit developer signals — DEVELOPER_EMAILS, metadata role/flag, or
   // user_preferences.is_developer. ADMIN_EMAILS confers admin, nothing more,
   // so listing an ops manager there never opens the developer inbox.
+  // A client, or a role nobody planned for, is decided FIRST and returned as it is (2026-11-02). It used to fall through
+  // to "none", which the grid reads as the User role: a client account was a User beneath the middleware.
+  const userRole = roleFromSupabaseUser(user);
+  if (userRole === "client" || userRole === "unknown") return userRole;
+
   const lowerEmail = email ? email.toLowerCase() : null;
   if (lowerEmail && parseEmailList(process.env.DEVELOPER_EMAILS).includes(lowerEmail)) return "developer";
 
-  const userRole = roleFromSupabaseUser(user);
   if (userRole === "developer") return "developer";
 
   const { data, error } = await supabase

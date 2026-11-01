@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
 import { getClient } from "@/lib/clients/admin";
-import { sendSetPasswordLink } from "@/lib/clients/onboarding";
+import { NOT_READY, onboardingReady, sendSetPasswordLink } from "@/lib/clients/onboarding";
 import { appUrl } from "@/lib/mail/send";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
 
@@ -16,6 +16,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if ("error" in auth) return auth.error;
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_SENT, { tag: "ADMIN-CLIENTS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
+    if (!(await onboardingReady(service))) return NextResponse.json({ ok: false, error: NOT_READY, notReady: true }, { status: 503 }); // migration 0028 not applied yet
     const { id } = await params;
     const row = await getClient(service, id);
     if (!row) return NextResponse.json({ ok: false, error: "No such client." }, { status: 404 });

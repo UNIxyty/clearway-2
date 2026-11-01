@@ -22,6 +22,24 @@ const hash = (t: string) => createHash("sha256").update(t).digest("hex");
 export const maskEmail = (e: string) => { const [u, d] = String(e).split("@"); return d ? `${u.slice(0, 2)}${"•".repeat(Math.max(1, Math.min(6, u.length - 2)))}@${d}` : "•••"; };
 const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+// ── is migration 0028 in? ───────────────────────────────────────────────────────────────────────────────────────────
+// The flow needs client_invites and app_settings (migrations/0028_client_onboarding.sql). Until they exist, asking for
+// access, approving a client with no account yet, the set-password link and the notify list answer "not available
+// yet" instead of failing (2026-11-02: deployed before 0028 to close a live leak). Asked again every minute, so the
+// flow comes on by itself once the migration has run. A failed check counts as not ready.
+export const NOT_READY = "Client onboarding is not available yet: a database change it needs has not been applied. Nothing was saved.";
+let ready: { ok: boolean; at: number } | null = null;
+export async function onboardingReady(service: SupabaseClient): Promise<boolean> {
+  if (ready && Date.now() - ready.at < (ready.ok ? 10 * 60_000 : 60_000)) return ready.ok;
+  let ok = false;
+  try {
+    const [a, b] = await Promise.all([service.from("client_invites").select("id").limit(1), service.from("app_settings").select("key").limit(1)]);
+    ok = !a.error && !b.error;
+  } catch { ok = false; }
+  ready = { ok, at: Date.now() };
+  return ok;
+}
+
 // ── who is told about new requests ──────────────────────────────────────────────────────────────────────────────────
 export async function notifyList(service: SupabaseClient): Promise<string[]> {
   const { data } = await service.from("app_settings").select("value").eq("key", "clients.notify_to").maybeSingle();

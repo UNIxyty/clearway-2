@@ -66,19 +66,27 @@ export function requireTelegramDeveloper(request: Request): TelegramWebAppUser |
   return user;
 }
 
-// Media token: <img> tags cannot send headers, so attachment GETs carry a
-// short-lived HMAC derived from the bot token instead (valid this hour and
-// the previous one).
-function mediaTokenFor(hourBucket: number): string {
-  return createHmac("sha256", botToken()).update(`help-media:${hourBucket}`).digest("hex").slice(0, 32);
+// Media tokens: <img> tags cannot send headers, so an attachment GET carries a token in its URL. Per file and per person
+// (2026-11-02): each token names ONE attachment and the ONE Telegram account it was issued to, expires after 15 minutes,
+// and is refused for anything else. (Until then one hourly code opened every help attachment for up to two hours.)
+//   <expiry, unix seconds>.<telegram user id>.<HMAC-SHA256(bot token, "help-media:v2:<attachment>:<user>:<expiry>")>
+export const MEDIA_TTL_S = 15 * 60;
+const mediaSig = (attachmentId: string, userId: number, exp: number) => createHmac("sha256", botToken()).update(`help-media:v2:${attachmentId}:${userId}:${exp}`).digest("base64url");
+
+export function mediaTokenFor(attachmentId: string, userId: number, now = Date.now()): string {
+  const exp = Math.floor(now / 1000) + MEDIA_TTL_S;
+  return `${exp}.${userId}.${mediaSig(attachmentId, userId, exp)}`;
 }
 
-export function currentMediaToken(): string {
-  return mediaTokenFor(Math.floor(Date.now() / 3_600_000));
-}
-
-export function validateMediaToken(token: string): boolean {
-  if (!token || !botToken()) return false;
-  const bucket = Math.floor(Date.now() / 3_600_000);
-  return token === mediaTokenFor(bucket) || token === mediaTokenFor(bucket - 1);
+/** The Telegram user the token was issued to, when it is valid for THIS attachment, unexpired, and that person is still
+ *  on the developer list; otherwise null. */
+export function validateMediaToken(token: string, attachmentId: string, now = Date.now()): number | null {
+  if (!token || !botToken() || !attachmentId) return null;
+  const m = /^(\d{10})\.(\d{1,20})\.([A-Za-z0-9_-]{43})$/.exec(token);
+  if (!m) return null;
+  const exp = Number(m[1]), userId = Number(m[2]);
+  if (!Number.isSafeInteger(userId) || exp * 1000 < now || exp * 1000 > now + MEDIA_TTL_S * 1000 + 60_000) return null;
+  const want = Buffer.from(mediaSig(attachmentId, userId, exp)), got = Buffer.from(m[3]);
+  if (want.length !== got.length || !timingSafeEqual(want, got)) return null;
+  return isDeveloperTelegramUser(userId) ? userId : null;
 }

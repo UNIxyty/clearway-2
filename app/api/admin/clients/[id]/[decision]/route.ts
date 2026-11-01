@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { NOT_READY, onboardingReady } from "@/lib/clients/onboarding";
 import { appUrl } from "@/lib/mail/send";
 import { scopeCatalogue, unknownScope } from "@/lib/clients/catalogue";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
@@ -25,6 +26,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const actor = { id: auth.user.id, email: auth.user.email ?? null };
     if (decision === "approve") {
+      // a client with no account yet gets the set-password link, which needs migration 0028; an existing account does not
+      if (!row.user_id && !(await onboardingReady(service))) return NextResponse.json({ ok: false, error: NOT_READY, notReady: true }, { status: 503 });
       // a NEW scope entry must name something that exists (2026-11-02): an operator in Leon, an aircraft in the fleet, a trip
       const cat = await scopeCatalogue(service, (await auth.supabase.auth.getSession()).data.session?.access_token ?? null);
       const unknown = unknownScope(row.scope, body.scope === undefined ? row.scope : body.scope, cat);

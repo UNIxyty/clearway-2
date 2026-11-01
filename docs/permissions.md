@@ -34,7 +34,20 @@ Every service checks on the server. A hidden button is not a permission.
 Reads are not in the grid, with two exceptions that the grid does control:
 
 - **Revealing a passenger's personal data** on an intake request (`intake.people.reveal`). Off for User by default,
-  and each reveal is still logged.
+  and each reveal is still logged. **One door** (2026-11-02, `agent/lib/personal-data-gate.mjs`). The same data can be
+  reached five ways:
+  - the text reveal;
+  - the request's attachments (a passport scan, a passenger list);
+  - the original email's `.eml` download;
+  - forwarding that email;
+  - the flight passenger reveal.
+
+  Each of them goes through the same function: the same permission, one rate-limit bucket per person (40 in 10
+  minutes for staff, 15 for a client, every path counted), and the same reveal row, written before the data is sent.
+  The row records who, when and which request, never a name, a document number or a file. Without the permission, a
+  screen shows no link to an attachment, and says why. The mailbox's own text reveal keeps its permission
+  (`intake.mailbox.reveal`) but counts in the same bucket. `rig/personal-data-paths-check.mjs` lists the paths; a new
+  one goes there.
 - **Seeing other people's knowledge-base uploads** that are not approved, and who uploaded them
   (`agent.kb.see-others`). Off for User and Admin by default; on for Developer, who approves uploads.
 

@@ -6,6 +6,7 @@
 //   · an SSH private key file by name (id_rsa, id_dsa, id_ecdsa, id_ed25519; the .pub halves are fine)
 //   · a *.pem / *.key / *.p12 / *.pfx file that holds a private key (read; public CA certificates pass), outside the
 //     system's own certificate store
+//   · the rig-only switch's name anywhere in the app folder (it exists only in the rig's build)
 //   · then scripts/check-image-secrets.mjs over the image's app folder (/app, or the one given) (secret SHAPES in text: service-role JWT, API keys,
 //     private key blocks…), on the extracted copy
 // Prints paths and the KIND of finding only, never a value or a fragment. Exit 0 clean, 1 finding, 2 cannot tell (a
@@ -75,6 +76,13 @@ const systemCerts = /^(?:(?:etc\/ssl\/certs|usr\/share\/ca-certificates|usr\/lib
   execFileSync("mkdir", ["-p", appDir]);
   const x = spawnSync("tar", ["-xf", tarFile, "-C", appDir, "--exclude", `${appRoot}/node_modules`, appRoot], { stdio: "pipe" });
   if (x.status !== 0 || !existsSync(path.join(appDir, appRoot))) cannot(`the image has no /${appRoot} to read`);
+  // Rig-only code must not be in a built image (2026-11-02): the switch that turns the middleware's client block off
+  // exists only in the rig's build (next.config.mjs › CW_RIG_BUILD). Its name anywhere in the app folder is a finding.
+  // built from halves: file tracing copies scripts/ into the image, and this file must not match itself
+  const RIG_ONLY = [["RIG_CLIENT", "MIDDLEWARE_OFF"].join("_")];
+  const grep = spawnSync("grep", ["-rIl", "--exclude-dir=node_modules", ...RIG_ONLY.flatMap((x) => ["-e", x]), path.join(appDir, appRoot)], { encoding: "utf8" });
+  if (grep.status === 0) for (const f of grep.stdout.split("\n").filter(Boolean).slice(0, 20)) findings.push(`${f.replace(appDir, "")}: rig-only switch (${RIG_ONLY.join(", ")}) in the built image`);
+  else if (grep.status !== 1) cannot("the rig-switch search could not run");
   const shapes = spawnSync("node", [path.join(here, "check-image-secrets.mjs"), path.join(appDir, appRoot)], { encoding: "utf8" });
   if (shapes.status === 2) cannot("the secret-shape scan read nothing");
   if (shapes.status !== 0) for (const l of String(shapes.stderr).split("\n").filter((l) => /^\s+\//.test(l))) findings.push(`${l.trim().replace(path.join(appDir), "")} (secret shape)`);

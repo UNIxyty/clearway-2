@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { createRequest } from "@/lib/clients/onboarding";
+import { NOT_READY, createRequest, onboardingReady } from "@/lib/clients/onboarding";
 import { appUrl } from "@/lib/mail/send";
 import { failure } from "@/lib/public-error";
 import { TRY_AGAIN_SIGNED_OUT } from "@/lib/error-text";
@@ -20,6 +20,7 @@ export async function POST(request: Request) {
   try {
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_SENT, { tag: "CLIENT-REQUEST", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
+    if (!(await onboardingReady(service))) return NextResponse.json({ ok: false, error: "Asking for access is not available yet. Try again later, or write to Clearway ops.", notReady: true }, { status: 503 });
     const body = (await request.json().catch(() => ({}))) as Record<string, string>;
     const out = await createRequest(service, { name: body.name, company: body.company, email: body.email, kind: body.kind, note: body.note }, appUrl(request));
     if ("problems" in out) return NextResponse.json({ ok: false, error: out.problems.join(" "), problems: out.problems }, { status: 400 });

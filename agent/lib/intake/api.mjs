@@ -9,6 +9,8 @@ import { nameSplit } from "./leon-pax.mjs";
 import { randomUUID } from "node:crypto";
 import { rest } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
+import { personalDataGate } from "../personal-data-gate.mjs";
+import { safeFetch } from "../net/safe-fetch.mjs";
 import { cancelConfirmation, getConfirmation, issueConfirmation, beginConfirmation, settleConfirmation, failConfirmation } from "../confirm.mjs";
 import { readKey } from "./blobstore.mjs";
 import { STAGES, enqueue, processMessage, loadParsed, attachmentsOf, queueDepth } from "./pipeline.mjs";
@@ -435,7 +437,17 @@ async function renderBody(id, { mode = "html", images = false }) {
 
 // ── Route table ────────────────────────────────────────────────────────────────────────────────────────
 export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJson, readJsonBody }) {
-  const send = (payload, status = 200) => { sendJson(res, payload, status); return true; };
+  // Attachments are personal data (agent/lib/personal-data-gate.mjs): without the reveal permission a payload carries no
+  // link to them, and says why, instead of an Open button that leads to a refusal.
+  const canOpenPersonal = await can(user.agentRole, "intake.people.reveal").catch(() => false);
+  const lock = (list) => (Array.isArray(list) && !canOpenPersonal ? list.map((a) => ({ ...a, url: null, locked: "Opening attachments needs the permission to see passengers' personal data." })) : list);
+  const send = (payload, status = 200) => {
+    if (payload && !canOpenPersonal) {
+      if (Array.isArray(payload.attachments)) payload = { ...payload, attachments: lock(payload.attachments) };
+      if (payload.message && Array.isArray(payload.message.attachments)) payload = { ...payload, message: { ...payload.message, attachments: lock(payload.message.attachments) } };
+    }
+    sendJson(res, payload, status); return true;
+  };
   const fail = (e) => send({ ok: false, message: e.message, blockers: e.blockers }, e.status ?? 500);
   const P = pathname;
   try {
@@ -475,8 +487,11 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/edit$/.exec(P)) && req.method === "POST") { await editPeople(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await peopleFor(m[1], false)), canReveal: await can(user.agentRole, "intake.people.reveal") }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/passport-decision$/.exec(P)) && req.method === "POST") { await decidePassport(m[1], user, await readJsonBody(req)); return send({ ok: true, ...(await requestDetail(m[1])) }); }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/people\/reveal$/.exec(P)) && req.method === "POST") {
+      // the same door as the scan, the list and the .eml (agent/lib/personal-data-gate.mjs)
+      const gate = await personalDataGate(user, { what: "text", detail: { requestId: m[1], seconds: 30 } });
+      if (!gate.ok) return send({ ok: false, message: gate.message, permission: gate.permission }, gate.status);
       const out = await peopleFor(m[1], true);
-      await audit({ kind: "intake.personal_revealed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { requestId: m[1], seconds: 30 } }).catch(() => {});
+      await gate.record();
       return send({ ok: true, ...out, revealedBy: user.name || user.email, at: new Date().toISOString() });
     }
     if ((m = /^\/api\/intake\/requests\/([0-9a-f-]{36})\/reprocess$/.exec(P)) && req.method === "POST") {
@@ -505,8 +520,13 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
       const a = (await rest(`intake_attachments?select=id,message_id,storage_key,sniffed_type,declared_name,purged_at,bytes&id=eq.${m[1]}`))?.[0];
       if (!a) throw err(404, "No such attachment.");
       if (a.purged_at) throw err(410, "Removed by retention.");
+      // A request's attachment is personal data: a passport scan carries the number, the birth date, the photo; a
+      // passenger list has a person on every line. Same door as the text reveal: permission, one bucket, one row.
+      const reqRow = (await rest(`intake_requests?select=id&message_id=eq.${a.message_id}&limit=1`))?.[0];
+      const gate = await personalDataGate(user, { what: "attachment", detail: { requestId: reqRow?.id ?? null, messageId: a.message_id, attachmentId: a.id, download: url.searchParams.has("download") } });
+      if (!gate.ok) return send({ ok: false, message: gate.message, permission: gate.permission }, gate.status);
       const buf = await readKey(a.storage_key);
-      await audit({ kind: "intake.attachment_opened", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { attachmentId: a.id, messageId: a.message_id, bytes: a.bytes, download: url.searchParams.has("download") } }).catch(() => {});
+      await gate.record({ bytes: a.bytes });
       const inlineOk = /^(application\/pdf|image\/(png|jpeg|gif|webp)|text\/plain)$/.test(a.sniffed_type) && !url.searchParams.has("download");
       const safeName = String(a.declared_name ?? "attachment").replace(/[^\w.\- ]+/g, "_").slice(0, 120);
       res.writeHead(200, { "content-type": inlineOk ? a.sniffed_type : "application/octet-stream", "content-length": buf.length, "content-disposition": `${inlineOk ? "inline" : "attachment"}; filename="${safeName}"`, "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; plugin-types application/pdf" });
@@ -538,13 +558,26 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
         if (images) await audit({ kind: "mailbox.images_shown", userId: user.userId, userEmail: user.email, success: true, confirmationStatus: "not_required", detail: { messageId: m[1] } }).catch(() => {});
         return send({ ok: true, body: (await renderBody(m[1], { mode: url.searchParams.get("mode") ?? "html", images })).out });
       }
-      if ((m = /^\/api\/mailbox\/messages\/([0-9a-f-]{36})\/reveal$/.exec(P)) && req.method === "POST") { const { values } = await renderBody(m[1], { mode: url.searchParams.get("mode") ?? "html", images: url.searchParams.get("images") === "1" }); await audit({ kind: "mailbox.personal_revealed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { messageId: m[1], seconds: 60 } }).catch(() => {}); return send({ ok: true, values, revealedBy: user.name || user.email }); }
+      if ((m = /^\/api\/mailbox\/messages\/([0-9a-f-]{36})\/reveal$/.exec(P)) && req.method === "POST") {
+        // its own permission (intake.mailbox.reveal, for mailbox readers) but the same bucket and the same kind of row
+        const gate = await personalDataGate(user, { what: "mailbox", permission: "intake.mailbox.reveal", detail: { messageId: m[1], seconds: 60 } });
+        if (!gate.ok) return send({ ok: false, message: gate.message, permission: gate.permission }, gate.status);
+        const { values } = await renderBody(m[1], { mode: url.searchParams.get("mode") ?? "html", images: url.searchParams.get("images") === "1" });
+        await gate.record();
+        return send({ ok: true, values, revealedBy: user.name || user.email });
+      }
       if ((m = /^\/api\/mailbox\/messages\/([0-9a-f-]{36})\/raw$/.exec(P)) && req.method === "GET") {
         const msg = (await rest(`intake_messages?select=*&id=eq.${m[1]}`))?.[0]; if (!msg) throw err(404, "No such message.");
         if (msg.direction === "outbound") return send({ ok: true, headers: [["From", msg.from_addr], ["To", (msg.to_addrs ?? []).join(", ")], ["Subject", msg.subject], ["Date", msg.received_at]], raw: msg.sent_html ?? "", auth: null });
         if (msg.purged_at || !msg.raw_key) return send({ ok: true, headers: [["From", msg.from_addr ?? ""], ["To", (msg.to_addrs ?? []).join(", ")], ["Subject", msg.subject ?? ""], ["Date", msg.received_at]], raw: "", auth: msg.auth ?? null, unavailable: msg.purged_at ? `Removed by retention on ${fmtDate(msg.purged_at)}.` : `The raw message was never stored (${msg.fetch_error ?? "fetch failed"}). Only the envelope above is kept.` });
         const raw = await readKey(msg.raw_key);
-        if (url.searchParams.has("download")) { await audit({ kind: "mailbox.raw_downloaded", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { messageId: m[1] } }).catch(() => {}); res.writeHead(200, { "content-type": "message/rfc822", "content-disposition": `attachment; filename="message-${m[1].slice(0, 8)}.eml"`, "cache-control": "private, no-store", "x-content-type-options": "nosniff" }); res.end(raw); return true; }
+        if (url.searchParams.has("download")) {
+          // the original email carries every attachment unmasked: the same door as the scan and the text
+          const reqRow = (await rest(`intake_requests?select=id&message_id=eq.${m[1]}&limit=1`))?.[0];
+          const gate = await personalDataGate(user, { what: "mail", detail: { requestId: reqRow?.id ?? null, messageId: m[1] } });
+          if (!gate.ok) return send({ ok: false, message: gate.message, permission: gate.permission }, gate.status);
+          await gate.record();
+          res.writeHead(200, { "content-type": "message/rfc822", "content-disposition": `attachment; filename="message-${m[1].slice(0, 8)}.eml"`, "cache-control": "private, no-store", "x-content-type-options": "nosniff" }); res.end(raw); return true; }
         const { parsed } = await loadParsed(msg); const people = await peopleForMessage(msg);
         const headers = []; for (const line of parsed.headerLines ?? []) { const i = line.line.indexOf(":"); headers.push([line.line.slice(0, i), maskForReader(line.line.slice(i + 1).trim().replace(/\r?\n\s+/g, " "), people, () => MASK).text]); }
         const text = raw.toString("latin1").replace(/(\r?\n\r?\n)((?:[A-Za-z0-9+\/=]{60,}\r?\n){3})(?:[A-Za-z0-9+\/=]{20,}\r?\n)+/g, (a, sep, keep) => `${sep}${keep}…\n`);
@@ -559,9 +592,14 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
         // Remote images are fetched by us, never by the browser, and only URLs that are in that message.
         const u = url.searchParams.get("u") ?? ""; const msg = (await rest(`intake_messages?select=*&id=eq.${m[1]}`))?.[0]; if (!msg || msg.purged_at) throw err(404, "No such image.");
         const { parsed } = await loadParsed(msg); if (!/^https?:\/\//i.test(u) || !String(parsed.html ?? "").includes(u.replace(/&/g, "&amp;")) && !String(parsed.html ?? "").includes(u)) throw err(404, "Not an image in this message.");
-        const r = await fetch(u, { signal: AbortSignal.timeout(8000), redirect: "follow" }); const ct = r.headers.get("content-type") ?? ""; const buf = Buffer.from(await r.arrayBuffer());
-        if (!r.ok || !/^image\/(png|jpeg|gif|webp)/.test(ct) || buf.length > 5_000_000) throw err(404, "Not an image.");
-        res.writeHead(200, { "content-type": ct, "cache-control": "private, max-age=300", "x-content-type-options": "nosniff" }); res.end(buf); return true;
+        // agent/lib/net/safe-fetch.mjs: public addresses only (checked after DNS, connection pinned), no redirects, a
+        // timeout, a size cap. A sender pointing an image at 127.0.0.1 or the cloud metadata address gets nothing.
+        let r;
+        try { r = await safeFetch(u, { timeoutMs: 8000, maxBytes: 5_000_000 }); }
+        catch (e) { await audit({ kind: "mailbox.image_refused", userId: user.userId, userEmail: user.email, success: false, confirmationStatus: "not_required", detail: { messageId: m[1], reason: e.reason ?? "network" } }).catch(() => {}); throw err(404, "This image could not be loaded."); }
+        const ct = r.contentType;
+        if (r.status !== 200 || !/^image\/(png|jpeg|gif|webp)/.test(ct)) throw err(404, "Not an image.");
+        res.writeHead(200, { "content-type": ct, "cache-control": "private, max-age=300", "x-content-type-options": "nosniff" }); res.end(r.body); return true;
       }
       if ((m = /^\/api\/mailbox\/messages\/([0-9a-f-]{36})\/(ignore|unignore|reprocess|forward|process-handling|process-notification)$/.exec(P)) && req.method === "POST") {
         const body = await readJsonBody(req); const id = m[1]; const msg = (await rest(`intake_messages?select=*&id=eq.${id}`))?.[0]; if (!msg) throw err(404, "No such message.");
@@ -598,7 +636,13 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
         } else if (m[2] === "forward") {
           const to = String(body.to ?? "").trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) throw err(400, "A valid address, please.");
           if (msg.purged_at || !msg.raw_key) throw err(410, "The message was removed by retention.");
+          // forwarding sends the original email, every attachment in it, out of the platform: the same door as the
+          // download (agent/lib/personal-data-gate.mjs) — the reveal permission, the shared bucket, a reveal row
+          const reqRow = (await rest(`intake_requests?select=id&message_id=eq.${id}&limit=1`))?.[0];
+          const gate = await personalDataGate(user, { what: "mail-forward", detail: { requestId: reqRow?.id ?? null, messageId: id } });
+          if (!gate.ok) return send({ ok: false, message: gate.message, permission: gate.permission }, gate.status);
           const raw = await readKey(msg.raw_key);
+          await gate.record();
           const note = String(body.note ?? "").slice(0, 1000);
           const html = `<p style="font-family:sans-serif;font-size:14px">${note ? note.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]) + "<br><br>" : ""}Forwarded by ${me.name} from the Clearway agent mailbox. The original message is attached as received.</p>`;
           const mode = String(process.env.INTAKE_MAIL_MODE || "").trim() === "capture" ? "capture" : "send";

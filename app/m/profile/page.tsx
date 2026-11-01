@@ -39,7 +39,7 @@ export default function ProfilePhonePage() {
     try { const d = await getJson<{ sent?: boolean }>("/api/auth/password/forgot", { json: { email } }); if (d?.sent === false) throw new ShownError("The reset email could not be sent. Try again in a few minutes, or ask an admin to send one from Admin › Users."); setSheet(null); setSaid(`A reset link is on its way to ${email}. It works for one hour.`); } catch (e) { setFailed(shownText(e, "Couldn’t send the reset email. Try again.")); } finally { setBusy(false); }
   };
   const signOut = async () => { await supabase.auth.signOut().catch(() => {}); router.replace("/login"); };
-  const roleLabel = isDeveloper ? "Developer" : role === "admin" ? "Admin" : "User";
+  const roleLabel = isDeveloper ? "Developer" : role === "admin" ? "Admin" : role === "user" ? "User" : "No role";
   return (
     <T2Page loading={prefs.loading && name === null} error={prefs.error && !prefs.data ? prefs.error : null} empty={false} emptyCopy={["", ""]} errorCopy={["Couldn’t load your profile", "Try again in a moment."]} onRetry={prefs.reload}
       sticky={<MButton kind="danger-outline" icon="log-out" onClick={() => void signOut()}>Sign out</MButton>}>

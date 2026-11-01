@@ -7,6 +7,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
 [ -f .env.rig ] || { echo "no .env.rig — run rig/db.sh start first"; exit 2; }
 set -a; . ./.env.rig; set +a
+export CW_RIG_BUILD=1   # the rig's build only: keeps the rig switch in (next.config.mjs); every other build strips it
 rm -rf .next/cache/fetch-cache            # responses cached by an earlier build may be production data
 npm run build
 rm -f .next/standalone/.env .next/standalone/.env.*

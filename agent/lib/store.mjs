@@ -141,7 +141,8 @@ export async function revokeAccess({ userId, actorId, actorEmail }) {
  * Append one audit row. Never throws: a failure to log must not take the agent
  * down, but it must be visible, so it goes to stderr.
  */
-export async function audit(entry) {
+/** The audit row, or a throw: for a caller that must not go on unlogged (agent/lib/personal-data-gate.mjs). */
+export async function auditOrThrow(entry) {
   // Which front end the request came from (console or the Chrome extension,
   // with the page host) rides in `detail.client`, taken from the request
   // context unless the entry already says so itself.
@@ -168,8 +169,13 @@ export async function audit(entry) {
     output_tokens: entry.outputTokens ?? null,
     detail: detailWithClient,
   };
+  await rest("agent_audit_log", { method: "POST", prefer: "return=minimal", body: [row] });
+}
+
+/** The audit row; a failed write is reported on stderr and does not stop the caller. */
+export async function audit(entry) {
   try {
-    await rest("agent_audit_log", { method: "POST", prefer: "return=minimal", body: [row] });
+    await auditOrThrow(entry);
   } catch (error) {
     process.stderr.write(`[agent-audit] FAILED to persist ${entry.kind}: ${error.message}\n`);
   }

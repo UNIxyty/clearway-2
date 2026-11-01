@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
-import { newLink } from "@/lib/clients/onboarding";
+import { NOT_READY, newLink, onboardingReady } from "@/lib/clients/onboarding";
 import { appUrl } from "@/lib/mail/send";
 import { failure } from "@/lib/public-error";
 import { TRY_AGAIN_SIGNED_OUT } from "@/lib/error-text";
@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   try {
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_DONE, { tag: "CLIENT-INVITE", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
+    if (!(await onboardingReady(service))) return NextResponse.json({ ok: false, error: NOT_READY, notReady: true }, { status: 503 }); // migration 0028 not applied yet
     const body = (await request.json().catch(() => ({}))) as { token?: string };
     const out = await newLink(service, String(body.token ?? ""), appUrl(request));
     return NextResponse.json({ ok: out.state === "sent", ...out });

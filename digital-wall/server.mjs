@@ -49,6 +49,7 @@ import {
   sanitizeFilename,
   saveAttachmentBytes,
   validateAttachment,
+  assertSafeIds,
 } from "./lib/attachment-store.mjs";
 import { errorDetail, isPublicError, logFailure, PublicError, REASONS, shownReason } from "./lib/public-error.mjs";
 
@@ -2141,6 +2142,8 @@ const server = http.createServer(async (req, res) => {
       if (attachmentMatch) {
         const entryId = decodeURIComponent(attachmentMatch[1]);
         const attachmentId = attachmentMatch[2] ? decodeURIComponent(attachmentMatch[2]) : null;
+        // ids only from a safe alphabet, before anything is read or stored (digital-wall/lib/attachment-store.mjs)
+        try { assertSafeIds(entryId, attachmentId); } catch { sendJson(res, { ok: false, error: "Not an attachment of a known entry." }, 400); return; }
 
         if (req.method === "POST" && !attachmentId) {
           try {

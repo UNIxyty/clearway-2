@@ -17,16 +17,15 @@
 //     end writes nothing extra — the individual rows already say what happened.
 import { leonForOperator } from "../leon-operators.mjs";
 import { audit } from "../store.mjs";
+import { personalDataGate, WINDOW_MS, REVEAL_LIMIT, CLIENT_REVEAL_LIMIT } from "../personal-data-gate.mjs";
 import { rest } from "../knowledge/retrieval.mjs";
 import { can } from "../../../lib/permissions/grants.mjs";
 import { flightInScope } from "../../../lib/clients/scope.mjs";
 
 const err = (status, message) => Object.assign(new Error(message), { status });
-const WINDOW_MS = 10 * 60_000;
-export const REVEAL_LIMIT = 40; // per person per window, across flights
+export { REVEAL_LIMIT, CLIENT_REVEAL_LIMIT }; // the one bucket, all paths: agent/lib/personal-data-gate.mjs
 export const BURST_FLIGHTS = 3; // more than this many different flights in a window is the unusual shape
 // A client (Stage 5): lower, by decision — a client checks their own passengers, not a manifest a day.
-export const CLIENT_REVEAL_LIMIT = 15;
 export const CLIENT_BURST_FLIGHTS = 1;
 export const SECONDS = 30; // the view closes itself after this; the same number on intake and in the mailbox
 
@@ -126,13 +125,6 @@ export async function revealPassenger(flightId, id) {
 }
 
 /** This person's reveals in the window: how many, and on which flights (from the audit log, so restarts do not forget). */
-async function recentReveals(user) {
-  const since = new Date(Date.now() - WINDOW_MS).toISOString();
-  const rows = await rest(`agent_audit_log?select=detail,created_at&kind=eq.intake.personal_revealed&actor_id=eq.${encodeURIComponent(user.userId)}&created_at=gt.${encodeURIComponent(since)}&order=created_at.desc&limit=200`).catch(() => []);
-  const flights = new Set(); let count = 0;
-  for (const r of rows ?? []) { if (!r.detail?.flightId) continue; count += 1; flights.add(r.detail.flightId); }
-  return { count, flights: [...flights], since };
-}
 async function burstAlreadyNoted(user, since) {
   const rows = await rest(`agent_audit_log?select=id&kind=eq.intake.personal_reveal_burst&actor_id=eq.${encodeURIComponent(user.userId)}&created_at=gt.${encodeURIComponent(since)}&limit=1`).catch(() => []);
   return (rows ?? []).length > 0;
@@ -148,7 +140,7 @@ export async function handlePassengerRoutes({ req, res, pathname, user, sendJson
   const send = (payload, status = 200) => { sendJson(res, payload, status); return true; };
   const notOnAccount = () => send({ ok: false, message: "That is not on your account." }, 404);
   const client = scope && !scope.nobody ? scope : null;
-  const revealLimit = client ? CLIENT_REVEAL_LIMIT : REVEAL_LIMIT, burstFlights = client ? CLIENT_BURST_FLIGHTS : BURST_FLIGHTS;
+  const burstFlights = client ? CLIENT_BURST_FLIGHTS : BURST_FLIGHTS;
   /**
    * A client's flight: in scope by its operator (no Leon read needed), or by its registration / trip number, which are the
    * flight's own in Leon — asked for in one small read that carries nothing of a passenger. A Leon error is "not theirs".
@@ -180,14 +172,13 @@ export async function handlePassengerRoutes({ req, res, pathname, user, sendJson
       const flightId = decodeURIComponent(m[1]), id = decodeURIComponent(m[2]);
       parseFlightId(flightId);
       if (client && (client.passengerLevel !== "documents" || !(await clientMayRead(flightId)))) return notOnAccount();
-      const recent = await recentReveals(user);
-      if (recent.count >= revealLimit) {
-        await audit({ kind: "intake.personal_reveal_limited", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: false, confirmationStatus: "not_required", detail: { flightId, count: recent.count, windowMin: WINDOW_MS / 60_000 } }).catch(() => {});
-        return send({ ok: false, message: `That is ${recent.count} document views in 10 minutes. Wait a few minutes, then carry on; this stop is logged.` }, 429);
-      }
+      // the one door (agent/lib/personal-data-gate.mjs): permission, the shared bucket, the row
+      const gate = await personalDataGate(user, { what: "passenger", client, detail: { flightId, seconds: SECONDS } });
+      if (!gate.ok) return gate.status === 404 ? notOnAccount() : send({ ok: false, message: gate.message, permission: gate.permission }, gate.status);
+      const recent = gate.recent;
       const p = await revealPassenger(flightId, id);
       const flights = new Set([...recent.flights, flightId]);
-      await audit({ kind: "intake.personal_revealed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { flightId, row: p.row, seconds: SECONDS, viewsInWindow: recent.count + 1, flightsInWindow: flights.size } }).catch(() => {});
+      await gate.record({ row: p.row, flightsInWindow: flights.size });
       if (flights.size > burstFlights && !(await burstAlreadyNoted(user, recent.since))) {
         await audit({ kind: "intake.personal_reveal_burst", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { flights: [...flights], count: recent.count + 1, windowMin: WINDOW_MS / 60_000 } }).catch(() => {});
       }

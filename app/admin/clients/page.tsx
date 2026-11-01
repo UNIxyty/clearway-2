@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
 import PageContent from "@/components/portal/PageContent";
-import { Button, EmptyState, Modal, Skeleton, TableCard, TextInput, useToast } from "@/components/kit";
+import { Button, Callout, EmptyState, Modal, Skeleton, TableCard, TextInput, useToast } from "@/components/kit";
 import { OFFLINE } from "@/lib/error-text";
 import "./clients.css";
 import SmartSearch, { type SuggestItem } from "./SmartSearch";
@@ -164,6 +164,8 @@ export default function AdminClientsPage() {
   const [notifyDraft, setNotifyDraft] = useState("");
   const [notifyBusy, setNotifyBusy] = useState(false);
   const [linkBusy, setLinkBusy] = useState<string | null>(null);
+  // migration 0028 applied? Until then the parts of onboarding that need it say they are waiting (lib/clients/onboarding.ts)
+  const [ready, setReady] = useState<boolean | null>(null);
   const [flights, setFlights] = useState<Array<{ oprId: string; registration: string; tripNo: string | null; startTimeUTC: string }>>([]);
 
   const load = useCallback(async () => {
@@ -173,7 +175,7 @@ export default function AdminClientsPage() {
       if (res.status === 403 || res.status === 401) { setForbidden(true); setState("ready"); return; }
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error((typeof data?.error === "string" && data.error) || `HTTP ${res.status}`);
-      setClients(data.clients as ClientRow[]); setDecisions(data.decisions as Decision[]); setState("ready");
+      setClients(data.clients as ClientRow[]); setDecisions(data.decisions as Decision[]); setReady(data.onboardingReady !== false); setState("ready");
     } catch (e) { setLoadError(e instanceof Error ? e.message : OFFLINE); setState("error"); } // public-error-ok: the Error carries our own route's sentence (the clients API answers with its problems list), or OFFLINE
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -300,6 +302,11 @@ export default function AdminClientsPage() {
       <PageContent className="flex flex-col gap-5" data-admin-clients>
         {forbidden ? <TableCard><EmptyState icon="lock" title="Clients is for Admins">Your role can’t approve or change client access. An admin can, under Admin → Clients.</EmptyState></TableCard> : (
           <>
+            {ready === false && (
+              <Callout tone="warning" icon="clock" title="Client onboarding is waiting for a database change" data-onboarding-waiting>
+                Asking for access, approving a client who has no account yet, and the set-password links will work once migration 0028 has been applied. Approved clients and their access are not affected; you can still change and remove them.
+              </Callout>
+            )}
             <div className="flex flex-col gap-2" data-clients-search>
               <SmartSearch items={[...clientItems, ...scopeItems]} kinds={["operator", "registration", "trip", "client"]} label="Find a client, an operator, an aircraft or a trip" placeholder="Find a client, an operator, an aircraft or a trip" loading={catState === "loading"} unavailable={scopeUnavailable} onPick={pick} />
               {filter && <div className="flex flex-wrap items-center gap-2 text-[13.5px] text-cw-text-body" data-clients-filter><span>Approved clients who can see <span className="font-mono font-semibold text-cw-text">{filter.label}</span>: {shownApproved.length}</span><Button size="sm" variant="secondary" icon="x" onClick={() => setFilter(null)}>Show all</Button></div>}
@@ -337,7 +344,7 @@ export default function AdminClientsPage() {
               {shownApproved.map((a) => (
                 <div key={a.id} data-client-approved={a.id}>
                   <div className={`cl-approved-row grid items-center gap-x-4 gap-y-2 border-b border-cw-divider px-5 py-3 ${openId === a.id ? "bg-cw-bg-selected" : "hover:bg-cw-bg-hover"}`}>
-                    <span className="flex min-w-0 flex-col gap-0.5"><span className="text-[14.5px] font-semibold">{a.company}</span><span className="truncate text-[12.5px] text-cw-text-muted">{a.person_name || a.email} · {a.kind === "broker" ? "Broker" : "Operator"}</span>{!a.user_id && <span className="flex flex-wrap items-center gap-2 pt-1" data-no-account><span className="inline-flex h-5 items-center rounded-[5px] bg-cw-warning-tint px-1.5 text-[11px] font-bold text-cw-warning-text">NO PASSWORD SET YET</span><button type="button" className="text-[12.5px] font-semibold text-cw-text-link disabled:opacity-60" disabled={linkBusy === a.id} onClick={() => void resendLink(a)} data-resend-link>{linkBusy === a.id ? "Sending…" : "Send the link again"}</button></span>}</span>
+                    <span className="flex min-w-0 flex-col gap-0.5"><span className="text-[14.5px] font-semibold">{a.company}</span><span className="truncate text-[12.5px] text-cw-text-muted">{a.person_name || a.email} · {a.kind === "broker" ? "Broker" : "Operator"}</span>{!a.user_id && ready === true && <span className="flex flex-wrap items-center gap-2 pt-1" data-no-account><span className="inline-flex h-5 items-center rounded-[5px] bg-cw-warning-tint px-1.5 text-[11px] font-bold text-cw-warning-text">NO PASSWORD SET YET</span><button type="button" className="text-[12.5px] font-semibold text-cw-text-link disabled:opacity-60" disabled={linkBusy === a.id} onClick={() => void resendLink(a)} data-resend-link>{linkBusy === a.id ? "Sending…" : "Send the link again"}</button></span>}</span>
                     <span className="cl-approved-scope flex min-w-0 flex-wrap gap-1.5">{normaliseScope(a.scope).map((e) => <span key={`${e.kind}:${e.value}`} className={`cl-scope-${e.kind} inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-[6px] border px-1.5 font-mono text-[12px] font-medium`}><MaskIcon name={KIND_META[e.kind as ScopeEntry["kind"]].icon} size={11} />{e.value}</span>)}</span>
                     <span className="cl-approved-wide-grid grid-cols-[repeat(11,22px)] gap-1" aria-label={`${normaliseSwitches(a.switches).length} of ${SWITCHES.length} switches`}>{SWITCHES.map((s) => { const v = normaliseSwitches(a.switches).includes(s.key); return <span key={s.key} title={`${s.label}: ${v ? "on" : "off"}`} className="flex h-[22px] w-[22px] items-center justify-center"><span className={`h-2.5 w-2.5 rounded-full ${v ? "bg-cw-primary" : "border-[1.5px] border-cw-border-strong"}`} /></span>; })}</span>
                     <span className="cl-approved-count text-[12.5px] text-cw-text-body">{normaliseSwitches(a.switches).length} of {SWITCHES.length} switches</span>
@@ -363,7 +370,7 @@ export default function AdminClientsPage() {
                 </div>); })}
             </TableCard>
 
-            <TableCard>
+            {ready === true && <TableCard>
               {header("Who is told about new requests", <span className="text-[13px] text-cw-text-muted">{notify === null ? "" : notify.length ? `${notify.length} address${notify.length === 1 ? "" : "es"}` : "nobody"}</span>)}
               <div className="flex flex-col gap-3 p-5" data-notify-list>
                 <span className="text-[13.5px] leading-normal text-cw-text-body">When someone asks for access, an email goes to every address here, with who is asking and a link to this page. More than one, so a request never waits on one person’s holiday.</span>
@@ -373,7 +380,7 @@ export default function AdminClientsPage() {
                   <Button variant="secondary" disabled={notifyBusy || notify === null || notifyDraft.split(/[\s,;]+/).filter(Boolean).join(",") === (notify ?? []).join(",")} loading={notifyBusy} onClick={() => void saveNotify()} data-save-notify>Save</Button>
                 </div>
               </div>
-            </TableCard>
+            </TableCard>}
           </>
         )}
       </PageContent>

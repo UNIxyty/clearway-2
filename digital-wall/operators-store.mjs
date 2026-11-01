@@ -173,6 +173,12 @@ export class OperatorsStore {
     if (!normalizedOprId) {
       throw new PublicError("Leon prefix (oprId) is required.");
     }
+    // The prefix becomes the Leon host the sync calls (https://<oprId>.leon.aero), with the operator's token, or the
+    // platform's client secret in OAuth mode. Editing checked it; creating did not (found 2026-11-02): a prefix like
+    // "evil.tld/x?" sent those calls to another host. The same rule on both paths.
+    if (!/^[a-z0-9-]+$/i.test(normalizedOprId)) {
+      throw new PublicError("Leon prefix (oprId) may only contain letters, digits and dashes.");
+    }
     if (!String(refreshToken || "").trim()) {
       throw new PublicError("Leon API refresh token is required.");
     }

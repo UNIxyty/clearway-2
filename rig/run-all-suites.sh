@@ -33,6 +33,7 @@ run docs-check node --no-warnings rig/docs-check.mjs
 run utc-times node rig/check-utc-times.mjs
 run error-text node rig/check-error-text.mjs
 run style-text node rig/check-style-text.mjs
+run own-mail node rig/check-own-mail.mjs
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
@@ -79,6 +80,7 @@ run temporary-access-check $E rig/temporary-access-check.mjs
 run client-scope-check $E rig/client-scope-check.mjs
 run client-ui-check $E rig/client-ui-check.mjs
 run clients-page-check $E rig/clients-page-check.mjs   # Admin › Clients: padding, overlap at 6 widths, a whole word in every field
+run client-onboarding-check $E rig/client-onboarding-check.mjs   # ask → ops mail → approve → set-password link → account; our own sign-in emails, all in Mailbox › Sent
 run maintenance-logos node rig/maintenance-logos-check.mjs
 run airac-dates-check node rig/airac-dates-check.mjs
 run aip-refresh-check $E rig/aip-refresh-check.mjs

@@ -67,6 +67,8 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | client-scope-check | 60 | 2026-10-28 |
 | client-ui-check | 60 | 2026-10-28 |
 | clients-page-check | 33 | 2026-11-02 |
+| client-onboarding-check | 54 | 2026-11-02 |
+| own-mail | 1 | 2026-11-02 |
 | style-text | 1 | 2026-10-28 |
 | maintenance-logos | 12 | 2026-10-28 |
 | airac-dates-check | 5 | 2026-10-25 |

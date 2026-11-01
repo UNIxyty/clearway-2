@@ -33,6 +33,9 @@ export default function ProfilePage() {
   const [userId, setUserId] = useState("");
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  // back from an email-change link (lib/mail/auth-links.ts): one of the two is confirmed, or both
+  const [linkLanded, setLinkLanded] = useState(false);
+  useEffect(() => { if (new URLSearchParams(window.location.search).has("email-link")) { setLinkLanded(true); window.history.replaceState(null, "", "/account/profile"); } }, []);
   const [displayName, setDisplayName] = useState("");
   const [savedName, setSavedName] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -78,9 +81,11 @@ export default function ProfilePage() {
     if (!EMAIL.test(target)) { setEmailError("That doesn't look like an email address."); return; }
     if (target === email.trim().toLowerCase()) { setEmailError("That is already your sign-in email."); return; }
     setEmailSaving(true);
-    const { error } = await supabase.auth.updateUser({ email: target });
+    // sent by us since 2026-11-02 (app/api/account/email-change): a link to each address, both recorded in Mailbox › Sent
+    const res = await fetch("/api/account/email-change", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: target }) }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
     setEmailSaving(false);
-    if (error) { setEmailError(authErrorText(error, `Couldn't start the change. ${TRY_AGAIN}`)); return; }
+    if (!res?.ok) { setEmailError(res ? apiErrorText(data, `Couldn't start the change. ${TRY_AGAIN}`) : OFFLINE); return; }
     setPendingEmail(target); setEditingEmail(false); setNewEmail("");
   }
 
@@ -154,9 +159,14 @@ export default function ProfilePage() {
                   ) : (
                     <div className="flex flex-col gap-2.5">
                       <div className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate font-mono text-[14px] text-cw-text">{email}</span><Button size="sm" onClick={() => setEditingEmail(true)}>Change</Button></div>
+                      {linkLanded && !pendingEmail && (
+                        <Callout tone="info" icon="mail" title="Link accepted" data-email-link-landed>
+                          If the sign-in email above has not changed yet, open the link in the other inbox too: the change needs both.
+                        </Callout>
+                      )}
                       {pendingEmail && (
                         <Callout tone="info" icon="mail" title={<>Waiting for you to confirm <span className="font-mono">{pendingEmail}</span></>}>
-                          Open the link we sent there. Until then you sign in with <span className="font-mono">{email}</span>. If the confirmation asks for both addresses, confirm from both inboxes.
+                          We emailed a link to both addresses. The change happens once both are confirmed; until then you sign in with <span className="font-mono">{email}</span>.
                         </Callout>
                       )}
                     </div>

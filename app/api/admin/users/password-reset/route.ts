@@ -1,12 +1,13 @@
 // Admin → Users → Send password reset (portal redesign §3.2, approved item 8). Sends the same reset email the
-// sign-in page's "Forgot password" sends, to the account's own address, so only its owner can use it. Needs
+// sign-in page's "Forgot password" sends, to the account's own address, so only its owner can use it. Sent by us since
+// 2026-11-02 (lib/mail/auth-links.ts): the brand's sender, a row in Mailbox › Sent with its delivery status. Needs
 // portal.users.password-reset (admin and developer by default; docs/supabase-permissions-password-reset.sql). As with
 // role changes, an admin cannot act on a developer's account.
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
-import { buildAppUrl } from "@/lib/auth-email-flow-utils.mjs";
+import { appUrl } from "@/lib/mail/send";
+import { sendResetEmail } from "@/lib/mail/auth-links";
 import { TRY_AGAIN, failure, logFailure } from "@/lib/public-error";
 
 const NOT_SENT = `The reset email was not sent. ${TRY_AGAIN}`;
@@ -19,11 +20,9 @@ export async function POST(request: Request) {
   const userId = String(body.userId ?? "").trim();
   if (!userId) return NextResponse.json({ error: "userId is required." }, { status: 400 });
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const service = createSupabaseServiceRoleClient();
-  if (!url || !anonKey || !service) {
-    return failure(503, NOT_SENT, { tag: "ADMIN-PASSWORD-RESET", what: "Supabase URL / anon key / service role key not set" });
+  if (!service) {
+    return failure(503, NOT_SENT, { tag: "ADMIN-PASSWORD-RESET", what: "service role key not set" });
   }
 
   const { data: target, error: findError } = await service.auth.admin.getUserById(userId);
@@ -35,15 +34,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Admins cannot act on Developer accounts." }, { status: 403 });
   }
 
-  const anon = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const appUrl = buildAppUrl(process.env.NEXT_PUBLIC_SITE_URL, new URL(request.url).origin);
-  const { error } = await anon.auth.resetPasswordForEmail(email, { redirectTo: `${appUrl}/auth/reset` });
-  if (error) {
-    const status = (error as { status?: number }).status ?? 0; // the auth server's own status; 0 = it did not say
-    logFailure("ADMIN-PASSWORD-RESET", `resetPasswordForEmail failed (${status})`, error.message);
-    // A failed email is not a bad gateway, and a 502 body is replaced by Cloudflare's page in production: answer 500,
-    // with the auth server's status kept in the body (upstreamStatus) and in the log above.
-    return NextResponse.json({ error: status === 429 ? "Too many reset emails just now — try again in a minute." : NOT_SENT, code: status === 429 ? "rate_limited" : "email_not_sent", upstreamStatus: status || "unknown" }, { status: status === 429 ? 429 : 500 });
+  const out = await sendResetEmail(service, email, appUrl(request), { kind: "password-reset-admin", by: auth.user.email ?? null });
+  if (!out.ok) {
+    logFailure("ADMIN-PASSWORD-RESET", out.linkError ? "reset link not made" : "reset email not sent", out.error);
+    // A failed email is not a bad gateway, and a 502 body is replaced by Cloudflare's page in production: answer 500.
+    return NextResponse.json({ error: NOT_SENT, code: out.linkError ? "link_not_made" : "email_not_sent" }, { status: 500 });
   }
   return NextResponse.json({ ok: true, sentTo: email });
 }

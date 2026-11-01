@@ -11,6 +11,10 @@ services. This document is the rule set that replaced that, where each rule live
   authorization (lib/permissions/check.mjs › checkMetadataReads).
 - `public.clients` (migration 0027) holds the rest: company, scope, switches, passenger level, consent, who decided.
   `public.client_decisions` is the append-only log. Removing access EMPTIES the row and keeps it.
+- **Since 2026-11-02 there is no account until a client is approved and sets a password** (migration 0028, which
+  production needs applied before this is deployed). `clients.user_id` is empty for a request. `client_invites` holds
+  the set-password links, as a hash only. `app_settings` holds the notify list. The decision log gains `link-sent` and
+  `activated`.
 - The client role holds no action in the permissions grid: `roleKey("client")` is null, so `can()` refuses every
   write in every service. Admin › Clients is one action, `clients.manage` (admins and developers by default).
 
@@ -41,14 +45,32 @@ cannot prove.
 - **Sign in** (`app/login`): under the form, "Clearway staff: your account is set up by an admin", then a block of its
   own for operators and brokers with **Ask for access** → `/request-access`. (Sign In v2, the photograph panel, was
   built on 2026-10-28 and taken back out the same week; its Enter-to-sign-in form and forgot-password hint stayed.) `/request-access`: full name, company (required), work email,
-  You are (Operator / Broker), an optional note. No password here: the email link sets it; confirming the email sends the
-  request. No trip, flight or reference field exists — those identify a flight, not a person.
-- **The request** (`app/api/auth/email/request-confirmation`, kind "client"): the invited account is a client from the
-  first moment (app_metadata, service key), not approved, status requested; a clients row is opened; ops are told in
-  Telegram "New client access request — decide under Admin › Clients" (no chat button approves a client: the scope is
-  set on the page). The confirm step keeps the client keys and skips the staff pending flow.
-- **Waiting, refused, removed** (`app/client/*`): shell-less, three steps on the waiting screen, "You will get an email
-  when it is decided." The root sends a client to their world or their holding page; every other page is 404.
+  You are (Operator / Broker), an optional note. There is no password field and no account. No trip, flight or
+  reference field exists either: those identify a flight, not a person.
+- **The onboarding flow (2026-11-02, `lib/clients/onboarding.ts`)**:
+  1. **The client asks.** `POST /api/client-requests` files a clients row with no account. Asking again from the same
+     address updates the open request.
+  2. **Ops are told.** One email (`client-request-ops`) goes to every address on the notify list. It says who is
+     asking, from which address, for which company and as what, with a button to Admin › Clients. The list is edited
+     on Admin › Clients › "Who is told about new requests", stored in `app_settings` › `clients.notify_to`. The page
+     warns when the list is empty. The request is filed either way. This email replaces the Telegram notice of the
+     first client flow.
+  3. **Ops approve** with the scope and switches. Approving sends the set-password link (`client-invite`). The toast
+     says whether the mail service accepted it. An approved client with no password shows "NO PASSWORD SET YET" and
+     **Send the link again**.
+  4. **The link** (`/welcome?token=…`) works once and **expires after 72 hours**. Seventy-two hours means an approval
+     on a Friday still works on Monday, and a link that creates an account does not stay open for weeks. Only its
+     hash is stored, and a newer link replaces the older ones. The page takes the token out of the address bar. A
+     used link says so. An expired or replaced link says so and offers a new one, which goes only to the address on
+     the request (masked on the page), at most one every two minutes.
+  5. **Setting the password creates the account** (`POST /api/client-invite`): a confirmed client, approved, linked to
+     the row, then signed in to `/client`. The link is claimed before the account is made, so two tabs cannot both
+     use it. If the account cannot be made, the link is given back.
+- **Waiting, refused, removed** (`app/client/*`): shell-less. **Refused** and **removed** stay as they were.
+  **Waiting** stays only for accounts made by the first client flow (before 2026-11-02) whose request is still open.
+  In the new flow nobody waits signed in, because there is no account until approval. A refused request in the new
+  flow has no account and is told by email. The root sends a client to their world or their holding page; every
+  other page is 404. The old sign-up route's client branch answers 410 and points to Ask for access.
   **The door and nothing else** (2026-10-28): the page source carries no link or label of what is behind it. The root
   not-found used to ride in every page's payload with the docs' 404 block (Help & support, the glossary, `/dashboard`,
   the portal's address). Now `middleware.ts` marks every request it lets through with `x-cw-docs` (1 under `/docs`, 0
@@ -77,14 +99,19 @@ cannot prove.
   scope and access apart; Flight board is required; no scope, no Approve; documents need the consent line; the summary
   says what the client will see; Remove access asks for the company typed and lists what happens. The live "matches N
   flights in the next 7 days" and the suggestion row read the wall as the admin.
-- **The email** (`lib/clients/mail.ts`): approved / refused (with ops' note) / access ended, through Resend; the only
-  promise the waiting screen makes.
+- **The emails** (`lib/clients/mail.ts`, `lib/clients/onboarding.ts`): the request to ops, the set-password link,
+  approved (for an account from before 2026-11-02), refused (with ops' note) and access ended. All are sent by us
+  through `lib/mail/send.ts`, from the brand's sender, and each appears in Mailbox › Sent with its delivery status
+  (docs/emails.md).
 - **The client wall** (`app/client/wall.tsx`): builds itself from the switches. Board (Today / Tomorrow / 7 days, or
   trips grouped for trip-scoped clients) and the open flight side by side from 700px; the board first and the flight full
   screen below it, with "← All flights". Cards per switch: weather, NOTAMs, radar, passengers (the one passenger viewer,
   at the client's level), documents; Airports and Documents become header tabs, or a bottom tab bar on the phone, only
   when switched on. Every number comes from the wall backend's scoped answers.
-- **Checks**: `rig/client-ui-check.mjs` (in the runner) approves a client through the page, looks at the wall as the
+- **Checks**: `rig/client-onboarding-check.mjs` (in the runner) walks the whole flow above against the mock Resend:
+  request, ops email, approve, link, replaced link, password, account, used link, expired link and a new one to the
+  address on file only, refusal by email, then the sign-in emails Supabase used to send, and the Mailbox › Sent rows.
+  `rig/client-ui-check.mjs` (in the runner) approves a client through the page, looks at the wall as the
   client at 1440 and 390 in both themes, checks no horizontal scroll and no shell in the client's pages, changes and
   removes through the page, and finds the row kept, emptied.
 

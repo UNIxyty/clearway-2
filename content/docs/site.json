@@ -25,5 +25,10 @@
     "logoLight": "/brand/verxyl-footer.png",
     "logoDark": "/brand/verxyl-footer-white.png"
   },
-  "public": false
+  "public": false,
+  "email": {
+    "$comment": "Who the platform's emails come from: the name people see, and the address (it must be on a domain verified in Resend). An empty address uses the address the server already sends from (CLIENT_EMAIL_FROM, else DIGITAL_WALL_EMAIL_FROM), with this name. lib/mail/send.ts.",
+    "fromName": "Clearway",
+    "fromAddress": ""
+  }
 }

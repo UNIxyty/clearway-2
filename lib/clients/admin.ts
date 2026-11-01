@@ -5,9 +5,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CLIENT_STATUSES, PASSENGER_LEVELS, REQUIRED_SWITCHES, normaliseScope, normaliseSwitches } from "@/lib/clients/switches.mjs";
 import { sendDecisionMail } from "@/lib/clients/mail";
+import { sendSetPasswordLink } from "@/lib/clients/onboarding";
+import type { SendResult } from "@/lib/mail/send";
 
 export type ClientRow = {
-  id: string; user_id: string; email: string; person_name: string; company: string; kind: string; note: string;
+  id: string; user_id: string | null; email: string; person_name: string; company: string; kind: string; note: string;
   status: "requested" | "approved" | "refused" | "removed";
   scope: Array<{ kind: string; value: string }>; switches: string[]; passenger_level: "off" | "names" | "documents"; consent: boolean;
   requested_at: string; decided_at: string | null; decided_by: string | null; decided_by_email: string | null; decision_note: string;
@@ -41,6 +43,7 @@ async function log(service: SupabaseClient, clientId: string, kind: string, acto
 
 /** The account's authorization keys follow the row: only this function writes them. */
 async function writeAccountMetadata(service: SupabaseClient, row: ClientRow) {
+  if (!row.user_id) return;   // no account yet (2026-11-02): it is made when the client sets a password, already approved
   const { data } = await service.auth.admin.getUserById(row.user_id);
   const current = (data?.user?.app_metadata ?? {}) as Record<string, unknown>;
   const { error } = await service.auth.admin.updateUserById(row.user_id, {
@@ -67,7 +70,7 @@ export function validateChange(row: ClientRow, change: Change) {
 }
 
 /** Approve (from requested, refused or removed) with the full access set, or change an approved client. */
-export async function saveAccess(service: SupabaseClient, row: ClientRow, change: Change, actor: Actor, decision: "approved" | "changed"): Promise<{ problems: string[]; row?: undefined } | { row: ClientRow; problems?: undefined }> {
+export async function saveAccess(service: SupabaseClient, row: ClientRow, change: Change, actor: Actor, decision: "approved" | "changed", appUrl = ""): Promise<{ problems: string[]; row?: undefined } | { row: ClientRow; problems?: undefined; email: SendResult | null }> {
   const v = validateChange(row, change);
   if (v.problems.length) return { problems: v.problems };
   const before = { scope: normaliseScope(row.scope), switches: normaliseSwitches(row.switches), passengerLevel: row.passenger_level };
@@ -79,8 +82,15 @@ export async function saveAccess(service: SupabaseClient, row: ClientRow, change
   const levelChanged = before.passengerLevel !== after.passenger_level;
   await log(service, row.id, decision, actor, { before, after: { scope: after.scope, switches: after.switches, passengerLevel: after.passenger_level } }, String(change.note ?? ""));
   if (decision === "changed" && levelChanged) await log(service, row.id, "passengers", actor, { from: before.passengerLevel, to: after.passenger_level, consent: after.consent });
-  if (decision === "approved") void sendDecisionMail({ to: after.email, personName: after.person_name, company: after.company, decision: "approved" });
-  return { row: after };
+  // Approved: a client with no account yet gets the set-password link (the account is made with it); one made before
+  // 2026-11-02 gets the approval email. Either way the outcome of the send comes back for the page to say.
+  let email: SendResult | null = null;
+  if (decision === "approved") {
+    email = after.user_id
+      ? await sendDecisionMail({ to: after.email, personName: after.person_name, company: after.company, decision: "approved", ref: after.id, by: actor.email })
+      : await sendSetPasswordLink(service, after, appUrl, actor.email);
+  }
+  return { row: after, email };
 }
 
 /** Refuse a request, or remove access: the row stays, emptied. */
@@ -92,11 +102,11 @@ export async function closeAccess(service: SupabaseClient, row: ClientRow, statu
   if (error) throw error;
   const after = data as ClientRow;
   await writeAccountMetadata(service, after);
-  if (status === "removed") {
+  if (status === "removed" && row.user_id) {
     // Signed out everywhere now: every refresh token of the account is revoked.
     await service.auth.admin.signOut(row.user_id, "global").catch(() => {});
   }
   await log(service, row.id, status, actor, { before }, note);
-  void sendDecisionMail({ to: after.email, personName: after.person_name, company: after.company, decision: status, note });
-  return { row: after };
+  const email = await sendDecisionMail({ to: after.email, personName: after.person_name, company: after.company, decision: status, note, ref: after.id, by: actor.email });
+  return { row: after, email };
 }

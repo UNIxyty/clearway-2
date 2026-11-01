@@ -9,7 +9,7 @@ const here = path.dirname(new URL(import.meta.url).pathname); const root = path.
 // --intake-only: add / refresh ONLY the intake block in an existing .env.rig (keeps every other line).
 if (process.argv.includes("--intake-only")) {
   const file = path.join(root, ".env.rig");
-  const keep = fs.readFileSync(file, "utf8").split("\n").filter((l) => l && !/^(RESEND_WEBHOOK_SECRET|RESEND_API_BASE|RESEND_API_KEY|INTAKE_[A-Z_]+|AGENT_EMAIL_FROM|LEON_API_BASE|LEON_REFRESH_TOKEN|LEON_OPR_ID)=/.test(l) && !/^# (intake|Leon|no Leon|for REAL Leon)/.test(l));
+  const keep = fs.readFileSync(file, "utf8").split("\n").filter((l) => l && !/^(RESEND_WEBHOOK_SECRET|RESEND_API_BASE|RESEND_BASE_URL|RESEND_API_KEY|INTAKE_[A-Z_]+|AGENT_EMAIL_FROM|LEON_API_BASE|LEON_REFRESH_TOKEN|LEON_OPR_ID)=/.test(l) && !/^# (intake|Leon|no Leon|for REAL Leon)/.test(l));
   fs.writeFileSync(file, [...keep, ...intakeLines(), ...leonLines()].join("\n") + "\n", { mode: 0o600 });
   console.log("refreshed the intake block in .env.rig"); process.exit(0);
 }
@@ -54,7 +54,7 @@ lines.push(...intakeLines(), ...leonLines());
 function intakeLines() {
   return ["# intake: local mock Resend, captured mail, .invalid addresses",
     `RESEND_WEBHOOK_SECRET=whsec_${Buffer.from(execSync("head -c 24 /dev/urandom")).toString("base64")}`,
-    "RESEND_API_BASE=http://127.0.0.1:3996", "RESEND_API_KEY=rig-mock-resend-key", "INTAKE_MAIL_MODE=capture",
+    "RESEND_API_BASE=http://127.0.0.1:3996", "RESEND_BASE_URL=http://127.0.0.1:3996", "RESEND_API_KEY=rig-mock-resend-key", "INTAKE_MAIL_MODE=capture",
     "INTAKE_NOTIFY_TO=ops@intake.rig.invalid", "INTAKE_ADDRESSES=handling@intake.rig.invalid", `AGENT_EMAIL_FROM="Clearway AI Agent <agent@intake.rig.invalid>"`,
     `INTAKE_ROOT=${path.join(here, ".scratch", "intake")}`, "INTAKE_CHECKLIST_RETRY_MS=2000", "INTAKE_LEON_TRIP_STATUS=OPTION", "INTAKE_LEON_TIMEOUT_MS=8000",
     // the passport → contact mapping's HMAC key (rig-only, random; production has its own, permanent: docs/intake.md)

@@ -97,7 +97,7 @@ export default function AdminUsersPage() {
       if (res?.ok) sent += 1; else failed.push(`${nameOf(u)}: ${body.error ?? `failed (${res?.status ?? "network"})`}`);
     }
     setBusy(null);
-    if (sent) toast.show({ tone: "success", title: sent === 1 && targets.length === 1 ? `Password reset sent to ${targets[0].email}` : `Password reset sent to ${sent} ${sent === 1 ? "person" : "people"}`, body: "The email links to a page where they choose a new password." });
+    if (sent) toast.show({ tone: "success", title: sent === 1 && targets.length === 1 ? `Password reset sent to ${targets[0].email}` : `Password reset sent to ${sent} ${sent === 1 ? "person" : "people"}`, body: "Accepted by the mail service; Mailbox › Sent shows when it is delivered. The link lets them choose a new password, once, within an hour." });
     if (failed.length) toast.show({ tone: "danger", title: `Couldn't send ${failed.length} reset email${failed.length === 1 ? "" : "s"}`, body: failed.slice(0, 2).join(" · "), action: { label: "Retry", onClick: () => void sendReset(targets.filter((t) => failed.some((f) => f.startsWith(`${nameOf(t)}:`)))) } });
     if (sent && !failed.length) setSelected(new Set());
   }

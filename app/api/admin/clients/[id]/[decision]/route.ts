@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { appUrl } from "@/lib/mail/send";
 import { scopeCatalogue, unknownScope } from "@/lib/clients/catalogue";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requirePermission } from "@/lib/permissions/server";
@@ -28,17 +29,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const cat = await scopeCatalogue(service, (await auth.supabase.auth.getSession()).data.session?.access_token ?? null);
       const unknown = unknownScope(row.scope, body.scope === undefined ? row.scope : body.scope, cat);
       if (unknown.length) return NextResponse.json({ ok: false, error: unknown.join(" "), problems: unknown }, { status: 400 });
-      const out = await saveAccess(service, row, body, actor, "approved");
+      const out = await saveAccess(service, row, body, actor, "approved", appUrl(request));
       if (out.problems) return NextResponse.json({ ok: false, error: out.problems.join(" "), problems: out.problems }, { status: 400 });
       forgetScope(row.user_id);
-      return NextResponse.json({ ok: true, client: out.row });
+      return NextResponse.json({ ok: true, client: out.row, email: out.email, linkSent: !row.user_id });
     }
     if (decision === "remove" && String(body.confirmCompany ?? "").trim().toLowerCase() !== row.company.trim().toLowerCase()) {
       return NextResponse.json({ ok: false, error: "Type the company name exactly to remove access." }, { status: 400 });
     }
     const out = await closeAccess(service, row, decision === "refuse" ? "refused" : "removed", actor, String(body.note ?? ""));
     forgetScope(row.user_id);
-    return NextResponse.json({ ok: true, client: out.row });
+    return NextResponse.json({ ok: true, client: out.row, email: out.email });
   } catch (error) {
     return failure(500, NOT_SAVED, { tag: "ADMIN-CLIENTS", what: "decision failed", detail: error });
   }

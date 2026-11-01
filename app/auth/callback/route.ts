@@ -24,6 +24,9 @@ export async function GET(request: Request) {
   const rawTokenType = requestUrl.searchParams.get("type");
   const tokenType = rawTokenType ? rawTokenType.toLowerCase() : null;
   const signupToken = requestUrl.searchParams.get("signup_token");
+  // an email-change link (lib/mail/auth-links.ts): the address and its one-time code, verified as a pair
+  const otpEmail = requestUrl.searchParams.get("email");
+  const otp = requestUrl.searchParams.get("otp");
   const error = requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
   const nextRaw =
@@ -52,7 +55,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (!code && !tokenHash) {
+  if (!code && !tokenHash && !(otpEmail && otp)) {
     if (signupToken) {
       const confirmUrl = new URL(
         `/auth/confirm?token=${encodeURIComponent(signupToken)}`,
@@ -100,6 +103,9 @@ export async function GET(request: Request) {
   if (code) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
     if (exchangeError) authError = exchangeError.message;
+  } else if (otpEmail && otp) {
+    const { error: verifyError } = await supabase.auth.verifyOtp({ email: otpEmail, token: otp, type: "email_change" });
+    if (verifyError) authError = verifyError.message;
   } else if (tokenHash) {
     const otpType =
       (tokenType as "signup" | "invite" | "recovery" | "email_change" | "email" | null) ??

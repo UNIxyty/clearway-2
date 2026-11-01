@@ -18,7 +18,7 @@ import { SWITCHES, STARTING_SWITCHES, normaliseScope, normaliseSwitches } from "
 type ScopeEntry = { kind: "operator" | "registration" | "trip"; value: string };
 type Level = "off" | "names" | "documents";
 type ClientRow = {
-  id: string; user_id: string; email: string; person_name: string; company: string; kind: string; note: string;
+  id: string; user_id: string | null; email: string; person_name: string; company: string; kind: string; note: string;
   status: "requested" | "approved" | "refused" | "removed"; scope: ScopeEntry[]; switches: string[]; passenger_level: Level; consent: boolean;
   requested_at: string; decided_at: string | null; decided_by_email: string | null; decision_note: string;
 };
@@ -107,7 +107,7 @@ function ClientEditor({ c, ed, setEd, busy, matchCount, suggestionFor, onSave, o
                   <button type="button" key={s.key} role="switch" aria-checked={v} aria-label={s.label} disabled={required && v} data-switch={s.key} className="grid min-h-[44px] grid-cols-[20px_minmax(0,1fr)_36px] items-center gap-2.5 border-t border-cw-divider py-1 text-left" onClick={() => setEd({ ...ed, switches: v ? ed.switches.filter((k) => k !== s.key) : [...ed.switches, s.key] })}>
                     <MaskIcon name={SWITCH_ICON[s.key]} size={15} className={v ? "text-cw-text" : "text-cw-text-muted"} />
                     <span className="flex min-w-0 flex-col"><span className={v ? "text-[14px] font-semibold text-cw-text" : "text-[14px] font-medium text-cw-text-body"}>{s.label}{required && <span className="ml-2 text-[11px] font-bold text-cw-text-muted">REQUIRED</span>}{changed && <span className="ml-2 text-[11px] font-bold text-cw-text-link">CHANGED</span>}</span><span className="hidden text-[12.5px] text-cw-text-muted min-[900px]:block">{SWITCH_HINT[s.key]}</span></span>
-                    <span aria-hidden className={`relative h-5 w-9 rounded-[10px] transition-colors ${v ? "bg-cw-primary" : "bg-cw-border-strong"}`}><span className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left]" style={{ left: v ? 18 : 2 }} /></span>
+                    <span aria-hidden className={`relative h-5 w-9 rounded-[10px] transition-colors ${v ? "bg-cw-primary" : "bg-cw-border-strong"}`}><span className="absolute top-0.5 h-4 w-4 rounded-full shadow transition-[left]" style={{ left: v ? 18 : 2, background: "var(--cw-knob)" }} /></span>
                   </button>); })}
               </div>
             ))}
@@ -160,6 +160,10 @@ export default function AdminClientsPage() {
   const [cat, setCat] = useState<Catalogue | null>(null);
   const [catState, setCatState] = useState<"loading" | "ready" | "error">("loading");
   const [filter, setFilter] = useState<Filter | null>(null);
+  const [notify, setNotify] = useState<string[] | null>(null);
+  const [notifyDraft, setNotifyDraft] = useState("");
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [linkBusy, setLinkBusy] = useState<string | null>(null);
   const [flights, setFlights] = useState<Array<{ oprId: string; registration: string; tripNo: string | null; startTimeUTC: string }>>([]);
 
   const load = useCallback(async () => {
@@ -176,6 +180,7 @@ export default function AdminClientsPage() {
   // The wall's own answers, as this admin: operator names for the suggestion row, and the next 7 days of flights for the
   // live "matches N flights" count. Informational — the wall backend enforces scope on every request regardless.
   useEffect(() => {
+    fetch("/api/admin/clients/settings", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.ok) { setNotify(d.emails as string[]); setNotifyDraft((d.emails as string[]).join(", ")); } }).catch(() => {});
     fetch("/api/admin/clients/catalogue", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then((d) => { setCat(d as Catalogue); setCatState("ready"); }).catch(() => setCatState("error"));
     fetch("/digital-wall/api/operators", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { const list = (d?.operators ?? d ?? []) as Array<{ oprId?: string; id?: string; name?: string }>; setOperators(list.map((o) => ({ oprId: String(o.oprId ?? o.id ?? ""), name: String(o.name ?? o.oprId ?? "") })).filter((o) => o.oprId)); }).catch(() => {});
     const to = new Date(Date.now() + 7 * 86400e3).toISOString();
@@ -229,7 +234,12 @@ export default function AdminClientsPage() {
       const res = await fetch(url, { method: c.status === "approved" ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error((typeof data?.error === "string" && data.error) || `HTTP ${res.status}`);
-      toast.show({ tone: "success", title: c.status === "approved" ? `Changes saved for ${c.company}` : `${c.company} approved`, body: c.status === "approved" ? "They see the change the next time they load a page." : "They can sign in and see their flights now." });
+      // what the approval email did, said as it is: accepted by the mail service, or not sent (2026-11-02)
+      const mail = data.email as { ok?: boolean } | null | undefined;
+      if (c.status === "approved") toast.show({ tone: "success", title: `Changes saved for ${c.company}`, body: "They see the change the next time they load a page." });
+      else if (data.linkSent && mail?.ok) toast.show({ tone: "success", title: `${c.company} approved`, body: `The link to set a password went to ${c.email} (accepted by the mail service; Mailbox › Sent shows when it is delivered). Their account is made when they use it.` });
+      else if (data.linkSent) toast.show({ tone: "warning", title: `${c.company} approved — the email was not sent`, body: "The mail service did not take the email with their link. Send it again from their row; Mailbox › Sent has the failed one." });
+      else toast.show({ tone: mail?.ok ? "success" : "warning", title: `${c.company} approved`, body: mail?.ok ? "They had an account already: they can sign in and see their flights now. The approval email was accepted by the mail service." : "They had an account already and can sign in now. The approval email was not sent; Mailbox › Sent has it as failed." });
       close(); await load();
     } catch (e) { toast.show({ tone: "danger", title: "Not saved", body: e instanceof Error ? e.message : OFFLINE }); } // public-error-ok: the Error carries our own route's sentence (the clients API answers with its problems list), or OFFLINE
     finally { setBusy(false); }
@@ -242,9 +252,32 @@ export default function AdminClientsPage() {
       const res = await fetch(`/api/admin/clients/${c.id}/refuse`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error((typeof data?.error === "string" && data.error) || `HTTP ${res.status}`);
-      toast.show({ tone: "info", title: `Request from ${c.company} refused` }); close(); await load();
+      const mail = data.email as { ok?: boolean } | null | undefined;
+      toast.show({ tone: mail?.ok ? "info" : "warning", title: `Request from ${c.company} refused`, body: mail?.ok ? `The email telling them was accepted by the mail service.` : "The email telling them was not sent; Mailbox › Sent has it as failed." }); close(); await load();
     } catch (e) { toast.show({ tone: "danger", title: "Not saved", body: e instanceof Error ? e.message : OFFLINE }); } // public-error-ok: the Error carries our own route's sentence (the clients API answers with its problems list), or OFFLINE
     finally { setBusy(false); }
+  };
+  const resendLink = async (c: ClientRow) => {
+    setLinkBusy(c.id);
+    try {
+      const res = await fetch(`/api/admin/clients/${c.id}/link`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error((typeof data?.error === "string" && data.error) || `HTTP ${res.status}`);
+      toast.show({ tone: "success", title: `A new link went to ${c.email}`, body: "Accepted by the mail service. The older links stop working." }); await load();
+    } catch (e) { toast.show({ tone: "danger", title: "The link was not sent", body: e instanceof Error ? e.message : OFFLINE }); } // public-error-ok: the Error carries our own route's sentence, or OFFLINE
+    finally { setLinkBusy(null); }
+  };
+  const saveNotify = async () => {
+    setNotifyBusy(true);
+    try {
+      const emails = notifyDraft.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+      const res = await fetch("/api/admin/clients/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ emails }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error((typeof data?.error === "string" && data.error) || `HTTP ${res.status}`);
+      setNotify(data.emails as string[]); setNotifyDraft((data.emails as string[]).join(", "));
+      toast.show({ tone: "success", title: "Saved", body: (data.emails as string[]).length ? `New requests are emailed to ${(data.emails as string[]).length} address${(data.emails as string[]).length === 1 ? "" : "es"}.` : "Nobody is emailed about new requests now." });
+    } catch (e) { toast.show({ tone: "danger", title: "Not saved", body: e instanceof Error ? e.message : OFFLINE }); } // public-error-ok: the Error carries our own route's sentence, or OFFLINE
+    finally { setNotifyBusy(false); }
   };
   const remove = async () => {
     if (!removing) return;
@@ -253,7 +286,8 @@ export default function AdminClientsPage() {
       const res = await fetch(`/api/admin/clients/${removing.id}/remove`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirmCompany: confirmText }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error((typeof data?.error === "string" && data.error) || `HTTP ${res.status}`);
-      toast.show({ tone: "info", title: `Access removed for ${removing.company}`, body: "Signed out everywhere. Their record is kept, emptied." });
+      const mail = data.email as { ok?: boolean } | null | undefined;
+      toast.show({ tone: mail?.ok ? "info" : "warning", title: `Access removed for ${removing.company}`, body: `Signed out everywhere. Their record is kept, emptied. ${mail?.ok ? "The email telling them was accepted by the mail service." : "The email telling them was not sent; Mailbox › Sent has it as failed."}` });
       setRemoving(null); setConfirmText(""); close(); await load();
     } catch (e) { toast.show({ tone: "danger", title: "Not removed", body: e instanceof Error ? e.message : OFFLINE }); } // public-error-ok: the Error carries our own route's sentence (the clients API answers with its problems list), or OFFLINE
     finally { setBusy(false); }
@@ -280,7 +314,7 @@ export default function AdminClientsPage() {
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-cw-bg-active text-[13px] font-bold text-cw-text-body">{initials(r.person_name || r.email)}</span>
                     <div className="flex min-w-0 flex-col gap-1.5">
                       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1"><span className="text-[15px] font-bold">{r.person_name || r.email}</span><span className="text-[14px] text-cw-text-body">{r.company}</span><span className="inline-flex h-5 items-center rounded-[5px] border border-cw-border-control px-1.5 text-[11.5px] font-semibold text-cw-text-muted">{r.kind === "broker" ? "Broker" : "Operator"}</span></div>
-                      <div className="flex flex-wrap items-center gap-1.5 text-[13px] text-cw-text-muted"><span className="font-mono text-[12.5px]">{r.email}</span><span>·</span><span>signed up with email and password</span></div>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[13px] text-cw-text-muted"><span className="font-mono text-[12.5px]">{r.email}</span><span>·</span><span>{r.user_id ? "has an account from before 2 Nov 2026" : "asked from the sign-in page · no account yet"}</span></div>
                       {r.note && <span className="text-[13.5px] leading-normal text-cw-text-body">“{r.note}”</span>}
                     </div>
                     <div className="col-start-2 flex flex-col items-start gap-2 min-[900px]:col-start-3 min-[900px]:items-end">
@@ -303,7 +337,7 @@ export default function AdminClientsPage() {
               {shownApproved.map((a) => (
                 <div key={a.id} data-client-approved={a.id}>
                   <div className={`cl-approved-row grid items-center gap-x-4 gap-y-2 border-b border-cw-divider px-5 py-3 ${openId === a.id ? "bg-cw-bg-selected" : "hover:bg-cw-bg-hover"}`}>
-                    <span className="flex min-w-0 flex-col gap-0.5"><span className="text-[14.5px] font-semibold">{a.company}</span><span className="truncate text-[12.5px] text-cw-text-muted">{a.person_name || a.email} · {a.kind === "broker" ? "Broker" : "Operator"}</span></span>
+                    <span className="flex min-w-0 flex-col gap-0.5"><span className="text-[14.5px] font-semibold">{a.company}</span><span className="truncate text-[12.5px] text-cw-text-muted">{a.person_name || a.email} · {a.kind === "broker" ? "Broker" : "Operator"}</span>{!a.user_id && <span className="flex flex-wrap items-center gap-2 pt-1" data-no-account><span className="inline-flex h-5 items-center rounded-[5px] bg-cw-warning-tint px-1.5 text-[11px] font-bold text-cw-warning-text">NO PASSWORD SET YET</span><button type="button" className="text-[12.5px] font-semibold text-cw-text-link disabled:opacity-60" disabled={linkBusy === a.id} onClick={() => void resendLink(a)} data-resend-link>{linkBusy === a.id ? "Sending…" : "Send the link again"}</button></span>}</span>
                     <span className="cl-approved-scope flex min-w-0 flex-wrap gap-1.5">{normaliseScope(a.scope).map((e) => <span key={`${e.kind}:${e.value}`} className={`cl-scope-${e.kind} inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-[6px] border px-1.5 font-mono text-[12px] font-medium`}><MaskIcon name={KIND_META[e.kind as ScopeEntry["kind"]].icon} size={11} />{e.value}</span>)}</span>
                     <span className="cl-approved-wide-grid grid-cols-[repeat(11,22px)] gap-1" aria-label={`${normaliseSwitches(a.switches).length} of ${SWITCHES.length} switches`}>{SWITCHES.map((s) => { const v = normaliseSwitches(a.switches).includes(s.key); return <span key={s.key} title={`${s.label}: ${v ? "on" : "off"}`} className="flex h-[22px] w-[22px] items-center justify-center"><span className={`h-2.5 w-2.5 rounded-full ${v ? "bg-cw-primary" : "border-[1.5px] border-cw-border-strong"}`} /></span>; })}</span>
                     <span className="cl-approved-count text-[12.5px] text-cw-text-body">{normaliseSwitches(a.switches).length} of {SWITCHES.length} switches</span>
@@ -327,6 +361,18 @@ export default function AdminClientsPage() {
                   <span className="col-span-2 flex flex-col gap-0.5 min-[900px]:col-span-1"><span>{what}</span>{d.note && <span className="text-[12px] text-cw-text-muted">Note: {d.note}</span>}</span>
                   <span className="hidden min-[900px]:block">{d.actor_email ?? "—"}</span><span className="hidden font-mono text-[12px] min-[900px]:block">{whenUtc(d.created_at)}</span>
                 </div>); })}
+            </TableCard>
+
+            <TableCard>
+              {header("Who is told about new requests", <span className="text-[13px] text-cw-text-muted">{notify === null ? "" : notify.length ? `${notify.length} address${notify.length === 1 ? "" : "es"}` : "nobody"}</span>)}
+              <div className="flex flex-col gap-3 p-5" data-notify-list>
+                <span className="text-[13.5px] leading-normal text-cw-text-body">When someone asks for access, an email goes to every address here, with who is asking and a link to this page. More than one, so a request never waits on one person’s holiday.</span>
+                {notify !== null && !notify.length && <span className="rounded-[10px] border border-cw-warning-border bg-cw-warning-tint p-3 text-[13.5px] text-cw-warning-text">Nobody is told about new requests. They still appear under Waiting, but no one gets an email.</span>}
+                <div className="flex flex-wrap items-start gap-2">
+                  <div className="min-w-[260px] flex-1"><TextInput value={notifyDraft} onChange={(e) => setNotifyDraft(e.target.value)} placeholder="ops-desk@your-company.com, duty@your-company.com" mono aria-label="Addresses told about new requests" /></div>
+                  <Button variant="secondary" disabled={notifyBusy || notify === null || notifyDraft.split(/[\s,;]+/).filter(Boolean).join(",") === (notify ?? []).join(",")} loading={notifyBusy} onClick={() => void saveNotify()} data-save-notify>Save</Button>
+                </div>
+              </div>
             </TableCard>
           </>
         )}

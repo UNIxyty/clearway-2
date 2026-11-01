@@ -2,8 +2,9 @@
 
 // Ask for access (Stage 5, design: Sign In › request). For operators and brokers whose flights Clearway handles.
 // Everyone signs in with email and password — there is no sign-in by trip, flight number or reference, which identify a
-// flight, not a person. The request carries a company name; ops set the scope when they approve. No password here: the
-// email link sets it, and confirming the email sends the request to ops. No promise of a time.
+// flight, not a person. The request carries a company name; ops set the scope when they approve. No password here and no
+// account (2026-11-02): a request is a request. If ops approve, the email they send has a link to set a password, and
+// that is where the account is made (lib/clients/onboarding.ts). No promise of a time.
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Building2, Mail, User } from "lucide-react";
@@ -19,15 +20,16 @@ export default function RequestAccessPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [already, setAlready] = useState(false);
   const ready = useMemo(() => name.trim() && company.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), [name, company, email]);
 
   const send = async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch("/api/auth/email/request-confirmation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "client", name: name.trim(), company: company.trim(), email: email.trim(), clientKind: kind, note: note.trim(), next: "/client" }) });
+      const res = await fetch("/api/client-requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: name.trim(), company: company.trim(), email: email.trim(), kind, note: note.trim() }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "The request could not be sent. Try again in a few minutes.");
-      setSentTo(email.trim());
+      setAlready(Boolean(data.alreadyApproved)); setSentTo(email.trim());
     } catch (e) { setError(e instanceof Error ? e.message : "Nothing was sent. Check your connection and try again."); } // public-error-ok: the Error carries our own route's sentence (Company is required, Valid email is required), or our offline line
     finally { setLoading(false); }
   };
@@ -43,11 +45,13 @@ export default function RequestAccessPage() {
         <AuthCard>
           {sentTo ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }} data-request-sent>
-              <AuthHeading title="Check your email" sub="Open the link we sent to set your password. That sends your request to Clearway ops." />
+              {already
+                ? <AuthHeading title="You have access already" sub="This address was approved before. Sign in with it, or open the link in your approval email to set your password — if that link has expired, the page it opens sends a new one." />
+                : <AuthHeading title="Your request is with Clearway ops" sub="Someone checks every request by hand. We'll email you when it is decided; if it is approved, that email has a link to set your password." />}
               <div style={{ border: "1px solid var(--cw-border)", borderRadius: 12, background: "var(--cw-bg-surface)", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                <Mail size={17} style={{ color: "var(--cw-text-muted)" }} /><span style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 500 }}>{sentTo}</span><span style={{ fontSize: 13, color: authMuted }}>Works for 24 h</span>
+                <Mail size={17} style={{ color: "var(--cw-text-muted)" }} /><span style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 500, overflowWrap: "anywhere" }}>{sentTo}</span>
               </div>
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: "var(--cw-text-body)" }}>Nothing arrived? Check spam, or <AuthLink onClick={() => setSentTo(null)}>change the address</AuthLink>.</p>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: "var(--cw-text-body)" }}>Nothing to do until then — there is no account yet, so there is nothing to sign in to. Wrong address? <AuthLink onClick={() => { setSentTo(null); setAlready(false); }}>Send the request again</AuthLink>.</p>
             </div>
           ) : (
             <>
@@ -57,7 +61,7 @@ export default function RequestAccessPage() {
               <AuthField id="ra-name" label="Full name" icon={User} placeholder="Jane Roberts" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
               <AuthField id="ra-company" label="Company *" icon={Building2} placeholder="The one ops will recognise" autoComplete="organization" value={company} onChange={(e) => setCompany(e.target.value)} />
               <AuthField id="ra-email" label="Work email" icon={Mail} type="email" placeholder="you@company.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <p style={{ margin: "-6px 0 10px", fontSize: 12.5, color: authMuted }}>We send the sign-in link here. Use your company address, not a personal one.</p>
+              <p style={{ margin: "-6px 0 10px", fontSize: 12.5, color: authMuted }}>Ops write to you here, and the link to set your password comes here. Use your company address, not a personal one.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
                 <span style={{ fontSize: 13.5, fontWeight: 600 }}>You are</span>
                 <div role="radiogroup" aria-label="You are" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", padding: 3, borderRadius: 10, background: "var(--cw-bg-sunken)", border: "1px solid var(--cw-border)" }}>{seg("operator", "Operator")}{seg("broker", "Broker")}</div>
@@ -68,7 +72,7 @@ export default function RequestAccessPage() {
                   style={{ minHeight: 64, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--cw-border-control)", background: "var(--cw-bg-surface)", color: "var(--cw-text)", font: "inherit", fontSize: 14.5, lineHeight: 1.5, resize: "vertical" }} />
               </label>
               <AuthButton loading={loading} loadingLabel="Sending…" disabled={!ready} onClick={send}>Send request</AuthButton>
-              <p style={{ fontSize: 13, lineHeight: 1.5, color: authMuted, margin: "14px 0 0" }}>You always sign in with your email and password. After you confirm your email, Clearway ops decides which flights you see and what you see of them.</p>
+              <p style={{ fontSize: 13, lineHeight: 1.5, color: authMuted, margin: "14px 0 0" }}>Nothing is created until ops approve. Then you set a password from the link in their email, and sign in with your email and that password.</p>
             </>
           )}
         </AuthCard>

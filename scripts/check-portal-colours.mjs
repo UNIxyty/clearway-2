@@ -15,6 +15,7 @@ import path from "node:path";
 const EXCUSED = {
   "components/help/TelegramSupportApp.tsx": "the Telegram mini app takes Telegram's own theme (themeParams), not the portal's",
   "app/api/unsubscribe/route.ts": "a standalone HTML page opened from an email; it does not load the portal stylesheet",
+  "lib/mail/send.ts": "the HTML of the emails the portal sends; mail clients load no stylesheet, so colours are written out",
   "app/api/blocked-hitl-vnc/route.ts": "reads a remote page's colours as data (no UI)",
   "lib/netherlands-eaip-navigation.mjs": "reads a remote page's colours as data (no UI)",
 };

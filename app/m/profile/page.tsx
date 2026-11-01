@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useIdentity } from "@/components/portal/Shell";
-import { OFFLINE, authErrorText, shownText } from "@/lib/error-text";
+import { OFFLINE, ShownError, authErrorText, shownText } from "@/lib/error-text";
 import { usePhonePage } from "@/components/m/chrome";
 import { InputSheet } from "@/components/m/pick";
 import { MButton, MError } from "@/components/m/ui";
@@ -29,13 +29,14 @@ export default function ProfilePhonePage() {
   const [failed, setFailed] = useState<string | null>(null);
   const [said, setSaid] = useState<string | null>(null);
   const saveName = async (v: string) => { setBusy(true); setFailed(null); try { await getJson("/api/user/preferences", { json: { display_name: v } }); setName(v); setSheet(null); setSaid("Name saved."); } catch (e) { setFailed(shownText(e, "Couldn’t save your name. Try again.")); } finally { setBusy(false); } };
-  const saveEmail = async (v: string) => { setBusy(true); setFailed(null); const { error } = await supabase.auth.updateUser({ email: v }); setBusy(false); if (error) setFailed(authErrorText(error, "Couldn’t change the email. Try again.")); else { setSheet(null); setSaid(`Confirm the change from the email we sent to ${v}. Until then your sign-in stays ${email ?? "as it is"}.`); } };
+  // sent by us since 2026-11-02 (app/api/account/email-change): a link to each address, both in Mailbox › Sent
+  const saveEmail = async (v: string) => { setBusy(true); setFailed(null); try { await getJson("/api/account/email-change", { json: { email: v } }); setSheet(null); setSaid(`We emailed a link to ${email ?? "your current address"} and to ${v}. The change happens once both are confirmed; until then your sign-in stays ${email ?? "as it is"}.`); } catch (e) { setFailed(shownText(e, "Couldn’t change the email. Try again.")); } finally { setBusy(false); } };
   const resetPassword = async (current: string) => {
     if (!email) { setFailed(OFFLINE); return; }
     setBusy(true); setFailed(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password: current });
     if (error) { setBusy(false); setFailed(authErrorText(error, "That is not your current password.")); return; }
-    try { await getJson("/api/auth/password/forgot", { json: { email } }); setSheet(null); setSaid(`A reset link is on its way to ${email}. It works for one hour.`); } catch (e) { setFailed(shownText(e, "Couldn’t send the reset email. Try again.")); } finally { setBusy(false); }
+    try { const d = await getJson<{ sent?: boolean }>("/api/auth/password/forgot", { json: { email } }); if (d?.sent === false) throw new ShownError("The reset email could not be sent. Try again in a few minutes, or ask an admin to send one from Admin › Users."); setSheet(null); setSaid(`A reset link is on its way to ${email}. It works for one hour.`); } catch (e) { setFailed(shownText(e, "Couldn’t send the reset email. Try again.")); } finally { setBusy(false); }
   };
   const signOut = async () => { await supabase.auth.signOut().catch(() => {}); router.replace("/login"); };
   const roleLabel = isDeveloper ? "Developer" : role === "admin" ? "Admin" : "User";

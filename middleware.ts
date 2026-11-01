@@ -249,6 +249,9 @@ async function gate(request: NextRequest) {
   if (
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/api/auth/") ||  // Auth API routes used during signup/password-reset (unauthenticated)
+    // Client onboarding (2026-11-02), signed out by nature: asking for access, and the set-password link (where the account
+    // is made). Each route checks its own input; none reads or returns anything about anyone else.
+    pathname === "/welcome" || pathname === "/api/client-requests" || pathname === "/api/client-invite" || pathname === "/api/client-invite/new-link" ||
     // The docs: behind sign-in until content/docs/site.json says "public": true (the one setting; docs/how-to-write-docs.md).
     (docsSite.public === true && (pathname === "/docs" || pathname.startsWith("/docs/")))
     // Health probes and /maintenance are allowed earlier, before the Supabase

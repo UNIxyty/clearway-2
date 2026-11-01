@@ -19,7 +19,7 @@ export function brandFrom(): string {
   const envFrom = String(process.env.CLIENT_EMAIL_FROM || process.env.DIGITAL_WALL_EMAIL_FROM || "").trim();
   const envAddress = envFrom.match(/<([^>]+)>/)?.[1] ?? (envFrom.includes("@") ? envFrom : "");
   const address = configured || envAddress;
-  const use = address || "no-reply@clearway.verxyl.com"; // the mailer's own default (digital-wall/lib/mailer.mjs)
+  const use = address || "no-reply@verxyl.com"; // a verified domain (production's Resend, read 2026-11-02); clearway.verxyl.com is not
   return name ? `${name.replace(/[<>"]/g, "")} <${use}>` : use;
 }
 

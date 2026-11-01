@@ -60,7 +60,7 @@ function clientNotFoundResponse() {
 
 // Every response the middleware lets through (next or rewrite) tells the page whether this request is under /docs, as
 // the request header x-cw-docs ("1" / "0"). app/not-found.tsx reads it: the docs' not-found, with its links, is drawn
-// only for /docs, never into the payload of another page — a pending client's waiting screen above all (2026-10-28).
+// only for /docs, never into the payload of another page — a client's holding page above all (2026-10-28).
 // The value is always set here, so a visitor who sends their own x-cw-docs has it overwritten. Redirects and refusals
 // carry no page and are left alone.
 export async function middleware(request: NextRequest) {
@@ -294,14 +294,16 @@ async function gate(request: NextRequest) {
 
   // Client access (Stage 5, 2026-10-25). A client (app_metadata.role "client", written only with the service key when ops
   // decide) lives under /client and nowhere else. Their status (app_metadata.client_status, same writer) picks the page:
-  // requested → the waiting screen, refused / removed → their page, approved → the client wall. Every other address in
+  // approved → the client wall, refused → its page, anything else → the access-ended page. (The waiting screen was removed
+  // 2026-11-02: since then no client account exists before approval; production's two client accounts were both approved.
+  // A client account in any other state fails closed onto the page that shows nothing.) Every other address in
   // the portal answers 404 for them — not 403, not a redirect to a page that exists: nothing outside their world is
   // confirmed to exist. The holding pages render under a bare route, so the shell, its navigation and its counts are
   // never in their page source.
   const appMetaForClient = (user.app_metadata ?? {}) as Record<string, unknown>;
   if (String(appMetaForClient.role ?? "").toLowerCase() === "client") {
-    const status = String(appMetaForClient.client_status ?? "requested").toLowerCase();
-    const holding = status === "approved" ? null : status === "refused" ? "/client/refused" : status === "removed" ? "/client/removed" : "/client/waiting";
+    const status = String(appMetaForClient.client_status ?? "").toLowerCase();
+    const holding = status === "approved" ? null : status === "refused" ? "/client/refused" : "/client/removed";
     const isApi = pathname.startsWith("/api/");
     if (isApi) {
       // Their own request and sign-out only; the wall's API is reached at /digital-wall/api and enforces scope itself.
@@ -316,7 +318,7 @@ async function gate(request: NextRequest) {
       if (pathname.startsWith("/client")) { const to = request.nextUrl.clone(); to.pathname = holding; to.search = ""; return NextResponse.redirect(to); }
       return clientNotFoundResponse();
     }
-    if (pathname.startsWith("/client/waiting") || pathname.startsWith("/client/refused") || pathname.startsWith("/client/removed")) { const to = request.nextUrl.clone(); to.pathname = "/client"; to.search = ""; return NextResponse.redirect(to); }
+    if (pathname.startsWith("/client/refused") || pathname.startsWith("/client/removed")) { const to = request.nextUrl.clone(); to.pathname = "/client"; to.search = ""; return NextResponse.redirect(to); }
     if (pathname === "/client" || pathname.startsWith("/client/")) return response;
     return clientNotFoundResponse();
   }

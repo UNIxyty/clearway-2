@@ -11,13 +11,22 @@ number of checks passed in the last full run.
 
 ## Known failures
 
-- **Since 2026-11-01: every suite that calls the model** (intake/e2e, e2e-scheduled, e2e-classify, e2e-unread,
-  e2e-cancel, e2e-people, intake/browser-*, manifest/browser). AWS refuses the rig's access key
-  (UnrecognizedClientException), so the model cannot answer. Not a code fault. It clears when `.env.rig` holds a working
-  key.
-- **Since 2026-11-01: permissions-check, three reveal checks** ("a User cannot reveal…", "…the review screen is told
-  so", "an Admin can…"). They read the intake request RIGPAX19, which only the model-dependent intake suites create.
-  They clear with the key.
+**How this list works (2026-11-02):** each entry names one cause and lists, by name, every check it covers, with a
+count. Nothing joins an entry because it failed in the same run. A failure not named here is a live finding until it
+is investigated. If it has the same cause, it is added by name, with the date and the evidence, and the count changes.
+No wildcards: "intake/browser-*" used to stand for five suites, and a sixth would have joined it unseen.
+
+- **Cause: no working model key on the rig (since 2026-11-01).** AWS Bedrock refuses the rig's access key
+  (UnrecognizedClientException), so every call to the model fails. It is not a code fault. It clears when the agent
+  moves to the Anthropic API with a working key, or `.env.rig` holds a working AWS key. **12 suites:**
+  manifest/browser, intake/e2e, intake/e2e-scheduled, intake/e2e-classify, intake/e2e-unread, intake/e2e-cancel,
+  intake/e2e-people, intake/browser-cancel, intake/browser-flows, intake/browser-people, intake/browser-check,
+  intake/browser-edits. Recorded on 2026-11-01 from that day's runs. Each is re-confirmed by name when it is next run.
+- *Closed 2026-11-02:* permissions-check's three reveal checks ("a User cannot reveal…", "…the review screen is told
+  so", "an Admin can…"). They were filed under the model key, but the real cause was a missing fixture. They read the
+  request RIGPAX19, which only the model-driven intake suites make. Without it the id was empty and the URL was
+  malformed, so the gate refused all three before any reveal logic ran. The admin check was one of the three, not a
+  fourth. The check now seeds its own invented request and all three pass. permissions-check passes in full.
 - Speed work in progress (docs/rig-speed.md): no full run since 2026-10-27. The counts below are from the last full
   runs.
 
@@ -53,7 +62,7 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | intake/browser-edits | 9 | 2026-10-12 |
 | manifest/test-generator | 47 | 2026-10-12 |
 | manifest/browser | 36 | 2026-10-13 |
-| permissions-check | 43 | 2026-10-12 |
+| permissions-check | 53 | 2026-11-02 |
 | permissions-browser | 13 | 2026-10-12 |
 | wall/access-check | 65 | 2026-10-12 |
 | wall/browser-access | 9 | 2026-10-12 |
@@ -66,9 +75,10 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | temporary-access-check | 24 | 2026-10-21 |
 | client-scope-check | 60 | 2026-10-28 |
 | client-ui-check | 60 | 2026-10-28 |
-| clients-page-check | 33 | 2026-11-02 |
+| clients-page-check | 41 (red on the pre-fix page: padding ×6, past the edge at 1250, focus; `CLIENTS_CHECK_SELFTEST=overlap` turns the overlap assertion red) | 2026-11-02 |
 | client-onboarding-check | 54 | 2026-11-02 |
-| own-mail | 1 | 2026-11-02 |
+| own-mail | 1 (red on a planted `resetPasswordForEmail`) | 2026-11-02 |
+| portal-colours | 1 (5 exceptions printed with their reasons) | 2026-11-02 |
 | style-text | 1 | 2026-10-28 |
 | maintenance-logos | 12 | 2026-10-28 |
 | airac-dates-check | 5 | 2026-10-25 |

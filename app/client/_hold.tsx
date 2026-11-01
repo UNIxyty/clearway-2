@@ -1,5 +1,5 @@
 "use client";
-// The waiting, refused and removed pages share this: a quiet tile, the person's own email, Sign out. No navigation,
+// The refused and removed pages share this: a quiet tile, the person's own email, Sign out. No navigation,
 // no counts, no product name in the copy (the design's brand rule), nothing about anyone else's flights.
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";

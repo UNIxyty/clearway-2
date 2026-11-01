@@ -1,4 +1,4 @@
-// The client screens (Stage 5, 2026-10-25): Admin › Clients, the ask-for-access page, the waiting screen and the client
+// The client screens (Stage 5, 2026-10-25): Admin › Clients, the ask-for-access page and the client
 // wall, at 1440 and 390, light and dark, with no horizontal page scroll. Invented names only. On the sign-in rig: a
 // client account is made with the service key, left "requested", then approved THROUGH THE ADMIN PAGE (scope by
 // registration, a switch toggled, the passenger level set), looked at as the client, changed, and removed by typing the
@@ -97,7 +97,7 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
-// ask for access + waiting: the public page renders at both sizes; the waiting screen for a requested client
+// ask for access: the public page renders at both sizes
 {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }); const page = await ctx.newPage();
   await page.goto(`${B}/request-access`, { waitUntil: "load" }); await page.waitForSelector("[data-request-access]", { timeout: 20000 });

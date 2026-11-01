@@ -17,7 +17,7 @@ function Door() {
   const src = `/digital-wall/timeline/?in=m${flight ? `&flight=${encodeURIComponent(flight)}` : ""}`;
   return (
     // The status-bar strip above the frame: inside the frame the phone's safe area reads as zero.
-    <div data-wall-door="" className="flex min-h-0 flex-1 flex-col bg-black pt-[env(safe-area-inset-top)]">
+    <div data-wall-door="" className="flex min-h-0 flex-1 flex-col bg-cw-wall-ground pt-[env(safe-area-inset-top)]">
       <iframe key={src} src={src} title="Digital Wall" className="block min-h-0 w-full flex-1 border-0" allow="screen-wake-lock" />
     </div>
   );

@@ -501,6 +501,11 @@
    "dark": "#6ea0ff",
    "use": "Added in build: Voice waveform on the wall's dark surface (same in both themes)"
   },
+  "wall-ground": {
+   "light": "#0f1420",
+   "dark": "#0f1420",
+   "use": "The Digital Wall's own ground (shared/design-tokens.json wall.bg), behind the phone wall's frame; the wall never follows the portal theme, so it is the same in both"
+  },
   "shadow-panel": {
    "light": "-18px 0 40px rgba(16,18,22,.10)",
    "dark": "-18px 0 40px rgba(0,0,0,.45)",

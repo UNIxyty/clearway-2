@@ -30,14 +30,14 @@ same everywhere: "That is not on your account."
 | --- | --- | --- |
 | Wall backend | `digital-wall/server.mjs`, before any handler; `digital-wall/lib/client-scope.mjs` | Only the reads in `CLIENT_READS`, each behind its switch; every list payload cut to their flights before it is sent (board, feed, upcoming, aircraft, limitations, notices, CAA, flight checks); `/api/flight-info` 404 outside scope and, inside it, only the pieces their switches cover; `/api/notam-check/today` only the airports of their flights, with ops' bookkeeping removed; the stream carries only `flight.changed` events about their flights and nothing about presence, devices, overlays or reports; everything else — every write, the display, devices, operators — 404 |
 | Agent | `agent/server.mjs`; `agent/lib/passengers/api.mjs` | The passenger routes only, for their flights (operator from the id; registration or trip from one small Leon read), at their level: off → 404 even for their own list; names → the list, no reveal; documents → the reveal, one at a time, logged, with lower thresholds (15 per 10 minutes, a burst at more than one flight). No allowlist, no chat, no tools, no intake: 404 |
-| Portal | `middleware.ts` | Their world is `/client`; the holding pages (`/client/waiting`, `/client/refused`, `/client/removed`) render under a bare route with no shell, no navigation, no counts; every other page and API is 404; `/api/client/me` is their own standing (switches, level, never their scope's values); staff get 404 under `/client` |
+| Portal | `middleware.ts` | Their world is `/client`; the holding pages (`/client/refused`, `/client/removed`) render under a bare route with no shell, no navigation, no counts; every other page and API is 404; `/api/client/me` is their own standing (switches, level, never their scope's values); staff get 404 under `/client` |
 
 ## The check
 `rig/client-scope-check.mjs` (in the runner): two clients on the sign-in rig, A on operator artlw and B on cwy-cwy.
 A's session asks for B's flight and B's passengers by id at the wall and at the agent — both 404 — while A's board,
 A's normalized feed (even asked for B's key), A's stream and A's NOTAM round carry nothing of B. Then the forgery:
 A writes `role: "admin"`, `is_approved: true` and a scope naming B's operator into their own metadata, refreshes,
-and tries everything again — still 404, still a client. Plus the waiting screen's page source, the passenger levels,
+and tries everything again — still 404, still a client. Plus a holding page's source, the passenger levels,
 twenty-odd addresses outside their world, and the removed state. See docs/rig-vs-production.md for what the rig
 cannot prove.
 
@@ -66,10 +66,11 @@ cannot prove.
   5. **Setting the password creates the account** (`POST /api/client-invite`): a confirmed client, approved, linked to
      the row, then signed in to `/client`. The link is claimed before the account is made, so two tabs cannot both
      use it. If the account cannot be made, the link is given back.
-- **Waiting, refused, removed** (`app/client/*`): shell-less. **Refused** and **removed** stay as they were.
-  **Waiting** stays only for accounts made by the first client flow (before 2026-11-02) whose request is still open.
-  In the new flow nobody waits signed in, because there is no account until approval. A refused request in the new
-  flow has no account and is told by email. The root sends a client to their world or their holding page; every
+- **Refused, removed** (`app/client/*`): shell-less. **The waiting screen was removed on 2026-11-02.** In the new
+  flow nobody waits signed in, because there is no account until approval. On 2026-11-02 production had two client
+  accounts, both approved, and nobody waiting (read from the server). Migration 0027 is applied there. A client account in any state other than approved or
+  refused fails closed onto the access-ended page. A refused request in the new flow has no account and is told by
+  email. The root sends a client to their world or their holding page; every
   other page is 404. The old sign-up route's client branch answers 410 and points to Ask for access.
   **The door and nothing else** (2026-10-28): the page source carries no link or label of what is behind it. The root
   not-found used to ride in every page's payload with the docs' 404 block (Help & support, the glossary, `/dashboard`,

@@ -51,13 +51,24 @@ for (const [width, label, collapsed] of WIDTHS) {
   if (collapsed) await ctx.addInitScript(() => { try { localStorage.setItem("cw-shell-collapsed", "1"); } catch { /* */ } });
   const page = await ctx.newPage();
   await page.goto(`${B}/admin/clients`, { waitUntil: "load" });
-  await page.waitForSelector(`[data-client-request="${waitingRow.id}"]`, { timeout: 20000 }).catch(() => {});
-  await page.locator(`[data-client-request="${waitingRow.id}"] [data-review]`).click().catch(() => {});
-  await page.waitForSelector(`[data-client-editor="${waitingRow.id}"]`, { timeout: 10000 }).catch(() => {});
+  // The page must have rendered its rows and opened the editor before anything is measured: an error page has nothing
+  // that overlaps and nothing past the edge, so every layout assertion would pass on it (seen 2026-11-02, on a portal
+  // that had not started). No rows or no editor → FAIL, and this width's measurements are skipped, not passed.
+  const rendered = await page.waitForSelector(`[data-client-request="${waitingRow.id}"]`, { timeout: 20000 }).then(() => true, () => false);
+  if (rendered) await page.locator(`[data-client-request="${waitingRow.id}"] [data-review]`).click().catch(() => {});
+  const editorOpen = rendered && await page.waitForSelector(`[data-client-editor="${waitingRow.id}"]`, { timeout: 10000 }).then(() => true, () => false);
+  ok(rendered && editorOpen, `${width} ${label}: the page rendered its rows and the editor opened`, rendered && editorOpen ? "" : rendered ? "no editor" : `no rows (title "${await page.title().catch(() => "")}")`);
+  if (!rendered || !editorOpen) { await page.screenshot({ path: `${OUT}/clients-${width}-${label.replace(/\s+/g, "-")}.png`, fullPage: true }); await ctx.close(); continue; }
   await settled(page);
+  // CLIENTS_CHECK_SELFTEST=overlap: stack every button of the page at one spot (2026-11-02: a gentler fault, the editor's
+  // fields lifted 60px, landed in empty space and proved nothing), at
+  // 1440 only. The overlap assertion at that width must then FAIL; it proves the detector can see an overlap at all.
+  if (process.env.CLIENTS_CHECK_SELFTEST === "overlap" && width === 1440 && !collapsed) await page.addStyleTag({ content: process.env.CLIENTS_CHECK_FAULT_CSS || `[data-admin-clients] button { position: absolute !important; top: 40px !important; left: 40px !important; }` });
   const m = await page.evaluate(() => {
     const pad = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--cw-page-pad"));
-    const root = document.querySelector("[data-admin-clients]");
+    // the page's content root; without its marker (an older page) measure the main area's content instead, and say so
+    const marked = document.querySelector("[data-admin-clients]");
+    const root = marked ?? document.querySelector("main")?.firstElementChild ?? document.body;
     const main = root?.parentElement?.getBoundingClientRect();
     const card = root?.firstElementChild?.getBoundingClientRect();
     const inset = card && main ? Math.round(card.left - main.left) : null;
@@ -81,9 +92,12 @@ for (const [width, label, collapsed] of WIDTHS) {
     const clips = (e) => { for (let x = e.parentElement; x && x !== root; x = x.parentElement) { const ov = getComputedStyle(x).overflowX; if (ov !== "visible") return true; } return false; };
     const right = root.getBoundingClientRect().right;
     const out = leaves.filter((e) => e.getBoundingClientRect().right > right + 1 && !clips(e)).map(label);
-    return { pad, inset, hits: hits.slice(0, 8), nHits: hits.length, out: out.slice(0, 6), pageScroll: document.documentElement.scrollWidth - innerWidth };
+    return { marked: Boolean(marked), pad, inset, hits: hits.slice(0, 8), nHits: hits.length, out: out.slice(0, 6), pageScroll: document.documentElement.scrollWidth - innerWidth };
   });
-  ok(m.inset === m.pad, `${width} ${label}: the page padding is the portal's (--cw-page-pad ${m.pad}px), not its own`, `cards inset ${m.inset}px`);
+  if (width === 1440 && label === "full") ok(m.marked, "the page marks its content root (data-admin-clients)");
+  // the portal's rule (app/globals.css): 32 full, 24 with the rail (900–1199 always, or collapsed from 1200), 20 below 900
+  const want = width < 900 ? 20 : width < 1200 || collapsed ? 24 : 32;
+  ok(m.inset === want && m.pad === want, `${width} ${label}: the page padding is the portal's ${want}px (--cw-page-pad), not its own`, `cards inset ${m.inset}px · --cw-page-pad ${Number.isNaN(m.pad) ? "not defined" : `${m.pad}px`}`);
   ok(m.nHits === 0, `${width} ${label}: nothing overlaps on the page, editor open`, m.hits.join(" | "));
   ok(m.out.length === 0 && m.pageScroll <= 0, `${width} ${label}: nothing runs past the edge, no sideways scroll`, `${m.out.join(" | ")} · page scroll ${m.pageScroll}`);
   await page.screenshot({ path: `${OUT}/clients-${width}-${label.replace(/\s+/g, "-")}.png`, fullPage: true });

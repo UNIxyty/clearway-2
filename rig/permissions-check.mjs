@@ -201,13 +201,21 @@ r = await call(PORTAL, admin, "POST", "/api/admin/users", { userId: admin.id, is
 ok(r.status === 400 && /own role/.test(r.body.error ?? ""), "nobody changes their own role", `${r.status} ${r.body.error ?? ""}`);
 
 console.log("\n=== Intake reveal and knowledge-base uploads are permissions ===");
-const reqId = psql("select id from intake_requests where reference = 'RIGPAX19' limit 1");
+// Its own invented request (2026-11-02). These three checks used to read RIGPAX19, which only the model-driven intake
+// suites create: without a working model key the id was empty, the URL malformed, and the gate refused all three before
+// any reveal logic ran. One invented passenger (the rig's RIG… series, the fixtures' 01 Jan 1980), removed at the end.
+const revealMsg = psql("insert into intake_messages (provider_message_id, direction, received_at, has_personal_data, subject) values ('rig-permissions-reveal-' || gen_random_uuid(), 'inbound', now(), true, 'Rig permissions check (invented)') returning id");
+const reqId = psql(`insert into intake_requests (message_id, request_type, status, reference, review) values ('${revealMsg}', 'handling', 'review', 'RIGPERMREVEAL', '{"legs":[{"index":0}]}') returning id`);
+const revealEx = psql(`insert into intake_extractions (request_id, version, fields, personal) values ('${reqId}', 1, '{}', '{"people":[{"list":"pax","leg":0,"name":"RIG INVENTED PASSENGER","dob":"1980-01-01","passport":"RIG0000001"}]}') returning id`);
+psql(`update intake_requests set current_extraction_id = '${revealEx}' where id = '${reqId}'`);
+ok(/^[0-9a-f-]{36}$/.test(reqId), "an invented intake request for the reveal checks (no model needed)", reqId);
 r = await call(AGENT, user, "POST", `/api/intake/requests/${reqId}/people/reveal`, {});
 ok(r.status === 403 && r.body.permission === "intake.people.reveal", "a User cannot reveal a passenger's personal data (default off)", `${r.status}`);
 r = await call(AGENT, user, "GET", `/api/intake/requests/${reqId}/people`);
 ok(r.body.canReveal === false, "…and the review screen is told so (no Show personal data button)");
 r = await call(AGENT, admin, "POST", `/api/intake/requests/${reqId}/people/reveal`, {});
 ok(r.status === 200 && r.body.masked === false, "an Admin can (default on), and it is logged as before", `${r.status}`);
+psql(`delete from intake_messages where id = '${revealMsg}'`); // the request and its extraction go with it (cascade)
 const docs = JSON.parse(psql("select coalesce(json_agg(json_build_object('status', status, 'by', uploaded_by_email)), '[]') from agent_documents"));
 const hidden = docs.filter((x) => x.status !== "indexed" && x.status !== "approved").length;
 const uDocs = (await call(AGENT, user, "GET", "/api/knowledge/documents")).body.documents ?? [];

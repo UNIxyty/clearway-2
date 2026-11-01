@@ -100,6 +100,7 @@
   --cw-tier-attachment-line: #c9cdd3;
   --cw-tier-attachment-strip: #6c7079;
   --cw-wall-accent: #6ea0ff;
+  --cw-wall-ground: #0f1420;
   --cw-shadow-panel: -18px 0 40px rgba(16,18,22,.10);
   --cw-night-a: #0a1330;
   --cw-night-b: #132a63;
@@ -206,6 +207,7 @@
   --cw-tier-attachment-line: #4a5260;
   --cw-tier-attachment-strip: #959ca8;
   --cw-wall-accent: #6ea0ff;
+  --cw-wall-ground: #0f1420;
   --cw-shadow-panel: -18px 0 40px rgba(0,0,0,.45);
   --cw-night-a: #0a1330;
   --cw-night-b: #132a63;
@@ -313,6 +315,7 @@
   --cw-tier-attachment-line: #4a5260;
   --cw-tier-attachment-strip: #959ca8;
   --cw-wall-accent: #6ea0ff;
+  --cw-wall-ground: #0f1420;
   --cw-shadow-panel: -18px 0 40px rgba(0,0,0,.45);
   --cw-night-a: #0a1330;
   --cw-night-b: #132a63;

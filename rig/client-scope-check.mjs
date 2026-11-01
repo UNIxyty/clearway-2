@@ -49,23 +49,25 @@ const A_REGS = ["LY-TST", "LY-BGS"]; // LY-TST flies on the wall's mock, LY-BGS 
 const A_AGENT_FLIGHT = "cwy-cwy:880003", B_AGENT_FLIGHT = "cwy-cwy:880001"; // EC-OMU: B's, not A's
 const staff = await grant("rig-access-user@rig.invalid");
 
-// 0. requested: the waiting screen and nothing else
+// 0. not approved (status requested; no such account is made since 2026-11-02, so this is the fail-closed path): the
+//    access-ended page and nothing else — the waiting screen was removed
 let sA = await grant(A.email);
 {
-  const page = await ask(sA, "/"); ok(page.status === 307 && page.location.includes("/client/waiting"), "requested client · the root (where sign-in lands) → the waiting screen", `${page.status} ${page.location}`);
+  const page = await ask(sA, "/"); ok(page.status === 307 && page.location.includes("/client/removed"), "not-approved client · the root (where sign-in lands) → the access-ended page (fails closed)", `${page.status} ${page.location}`);
   const dash = await ask(sA, "/dashboard"); ok(dash.status === 404, "requested client · /dashboard: 404 (nothing outside their world exists, approved or not)", dash.status);
   const wall = await ask(sA, "/digital-wall/api/timeline/flights?allOperators=true"); ok(wall.status === 401, "requested client · the wall answers 401 (nobody yet)", wall.status);
-  const waiting = await ask(sA, "/client/waiting");
+  const gone = await ask(sA, "/client/waiting"); ok(gone.status === 307 && gone.location.includes("/client/removed"), "the old waiting screen's address leads to the access-ended page, not a page", `${gone.status} ${gone.location}`);
+  const waiting = await ask(sA, "/client/removed");
   // the door and nothing else (2026-10-28): no link or label of what is behind it in the page SOURCE — the root
   // not-found's docs block (Help & support, the glossary, /dashboard, the portal's address) used to ride in its payload.
   // The only way out allowed is the brand settings' contact address, absent while it is empty.
   const behind = ["/dashboard", '"/help"', "/help\\", "glossary", "supportLabel", "Help \\u0026 support", "Help &amp; support", "/docs", "portalUrl", "suggestions"].filter((w) => waiting.text.includes(w));
-  ok(behind.length === 0, "waiting screen source: nothing of what is behind the door (no docs, dashboard, help or glossary)", behind.join(" "));
-  const forged = await ask(sA, "/client/waiting", { headers: { "x-cw-docs": "1" } });
-  ok(forged.status === 200 && !["glossary", "supportLabel", "/dashboard"].some((w) => forged.text.includes(w)), "waiting screen: a visitor's own x-cw-docs header is overwritten (the docs block stays out)");
+  ok(behind.length === 0, "holding page source: nothing of what is behind the door (no docs, dashboard, help or glossary)", behind.join(" "));
+  const forged = await ask(sA, "/client/removed", { headers: { "x-cw-docs": "1" } });
+  ok(forged.status === 200 && !["glossary", "supportLabel", "/dashboard"].some((w) => forged.text.includes(w)), "holding page: a visitor's own x-cw-docs header is overwritten (the docs block stays out)");
   const contact = (await import("../content/docs/site.json", { with: { type: "json" } })).default.supportEmail;
-  ok(contact ? waiting.text.includes(`mailto:${contact}`) : !waiting.text.includes("data-client-contact"), contact ? "waiting screen: the brand settings' contact address is the one way out" : "waiting screen: no contact line while the brand settings' address is empty", contact || "(empty)");
-  ok(waiting.status === 200 && !/data-cw-sidebar|Dashboard|\bAdmin\b|Flight intake|Ops Agent|Permissions|Developer/.test(waiting.text) && !/\b\d+ (flights|requests|notices)\b/.test(waiting.text), "waiting screen's page source: no navigation, no counts, no page titles of the portal", `${waiting.status} ${waiting.text.length}B`);
+  ok(contact ? waiting.text.includes(`mailto:${contact}`) : !waiting.text.includes("data-client-contact"), contact ? "holding page: the brand settings' contact address is the one way out" : "holding page: no contact line while the brand settings' address is empty", contact || "(empty)");
+  ok(waiting.status === 200 && !/data-cw-sidebar|Dashboard|\bAdmin\b|Flight intake|Ops Agent|Permissions|Developer/.test(waiting.text) && !/\b\d+ (flights|requests|notices)\b/.test(waiting.text), "holding page's source: no navigation, no counts, no page titles of the portal", `${waiting.status} ${waiting.text.length}B`);
 }
 
 // 1. approved, different scopes

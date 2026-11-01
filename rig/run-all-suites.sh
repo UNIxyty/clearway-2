@@ -34,6 +34,7 @@ run utc-times node rig/check-utc-times.mjs
 run error-text node rig/check-error-text.mjs
 run style-text node rig/check-style-text.mjs
 run own-mail node rig/check-own-mail.mjs
+run portal-colours node scripts/check-portal-colours.mjs   # every portal colour a --cw-* token; prints its exceptions and why
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs

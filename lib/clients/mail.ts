@@ -18,7 +18,7 @@ export function decisionEmail({ personName, company, decision, note }: DecisionM
   }) };
   if (decision === "refused") return { subject: `Your access request for ${company}`, ...layoutEmail({
     title: `About your request for ${company}`,
-    paragraphs: [hi, `${product} ops looked at your request for ${company} and could not approve it.`, ...(note ? [`Note from ops: ${note}`] : []), "If you think that is a mistake, reply to this email, or send a new request from the sign-in page."],
+    paragraphs: [hi, `${product} ops looked at your request for ${company} and could not approve it.`, ...(note ? [`Note from ops: ${note}`] : []), "If you think that is a mistake, send a new request from the sign-in page and say why in the note."],
     button: signIn ? { label: "Go to the sign-in page", url: signIn } : undefined,
   }) };
   return { subject: `Your access for ${company} has ended`, ...layoutEmail({

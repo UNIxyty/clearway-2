@@ -27,8 +27,8 @@
   },
   "public": false,
   "email": {
-    "$comment": "Who the platform's emails come from: the name people see, and the address (it must be on a domain verified in Resend). An empty address uses the address the server already sends from (CLIENT_EMAIL_FROM, else DIGITAL_WALL_EMAIL_FROM), with this name. lib/mail/send.ts.",
+    "$comment": "Who the platform's emails come from: the name people see, and the address (it must be on a domain verified in Resend: production has verxyl.com and agent.verxyl.com, read 2026-11-02; clearway.verxyl.com is NOT verified). Nobody reads no-reply@, so no email may ask for a reply. An empty address uses the address the server already sends from (CLIENT_EMAIL_FROM, else DIGITAL_WALL_EMAIL_FROM), with this name. lib/mail/send.ts.",
     "fromName": "Clearway",
-    "fromAddress": ""
+    "fromAddress": "no-reply@verxyl.com"
   }
 }

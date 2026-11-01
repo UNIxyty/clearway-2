@@ -22,6 +22,9 @@ export async function GET(request: NextRequest, context: { params: { path?: stri
   const key = pathParts.join("/");
   try {
     const safeKey = assertSafeStorageKey(key);
+    // Help uploads and drafts are a person's own: they are served only by /api/help/attachments/[id] and /api/help/drafts,
+    // which check the owner. Here any signed-in person could read another's drafts by user id (found 2026-11-02).
+    if (/^help-(attachments|drafts)\//i.test(safeKey)) return NextResponse.json({ error: "File not found" }, { status: 404 });
     const bytes = await readFile(safeKey);
     if (!bytes) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });

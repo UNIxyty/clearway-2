@@ -4,9 +4,13 @@ Every email the platform sends goes out through Resend with one sender, `digital
 reaches it through `lib/mail/send.ts`, which adds three things:
 
 - **The sender** comes from the brand settings, `content/docs/site.json` › `email`. `fromName` is the name people see
-  (now "Clearway"). `fromAddress` is the address, which must be on a domain verified in Resend. While it is empty, the
-  portal uses the address the server already sends from (`CLIENT_EMAIL_FROM`, else `DIGITAL_WALL_EMAIL_FROM`), and
-  `no-reply@clearway.verxyl.com` when neither is set, the mailer's own default.
+  ("Clearway"). `fromAddress` is the address: **`no-reply@verxyl.com`** since 2026-11-02. It must be on a domain verified
+  in Resend. Production's Resend has two, `verxyl.com` and `agent.verxyl.com`, read from the server on 2026-11-02.
+  The portal's hostname, `clearway.verxyl.com`, is not verified, so its parent was chosen. `no-reply@` was chosen
+  over the server's existing `allerts@verxyl.com`, the wall's alerts, and over `agent@verxyl.com`, the intake
+  mailbox: a reply there would be read as a handling request. Nobody reads `no-reply@`, so no email asks for a reply.
+  If `fromAddress` is ever emptied, the portal uses `CLIENT_EMAIL_FROM`, else `DIGITAL_WALL_EMAIL_FROM`, else
+  `no-reply@verxyl.com`.
 - **A row in Mailbox › Sent** (`intake_messages`, outbound), named by its kind, with no body kept: several of these
   emails carry a link that lets someone in.
 - **A delivery status** on that row. It starts as Sent (accepted by Resend), or Failed, and the Resend webhook moves it

@@ -55,7 +55,9 @@ for (const root of ROOTS) {
   for (const f of all) fs.readFileSync(f, "utf8").split("\n").forEach((l, i) => { if (/^\s*import\b.*shared\/design-tokens\.json/.test(l)) findings.push(`${f}:${i + 1}  imports shared/design-tokens.json (the Digital Wall's file)`); });
 }
 for (const x of findings) console.log(`FAIL  ${x}`);
-console.log(`${files.length} portal files scanned · ${Object.keys(EXCUSED).length} excused (${Object.entries(EXCUSED).map(([f, why]) => `${f}: ${why}`).join("; ")}) · ${findings.length} hard-coded colour${findings.length === 1 ? "" : "s"}`);
+// the exceptions, each on its own line with its reason, on every run: an exception nobody sees becomes a mystery
+for (const [f, why] of Object.entries(EXCUSED)) console.log(`EXCUSED  ${f}${fs.existsSync(f) ? "" : " (no longer exists: remove this exception)"} — ${why}`);
+console.log(`${findings.length ? `${findings.length} FAILED` : "ALL PASSED"} · ${files.length} portal files scanned · ${Object.keys(EXCUSED).length} excused (listed above) · ${findings.length} hard-coded colour${findings.length === 1 ? "" : "s"}`);
 if (process.argv.includes("--count")) {
   const used = new Set(); for (const f of files) for (const m of fs.readFileSync(f, "utf8").matchAll(/--cw-([a-z0-9-]+)|\bcw\.([a-zA-Z0-9]+)|-cw-([a-z0-9-]+)/g)) used.add(m[1] ?? m[2]?.replace(/[A-Z0-9]/g, (c) => `-${c.toLowerCase()}`) ?? m[3]);
   console.log(`${used.size} distinct tokens referenced`);

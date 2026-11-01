@@ -11,6 +11,7 @@
 import { chromium } from "playwright";
 import { readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { watch, settled } from "./lib/settle.mjs";
 
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -58,10 +59,17 @@ await anon.addInitScript(() => { try { localStorage.setItem("cw-theme", "dark");
 const anonPage = await anon.newPage();
 
 const report = [];
-const visits = [...routes.map((r) => [page, r]), ...[...SIGNED_OUT].map((r) => [anonPage, r === "/intake/answer" ? "/intake/answer?t=not-a-real-token" : r])];
-for (const [page, route] of visits) {
+// Four tabs at a time per browser context, each page judged once it has settled (rig/lib/settle.mjs: no request in
+// flight, no DOM change, no skeleton, for 250 ms) — 2026-11-01; was one tab and a fixed 2.5 s per page (269 of 274 s).
+const TABS = Number(process.env.DARK_AUDIT_TABS || 4);
+const tabsOf = async (c, first) => { const t = [first]; for (let i = 1; i < TABS; i += 1) t.push(await c.newPage()); t.forEach(watch); return t; };
+const signedInTabs = await tabsOf(ctx, page), anonTabs = await tabsOf(anon, anonPage);
+const unsettled = [];
+const visits = [...routes.map((r) => [signedInTabs, r]), ...[...SIGNED_OUT].map((r) => [anonTabs, r === "/intake/answer" ? "/intake/answer?t=not-a-real-token" : r])];
+const queue = { signedIn: visits.filter((v) => v[0] === signedInTabs), anon: visits.filter((v) => v[0] === anonTabs) };
+async function visit(page, route) {
   await page.goto(`${BASE}${route}`, { waitUntil: "load" }).catch(() => {});
-  await page.waitForTimeout(2500);
+  if (!(await settled(page, { timeout: 15000 }))) unsettled.push(route);
   const r = await page.evaluate(() => {
     const parse = (c) => { const m = c.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?/); return m ? { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] } : null; };
     const lum = ({ r, g, b }) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
@@ -100,9 +108,12 @@ for (const [page, route] of visits) {
     return { theme, ...found };
   });
   const n = r.surfaces.length + r.borders.length + r.text.length;
-  report.push({ route: route + (page === anonPage ? " (signed out)" : ""), theme: r.theme, n, r });
+  report.push({ route: route + (anonTabs.includes(page) ? " (signed out)" : ""), theme: r.theme, n, r });
 }
+const drain = (tabs, list) => Promise.all(tabs.map(async (tab) => { for (let v = list.shift(); v; v = list.shift()) await visit(tab, v[1]); }));
+await Promise.all([drain(signedInTabs, queue.signedIn), drain(anonTabs, queue.anon)]);
 await browser.close();
+if (unsettled.length) console.log(`  note: ${unsettled.length} page(s) still busy after 15 s, judged as they were: ${unsettled.join(", ")}`);
 
 const off = report.filter((x) => x.theme !== "dark");
 const bad = report.filter((x) => x.n > 0);

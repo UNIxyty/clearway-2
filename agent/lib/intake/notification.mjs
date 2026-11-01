@@ -409,6 +409,9 @@ export function startLookupTicker() {
       await cancelDeadlines().catch(() => {});
     } finally { busy = false; }
   };
-  setInterval(tick, 30000).unref(); void tick();
+  // INTAKE_TICK_MS: how often the scheduled tries and deadlines are looked at (default 30 s). The rig sets 1 s so a suite
+  // waits for the schedule it set (INTAKE_LOOKUP_SCHEDULE_MIN), not for this timer (2026-11-01: up to 30 s per try).
+  const every = Math.max(250, Number(process.env.INTAKE_TICK_MS) || 30000);
+  setInterval(tick, every).unref(); void tick();
 }
 export { lookupState };

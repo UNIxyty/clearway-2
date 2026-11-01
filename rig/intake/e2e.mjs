@@ -37,7 +37,7 @@ async function processed(emailId, timeoutMs = 240000) {
     const m = (await db(`intake_messages?select=id,status,request_id&provider_message_id=eq.${emailId}`))[0];
     if (m && m.status !== "waiting") return m;
     if (Date.now() - t0 > timeoutMs) throw new Error(`message ${emailId} still waiting after ${timeoutMs} ms`);
-    await sleep(3000);
+    await sleep(500);
   }
 }
 const detail = async (id) => (await api(`/api/intake/requests/${id}`)).json;
@@ -68,7 +68,7 @@ async function sendAll(id, { twice = false } = {}) {
 execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events cascade;"`);
 rmSync(path.join(SCR, "intake"), { recursive: true, force: true }); rmSync(MOCKLOG, { force: true }); faults({});
 execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${SCR}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
-await sleep(1500);
+for (let i = 0; i < 50; i += 1) { try { await fetch("http://127.0.0.1:3995/"); break; } catch { await sleep(100); } } // the mock Leon answers (was a fixed 1.5 s)
 // Variants built from the redacted fixtures (test inputs, not templates): no timezone; another week + callsign.
 const amq = readFileSync("rig/fixtures/intake/amq5v-lybe-plus364.eml", "latin1");
 const b64 = (s) => Buffer.from(s, "latin1").toString("base64").replace(/.{76}/g, "$&\r\n");
@@ -201,13 +201,13 @@ const pr = await api(`/api/intake/requests/${mr.request_id}/prepare`, {});
 if (pr.status !== 200) { ok(false, "restart case prepared", JSON.stringify(pr.json?.blockers)); }
 else {
   void api(`/api/intake/send/${pr.json.confirmation.token}/confirm`, {}).catch(() => null);
-  await sleep(2500);
-  const mid = await db(`intake_leon_writes?select=state&request_id=eq.${mr.request_id}`);
+  // the attempt row, while Leon hangs (was a fixed 2.5 s): poll until it is there
+  let mid = []; for (let i = 0; i < 60 && !mid.some((w) => w.state === "sending"); i += 1) { await sleep(250); mid = await db(`intake_leon_writes?select=state&request_id=eq.${mr.request_id}`); }
   ok(mid.length === 1 && mid[0].state === "sending", "the attempt row exists BEFORE Leon answers", mid.map((w) => w.state).join(","));
   const creates7 = creates().length;
   execSync(`kill $(lsof -tiTCP:5175 -sTCP:LISTEN)`); await sleep(1000);
   // Restarted with the same environment rig/start.sh gives it (tz data, the mock portal); otherwise the next run is a different agent.
-  execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCR}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
+  execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCR}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" INTAKE_TICK_MS=1000 nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
   for (let i = 0; i < 20; i += 1) { await sleep(1000); try { if ((await fetch(`${AGENT}/api/health`)).ok) break; } catch { /* starting */ } }
   await sleep(1500);
   const after = await db(`intake_leon_writes?select=state,leon_error&request_id=eq.${mr.request_id}`);

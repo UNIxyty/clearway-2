@@ -168,8 +168,12 @@ await page.screenshot({ path: `${SHOTS}12-zero-passengers.png` });
 
 // ── One operator's key broken: the picker names it unavailable and lists every other operator
 execFileSync("node", ["--env-file=.env.rig", "rig/manifest/operators.mjs", "break", "klj"], { cwd: ROOT });
-await sleep(31_000); // the agent re-reads the operator registry every 30 s — no restart
-await openPicker(); await sleep(1500);
+// The agent re-reads the operator registry after LEON_OPERATORS_TTL_MS (1 s on the rig; 30 s in production): no
+// restart. Waits for the picker to name the broken operator (was a fixed 31 s).
+await sleep(1100);
+await openPicker();
+await picker().locator("[data-unavailable-operators]").waitFor({ timeout: 40_000 }).catch(() => {});
+await picker().getByRole("option").first().waitFor({ timeout: 20_000 }).catch(() => {});
 const banner = await picker().locator("[data-unavailable-operators]").innerText().catch(() => "");
 rows = await pickerRows();
 ok(/KlasJet/.test(banner) && !/Clearway|ART-Line/.test(banner), `only the broken operator is named unavailable: "${banner}"`);
@@ -189,8 +193,13 @@ await page.keyboard.press("Escape");
 // once real voiced audio has arrived (rig/voice/mock-elevenlabs.mjs), so this proves capture and streaming; same picker.
 // --disable-audio-output: the browser's audio clock runs on a fake output, not the Mac's speakers (which stop it when
 // the display sleeps: the 2026-10-12 failure).
-await page.getByRole("button", { name: "Talk", exact: true }).click(); await sleep(5500);
-await page.getByRole("button", { name: /Send what you said|Talk/ }).first().click().catch(() => {}); await sleep(9000);
+// Waits on the real signals (2026-11-01; were 5.5 s and 9 s fixed): the stand-in sends its partial transcript once it has
+// heard 0.5 s of voice, which lands in the composer; after Send, the picker opens. The timeouts are ceilings only.
+await page.getByRole("button", { name: "Talk", exact: true }).click();
+const heard = await page.waitForFunction(() => [...document.querySelectorAll("textarea")].some((t) => /manifest/i.test(t.value)) || /pax manifest for klj/i.test(document.body.innerText), null, { timeout: 20_000 }).then(() => true).catch(() => false);
+ok(heard, "voice: the spoken phrase reaches the composer");
+await page.getByRole("button", { name: /Send what you said|Talk/ }).first().click().catch(() => {});
+await picker().getByRole("option").filter({ hasText: "KLJ7350" }).first().waitFor({ timeout: 30_000 }).catch(() => {});
 const voicePicker = await picker().count();
 rows = voicePicker ? await pickerRows() : [];
 ok(voicePicker === 1 && rows.slice(1).some((r) => r.includes("KLJ7350")), `voice reaches the same picker, filtered: ${voicePicker ? JSON.stringify(await picker().getByRole("combobox").inputValue()) : "picker not open"}`);

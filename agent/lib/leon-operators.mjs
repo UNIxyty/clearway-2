@@ -13,7 +13,9 @@
 import crypto from "node:crypto";
 import { logDetail } from "./public-errors.mjs";
 
-const LIST_TTL_MS = 30_000;
+// How long the operator registry is trusted before it is read again (default 30 s). The rig sets 1 s
+// (LEON_OPERATORS_TTL_MS) so a suite that breaks an operator's key waits for the read, not for this cache (2026-11-01).
+const LIST_TTL_MS = Math.max(0, Number(process.env.LEON_OPERATORS_TTL_MS) || 30_000);
 const ACCESS_TTL_MS = 25 * 60 * 1000; // Leon access tokens live 30 min
 const ENCRYPTED_PREFIX = "enc:v1:";
 

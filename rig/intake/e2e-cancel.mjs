@@ -71,7 +71,7 @@ const cnl = async (nids) => { const all = await leonFlights(); return nids.map((
 execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events cascade;"`, { stdio: "ignore" });
 rmSync(LEONLOG, { force: true }); faults({});
 execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${path.resolve("rig/.scratch")}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
-await sleep(1500);
+for (let i = 0; i < 50; i += 1) { try { await fetch("http://127.0.0.1:3995/"); break; } catch { await sleep(100); } } // the mock Leon answers (was a fixed 1.5 s)
 
 console.log("\n── 1. Approved: every leg cancelled in Leon; the attempt is written before the call ──");
 const A = await load("2612398", "LEBL-LEIB-LEBL");
@@ -184,7 +184,7 @@ console.log("\n── 11. The service restarts during a cancel: unknown, a perso
   const before = deletes().length;
   execSync(`kill $(lsof -tiTCP:5175 -sTCP:LISTEN)`); await sleep(1000);
   const SCRATCH = path.resolve("rig/.scratch");
-  execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCRATCH}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
+  execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCRATCH}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" INTAKE_TICK_MS=1000 nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
   for (let i = 0; i < 20; i += 1) { await sleep(1000); try { if ((await fetch(`${AGENT}/api/health`)).ok) break; } catch { /* starting */ } }
   await sleep(2000);
   const rows = await cancelRows(C.r.id); r = await requestOf(C.r.id);

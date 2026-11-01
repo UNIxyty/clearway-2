@@ -54,7 +54,7 @@ async function deliver(file) {
     const m = (await db(`intake_messages?select=id,status,request_id&provider_message_id=eq.${emailId}`))[0];
     if (m && m.status !== "waiting") return m;
     if (Date.now() - t0 > 240000) throw new Error("message still waiting");
-    await sleep(3000);
+    await sleep(500);
   }
 }
 const detail = async (id) => (await api(`/api/intake/requests/${id}`)).json;
@@ -71,7 +71,7 @@ const peopleOn = (d, leg) => { const l = d.people.legs?.[String(leg)] ?? { crew:
 execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events, public.intake_leon_contacts cascade;"`);
 rmSync(path.join(SCR, "intake"), { recursive: true, force: true }); rmSync(MOCKLOG, { force: true }); faults({});
 execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${SCR}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
-await sleep(1500);
+for (let i = 0; i < 50; i += 1) { try { await fetch("http://127.0.0.1:3995/"); break; } catch { await sleep(100); } } // the mock Leon answers (was a fixed 1.5 s)
 const fixture = (ref, call, days, seed) => { const f = path.join(SCR, `${ref.toLowerCase()}.eml`); execSync(`node rig/intake/make-people-fixture.mjs ${ref} ${call} ${days} ${f} ${seed}`); return f; };
 const contactsInLeon = async () => (await fetch(`${process.env.LEON_API_BASE}/_rig/contacts`)).json();
 const mockLog = () => (existsSync(MOCKLOG) ? readFileSync(MOCKLOG, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
@@ -183,7 +183,7 @@ console.log("\n=== 6. The service restarts during a list write: unknown, a perso
   ok(mid.some((w) => w.kind === "pax" && w.state === "sending"), "the list write's attempt row exists before Leon answers", mid.map((w) => `${w.kind}:${w.state}`).join(","));
   const listsBefore = calls(/addPassengersToList/).length;
   execSync(`kill $(lsof -tiTCP:5175 -sTCP:LISTEN)`); await sleep(1000);
-  execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCR}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
+  execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCR}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" INTAKE_TICK_MS=1000 nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
   for (let i = 0; i < 20; i += 1) { await sleep(1000); try { if ((await fetch(`${AGENT}/api/health`)).ok) break; } catch { /* starting */ } }
   await sleep(2000);
   const after = await db(`intake_leon_people_writes?select=state&request_id=eq.${m6.request_id}&kind=eq.pax`);

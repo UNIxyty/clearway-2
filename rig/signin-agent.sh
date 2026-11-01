@@ -12,7 +12,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"; SCR="$ROOT/rig/.scratch"
 pid=$(lsof -tiTCP:5176 -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid || true
 [ "$1" = "stop" ] && { echo "stopped :5176"; exit 0; }
 sleep 1
-( cd "$ROOT/agent" && env -i PATH="$PATH" HOME="$HOME" PORT=5176 PERMISSIONS_TTL_MS=1000 ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" TZDATA_LATEST_CHECK=off \
+( cd "$ROOT/agent" && env -i PATH="$PATH" HOME="$HOME" PORT=5176 PERMISSIONS_TTL_MS=1000 INTAKE_TICK_MS=1000 ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" TZDATA_LATEST_CHECK=off \
     DISABLE_AUTH_FOR_TESTING=false AGENT_TEST_ROLE= INTAKE_PIPELINE=off ADMIN_EMAILS= DEVELOPER_EMAILS= \
     LEON_OPERATOR_API_BASE="http://127.0.0.1:3993/{opr}" LEON_REFRESH_TOKEN_ENCRYPTION_KEY=rig-local-only-not-a-secret RESEND_BASE_URL=http://127.0.0.1:3996 \
     node --env-file="$ROOT/.env.rig" server.mjs > "$SCR/agent-auth.out" 2>&1 & )

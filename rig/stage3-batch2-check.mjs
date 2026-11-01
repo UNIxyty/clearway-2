@@ -6,6 +6,7 @@ import { chromium } from "playwright";
 import { mkdirSync, readFileSync } from "node:fs";
 import { DEFAULT_NOTAM_GROUPS, compileNotamGroups, matchNotamText } from "../digital-wall/lib/notam-rules.mjs";
 
+import { settled, until } from "./lib/settle.mjs";
 const BASE = process.env.RIG_SHELL_URL || "http://127.0.0.1:3989";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL; const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)/.test(SB)) { console.error("refusing: not the rig's local Supabase"); process.exit(2); }
@@ -44,18 +45,18 @@ const count = (s) => COUNTRIES.filter((c) => c.state === s).length;
   const recent = await page.locator('ol[aria-label="Recently changed"] li').allInnerTexts();
   ok(recent.length === 5 && norm(recent[0]).startsWith("Albania"), "Recently changed: the 5 latest updates, newest first, each with the state it was set to", recent.map(norm).join(" | "));
   ok(await page.locator('table[aria-label="Country service statuses"] tbody tr').count() === 50, "64 countries page at 50 rows");
-  await page.getByRole("button", { name: /^Experiencing troubles/ }).click(); await sleep(300);
+  await page.getByRole("button", { name: /^Experiencing troubles/ }).click(); await settled(page);
   const strip = norm(await page.locator('[role="status"]', { hasText: "Showing" }).first().innerText());
   const rows = await page.locator('table[aria-label="Country service statuses"] tbody tr').allInnerTexts();
   ok(/Showing 3 of 64/.test(strip) && rows.length === 3 && rows.every((r) => /Experiencing troubles/.test(r)) && await page.getByRole("button", { name: /^Experiencing troubles/ }).getAttribute("aria-pressed") === "true",
     "the legend filters the table, says what is hidden, and shows which state is picked", `${strip} · ${rows.map(norm).join(" | ").slice(0, 120)}`);
   ok(await page.getByRole("button", { name: /^Status/ }).first().innerText().then((t) => /Experiencing troubles|1/.test(t)), "the Status filter shows the same choice");
   await page.screenshot({ path: `${OUT}/s3b2-status-filtered.png` });
-  await page.getByRole("button", { name: /^Experiencing troubles/ }).click(); await sleep(200);
+  await page.getByRole("button", { name: /^Experiencing troubles/ }).click(); await settled(page);
   ok(await page.locator('table[aria-label="Country service statuses"] tbody tr').count() === 50, "clicking the state again shows every country");
-  await page.getByRole("button", { name: /^In work/ }).click(); await sleep(200);
+  await page.getByRole("button", { name: /^In work/ }).click(); await settled(page);
   ok(await page.getByText("No country is “In work” right now").isVisible() && await page.getByText("That's 0 of 64 countries.").isVisible(), "a state with no country says so, with the total");
-  await page.getByRole("button", { name: "Clear filters" }).click(); await sleep(200);
+  await page.getByRole("button", { name: "Clear filters" }).click(); await settled(page);
   await page.getByPlaceholder("Filter countries").fill("bra"); await sleep(250);
   const found = await page.locator('table[aria-label="Country service statuses"] tbody tr').allInnerTexts();
   ok(found.length === 1 && /Brazil/.test(found[0]) && /AISWEB/.test(found[0]), "search finds a country and shows its note", found.map(norm).join(" | "));
@@ -69,7 +70,7 @@ const count = (s) => COUNTRIES.filter((c) => c.state === s).length;
   for (const theme of ["light", "dark"]) {
     const s = await as("user", theme);
     await s.page.route(/\/api\/country-service-status/, (r) => r.fulfill({ json: { countries: COUNTRIES, hasGlobalRunningDebug: false, generatedAt: new Date().toISOString() } }));
-    await s.page.goto(`${BASE}/aip/service-status`, { waitUntil: "load" }); await s.page.waitForSelector('td:has-text("Albania")'); await sleep(1200);
+    await s.page.goto(`${BASE}/aip/service-status`, { waitUntil: "load" }); await s.page.waitForSelector('td:has-text("Albania")'); await settled(s.page);
     await s.page.screenshot({ path: `${OUT}/s3b2-status-${theme}.png` });
     await s.ctx.close();
   }
@@ -94,7 +95,7 @@ process.on("exit", () => { if (searchEventsOff) { try { searchEvents(true); } ca
   await page.route(/\/digital-wall\/api\/flights\/normalized/, (r) => r.fulfill({ status: 502, contentType: "application/json", body: "{\"ok\":false}" }));
   await page.goto(`${BASE}/dashboard`, { waitUntil: "load" });
   await page.waitForSelector('[data-block="changelog"] li', { timeout: 30000 });
-  await sleep(1500);
+  await settled(page);
   ok(JSON.stringify(await order(page)) === JSON.stringify(["today", "recent", "monitors", "health", "links", "changelog"]), "the default layout: Today, Recently used, monitors, Server health, Quick links, Changelog", (await order(page)).join(","));
   const recent = norm(await page.locator('[data-block="recent"]').innerText());
   ok(/Couldn't load your recent activity/.test(recent) && /500 · GET \/api\/dashboard\/recents/.test(recent) && await page.locator('[data-block="recent"]').getByRole("button", { name: "Retry" }).isVisible(),
@@ -113,47 +114,48 @@ process.on("exit", () => { if (searchEventsOff) { try { searchEvents(true); } ca
   const lib = page.locator('aside[aria-label="Blocks"]');
   ok(await lib.getByRole("checkbox").count() === 6 && await page.getByRole("button", { name: "Done" }).isVisible() && await page.getByRole("button", { name: "Reset to default" }).isVisible() && /Editing — changes save/.test(await page.locator("main, body").first().innerText()),
     "Customise: the block list (6 for an admin), Done, Reset to default, and the page says changes save");
-  await page.locator('[data-block="links"]').getByRole("radio", { name: "L" }).click(); await sleep(300);
+  await page.locator('[data-block="links"]').getByRole("radio", { name: "L" }).click(); await settled(page);
   const w = await page.evaluate(() => { const g = document.querySelector(".cw-dash-grid").getBoundingClientRect().width; return document.querySelector('[data-block="links"]').getBoundingClientRect().width / g; });
   ok(w > 0.62 && w < 0.7, "L makes a block 8 of 12 columns wide", w.toFixed(2));
   const before = await order(page);
-  await page.getByRole("button", { name: /^Move Quick links/ }).focus(); await page.keyboard.press("ArrowUp"); await sleep(300);
+  await page.getByRole("button", { name: /^Move Quick links/ }).focus(); await page.keyboard.press("ArrowUp"); await settled(page);
   const after = await order(page);
   ok(after.indexOf("links") === before.indexOf("links") - 1 && await page.evaluate(() => document.activeElement?.getAttribute("aria-label")?.startsWith("Move Quick links")), "the arrow keys move a block by its handle, and focus stays on it", after.join(","));
   // A viewport tall enough that nothing scrolls mid-drag (Playwright scrolls the target into view between the press and
   // the first move, which a person's drag does not do).
-  await page.setViewportSize({ width: 1440, height: 2400 }); await sleep(300);
+  await page.setViewportSize({ width: 1440, height: 2400 }); await settled(page);
   await page.getByRole("button", { name: /^Move Changelog/ }).dragTo(page.locator('[data-block="today"]'));
-  await sleep(500);
+  // the signal is the new order (a drop that did not take still fails, after the ceiling)
+  await until(async () => (await order(page))[0] === "changelog", { timeout: 5000, every: 100 }); await settled(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   const dragged = await order(page);
   ok(dragged[0] === "changelog", "dragging by the handle reorders", dragged.join(","));
-  await page.locator('[data-block="today"]').getByRole("button", { name: "Remove Today" }).click(); await sleep(200);
+  await page.locator('[data-block="today"]').getByRole("button", { name: "Remove Today" }).click(); await settled(page);
   ok(!(await order(page)).includes("today") && await lib.getByRole("checkbox", { name: "Show Today" }).getAttribute("aria-checked") === "false", "remove takes the block off and unticks it in the list");
-  await lib.getByRole("checkbox", { name: "Show Today" }).click(); await sleep(200);
+  await lib.getByRole("checkbox", { name: "Show Today" }).click(); await settled(page);
   ok((await order(page)).at(-1) === "today", "ticking it adds it back at the end");
   await page.screenshot({ path: `${OUT}/s3b2-dashboard-edit.png`, fullPage: true });
-  await page.getByRole("button", { name: "Done" }).click(); await sleep(600);
+  await page.getByRole("button", { name: "Done" }).click(); await settled(page);
   // The account copy is saved 500 ms after the last change: wait for it (up to 8 s) rather than a fixed time, which
   // was too short on a busy machine (a full run, 2026-10-12).
   const expected = await order(page);
   let saved = null;
   for (let i = 0; i < 32; i += 1) { saved = await layoutOf(adminId); if (Array.isArray(saved) && JSON.stringify(saved.map((b) => b.id)) === JSON.stringify(expected)) break; await sleep(250); }
   ok(Array.isArray(saved) && JSON.stringify(saved.map((b) => b.id)) === JSON.stringify(expected) && saved.find((b) => b.id === "links")?.size === "L", "the layout is saved on the account as it is changed", JSON.stringify(saved));
-  await page.reload({ waitUntil: "load" }); await page.waitForSelector("[data-block]"); await sleep(1500);
+  await page.reload({ waitUntil: "load" }); await page.waitForSelector("[data-block]"); await settled(page);
   ok(JSON.stringify(await order(page)) === JSON.stringify(expected), "and comes back after a reload");
   const c2 = await as("admin");
-  await c2.page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await c2.page.waitForSelector("[data-block]"); await sleep(1500);
+  await c2.page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await c2.page.waitForSelector("[data-block]"); await settled(c2.page);
   ok(JSON.stringify(await order(c2.page)) === JSON.stringify(expected), "and in another browser (it follows the account)"); await c2.ctx.close();
   // Empty, then the default again
   await page.getByRole("button", { name: "Customise" }).click();
   for (let i = 0; i < 8 && await lib.getByRole("checkbox", { checked: true }).count(); i++) { await lib.getByRole("checkbox", { checked: true }).first().click(); await sleep(100); }
-  await sleep(200);
+  await settled(page);
   ok(await page.getByText("Tick a block in the list to add it.").isVisible(), "with every block removed, editing says how to add one");
-  await page.getByRole("button", { name: "Done" }).click(); await sleep(300);
+  await page.getByRole("button", { name: "Done" }).click(); await settled(page);
   ok(await page.getByText("Your dashboard has no blocks").isVisible() && await page.getByRole("button", { name: "Use the default layout" }).isVisible() && await page.getByRole("button", { name: "Add blocks" }).isVisible(), "the empty dashboard offers Add blocks and the default layout");
   await page.screenshot({ path: `${OUT}/s3b2-dashboard-empty.png` });
-  await page.getByRole("button", { name: "Use the default layout" }).click(); await sleep(600);
+  await page.getByRole("button", { name: "Use the default layout" }).click(); await settled(page);
   // Cleared on the account after the same 500 ms save delay: wait for it (up to 8 s), as above (failed once at a
   // fixed 1.2 s in a full run, 2026-10-12).
   let cleared;
@@ -163,14 +165,14 @@ process.on("exit", () => { if (searchEventsOff) { try { searchEvents(true); } ca
   await page.locator('[data-block="changelog"]').getByRole("link", { name: "Full changelog" }).click();
   await page.waitForURL(/\/dashboard\/changelog$/); await page.waitForSelector("section li", { timeout: 20000 });
   const n = await page.locator("section li").count();
-  await page.getByRole("radio", { name: "Errors" }).click(); await sleep(1500);
+  await page.getByRole("radio", { name: "Errors" }).click(); await settled(page);
   ok(n > 6 && /Changelog/.test(await page.locator("h1").innerText()), "the full changelog lists more than the block's 6, with All / Edits / Errors", `${n} entries`);
   await ctx.close();
 }
 {
   const { ctx, page } = await as("user");
   await page.goto(`${BASE}/dashboard`, { waitUntil: "load" });
-  await page.waitForSelector('[data-block="changelog"]', { timeout: 30000 }); await sleep(1500);
+  await page.waitForSelector('[data-block="changelog"]', { timeout: 30000 }); await settled(page);
   ok(!(await order(page)).includes("health") && /Your changelog/.test(await page.locator('[data-block="changelog"] header').innerText()), "a User: no Server health, and the changelog is theirs");
   await page.getByRole("button", { name: "Customise" }).click();
   ok(await page.locator('aside[aria-label="Blocks"]').getByRole("checkbox").count() === 5, "a User's block list has no Server health");
@@ -179,7 +181,7 @@ process.on("exit", () => { if (searchEventsOff) { try { searchEvents(true); } ca
 for (const theme of ["light", "dark"]) {
   const s = await as("admin", theme);
   await s.page.route(/\/api\/dashboard\/recents/, (r) => r.fulfill({ json: { recents: ["EVRA", "ESSA", "ENBG", "LDZA", "EIBR", "BIBA"].map((icao, i) => ({ resource: icao, service: "AIP", action: i % 2 ? "Opened" : "Searched", when: new Date(Date.now() - (i + 1) * 3 * 3600e3).toISOString(), href: `/aip/${icao}` })) } }));
-  await s.page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await s.page.waitForSelector('[data-block="recent"] a'); await sleep(1500);
+  await s.page.goto(`${BASE}/dashboard`, { waitUntil: "load" }); await s.page.waitForSelector('[data-block="recent"] a'); await settled(s.page);
   await s.page.screenshot({ path: `${OUT}/s3b2-dashboard-${theme}.png`, fullPage: true });
   await s.ctx.close();
 }
@@ -232,19 +234,19 @@ const pagesShown = (page) => page.locator('[role="toolbar"][aria-label="Document
   ok(tabs.length === 2 && /AD 2 · EVRA/.test(tabs[0]) && /GEN · Latvia/.test(tabs[1]), "document tabs: AD 2 and GEN", tabs.map(norm).join(" | "));
   const pages = await pagesShown(page);
   ok(pages > 1 && await page.locator('[aria-label="Pages"] button').count() === pages, "the AD 2 PDF opens in the viewer, with a thumbnail per page", `${pages} pages`);
-  await page.getByRole("button", { name: "Next page" }).click(); await sleep(1200);
+  await page.getByRole("button", { name: "Next page" }).click(); await settled(page);
   ok(await page.getByRole("textbox", { name: "Page" }).inputValue() === "2", "next page");
   const z0 = norm(await page.getByRole("button", { name: /^Zoom/ }).first().innerText().catch(() => ""));
-  await page.getByRole("button", { name: "Zoom in" }).click(); await sleep(600);
+  await page.getByRole("button", { name: "Zoom in" }).click(); await settled(page);
   const z1 = norm(await page.locator('[role="toolbar"][aria-label="Document controls"]').innerText());
   ok(/\d+%/.test(z1) && !/Fit width/.test(z1), "zoom in leaves Fit width for a set zoom", `${z0} → ${(z1.match(/\d+%/) ?? [""])[0]}`);
   const portrait = await page.locator(".cw-page").first().evaluate((e) => e.clientHeight > e.clientWidth);
-  await page.getByRole("button", { name: "Rotate" }).click(); await sleep(800);
+  await page.getByRole("button", { name: "Rotate" }).click(); await settled(page);
   const landscape = await page.locator(".cw-page").first().evaluate((e) => e.clientWidth > e.clientHeight);
   ok(portrait && landscape, "rotate turns the pages");
   await page.getByRole("button", { name: "Rotate" }).click(); await page.getByRole("button", { name: "Rotate" }).click(); await page.getByRole("button", { name: "Rotate" }).click();
   await page.getByRole("button", { name: "Find in document" }).click();
-  await page.getByRole("searchbox", { name: "Find in this document" }).fill("AERODROME"); await sleep(2500);
+  await page.getByRole("searchbox", { name: "Find in this document" }).fill("AERODROME"); await settled(page);
   const findRow = norm(await page.getByRole("searchbox", { name: "Find in this document" }).locator("xpath=../..").innerText());
   ok(/\d+ of \d+/.test(findRow), "find in document counts the matches", findRow);
   ok(await page.getByRole("link", { name: "Open in a new tab" }).getAttribute("href").then((h) => /\/api\/aip\/ead\/pdf\?icao=EVRA&inline=1/.test(h)), "open in a new tab");
@@ -291,7 +293,7 @@ const pagesShown = (page) => page.locator('[role="toolbar"][aria-label="Document
 for (const theme of ["light", "dark"]) {
   const s = await as("admin", theme);
   await stubAirport(s.page);
-  await s.page.goto(`${BASE}/aip/EVRA`, { waitUntil: "load" }); await s.page.waitForSelector(".cw-page canvas", { timeout: 30000 }); await sleep(2500);
+  await s.page.goto(`${BASE}/aip/EVRA`, { waitUntil: "load" }); await s.page.waitForSelector(".cw-page canvas", { timeout: 30000 }); await settled(s.page);
   await s.page.screenshot({ path: `${OUT}/s3b2-airport-${theme}.png` });
   await s.ctx.close();
 }

@@ -270,6 +270,9 @@ const wallFrame = async (page, path) => {
   ok((await page.getByRole("link", { name: /Read the original email first/ }).count()) === 1 && (await page.getByRole("button", { name: /send to Leon/ }).count()) === 0, "confirm: without the email read, the only action is Read the original email first (no dead Confirm)");
   // a client-side route change: the signal is the address and the email's own heading (settled cannot see a transition)
   await page.getByRole("link", { name: /Read the original email first/ }).click(); await page.waitForURL(/\/email(\?|$)/, { timeout: 10_000 }).catch(() => {}); await page.getByText("As received").first().waitFor({ timeout: 10_000 }).catch(() => {});
+  // the body arrives after the headers (its own request); reading it is what unlocks the confirm (2026-11-02: going
+  // back on the headers alone raced the body in the full run)
+  await page.locator("[data-email-body-loaded]").waitFor({ state: "attached", timeout: 15_000 }).catch(() => {});
   const text = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
   const bodyShown = !/shown to the mailbox’s readers/.test(text);
   ok(/As received/.test(text) && /Subject/.test(text), "email: the headers are shown", text.slice(0, 160));

@@ -48,6 +48,8 @@ export default function IntakeEmailPage() {
         : bodyErr ? <MError title="The body could not be loaded" icon="mail" onRetry={() => { setBodyErr(null); setBody(null); }}>{bodyErr}</MError>
         : body ? (
           <>
+            {/* the body is here, so this phone has read the email (markEmailRead): what the confirm page waits for */}
+            <span hidden data-email-body-loaded />
             {body.purged ? <span className="text-[13.5px] text-cw-text-muted">The body was removed by retention.</span> : body.unavailable ? <span className="text-[13.5px] text-cw-text-muted">{body.unavailable}</span> : (
               <>
                 {body.masks > 0 && <span className="text-[12.5px] text-cw-text-muted">{body.masks} personal value{body.masks === 1 ? "" : "s"} masked here. The agent mailbox on a desk can show them, logged.</span>}

@@ -192,7 +192,7 @@ export async function sendEmail({ to, subject, html, text, from = defaultFrom(),
     try { result = await deliverViaResend({ from, to: recipients, subject, html, text, attachments }); }
     catch (error) {
       // the sender's domain not verified yet: the same send from the address that works today, said in the log
-      if (!fallbackFrom || fallbackFrom === from || !NOT_VERIFIED.test(error instanceof Error ? error.message : String(error))) throw error;
+      if (!fallbackFrom || fallbackFrom === from || !NOT_VERIFIED.test(error instanceof Error ? error.message : String(error))) throw error; // public-error-ok: Resend's text is only tested here to decide on the fallback; nobody is shown it
       console.warn(`[mailer] the domain of "${from}" is not verified yet; sending "${subject}" from "${fallbackFrom}" instead`);
       from = fallbackFrom;
       result = await deliverViaResend({ from, to: recipients, subject, html, text, attachments });

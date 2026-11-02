@@ -38,9 +38,14 @@ No wildcards: "intake/browser-*" used to stand for five suites, and a sixth woul
   request RIGPAX19, which only the model-driven intake suites make. Without it the id was empty and the URL was
   malformed, so the gate refused all three before any reveal logic ran. The admin check was one of the three, not a
   fourth. The check now seeds its own invented request and all three pass. permissions-check passes in full.
-- **Last full run: 2026-11-02, on power, at eb56b43b: 72 of 81 green.** The 9 red are the no-model-key suites, each
-  confirmed by the run's own audit rows: 28 intake extractions and 2 reprocessings failed with AWS's "security token
-  ... is invalid", and the agent's chat with a model error (the manifest suite builds through it). No unlisted red.
+- **Last full run: 2026-11-03 overnight, on power, at 6d8e51d3: 71 passed, 9 skipped (no-model-key still holds), 3
+  unlisted red, each fixed and rerun alone.**
+  - `error-text`: the mailer's new fallback tests Resend's text internally; marked `public-error-ok`.
+  - `intake/e2e-scheduled`: the check read the emails before the ops alert was sent (it goes just after the attempt is
+    recorded); it now waits for it.
+  - `mobile/tier1-check`: going back on the email's headers alone raced its body, which is what unlocks Confirm; the
+    page marks the loaded body and the check waits for it.
+  All three pass alone.
 
 Every suite below passed in the full run of 2026-10-13 (43 suites, after the wall folder, the voice stand-in,
 the extension fix, the airport-sheets rule and docs stage 4). Two earlier runs that day were stopped: the machine

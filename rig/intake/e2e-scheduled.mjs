@@ -191,7 +191,9 @@ r = await requestOf(m.request_id);
 await api(`/api/intake/requests/${r.id}/approve`, {});
 r = await until(async () => { const x = await requestOf(m.request_id); return x.review?.lookup?.attempts?.length ? x : null; });
 ok(!!r && r.review.lookup.attempts[0].state === "unavailable" && /not what this reader expects/.test(r.review.lookup.attempts[0].why) && !r.review.legs.length, "a renamed column: the import is refused, nothing read", r?.review.lookup.attempts[0].why);
-ok((await emails(r.id)).some((e) => /portal screen changed/.test(e.subject)), "…and ops are alerted", (await emails(r.id)).map((e) => e.subject).join(" | "));
+// the alert is sent just after the refused attempt is recorded: wait for it (2026-11-02: read at once, it raced in the full run)
+const alerted = await until(async () => ((await emails(r.id)).some((e) => /portal screen changed/.test(e.subject)) ? true : null));
+ok(!!alerted, "…and ops are alerted", (await emails(r.id)).map((e) => e.subject).join(" | "));
 rmSync(MOCKLOG + ".break", { force: true });
 r = await until(async () => { const x = await requestOf(m.request_id); return x.review?.legs?.length ? x : null; }, 150000);
 ok(!!r && r.review.legs.length === 4, "with the structure back, the next scheduled try reads the four-leg record", r?.review.lookup.attempts.map((a) => a.state).join(" → "));

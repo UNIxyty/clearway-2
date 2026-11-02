@@ -27,8 +27,9 @@
   },
   "public": false,
   "email": {
-    "$comment": "Who the platform's emails come from: the name people see, and the address (it must be on a domain verified in Resend: production has verxyl.com and agent.verxyl.com, read 2026-11-02; clearway.verxyl.com is NOT verified). Nobody reads no-reply@, so no email may ask for a reply. An empty address uses the address the server already sends from (CLIENT_EMAIL_FROM, else DIGITAL_WALL_EMAIL_FROM), with this name. lib/mail/send.ts.",
+    "$comment": "Who the platform's emails come from. fromName: the name people see. fromAddress: account mail (sign-up, password reset, email change, client onboarding), on the portal's own subdomain clearway.verxyl.com (registered in Resend 2026-11-02). Until that domain is verified, Resend refuses it and the send goes again from fallbackAddress, which works today (verxyl.com is verified): nothing is blocked while DNS is added. The wall's alerts come from alerts@clearway.verxyl.com (digital-wall/lib/mailer.mjs); intake keeps agent@verxyl.com, because it receives mail. Nobody reads no-reply@, so no email asks for a reply. lib/mail/send.ts.",
     "fromName": "Clearway",
-    "fromAddress": "no-reply@verxyl.com"
+    "fromAddress": "no-reply@clearway.verxyl.com",
+    "fallbackAddress": "no-reply@verxyl.com"
   }
 }

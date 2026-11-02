@@ -7,9 +7,9 @@ import site from "@/content/docs/site.json";
 import { sendEmail as wallSend } from "@/digital-wall/lib/mailer.mjs";
 
 // the mailer is plain JS; its `record` defaults to null, so TypeScript reads it as always-null — say what it takes
-const sendEmail = wallSend as unknown as (a: { to: string | string[]; subject: string; html: string; text: string; from: string; record: { kind: string; by: string | null; ref: string | null } }) => Promise<{ ok: boolean; id?: string | null; recordId?: string | null; error?: string }>;
+const sendEmail = wallSend as unknown as (a: { to: string | string[]; subject: string; html: string; text: string; from: string; fallbackFrom?: string | null; record: { kind: string; by: string | null; ref: string | null } }) => Promise<{ ok: boolean; id?: string | null; recordId?: string | null; error?: string }>;
 
-type Brand = { product?: string; email?: { fromName?: string; fromAddress?: string } };
+type Brand = { product?: string; email?: { fromName?: string; fromAddress?: string; fallbackAddress?: string } };
 const brand = site as Brand;
 
 /** "Name <address>": the brand's name, and its address or the server's configured one. */
@@ -23,13 +23,21 @@ export function brandFrom(): string {
   return name ? `${name.replace(/[<>"]/g, "")} <${use}>` : use;
 }
 
+/** The same name at the address that works while the brand's domain is not yet verified in Resend (or null). */
+export function brandFallbackFrom(): string | null {
+  const address = String(brand.email?.fallbackAddress || "").trim();
+  if (!address) return null;
+  const name = String(brand.email?.fromName || brand.product || "").trim().replace(/[<>"]/g, "");
+  return name ? `${name} <${address}>` : address;
+}
+
 export const productName = () => String(brand.product || "").trim() || "The portal";
 
 export type SendResult = { ok: boolean; id: string | null; recordId: string | null; error?: string };
 
 /** Send and record. `kind` names the email in Mailbox › Sent; `ref` points at what it is about (a client, a user). */
 export async function sendPortalEmail({ to, subject, html, text, kind, by = null, ref = null }: { to: string | string[]; subject: string; html: string; text: string; kind: string; by?: string | null; ref?: string | null }): Promise<SendResult> {
-  const out = await sendEmail({ to, subject, html, text, from: brandFrom(), record: { kind, by, ref } });
+  const out = await sendEmail({ to, subject, html, text, from: brandFrom(), fallbackFrom: brandFallbackFrom(), record: { kind, by, ref } });
   return { ok: Boolean(out.ok), id: out.id ?? null, recordId: out.recordId ?? null, ...(out.ok ? {} : { error: out.error }) };
 }
 

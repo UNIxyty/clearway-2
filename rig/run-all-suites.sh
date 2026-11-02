@@ -93,6 +93,7 @@ for _ in $(seq 40); do [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.
 run client-gate-check $E rig/client-gate-check.mjs   # 115 portal handlers refuse a client / unknown role without the middleware; the wall and agent directly
 run personal-data-paths-check $E rig/personal-data-paths-check.mjs   # text, scan, list, .eml and forward: one permission, one bucket, one row each
 run mail-image-check $E rig/mail-image-check.mjs   # a stranger's image aimed at loopback: held back, then refused; nothing fetched
+run sender-check $E rig/sender-check.mjs   # account mail and wall alerts from clearway.verxyl.com; the fallback until it verifies
 pid=$(lsof -tiTCP:3981 -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid
 run maintenance-logos node rig/maintenance-logos-check.mjs
 run airac-dates-check node rig/airac-dates-check.mjs

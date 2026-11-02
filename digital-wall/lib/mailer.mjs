@@ -24,12 +24,18 @@ export function mailerConfigured() {
   return Boolean(String(process.env.RESEND_API_KEY || "").trim());
 }
 
+// The wall's alerts (reports, NOTAM digests, AIP sends) come from alerts@ on the portal's own subdomain (2026-11-02; this
+// also ends the misspelt "allerts@"). Until clearway.verxyl.com is verified in Resend, a send it refuses for that reason
+// goes again from the address that works today (DIGITAL_WALL_EMAIL_FROM), so nothing is blocked while DNS is added.
+const WALL_FROM = "Clearway Digital Wall <alerts@clearway.verxyl.com>";
 function defaultFrom() {
-  return (
-    String(process.env.DIGITAL_WALL_EMAIL_FROM || "").trim() ||
-    "Clearway Digital Wall <no-reply@clearway.verxyl.com>"
-  );
+  return WALL_FROM;
 }
+function defaultFallback() {
+  return String(process.env.DIGITAL_WALL_EMAIL_FROM || "").trim() || "Clearway Digital Wall <no-reply@verxyl.com>";
+}
+/** Resend's refusal of a sender whose domain is not (yet) verified. */
+const NOT_VERIFIED = /domain is not verified|not verified.*domain|verify your domain/i;
 
 export function escapeHtml(value) {
   return String(value ?? "")
@@ -169,7 +175,7 @@ async function recordSend({ record, from, recipients, subject, ok, id, error }) 
   } catch (e) { console.error(`[mailer] send of "${subject}" not recorded: ${e instanceof Error ? e.message : e}`); return null; }
 }
 
-export async function sendEmail({ to, subject, html, text, from = defaultFrom(), attachments, record = null }) {
+export async function sendEmail({ to, subject, html, text, from = defaultFrom(), fallbackFrom = from === defaultFrom() ? defaultFallback() : null, attachments, record = null }) {
   const recipients = (Array.isArray(to) ? to : [to]).map((v) => String(v || "").trim()).filter(Boolean);
   if (recipients.length === 0) {
     console.error(`[mailer] NOT sending "${subject}": no recipients configured.`);
@@ -182,7 +188,15 @@ export async function sendEmail({ to, subject, html, text, from = defaultFrom(),
   }
   console.log(`[mailer] sending "${subject}" to ${recipients.join(", ")} from "${from}"`);
   try {
-    const result = await deliverViaResend({ from, to: recipients, subject, html, text, attachments });
+    let result;
+    try { result = await deliverViaResend({ from, to: recipients, subject, html, text, attachments }); }
+    catch (error) {
+      // the sender's domain not verified yet: the same send from the address that works today, said in the log
+      if (!fallbackFrom || fallbackFrom === from || !NOT_VERIFIED.test(error instanceof Error ? error.message : String(error))) throw error;
+      console.warn(`[mailer] the domain of "${from}" is not verified yet; sending "${subject}" from "${fallbackFrom}" instead`);
+      from = fallbackFrom;
+      result = await deliverViaResend({ from, to: recipients, subject, html, text, attachments });
+    }
     console.log(`[mailer] sent ok — Resend id ${result?.id ?? "(none)"}`);
     const id = result?.id ?? null;
     return { ok: true, id, recordId: await recordSend({ record, from, recipients, subject, ok: true, id, error: null }) };

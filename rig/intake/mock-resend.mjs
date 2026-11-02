@@ -7,6 +7,7 @@
 //   POST /emails                       a SEND (the wall's mailer: reports, AIP/GEN, NOTAM digest): kept in memory, nothing leaves
 //   POST /_rig/fail-sends { on }       refuse every send with 503 until turned off: a check that must see a failed send
 //                                      (the portal's "the email was not sent" paths) turns it on around that step
+//   POST /_rig/unverified { domains }  refuse senders on these domains with Resend's "domain is not verified"
 //   GET  /_rig/sent                    what was "sent": from, to, subject, attachment names and sizes (no bodies)
 //   GET  /_rig/sent/:id                one send in full (html, attachments as base64), the last 10 only — the rig's data
 //                                      is invented; this lets a check read what a person would receive
@@ -17,7 +18,8 @@ const PORT = Number(process.env.PORT || 3996);
 const reg = new Map();
 const sent = [];
 const bodies = new Map();
-let failSends = false;   // POST /_rig/fail-sends // id → { html, attachments } for the last 10 sends
+let failSends = false;   // POST /_rig/fail-sends
+let unverified = [];     // POST /_rig/unverified { domains }: senders on these domains are refused as Resend refuses them // id → { html, attachments } for the last 10 sends
 const send = (res, code, body, type = "application/json") => { res.writeHead(code, { "content-type": type }); res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body)); };
 http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://127.0.0.1:${PORT}`);
@@ -32,6 +34,12 @@ http.createServer(async (req, res) => {
   }
   if ((m = /^\/raw\/([\w-]+)$/.exec(u.pathname))) { const f = reg.get(m[1]); try { return f ? send(res, 200, readFileSync(f), "message/rfc822") : send(res, 404, "no"); } catch { return send(res, 404, "no such fixture"); } }
   if (req.method === "POST" && u.pathname === "/_rig/fail-sends") { let b = ""; for await (const c of req) b += c; failSends = Boolean(JSON.parse(b || "{}").on); return send(res, 200, { ok: true, failSends }); }
+  if (req.method === "POST" && u.pathname === "/_rig/unverified") { let b = ""; for await (const c of req) b += c; unverified = (JSON.parse(b || "{}").domains ?? []).map(String); return send(res, 200, { ok: true, unverified }); }
+  if (req.method === "POST" && u.pathname === "/emails" && unverified.length) {
+    let b = ""; for await (const c of req) b += c; const e = JSON.parse(b || "{}"); const dom = String(e.from ?? "").match(/@([^>\s]+)/)?.[1] ?? "";
+    if (unverified.includes(dom)) return send(res, 403, { statusCode: 403, name: "validation_error", message: `The ${dom} domain is not verified. Please, add and verify your domain on https://resend.com/domains` });
+    const id = `rig-sent-${sent.length + 1}`; sent.push({ id, at: new Date().toISOString(), from: e.from, to: e.to, subject: e.subject, attachments: [] }); bodies.set(id, { html: e.html ?? null, attachments: [] }); return send(res, 200, { id });
+  }
   if (req.method === "POST" && u.pathname === "/emails" && failSends) { for await (const _c of req) { /* drain */ } return send(res, 503, { name: "rig_refused", message: "The rig's mock Resend refuses sends right now (/_rig/fail-sends)." }); }
   if (req.method === "POST" && u.pathname === "/emails") {
     let b = ""; for await (const c of req) b += c; const e = JSON.parse(b || "{}");

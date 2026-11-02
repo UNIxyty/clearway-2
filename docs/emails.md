@@ -3,14 +3,19 @@
 Every email the platform sends goes out through Resend with one sender, `digital-wall/lib/mailer.mjs`. The portal
 reaches it through `lib/mail/send.ts`, which adds three things:
 
-- **The sender** comes from the brand settings, `content/docs/site.json` › `email`. `fromName` is the name people see
-  ("Clearway"). `fromAddress` is the address: **`no-reply@verxyl.com`** since 2026-11-02. It must be on a domain verified
-  in Resend. Production's Resend has two, `verxyl.com` and `agent.verxyl.com`, read from the server on 2026-11-02.
-  The portal's hostname, `clearway.verxyl.com`, is not verified, so its parent was chosen. `no-reply@` was chosen
-  over the server's existing `allerts@verxyl.com`, the wall's alerts, and over `agent@verxyl.com`, the intake
-  mailbox: a reply there would be read as a handling request. Nobody reads `no-reply@`, so no email asks for a reply.
-  If `fromAddress` is ever emptied, the portal uses `CLIENT_EMAIL_FROM`, else `DIGITAL_WALL_EMAIL_FROM`, else
-  `no-reply@verxyl.com`.
+- **The sender** depends on the email's job (2026-11-02):
+  - account mail (sign-up, password reset, email change, client onboarding): `Clearway <no-reply@clearway.verxyl.com>`,
+    from the brand settings (`content/docs/site.json` › `email`);
+  - the wall's alerts (reports, NOTAM digests, AIP sends): `alerts@clearway.verxyl.com`, which also ends the misspelt
+    `allerts@` (`digital-wall/lib/mailer.mjs`);
+  - intake stays `agent@verxyl.com`, because it receives mail: replies must reach Resend's inbound, not another server.
+
+  `clearway.verxyl.com` is the portal's own hostname, registered in production's Resend on 2026-11-02 and waiting
+  for its DNS records (on Cloudflare). Until it verifies, Resend refuses that sender, and the mailer sends the same
+  email again from the address that works today: `no-reply@verxyl.com` for account mail, `DIGITAL_WALL_EMAIL_FROM` for
+  the wall. Nothing is blocked, and the log says which address was used. A refusal for any other reason is not
+  retried: it fails and says so. `rig/sender-check.mjs`. `clearway.aero` was registered and then removed the same
+  day. Nobody reads `no-reply@`, so no email asks for a reply.
 - **A row in Mailbox › Sent** (`intake_messages`, outbound), named by its kind, with no body kept: several of these
   emails carry a link that lets someone in.
 - **A delivery status** on that row. It starts as Sent (accepted by Resend), or Failed, and the Resend webhook moves it

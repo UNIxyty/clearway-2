@@ -34,7 +34,7 @@ export async function check({ accounts: [u], ok }) {
       if (ev.type === "delta") text += ev.text; else if (ev.type === "tool") tools.push(ev); else if (ev.type === "done") done = ev;
     }
     const wall = tools.find((t) => t.name === "get_wall_state" && t.ok);
-    if (tier === "reasoning") ok(tools.some((t) => t.name === "get_weather" && t.ok), "reasoning: a second tool (weather) ran in a later round, after the model's thinking went back", tools.map((t) => `${t.name}:${t.ok ? "ok" : t.error?.code ?? t.error}`).join(", "));
+    if (tier === "reasoning") ok(tools.some((t) => t.name === "get_weather" && t.ok), "reasoning: the weather tool ran too, and the round after the tools was accepted with the model's thinking sent back", tools.map((t) => `${t.name}:${t.ok ? "ok" : t.error?.code ?? t.error}`).join(", "));
     const n = wall?.result?.flightCount;
     ok(done?.modelId === want(tier) && done.stopReason === "end_turn", `${tier}: the turn ran on ${want(tier)} and ended normally`, `${done?.modelId} · ${done?.stopReason} · in ${done?.inputTokens} out ${done?.outputTokens} cache ${done?.cacheReadTokens} · ${done ? usd(done) : ""}`);
     ok(!!wall && Number.isInteger(n) && new RegExp(`\\b${n}\\b`).test(text), `${tier}: a tool ran with the account's session and the answer gives its result`, tools.map((t) => `${t.name}:${t.ok ? "ok" : t.error?.code ?? t.error}`).join(", ") || "no tool");

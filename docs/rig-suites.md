@@ -33,8 +33,9 @@ No wildcards: "intake/browser-*" used to stand for five suites, and a sixth woul
   request RIGPAX19, which only the model-driven intake suites make. Without it the id was empty and the URL was
   malformed, so the gate refused all three before any reveal logic ran. The admin check was one of the three, not a
   fourth. The check now seeds its own invented request and all three pass. permissions-check passes in full.
-- Speed work in progress (docs/rig-speed.md): no full run since 2026-10-27. The counts below are from the last full
-  runs.
+- **Last full run: 2026-11-02, on power, at eb56b43b: 72 of 81 green.** The 9 red are the no-model-key suites, each
+  confirmed by the run's own audit rows: 28 intake extractions and 2 reprocessings failed with AWS's "security token
+  ... is invalid", and the agent's chat with a model error (the manifest suite builds through it). No unlisted red.
 
 Every suite below passed in the full run of 2026-10-13 (43 suites, after the wall folder, the voice stand-in,
 the extension fix, the airport-sheets rule and docs stage 4). Two earlier runs that day were stopped: the machine

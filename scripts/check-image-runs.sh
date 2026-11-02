@@ -39,6 +39,15 @@ for s in "$@"; do
   line=$(spec "$s") || { say "CANNOT TELL: $s is not a service this check knows"; exit 2; }
   read -r image port path <<<"$line"
   [ -n "$port" ] || { say "CANNOT TELL: no port known for $s"; exit 2; }
+  # Keep the revert (2026-11-03): the build below moves the image's tag, and on this server's containerd image store the
+  # image the running container uses can then no longer be named — the revert target is gone before the deploy starts.
+  # So the running image is tagged :pre-<checkout> first. A running service whose image cannot be kept stops here.
+  running=$(docker compose ps -q "$s" 2>/dev/null | head -1)
+  if [ -n "$running" ]; then
+    keep="${image%%:*}:pre-$(git rev-parse --short=8 HEAD)"
+    docker tag "$(docker inspect -f '{{.Image}}' "$running")" "$keep" 2>/dev/null || { say "CANNOT TELL: could not keep the running $s image as $keep (no revert target), not building"; exit 2; }
+    say "kept the running $s image as $keep"
+  fi
   say "building $s"
   docker compose build "$s" > "/tmp/image-runs-$s.build" 2>&1 || { say "FAIL $s: the image did not build (/tmp/image-runs-$s.build)"; failed=1; continue; }
   # What is IN the built image, before anything starts from it (2026-11-02): no .env, no .git, no private key. Read

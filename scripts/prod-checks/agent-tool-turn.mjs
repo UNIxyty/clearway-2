@@ -6,7 +6,7 @@ export const ROLES = ["user"];
 export async function check({ accounts: [u], ok }) {
   const { streamConversationWithTools } = await import(`${process.env.AGENT_ROOT || "/app"}/lib/bedrock.mjs`);
   const { systemPrompt, currentTimeLine } = await import(`${process.env.AGENT_ROOT || "/app"}/lib/models.mjs`);
-  const user = { userId: u.id, email: u.email, name: "Check account", agentRole: "user", accessToken: u.bearer };
+  const user = { userId: u.id, email: u.email, name: "Check account", agentRole: "user", accessToken: u.bearer, cookieHeader: u.cookie };
   let text = ""; const tools = []; let done = null;
   for await (const ev of streamConversationWithTools({ tier: "standard", system: `${systemPrompt()}\n\n${currentTimeLine()}`, messages: [{ role: "user", content: "How many flights are on the ops wall right now? Use your wall tool and give the number." }], user, conversationId: null })) {
     if (ev.type === "delta") text += ev.text;

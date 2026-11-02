@@ -40,14 +40,60 @@ whether anything (an S3 bucket, an EC2 machine) is still there.
     results, streaming, usage with cache reads apart.
   - **Errors:** mapped so the agent's handling is unchanged. An unavailable model tries the next fallback, a throttle
     is said, a timeout is a timeout.
-- `agent/config/models.json`: `provider: "anthropic"`. Each tier names the model it targeted on Bedrock: fast Haiku
-  4.5; standard and extraction Sonnet 5, falling back to Sonnet 4.6; reasoning Opus 5, falling back to Opus 4.6; the
-  router Haiku 4.5. `ANTHROPIC_MODEL_<TIER>` overrides a tier; `MODEL_PROVIDER=bedrock` goes back.
+- `agent/config/models.json`: `provider: "anthropic"`. Each tier is on the newest model in its family (section 4).
+  `ANTHROPIC_MODEL_<TIER>` overrides a tier; `MODEL_PROVIDER=bedrock` goes back.
 - **Admin routing settings** were written with Bedrock IDs, so one would fail here. Under the Anthropic provider it is
   ignored. Production has none saved.
 - **The agent's health answer** names the provider.
-- **Proof:** `rig/anthropic-runtime-check.mjs` (17 checks) runs against a local stand-in for the API: what goes out,
+- **Proof:** `rig/anthropic-runtime-check.mjs` (17 checks at the transfer, 25 since section 4) runs against a local stand-in for the API: what goes out,
   what comes back, how errors classify. The live check is one minimal call on production after the deploy.
+
+## 4. Model generation (2026-11-03)
+
+At the transfer, each tier kept the model it had targeted on Bedrock. That carried an old generation across for no
+reason. Every tier now runs the newest model in its family. Each id was confirmed against the Models API with the
+production key. The key serves `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-5-5`, as well as every earlier
+id used here.
+
+| Tier | Before | Now | Fallback (only if the primary is unavailable) | Thinking, effort |
+|---|---|---|---|---|
+| router | Haiku 4.5 | **Haiku 5.5** | none | off |
+| fast | Haiku 4.5 | **Haiku 5.5** | none | off |
+| standard | Sonnet 5 | **Sonnet 5.5** | Sonnet 5 | adaptive, medium, summary shown as the thought |
+| extraction | Sonnet 5 | **Sonnet 5.5** | Sonnet 5 | adaptive, medium |
+| reasoning | Opus 5 | **Opus 5.5** | Opus 5 | adaptive (cannot be off), high |
+
+**Price per million tokens** (Anthropic list prices, read 2026-11-03), shown as input / output / cache read:
+
+| Tier | Before | Now | Change |
+|---|---|---|---|
+| router, fast | Haiku 4.5: $1 / $5 / $0.10 | Haiku 5.5: $0.10 / $0.50 / $0.01 | **down 90%**. A prompt over 100,000 tokens costs $0.50 / $2.50, still half of before |
+| standard, extraction | Sonnet 5: $2 / $10 / $0.20 | Sonnet 5.5: $2 / $10 / $0.10 | same input and output; **cache reads halved** |
+| reasoning | Opus 5: $5 / $25 / $0.50 | Opus 5.5: $4 / $20 / $0.20 | **down 20%**; cache reads down 60% |
+
+What the bill will do: input is most of the spend, and most input is the cached system prompt and tools. Halved cache
+reads on Sonnet are the largest saving, and Haiku turns cost a tenth of what they did. The one upward pressure is
+thinking. Sonnet 5.5 and Opus 5.5 cannot turn it off, and thinking tokens are billed as output. Effort is set to
+medium on standard and high on reasoning so that it stays proportionate.
+
+The pricing table in `models.json` had stale Bedrock-era rates (Haiku $0.80, Opus $15 / $75). It now carries these
+list prices, so the Settings usage card is right.
+
+**What the 5.5 models refuse,** measured on the key, each refused with a 400:
+
+- `temperature`, on all three. The runtime leaves it out for them. The callers that asked for 0 (router, extraction,
+  rerank, ingest) now get the model's own sampling.
+- A forced `tool_choice`, on Sonnet 5.5 and Opus 5.5. The runtime refuses it before the call. `/blank-manifest`'s
+  pinned tool call is now written by the agent itself, since the pinned input replaced the model's anyway.
+- Edited or dropped thinking blocks in a tool loop. They go back unmodified with the tool results.
+
+**Proof:**
+
+- `rig/anthropic-runtime-check.mjs` now has 25 checks; the 8 new ones were seen failing on the old code.
+- `AGENT_CODE=checkout scripts/check-accounts.sh run agent-tiers` ran this checkout's agent code on production's key
+  as a check account, before any deploy. The router classified on Haiku 5.5. Fast, standard and reasoning each ran a
+  real tool turn and answered from the result; reasoning on Opus 5.5 made three tool calls across rounds. Extraction
+  returned the JSON asked for.
 
 ## Not done here
 

@@ -152,7 +152,8 @@ export default function PassengerViewer({ api, viewer, phone = false, icon, seco
                     <span style={{ font: `600 13px ${MONO}`, color: "var(--pv-text-muted)" }}>{p.row}</span>
                     <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
                       <span style={{ fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong style={{ fontWeight: 750, letterSpacing: ".01em" }}>{p.surname}</strong> {p.given}</span>
-                      <span style={{ font: `500 12.5px ${MONO}`, color: "var(--pv-text-muted)" }}>{[p.nationality, SEX[p.sex] ?? p.sex].filter(Boolean).join(" · ") || "—"}</span>
+                      {/* absent (a client at the names level) shows nothing; empty (not in Leon) shows a dash */}
+                      {!("nationality" in p) && !("sex" in p) ? null : <span style={{ font: `500 12.5px ${MONO}`, color: "var(--pv-text-muted)" }}>{[p.nationality, SEX[p.sex] ?? p.sex].filter(Boolean).join(" · ") || "—"}</span>}
                     </span>
                     {canReveal && (phone ? (
                       <button type="button" aria-label={`Hold to show the document of ${p.surname}`} disabled={Boolean(open) || Boolean(opening)} onPointerDown={() => down(p)} onPointerUp={up} onPointerLeave={up} onPointerCancel={up} onContextMenu={(e) => e.preventDefault()}

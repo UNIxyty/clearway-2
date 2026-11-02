@@ -1,6 +1,7 @@
 // The passenger viewer's two endpoints (mobile Stage 4, 2026-10-20) — one implementation behind the portal's phone
 // page and the wall console's Flights panel:
-//   GET  /api/flights/:oprId:nid/passengers            the masked list: row, surname, given names, nationality, sex.
+//   GET  /api/flights/:oprId:nid/passengers            the masked list: row, surname, given names, nationality, sex
+//                                                       (a client at the "names" level: names only, 2026-11-02).
 //                                                       NO document field is in this payload — not masked, absent.
 //   POST /api/flights/:oprId:nid/passengers/:id/reveal  ONE passenger's four document fields, fetched now from Leon,
 //                                                       gated by intake.people.reveal (the route table), logged.
@@ -166,6 +167,9 @@ export async function handlePassengerRoutes({ req, res, pathname, user, sendJson
       if (!(await clientMayRead(flightId))) return notOnAccount();
       const out = await listPassengers(flightId);
       const canReveal = client ? client.passengerLevel === "documents" : await can(user.agentRole, "intake.people.reveal");
+      // A client at the "names" level sees who is on their flight, not where those people are from (decided 2026-11-02):
+      // nationality and sex belong to the "documents" level. Absent from the answer, not masked.
+      if (client && client.passengerLevel !== "documents") out.passengers = out.passengers.map(({ nationality: _n, sex: _s, ...rest }) => rest);
       return send({ ok: true, ...out, canReveal, seconds: SECONDS });
     }
     if ((m = /^\/api\/flights\/([^/]+)\/passengers\/([^/]+)\/reveal$/.exec(pathname)) && req.method === "POST") {

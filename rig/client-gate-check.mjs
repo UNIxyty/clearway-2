@@ -78,23 +78,53 @@ for (const [label, who] of [["client", C], ["unknown role", U]]) {
   ok(st2 === 404, "staff get 404 from the client's own route", st2);
 }
 
-// ── 2. the wall and the agent, reached past the portal (the proxy routes them as Cloudflare does) ──
-const via = (who, p) => fetch(`${PROXY}${p}`, { redirect: "manual", headers: { cookie: ck(who) } }).then((r) => r.status, () => 0);
-const WALL_NOT_FOR_CLIENTS = ["/digital-wall/api/operators", "/digital-wall/api/display/settings", "/digital-wall/api/reports", "/digital-wall/api/webhooks", "/digital-wall/api/aircraft/visibility", "/digital-wall/guide/"];
-const AGENT = ["/agent/api/conversations", "/agent/api/intake/requests", "/agent/api/mailbox/overview", "/agent/api/knowledge/stats", "/agent/api/activity"];
-const wallClient = []; for (const p of WALL_NOT_FOR_CLIENTS) wallClient.push(`${p} ${await via(C, p)}`);
-ok(wallClient.every((x) => / 404$/.test(x)), "wall, reached directly: a client gets 404 outside its read allow-list (the staff guide included)", wallClient.join(" | "));
-const board = await via(C, "/digital-wall/api/timeline/flights?allOperators=true");
-ok(board === 200, "wall: the client's own flight board still answers (scoped by the wall)", board);
-const wallUnknown = []; for (const p of ["/digital-wall/api/timeline/flights?allOperators=true", "/digital-wall/api/users/me", "/digital-wall/guide/", ...WALL_NOT_FOR_CLIENTS]) wallUnknown.push(`${p} ${await via(U, p)}`);
-ok(wallUnknown.every((x) => / 404$/.test(x)), "wall, reached directly: the unknown role gets 404 everywhere", wallUnknown.join(" | "));
-for (const [label, who] of [["client", C], ["unknown role", U]]) {
-  const got = []; for (const p of AGENT) got.push(`${p} ${await via(who, p)}`);
-  ok(got.every((x) => / 404$/.test(x)), `agent, reached directly: the ${label} gets 404`, got.join(" | "));
+// ── 2. every wall and agent endpoint, reached past the portal (the proxy routes them as Cloudflare does) ──
+// The endpoints are the permissions inventory's (lib/permissions/check.mjs › codeRouteBlocks), plus the wall routes it
+// misses (no method test, or second in an `a || b`). A route with a parameter gets a made-up value that is checked
+// against the route's own pattern; a route no path can be made for is named, never skipped silently.
+const { codeRouteBlocks } = await import("../lib/permissions/check.mjs");
+const { CLIENT_READS } = await import("../digital-wall/lib/client-scope.mjs");
+const sample = (route) => {
+  if (!route.startsWith("re:")) return route.endsWith("*") ? `${route.slice(0, -1)}rig-gate-probe` : route;
+  const src = route.slice(3);
+  let p = src.replace(/^\^/, "").replace(/\$$/, "").replace(/\(\?:\\\/[^()]*(?:\([^()]*\)[^()]*)*\)\?/g, "").replace(/\[0-9\]\+/g, "1").replace(/\\\//g, "/")
+    .replace(/\(\[0-9a-f-\]\{36\}\)/g, "00000000-0000-4000-8000-000000000000")
+    .replace(/\(\\d\+\)|\(\\d\{1,\d+\}\)/g, "1")
+    .replace(/\((?:\?:)?([a-z0-9_-]+(?:\|[a-z0-9_-]+)+)\)/gi, (_m, alts) => alts.split("|")[0])
+    .replace(/\(\[\^\/\]\+\)|\(\.\+\)|\(\.\*\)|\[\^\/\]\+/g, "rigx").replace(/\(\[[a-z0-9_\-]+\]\+\)/gi, "rigx").replace(/\(\?:\/\)\?|\/\?$/g, "").replace(/\\\./g, ".");
+  try { return new RegExp(src).test(p) ? p : null; } catch { return null; }
+};
+const routesOf = (service, files) => { const out = []; for (const b of codeRouteBlocks(files.map((f) => readFileSync(f, "utf8")).join("\n"))) for (const m of b.methods) out.push({ method: m, route: b.route }); return out; };
+const WALL_EXTRA = ["/api/timeline/flights", "/api/timeline/aircraft", "/api/timeline/sync-status", "/api/flights/data", "/api/limitations", "/api/users/me", "/api/geo/airports", "/api/geo/countries"].map((route) => ({ method: "GET", route }));
+const services = [
+  { name: "wall", prefix: "/digital-wall", routes: [...routesOf("wall", ["digital-wall/server.mjs"]), ...WALL_EXTRA], clientMay: (m, p) => m === "GET" && p in CLIENT_READS,
+    // answered before the wall's session gate, on purpose (digital-wall/server.mjs › Device registration): an unpaired
+    // ops-room screen has no session; it may announce itself and poll its own approval, nothing more
+    public: { "/api/device/announce": "an unpaired screen announces itself", "/api/device/state": "an unpaired screen polls its own approval" } },
+  { name: "agent", prefix: "/agent", routes: routesOf("agent", ["agent/server.mjs", "agent/lib/intake/api.mjs", "agent/lib/passengers/api.mjs"]), clientMay: (m, p) => /^\/api\/flights\/[^/]+\/passengers/.test(p) },
+];
+const via = (who, method, p) => fetch(`${PROXY}${p}`, { method, redirect: "manual", headers: { cookie: ck(who), "content-type": "application/json" }, body: ["GET", "HEAD"].includes(method) ? undefined : "{}" }).then((r) => r.status, () => 0);
+for (const svc of services) {
+  const seen = new Set(), walk = [], unmade = [];
+  for (const r of svc.routes) { const p = sample(r.route); if (!p) { unmade.push(`${r.method} ${r.route}`); continue; } const k = `${r.method} ${p}`; if (!seen.has(k)) { seen.add(k); walk.push({ method: r.method, path: p }); } }
+  ok(walk.length > 20, `${svc.name}: ${walk.length} endpoints to walk from the inventory${unmade.length ? `; ${unmade.length} with no path made: ${unmade.slice(0, 6).join(" | ")}` : ""}`);
+  for (const [label, who] of [["client", C], ["unknown role", U]]) {
+    const leaks = [];
+    for (const e of walk) {
+      if (e.path === "/api/health") continue;   // the public health probe
+      if (svc.public?.[e.path]) continue;        // public by design, each with its reason (below)
+      if (label === "client" && svc.clientMay(e.method, e.path)) continue;   // the client's own allow-list (scoped by the service)
+      const st = await via(who, e.method, `${svc.prefix}${e.path}`);
+      if (!(st === 404 || st === 401 || st === 403 || st === 405)) leaks.push(`${e.method} ${e.path} → ${st}`);
+    }
+    ok(leaks.length === 0, `${svc.name}, reached directly: every endpoint outside the ${label === "client" ? "client's allow-list" : "health probe"} refuses the ${label}`, leaks.length ? `${leaks.length} answered: ${leaks.slice(0, 10).join(" | ")}` : "");
+  }
 }
-const pax = await via(U, "/agent/api/flights/cwy-cwy:880001/passengers");
-ok(pax === 404, "agent: the unknown role gets 404 from the passenger route too", pax);
-const staffWall = await via(S, "/digital-wall/api/operators");
+const board = await via(C, "GET", "/digital-wall/api/timeline/flights?allOperators=true");
+ok(board === 200, "wall: the client's own flight board still answers (scoped by the wall)", board);
+const guide = await via(C, "GET", "/digital-wall/guide/");
+ok(guide === 404, "wall: the staff guide refuses a client", guide);
+const staffWall = await via(S, "GET", "/digital-wall/api/operators");
 ok(staffWall === 200, "wall: staff still reach their endpoints", staffWall);
 
 // cleanup: the invented client row is append-only-logged only if a decision was written; none was

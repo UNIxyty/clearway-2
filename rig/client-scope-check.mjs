@@ -103,6 +103,11 @@ ok(paxRev.status === 404, "A → a reveal on B's flight at the agent: 404", paxR
 const ownPax = await ask(sA, `/agent/api/flights/${A_AGENT_FLIGHT}/passengers`);
 ok(ownPax.status !== 404 && ownPax.status !== 401 && ownPax.status !== 403, "A → A's own passengers at the agent: reaches the list (level names)", `${ownPax.status} ${ownPax.text.slice(0, 80)}`);
 ok(ownPax.status !== 200 || ownPax.json?.canReveal === false, "…with canReveal false at level names", `${ownPax.json?.canReveal}`);
+const paxKeys = [...new Set((ownPax.json?.passengers ?? []).flatMap((p) => Object.keys(p)))];
+ok(ownPax.status === 200 && (ownPax.json?.passengers ?? []).length > 0 && !paxKeys.includes("nationality") && !paxKeys.includes("sex"), "…names only: no nationality and no sex at level names (they belong to documents, decided 2026-11-02)", paxKeys.join(","));
+const bPax = await ask(sB, `/agent/api/flights/${B_AGENT_FLIGHT}/passengers`);
+const bKeys = [...new Set((bPax.json?.passengers ?? []).flatMap((p) => Object.keys(p)))];
+ok(bPax.status === 200 && bKeys.includes("nationality") && bKeys.includes("sex"), "B at level documents → its own list carries nationality and sex (moved to documents, not removed)", `${bPax.status} ${bKeys.join(",")}`);
 const PAX_ID = ownPax.json?.passengers?.[0]?.id ?? "1"; // a real passenger of A's flight, from the list A may read
 const ownRev = await ask(sA, `/agent/api/flights/${A_AGENT_FLIGHT}/passengers/${PAX_ID}/reveal`, { method: "POST" });
 ok(ownRev.status === 404, "A at level names → a reveal on A's own flight: 404 (documents are not on their account)", ownRev.status);

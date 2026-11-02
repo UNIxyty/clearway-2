@@ -61,17 +61,24 @@ export function setRuntimeOverride(tiers) {
 export function loadModelConfig({ reload = false } = {}) {
   if (cached && !reload) return cached;
   const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
+  // which API the models are called on: "anthropic" since 2026-11-02 (the Bedrock AWS account is gone); MODEL_PROVIDER wins
+  const provider = String(process.env.MODEL_PROVIDER || raw.provider || "bedrock").toLowerCase();
   const tiers = {};
   for (const tier of TIERS) {
     const entry = raw.tiers?.[tier] ?? {};
     // Per-tier env override wins over the file, so an operator can swap a model
     // without editing a file inside the image.
-    const override = process.env[`BEDROCK_MODEL_${tier.toUpperCase()}`];
-    const admin = runtimeOverride?.[tier] ?? null;
+    const anthropic = provider === "anthropic";
+    const override = process.env[`${anthropic ? "ANTHROPIC" : "BEDROCK"}_MODEL_${tier.toUpperCase()}`];
+    // The admin routing settings were written with Bedrock ids; on the Anthropic API such an id would fail, so it is
+    // ignored there (and the settings card says the file's model is in use).
+    const adminRaw = runtimeOverride?.[tier] ?? null;
+    const admin = adminRaw && anthropic && /^(eu|us|apac|global)\.|^(amazon|anthropic|cohere)\./.test(String(adminRaw.id ?? "")) ? null : adminRaw;
+    const fileEntry = anthropic ? (entry.anthropic ?? { id: null, fallbackId: null }) : entry;
     tiers[tier] = {
       tier,
-      id: (override || admin?.id || entry.id) ?? null,
-      fallbackId: (admin && "fallbackId" in admin ? admin.fallbackId : entry.fallbackId) ?? null,
+      id: (override || admin?.id || fileEntry.id) ?? null,
+      fallbackId: (admin && "fallbackId" in admin ? admin.fallbackId : fileEntry.fallbackId) ?? null,
       source: override ? "env" : admin?.id ? "settings" : "file",
       maxTokens: entry.maxTokens ?? null,
       purpose: entry.purpose ?? "",
@@ -82,6 +89,7 @@ export function loadModelConfig({ reload = false } = {}) {
     // — or AGENT_ACTIVE_TIER=none — hands control back to the caller's tier.
     activeTier: process.env.AGENT_ACTIVE_TIER === "none" ? null : (process.env.AGENT_ACTIVE_TIER || raw.activeTier || null),
     region: process.env.BEDROCK_REGION || process.env.AWS_REGION || raw.region || "eu-north-1",
+    provider,
     tiers,
     pricing: raw.pricing ?? {},
   };

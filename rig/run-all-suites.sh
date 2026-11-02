@@ -37,6 +37,7 @@ run error-text node rig/check-error-text.mjs
 run style-text node rig/check-style-text.mjs
 run own-mail node rig/check-own-mail.mjs
 run telegram-media-token node rig/telegram-media-token-check.mjs   # one file, one person, 15 minutes
+run anthropic-runtime node rig/anthropic-runtime-check.mjs   # the agent's model calls on the Anthropic API, against a local stand-in
 run portal-colours node scripts/check-portal-colours.mjs   # every portal colour a --cw-* token; prints its exceptions and why
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs

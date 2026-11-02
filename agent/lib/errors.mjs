@@ -49,7 +49,7 @@ export function classifyBedrockError(error) {
   const both = `${name} ${message}`;
 
   if (/ThrottlingException|TooManyRequests|ServiceQuotaExceeded/i.test(both)) {
-    return ModelThrottled("Bedrock is throttling requests. Retry shortly.", message);
+    return ModelThrottled("The model service is busy. Retry shortly.", message);
   }
   if (/TimeoutError|ModelTimeoutException|ETIMEDOUT|AbortError|aborted/i.test(both)) {
     return ModelTimeout("The model did not respond in time.", message);
@@ -61,11 +61,11 @@ export function classifyBedrockError(error) {
     return new AgentError("attachment_rejected", "The model could not open one of the attached files. Remove it or attach it in another format (for example a PDF export or a smaller image) and ask again.", { status: 400, detail: message.slice(0, 500) });
   }
   if (/not available for this account|ResourceNotFoundException|ValidationException|AccessDeniedException|marketplace|use case details/i.test(both)) {
-    return ModelUnavailable("The model is not available to this AWS account or region.", message);
+    return ModelUnavailable("The model is not available to this account.", message);
   }
   if (/ServiceUnavailable|InternalServerException|ModelNotReadyException/i.test(both)) {
-    return ModelThrottled("Bedrock is temporarily unavailable.", message);
+    return ModelThrottled("The model service is temporarily unavailable.", message);
   }
   // The raw Bedrock text stays in `message` for the log; toJSON() and the chat stream show REPLY_FAILED.model_error.
-  return new AgentError("model_error", message || "Bedrock call failed.", { status: 503, detail: name }); // not 502 (Cloudflare); the code says what happened
+  return new AgentError("model_error", message || "The model call failed.", { status: 503, detail: name }); // not 502 (Cloudflare); the code says what happened
 }

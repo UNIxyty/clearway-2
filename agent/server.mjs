@@ -300,6 +300,7 @@ async function handleRequest(req, res) {
         time: new Date().toISOString(),
         auth: authConfigured() || String(process.env.DISABLE_AUTH_FOR_TESTING || "") === "true" ? "configured" : "misconfigured",
         store: storeConfigured() ? "configured" : "misconfigured",
+        provider: models.provider,   // "anthropic" since 2026-11-02 (agent/config/models.json)
         region: models.region,
         activeTier: models.activeTier,
         tzdata: (() => { const t = tzStatus(); return { version: t.version, minimum: t.minimum, ok: t.ok, latest: t.latest }; })(),

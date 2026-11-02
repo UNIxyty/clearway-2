@@ -5,6 +5,7 @@ import { BedrockRuntimeClient, ConverseStreamCommand, ConverseCommand } from "@a
 import { loadModelConfig, modelCandidates, resolveTier } from "./models.mjs";
 import { classifyBedrockError, ModelUnavailable } from "./errors.mjs";
 import { executeTool, toolSpecsFor } from "./tools/index.mjs";
+import { anthropicRuntime } from "./anthropic-runtime.mjs";
 
 // A turn that keeps calling tools without producing an answer is a loop. The
 // cap is on ROUNDS of tool use, not individual calls, so a model that fans out
@@ -14,7 +15,10 @@ const MAX_TOOL_ROUNDS = Number(process.env.AGENT_MAX_TOOL_ROUNDS || 6);
 const DEFAULT_TIMEOUT_MS = Number(process.env.AGENT_MODEL_TIMEOUT_MS || 120_000);
 
 let client = null;
+// The API the models are called on (agent/config/models.json › provider): the Anthropic API since 2026-11-02, behind the
+// same Converse-shaped send() (agent/lib/anthropic-runtime.mjs), or Bedrock.
 function runtime() {
+  if (loadModelConfig().provider === "anthropic") return anthropicRuntime;
   if (!client) client = new BedrockRuntimeClient({ region: loadModelConfig().region });
   return client;
 }
@@ -382,7 +386,7 @@ function withCachePoint(blocks, modelId) {
  * support it then costs nothing extra instead of erroring on first use.
  */
 function supportsPromptCache(modelId) {
-  return /anthropic\.claude/.test(String(modelId ?? ""));
+  return /anthropic\.claude|^claude-/.test(String(modelId ?? ""));   // Bedrock ids and the Anthropic API's own
 }
 
 function safeJson(raw) {

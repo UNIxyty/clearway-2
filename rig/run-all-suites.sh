@@ -11,6 +11,8 @@ cd "$(dirname "$0")/.."
 # Every kind of sleep: -d display, -i idle, -s system (on mains), -u user-active. A closed lid still sleeps the Mac.
 [ -z "$RIG_AWAKE" ] && command -v caffeinate >/dev/null && { caffeinate -u -t 2; exec env RIG_AWAKE=1 caffeinate -d -i -s -u "$0" "$@"; }
 OUT=rig/.scratch/suites; mkdir -p $OUT; LOG=$OUT/summary.log; : > $LOG
+# When the run started, by the power log's own clock format: a sleep after this makes the run INCOMPLETE (below).
+RUN_STARTED="$(date "+%Y-%m-%d %H:%M:%S")"
 SCR="$PWD/rig/.scratch"; E="node --env-file=.env.rig"
 run() { local name="$1"; shift; local out="$OUT/$(echo "$name" | tr '/ ' '__').out"; local t0=$(date +%s); "$@" > "$out" 2>&1 < /dev/null; local rc=$?; echo "$name rc=$rc $(( $(date +%s) - t0 ))s $(grep -cE '^(PASS|ok)' "$out") pass $(grep -cE '^(FAIL|not ok)' "$out") fail :: $(tail -1 "$out" | cut -c1-140)" >> $LOG; }
 preview() { pkill -f "vite preview --port 4173"; sleep 1; ( cd opsboard-react && VITE_API_PROXY=http://127.0.0.1:$1 nohup npx vite preview --port 4173 --host 127.0.0.1 > ../rig/.scratch/vite-preview.out 2>&1 & ); sleep 4; }
@@ -154,6 +156,11 @@ EXPECTED=$(grep -cE '^run ' "$0"); RAN=$(grep -cE ' rc=' $LOG); RED=$(grep -E ' 
 # A suite that took longer than two hours ran across a sleep the browser did not report (2026-10-22: the passenger check
 # "took" 42 hours and its ten-minute window test failed on stale reveals). That run is INCOMPLETE too, whatever its rcs.
 SLEPT=$(grep -E ' rc=' $LOG | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+s$/) { sub(/s$/, "", $i); if ($i + 0 > 7200) print $1 } }' | head -3 | tr '\n' ' ')
+# The machine slept during the run (2026-11-02: a full run on battery took 17 hours; every suite after the first sleep
+# timed out on stale sessions and stale data, and the verdict said RED instead of INCOMPLETE). macOS records each sleep
+# in its power log; one after the start is enough.
+SLEEPS=$(pmset -g log 2>/dev/null | awk -v s="$RUN_STARTED" '($1" "$2) >= s && $4 == "Sleep"' | wc -l | tr -d ' ')
+if [ "${SLEEPS:-0}" != 0 ]; then echo "VERDICT: INCOMPLETE — the machine slept $SLEEPS time(s) during the run (power log); nothing after the first sleep can be trusted. Run again on power." | tee -a $LOG; echo DONE >> $LOG; exit 2; fi
 if [ -n "$SLEPT" ]; then echo "VERDICT: INCOMPLETE — the machine slept during: $SLEPT(a suite over two hours); rerun from there" | tee -a $LOG; echo DONE >> $LOG; exit 2; fi
 if [ "$RAN" != "$EXPECTED" ]; then echo "VERDICT: INCOMPLETE — $RAN of $EXPECTED suites ran ($RED red)" | tee -a $LOG; echo DONE >> $LOG; exit 2; fi
 # Every red suite is LISTED (a recorded cause, rig/known-failures.json) or UNLISTED, and the unlisted are named (2026-11-02).

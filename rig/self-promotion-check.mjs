@@ -21,14 +21,15 @@ const setAppMeta = (uid, app_metadata) => fetch(`${SB}/auth/v1/admin/users/${uid
 
 let s = await grant({ email: EMAIL, password: PASSWORD });
 const uid = s.user?.id; if (!uid) { console.error("the rig user could not sign in"); process.exit(2); }
+// the probe names the role since 2026-11-02 (app/api/admin/status): a plain user answers role "user", nothing more
 const status = async (sess) => (await asUser(sess, "/api/admin/status")).json();
-ok(JSON.stringify(await status(s)) === '{"isAdmin":false,"isDeveloper":false}', "before: the rig user is a user", JSON.stringify(await status(s)));
+ok(JSON.stringify(await status(s)) === '{"isAdmin":false,"isDeveloper":false,"role":"user"}', "before: the rig user is a user", JSON.stringify(await status(s)));
 
 // 1. the person writes every role claim there is into their own metadata
 const w = await setOwnMeta(s, { role: "developer", roles: ["admin", "developer"], is_admin: true, is_developer: true, is_approved: true, is_temporary: false });
 ok(w.ok, "Supabase accepts the person's own user_metadata write (that is the hole; the services must not believe it)", String(w.status));
 s = await refresh(s);
-ok(JSON.stringify(await status(s)) === '{"isAdmin":false,"isDeveloper":false}', "portal: still a user after claiming developer in user_metadata", JSON.stringify(await status(s)));
+ok(JSON.stringify(await status(s)) === '{"isAdmin":false,"isDeveloper":false,"role":"user"}', "portal: still a user after claiming developer in user_metadata", JSON.stringify(await status(s)));
 ok((await asUser(s, "/api/help/inbox")).status === 403, "portal: the developer inbox refuses them (403)");
 ok((await asUser(s, "/api/admin/users")).status === 403, "portal: Admin › Users refuses them (403)");
 ok((await asUser(s, "/agent/api/settings/permissions")).status === 403, "agent: an admin read refuses them (403)");
@@ -51,6 +52,6 @@ ok(back.status !== 307 || !/\/pending-approval/.test(back.headers.get("location"
 await setOwnMeta(s, { role: null, roles: null, is_admin: null, is_developer: null, is_approved: null, is_temporary: null });
 await setAppMeta(uid, { is_approved: true }); // approval is explicit now; a missing flag is not approved
 s = await refresh(s);
-ok(JSON.stringify(await status(s)) === '{"isAdmin":false,"isDeveloper":false}', "restored: a user again");
+ok(JSON.stringify(await status(s)) === '{"isAdmin":false,"isDeveloper":false,"role":"user"}', "restored: a user again");
 console.log(failures ? `${failures} FAILED` : "ALL PASSED");
 process.exit(failures ? 1 : 0);

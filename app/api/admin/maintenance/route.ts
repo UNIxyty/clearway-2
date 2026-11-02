@@ -73,7 +73,9 @@ export async function POST(request: Request) {
       message: (body.message ?? "").trim() || null,
       eta_text: (body.eta_text ?? "").trim() || null,
       updated_by: user.id,
-      updated_at: new Date().toISOString(),
+      // updated_at: left to the database's own now(), the same clock scripts/maintenance-off.sh uses (2026-11-02). The
+      // newest row decides; with this server's clock a few milliseconds ahead, an earlier "on" outranked a later "off"
+      // and left maintenance on (the rig's full run, after portal-foundations).
     };
 
     // Written with the service role after the check above: the table no longer takes inserts from any signed-in user

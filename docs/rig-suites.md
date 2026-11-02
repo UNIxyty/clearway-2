@@ -24,9 +24,9 @@ No wildcards: "intake/browser-*" used to stand for five suites, and a sixth woul
 
 - **Cause: no working model key on the rig (since 2026-11-01).** AWS Bedrock refuses the rig's access key
   (UnrecognizedClientException), so every call to the model fails. It is not a code fault. It clears when the agent
-  moves to the Anthropic API with a working key, or `.env.rig` holds a working AWS key. **11 suites** (intake/e2e-scheduled passed on 2026-11-02 and came off):
-  manifest/browser, intake/e2e, intake/e2e-classify, intake/e2e-unread, intake/e2e-cancel,
-  intake/e2e-people, intake/browser-cancel, intake/browser-flows, intake/browser-people, intake/browser-check,
+  moves to the Anthropic API with a working key, or `.env.rig` holds a working AWS key. **9 suites** (intake/e2e-scheduled, intake/e2e-cancel and intake/browser-cancel passed on 2026-11-02 and came off):
+  manifest/browser, intake/e2e, intake/e2e-classify, intake/e2e-unread,
+  intake/e2e-people, intake/browser-flows, intake/browser-people, intake/browser-check,
   intake/browser-edits. Recorded on 2026-11-01 from that day's runs. Each is re-confirmed by name when it is next run.
 - *Closed 2026-11-02:* permissions-check's three reveal checks ("a User cannot reveal…", "…the review screen is told
   so", "an Admin can…"). They were filed under the model key, but the real cause was a missing fixture. They read the

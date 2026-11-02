@@ -25,7 +25,6 @@ export async function sendResetEmail(service: SupabaseClient, email: string, app
     if (status === 404 || /not.*found/i.test(msg)) return failed("no account", { noAccount: true });
     return failed(`link not made: ${msg}`, { linkError: msg });
   }
-  recentResets.set(email.toLowerCase(), Date.now());
   const url = `${appUrl}/auth/reset?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=recovery`;
   const { html, text } = layoutEmail({
     title: "Reset your password",
@@ -33,7 +32,11 @@ export async function sendResetEmail(service: SupabaseClient, email: string, app
     button: { label: "Choose a new password", url },
     footnote: "The link works once, for one hour.",
   });
-  return sendPortalEmail({ to: email, subject: `Reset your ${productName()} password`, html, text, kind, by, ref: data.user?.id ?? null });
+  const out = await sendPortalEmail({ to: email, subject: `Reset your ${productName()} password`, html, text, kind, by, ref: data.user?.id ?? null });
+  // counted only once the mail service took it (2026-11-02): a send that failed must not answer the next try with
+  // "a reset email went to this address a moment ago" — nothing went, and the person should be able to try again
+  if (out.ok) recentResets.set(email.toLowerCase(), Date.now());
+  return out;
 }
 
 /** The sign-up confirmation: Supabase makes the (unconfirmed) account and the link; we send it. */

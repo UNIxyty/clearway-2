@@ -224,7 +224,7 @@ export function ReceivedReader({ message, runAs, capture, plain, setPlain, rawOp
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <Card style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: cw.text, lineHeight: 1.3, overflowWrap: "anywhere" }}>{message.subject || "(no subject)"}</h2>
+        <h2 data-sender-text style={{ margin: 0, fontSize: 18, fontWeight: 800, color: cw.text, lineHeight: 1.3, overflowWrap: "anywhere" }}>{message.subject || "(no subject)"}</h2>
         <Grid rows={[
           ["From", <span key="f"><b style={{ color: cw.text }}>{from.name}</b>{from.addr && from.addr !== from.name && <span style={{ ...mono({ fontSize: 12 }), color: cw.textMuted }}> {from.addr}</span>}{known && <span style={{ fontWeight: 600, color: known[1] === "yes" ? cw.successText : TONE.amber.fg }}> {known[1] === "yes" ? "· known sender" : "· unknown sender"}</span>}</span>],
           ["To", <span key="t" style={mono({ fontSize: 12 })}>{message.to.join(", ")}</span>],

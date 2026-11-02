@@ -112,12 +112,15 @@ try {
   const selfItems = (await page.getByRole("menu", { name: "Row actions" }).innerText()).replace(/\s+/g, " ");
   ok(!/Make|Remove/.test(selfItems), "your own row offers no role change", selfItems);
   await page.keyboard.press("Escape");
-  // Password reset: on the rig GoTrue has no mail server, so the real request shows its error honestly…
+  // Password reset: the rig's mock Resend refuses sends for this step (POST /_rig/fail-sends; since 2026-11-02 the
+  // portal sends the reset itself), so the real request shows its failure honestly…
+  await fetch("http://127.0.0.1:3996/_rig/fail-sends", { method: "POST", body: JSON.stringify({ on: true }) });
   await row.getByRole("button", { name: "Row actions" }).click(); await page.getByRole("menuitem", { name: "Send password reset" }).click();
   await page.waitForSelector('[role="alert"]:has-text("reset email")', { timeout: 10000 }).catch(() => {});
   // Since 2026-10-14 the auth server's own text ("Error sending recovery email") goes to the log; the person reads ours.
   const resetAlert = await page.locator('[role="alert"]', { hasText: "reset email" }).first().innerText().catch(() => "");
-  ok(/The reset email was not sent\./.test(resetAlert) && !/Error sending recovery email/.test(resetAlert) && /Retry/.test(resetAlert), "password reset reaches the auth server (the rig has no mailer: our message is shown, with Retry)", resetAlert.replace(/\s+/g, " "));
+  await fetch("http://127.0.0.1:3996/_rig/fail-sends", { method: "POST", body: JSON.stringify({ on: false }) });
+  ok(/The reset email was not sent\./.test(resetAlert) && !/Error sending recovery email/.test(resetAlert) && /Retry/.test(resetAlert), "password reset: when the mail service refuses it, our message is shown, with Retry", resetAlert.replace(/\s+/g, " "));
   // …and with the server answering yes, the bulk bar sends to everyone selected.
   await page.route("**/api/admin/users/password-reset", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, sentTo: "x@rig.invalid" }) }));
   // By email, not position: the rig's second developer (rig/.scratch/make-dev2.mjs) moves the rows, and a developer's

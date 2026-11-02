@@ -37,7 +37,7 @@ export function MailListRow({ r, selected, flash, isNew, addresses, onSelect, se
         {r.attachments > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, color: cw.textMuted, flex: "none" }}><Icon name="paperclip" size={11} color={cw.textMuted} />{r.attachments}</span>}
         <span style={{ ...mono({ fontSize: 11.5 }), color: cw.textMuted, flex: "none" }}>{time}</span>
       </div>
-      <div aria-hidden style={{ fontSize: 13, color: cw.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", pointerEvents: "none" }}>{r.subject || "(no subject)"}</div>
+      <div aria-hidden data-sender-text style={{ fontSize: 13, color: cw.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", pointerEvents: "none" }}>{r.subject || "(no subject)"}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
         <span aria-hidden style={{ fontSize: 12, fontWeight: whatWeight, color: whatColor, flex: "0 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", pointerEvents: "none" }}>{r.what || (r.status === "waiting" ? "In the queue" : meta.label)}</span>
         {r.ref && <RefLink refText={r.ref} requestId={r.requestId} />}

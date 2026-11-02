@@ -43,7 +43,7 @@ export function OriginalEmailDrawer({ detail, open, onClose, onRead }: { detail:
           <span style={{ color: cw.textMuted }}>From</span><span style={{ overflowWrap: "anywhere" }}>{r.sender && r.fromAddr && r.sender !== r.fromAddr.replace(/"/g, "") ? `${r.sender} · ${r.fromAddr}` : r.fromAddr ?? r.sender ?? "—"}</span>
           <span style={{ color: cw.textMuted }}>To</span><span style={{ overflowWrap: "anywhere" }}>{(r.toAddrs ?? []).join(", ") || "—"}</span>
           <span style={{ color: cw.textMuted }}>Received</span><span style={mono({ fontSize: 12 })}>{dayTimeZ(r.receivedAt, { alwaysDate: true })}</span>
-          <span style={{ color: cw.textMuted }}>Subject</span><span style={{ fontWeight: 700, overflowWrap: "anywhere" }}>{r.subject ?? "(no subject)"}</span>
+          <span style={{ color: cw.textMuted }}>Subject</span><span data-sender-text style={{ fontWeight: 700, overflowWrap: "anywhere" }}>{r.subject ?? "(no subject)"}</span>
         </div>
         <div style={{ flex: 1, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
           {r.purged ? (

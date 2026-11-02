@@ -51,7 +51,12 @@ try {
   for (const p of PAGES) {
     await page.goto(`${BASE}${p}`, { waitUntil: "load", timeout: 60000 }).catch(() => {});
     await settled(page);
-    const text = await page.locator("body").innerText().catch(() => "");
+    // Text a SENDER wrote (an email's subject, shown as written) is marked data-sender-text by the UI and left out:
+    // the rule is about the times WE show (2026-11-02: a fixture's subject "20:30Z (23:30 LT)" in the mailbox list).
+    const text = await page.evaluate(() => {
+      const els = [...document.querySelectorAll("[data-sender-text]")]; const was = els.map((e) => e.style.display);
+      els.forEach((e) => { e.style.display = "none"; }); const t = document.body.innerText; els.forEach((e, i) => { e.style.display = was[i]; }); return t;
+    }).catch(() => "");
     const bad = findBad(text);
     ok(bad.length === 0, `${p}: every time shown is UTC with a Z (browser in New York time, en-US)`, bad.slice(0, 3).join(" | "));
   }

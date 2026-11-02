@@ -45,15 +45,16 @@ export async function check({ accounts: [u], ok }) {
   };
   const grade = (text, tools) => {
     const r = Object.fromEntries(tools.filter((t) => t.ok).map((t) => [t.name, t.result]));
-    const marks = [];
-    if (r.get_wall_state && Number.isInteger(r.get_wall_state.flightCount)) marks.push(new RegExp(`\\b${r.get_wall_state.flightCount}\\b`).test(text));
-    if (r.get_notams && Number.isInteger(r.get_notams.count)) marks.push(new RegExp(`\\b${r.get_notams.count}\\b`).test(text));
+    const marks = []; const miss = [];
+    const mark = (name, pass) => { marks.push(pass); if (!pass) miss.push(name); };
+    if (r.get_wall_state && Number.isInteger(r.get_wall_state.flightCount)) mark("flight count", new RegExp(`\\b${r.get_wall_state.flightCount}\\b`).test(text));
+    if (r.get_notams && Number.isInteger(r.get_notams.count)) mark("NOTAM count", new RegExp(`\\b${r.get_notams.count}\\b`).test(text));
     const metar = r.get_weather?.metar ?? r.get_weather?.weather;
     const wind = String(metar ?? "").match(/\b(\d{3}|VRB)(\d{2,3})(?:G\d{2,3})?KT\b/);
-    if (wind) marks.push(new RegExp(`\\b${wind[1]}\\b|${wind[1] === "VRB" ? "variable" : "\\b" + wind[1] + "°"}`, "i").test(text) && new RegExp(`\\b${Number(wind[2])}\\s*(kt|knots?)`, "i").test(text));
+    if (wind) mark(`wind (${wind[1] === "VRB" ? "variable" : "direction"}/${Number(wind[2])} kt)`, new RegExp(`\\b${wind[1]}\\b|${wind[1] === "VRB" ? "variable" : "\\b" + wind[1] + "°"}`, "i").test(text) && new RegExp(`\\b${Number(wind[2])}\\s*(kt|knots?)`, "i").test(text));
     const cat = wxCategory(metar);
-    if (cat) marks.push(new RegExp(`\\b${cat}\\b`).test(text) && !new RegExp(`\\b${cat === "VMC" ? "IMC" : "VMC"}\\b`).test(text.replace(/not\s+(VMC|IMC)/g, "")));
-    return { got: marks.filter(Boolean).length, of: marks.length };
+    if (cat) mark(`category (${cat})`, new RegExp(`\\b${cat}\\b`).test(text) && !new RegExp(`\\b${cat === "VMC" ? "IMC" : "VMC"}\\b`).test(text.replace(/not\s+(VMC|IMC)/g, "")));
+    return { got: marks.filter(Boolean).length, of: marks.length, miss, chars: text.length };
   };
   const turn = async (tier) => {
     let text = ""; const tools = []; let done = null;
@@ -70,6 +71,7 @@ export async function check({ accounts: [u], ok }) {
     ["standard", "before", "claude-sonnet-5", null],
     ["standard", "after", saved.standard.id, saved.standard.request],
     ["standard", "lower (low)", saved.standard.id, { ...saved.standard.request, output_config: { effort: "low" } }],
+    ["standard", "between_tools", saved.standard.id, { thinking: { type: "between_tools" }, output_config: { effort: "medium" } }],
     ["reasoning", "before", "claude-opus-5", null],
     ["reasoning", "after", saved.reasoning.id, saved.reasoning.request],
     ["reasoning", "lower (medium)", saved.reasoning.id, { ...saved.reasoning.request, output_config: { effort: "medium" } }],
@@ -79,7 +81,7 @@ export async function check({ accounts: [u], ok }) {
     set(tier, id, request);
     for (const run of [1, 2]) {
       const t = await turn(tier); const d = t.done;
-      console.log(`${tier.padEnd(9)} ${label.padEnd(14)} run ${run}  ${d.modelId.padEnd(26)} in ${String(d.inputTokens).padStart(5)} out ${String(d.outputTokens).padStart(5)} cache r ${String(d.cacheReadTokens).padStart(6)} w ${String(d.cacheWriteTokens).padStart(6)}  ${$(t.usd)}  answer ${t.g.got}/${t.g.of}  ${t.tools}`);
+      console.log(`${tier.padEnd(9)} ${label.padEnd(14)} run ${run}  ${d.modelId.padEnd(26)} in ${String(d.inputTokens).padStart(5)} out ${String(d.outputTokens).padStart(5)} cache r ${String(d.cacheReadTokens).padStart(6)} w ${String(d.cacheWriteTokens).padStart(6)}  ${$(t.usd)}  answer ${t.g.got}/${t.g.of} ${String(t.g.chars).padStart(4)} chars${t.g.miss.length ? ` missed: ${t.g.miss.join(", ")}` : ""}  ${t.tools}`);
       if (run === 2) warm[`${tier} ${label}`] = t;
       ok(d.modelId === id && d.stopReason === "end_turn", `${tier} ${label} run ${run}: answered on ${id}`, d.modelId);
     }

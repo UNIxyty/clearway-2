@@ -358,6 +358,11 @@ async function gate(request: NextRequest) {
   // Permissions (docs/permissions.md): every write must be in lib/permissions/catalogue.mjs, and the person's role must
   // hold its action. An endpoint nobody listed is refused, not open. The handler checks again where the work happens.
   // (RIG ONLY: the same switch as the client block above, so the check proves the handlers refuse writes themselves)
+  // Production check accounts (scripts/check-accounts.mjs) sign in and read, nothing else (2026-11-02): app_metadata
+  // check_account, set only with the service key. Every write is refused here, before any permission is looked at.
+  if (isWriteMethod(request.method) && (user.app_metadata as Record<string, unknown> | undefined)?.check_account === true) {
+    return NextResponse.json({ error: "A check account is read-only. Nothing was changed." }, { status: 403 });
+  }
   if (isWriteMethod(request.method) && !clientBlockOff) {
     const entry = endpointFor("portal", request.method, pathname);
     if (!entry) {

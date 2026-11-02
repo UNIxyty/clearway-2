@@ -904,6 +904,8 @@ const server = http.createServer(async (req, res) => {
       // An unknown role gets nothing (2026-11-02): not the plain reads every signed-in person gets, not the User role.
       // permRole is null only for a person whose role marker nobody planned for (devices are handled by their own gate).
       if (requestUser && !requestUser.device && !requestUser.permRole) { sendJson(res, { ok: false, error: "Not found" }, 404); return; }
+      // a production check account (scripts/check-accounts.mjs) reads, never writes — refused before any permission
+      if (requestUser?.appMetadata?.check_account === true && !["GET", "HEAD", "OPTIONS"].includes(req.method)) { sendJson(res, { ok: false, error: "A check account is read-only. Nothing was changed." }, 403); return; }
       // ── Client access (Stage 5, 2026-10-25): a client's world is their scope and their switches, decided HERE for
       // every request. Anything else — another operator's flight by id, a write, a console or display endpoint — is
       // 404: it does not exist for them. Reads that list flights are cut down to their flights before they are sent

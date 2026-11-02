@@ -352,6 +352,8 @@ async function handleRequest(req, res) {
     }
     // An unknown role gets nothing (2026-11-02): not the allowlist's reads, not the User role. 404, as for a client.
     if (user.agentRole === "unknown") return sendJson(res, { ok: false, error: "not_found" }, 404);
+    // a production check account (scripts/check-accounts.mjs) reads, never writes — refused before any permission
+    if (isWriteMethod(req.method) && user.appMetadata?.check_account === true) return sendJson(res, { ok: false, error: "read_only", message: "A check account is read-only. Nothing was changed." }, 403);
     if (isWriteMethod(req.method)) {
       const entry = endpointFor("agent", req.method, pathname);
       if (!entry) return sendJson(res, { ok: false, error: "forbidden", message: "This endpoint is not in the permissions list, so it is refused." }, 403);

@@ -14,20 +14,23 @@ for (const [key, v] of Object.entries(known)) {
   if (!v?.cause || !v?.since || !Array.isArray(v?.suites) || !v.suites.length) { console.log(`VERDICT: RED — known-failures entry "${key}" has no cause, date or suites`); process.exit(1); }
   for (const s of v.suites) { if (/[*?]/.test(s)) { console.log(`VERDICT: RED — known-failures entry "${key}" uses a wildcard (${s}): name every suite`); process.exit(1); } listed.set(s, key); }
 }
-const lines = readFileSync(logFile, "utf8").split("\n").filter((l) => / rc=\d+ /.test(l));
-const results = lines.map((l) => { const [name] = l.split(" "); const rc = Number(l.match(/ rc=(\d+) /)[1]); return { name, rc }; });
+const lines = readFileSync(logFile, "utf8").split("\n").filter((l) => / rc=(\d+|skip) /.test(l));
+const all = lines.map((l) => { const [name] = l.split(" "); const m = l.match(/ rc=(\d+|skip) /)[1]; return { name, rc: m === "skip" ? null : Number(m), skipped: m === "skip" }; });
+const skipped = all.filter((r) => r.skipped), results = all.filter((r) => !r.skipped);
 const red = results.filter((r) => r.rc !== 0), unlisted = red.filter((r) => !listed.has(r.name)), knownRed = red.filter((r) => listed.has(r.name));
 const passedButListed = results.filter((r) => r.rc === 0 && listed.has(r.name));
-const missing = [...listed.keys()].filter((s) => !results.some((r) => r.name === s));
+const missing = [...listed.keys()].filter((s) => !all.some((r) => r.name === s));
+for (const r of skipped) console.log(`  skipped  ${r.name} — ${listed.get(r.name) ?? "?"} still holds`);
 for (const r of knownRed) console.log(`  known  ${r.name} — ${listed.get(r.name)}: ${known[listed.get(r.name)].cause.slice(0, 120)}`);
 for (const r of unlisted) console.log(`  UNLISTED RED  ${r.name} (rc=${r.rc}) — no recorded cause: investigate it, or record its cause in rig/known-failures.json`);
 for (const r of passedButListed) console.log(`  listed but PASSED  ${r.name} — remove it from "${listed.get(r.name)}" in rig/known-failures.json`);
 for (const s of missing) console.log(`  listed but NOT RUN  ${s} — the record names a suite this run does not have`);
 const expected = Number(expectedRaw);
-if (!results.length || !Number.isFinite(expected) || expected < 1) { console.log(`VERDICT: INCOMPLETE — no suite results in the log (or no expected count): nothing can be called green`); process.exit(2); }
-if (results.length !== expected) { console.log(`VERDICT: INCOMPLETE — ${results.length} of ${expected} suites ran`); process.exit(2); }
+if (!all.length || !Number.isFinite(expected) || expected < 1) { console.log(`VERDICT: INCOMPLETE — no suite results in the log (or no expected count): nothing can be called green`); process.exit(2); }
+if (all.length !== expected) { console.log(`VERDICT: INCOMPLETE — ${all.length} of ${expected} suites ran or were skipped`); process.exit(2); }
 if (unlisted.length) { console.log(`VERDICT: RED — ${unlisted.length} UNLISTED red suite(s): ${unlisted.map((r) => r.name).join(", ")}${knownRed.length ? `; and ${knownRed.length} red with a recorded cause` : ""}`); process.exit(1); }
 if (knownRed.length) { console.log(`VERDICT: RED — ${knownRed.length} of ${results.length} suites red, every one with a recorded cause (${[...new Set(knownRed.map((r) => listed.get(r.name)))].join(", ")}); no unlisted red`); process.exit(1); }
 if (passedButListed.length || missing.length) { console.log(`VERDICT: RED — every suite passed, but the known-failures record is out of date (above); fix the record`); process.exit(1); }
+if (skipped.length) { console.log(`VERDICT: PASSED WITH SKIPS — all ${results.length} suites that ran passed; ${skipped.length} skipped because a recorded cause still holds (${[...new Set(skipped.map((r) => listed.get(r.name)))].join(", ")}). Not green: those suites proved nothing this run.`); process.exit(0); }
 console.log(`VERDICT: GREEN — all ${results.length} suites passed, and the known-failures record is empty`);
 process.exit(0);

@@ -17,6 +17,11 @@ the verdict. Any red, listed or not, is RED, exit 1; there is no "green except".
 too, so its entry goes. shell-check was red and on no list from mid-October to 2026-11-02; this is what stops that.
 The list below says the same as the JSON, in words.
 
+**Skipped while the cause holds (2026-11-02, later that day).** Each cause in `rig/known-failures.json` has a
+`probe`, a command that exits 0 while the cause still holds. The runner runs each probe once at the start. A suite
+under a cause that still holds is SKIPPED and printed with its cause; when the cause clears, its suites run again by
+themselves. A run with skips ends "PASSED WITH SKIPS", never green.
+
 **How this list works (2026-11-02):** each entry names one cause and lists, by name, every check it covers, with a
 count. Nothing joins an entry because it failed in the same run. A failure not named here is a live finding until it
 is investigated. If it has the same cause, it is added by name, with the date and the evidence, and the count changes.

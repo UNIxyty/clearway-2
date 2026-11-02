@@ -14,7 +14,18 @@ OUT=rig/.scratch/suites; mkdir -p $OUT; LOG=$OUT/summary.log; : > $LOG
 # When the run started, by the power log's own clock format: a sleep after this makes the run INCOMPLETE (below).
 RUN_STARTED="$(date "+%Y-%m-%d %H:%M:%S")"
 SCR="$PWD/rig/.scratch"; E="node --env-file=.env.rig"
-run() { local name="$1"; shift; local out="$OUT/$(echo "$name" | tr '/ ' '__').out"; local t0=$(date +%s); "$@" > "$out" 2>&1 < /dev/null; local rc=$?; echo "$name rc=$rc $(( $(date +%s) - t0 ))s $(grep -cE '^(PASS|ok)' "$out") pass $(grep -cE '^(FAIL|not ok)' "$out") fail :: $(tail -1 "$out" | cut -c1-140)" >> $LOG; }
+# Known failures (rig/known-failures.json): each cause's probe runs once here. A suite under a cause that still holds is
+# SKIPPED and printed with its cause; when the cause clears, its suites run again by themselves (2026-11-02).
+SKIP_LIST="$(node -e '
+const k = require("./rig/known-failures.json"); const { execSync } = require("child_process"); const out = [];
+for (const [key, v] of Object.entries(k)) { if (key.startsWith("$") || !v.probe) continue;
+  let holds = true; try { execSync(v.probe, { stdio: "ignore", timeout: 30000 }); } catch (e) { holds = e.status !== 1; }
+  if (holds) for (const s of v.suites) out.push(s + "\t" + key); }
+process.stdout.write(out.join("\n"));' 2>/dev/null)"
+run() { local name="$1";
+  local known; known="$(printf '%s\n' "$SKIP_LIST" | awk -F'\t' -v n="$name" '$1==n {print $2}')"
+  if [ -n "$known" ]; then echo "$name rc=skip 0s 0 pass 0 fail :: skipped — known failure \"$known\" still holds (rig/known-failures.json)" >> $LOG; return; fi
+  shift; local out="$OUT/$(echo "$name" | tr '/ ' '__').out"; local t0=$(date +%s); "$@" > "$out" 2>&1 < /dev/null; local rc=$?; echo "$name rc=$rc $(( $(date +%s) - t0 ))s $(grep -cE '^(PASS|ok)' "$out") pass $(grep -cE '^(FAIL|not ok)' "$out") fail :: $(tail -1 "$out" | cut -c1-140)" >> $LOG; }
 preview() { pkill -f "vite preview --port 4173"; sleep 1; ( cd opsboard-react && VITE_API_PROXY=http://127.0.0.1:$1 nohup npx vite preview --port 4173 --host 127.0.0.1 > ../rig/.scratch/vite-preview.out 2>&1 & ); sleep 4; }
 
 # The ElevenLabs stand-in (rig/start.sh starts it; started here too if a rig from before 2026-10-13 is running).

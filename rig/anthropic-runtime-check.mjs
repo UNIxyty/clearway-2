@@ -1,6 +1,7 @@
 // The agent's model calls on the Anthropic API (2026-11-02): agent/lib/anthropic-runtime.mjs turns the Converse-shaped
 // requests agent/lib/bedrock.mjs builds into Messages API calls, and the answers back into Converse events. Against a
-// local stand-in for /v1/messages (no key, no network): what goes out, what comes back, how errors are classified.
+// local stand-in for /v1/messages (no key, no network): what goes out, what comes back, how errors are classified, and
+// (2026-11-03) what the 5.5 models refuse — temperature, a forced tool, edited thinking — never reaching them.
 //   node rig/anthropic-runtime-check.mjs
 import http from "node:http";
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 200)}` : ""}`); if (!c) failures += 1; };
@@ -12,6 +13,25 @@ const server = http.createServer(async (req, res) => {
   if (mode === "404") { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "not_found_error", message: "model: claude-nope" } })); }
   if (mode === "429") { res.writeHead(429, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "rate_limit_error", message: "slow down" } })); }
   if (mode === "529") { res.writeHead(529, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "overloaded_error", message: "overloaded" } })); }
+  if (mode === "loop" && body.stream) {
+    const last = body.messages.at(-1);
+    if (last?.content?.some?.((c) => c.type === "tool_result")) return sse(res, [
+      { type: "message_start", message: { usage: { input_tokens: 50, output_tokens: 1 } } },
+      { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Tracking is not enabled." } },
+      { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 6 } },
+    ]);
+    return sse(res, [
+      { type: "message_start", message: { usage: { input_tokens: 40, output_tokens: 1 } } },
+      { type: "content_block_start", index: 0, content_block: { type: "thinking", thinking: "", signature: "" } },
+      { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "Check the tracker." } },
+      { type: "content_block_delta", index: 0, delta: { type: "signature_delta", signature: "sig-rig-abc" } },
+      { type: "content_block_start", index: 1, content_block: { type: "redacted_thinking", data: "redacted-rig" } },
+      { type: "content_block_start", index: 2, content_block: { type: "tool_use", id: "toolu_loop1", name: "get_flight_tracking", input: {} } },
+      { type: "content_block_delta", index: 2, delta: { type: "input_json_delta", partial_json: "{\"callsign\":\"RIG1\"}" } },
+      { type: "message_delta", delta: { stop_reason: "tool_use" }, usage: { output_tokens: 20 } },
+    ]);
+  }
   if (!body.stream) { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ content: [{ type: "text", text: "OK" }], stop_reason: "end_turn", usage: { input_tokens: 11, output_tokens: 2 } })); }
   sse(res, [
     { type: "message_start", message: { usage: { input_tokens: 120, output_tokens: 1, cache_read_input_tokens: 900, cache_creation_input_tokens: 0 } } },
@@ -81,6 +101,37 @@ try {
   ok(code === "model_unavailable", "no key in this service's environment → unavailable, and no request is made", code);
   process.env.ANTHROPIC_API_KEY = saved;
   ok(toMessagesRequest({ modelId: "m", messages: [{ role: "user", content: [{ text: "" }, { text: "hi" }] }] }, { stream: false }).messages[0].content.length === 1, "empty text blocks are dropped (the API refuses them)");
+
+  // 4. the 5.5 generation (2026-11-03): what each model refuses, measured on the production key, never reaches it
+  const t55 = toMessagesRequest({ modelId: "claude-sonnet-5-5", messages: [{ role: "user", content: [{ text: "x" }] }], inferenceConfig: { maxTokens: 64, temperature: 0 }, additionalModelRequestFields: { thinking: { type: "adaptive", display: "summarized" }, output_config: { effort: "medium" } } }, { stream: false });
+  ok(t55.temperature === undefined && t55.thinking?.type === "adaptive" && t55.output_config?.effort === "medium", "Sonnet 5.5: temperature left out (the API refuses it); the tier's thinking and effort sent");
+  ok(toMessagesRequest({ modelId: "claude-haiku-5-5", messages: [], inferenceConfig: { temperature: 0 } }, { stream: false }).temperature === undefined && toMessagesRequest({ modelId: "claude-sonnet-5", messages: [], inferenceConfig: { temperature: 0 } }, { stream: false }).temperature === 0, "Haiku 5.5: temperature left out; Sonnet 5 (a fallback) still gets it");
+  let refused = null; const before = seen.length;
+  try { await anthropicRuntime.send(new ConverseCommand({ modelId: "claude-opus-5-5", messages: [{ role: "user", content: [{ text: "x" }] }], toolConfig: { tools: input.toolConfig.tools, toolChoice: { tool: { name: "get_flights" } } } }), {}); } catch (e) { refused = e; }
+  ok(refused && seen.length === before, "Opus 5.5 with a forced tool: refused here, before any request (never silently turned into a free choice)", refused?.message?.slice(0, 80));
+  const back = toMessagesRequest({ modelId: "claude-opus-5-5", messages: [{ role: "assistant", content: [{ reasoningContent: { reasoningText: { text: "", signature: "sig-x" } } }, { reasoningContent: { redactedContent: "red-x" } }, { toolUse: { toolUseId: "t1", name: "get_flights", input: {} } }] }] }, { stream: false }).messages[0].content;
+  ok(back[0]?.type === "thinking" && back[0].thinking === "" && back[0].signature === "sig-x" && back[1]?.type === "redacted_thinking" && back[1].data === "red-x" && back[2]?.type === "tool_use", "thinking and redacted thinking go back as they came, in order, empty text kept");
+
+  // 5. a whole tool round on the tier's model: thinking comes back unmodified with the tool result; a pinned tool is
+  //    written by the agent, not forced on the model
+  mode = "loop";
+  const { streamConversationWithTools } = await import("../agent/lib/bedrock.mjs");
+  const user = { userId: "00000000-0000-4000-8000-0000000000aa", email: "rig-runtime@rig.invalid", agentRole: "user" };
+  const drain = async (gen) => { const evs = []; for await (const e of gen) evs.push(e); return evs; };
+  const from = seen.length;
+  const evs = await drain(streamConversationWithTools({ tier: "standard", system: "rig", messages: [{ role: "user", content: "Where is RIG1?" }], user, conversationId: null }));
+  const reqs = seen.slice(from).map((x) => x.body), r2 = reqs[1];
+  const echoed = r2?.messages?.find((m) => m.role === "assistant")?.content ?? [];
+  ok(reqs[0]?.model === "claude-sonnet-5-5" && reqs[0].temperature === undefined && reqs[0].thinking?.type === "adaptive" && reqs[0].output_config?.effort === "medium", "the standard tier runs Sonnet 5.5 with its thinking and effort, no temperature", reqs[0]?.model);
+  ok(echoed[0]?.type === "thinking" && echoed[0].thinking === "Check the tracker." && echoed[0].signature === "sig-rig-abc" && echoed[1]?.type === "redacted_thinking" && echoed[1].data === "redacted-rig" && echoed[2]?.type === "tool_use" && echoed[2].input?.callsign === "RIG1", "round 2 carries round 1's thinking unmodified (text, signature, redacted block), then the tool call", JSON.stringify(echoed.map((c) => c.type)));
+  const done = evs.find((e) => e.type === "done"), thought = evs.find((e) => e.type === "thought");
+  ok(done?.stopReason === "end_turn" && evs.some((e) => e.type === "tool" && e.name === "get_flight_tracking") && thought?.text === "Check the tracker.", "the turn ends on the answer; the thinking summary is shown as the thought between tool calls, not in the reply");
+  const from2 = seen.length;
+  await drain(streamConversationWithTools({ tier: "reasoning", system: "rig", messages: [{ role: "user", content: "pinned" }], user, conversationId: null, pinTool: { name: "get_flight_tracking", input: { callsign: "PIN1" } } }));
+  const p1 = seen.slice(from2).map((x) => x.body)[0];
+  const pinned = p1?.messages?.find((m) => m.role === "assistant")?.content?.[0];
+  ok(p1?.model === "claude-opus-5-5" && !p1.tool_choice && pinned?.type === "tool_use" && pinned.name === "get_flight_tracking" && pinned.input?.callsign === "PIN1" && p1.messages.at(-1).content[0]?.type === "tool_result", "a pinned tool on Opus 5.5: the agent writes the call with the pinned input, the model's first request already holds its result, no forced tool_choice", p1?.model);
+  mode = "ok";
 } finally { server.close(); }
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");
 process.exit(failures ? 1 : 0);

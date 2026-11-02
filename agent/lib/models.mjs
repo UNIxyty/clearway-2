@@ -81,6 +81,9 @@ export function loadModelConfig({ reload = false } = {}) {
       fallbackId: (admin && "fallbackId" in admin ? admin.fallbackId : fileEntry.fallbackId) ?? null,
       source: override ? "env" : admin?.id ? "settings" : "file",
       maxTokens: entry.maxTokens ?? null,
+      // the model's own request fields (thinking, effort) from the tier's anthropic block; sent as Converse's
+      // additionalModelRequestFields and merged into the Messages request (lib/anthropic-runtime.mjs)
+      request: anthropic ? (fileEntry.request ?? null) : null,
       purpose: entry.purpose ?? "",
     };
   }

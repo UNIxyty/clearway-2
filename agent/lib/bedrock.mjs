@@ -1,6 +1,7 @@
 // Bedrock client. Streaming by default; tier in, tokens out. Knows nothing
 // about who is asking — authorization happened before this is called.
 
+import { randomUUID } from "node:crypto";
 import { BedrockRuntimeClient, ConverseStreamCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { loadModelConfig, modelCandidates, resolveTier } from "./models.mjs";
 import { classifyBedrockError, ModelUnavailable } from "./errors.mjs";
@@ -39,6 +40,11 @@ function inferenceConfig(tierConfig, overrides = {}) {
   };
 }
 
+/** The tier's own request fields (thinking, effort: agent/config/models.json), as Converse carries model-specific fields. */
+function modelFields(tierConfig) {
+  return tierConfig?.request ? { additionalModelRequestFields: tierConfig.request } : {};
+}
+
 /**
  * Stream a conversation. Yields { type: "delta", text } chunks, then a final
  * { type: "done", ... } with usage and the model actually used.
@@ -65,6 +71,7 @@ export async function* streamConversation({ tier = "standard", system, messages,
           ...(system ? { system: [{ text: system }] } : {}),
           messages: toBedrockMessages(messages),
           inferenceConfig: inferenceConfig(config, overrides),
+          ...modelFields(config),
         }),
         { abortSignal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) }
       );
@@ -122,6 +129,7 @@ export async function converseOnce({ tier = "standard", system, messages, ...ove
           ...(system ? { system: [{ text: system }] } : {}),
           messages: toBedrockMessages(messages),
           inferenceConfig: inferenceConfig(config, overrides),
+          ...modelFields(config),
         }),
         { abortSignal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) }
       );
@@ -190,12 +198,21 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     const lastRound = round === MAX_TOOL_ROUNDS;
     const roundStarted = Date.now();
     let roundText = "";
+    let roundReasoning = "";
     let assistantBlocks = [];
     let stopReason = null;
 
     let lastUnavailable = null;
     let streamed = false;
-    for (const modelId of candidates) {
+    // The pinned tool's first call is written here, not asked of the model: Sonnet 5.5 and Opus 5.5 refuse a forced
+    // tool_choice (2026-11-03), and the model's input was replaced by the pinned one anyway. The model takes over from
+    // the tool's result.
+    if (pinTool && round === 0 && toolSpecs.some((t) => t.toolSpec.name === pinTool.name)) {
+      assistantBlocks = [{ toolUse: { toolUseId: `toolu_pinned_${randomUUID().replace(/-/g, "").slice(0, 20)}`, name: pinTool.name, input: { ...pinTool.input } } }];
+      stopReason = "tool_use";
+      streamed = true;
+    }
+    for (const modelId of streamed ? [] : candidates) {
       try {
         const response = await runtime().send(
           new ConverseStreamCommand({
@@ -203,18 +220,30 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
             ...(system ? { system: withCachePoint([{ text: system }], modelId) } : {}),
             messages: conversation,
             inferenceConfig: inferenceConfig(config, {}),
+            ...modelFields(config),
             // On the final round the tools are withheld, which forces the model
             // to answer from what it already has instead of asking for more.
             ...(toolSpecs.length > 0 && !lastRound
-              ? { toolConfig: { tools: withCachePoint(toolSpecs, modelId), ...(pinTool && round === 0 && toolSpecs.some((t) => t.toolSpec.name === pinTool.name) ? { toolChoice: { tool: { name: pinTool.name } } } : {}) } }
+              ? { toolConfig: { tools: withCachePoint(toolSpecs, modelId) } }
               : {}),
           }),
           { abortSignal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) }
         );
 
-        const blocks = new Map(); // index -> { type, text?, toolUse? }
+        const blocks = new Map(); // index -> { type, text?, toolUse?, signature?, redacted? }
         for await (const event of response.stream ?? []) {
           const idx = event.contentBlockStart?.contentBlockIndex ?? event.contentBlockDelta?.contentBlockIndex ?? 0;
+          // Thinking (Sonnet 5.5 and Opus 5.5 always think): kept whole and sent back unmodified with the tool results,
+          // or the API refuses the next round. Its summary is the model's note between tool calls — a thought, never
+          // the reply.
+          const r = event.contentBlockDelta?.delta?.reasoningContent;
+          if (r) {
+            const existing = blocks.get(idx) ?? { type: "reasoning", text: "", signature: "", redacted: null };
+            if (r.text) { existing.text += r.text; roundReasoning += r.text; }
+            if (r.signature) existing.signature += r.signature;
+            if (r.redactedContent) existing.redacted = r.redactedContent;
+            blocks.set(idx, existing);
+          }
           if (event.contentBlockStart?.start?.toolUse) {
             const { toolUseId, name } = event.contentBlockStart.start.toolUse;
             blocks.set(idx, { type: "toolUse", toolUseId, name, inputJson: "" });
@@ -246,7 +275,9 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         assistantBlocks = [...blocks.values()].map((b) =>
           b.type === "toolUse"
             ? { toolUse: { toolUseId: b.toolUseId, name: b.name, input: safeJson(b.inputJson) } }
-            : { text: b.text ?? "" }
+            : b.type === "reasoning"
+              ? { reasoningContent: b.redacted != null ? { redactedContent: b.redacted } : { reasoningText: { text: b.text, signature: b.signature } } }
+              : { text: b.text ?? "" }
         ).filter((b) => (b.text != null ? b.text.length > 0 : true));
 
         usedModelId = modelId;
@@ -286,8 +317,8 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     conversation.push({ role: "assistant", content: assistantBlocks });
     // Text written in a round that ends by calling tools is the model thinking aloud, not the answer
     // (item 8a): it is moved out of the reply into the collapsed "Thought for Ns" disclosure.
-    if (roundText.trim()) {
-      const thought = { text: roundText, ms: Date.now() - roundStarted };
+    if (roundText.trim() || roundReasoning.trim()) {
+      const thought = { text: roundText.trim() ? roundText : roundReasoning, ms: Date.now() - roundStarted };
       thoughts.push(thought);
       yield { type: "thought", ...thought };
     }

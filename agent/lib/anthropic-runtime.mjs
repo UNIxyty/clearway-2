@@ -21,6 +21,15 @@ function apiError(status, type, message) {
 }
 
 const b64 = (bytes) => Buffer.from(bytes ?? []).toString("base64");
+
+// What a model refuses, measured against the production key on 2026-11-03 (each refused with a 400):
+//   temperature — Haiku 5.5, Sonnet 5.5 and Opus 5.5 ("deprecated for this model"). Dropped for them: the callers
+//                 that set it (router, extraction, rerank, ingest) asked for 0, which the API no longer offers.
+//   a forced tool_choice ("tool"/"any") — Sonnet 5.5 and Opus 5.5. Not dropped: refused here, before the call, because
+//                 silently letting the model choose would change what the caller asked for (bedrock.mjs writes the
+//                 pinned call itself instead of forcing it).
+const NO_SAMPLING = /^claude-(haiku|sonnet|opus)-5-5$/;
+const NO_FORCED_TOOL = /^claude-(sonnet|opus)-5-5$/;
 const TEXT_DOCS = { txt: "text/plain", csv: "text/plain", md: "text/plain", html: "text/plain" };
 
 /** Converse content blocks → Anthropic content blocks. A cachePoint marks the block before it. */
@@ -29,6 +38,12 @@ function blocks(list) {
   for (const b of list ?? []) {
     if (b.cachePoint) { if (out.length) out[out.length - 1].cache_control = { type: "ephemeral" }; continue; }
     if (b.text != null) { if (String(b.text).length) out.push({ type: "text", text: String(b.text) }); continue; }
+    // thinking from an earlier round of this turn, sent back exactly as it came (the API refuses edited thinking)
+    if (b.reasoningContent) {
+      const r = b.reasoningContent;
+      out.push(r.redactedContent != null ? { type: "redacted_thinking", data: String(r.redactedContent) } : { type: "thinking", thinking: r.reasoningText?.text ?? "", signature: r.reasoningText?.signature ?? "" });
+      continue;
+    }
     if (b.toolUse) { out.push({ type: "tool_use", id: b.toolUse.toolUseId, name: b.toolUse.name, input: b.toolUse.input ?? {} }); continue; }
     if (b.toolResult) {
       const content = (b.toolResult.content ?? []).map((c) => (c.json !== undefined ? { type: "text", text: JSON.stringify(c.json) } : c.text != null ? { type: "text", text: String(c.text) } : null)).filter(Boolean);
@@ -57,10 +72,14 @@ export function toMessagesRequest(input, { stream }) {
     if (t.toolSpec) tools.push({ name: t.toolSpec.name, description: t.toolSpec.description ?? "", input_schema: t.toolSpec.inputSchema?.json ?? { type: "object", properties: {} } });
   }
   const choice = input.toolConfig?.toolChoice?.tool?.name ? { type: "tool", name: input.toolConfig.toolChoice.tool.name } : null;
+  if (choice && NO_FORCED_TOOL.test(String(input.modelId))) throw apiError(400, "invalid_request_error", `${input.modelId} does not accept a forced tool_choice`);
+  const sampling = !NO_SAMPLING.test(String(input.modelId));
   return {
     model: input.modelId,
     max_tokens: input.inferenceConfig?.maxTokens ?? 4096,
-    ...(input.inferenceConfig?.temperature != null ? { temperature: input.inferenceConfig.temperature } : {}),
+    ...(sampling && input.inferenceConfig?.temperature != null ? { temperature: input.inferenceConfig.temperature } : {}),
+    // the tier's own fields (thinking, effort: agent/config/models.json), as Converse's additionalModelRequestFields
+    ...(input.additionalModelRequestFields ?? {}),
     ...(system.length ? { system } : {}),
     messages: (input.messages ?? []).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: blocks(m.content) })),
     ...(tools.length ? { tools, ...(choice ? { tool_choice: choice } : {}) } : {}),
@@ -91,6 +110,11 @@ async function* converseEvents(res) {
       if (!data) continue;
       let ev; try { ev = JSON.parse(data); } catch { continue; }
       if (ev.type === "message_start") usage = { ...usage, ...(ev.message?.usage ?? {}) };
+      else if (ev.type === "content_block_start" && ev.content_block?.type === "thinking" && (ev.content_block.thinking || ev.content_block.signature)) yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { reasoningContent: { text: ev.content_block.thinking ?? "", signature: ev.content_block.signature ?? "" } } } };
+      else if (ev.type === "content_block_start" && ev.content_block?.type === "thinking") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { reasoningContent: { text: "" } } } };
+      else if (ev.type === "content_block_start" && ev.content_block?.type === "redacted_thinking") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { reasoningContent: { redactedContent: ev.content_block.data ?? "" } } } };
+      else if (ev.type === "content_block_delta" && ev.delta?.type === "thinking_delta") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { reasoningContent: { text: ev.delta.thinking ?? "" } } } };
+      else if (ev.type === "content_block_delta" && ev.delta?.type === "signature_delta") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { reasoningContent: { signature: ev.delta.signature ?? "" } } } };
       else if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") yield { contentBlockStart: { contentBlockIndex: ev.index, start: { toolUse: { toolUseId: ev.content_block.id, name: ev.content_block.name } } } };
       else if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { text: ev.delta.text } } };
       else if (ev.type === "content_block_delta" && ev.delta?.type === "input_json_delta") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { toolUse: { input: ev.delta.partial_json ?? "" } } } };

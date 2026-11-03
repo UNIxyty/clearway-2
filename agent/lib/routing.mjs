@@ -8,7 +8,7 @@
 // user chose (/model or their Settings default) is a floor for the whole turn.
 
 import { rest } from "./knowledge/retrieval.mjs";
-import { loadModelConfig, setRuntimeOverride } from "./models.mjs";
+import { loadModelConfig, setRuntimeOverride, fileTiers } from "./models.mjs";
 import { BadRequest } from "./errors.mjs";
 
 export const LADDER = ["fast", "standard", "reasoning"];
@@ -50,11 +50,15 @@ export async function routingSettings({ reload = false } = {}) {
 /** Admin: save the tier→model mapping and/or escalation rules. Validated; takes effect on the next turn. */
 export async function setRoutingSettings(input, user) {
   const tiers = {};
-  for (const tier of ["router", "fast", "standard", "reasoning", "extraction", "embeddings", "rerank"]) {
+  // Only what differs from agent/config/models.json is saved (2026-11-03): the form sends every tier, and saving them
+  // all froze every tier on the models of that moment, so a later change to the file was silently ignored.
+  const file = fileTiers();
+  for (const tier of ["router", "fast", "standard", "reasoning", "extraction"]) {
     const t = input?.tiers?.[tier]; if (!t) continue;
     const id = t.id == null || t.id === "" ? null : String(t.id).trim();
     const fallbackId = t.fallbackId == null || t.fallbackId === "" ? null : String(t.fallbackId).trim();
     for (const v of [id, fallbackId]) if (v && !/^[a-z0-9.:_-]{3,120}$/i.test(v)) throw BadRequest(`"${v}" is not a model ID. Check the ID and save again.`);
+    if (id === (file[tier]?.id ?? null) && fallbackId === (file[tier]?.fallbackId ?? null)) continue;
     tiers[tier] = { id, fallbackId };
   }
   const esc = {};

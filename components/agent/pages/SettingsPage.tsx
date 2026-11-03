@@ -21,7 +21,8 @@ type Capability = { key: string; label: string; description: string; enabled: bo
 type Person = { userId: string; email: string; name: string; read: string; wall: string; sendEmail: string; approveKb: string };
 type BindActionRow = { key: BindAction; label: string; description: string };
 type SiteCounts = { approved: number; pending: number };
-type Usage = { month: string; spendEur: number; capEur: number; replies: number; toolCalls: number; heaviest: { email: string; eur: number } | null; model: string | null; voice: boolean };
+// The daily ceiling stops model calls; the month is information (2026-11-03: a "monthly cap" was shown here that enforced nothing).
+type Usage = { month: string; spendUsd: number; today: { day: string; usd: number; ceilingUsd: number; reached: boolean }; replies: number; toolCalls: number; heaviest: { email: string; usd: number } | null; model: string | null; voice: boolean };
 type TabId = "prefs" | "models" | "caps" | "access" | "intake";
 
 const TABS: Array<{ id: TabId; label: string; icon: string; admin: boolean }> = [
@@ -33,7 +34,7 @@ const TABS: Array<{ id: TabId; label: string; icon: string; admin: boolean }> = 
 ];
 const CAP_ICON: Record<string, string> = { web: "globe", webSearch: "globe", voice: "mic", write: "pencil", writes: "pencil", sendEmail: "send", email: "send", autoApprove: "file-check", highKnowledge: "brain", reasoning: "brain" };
 const capIcon = (key: string) => CAP_ICON[key] ?? (/voice/i.test(key) ? "mic" : /web|search/i.test(key) ? "globe" : /mail/i.test(key) ? "send" : /write/i.test(key) ? "pencil" : /approv/i.test(key) ? "file-check" : /model|reason|knowledge/i.test(key) ? "brain" : "toggle-right");
-const eur = (n: number) => `€${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const usd = (n: number) => `$${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const initialsOf = (s: string) => s.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?";
 const ACCESS = {
   yes: { icon: "check", text: "Yes", cls: "text-cw-success-text" },
@@ -100,17 +101,18 @@ export default function SettingsPage() {
 
   const visible = TABS.filter((t) => t.id === "prefs" || (t.id === "models" && routing) || (t.id === "caps" && (caps || binds)) || (t.id === "access" && (people || sites)) || (t.id === "intake" && intake));
   const current = visible.some((t) => t.id === tab) ? tab : "prefs";
-  const pct = usage ? Math.min(100, Math.round((usage.spendEur / Math.max(usage.capEur, 0.01)) * 100)) : 0;
+  const pct = usage ? Math.min(100, Math.round((usage.today.usd / Math.max(usage.today.ceilingUsd, 0.01)) * 100)) : 0;
 
   return (
     <PortalShell crumb="Ops Agent" title="Agent settings" subtitle="Your own preferences, and organisation settings for Admins."
       headerRight={usage ? (
         <div aria-label="Usage this month" className="flex flex-wrap items-center gap-3.5 rounded-[12px] border border-cw-border bg-cw-bg-surface px-3.5 py-2.5">
           <div>
-            <div className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-cw-text-muted">{usage.month}</div>
-            <div className="text-[15px] font-bold text-cw-text"><span className="font-mono">{eur(usage.spendEur)}</span> <span className="text-[12.5px] font-normal text-cw-text-muted">of {eur(usage.capEur)} cap</span></div>
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-cw-text-muted">Today (UTC)</div>
+            <div className="text-[15px] font-bold text-cw-text"><span className="font-mono">{usd(usage.today.usd)}</span> <span className="text-[12.5px] font-normal text-cw-text-muted">of {usd(usage.today.ceilingUsd)} daily ceiling{usage.today.reached ? " — reached: model calls stopped until 00:00 UTC" : ", where model calls stop"}</span></div>
           </div>
-          <span role="progressbar" aria-label="Spend against the cap" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} className="block h-1.5 w-[120px] overflow-hidden rounded-sm bg-cw-bg-active"><span className={`block h-full ${pct >= 100 ? "bg-cw-danger" : "bg-cw-primary"}`} style={{ width: `${Math.max(pct, 1)}%` }} /></span>
+          <span role="progressbar" aria-label="Today's spend against the daily ceiling" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} className="block h-1.5 w-[120px] overflow-hidden rounded-sm bg-cw-bg-active"><span className={`block h-full ${pct >= 100 ? "bg-cw-danger" : "bg-cw-primary"}`} style={{ width: `${Math.max(pct, 1)}%` }} /></span>
+          <span className="text-[12.5px] text-cw-text-muted">{usage.month}: <span className="font-mono">{usd(usage.spendUsd)}</span> (information, no limit)</span>
           <span className="text-[12.5px] text-cw-text-muted">{usage.replies.toLocaleString("en-GB")} replies · {usage.toolCalls.toLocaleString("en-GB")} tool calls</span>
         </div>
       ) : undefined}>
@@ -214,7 +216,7 @@ export default function SettingsPage() {
                 )}
                 {usage && (
                   <p className="m-0 text-[13px] leading-normal text-cw-text-muted">
-                    At the cap the agent stops replying and says so; the console is unaffected. Model: <span className="font-mono">{usage.model ?? "—"}</span> · voice {usage.voice ? "on" : "off"}.{usage.heaviest ? <> Heaviest user this month: <span className="font-mono">{usage.heaviest.email}</span>, {eur(usage.heaviest.eur)}.</> : null}
+                    At the daily ceiling ({usd(usage.today.ceilingUsd)}) every model call stops until 00:00 UTC; the person asking is told, and the developers are alerted. The monthly figure is information only. Standard model: <span className="font-mono">{usage.model ?? "—"}</span> · voice switched {usage.voice ? "on" : "off"}.{usage.heaviest ? <> Heaviest user this month: <span className="font-mono">{usage.heaviest.email}</span>, {usd(usage.heaviest.usd)}.</> : null}
                   </p>
                 )}
               </>

@@ -26,11 +26,19 @@ sweep for that shape found:
 | `lib/debug-runner` › Telegram summary | "Telegram summary sent." | the request had been made | logged as sent only when Telegram accepted it; otherwise "NOT sent" with the reason |
 | The Intake page, **Leon API: Reachable** | Leon reachable | a refresh token was set | Leon must answer a real query (every 2 minutes at most): "Answered 18:31Z", "Not answering", "Refused the check" or "Not set up" |
 | The agent's `/api/health` and the **service-status page** | the agent OK | the process answered; "auth" and "store" were "configured" because their settings were present | health carries the last smoke run's verdict. The status page shows the agent degraded when a path fails or the runs stop, and "unknown" when nothing has checked. From 31 Oct to 2 Nov every model call failed and this page read OK |
-| The Settings card's monthly cap | a spending cap | a figure in the environment; nothing enforced it | see the Settings audit |
+| Agent Settings: **"€X of €250 cap"** with a bar "spend against the cap", and "At the cap the agent stops replying and says so" | a spending limit | `AGENT_MONTHLY_CAP_EUR`, read only to draw the figure; nothing ever stopped | the card shows **today against the daily ceiling, which stops every model call** (`agent/lib/spend.mjs`). The month is labelled "information, no limit", and the sentence says what the ceiling does |
+| Agent Settings › Capabilities: **Auto-approve reference uploads** | a switch | nothing read it | removed |
+| Agent Settings › Models: **embeddings** and **rerank** rows | model settings | nothing read them after Bedrock; the extraction tier, which runs, had no row | the five tiers that run. A save stores only what differs from `models.json`: saving the form used to freeze every tier on the models of that moment |
 
 New code for alerts uses `agent/lib/alert.mjs` (the agent) and `digital-wall/lib/agent-smoke-watch.mjs` (the wall).
 Both count a message as sent only when Telegram accepted it. Proof: `rig/smoke-alarm-check.mjs` (an alert Telegram
 refuses is recorded NOT sent and tried again) and `rig/configured-not-working-check.mjs`.
+
+Settings audit, the rest of the page, checked: web search, voice, write actions, send email and the high-knowledge model
+are each enforced (`tools/framework.mjs`, `server.mjs`). The escalation rules feed `escalationAfterRound` and the
+router. Shortcuts, access table and sites count are what they say. The intake card's **Receiving addresses** help
+overclaims: the webhook does not filter by that list; it feeds the address health display. That goes to the mail-path
+item. Proof: `rig/settings-truth-check.mjs`, 6 checks.
 
 Not the shape, checked: the workers' `/health` routes say only that the process is up, and the status page labels
 them so, with separate freshness checks proving that the data arrives. Leon operators show "Connected" only after a

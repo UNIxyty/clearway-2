@@ -71,4 +71,6 @@ export function recordUsage(modelId, usage, { now = new Date() } = {}) {
 }
 
 export function spentToday() { return { day: state.day, usd: state.usd, ceilingUsd: ceilingUsd() }; }
+/** Today's spend for the Settings card, from the stored day (so it is right after a restart). */
+export async function todaySpend({ now = new Date() } = {}) { await ensureDay(now); return { day: state.day, usd: Math.round(state.usd * 100) / 100, ceilingUsd: ceilingUsd(), reached: state.usd >= ceilingUsd() }; }
 export function resetForTest(usd = 0, day = today()) { if (state.persistTimer) clearTimeout(state.persistTimer); state = { day, usd, loaded: true, alertedDay: null, persistTimer: null }; }

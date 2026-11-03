@@ -2,6 +2,7 @@
 // composer's live suggestions (§4.22). Every function runs AS the requester:
 // what is returned is what that person may see, decided here, not in the UI.
 
+import { todaySpend } from "./spend.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -150,7 +151,6 @@ export const CAPABILITIES = [
   { key: "voice", label: "Voice", description: "Voice and the ⌥⇧Space keybind. Press to start, press again to send. Audio is discarded after transcription.", default: true },
   { key: "write_actions", label: "Write actions", description: "Wall, NOTAM Check, limitations. Always asks first; this switch only removes the ability.", default: true },
   { key: "send_email", label: "Send email", description: "Through Resend, signed with the requester's name. Always asks first.", default: true },
-  { key: "auto_approve_reference", label: "Auto-approve reference uploads", description: "Authoritative uploads always need an approver regardless.", default: false },
   { key: "reasoning_routing", label: "High-knowledge model", description: "The router may send heavy tasks (multi-source briefings, conflicting rules, multi-record changes) to the reasoning model. Off: fast and standard only.", default: true },
 ];
 let capCache = { at: 0, values: null };
@@ -237,19 +237,21 @@ export async function usageThisMonth() {
   const rows = (await rest(`agent_audit_log?kind=eq.chat.response&created_at=gte.${encodeURIComponent(from)}&select=user_email,model_id,input_tokens,output_tokens,detail&limit=5000`).catch(() => [])) ?? [];
   const toolRows = (await rest(`agent_audit_log?kind=eq.tool.call&created_at=gte.${encodeURIComponent(from)}&select=id&limit=1`, { headers: { Prefer: "count=exact" } }).catch(() => null));
   const rate = (modelId) => { const k = Object.keys(pricing).find((p) => String(modelId ?? "").includes(p)); return pricing[k] ?? pricing.default ?? { input: 3, output: 15, cacheRead: 0.3 }; };
-  let eur = 0; const perUser = {};
+  let usd = 0; const perUser = {};
   for (const r of rows) {
     const p = rate(r.model_id); const inTok = r.input_tokens ?? 0, outTok = r.output_tokens ?? 0, cr = r.detail?.cacheReadTokens ?? 0, cw = r.detail?.cacheWriteTokens ?? 0;
-    const usd = (inTok / 1e6) * p.input + (outTok / 1e6) * p.output + (cr / 1e6) * (p.cacheRead ?? p.input * 0.1) + (cw / 1e6) * (p.cacheWrite ?? p.input * 1.25);
-    const e = usd * Number(process.env.AGENT_USD_TO_EUR || 0.92); eur += e; perUser[r.user_email ?? "—"] = (perUser[r.user_email ?? "—"] ?? 0) + e;
+    const turnUsd = (inTok / 1e6) * p.input + (outTok / 1e6) * p.output + (cr / 1e6) * (p.cacheRead ?? p.input * 0.1) + (cw / 1e6) * (p.cacheWrite ?? p.input * 1.25);
+    usd += turnUsd; perUser[r.user_email ?? "—"] = (perUser[r.user_email ?? "—"] ?? 0) + turnUsd;
   }
   const heaviest = Object.entries(perUser).sort((a, b) => b[1] - a[1])[0] ?? null;
   const toolCalls = await rest(`agent_audit_log?kind=eq.tool.call&created_at=gte.${encodeURIComponent(from)}&select=id`).then((r) => (r ?? []).length).catch(() => 0);
   return {
     month: now.toLocaleString("en-GB", { month: "long", timeZone: "UTC" }).toUpperCase(),
-    spendEur: Math.round(eur * 100) / 100, capEur: Number(process.env.AGENT_MONTHLY_CAP_EUR || 250),
+    // The month is information only; the daily ceiling is what stops calls (2026-11-03: the "monthly cap" shown here
+    // enforced nothing). USD, as the API bills.
+    spendUsd: Math.round(usd * 100) / 100, today: await todaySpend(),
     replies: rows.length, toolCalls,
-    heaviest: heaviest ? { email: heaviest[0], eur: Math.round(heaviest[1] * 100) / 100 } : null,
+    heaviest: heaviest ? { email: heaviest[0], usd: Math.round(heaviest[1] * 100) / 100 } : null,
     model: String(cfg.tiers?.standard?.id ?? "").split(".").slice(-1)[0].replace(/-\d{8}.*$/, "") || null,
     voice: (await capabilities()).voice,
   };

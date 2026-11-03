@@ -80,7 +80,8 @@ export function PersonalSettings() {
   );
 }
 
-const TIER_ROWS = ["router", "fast", "standard", "reasoning", "embeddings", "rerank"];
+// The tiers that run (2026-11-03): embeddings and rerank had rows that nothing read any more; extraction had none.
+const TIER_ROWS = ["router", "fast", "standard", "reasoning", "extraction"];
 const LEVELS = ["fast", "standard", "reasoning"].map((t) => ({ value: t, label: t }));
 
 export function RoutingSettings({ routing, onSaved }: { routing: Routing; onSaved: (r: Routing) => void }) {
@@ -107,7 +108,7 @@ export function RoutingSettings({ routing, onSaved }: { routing: Routing; onSave
   }
   const field = (t: string, k: "id" | "fallbackId", label: string) => {
     const diff = changed.has(`${t}.${k}`);
-    return <TextInput mono aria-label={label} value={draft.tiers[t]?.[k] ?? ""} placeholder={k === "id" ? (t === "rerank" ? "Not set — reranking off" : "Not set") : "None"} onChange={(e) => setTier(t, k, e.target.value)}
+    return <TextInput mono aria-label={label} value={draft.tiers[t]?.[k] ?? ""} placeholder={k === "id" ? "Not set" : "None"} onChange={(e) => setTier(t, k, e.target.value)}
       className={`!h-[34px] !text-[12.5px] ${diff ? "!border-cw-diff-border !bg-cw-diff-tint" : ""}`} />;
   };
   const num = (k: "lowConfidenceBelow" | "maxToolsBeforeEscalate", label: string) => (

@@ -99,6 +99,13 @@ export function loadModelConfig({ reload = false } = {}) {
   return cached;
 }
 
+/** The tiers as agent/config/models.json alone gives them (no env, no admin override): what a settings save compares to. */
+export function fileTiers() {
+  const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
+  const provider = String(process.env.MODEL_PROVIDER || raw.provider || "bedrock").toLowerCase();
+  return Object.fromEntries(TIERS.map((t) => { const e = raw.tiers?.[t] ?? {}; const f = provider === "anthropic" ? (e.anthropic ?? {}) : e; return [t, { id: f.id ?? null, fallbackId: f.fallbackId ?? null }]; }));
+}
+
 /**
  * Which tier actually runs for a requested tier. In Part 1 this is always the
  * pinned tier; the requested tier is still recorded in the audit log so the

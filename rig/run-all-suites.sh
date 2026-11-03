@@ -53,6 +53,7 @@ run smoke-alarm $E rig/smoke-alarm-check.mjs   # the scheduled smoke calls' alar
 run configured-not-working $E rig/configured-not-working-check.mjs   # statuses from real calls, not settings (2026-11-03)
 run fallback-watch $E rig/fallback-watch-check.mjs   # every fallback recorded with why; the rate alarms (2026-11-03)
 run knowledge-fts $E rig/knowledge-fts-check.mjs   # knowledge search on Postgres full text (2026-11-03)
+run settings-truth $E rig/settings-truth-check.mjs   # every figure and switch on Settings does something (2026-11-03)
 run portal-colours node scripts/check-portal-colours.mjs   # every portal colour a --cw-* token; prints its exceptions and why
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs

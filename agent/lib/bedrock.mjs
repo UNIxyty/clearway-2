@@ -223,8 +223,13 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     let assistantBlocks = [];
     let stopReason = null;
     let roundCited = [];
-    // the pass this round's request was SENT with (the label follows what the API was told, not the state after the round)
-    const roundPass = turn.widened ? 2 : 1;
+    // The pass this round's request is SENT with. The API runs a search the model asked for but did not get an answer to
+    // in its last response (a server_tool_use with no result, next to one of our tool calls) at the start of THIS request,
+    // under THIS request's settings (found 2026-11-03: three pass-one searches asked for alongside widen_web_search ran
+    // unrestricted). So pass two begins only on a round with no such search pending.
+    const lastAssistant = [...conversation].reverse().find((m) => m.role === "assistant");
+    const pendingSearch = (lastAssistant?.content ?? []).some((b) => b.raw?.type === "server_tool_use" && !(lastAssistant.content ?? []).some((r) => r.raw?.type === "web_search_tool_result" && r.raw.tool_use_id === b.raw.id));
+    const roundPass = turn.widened && !pendingSearch ? 2 : 1;
     const roundWebTool = anthropicSearch && !lastRound && web ? anthropicWebTool(web, { widened: roundPass === 2 }) : null;
 
     let lastUnavailable = null;
@@ -312,6 +317,8 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
           if (b.block.type === "server_tool_use") { if (b.inputJson) b.block.input = safeJson(b.inputJson); turn.searches.push({ provider: "anthropic", id: b.block.id, query: String(b.block.input?.query ?? "").slice(0, 300), pass: roundPass, allowedSent: roundWebTool?.allowed_domains?.length ?? 0, round, results: null, hosts: [] }); }
           if (b.block.type === "web_search_tool_result") {
             const s = turn.searches.find((x) => x.id === b.block.tool_use_id);
+            // a result is labelled by the request it ran under (a search left pending runs at the start of the next one)
+            if (s) { s.pass = roundPass; s.round = round; s.allowedSent = roundWebTool?.allowed_domains?.length ?? 0; }
             if (Array.isArray(b.block.content)) {
               for (const r of b.block.content) if (r?.url && !webResults.has(r.url)) webResults.set(r.url, { title: r.title ?? null, pageAge: r.page_age ?? null, pass: s?.pass ?? roundPass, provider: "anthropic" });
               if (s) {

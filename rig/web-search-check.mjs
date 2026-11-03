@@ -93,6 +93,14 @@ const api = http.createServer(async (req, res) => {
       ...text(4, " EASA advises against Russian airspace.", [{ type: "web_search_result_location", url: "https://www.easa.europa.eu/en/czib/russia", title: "CZIB Russia", cited_text: "advises", encrypted_index: "y" }]),
       end("end_turn", 1)]);
   }
+  if (script === "pending") {
+    // what production did (2026-11-03): searches asked for in the same response as widen_web_search, left without results
+    const pending = [{ type: "content_block_start", index: 1, content_block: { type: "server_tool_use", id: "srvtoolu_pend", name: "web_search", input: {} } }, { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: '{"query":"Yerevan Baku flights"}' } }];
+    if (round === 0) return sse(res, [start(), ...toolUse(0, "toolu_p_t", "tavily_search", { query: "Armenia" }), ...pending, ...toolUse(2, "toolu_p_w", "widen_web_search", { reason: "news" }), end("tool_use", 0)]);
+    // the API answers the pending search at the start of the next request, under that request's settings
+    if (round === 1) return sse(res, [start(), { type: "content_block_start", index: 0, content_block: { type: "web_search_tool_result", tool_use_id: "srvtoolu_pend", content: [{ type: "web_search_result", url: "https://ops.group/armenia", title: "Armenia", encrypted_content: "e", page_age: "2 days ago" }] } }, ...toolUse(1, "toolu_p_t2", "tavily_search", { query: "Armenia news" }), end("tool_use", 1)]);
+    return sse(res, [start(), ...text(0, "Done."), end("end_turn")]);
+  }
   if (script === "widen-first") {
     if (round === 0) return sse(res, [start(), ...toolUse(0, "toolu_rig_w0", "widen_web_search", { reason: "skip ahead" }), end("tool_use")]);
     return sse(res, [start(), ...text(0, "I could not establish this."), end("end_turn")]);
@@ -164,6 +172,17 @@ try {
   ok(res1?.is_error === true && /approved sources first/i.test(JSON.stringify(res1.content)), "widen_web_search before any approved search is refused, and says why", JSON.stringify(res1?.content ?? null).slice(0, 140));
   const ws1 = seen.filter((b) => b.stream)[1]?.tools?.find((x) => x.type === "web_search_20250305");
   ok(ws1?.allowed_domains?.length > 0, "…and the next round is still pass one", wf.done ? "answered" : "no answer");
+  // ── 6. a search left pending next to widen_web_search runs under pass one, and pass two starts after it ──
+  script = "pending"; seen.length = 0;
+  const pd = await chat(5191, "Rig check: pending searches next to widen.");
+  const calls = seen.filter((b) => b.stream);
+  const wsOf = (b) => b?.tools?.find((x) => x.type === "web_search_20250305");
+  ok(wsOf(calls[1])?.allowed_domains?.length > 0, "the request after widen still carries the approved list while a search the model asked for is unanswered (the API runs it under that request)", `${wsOf(calls[1])?.allowed_domains?.length ?? 0} domains`);
+  ok(wsOf(calls[2]) && !wsOf(calls[2]).allowed_domains, "…and the round after it is pass two, unrestricted");
+  const pdAudit = (await (await fetch(`${SB}/rest/v1/agent_audit_log?kind=eq.chat.response&conversation_id=eq.${pd.done?.conversationId}&select=detail&limit=1`, { headers: H })).json())?.[0]?.detail?.web;
+  const ps = pdAudit?.searches?.find((s) => s.provider === "anthropic");
+  ok(ps?.pass === 1 && ps.round === 1 && !ps.outsideApproved, "the pending search is labelled by the request it ran under (pass one, round 1), its result inside the list", JSON.stringify(ps));
+
   // ── 5. the question check: a code that does not match its place name is asked about, and nothing is searched ──
   script = "turn"; seen.length = 0; tavilySeen.length = 0;
   const q1 = await chat(5191, "Do you need to submit API or flight to Hong Kong ZSPD same as for flight to Macao VHHH.");

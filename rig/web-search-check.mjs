@@ -70,6 +70,9 @@ const api = http.createServer(async (req, res) => {
   let b = ""; for await (const c of req) b += c; const body = JSON.parse(b || "{}");
   if (req.url.startsWith("/search")) { tavilySeen.push(body); res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ results: [{ title: "Sudan", url: "https://safeairspace.net/sudan/", content: "Sudan: do not fly. Risk level one.", published_date: "2026-10-30" }] })); }
   seen.push(body);
+  // the API's own rule (measured 2026-11-03), so the stand-in cannot accept what production refuses
+  const mixed = (body.messages ?? []).some((m) => Array.isArray(m.content) && m.content.some((c) => c.type === "tool_result" && Array.isArray(c.content) && c.content.some((x) => x.type === "search_result") && c.content.some((x) => x.type !== "search_result")));
+  if (mixed) { res.writeHead(400, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "tool_result: if any blocks in a tool result are of type `search_result`, all blocks must be of that type" } })); }
   const isRouter = !(body.tools ?? []).length && /classif|tier/i.test(JSON.stringify(body.system ?? "")) ;
   if (isRouter || !body.stream) { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ content: [{ type: "text", text: '{"tier":"standard","confidence":0.9,"reason":"rig"}' }], stop_reason: "end_turn", usage: { input_tokens: 10, output_tokens: 5 } })); }
   const round = body.messages.filter((m) => m.role === "assistant").length;
@@ -124,7 +127,8 @@ try {
   const echoed = req1?.messages?.find((m) => m.role === "assistant")?.content ?? [];
   ok(echoed.some((c) => c.type === "server_tool_use" && c.input?.query === "EASA CZIB Russia") && echoed.some((c) => c.type === "web_search_tool_result" && c.content?.[0]?.encrypted_content === "rig-enc"), "the API's own search blocks go back whole in the next round (their encrypted content is what citations need)");
   const tr = req1?.messages?.at(-1)?.content?.find((c) => c.type === "tool_result");
-  ok(tr?.content?.some((c) => c.type === "search_result" && c.source === "https://safeairspace.net/sudan/" && c.citations?.enabled === true), "Tavily's results reach the model as citable search_result blocks", JSON.stringify(tr?.content?.map((c) => c.type)));
+  ok(tr?.content?.some((c) => c.type === "search_result" && c.source === "https://safeairspace.net/sudan/" && c.citations?.enabled === true) && tr.content.every((c) => c.type === "search_result"), "Tavily's results reach the model as citable search_result blocks, and nothing else in that result (the API's rule)", JSON.stringify(tr?.content?.map((c) => c.type)));
+  ok(req1?.messages?.at(-1)?.content?.some((c) => c.type === "text" && /tavily_search .* also returned/.test(c.text) && /pass/.test(c.text)), "…the tool's note and pass go beside it, as text after the results");
   const req2 = seen.filter((b) => b.stream)[2];
   const ws2 = req2?.tools?.find((x) => x.type === "web_search_20250305");
   ok(ws2 && !ws2.allowed_domains, "after widen_web_search, the API's search is unrestricted (pass two)", JSON.stringify(ws2 ?? null).slice(0, 120));

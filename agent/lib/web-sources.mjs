@@ -62,7 +62,7 @@ function withOverrides(v) {
   const prov = String(process.env.AGENT_WEB_PROVIDER || "").trim();
   const allowed = String(process.env.AGENT_WEB_ALLOWED || "").trim();
   if (!prov && !allowed) return v;
-  return { ...v, ...(PROVIDERS.includes(prov) ? { provider: prov } : {}), ...(allowed ? { official: cleanList(allowed), industry: [] } : {}), overridden: true };
+  return { ...v, ...(PROVIDERS.includes(prov) ? { provider: prov } : {}), ...(allowed ? { official: cleanList(allowed), industry: [] } : {}), overridden: true, allowedOverride: Boolean(allowed) };
 }
 
 async function saveRow(id, reason, by) {

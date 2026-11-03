@@ -57,7 +57,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     const w = done.web ?? {};
     const usd = costUsd({ modelId: done.modelId, inputTokens: done.inputTokens, outputTokens: done.outputTokens, cacheReadTokens: done.cacheReadTokens, cacheWriteTokens: done.cacheWriteTokens, webSearches: w.anthropicSearches ?? 0, tavilySearches: w.tavilySearches ?? 0 });
     total += usd;
-    console.log(`router → ${route.tier} (${route.source}) · answered on ${done.modelId} · provider ${w.provider} · ${(w.searches ?? []).length} search(es): ${w.anthropicSearches ?? 0} Anthropic, ${w.tavilySearches ?? 0} Tavily · widened: ${w.widened ? `yes, for "${w.widenedFor}"` : "no"} · $${usd.toFixed(4)} · ${secs} s${w.settings?.overridden ? ` · allowed list for this run: ${(w.settings.official ?? []).join(", ")}` : ""}`);
+    console.log(`router → ${route.tier} (${route.source}) · answered on ${done.modelId} · provider ${w.provider} · ${(w.searches ?? []).length} search(es): ${w.anthropicSearches ?? 0} Anthropic, ${w.tavilySearches ?? 0} Tavily · widened: ${w.widened ? `yes, for "${w.widenedFor}"` : "no"} · $${usd.toFixed(4)} · ${secs} s${w.settings?.allowedOverride ? ` · allowed list for this run: ${(w.settings.official ?? []).join(", ")}` : ""}`);
     for (const s of w.searches ?? []) console.log(`  search · ${s.provider} · pass ${s.pass} · "${s.query}" → ${s.results ?? "?"} result(s)${s.error ? ` (error ${s.error})` : ""}${s.hosts?.length ? `: ${s.hosts.join(", ")}` : ""}`);
     const otherTools = tools.filter((t) => !["tavily_search", "widen_web_search"].includes(t.name)).map((t) => `${t.name}${t.ok ? "" : " (failed)"}`);
     if (otherTools.length) console.log(`  other tools: ${otherTools.join(", ")}`);

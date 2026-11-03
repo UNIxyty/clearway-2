@@ -366,7 +366,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         fallbacks,
         // the answer's text blocks with the citations the API attached to each (server.mjs makes them claims and sources)
         answerBlocks: [...carried, ...roundCited],
-        web: { provider: anthropicSearch && tavilySearch ? "both" : anthropicSearch ? "anthropic" : tavilySearch ? "tavily" : "none", widened: turn.widened, widenedFor: turn.widenedFor, searches: turn.searches.map(({ id, ...s }) => s), results: [...webResults].map(([url, r]) => ({ url, ...r })), anthropicSearches: webSearchRequests, tavilySearches: turn.searches.filter((s) => s.provider === "tavily").length, settings: web ? { official: web.official, industry: web.industry, source: web.source, overridden: web.overridden === true } : null },
+        web: { provider: anthropicSearch && tavilySearch ? "both" : anthropicSearch ? "anthropic" : tavilySearch ? "tavily" : "none", widened: turn.widened, widenedFor: turn.widenedFor, searches: turn.searches.map(({ id, ...s }) => s), results: [...webResults].map(([url, r]) => ({ url, ...r })), anthropicSearches: webSearchRequests, tavilySearches: turn.searches.filter((s) => s.provider === "tavily").length, settings: web ? { official: web.official, industry: web.industry, source: web.source, overridden: web.overridden === true, allowedOverride: web.allowedOverride === true } : null },
       };
       return;
     }
@@ -397,6 +397,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     );
 
     const toolResultBlocks = [];
+    const afterResults = [];   // what a search tool says besides its results: the API takes only search_result blocks in such a result
     for (const { call, result, startedAt, durationMs } of results) {
       toolCalls.push({ name: call.name, ok: result.ok !== false, error: result.ok === false ? result.error : null });
       // The RESULT rides on this chunk. The server builds the verbatim frame,
@@ -408,16 +409,20 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       // name/input/ok/error.
       yield { type: "tool", name: call.name, input: call.input, ok: result.ok !== false, error: result.ok === false ? result.error : null, result, startedAt, durationMs };
       // search results (Tavily, the knowledge base) go to the model as citable search_result blocks, then the rest as JSON
+      // The API refuses a tool result that mixes search_result blocks with anything else (measured 2026-11-03: "if any blocks
+      // in a tool result are of type search_result, all blocks must be of that type"), so the rest goes after the results.
       const { searchResults, ...rest } = result ?? {};
+      const asSearch = Array.isArray(searchResults) && searchResults.length > 0 && result.ok !== false && loadModelConfig().provider === "anthropic";
+      if (asSearch) afterResults.push({ text: `${call.name} (${call.toolUseId}) also returned: ${JSON.stringify({ ...rest, results: undefined })}` });
       toolResultBlocks.push({
         toolResult: {
           toolUseId: call.toolUseId,
-          content: Array.isArray(searchResults) && searchResults.length && result.ok !== false && loadModelConfig().provider === "anthropic" ? [...searchResults.map((sr) => ({ searchResult: sr })), { json: rest }] : [{ json: rest }],
+          content: asSearch ? searchResults.map((sr) => ({ searchResult: sr })) : [{ json: rest }],
           ...(result.ok === false ? { status: "error" } : {}),
         },
       });
     }
-    conversation.push({ role: "user", content: toolResultBlocks });
+    conversation.push({ role: "user", content: [...toolResultBlocks, ...afterResults] });
 
     // Escalation (one-way): the caller reads what the tools returned and may raise the tier for the rest
     // of the turn. A lower answer is ignored here as well as in the caller.

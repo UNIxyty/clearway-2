@@ -61,6 +61,12 @@ export function classifyBedrockError(error) {
   if (/ValidationException/i.test(both) && /\b(image|document|pdf|media type|file)\b/i.test(message) && !/model identifier|inference profile|on-demand throughput|access to the model/i.test(message)) {
     return new AgentError("attachment_rejected", "The model could not open one of the attached files. Remove it or attach it in another format (for example a PDF export or a smaller image) and ask again.", { status: 400, detail: message.slice(0, 500) });
   }
+  // The Anthropic API refusing OUR request (400 invalid_request_error) is a fault in what we sent, not the model being
+  // unavailable (an unknown model is a 404 there): said as a failed call, and never retried on another model, which
+  // would fail the same way (2026-11-03: a tool result mixing search results and text read as "not available").
+  if (/^Anthropic API 400\b/.test(message) && !/\bmodel\b.*\b(not found|does not exist|not available)\b/i.test(message)) {
+    return new AgentError("model_error", "The model service refused the request.", { status: 503, detail: message.slice(0, 500) });
+  }
   if (/not available for this account|ResourceNotFoundException|ValidationException|AccessDeniedException|marketplace|use case details/i.test(both)) {
     return ModelUnavailable("The model is not available to this account.", message);
   }

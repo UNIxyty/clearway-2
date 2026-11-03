@@ -150,6 +150,9 @@ try {
   spend.resetForTest(25); const n0 = seen.length; let ceiling = null;
   try { await anthropicRuntime.send(new ConverseCommand({ modelId: "claude-sonnet-5-5", messages: [{ role: "user", content: [{ text: "x" }] }] }), {}); } catch (e) { ceiling = e; }
   ok(ceiling?.code === "spend_ceiling" && seen.length === n0, "at the ceiling: refused before any request is made", ceiling?.code);
+  // 2026-11-03: a 400 from the API is a fault in OUR request — not "the model is not available", and not retried on another model
+  const bad = classifyBedrockError(Object.assign(new Error("Anthropic API 400 invalid_request_error: messages.2.content.0.tool_result: if any blocks in a tool result are of type `search_result`, all blocks must be of that type"), { name: "ValidationException", status: 400 }));
+  ok(bad.code === "model_error" && !/not available/i.test(bad.message), "a 400 refusing our request reads as a refused call, never as 'the model is not available'", `${bad.code}: ${bad.message}`);
   ok(classifyBedrockError(ceiling).code === "spend_ceiling" && /stopped for today/.test(classifyBedrockError(ceiling).publicMessage), "the refusal keeps its own code (not 'unavailable') and tells the person the agent has stopped for today", classifyBedrockError(ceiling).publicMessage);
   try { await anthropicRuntime.send(new ConverseCommand({ modelId: "claude-sonnet-5-5", messages: [{ role: "user", content: [{ text: "x" }] }] }), {}); } catch { /* refused again */ }
   ok(telegram.length === 1 && /stopped for today/.test(telegram[0]), "the developers are alerted once that day, not on every refused call", `${telegram.length} alert(s)`);

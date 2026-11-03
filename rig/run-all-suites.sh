@@ -51,6 +51,7 @@ run telegram-media-token node rig/telegram-media-token-check.mjs   # one file, o
 run anthropic-runtime node rig/anthropic-runtime-check.mjs   # the agent's model calls on the Anthropic API, against a local stand-in
 run smoke-alarm $E rig/smoke-alarm-check.mjs   # the scheduled smoke calls' alarm and the wall's watch over it (2026-11-03)
 run configured-not-working $E rig/configured-not-working-check.mjs   # statuses from real calls, not settings (2026-11-03)
+run fallback-watch $E rig/fallback-watch-check.mjs   # every fallback recorded with why; the rate alarms (2026-11-03)
 run portal-colours node scripts/check-portal-colours.mjs   # every portal colour a --cw-* token; prints its exceptions and why
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs

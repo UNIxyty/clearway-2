@@ -40,6 +40,9 @@ function inferenceConfig(tierConfig, overrides = {}) {
   };
 }
 
+/** A fallback, said (2026-11-03): which model was meant, which answered, and why the first did not. */
+const fellBack = (candidates, modelId, lastUnavailable) => (lastUnavailable && modelId !== candidates[0] ? { kind: "model", from: candidates[0], to: modelId, reason: String(lastUnavailable.detail || lastUnavailable.message || "unavailable").slice(0, 200) } : null);
+
 /** The tier's own request fields (thinking, effort: agent/config/models.json), as Converse carries model-specific fields. */
 function modelFields(tierConfig) {
   return tierConfig?.request ? { additionalModelRequestFields: tierConfig.request } : {};
@@ -98,6 +101,7 @@ export async function* streamConversation({ tier = "standard", system, messages,
         latencyMs: Date.now() - startedAt,
         inputTokens: usage?.inputTokens ?? null,
         outputTokens: usage?.outputTokens ?? null,
+        fallback: fellBack(candidates, modelId, lastUnavailable),
       };
       return;
     } catch (error) {
@@ -142,6 +146,7 @@ export async function converseOnce({ tier = "standard", system, messages, ...ove
         latencyMs: Date.now() - startedAt,
         inputTokens: res.usage?.inputTokens ?? null,
         outputTokens: res.usage?.outputTokens ?? null,
+        fallback: fellBack(candidates, modelId, lastUnavailable),
       };
     } catch (error) {
       const classified = classifyBedrockError(error);
@@ -192,6 +197,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
   let cacheRead = 0;
   let cacheWrite = 0;
   const toolCalls = [];
+  const fallbacks = [];   // every round that answered on a fallback model, with why (2026-11-03)
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
     if (signal?.aborted) { const e = new Error("Cancelled by the user."); e.code = "cancelled"; throw e; }
@@ -281,6 +287,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         ).filter((b) => (b.text != null ? b.text.length > 0 : true));
 
         usedModelId = modelId;
+        { const f = fellBack(candidates, modelId, lastUnavailable); if (f) fallbacks.push({ ...f, round }); }
         streamed = true;
         break;
       } catch (error) {
@@ -310,6 +317,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         cacheReadTokens: cacheRead,
         cacheWriteTokens: cacheWrite,
         toolCalls,
+        fallbacks,
       };
       return;
     }

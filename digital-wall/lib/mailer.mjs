@@ -154,7 +154,7 @@ async function deliverViaResend({ from, to, subject, html, text, attachments }) 
  * delivered is a later event. No body is stored for these rows (a manifest's names stay in its attachment). The
  * intake's own emails record themselves (notify.mjs) and pass no record.
  */
-async function recordSend({ record, from, recipients, subject, ok, id, error }) {
+async function recordSend({ record, from, recipients, subject, ok, id, error, fellBackFrom = null }) {
   if (!record?.kind) return null;
   const base = String(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "").replace(/\/+$/, "");
   const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
@@ -164,7 +164,8 @@ async function recordSend({ record, from, recipients, subject, ok, id, error }) 
     provider: "resend", provider_message_id: id ?? `failed-${now}-${Math.random().toString(36).slice(2, 10)}`, direction: "outbound", received_at: now,
     from_addr: from, to_addrs: recipients, subject, status: "sent", status_reason: record.kind, sent_kind: record.kind, sent_html: null,
     delivery_status: ok ? "sent" : "failed",
-    delivery_detail: { ...(ok ? {} : { error: String(error ?? "send failed") }), by: record.by ?? null, ref: record.ref ?? null },
+    // a send that went out from the fallback sender says so (2026-11-03: falling back is fine, quietly is not)
+    delivery_detail: { ...(ok ? {} : { error: String(error ?? "send failed") }), by: record.by ?? null, ref: record.ref ?? null, ...(fellBackFrom ? { fallback: { kind: "sender", from: fellBackFrom, to: from, reason: "the sender's domain is not verified in Resend" } } : {}) },
     delivery_events: [{ event: ok ? "Queued" : "Failed", at: now, detail: ok ? null : String(error ?? "send failed") }],
   };
   try {
@@ -187,6 +188,7 @@ export async function sendEmail({ to, subject, html, text, from = defaultFrom(),
     return { ok: false, error, recordId: await recordSend({ record, from, recipients, subject, ok: false, id: null, error }) };
   }
   console.log(`[mailer] sending "${subject}" to ${recipients.join(", ")} from "${from}"`);
+  let fellBackFrom = null;
   try {
     let result;
     try { result = await deliverViaResend({ from, to: recipients, subject, html, text, attachments }); }
@@ -194,15 +196,15 @@ export async function sendEmail({ to, subject, html, text, from = defaultFrom(),
       // the sender's domain not verified yet: the same send from the address that works today, said in the log
       if (!fallbackFrom || fallbackFrom === from || !NOT_VERIFIED.test(error instanceof Error ? error.message : String(error))) throw error; // public-error-ok: Resend's text is only tested here to decide on the fallback; nobody is shown it
       console.warn(`[mailer] the domain of "${from}" is not verified yet; sending "${subject}" from "${fallbackFrom}" instead`);
-      from = fallbackFrom;
+      fellBackFrom = from; from = fallbackFrom;
       result = await deliverViaResend({ from, to: recipients, subject, html, text, attachments });
     }
     console.log(`[mailer] sent ok — Resend id ${result?.id ?? "(none)"}`);
     const id = result?.id ?? null;
-    return { ok: true, id, recordId: await recordSend({ record, from, recipients, subject, ok: true, id, error: null }) };
+    return { ok: true, id, ...(fellBackFrom ? { fellBackFrom } : {}), recordId: await recordSend({ record, from, recipients, subject, ok: true, id, error: null, fellBackFrom }) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error); // public-error-ok: detail for the caller's log, see above
     console.error(`[mailer] send FAILED: ${message}`);
-    return { ok: false, error: message, recordId: await recordSend({ record, from, recipients, subject, ok: false, id: null, error: message }) };
+    return { ok: false, error: message, recordId: await recordSend({ record, from, recipients, subject, ok: false, id: null, error: message, fellBackFrom }) };
   }
 }

@@ -20,6 +20,7 @@ import { randomUUID } from "node:crypto";
 import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/auth.mjs";
 import { assertRigSafe } from "../lib/rig-guard.mjs";
 import { startSmokeSchedule, smokeHealth, EVERY_HOURS as SMOKE_EVERY_HOURS } from "./lib/smoke.mjs";
+import { startFallbackWatch } from "./lib/fallback-watch.mjs";
 import { verifySvix, handleEvent as handleIntakeEvent } from "./lib/intake/resend.mjs";
 import { handleIntakeRoutes } from "./lib/intake/api.mjs";
 import { handlePassengerRoutes } from "./lib/passengers/api.mjs";
@@ -1123,7 +1124,8 @@ async function handleRequest(req, res) {
         kind: "knowledge.uploaded", userId: user.userId, userEmail: user.email,
         toolName: "knowledge.upload", toolArgs: { filename, title: document.title },
         confirmationStatus: "pending", success: true,
-        detail: { documentId: document.id, proposedTier: proposal?.tier ?? "tier2", confidence: proposal?.confidence ?? null },
+        // fallbacks: the model did not answer and "reference" was proposed by default (lib/fallback-watch.mjs alarms on it)
+        detail: { documentId: document.id, proposedTier: proposal?.tier ?? "tier2", confidence: proposal?.confidence ?? null, fallbacks: proposal && proposal.automatic === false ? [{ kind: "ingest-classify", to: "tier2", reason: "the model did not answer" }] : [] },
       });
       return sendJson(res, { ok: true, document, proposal });
     }
@@ -1616,7 +1618,15 @@ async function handleChat(req, res, user) {
     // they are the model's thinking summary, and a turn about a passenger thinks about that passenger. Only how long it
     // took is stored with the message — no text in chat history, as in the audit and the log.
     const storedThinking = thinkingBlock ? { ms: thinkingBlock.ms, kept: false } : null;
-    const routingBlock = { startTier: route.tier, finalTier, source: route.source, reason: route.reason, confidence: route.confidence ?? null, escalations, modelId: done?.modelId ?? null, costUsd: turnCost };
+    // Every fallback in this turn, with why (2026-11-03: falling back is fine, falling back quietly is not). On the reply's
+    // routing block (the line under the reply says it) and on the chat.response audit row (lib/fallback-watch.mjs alarms
+    // on the rate).
+    const fallbacks = [
+      ...(route.source === "fallback" || route.source === "unparsed" ? [{ kind: "router", to: route.tier, reason: route.reason }] : []),
+      ...(retried ? [{ kind: "retry", from: retried.from, to: retried.to, reason: retried.reason }] : []),
+      ...(done?.fallbacks ?? []),
+    ];
+    const routingBlock = { startTier: route.tier, finalTier, source: route.source, reason: route.reason, confidence: route.confidence ?? null, escalations, modelId: done?.modelId ?? null, costUsd: turnCost, ...(fallbacks.length ? { fallbacks } : {}) };
     await appendMessage({
       conversationId,
       role: "assistant",
@@ -1697,6 +1707,7 @@ async function handleChat(req, res, user) {
         },
         finalTier,
         escalations,
+        fallbacks,
         costUsd: turnCost,
         // Cache hits are billed differently from fresh input; counted apart so
         // the saving is visible in the log used to prove it.
@@ -1777,6 +1788,8 @@ if (storeConfigured()) {
 setInterval(() => sweepGeneratedFiles().catch(() => {}), 24 * 60 * 60 * 1000).unref();
 // Smoke calls on every model and AI path, on a schedule, alerting on failure (lib/smoke.mjs, 2026-11-03).
 if (startSmokeSchedule()) console.log(`[agent] smoke checks every ${SMOKE_EVERY_HOURS} h`);
+// The fallback rate, every hour, alerting when fallbacks stop being blips (lib/fallback-watch.mjs, 2026-11-03).
+if (startFallbackWatch()) console.log("[agent] fallback watch every hour");
 
 server.listen(PORT, () => {
   const models = loadModelConfig();

@@ -4,6 +4,19 @@
 stops, because nothing runs it to find out. Every path we depend on has either real traffic that someone would notice
 failing, or a scheduled check against the real thing that alarms when it fails, and something watching that check.
 
+**And its twin: falling back is fine; falling back quietly is not.** A degraded answer that looks normal is worse than
+an error. A router that falls back to "standard" without a word turns every question into a standard-tier one, and the
+only symptom is a slightly bigger bill. Every fallback must therefore be visible in three places:
+
+- **On the audit row the turn already writes,** with its reason: `chat.response` detail.fallbacks (the router, a fallback
+  model, a retry a tier up), and `knowledge.uploaded` detail.fallbacks (the tier proposal). A sender fallback is on the
+  mail's own send row.
+- **Under the reply:** the model line says "router unavailable" or "fell back to sonnet-5".
+- **In the alarm:** `agent/lib/fallback-watch.mjs` alerts every hour when, in the last 6 h, at least 2 chat turns fell
+  back and they are at least a quarter of the turns, or when any tier proposal fell back. Sender fallbacks are recorded
+  but not alarmed: they are expected until clearway.verxyl.com is verified.
+- **Proof:** `rig/fallback-watch-check.mjs`, 12 checks.
+
 It is the same fault five times in one week. Each time, a safeguard or a path nobody exercised had stopped working,
 and nothing said so.
 

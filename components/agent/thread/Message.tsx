@@ -182,10 +182,13 @@ export function AgentReply({
 }
 
 function routeLabel(m: AgentMessage): string {
-  const r = (m.blocks as { routing?: { source?: string; startTier?: string; finalTier?: string; escalations?: { from: string; to: string }[] } } | undefined)?.routing;
+  const r = (m.blocks as { routing?: { source?: string; startTier?: string; finalTier?: string; escalations?: { from: string; to: string }[]; fallbacks?: { kind: string; from?: string; to?: string }[] } } | undefined)?.routing;
+  // a fallback is said where the reply is read (2026-11-03): a degraded answer must not look normal
+  const fb = (r?.fallbacks ?? []).map((f) => (f.kind === "router" ? "router unavailable" : f.kind === "retry" ? `first attempt failed, retried on ${f.to}` : `fell back to ${String(f.to ?? "").replace(/^claude-/, "")}`));
+  const fbText = fb.length ? ` · ${[...new Set(fb)].join(", ")}` : "";
   const esc = r?.escalations?.length ? ` · escalated ${r.escalations.map((e) => `${e.from}→${e.to}`).join(", ")}` : "";
   const src = r?.source ?? m.routeSource;
-  return (src === "manual" ? " · /model" : src === "user-default" ? " · your default" : src === "care" ? " · you asked for care" : src === "low-confidence" ? " · router unsure, raised" : src === "floor" ? " · change request" : src === "router" ? " · by router" : "") + esc;
+  return (src === "manual" ? " · /model" : src === "user-default" ? " · your default" : src === "care" ? " · you asked for care" : src === "low-confidence" ? " · router unsure, raised" : src === "floor" ? " · change request" : src === "router" ? " · by router" : "") + esc + fbText;
 }
 
 /** Which model answered — under every reply, mono, faint: `claude-sonnet-4-5 · standard · 1.2k in · 340 out · 4.1 s`. */

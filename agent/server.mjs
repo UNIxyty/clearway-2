@@ -21,6 +21,7 @@ import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/
 import { assertRigSafe } from "../lib/rig-guard.mjs";
 import { startSmokeSchedule, smokeHealth, EVERY_HOURS as SMOKE_EVERY_HOURS } from "./lib/smoke.mjs";
 import { startFallbackWatch } from "./lib/fallback-watch.mjs";
+import { recordJob } from "./lib/jobs.mjs";
 import { verifySvix, handleEvent as handleIntakeEvent } from "./lib/intake/resend.mjs";
 import { handleIntakeRoutes } from "./lib/intake/api.mjs";
 import { handlePassengerRoutes } from "./lib/passengers/api.mjs";
@@ -1760,7 +1761,9 @@ const refreshCaps = () => capabilities().then((v) => { capsNow = v; }).catch(() 
 refreshCaps(); setInterval(refreshCaps, 30_000).unref();
 setCapabilityGate(() => capsNow);
 
-sweepGeneratedFiles().catch(() => {});
+// Recorded, not swallowed (2026-11-03): a sweep that fails or stops is the scheduled-jobs smoke check's to report.
+const runFilesSweep = () => sweepGeneratedFiles().then((r) => recordJob("generated-files", { ok: !r.error, detail: r.error ?? r.skipped ?? null, counts: { swept: r.swept ?? 0 } })).catch((e) => recordJob("generated-files", { ok: false, detail: e?.message ?? String(e) }));
+runFilesSweep();
 // Passenger manifest font (agent/lib/manifest/fonts.mjs): the pinned Liberation Sans files must be present and exact.
 // The image build already refuses without them (scripts/check-manifest-font.mjs); this says it out loud at start,
 // and the generator itself refuses every manifest until it is fixed — it never renders with a substitute.
@@ -1782,10 +1785,12 @@ if (storeConfigured()) {
   startTzWatch();   // before anything is read: stale tz data must be said out loud, and blocks local → UTC conversion
   resumeIntakeQueue().catch(() => {});
   startLookupTicker();   // type 1: reference look-ups that are due (the due time is stored, so a restart loses nothing)
-  const runSweep = () => sweepIntakeRetention().then((r) => { if (r.messages) process.stderr.write(`[intake] retention: ${r.messages} message(s) past ${r.days} days purged\n`); }).catch((e) => process.stderr.write(`[intake] retention sweep failed: ${e.message}\n`));
+  const runSweep = () => sweepIntakeRetention()
+    .then((r) => { if (r.messages) process.stderr.write(`[intake] retention: ${r.messages} message(s) past ${r.days} days purged\n`); return recordJob("intake-retention", { ok: !r.error, detail: r.error ?? null, counts: { messages: r.messages ?? 0, days: r.days ?? null } }); })
+    .catch((e) => { process.stderr.write(`[intake] retention sweep FAILED: ${e?.message ?? e}\n`); return recordJob("intake-retention", { ok: false, detail: e?.message ?? String(e) }); });
   setTimeout(runSweep, 60_000).unref(); setInterval(runSweep, 24 * 60 * 60 * 1000).unref();
 }
-setInterval(() => sweepGeneratedFiles().catch(() => {}), 24 * 60 * 60 * 1000).unref();
+setInterval(runFilesSweep, 24 * 60 * 60 * 1000).unref();
 // Smoke calls on every model and AI path, on a schedule, alerting on failure (lib/smoke.mjs, 2026-11-03).
 if (startSmokeSchedule()) console.log(`[agent] smoke checks every ${SMOKE_EVERY_HOURS} h`);
 // The fallback rate, every hour, alerting when fallbacks stop being blips (lib/fallback-watch.mjs, 2026-11-03).

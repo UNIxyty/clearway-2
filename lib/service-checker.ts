@@ -393,6 +393,9 @@ function checkAipCopiesAge(): Promise<Outcome> {
       const line = `AIRAC ${l.airac ?? "?"} refresh (${l.mode}): ${l.checked} checked, ${l.refetched} refetched${l.wouldRefetch ? `, ${l.wouldRefetch} newer at the source` : ""}, ${l.failed.length} failed${l.failed.length ? ` (${l.failed.slice(0, 6).join(", ")}${l.failed.length > 6 ? "…" : ""})` : ""}.`;
       if (!run?.firstAt) return { state: "degraded", error: `AIRAC ${inForce.cycle} took effect on ${inForce.effectiveFrom} and the refresh has not run for it yet. Last: ${line}` };
       if (l.failed.length) return { state: "degraded", error: line };
+      // Copies older than the source are what this row is about (2026-11-03: 17 such copies read operational, because
+      // only failures counted). Check-only mode keeps them on purpose; the row says so instead of looking current.
+      if (l.wouldRefetch) return { state: "degraded", error: `${line} ${l.wouldRefetch} cop${l.wouldRefetch === 1 ? "y is" : "ies are"} older than the source and kept: the refresh is check-only until it is switched to download.` };
       if (state.tableHorizonOk === false) return { state: "degraded", error: `${line} The AIRAC date table (data/airac-dates.json) runs out within six months.` };
       return { state: "operational", error: null };
     }

@@ -12,6 +12,7 @@
 //   knowledge       a knowledge-base search, end to end
 //   web-search      one search on the configured provider
 //   voice           text to speech, then that audio back to text, and the words compared
+//   scheduled-jobs  the retention and generated-files sweeps ran on time and worked (lib/jobs.mjs)
 //   intake-silence  armed when intake goes live: no inbound email for 24 working hours fails it (lib/intake/silence.mjs)
 //
 // The result of each run is the agent_settings row `smoke:last` (JSON in `reason`). A failure alerts the developers'
@@ -87,6 +88,13 @@ export const SMOKES = {
     if (x.state === "not_armed") return `not armed (intake not live) · last email ${last}`;
     must(x.state !== "silent", `no inbound email for ${x.hours} working hours (armed; alarms from ${SILENCE_WORKING_HOURS}) · last email ${last}`);
     return `${x.hours} working hours since the last email (${last})`;
+  },
+  // The agent's scheduled jobs, by their own recorded runs (lib/jobs.mjs, 2026-11-03): a report nobody reads is not a check.
+  "scheduled-jobs": async () => {
+    const { jobProblems, JOBS } = await import("./jobs.mjs");
+    const problems = await jobProblems({ startedAt: Date.now() - process.uptime() * 1000 });
+    must(problems.length === 0, problems.join("; "));
+    return `${Object.keys(JOBS).length} job(s) ran on time`;
   },
   voice: async () => {
     const { synthesize, ttsConfigured } = await import("./voice/tts.mjs");

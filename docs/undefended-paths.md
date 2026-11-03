@@ -21,7 +21,7 @@ only symptom is a slightly bigger bill. Every fallback must therefore be visible
     exemption clears itself the moment the domain verifies. If Resend cannot be asked, there is no exemption.
 - **Proof:** `rig/fallback-watch-check.mjs`, 17 checks.
 
-It is the same fault five times in one week. Each time, a safeguard or a path nobody exercised had stopped working,
+It is the same fault five times in one week, and the fifth entry below is a shape of its own: a report with no reader. Each time, a safeguard or a path nobody exercised had stopped working,
 and nothing said so.
 
 | # | Found | What had stopped | How long, unseen | Why nobody knew | What defends it now |
@@ -31,6 +31,27 @@ and nothing said so.
 | 3 | 2026-11-02 | **Three permission reveal checks** were red, filed under "no model key" | Since the model key died | Their real cause was a missing fixture, a request only the model-driven suites made. Filing it under a known cause hid it | Each known cause has a probe and names its suites one by one (`rig/known-failures.json`) |
 | 4 | 2026-11-02 | **The suite runner** finished green over red suites. shell-check was red, and on no list, from mid-October | About three weeks | A red that matched nothing still ended the run as a pass | `rig/verdict.mjs`: any red is RED, exit 1; an unlisted red is named |
 | 5 | 2026-11-03 | **The revert target.** The image check's rebuild moved the tag off the running image, and the server's containerd store could then not name it | Unknown; found during a deploy | No deploy had needed a revert since the store changed | `scripts/check-image-runs.sh` tags the running image `:pre-<commit>` before it builds, and stops if it cannot |
+
+## The fifth shape: a report with no reader is not a check (2026-11-03)
+
+A job that writes its result somewhere and trusts a person to come and find it reports nothing, however true the
+result. Nobody records which pages are read, so "when was this last read" cannot be answered for any of them. That is
+exactly why a report must push its worst line to someone, or stop being produced.
+
+| Report | Written to | Last result on production | Would anyone notice "all failed"? | Now |
+|---|---|---|---|---|
+| AIRAC refresh summary | `aip/refresh-state.json`, the copy's own note, Telegram | AIRAC 2611 on 30 Oct, **check-only**: 62 planned, 38 checked, 8 failed, **17 copies older than the source** | Failures: yes, the service-status row degrades and each airport's page says so. The 17 older copies: **no**, the row read operational | outdated copies degrade the row too, saying the refresh is check-only. The Telegram alert counts as sent only when Telegram accepts it |
+| Intake retention sweep (daily) | the server log | — | **No**: a failure was a log line, and this is the promise that passport data is deleted | its run is recorded (`job:intake-retention`). A failed, overdue or missing run fails the `scheduled-jobs` smoke check, which alerts |
+| Generated-files sweep (daily) | nothing: its errors were swallowed | — | **No** | recorded (`job:generated-files`), same check |
+| NOTAM digest email (daily) | the recipients; a failed send on the console's NOTAM page | read by ops | yes, the console's NOTAM page shows a failed send | — |
+| Debug runner | the admin debug page, Telegram | on demand | the person who ran it reads it | the summary counts as sent only when Telegram accepts it |
+| NOTAM and weather sync workers | their logs; the status page's freshness rows | — | **partly**: "newest file under 24 h, any airport" stays green while all but one airport fail | the feed survey, next on the list |
+| Retrieval log (`agent_retrievals`) | the database | — | not a check: a record kept to reconstruct an answer later | — |
+| Leon flight-count check | the console's sync line | live | yes: it warns on the console after 10 min | — |
+| Smoke and fallback rows | `smoke:last`, `fallbacks:last` | live | yes: the alert and the wall's watch | — |
+
+**The next survey searches every language in the repo, not just the main one.** The first inventory of model paths
+searched JavaScript only and missed the Python Claude-vision extractor the AIP sync ran.
 
 ## Every model and AI path, 2026-11-03
 
@@ -49,7 +70,7 @@ accounts and smoke runs. "Would anyone have known?" is about before today.
 | Grounding guardrail | — | — | — | **removed** 2026-11-03 (citations replace it) | — |
 | Web search (Tavily) | `agent/lib/tools/web.mjs` | 2026-09-24 | No | works | smoke `web-search` |
 | Voice: speech to text, text to speech (ElevenLabs) | `agent/lib/voice/` | 2026-09-27 | No | works | smoke `voice`: speaks a sentence, hears it back, compares the words |
-| AI rewrite and extraction of AIP text | — | never on production | — | **removed** 2026-11-03: no model writes AIP data (the GEN rewrite, USA field extraction, and the Claude-vision extractor the AIP sync ran, which failed on import on every sync) | — |
+| AI rewrite and extraction of AIP text | — | never on production | — | **removed** 2026-11-03: no model writes AIP data. Covered the GEN rewrite, the USA field extraction, and the Claude-vision extractor the AIP sync ran on a manual sync with extraction, which failed on import every time. Correction: the AIRAC refresh is check-only on production and never ran it | — |
 | Model health probe | `converseOnce`'s "live probe" | — | — | wired to nothing | — |
 
 **How the smoke calls are defended themselves:**

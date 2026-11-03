@@ -13,9 +13,9 @@ import { IN_THE_LOG, personText } from "../ui/errorText";
 import { AutoConfirmedActions, BuildingFileCard, Thinking, type BuildingFile, type ThinkingBlock } from "./Thinking";
 import { splitStructured } from "./structuredProse";
 import Orb from "../ui/Orb";
-import Markdown from "../panel/Markdown";
+import Markdown, { withCitations } from "../panel/Markdown";
 import { ToolSummary, LiveSteps } from "./ToolActivity";
-import { ClaimedProse, SourceChips, SourceStrip, useHotSource } from "./Sources";
+import { CiteMarks, SourceChips, SourceStrip, useHotSource } from "./Sources";
 import { VerbatimFrame, AgentsReading } from "./Verbatim";
 import { FlightCard, FlightRows, AirportSummary, DocumentResult, GeneratedFile, ManifestNotice, TableResult, MonoBlock } from "./Cards";
 import { ConfirmationCard, type ConfirmationOutcome } from "./Confirmation";
@@ -112,12 +112,15 @@ export function AgentReply({
     ...airports.map((a) => a.icao), ...documents.map((d) => d.title), ...files.map((f) => f.filename),
   ].filter(Boolean) as string[];
   const hasComponents = flights.length + airports.length + documents.length + files.length + tables.length + verbatim.length > 0;
-  const split = useMemo(() => splitStructured(m.content ?? "", componentKeys), [m.content, componentKeys.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  // citations after their claims (2026-11-03): placed in the text first, so lists and bold still render
+  const claims = !m.streaming ? b.claims ?? [] : [];
+  const annotated = useMemo(() => (claims.length ? withCitations(m.content ?? "", claims) : m.content ?? ""), [m.content, claims]); // eslint-disable-line react-hooks/exhaustive-deps
+  const split = useMemo(() => splitStructured(annotated, componentKeys), [annotated, componentKeys.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cite = claims.length ? (ns: number[], mark: string | null) => <CiteMarks ns={ns} mark={mark} sources={sources} hot={hot} setHot={setHot} panel={panel} /> : null;
   const shownText = split.prose;
   const mdTables = hasComponents ? [] : split.tables;
   const prose = shownText ? (
-    b.claims && b.claims.length && !split.tables.length && !split.droppedLines ? <div style={proseStyle}><ClaimedProse text={m.content} spans={b.claims} sources={sources} hot={hot} setHot={setHot} panel={panel} /></div>
-      : <div style={{ ...proseStyle, color: verbatim.length ? cw.textBody : cw.text }}><Markdown text={shownText} />{m.streaming && <StreamingCaret panel={panel} />}</div>
+    <div style={{ ...proseStyle, color: verbatim.length ? cw.textBody : cw.text }}><Markdown text={shownText} cite={cite} />{m.streaming && <StreamingCaret panel={panel} />}</div>
   ) : null;
   const thinking = (b as { thinking?: ThinkingBlock | null }).thinking ?? null;
   const performed = (b.actions ?? []) as (PerformedAction & { autoConfirmed?: boolean })[];

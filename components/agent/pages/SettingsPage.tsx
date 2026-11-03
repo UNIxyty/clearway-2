@@ -15,6 +15,7 @@ import { PersonalSettings, RoutingSettings, SettingRow, agentApi, type Routing }
 import { BIND_DEFAULTS, bindFromEvent, label as bindLabel, platform, publishKeybinds, type BindAction, type KeybindConfig, type Platform } from "../ui/keybinds";
 import AgentStyles from "../ui/AgentStyles";
 import IntakeSettingsCard from "../intake/IntakeSettingsCard";
+import WebSearchSettingsCard from "./WebSearchSettingsCard";
 import { apiMessage } from "../ui/errorText";
 
 type Capability = { key: string; label: string; description: string; enabled: boolean };
@@ -23,12 +24,13 @@ type BindActionRow = { key: BindAction; label: string; description: string };
 type SiteCounts = { approved: number; pending: number };
 // The daily ceiling stops model calls; the month is information (2026-11-03: a "monthly cap" was shown here that enforced nothing).
 type Usage = { month: string; spendUsd: number; today: { day: string; usd: number; ceilingUsd: number; reached: boolean }; replies: number; toolCalls: number; heaviest: { email: string; usd: number } | null; model: string | null; voice: boolean };
-type TabId = "prefs" | "models" | "caps" | "access" | "intake";
+type TabId = "prefs" | "models" | "caps" | "web" | "access" | "intake";
 
 const TABS: Array<{ id: TabId; label: string; icon: string; admin: boolean }> = [
   { id: "prefs", label: "Your preferences", icon: "user", admin: false },
   { id: "models", label: "Model tiers", icon: "cpu", admin: true },
   { id: "caps", label: "Capabilities", icon: "toggle-right", admin: true },
+  { id: "web", label: "Web search", icon: "globe", admin: true },
   { id: "access", label: "Access & sites", icon: "shield", admin: true },
   { id: "intake", label: "Flight intake", icon: "plane-landing", admin: true },
 ];
@@ -53,6 +55,7 @@ export default function SettingsPage() {
   const [sites, setSites] = useState<SiteCounts | null>(null);
   const [routing, setRouting] = useState<Routing | null>(null);
   const [intake, setIntake] = useState(false);
+  const [web, setWeb] = useState<{ canEdit: boolean } | null>(null);
   const [binds, setBinds] = useState<KeybindConfig | null>(null);
   const [bindActions, setBindActions] = useState<BindActionRow[]>([]);
   const [bindError, setBindError] = useState<string | null>(null);
@@ -70,7 +73,7 @@ export default function SettingsPage() {
 
   const load = useCallback(async () => {
     setState("loading");
-    const [s, p, u, x, r, i] = await Promise.all([agentApi("/api/settings"), agentApi("/api/settings/permissions"), agentApi("/api/usage"), agentApi("/api/extension/sites/admin"), agentApi("/api/settings/routing"), agentApi("/api/intake/settings")]);
+    const [s, p, u, x, r, i, w] = await Promise.all([agentApi("/api/settings"), agentApi("/api/settings/permissions"), agentApi("/api/usage"), agentApi("/api/extension/sites/admin"), agentApi("/api/settings/routing"), agentApi("/api/intake/settings"), agentApi("/api/settings/web")]);
     // Organisation settings are optional for this person: each part shows when the agent answers it, and is left out on 401/403.
     if (s.status !== 401 && s.status !== 403 && !s.ok) { setLoadError(apiMessage(s.body, s.status ? "The agent did not answer. Try again in a few minutes." : "The agent could not be reached. Check your connection and try again.")); setState("error"); return; }
     if (s.ok) { setCaps(s.body.capabilities); setCanEdit(Boolean(s.body.canEdit)); if (s.body.keybinds) setBinds(s.body.keybinds); if (s.body.keybindActions) setBindActions(s.body.keybindActions); }
@@ -79,6 +82,7 @@ export default function SettingsPage() {
     setSites(x.ok ? { approved: (x.body.approved ?? []).length, pending: (x.body.requests ?? []).filter((q: { status: string }) => q.status === "pending").length } : null);
     setRouting(r.ok && r.body?.canEdit ? r.body : null);
     setIntake(i.ok);
+    setWeb(w.ok ? { canEdit: Boolean(w.body?.canEdit) } : null);
     setState("ready");
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -99,7 +103,7 @@ export default function SettingsPage() {
     if (!ok) { setBinds(prev); setBindError(apiMessage(body, "That shortcut couldn't be saved. Try again.")); } else { setBinds(body.keybinds); publishKeybinds(body.keybinds); }
   }
 
-  const visible = TABS.filter((t) => t.id === "prefs" || (t.id === "models" && routing) || (t.id === "caps" && (caps || binds)) || (t.id === "access" && (people || sites)) || (t.id === "intake" && intake));
+  const visible = TABS.filter((t) => t.id === "prefs" || (t.id === "models" && routing) || (t.id === "caps" && (caps || binds)) || (t.id === "access" && (people || sites)) || (t.id === "intake" && intake) || (t.id === "web" && web));
   const current = visible.some((t) => t.id === tab) ? tab : "prefs";
   const pct = usage ? Math.min(100, Math.round((usage.today.usd / Math.max(usage.today.ceilingUsd, 0.01)) * 100)) : 0;
 
@@ -220,7 +224,7 @@ export default function SettingsPage() {
                   </p>
                 )}
               </>
-            ) : current === "intake" ? <IntakeSettingsCard /> : null}
+            ) : current === "intake" ? <IntakeSettingsCard /> : current === "web" ? <WebSearchSettingsCard canEdit={web?.canEdit === true} /> : null}
         </div>
       </div>
     </PortalShell>

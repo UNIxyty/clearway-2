@@ -72,7 +72,7 @@ async function main() {
   check("you can forget your own note", forgetMine.ok === true && forgetMine.forgotten === true);
 
   // ── Web search ─────────────────────────────────────────────────────────
-  const web = await invoke("web_search", { query: "EUROCONTROL network operations slot rules" });
+  const web = await invoke("tavily_search", { query: "EUROCONTROL network operations slot rules" });   // renamed 2026-11-03: the API's own search owns "web_search"
   if (web.ok === false && web.error === "SERVICE_UNAVAILABLE") {
     check("web search refuses clearly when unconfigured, telling the model not to guess",
       /not configured/i.test(web.message) && /do not answer from memory/i.test(web.message), web.message.slice(0, 80));
@@ -81,7 +81,7 @@ async function main() {
     check("web search returns results", web.ok === true && Array.isArray(web.results), `${web.results?.length} results`);
     check("results are marked non-authoritative and carry a domain",
       web.authoritative === false && (web.results ?? []).every((r) => r.domain && r.retrievedAt),
-      `filtered=${web.filtered} provider=${web.provider}`);
+      `pass=${web.pass} provider=${web.provider}`);
   }
 
   // ── Flight tracking: declared, honest about not being enabled ───────────
@@ -100,7 +100,7 @@ async function main() {
   const mixed = sourcesFromToolCalls([
     { name: "list_limitations", ok: true, input: {}, result: { source: "wall" } },
     { name: "get_flight", ok: true, input: { flight_id: "OPR:1" }, result: {} },
-    { name: "web_search", ok: true, input: { query: "x" }, result: { results: [{ domain: "eurocontrol.int" }] } },
+    { name: "get_flight_tracking", ok: true, input: { callsign: "X" }, result: { available: false } },   // web searches are sourced from their citations since 2026-11-03
     { name: "recall", ok: true, input: {}, result: { count: 1 } },
   ]);
   check("a mixed answer attributes all four tiers separately",

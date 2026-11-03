@@ -53,6 +53,7 @@ run smoke-alarm $E rig/smoke-alarm-check.mjs   # the scheduled smoke calls' alar
 run configured-not-working $E rig/configured-not-working-check.mjs   # statuses from real calls, not settings (2026-11-03)
 run fallback-watch $E rig/fallback-watch-check.mjs   # every fallback recorded with why; the rate alarms (2026-11-03)
 run knowledge-fts $E rig/knowledge-fts-check.mjs   # knowledge search on Postgres full text (2026-11-03)
+run web-search $E rig/web-search-check.mjs   # two providers, two passes, citations and the mark, through the chat route (2026-11-03)
 run settings-truth $E rig/settings-truth-check.mjs   # every figure and switch on Settings does something (2026-11-03)
 run status-truth node rig/status-truth-check.mjs   # the Leon feed verdict and the TV's NOTAM sign tied to today (2026-11-03)
 run scheduled-jobs $E rig/jobs-check.mjs   # the agent's scheduled jobs record their runs; failed or overdue fails a smoke check (2026-11-03)

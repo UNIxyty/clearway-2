@@ -270,7 +270,7 @@ async function describeChange(tool, input, user) {
   return { what: String(what).replace(/\s+/g, " ").trim(), target };
 }
 
-export async function executeTool({ name, input, user, conversationId, inputMode = "text", origin = "ui", skipConfirm = false, onProgress = null, signal = null }) {
+export async function executeTool({ name, input, user, conversationId, inputMode = "text", origin = "ui", skipConfirm = false, onProgress = null, signal = null, turn = null }) {
   const startedAt = Date.now();
   const tool = getTool(name);
 
@@ -430,7 +430,7 @@ export async function executeTool({ name, input, user, conversationId, inputMode
   const execute = async () => {
     try {
       return await Promise.race([
-        tool.handler(validInput, { user, conversationId, signal, progress: (step, detail = {}) => { try { onProgress?.({ name, step, ...detail }); } catch { /* progress is best-effort */ } } }),
+        tool.handler(validInput, { user, conversationId, signal, turn, progress: (step, detail = {}) => { try { onProgress?.({ name, step, ...detail }); } catch { /* progress is best-effort */ } } }),
         new Promise((_, reject) =>
           setTimeout(() => reject(Timeout(`${name} timed out after ${Math.round(tool.timeoutMs / 1000)}s.`)), tool.timeoutMs)
         ),
@@ -500,7 +500,7 @@ export function sourcesFromToolCalls(calls) {
   const seen = new Set();
   for (const call of calls) {
     const tool = getTool(call.name);
-    if (!tool || call.ok === false) continue;
+    if (!tool || call.ok === false || tool.noSource) continue;
     let label;
     try {
       label = tool.sourceLabel ? tool.sourceLabel(call.input ?? {}, call.result ?? {}) : tool.name;

@@ -1,40 +1,31 @@
-// Web search.
+// Web search (rebuilt 2026-11-03: two providers, two passes, citations from the API).
 //
-// THE RULE THIS FILE EXISTS TO ENFORCE: web content is never authoritative
-// operational guidance. It is labelled `web` at the source-tier level, every
-// result carries its domain and fetch time, and the tool's own output tells the
-// model to prefer internal data where internal data answers the question.
+// THE RULE THIS FILE EXISTS TO ENFORCE: web content is never Clearway's approved operational guidance, and a claim
+// from outside the approved sources is marked on the claim, not on the answer.
 //
-// Aviation-filtered BY DEFAULT. A dispatcher asking "what are the slot rules at
-// Heathrow" wants EUROCONTROL and the AIP, not a forum thread — so the default
-// restricts to a list of authoritative aviation domains, and going wider is an
-// explicit choice the model has to make and the user can see.
+// Providers (Settings › Web search, agent_settings web:provider — lib/web-sources.mjs): "both" (the default), the
+// Anthropic API's own web search (a server tool the model calls inside its response; agent/lib/bedrock.mjs adds it), or
+// Tavily (tavily_search below). Both return citations: Anthropic's as web_search_result_location, Tavily's because its
+// results go back to the model as search_result blocks (search_result_location).
 //
-// Provider-agnostic: Brave and Tavily are both implemented because neither is
-// installed here yet, and whichever key appears first will work without a code
-// change.
+// Two passes, one per turn: pass one searches only the approved sources (official + industry, web:sources). Only when
+// that found nothing useful for a part of the question does the model call widen_web_search, and from then on, in this
+// turn, both providers search unrestricted. Every cited source is classed by its domain; the console marks a claim
+// resting only on an unapproved one.
 
 import { defineTool, S } from "./framework.mjs";
 import { ServiceUnavailable, InvalidInput } from "./errors.mjs";
+import { webSettings, approvedDomains, classifyUrl, hostOf } from "../web-sources.mjs";
+import { checkCeiling, recordExtraUsd } from "../spend.mjs";
 
 const TIMEOUT_MS = 20_000;
-
-/**
- * Domains that publish aeronautical information or regulation. Not a quality
- * ranking — a filter that keeps the default answer inside sources an ops
- * department would accept being shown.
- */
-const AVIATION_DOMAINS = [
-  "eurocontrol.int", "easa.europa.eu", "icao.int", "iata.org",
-  "faa.gov", "notams.faa.gov", "aviationweather.gov",
-  "ead.eurocontrol.int", "nats.aero", "skybrary.aero",
-  "caa.co.uk", "lvc.lv", "pansa.pl", "dfs.de", "enaire.es", "sia.aviation-civile.gouv.fr",
-  "austrocontrol.at", "lfv.se", "avinor.no", "fintraffic.fi", "naviair.dk",
-  "ans.lv", "oro.navigacija.lt", "eans.ee",
-];
+// Tavily's basic search is one credit; at the pay-as-you-go rate that is $0.008. Counted against the daily ceiling so a
+// loop of searches stops like a loop of model calls does.
+const TAVILY_USD_PER_SEARCH = 0.008;
 
 function braveKey() { return String(process.env.BRAVE_SEARCH_API_KEY || "").trim(); }
 function tavilyKey() { return String(process.env.TAVILY_API_KEY || "").trim(); }
+const tavilyBase = () => String(process.env.TAVILY_BASE_URL || "https://api.tavily.com").replace(/\/+$/, "");
 
 export function webSearchProvider() {
   if (braveKey()) return "brave";
@@ -43,8 +34,7 @@ export function webSearchProvider() {
 }
 
 async function braveSearch(query, { count, domains }) {
-  // Brave takes site: filters inline; more than a handful makes the query
-  // unusable, so the list is trimmed rather than sent whole.
+  // Brave takes site: filters inline; more than a handful makes the query unusable, so the list is trimmed.
   const scoped = domains?.length ? `${query} (${domains.slice(0, 8).map((d) => `site:${d}`).join(" OR ")})` : query;
   const response = await fetch(
     `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(scoped)}&count=${count}`,
@@ -52,45 +42,37 @@ async function braveSearch(query, { count, domains }) {
   );
   if (!response.ok) throw new Error(`Brave ${response.status}: ${(await response.text()).slice(0, 160)}`);
   const body = await response.json();
-  return (body.web?.results ?? []).map((r) => ({
-    title: r.title, url: r.url, snippet: r.description ?? "", published: r.age ?? null,
-  }));
+  return (body.web?.results ?? []).map((r) => ({ title: r.title, url: r.url, snippet: r.description ?? "", published: r.age ?? null }));
 }
 
 async function tavilySearch(query, { count, domains }) {
-  const response = await fetch("https://api.tavily.com/search", {
+  const response = await fetch(`${tavilyBase()}/search`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      api_key: tavilyKey(), query, max_results: count,
-      ...(domains?.length ? { include_domains: domains } : {}),
-    }),
+    body: JSON.stringify({ api_key: tavilyKey(), query, max_results: count, ...(domains?.length ? { include_domains: domains } : {}) }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`Tavily ${response.status}: ${(await response.text()).slice(0, 160)}`);
   const body = await response.json();
-  return (body.results ?? []).map((r) => ({
-    title: r.title, url: r.url, snippet: r.content ?? "", published: r.published_date ?? null,
-  }));
+  return (body.results ?? []).map((r) => ({ title: r.title, url: r.url, snippet: r.content ?? "", published: r.published_date ?? null }));
 }
 
-/** One search on whichever provider is configured — the smoke check's call (lib/smoke.mjs) and the tool's. */
-export async function searchWeb(query, { count = 3, domains = AVIATION_DOMAINS } = {}) {
+/** One search on the key-configured provider (Brave or Tavily) — the smoke check's call (lib/smoke.mjs). */
+export async function searchWeb(query, { count = 3, domains = null } = {}) {
   const provider = webSearchProvider();
   if (!provider) throw new Error("no web search provider key is configured");
-  return provider === "brave" ? braveSearch(query, { count, domains }) : tavilySearch(query, { count, domains });
+  const d = domains ?? approvedDomains(await webSettings());
+  return provider === "brave" ? braveSearch(query, { count, domains: d }) : tavilySearch(query, { count, domains: d });
 }
 
 defineTool({
-  name: "web_search",
+  name: "tavily_search",
   description:
-    "Search the public web. Use ONLY when the platform's own tools cannot answer — for a national authority's published rules, an airport's own notices, or current external events. Results are external and UNVERIFIED: never present them as approved operational guidance, and say plainly that they came from the web. If an internal tool answers the question, use that instead and say so.",
+    "Search the public web through Tavily. Use when the platform's own tools cannot answer: a state's published rules, an authority's bulletin, an airport's or handler's own notice, current events. The first searches of a turn cover only the approved sources (regulators, air navigation service providers, state AIS, and the industry references Clearway works from). Cite what you use; the results come back as citable search results. If the approved sources have nothing for a part of the question, call widen_web_search, then search again.",
   permission: "user",
   sourceTier: "web",
-  sourceLabel: (input, result) => {
-    const domains = [...new Set((result.results ?? []).map((r) => r.domain))].slice(0, 2);
-    return `Web · ${domains.join(", ") || "search"} · "${String(input.query).slice(0, 40)}"`;
-  },
+  noSource: true,   // the sources of an answer are what it CITES (server.mjs builds them from the citations), not every hit
+  sourceLabel: (input) => `Web · Tavily · "${String(input.query).slice(0, 40)}"`,
   timeoutMs: 30_000,
   input: {
     type: "object",
@@ -98,88 +80,76 @@ defineTool({
     additionalProperties: false,
     properties: {
       query: { type: "string", minLength: 3, maxLength: 300 },
-      // The escape hatch is explicit and named, so widening the search is a
-      // visible decision rather than a silent default.
-      unfiltered: { type: "boolean", default: false, description: "Search the whole web instead of aviation-authority domains. Use only when the aviation-filtered search found nothing relevant." },
       limit: S.limit(10, 5),
     },
   },
   output: {
     type: "object",
-    required: ["query", "results", "filtered", "authoritative"],
+    required: ["query", "results", "pass"],
     properties: {
       query: { type: "string" },
-      filtered: { type: "boolean" },
+      pass: { type: "integer", description: "1: approved sources only. 2: unrestricted (after widen_web_search)." },
       provider: { type: ["string", "null"] },
-      // Always false. Present so the model sees it on every single result set.
       authoritative: { type: "boolean" },
       note: { type: "string" },
-      results: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            title: { type: "string" },
-            url: { type: "string" },
-            domain: { type: "string" },
-            snippet: { type: "string" },
-            published: { type: ["string", "null"] },
-            retrievedAt: { type: "string" },
-          },
-        },
-      },
+      results: { type: "array", items: { type: "object" } },
+      searchResults: { type: "array", items: { type: "object" } },
     },
   },
-  async handler({ query, unfiltered, limit }) {
-    const provider = webSearchProvider();
-    if (!provider) {
-      throw ServiceUnavailable(
-        "Web search is not set up on this server. Say that you could not search the web — do not answer from memory.",
-        "no web search provider key is configured (BRAVE_SEARCH_API_KEY / TAVILY_API_KEY)"
-      );
+  async handler({ query, limit }, { turn }) {
+    if (!tavilyKey()) {
+      throw ServiceUnavailable("Tavily is not set up on this server. Say that this search could not run — do not answer from memory.", "TAVILY_API_KEY is not set");
     }
-
-    const domains = unfiltered ? null : AVIATION_DOMAINS;
+    const settings = await webSettings();
+    const widened = turn?.widened === true;
+    await checkCeiling();   // a search-heavy turn at the ceiling stops here and says so, never answers unsearched
     let raw;
-    try {
-      raw = provider === "brave"
-        ? await braveSearch(query, { count: limit, domains })
-        : await tavilySearch(query, { count: limit, domains });
-    } catch (error) {
-      // The provider's own answer is the detail (logged by the framework), never the message.
-      throw ServiceUnavailable("The web search service did not answer. Say that you could not search the web — do not answer from memory.", String(error?.message ?? error));
+    try { raw = await tavilySearch(query, { count: limit, domains: widened ? null : approvedDomains(settings) }); }
+    catch (error) {
+      throw ServiceUnavailable("The web search service did not answer. Say that you could not search the web for this — do not answer from memory.", String(error?.message ?? error));
     }
-
+    recordExtraUsd(TAVILY_USD_PER_SEARCH, "tavily");
     const retrievedAt = new Date().toISOString();
     const results = raw.slice(0, limit).map((r) => ({
-      title: String(r.title ?? ""),
-      url: String(r.url ?? ""),
-      domain: safeDomain(r.url),
-      snippet: String(r.snippet ?? "").slice(0, 800),
-      published: r.published ?? null,
-      retrievedAt,
+      title: String(r.title ?? ""), url: String(r.url ?? ""), domain: hostOf(r.url), domainClass: classifyUrl(r.url, settings),
+      snippet: String(r.snippet ?? "").slice(0, 1500), published: r.published ?? null, retrievedAt,
     }));
-
+    if (turn) turn.searches.push({ provider: "tavily", query, pass: widened ? 2 : 1, results: results.length, hosts: [...new Set(results.map((r) => r.domain))].slice(0, 8) });
     return {
-      query,
-      filtered: !unfiltered,
-      provider,
-      authoritative: false,
-      note: unfiltered
-        ? "UNFILTERED web results. These are not authoritative and may be wrong or out of date. Attribute every claim to its domain, and prefer internal or company sources wherever they answer the question."
-        : "Web results from aviation-authority domains. Still EXTERNAL and unverified — attribute them to the site, never present them as Clearway's approved guidance, and prefer internal data where it answers the question.",
+      query, pass: widened ? 2 : 1, provider: "tavily", authoritative: false,
+      note: results.length === 0
+        ? (widened ? "Nothing found, on the whole web. Say plainly that this could not be established — do not answer from memory." : "Nothing on the approved sources. If this part of the question needs an answer, call widen_web_search and search again; otherwise say it could not be established.")
+        : (widened ? "Unrestricted results (pass two). Cite each claim. A claim resting on a source outside the approved list is marked in the console; name the site and its date in your sentence." : "Results from the approved sources (pass one). Cite each claim. Name an industry reference (OPSGROUP, Universal, AC-U-KWIK…) as such."),
       results,
+      // what the model receives as citable search_result blocks (agent/lib/bedrock.mjs › toolResult)
+      searchResults: results.map((r) => ({ source: r.url, title: `${r.domain} — ${r.title}`.slice(0, 300), text: `${r.snippet}${r.published ? `\n(published ${r.published})` : ""}` })),
     };
   },
 });
 
-function safeDomain(url) {
-  try {
-    return new URL(String(url)).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
+defineTool({
+  name: "widen_web_search",
+  description:
+    "Pass two of web search. Call ONLY after searching the approved sources found nothing useful for a part of the question; say which part. From then on in this turn, web searches (web_search and tavily_search) are unrestricted. Claims from outside the approved sources are marked in the console.",
+  permission: "user",
+  sourceTier: "web",
+  noSource: true,
+  sourceLabel: () => "Web · widened",
+  timeoutMs: 5_000,
+  input: {
+    type: "object",
+    required: ["reason"],
+    additionalProperties: false,
+    properties: { reason: { type: "string", minLength: 3, maxLength: 300, description: "Which part of the question the approved sources did not answer." } },
+  },
+  output: { type: "object", required: ["widened"], properties: { widened: { type: "boolean" }, note: { type: "string" } } },
+  async handler({ reason }, { turn }) {
+    // approved sources first: a turn that has not searched them yet may not widen (pass one is the rule, not a suggestion)
+    if (turn && !turn.searches.some((x) => x.pass === 1)) throw InvalidInput("Search the approved sources first (web_search or tavily_search), then widen only if they had nothing.");
+    if (turn) { turn.widened = true; turn.widenedFor = String(reason).slice(0, 300); }
+    return { widened: true, note: "Widened: the next searches are unrestricted. Cite each claim; a claim from outside the approved sources is marked in the console. Name the site and its date in the sentence." };
+  },
+});
 
 // ── Flight tracking ────────────────────────────────────────────────────────
 //

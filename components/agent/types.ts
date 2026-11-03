@@ -35,10 +35,14 @@ export type SourceRef = {
   recordId?: string | null;
   /** Revision state of the cited document — shown next to the citation, unknown included. */
   revision?: RevisionInfo | null;
+  /** A web source's class against the approved list (2026-11-03): official, industry, or other (not approved). */
+  domainClass?: "official" | "industry" | "other";
+  host?: string;
+  published?: string | null;
 };
 
 /** A claim in the prose that a source supports (§4.7 A). Only present when the model returned claim boundaries. */
-export type ClaimSpan = { start: number; end: number; n: number };
+export type ClaimSpan = { start: number; end: number; n: number; ns?: number[]; mark?: string };
 
 export type VerbatimRecord = {
   id: string;

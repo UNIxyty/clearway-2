@@ -14,7 +14,7 @@ From the code, the docs and the server (setting names only, never values):
 | Claude through Bedrock: chat with tools, intake extraction, document ingest, the LLM reranker | `agent/lib/bedrock.mjs` and its callers | **moved** to the Anthropic API (below) |
 | The router (intent classification), Amazon Nova Micro | `agent/lib/router.mjs`, tier `router` | **moved** to Claude Haiku 4.5: the Anthropic API has no Nova |
 | Embeddings for the knowledge base: Cohere embed-v4, fallback Titan v2 | `agent/lib/knowledge/embeddings.mjs` | **not moved: a decision.** The Anthropic API has no embeddings. Options: Voyage AI (a new account and key), a model run on our server, or another cloud account. Any change re-embeds every stored document; vectors from different models do not mix. Until then a knowledge search fails and says so |
-| The guardrail's contextual grounding check | `agent/lib/knowledge/grounding.mjs`, `BEDROCK_GUARDRAIL_*` | **not moved: a decision.** No Anthropic equivalent. Answers show "not verified" with the reason, never as verified |
+| The guardrail's contextual grounding check | `agent/lib/knowledge/grounding.mjs`, `BEDROCK_GUARDRAIL_*` | **removed** 2026-11-03 with the embeddings (11b45a5a). No "not verified" mark was ever drawn in the console; citations next to the claim replace it (docs/web-search.md) |
 | Cohere rerank | `agent/lib/knowledge/rerank.mjs` | was never available in eu-north-1; the LLM reranker it falls back to now runs on the Anthropic API |
 | S3 for AIP PDFs | moved to local storage in April 2026 (`ac4e9fce`) | nothing reads S3 today |
 | An EC2 machine for end-to-end tests | `docs/E2E-TEST-EC2-SETUP.md` | from the code, nothing uses it now |

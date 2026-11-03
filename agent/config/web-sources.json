@@ -1,0 +1,24 @@
+{
+  "_comment": "The approved web sources (2026-11-03, the user's list; Dmitry had none). This file only SEEDS the agent_settings row web:sources the first time it is read; after that the Settings page edits the row, without a deploy. A domain covers its subdomains (measured on the Anthropic API 2026-11-03: gov.uk returned www.gov.uk and www.legislation.gov.uk; ais.pansa.pl returned www.ais.pansa.pl). official: regulators, ANSPs and state AIS — stated plainly. industry: the references the industry works from — approved, and named in the answer.",
+  "official": [
+    "icao.int", "eurocontrol.int", "easa.europa.eu", "iata.org", "faa.gov",
+    "caa.co.uk", "nats.aero", "gov.uk",
+    "sia.aviation-civile.gouv.fr", "ecologie.gouv.fr",
+    "dfs.de", "lba.de",
+    "enaire.es", "aena.es",
+    "enac.gov.it", "enav.it",
+    "caa.bg", "bulatsa.com",
+    "shgm.gov.tr", "dhmi.gov.tr",
+    "hcaa.gov.gr", "lvnl.nl",
+    "skyguide.ch", "bazl.admin.ch",
+    "ais.pansa.pl", "lgs.lv",
+    "fintraffic.fi", "avinor.no", "lfv.se", "naviair.dk",
+    "austrocontrol.at", "ans.cz", "lps.sk", "crocontrol.hr",
+    "sloveniacontrol.si", "romatsa.ro", "albcontrol.al", "smatsa.rs",
+    "mats.com.mt", "dcac.gov.cy",
+    "gcaa.gov.ae", "gaca.gov.sa", "caa.gov.qa", "dgca.gov.in"
+  ],
+  "industry": [
+    "safeairspace.net", "ops.group", "universalweather.com", "acukwik.com", "acukwikalert.com", "nbaa.org", "ebaa.org"
+  ]
+}

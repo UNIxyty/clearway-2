@@ -74,6 +74,7 @@ defineTool({
       embeddingModel: { type: ["string", "null"], description: "How it was searched: postgres-fts (english) since 2026-11-03." },
       rerankMethod: { type: ["string", "null"] },
       fallbacks: { type: "array", description: "Anything that fell back while searching (the rerank), with why." },
+      searchResults: { type: "array", description: "The passages as citable search results (agent/lib/bedrock.mjs sends them as search_result blocks)." },
     },
   },
   async handler({ query, icao, country, tier, limit }, { user, conversationId }) {
@@ -144,6 +145,9 @@ defineTool({
       verbatim: result.tier1,
       reference: result.tier2,
       verified: true,
+      // citable passages (2026-11-03): the answer cites them next to the claim, and server.mjs maps each citation back
+      // to the document's source chip by its id (kb:<document id>)
+      searchResults: [...result.tier1, ...result.tier2].filter((h) => h.text && (h.documentId || h.recordId)).map((h) => ({ source: `kb:${h.documentId ?? `record:${h.recordId}`}${h.page ? `#p${h.page}` : ""}`, title: `${h.title ?? h.source ?? "Company document"}${h.page ? `, p. ${h.page}` : ""}${h.verbatim ? " (approved text)" : ""}`, text: String(h.text).slice(0, 4000) })),
       note: [
         result.tier1.length > 0
           ? "The verbatim records are approved operational text. They are shown to the dispatcher word for word — explain around them, never in place of them."

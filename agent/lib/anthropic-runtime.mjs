@@ -48,9 +48,14 @@ function blocks(list) {
       out.push(r.redactedContent != null ? { type: "redacted_thinking", data: String(r.redactedContent) } : { type: "thinking", thinking: r.reasoningText?.text ?? "", signature: r.reasoningText?.signature ?? "" });
       continue;
     }
+    // the API's own blocks from an earlier round (server_tool_use, web_search_tool_result), sent back exactly as they came:
+    // their encrypted content is what lets a later answer cite them (2026-11-03)
+    if (b.raw) { out.push(b.raw); continue; }
     if (b.toolUse) { out.push({ type: "tool_use", id: b.toolUse.toolUseId, name: b.toolUse.name, input: b.toolUse.input ?? {} }); continue; }
     if (b.toolResult) {
-      const content = (b.toolResult.content ?? []).map((c) => (c.json !== undefined ? { type: "text", text: JSON.stringify(c.json) } : c.text != null ? { type: "text", text: String(c.text) } : null)).filter(Boolean);
+      // a tool's search results (Tavily, the knowledge base) go back as search_result blocks, so the answer cites them
+      // with search_result_location citations next to the claim — the same as the API's own web search (2026-11-03)
+      const content = (b.toolResult.content ?? []).map((c) => (c.searchResult ? { type: "search_result", source: String(c.searchResult.source), title: String(c.searchResult.title ?? c.searchResult.source).slice(0, 500), content: [{ type: "text", text: String(c.searchResult.text ?? "") || "(no text)" }], citations: { enabled: true } } : c.json !== undefined ? { type: "text", text: JSON.stringify(c.json) } : c.text != null ? { type: "text", text: String(c.text) } : null)).filter(Boolean);
       out.push({ type: "tool_result", tool_use_id: b.toolResult.toolUseId, content: content.length ? content : [{ type: "text", text: "" }], ...(b.toolResult.status === "error" ? { is_error: true } : {}) });
       continue;
     }
@@ -75,6 +80,8 @@ export function toMessagesRequest(input, { stream }) {
     if (t.cachePoint) { if (tools.length) tools[tools.length - 1].cache_control = { type: "ephemeral" }; continue; }
     if (t.toolSpec) tools.push({ name: t.toolSpec.name, description: t.toolSpec.description ?? "", input_schema: t.toolSpec.inputSchema?.json ?? { type: "object", properties: {} } });
   }
+  // the API's own tools (web search): after the client tools' cache point, since a pass can change them mid-turn
+  for (const st of input.serverTools ?? []) tools.push(st);
   const choice = input.toolConfig?.toolChoice?.tool?.name ? { type: "tool", name: input.toolConfig.toolChoice.tool.name } : null;
   if (choice && NO_FORCED_TOOL.test(String(input.modelId))) throw apiError(400, "invalid_request_error", `${input.modelId} does not accept a forced tool_choice`);
   const sampling = TAKES_TEMPERATURE.test(String(input.modelId));
@@ -99,7 +106,7 @@ async function post(body, abortSignal) {
   return res;
 }
 
-const usageOf = (u) => ({ inputTokens: (u?.input_tokens ?? 0), outputTokens: u?.output_tokens ?? 0, cacheReadInputTokens: u?.cache_read_input_tokens ?? 0, cacheWriteInputTokens: u?.cache_creation_input_tokens ?? 0 });
+const usageOf = (u) => ({ inputTokens: (u?.input_tokens ?? 0), outputTokens: u?.output_tokens ?? 0, cacheReadInputTokens: u?.cache_read_input_tokens ?? 0, cacheWriteInputTokens: u?.cache_creation_input_tokens ?? 0, webSearchRequests: u?.server_tool_use?.web_search_requests ?? 0 });
 
 /** The Anthropic SSE stream → Converse stream events, as bedrock.mjs reads them. */
 async function* converseEvents(res, model) {
@@ -120,6 +127,9 @@ async function* converseEvents(res, model) {
       else if (ev.type === "content_block_start" && ev.content_block?.type === "redacted_thinking") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { reasoningContent: { redactedContent: ev.content_block.data ?? "" } } } };
       else if (ev.type === "content_block_delta" && ev.delta?.type === "thinking_delta") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { reasoningContent: { text: ev.delta.thinking ?? "" } } } };
       else if (ev.type === "content_block_delta" && ev.delta?.type === "signature_delta") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { reasoningContent: { signature: ev.delta.signature ?? "" } } } };
+      // the API's own web search: the call and its results, kept whole for the next round and for the citations' sources
+      else if (ev.type === "content_block_start" && (ev.content_block?.type === "server_tool_use" || ev.content_block?.type === "web_search_tool_result")) yield { rawStart: { contentBlockIndex: ev.index, block: ev.content_block } };
+      else if (ev.type === "content_block_delta" && ev.delta?.type === "citations_delta") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { citation: ev.delta.citation } } };
       else if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") yield { contentBlockStart: { contentBlockIndex: ev.index, start: { toolUse: { toolUseId: ev.content_block.id, name: ev.content_block.name } } } };
       else if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { text: ev.delta.text } } };
       else if (ev.type === "content_block_delta" && ev.delta?.type === "input_json_delta") yield { contentBlockDelta: { contentBlockIndex: ev.index, delta: { toolUse: { input: ev.delta.partial_json ?? "" } } } };
@@ -130,6 +140,14 @@ async function* converseEvents(res, model) {
   yield { messageStop: { stopReason: stop } };
   recordUsage(model, usageOf(usage));
   yield { metadata: { usage: usageOf(usage) } };
+}
+
+/** One plain Messages API call (the web search smoke): the ceiling, the key and the usage ledger as every other call. */
+export async function messagesOnce(body, { timeoutMs = 90_000 } = {}) {
+  const res = await post(body, AbortSignal.timeout(timeoutMs));
+  const j = await res.json();
+  recordUsage(body.model, usageOf(j.usage));
+  return j;
 }
 
 /** The same `send(command, { abortSignal })` as BedrockRuntimeClient, for ConverseStreamCommand and ConverseCommand. */

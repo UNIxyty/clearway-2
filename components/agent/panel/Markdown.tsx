@@ -20,10 +20,15 @@ function isSafeHref(href: string): boolean {
   return href.startsWith("/") && !href.startsWith("//");
 }
 
-/** Inline: `code`, **bold**, *italic*, [text](/path). */
+/** A citation placed after a claim (2026-11-03): ⟦3,4⟧ or ⟦5|not from an official source: reuters.com, 2 Nov⟧. */
+export const CITE_OPEN = "\u27E6", CITE_CLOSE = "\u27E7";
+export type RenderCite = (ns: number[], mark: string | null, key: string) => ReactNode;
+let renderCite: RenderCite | null = null;
+
+/** Inline: `code`, **bold**, *italic*, [text](/path), and the citation marks. */
 function inline(text: string, keyPrefix: string): ReactNode[] {
   const out: ReactNode[] = [];
-  const pattern = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(\[[^\]]+\]\([^)]+\))/g;
+  const pattern = /(\u27E6[^\u27E7]+\u27E7)|(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let i = 0;
@@ -33,14 +38,18 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
     const token = match[0];
     const key = `${keyPrefix}-${i++}`;
 
-    if (token.startsWith("`")) {
+    if (token.startsWith(CITE_OPEN)) {
+      const [nums, ...markParts] = token.slice(1, -1).split("|");
+      const ns = nums.split(",").map(Number).filter((n) => Number.isFinite(n) && n > 0);
+      if (renderCite && ns.length) out.push(<span key={key}>{renderCite(ns, markParts.join("|") || null, key)}</span>);
+    } else if (token.startsWith("`")) {
       out.push(
         <code key={key} style={{ fontFamily: FONT.mono, fontSize: "0.92em", background: cw.bgHover, borderRadius: 4, padding: "1px 4px" }}>
           {token.slice(1, -1)}
         </code>
       );
     } else if (token.startsWith("**")) {
-      out.push(<strong key={key} style={{ fontWeight: 700 }}>{token.slice(2, -2)}</strong>);
+      out.push(<strong key={key} style={{ fontWeight: 700 }}>{inline(token.slice(2, -2), key)}</strong>);
     } else if (token.startsWith("*")) {
       out.push(<em key={key}>{token.slice(1, -1)}</em>);
     } else {
@@ -105,7 +114,19 @@ const isTableDivider = (line: string) => /^\s*\|[\s:|-]+\|\s*$/.test(line);
 const splitRow = (line: string) =>
   line.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
 
-export default function Markdown({ text }: { text: string }) {
+/** Puts each claim's citation after it, in the text the renderer reads (spans index the stored reply). */
+export function withCitations(text: string, claims: { start: number; end: number; n: number; ns?: number[]; mark?: string }[]): string {
+  let out = text;
+  for (const c of [...claims].sort((a, b) => b.end - a.end)) {
+    if (c.end < 0 || c.end > out.length) continue;
+    const ns = (c.ns?.length ? c.ns : [c.n]).join(",");
+    out = `${out.slice(0, c.end)}${CITE_OPEN}${ns}${c.mark ? `|${c.mark.replace(/[\u27E6\u27E7|]/g, "")}` : ""}${CITE_CLOSE}${out.slice(c.end)}`;
+  }
+  return out;
+}
+
+export default function Markdown({ text, cite = null }: { text: string; cite?: RenderCite | null }) {
+  renderCite = cite;   // rendering is synchronous: set for this tree, read by inline()
   const lines = String(text ?? "").split("\n");
   const nodes: ReactNode[] = [];
   let list: string[] | null = null;

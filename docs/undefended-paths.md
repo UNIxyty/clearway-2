@@ -70,7 +70,7 @@ accounts and smoke runs. "Would anyone have known?" is about before today.
 | Knowledge search | `agent/lib/knowledge/retrieval.mjs` | 2026-09-26 | **No**: nobody had searched since September | dead 31 Oct → 2026-11-03, now **Postgres full text** (docs/knowledge-search.md) | smoke `knowledge` |
 | Rerank | `agent/lib/knowledge/rerank.mjs` | with search | No | the fast tier; a failure keeps the search order and says so (`fallbacks`) | smoke `knowledge` |
 | Grounding guardrail | — | — | — | **removed** 2026-11-03 (citations replace it) | — |
-| Web search (Tavily) | `agent/lib/tools/web.mjs` | 2026-09-24 | No | works | smoke `web-search` |
+| Web search: Tavily (`tavily_search`) and the Anthropic API's own (`web_search`), two passes, citations | `agent/lib/tools/web.mjs`, `agent/lib/web-sources.mjs`, `agent/lib/citations.mjs` | 2026-11-03 (rebuilt; docs/web-search.md) | No | both work on production's key | smokes `web-search` (Tavily, pass one) and `web-search-api` (the API's search on one allowed domain, a citation back); `rig/web-search-check.mjs` through the chat route |
 | Voice: speech to text, text to speech (ElevenLabs) | `agent/lib/voice/` | 2026-09-27 | No | works | smoke `voice`: speaks a sentence, hears it back, compares the words |
 | AI rewrite and extraction of AIP text | — | never on production | — | **removed** 2026-11-03: no model writes AIP data. Covered the GEN rewrite, the USA field extraction, and the Claude-vision extractor the AIP sync ran on a manual sync with extraction, which failed on import every time. Correction: the AIRAC refresh is check-only on production and never ran it | — |
 | Model health probe | `converseOnce`'s "live probe" | — | — | wired to nothing | — |

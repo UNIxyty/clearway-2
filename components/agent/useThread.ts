@@ -158,7 +158,8 @@ export function useThread({ context, initialConversationId = null, initials = nu
       const d = done ?? {};
       const confirmations = ((d.confirmations as PendingConfirmation[] | undefined) ?? []);
       patchAssistant({
-        id: `msg-${Date.now()}`, content: answer, streaming: false,
+        // the stored reply when it came with citations: their offsets are into that text (2026-11-03)
+        id: `msg-${Date.now()}`, content: Array.isArray(d.claims) && d.claims.length && typeof d.content === "string" ? d.content : answer, streaming: false,
         sources: (d.sources as AgentMessage["sources"]) ?? [],
         toolActivity: ((d.toolActivity as ToolActivity[] | undefined) ?? tools).map((t) => ({ ...t, state: "done" })),
         latencyMs: (d.latencyMs as number | undefined) ?? null,
@@ -169,6 +170,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
           documents: (d.documents as never) ?? [], files: (d.files as never) ?? [], airports: (d.airports as never) ?? [], tables: (d.tables as never) ?? [], confirmations,
           ...(d.thinking ? { thinking: d.thinking as never } : thoughtText ? { thinking: { text: thoughtText, ms: thoughtMs } as never } : {}),
           ...(d.routing ? { routing: d.routing as never } : {}),
+          ...(Array.isArray(d.claims) && d.claims.length ? { claims: d.claims as never } : {}),
         },
       });
       if (confirmations.length) setPendingConfirmation(confirmations[0]);

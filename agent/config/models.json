@@ -121,6 +121,7 @@
     }
   },
   "pricing": {
+    "webSearchPerRequest": 0.01,
     "_comment": "USD per million tokens, Anthropic API list prices (platform.claude.com/docs/en/about-claude/pricing, read 2026-11-03); used for the Settings usage card and the per-turn cost. Matched by substring of the model id, FIRST match wins, so the newer ids come first. Haiku 5.5 is listed at its price for prompts up to 100,000 tokens (over that it is 5x); Bedrock/Nova rows stay for MODEL_PROVIDER=bedrock.",
     "haiku-5-5": {
       "input": 0.1,

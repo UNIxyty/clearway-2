@@ -7,6 +7,7 @@ import { loadModelConfig, modelCandidates, resolveTier } from "./models.mjs";
 import { classifyBedrockError, ModelUnavailable } from "./errors.mjs";
 import { executeTool, toolSpecsFor } from "./tools/index.mjs";
 import { anthropicRuntime } from "./anthropic-runtime.mjs";
+import { webSettings, anthropicWebTool } from "./web-sources.mjs";
 
 // A turn that keeps calling tools without producing an answer is a loop. The
 // cap is on ROUNDS of tool use, not individual calls, so a model that fans out
@@ -189,7 +190,20 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
   const thoughts = [];
   if (candidates.length === 0) throw ModelUnavailable(`No model is configured for tier "${effective}".`);
 
-  const toolSpecs = toolSpecsFor(user);
+  // Web search (2026-11-03, lib/web-sources.mjs): the provider setting decides which search tools this turn has — the
+  // API's own web_search (a server tool, Anthropic runtime only), tavily_search, or both — and `turn` carries the
+  // two-pass state: pass one on the approved sources until widen_web_search, then unrestricted.
+  const web = await webSettings().catch(() => null);
+  const turn = { widened: false, widenedFor: null, searches: [] };
+  let toolSpecs = toolSpecsFor(user);
+  const offered = new Set(toolSpecs.map((t) => t.toolSpec.name));
+  const provider = web?.provider ?? "both";
+  const anthropicSearch = offered.has("widen_web_search") && loadModelConfig().provider === "anthropic" && (provider === "anthropic" || provider === "both");
+  const tavilySearch = offered.has("tavily_search") && (provider === "tavily" || provider === "both") && Boolean(String(process.env.TAVILY_API_KEY || "").trim());
+  toolSpecs = toolSpecs.filter((t) => (t.toolSpec.name === "tavily_search" ? tavilySearch : t.toolSpec.name === "widen_web_search" ? anthropicSearch || tavilySearch : true));
+  const webResults = new Map();   // url → { title, pageAge, pass, provider }: what the API's search returned, for the cited sources
+  let webSearchRequests = 0;
+  let carried = [];               // text blocks of rounds the API paused (pause_turn): part of the answer that follows
   const conversation = toBedrockMessages(messages);
   let usedModelId = null;
   let totalIn = 0;
@@ -207,6 +221,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     let roundReasoning = "";
     let assistantBlocks = [];
     let stopReason = null;
+    let roundCited = [];
 
     let lastUnavailable = null;
     let streamed = false;
@@ -232,6 +247,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
             ...(toolSpecs.length > 0 && !lastRound
               ? { toolConfig: { tools: withCachePoint(toolSpecs, modelId) } }
               : {}),
+            ...(anthropicSearch && !lastRound && web ? { serverTools: [anthropicWebTool(web, { widened: turn.widened })] } : {}),
           }),
           { abortSignal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) }
         );
@@ -248,6 +264,13 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
             if (r.text) { existing.text += r.text; roundReasoning += r.text; }
             if (r.signature) existing.signature += r.signature;
             if (r.redactedContent) existing.redacted = r.redactedContent;
+            blocks.set(idx, existing);
+          }
+          // the API's own web search: its call (input streamed below) and its results, kept whole
+          if (event.rawStart) blocks.set(event.rawStart.contentBlockIndex, { type: "raw", block: { ...event.rawStart.block }, inputJson: "" });
+          if (event.contentBlockDelta?.delta?.citation) {
+            const existing = blocks.get(idx) ?? { type: "text", text: "" };
+            (existing.citations ??= []).push(event.contentBlockDelta.delta.citation);
             blocks.set(idx, existing);
           }
           if (event.contentBlockStart?.start?.toolUse) {
@@ -268,6 +291,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
           }
           if (event.messageStop?.stopReason) stopReason = event.messageStop.stopReason;
           if (event.metadata?.usage) {
+            webSearchRequests += event.metadata.usage.webSearchRequests ?? 0;
             totalIn += event.metadata.usage.inputTokens ?? 0;
             totalOut += event.metadata.usage.outputTokens ?? 0;
             // Cache hits are billed differently from fresh input, so they are
@@ -278,12 +302,27 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
           }
         }
 
+        // the round's searches on the API's own tool: which pass, what came back (by host only), for the audit and sources
+        for (const b of blocks.values()) {
+          if (b.type !== "raw") continue;
+          if (b.block.type === "server_tool_use") { if (b.inputJson) b.block.input = safeJson(b.inputJson); turn.searches.push({ provider: "anthropic", id: b.block.id, query: String(b.block.input?.query ?? "").slice(0, 300), pass: turn.widened ? 2 : 1, results: null, hosts: [] }); }
+          if (b.block.type === "web_search_tool_result") {
+            const s = turn.searches.find((x) => x.id === b.block.tool_use_id);
+            if (Array.isArray(b.block.content)) {
+              for (const r of b.block.content) if (r?.url && !webResults.has(r.url)) webResults.set(r.url, { title: r.title ?? null, pageAge: r.page_age ?? null, pass: s?.pass ?? (turn.widened ? 2 : 1), provider: "anthropic" });
+              if (s) { s.results = b.block.content.length; s.hosts = [...new Set(b.block.content.map((r) => { try { return new URL(r.url).hostname.replace(/^www\./, ""); } catch { return ""; } }).filter(Boolean))].slice(0, 8); }
+            } else if (s) { s.results = 0; s.error = String(b.block.content?.error_code ?? "error"); }
+          }
+        }
+        roundCited = [...blocks.values()].filter((b) => b.type === "text" && (b.text ?? "").length).map((b) => ({ text: b.text, citations: b.citations ?? [] }));
         assistantBlocks = [...blocks.values()].map((b) =>
           b.type === "toolUse"
             ? { toolUse: { toolUseId: b.toolUseId, name: b.name, input: safeJson(b.inputJson) } }
-            : b.type === "reasoning"
-              ? { reasoningContent: b.redacted != null ? { redactedContent: b.redacted } : { reasoningText: { text: b.text, signature: b.signature } } }
-              : { text: b.text ?? "" }
+            : b.type === "raw"
+              ? { raw: b.block }
+              : b.type === "reasoning"
+                ? { reasoningContent: b.redacted != null ? { redactedContent: b.redacted } : { reasoningText: { text: b.text, signature: b.signature } } }
+                : { text: b.text ?? "" }   // citations are not sent back: the answer they belong to is already written
         ).filter((b) => (b.text != null ? b.text.length > 0 : true));
 
         usedModelId = modelId;
@@ -302,6 +341,13 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     if (!streamed) throw lastUnavailable ?? ModelUnavailable("Every configured model for this tier is unavailable.");
 
     const requestedTools = assistantBlocks.filter((b) => b.toolUse).map((b) => b.toolUse);
+    // The API paused a long server-tool turn (its web searches): send the response back as it is and it continues.
+    // Its text so far is the start of the answer, not a thought.
+    if (stopReason === "pause_turn" && !lastRound) {
+      conversation.push({ role: "assistant", content: assistantBlocks });
+      carried = [...carried, ...roundCited];
+      continue;
+    }
     if (stopReason !== "tool_use" || requestedTools.length === 0) {
       yield {
         type: "done",
@@ -318,9 +364,13 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         cacheWriteTokens: cacheWrite,
         toolCalls,
         fallbacks,
+        // the answer's text blocks with the citations the API attached to each (server.mjs makes them claims and sources)
+        answerBlocks: [...carried, ...roundCited],
+        web: { provider: anthropicSearch && tavilySearch ? "both" : anthropicSearch ? "anthropic" : tavilySearch ? "tavily" : "none", widened: turn.widened, widenedFor: turn.widenedFor, searches: turn.searches.map(({ id, ...s }) => s), results: [...webResults].map(([url, r]) => ({ url, ...r })), anthropicSearches: webSearchRequests, tavilySearches: turn.searches.filter((s) => s.provider === "tavily").length, settings: web ? { official: web.official, industry: web.industry, source: web.source, overridden: web.overridden === true } : null },
       };
       return;
     }
+    carried = [];
 
     conversation.push({ role: "assistant", content: assistantBlocks });
     // Text written in a round that ends by calling tools is the model thinking aloud, not the answer
@@ -341,7 +391,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         // origin: "model" -- a confirmation token in a model tool call is refused
         // by executeTool; only the console's confirm endpoint may spend one.
         if (pinTool && call.name === pinTool.name && !pinTool.used) { pinTool.used = true; call.input = { ...pinTool.input }; }
-        const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode, origin: "model", skipConfirm: skipConfirm && inputMode !== "voice", signal, onProgress: (e) => { try { onToolProgress?.({ toolUseId: call.toolUseId, ...e }); } catch { /* best-effort */ } } });
+        const result = await executeTool({ name: call.name, input: call.input, user, conversationId, inputMode, origin: "model", skipConfirm: skipConfirm && inputMode !== "voice", signal, turn, onProgress: (e) => { try { onToolProgress?.({ toolUseId: call.toolUseId, ...e }); } catch { /* best-effort */ } } });
         return { call, result, startedAt, durationMs: Date.now() - startedAt };
       })
     );
@@ -357,10 +407,12 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       // server keeps the result to itself; the SSE event still carries only
       // name/input/ok/error.
       yield { type: "tool", name: call.name, input: call.input, ok: result.ok !== false, error: result.ok === false ? result.error : null, result, startedAt, durationMs };
+      // search results (Tavily, the knowledge base) go to the model as citable search_result blocks, then the rest as JSON
+      const { searchResults, ...rest } = result ?? {};
       toolResultBlocks.push({
         toolResult: {
           toolUseId: call.toolUseId,
-          content: [{ json: result }],
+          content: Array.isArray(searchResults) && searchResults.length && result.ok !== false && loadModelConfig().provider === "anthropic" ? [...searchResults.map((sr) => ({ searchResult: sr })), { json: rest }] : [{ json: rest }],
           ...(result.ok === false ? { status: "error" } : {}),
         },
       });

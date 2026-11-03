@@ -28,7 +28,9 @@ export function priceUsd(modelId, u = {}) {
   const pricing = loadModelConfig().pricing ?? {};
   const k = Object.keys(pricing).find((p) => p !== "_comment" && p !== "default" && String(modelId ?? "").includes(p));
   const r = pricing[k] ?? pricing.default ?? { input: 3, output: 15, cacheRead: 0.3 };
-  return ((u.inputTokens ?? 0) * r.input + (u.outputTokens ?? 0) * r.output + (u.cacheReadInputTokens ?? 0) * (r.cacheRead ?? r.input * 0.1) + (u.cacheWriteInputTokens ?? 0) * (r.cacheWrite ?? r.input * 1.25)) / 1e6;
+  // the API's own web search is billed per search, $10 per 1,000 (2026-11-03), on top of the result tokens it adds to input
+  const searchUsd = (u.webSearchRequests ?? 0) * Number(pricing.webSearchPerRequest ?? 0.01);
+  return ((u.inputTokens ?? 0) * r.input + (u.outputTokens ?? 0) * r.output + (u.cacheReadInputTokens ?? 0) * (r.cacheRead ?? r.input * 0.1) + (u.cacheWriteInputTokens ?? 0) * (r.cacheWrite ?? r.input * 1.25)) / 1e6 + searchUsd;
 }
 
 async function ensureDay(now = new Date()) {
@@ -66,6 +68,13 @@ export async function checkCeiling({ now = new Date() } = {}) {
 export function recordUsage(modelId, usage, { now = new Date() } = {}) {
   if (state.day !== today(now)) state = { ...state, day: today(now), usd: 0, loaded: false };
   const usd = priceUsd(modelId, usage);
+  if (Number.isFinite(usd) && usd > 0) { state.usd += usd; persistSoon(); }
+  return usd;
+}
+
+/** A cost that is not a model response (a Tavily search), added to today the same way. */
+export function recordExtraUsd(usd, _what = "extra", { now = new Date() } = {}) {
+  if (state.day !== today(now)) state = { ...state, day: today(now), usd: 0, loaded: false };
   if (Number.isFinite(usd) && usd > 0) { state.usd += usd; persistSoon(); }
   return usd;
 }

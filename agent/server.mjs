@@ -38,6 +38,8 @@ import { assertMayUseAgent, availabilityFor } from "./lib/access.mjs";
 import { audit, storeConfigured, agentEnabled } from "./lib/store.mjs";
 import { streamConversationWithTools } from "./lib/bedrock.mjs";
 import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
+import { citationsToClaims } from "./lib/citations.mjs";
+import { webSettings, setWebSettings } from "./lib/web-sources.mjs";
 import { SOURCE_TIERS, setCapabilityGate, actionsFromToolCalls, airportsFromToolCalls, documentsFromToolCalls, filesFromToolCalls, flightCardsFromToolCalls, monoFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
 import {
   appendMessage, archiveConversation, createConversation, getConversation,
@@ -518,6 +520,21 @@ async function handleRequest(req, res) {
       let r; try { r = await setRoutingSettings(body, user); } catch (e) { throw settingNotSaved(e, "routing settings"); }
       await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { routing: body } });
       return sendJson(res, { ok: true, tiers: r.tiers, escalation: r.escalation });
+    }
+    // Admin: web search (2026-11-03, lib/web-sources.mjs): the provider and the approved sources, without a deploy.
+    if (pathname === "/api/settings/web" && (req.method === "GET" || req.method === "PUT")) {
+      await assertMayUseAgent(user);
+      const canEdit = await can(user.agentRole, "agent.settings.manage");
+      if (!canEdit && !["admin", "developer"].includes(user.agentRole)) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
+      let w;
+      if (req.method === "PUT") {
+        if (!canEdit) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
+        const body = await readJsonBody(req);
+        try { w = await setWebSettings({ ...(body.provider !== undefined ? { provider: body.provider } : {}), ...(body.official !== undefined ? { official: body.official } : {}), ...(body.industry !== undefined ? { industry: body.industry } : {}) }, user); }
+        catch (e) { if (e?.status === 400) return sendJson(res, { ok: false, error: "invalid", message: e.message }, 400); throw settingNotSaved(e, "web search settings"); }
+        await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { web: { provider: body.provider ?? null, official: Array.isArray(body.official) ? body.official.length : null, industry: Array.isArray(body.industry) ? body.industry.length : null } } });
+      } else w = await webSettings({ fresh: true });
+      return sendJson(res, { ok: true, canEdit, web: { provider: w.provider, official: w.official, industry: w.industry, source: w.source, updated: w.updated, tavilyConfigured: Boolean(String(process.env.TAVILY_API_KEY || "").trim()) } });
     }
     if (pathname === "/api/settings/skip-confirm-lock" && req.method === "PUT") {
       await assertMayUseAgent(user);
@@ -1583,7 +1600,14 @@ async function handleChat(req, res, user) {
     // Attribution and verbatim records are derived from the tools that ACTUALLY
     // ran, not from anything the model claims. A model cannot cite a source it
     // was never given, or promote its own paraphrase into the verbatim frame.
-    const sources = sourcesFromToolCalls(toolCalls);
+    const toolSources = sourcesFromToolCalls(toolCalls);
+    // Citations next to the claim (2026-11-03, lib/citations.mjs): the API attached them to the answer's text; each cited
+    // web page becomes a numbered source, each cited passage maps to its document's source, and the claims carry the
+    // numbers — plus the mark when every source of a claim is outside the approved list.
+    const cited = citationsToClaims({ answer, answerBlocks: done?.answerBlocks ?? [], sources: toolSources, web: done?.web ?? null, toolCalls });
+    if (cited.dropped) logDetail("agent", "citations not placed on the reply", cited.dropped);
+    const sources = cited.sources;
+    const claims = cited.claims;
     // Content the user sent from a web page is a Web-tier source of this turn
     // (spec §E6): "{host} · sent by you HH:MMZ" / "Capture · {host} · HH:MMZ".
     // A capture's href is null — its URL carries the host only.
@@ -1613,7 +1637,7 @@ async function handleChat(req, res, user) {
     }));
 
     const finalTier = done?.effectiveTier ?? escalations.at(-1)?.to ?? route.tier;
-    const turnCost = costUsd({ modelId: done?.modelId, inputTokens: done?.inputTokens ?? 0, outputTokens: done?.outputTokens ?? 0, cacheReadTokens: done?.cacheReadTokens ?? 0, cacheWriteTokens: done?.cacheWriteTokens ?? 0 });
+    const turnCost = costUsd({ modelId: done?.modelId, inputTokens: done?.inputTokens ?? 0, outputTokens: done?.outputTokens ?? 0, cacheReadTokens: done?.cacheReadTokens ?? 0, cacheWriteTokens: done?.cacheWriteTokens ?? 0, webSearches: done?.web?.anthropicSearches ?? 0, tavilySearches: done?.web?.tavilySearches ?? 0 });
     const thinkingBlock = thinking.length ? { text: thinking.map((t) => t.text.trim()).join("\n\n"), ms: thinking.reduce((n, t) => n + t.ms, 0) } : null;
     // The notes between tool calls are shown to the person asking, live, and NOT kept (2026-11-03): since the 5.5 models
     // they are the model's thinking summary, and a turn about a passenger thinks about that passenger. Only how long it
@@ -1639,6 +1663,7 @@ async function handleChat(req, res, user) {
             ...(verbatim.length ? { verbatim } : {}), ...(flights.length ? { flights } : {}), ...(actions.length ? { actions } : {}),
             ...(mono.length ? { mono } : {}), ...(documents.length ? { documents } : {}), ...(files.length ? { files } : {}), ...(airports.length ? { airports } : {}),
             ...(confirmations.length ? { confirmations } : {}),
+            ...(claims.length ? { claims } : {}),
           }
         : null,
       sources,
@@ -1673,6 +1698,8 @@ async function handleChat(req, res, user) {
       files,
       airports,
       confirmations,
+      claims,
+      content: answer,
       ...(attachmentStatus.length ? { attachments: attachmentStatus } : {}),
       toolActivity,
       latencyMs: Date.now() - startedAt,
@@ -1695,6 +1722,9 @@ async function handleChat(req, res, user) {
         stopReason: done?.stopReason ?? null,
         toolActivity,
         sourceCount: sources.length,
+        // web search and citations (2026-11-03): which provider and pass, each search by query and host, what was cited
+        web: done?.web ? { provider: done.web.provider, widened: done.web.widened, widenedFor: done.web.widenedFor, searches: done.web.searches, anthropicSearches: done.web.anthropicSearches, tavilySearches: done.web.tavilySearches, settingsSource: done.web.settings?.source ?? null, overridden: done.web.settings?.overridden ?? false } : null,
+        citations: { claims: claims.length, marked: claims.filter((c) => c.mark).length, ...cited.counts },
         // The routing decision, stored so a cost or quality regression can be
         // traced to the choice that caused it rather than guessed at.
         route: {

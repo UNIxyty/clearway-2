@@ -33,6 +33,30 @@ function CiteLink({ s, children, style, className }: { s: SourceRef; children: R
 }
 
 const tierOf = (t: Tier) => (t === "memory" ? null : TIER[t]);
+/** A web source says what it is against the approved list (2026-11-03): Official, Industry reference, or not approved. */
+const metaOf = (s: SourceRef) => {
+  const base = TIER_META[s.tier as keyof typeof TIER_META] ?? { label: s.tierLabel ?? "Remembered", icon: "bookmark" };
+  return s.tier === "web" && s.domainClass ? { ...base, label: s.domainClass === "official" ? "Official" : s.domainClass === "industry" ? "Industry reference" : "Web · not approved" } : base;
+};
+
+/**
+ * The citation after a claim (2026-11-03): its source numbers, each opening the source, and — when every source of the
+ * claim is outside the approved list — the mark, in words, on that claim only.
+ */
+export function CiteMarks({ ns, mark, sources, hot, setHot, panel = false }: { ns: number[]; mark: string | null; sources: SourceRef[]; hot: number | null; setHot: (n: number | null) => void; panel?: boolean }) {
+  const byN = new Map(sources.map((s) => [s.n, s]));
+  return (
+    <span data-cite={ns.join(",")} style={{ whiteSpace: "nowrap" }}>
+      {ns.map((n) => {
+        const s = byN.get(n); if (!s) return null;
+        const t = tierOf(s.tier);
+        const sup = <sup style={{ fontSize: panel ? 9.5 : 10, fontWeight: 700, color: t?.fg ?? cw.textMuted, marginLeft: 1, lineHeight: 0, padding: "0 1px", borderRadius: 3, background: hot === n ? (t?.bg ?? cw.primaryTint) : "transparent" }}>{n}</sup>;
+        return <span key={n} onMouseEnter={() => setHot(n)} onMouseLeave={() => setHot(null)}><CiteLink s={s} style={{ background: "transparent", border: "none", padding: 0, color: "inherit", fontFamily: "inherit" }}>{sup}</CiteLink></span>;
+      })}
+      {mark && <span data-claim-mark style={{ marginLeft: 4, fontSize: panel ? 11 : 11.5, fontWeight: 600, color: cw.warningText, background: cw.warningTint, borderRadius: 4, padding: "0 5px", whiteSpace: "normal" }}>{mark}</span>}
+    </span>
+  );
+}
 
 /** The numbered badge shared by chips, rows and superscripts. */
 export function SourceNumber({ n, tier, size = 18, notFound = false }: { n: number; tier: Tier; size?: number; notFound?: boolean }) {
@@ -79,7 +103,7 @@ export function SourceChips({ sources, hot, setHot }: { sources: SourceRef[]; ho
       <Eyebrow>{single ? "Source" : `${sources.length} sources`}</Eyebrow>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {sources.map((s) => {
-          const t = tierOf(s.tier); const meta = TIER_META[s.tier as keyof typeof TIER_META] ?? { label: s.tierLabel ?? "Remembered", icon: "bookmark" };
+          const t = tierOf(s.tier); const meta = metaOf(s);
           const inner = (
             <>
               {!single && <SourceNumber n={s.n} tier={s.tier} />}
@@ -107,7 +131,7 @@ export function SourceStrip({ sources, hot, setHot }: { sources: SourceRef[]; ho
         {sources.map((s) => <span key={s.n} style={{ flex: 1, background: tierOf(s.tier)?.strip ?? cw.info }} />)}
       </div>
       {sources.map((s) => {
-        const t = tierOf(s.tier); const meta = TIER_META[s.tier as keyof typeof TIER_META] ?? { label: s.tierLabel ?? "Remembered", icon: "bookmark" };
+        const t = tierOf(s.tier); const meta = metaOf(s);
         const row = (
           <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: cw.textBody, background: hot === s.n ? (t?.bg ?? cw.primaryTint) : "transparent", borderRadius: 4, padding: "1px 2px", transition: "background-color 120ms" }} onMouseEnter={() => setHot?.(s.n)} onMouseLeave={() => setHot?.(null)}>
             <SourceNumber n={s.n} tier={s.tier} size={16} />

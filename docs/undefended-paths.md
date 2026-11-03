@@ -32,6 +32,8 @@ and nothing said so.
 | 4 | 2026-11-02 | **The suite runner** finished green over red suites. shell-check was red, and on no list, from mid-October | About three weeks | A red that matched nothing still ended the run as a pass | `rig/verdict.mjs`: any red is RED, exit 1; an unlisted red is named |
 | 5 | 2026-11-03 | **The revert target.** The image check's rebuild moved the tag off the running image, and the server's containerd store could then not name it | Unknown; found during a deploy | No deploy had needed a revert since the store changed | `scripts/check-image-runs.sh` tags the running image `:pre-<commit>` before it builds, and stops if it cannot |
 
+**Testing a function is not testing the wiring (2026-11-03).** The Leon verdict went into the timeline payload instead of the health route, and the rig check passed because it called the function directly; only the before-and-after walk, which read the real route, caught it.
+
 ## The fifth shape: a report with no reader is not a check (2026-11-03)
 
 A job that writes its result somewhere and trusts a person to come and find it reports nothing, however true the

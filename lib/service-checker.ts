@@ -383,7 +383,7 @@ function checkAipCopiesAge(): Promise<Outcome> {
     // The AIP refresh (scripts/aip-refresh.mjs) writes aip/refresh-state.json after every run: what it checked, refetched
     // and failed, for which AIRAC cycle. The monitor says exactly that — degraded when anything failed, when the cycle
     // in force has no run yet, or when the date table runs short. Before the first run ever, the old age check stands.
-    type RefreshState = { runs?: Record<string, { firstAt?: string; recheckAt?: string }>; last?: { airac: string | null; mode: string; checked: number; refetched: number; wouldRefetch: number; failed: string[]; finishedAt?: string }; tableHorizonOk?: boolean };
+    type RefreshState = { runs?: Record<string, { firstAt?: string; recheckAt?: string; fullAt?: string }>; last?: { airac: string | null; mode: string; checked: number; refetched: number; wouldRefetch: number; failed: string[]; finishedAt?: string }; tableHorizonOk?: boolean };
     let state: RefreshState | null = null;
     try { const raw = await readStoredFile("aip/refresh-state.json"); state = raw ? (JSON.parse(raw.toString("utf8")) as RefreshState) : null; } catch { state = null; }
     const inForce = airacAt(new Date());
@@ -392,17 +392,23 @@ function checkAipCopiesAge(): Promise<Outcome> {
       const run = state.runs?.[inForce.cycle];
       const line = `AIRAC ${l.airac ?? "?"} refresh (${l.mode}): ${l.checked} checked, ${l.refetched} refetched${l.wouldRefetch ? `, ${l.wouldRefetch} newer at the source` : ""}, ${l.failed.length} failed${l.failed.length ? ` (${l.failed.slice(0, 6).join(", ")}${l.failed.length > 6 ? "…" : ""})` : ""}.`;
       if (!run?.firstAt) return { state: "degraded", error: `AIRAC ${inForce.cycle} took effect on ${inForce.effectiveFrom} and the refresh has not run for it yet. Last: ${line}` };
-      if (l.failed.length) return { state: "degraded", error: line };
+      // a state EAD does not publish is named, never counted as failed (2026-11-03)
+      const nie = (l as { notInEad?: string[] }).notInEad ?? [];
+      const notInEadWords = nie.length ? ` ${nie.length} not checkable through EAD (${nie.slice(0, 8).join(", ")}${nie.length > 8 ? "…" : ""}): EAD does not publish them.` : "";
+      if (l.failed.length) return { state: "degraded", error: `${line}${notInEadWords}` };
+      // the overnight full check, once per cycle: every copy, not only this week's (2026-11-03)
+      if (!run.fullAt && Date.now() - Date.parse(`${inForce.effectiveFrom}T00:00:00Z`) > 3 * 86_400_000) return { state: "degraded", error: `${line}${notInEadWords} The overnight check of every copy has not run for AIRAC ${inForce.cycle} yet.` };
       // Copies older than the source are what this row is about (2026-11-03: 17 such copies read operational, because
       // only failures counted). Check-only mode keeps them on purpose; the row says so instead of looking current.
       // "would refetch" is two things: copies the source has replaced, and airports with flights that have no copy at all
       // (2026-11-03: both were called "older than the source"). Runs before this split recorded only the total.
-      const lx = l as typeof l & { newerAtSource?: string[]; noCopyYet?: string[] };
+      const lx = l as typeof l & { newerAtSource?: string[]; noCopyYet?: string[]; notInEad?: string[] };
+      const keptWord = l.mode === "download" ? "They could not be fetched in this run." : "The refresh is check-only, so nothing is fetched.";
       if (lx.newerAtSource || lx.noCopyYet) {
         const parts = [lx.newerAtSource?.length ? `${lx.newerAtSource.length} cop${lx.newerAtSource.length === 1 ? "y is" : "ies are"} older than the source (${lx.newerAtSource.slice(0, 6).join(", ")})` : null, lx.noCopyYet?.length ? `${lx.noCopyYet.length} airport${lx.noCopyYet.length === 1 ? "" : "s"} with flights this week have no copy at all (${lx.noCopyYet.slice(0, 6).join(", ")}${lx.noCopyYet.length > 6 ? "…" : ""})` : null].filter(Boolean);
-        if (parts.length) return { state: "degraded", error: `${line} ${parts.join("; ")}. The refresh is check-only, so nothing is fetched.` };
+        if (parts.length) return { state: "degraded", error: `${line}${notInEadWords} ${parts.join("; ")}. ${keptWord}` };
       } else if (l.wouldRefetch) return { state: "degraded", error: `${line} ${l.wouldRefetch} would be fetched in download mode: copies older than the source, or airports with flights and no copy. The refresh is check-only, so nothing is fetched.` };
-      if (state.tableHorizonOk === false) return { state: "degraded", error: `${line} The AIRAC date table (data/airac-dates.json) runs out within six months.` };
+      if (state.tableHorizonOk === false) return { state: "degraded", error: `${line}${notInEadWords} The AIRAC date table (data/airac-dates.json) runs out within six months.` };
       return { state: "operational", error: null };
     }
     const dir = path.join(STORAGE_ROOT, "aip/ead-pdf");

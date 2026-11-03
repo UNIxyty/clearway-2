@@ -10,8 +10,13 @@
 //   4. Records on every sidecar: lastCheck { at, ok, sourceEffectiveDate, reason } — a failure keeps the old copy and
 //      says so; the page, the email and the agent read it. Writes aip/refresh-state.json for the dashboard monitor.
 //   5. One Telegram line to the developer channel when a run had failures or a due run did not happen.
-// No timer counted from today: a run is DUE when the cycle in force has no run recorded (or no recheck), so a missed
-// date runs at the next start. One document at a time, a pause between requests (AIP_REFRESH_PAUSE_MS, 20 s default).
+//   6. Once per cycle, at night (00:00–03:00Z), the FULL check: every copy, not only this week's airports (2026-11-03:
+//      191 of 247 copies had never been compared with their source). About 2 h for 247 copies.
+// A state EAD does not publish (its country is not in EAD's list, or the airport is not in EAD's results) is not a
+// failure: the copy is marked "not checkable through EAD" and counted apart (2026-11-03: 15 permanent "failures" in the
+// summary hid the real ones). Its page says the refresh cannot check it.
+// No timer counted from today: a run is DUE when the cycle in force has no run recorded (or no recheck, or no full
+// check), so a missed date runs at the next start. One document at a time, a pause between requests (AIP_REFRESH_PAUSE_MS, 20 s default).
 // On the rig there is no EAD: AIP_REFRESH_STUB=<json file> answers the checks and stands in for the downloads.
 import fs from "node:fs";
 import path from "node:path";
@@ -44,6 +49,9 @@ export async function readState() {
 }
 async function writeState(state) { await saveFile(STATE_KEY, JSON.stringify(state, null, 2)); }
 
+/** The full check starts only between 00:00 and 03:00 UTC (02:00–05:00 in Riga): two hours of EAD reads, overnight. */
+export const isFullCheckNight = (now = new Date()) => now.getUTCHours() < 3;
+
 /**
  * Is a run due? The first run of a cycle from 00:30Z on its effective date; the recheck 24 h after the first run.
  * Returns { due: "first" | "recheck" | null, cycle, missedDays } — missedDays > 1 means a date went by without a run.
@@ -54,6 +62,7 @@ export function dueRun(state, now = new Date()) {
   const firstDue = Date.parse(`${cycle.effective}T00:30:00Z`);
   if (!run?.firstAt) return { due: now.getTime() >= firstDue ? "first" : null, cycle, missedDays: Math.floor((now.getTime() - firstDue) / DAY) };
   if (!run.recheckAt && now.getTime() >= Date.parse(run.firstAt) + DAY) return { due: "recheck", cycle, missedDays: 0 };
+  if (!run.fullAt && isFullCheckNight(now) && now.getTime() >= Date.parse(run.firstAt) + 3600_000) return { due: "full", cycle, missedDays: 0 };
   return { due: null, cycle, missedDays: 0 };
 }
 
@@ -112,19 +121,24 @@ function readStub() { const p = process.env.AIP_REFRESH_STUB; if (!p) return nul
 /** EAD's table row for the airport: { effectiveDate (ISO day or null), airacText }. Throws when EAD could not be read. */
 export async function checkSource(icao) {
   const stub = readStub();
-  if (stub) { const s = stub[icao]; if (!s || s.fail) throw new Error(s?.fail || "EAD did not answer for this airport (stub)"); return { effectiveDate: s.effectiveDate ?? null, airacText: s.airac ?? null }; }
+  if (stub) { const s = stub[icao]; if (s?.notPublished) throw Object.assign(new Error(`EAD-NOT-PUBLISHED {"icao":"${icao}","why":"${s.notPublished}"}`), { notPublished: true }); if (!s || s.fail) throw new Error(s?.fail || "EAD did not answer for this airport (stub)"); return { effectiveDate: s.effectiveDate ?? null, airacText: s.airac ?? null }; }
   return new Promise((resolve, reject) => {
     const child = spawn("node", [path.join(PROJECT_ROOT, "scripts", "ead-download-aip-pdf.mjs"), icao, "--check"], { cwd: PROJECT_ROOT, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
     let out = "", err = ""; const t = setTimeout(() => { child.kill("SIGKILL"); reject(new Error("EAD check timed out")); }, CHECK_TIMEOUT_MS);
     child.stdout.on("data", (d) => { out += d.toString(); }); child.stderr.on("data", (d) => { err += d.toString().slice(0, 400); });
     child.on("close", (code) => {
       clearTimeout(t);
+      const np = out.split("\n").find((l) => l.startsWith("EAD-NOT-PUBLISHED "));
+      if (np) return reject(Object.assign(new Error(np.trim()), { notPublished: true }));
       const line = out.split("\n").find((l) => l.startsWith("EAD-CHECK "));
       if (!line) return reject(new Error(code === 0 ? "EAD check gave no answer" : `EAD check failed (exit ${code})${err ? `: ${err.split("\n")[0].slice(0, 160)}` : ""}`));
       try { const j = JSON.parse(line.slice("EAD-CHECK ".length)); resolve({ effectiveDate: parseSourceDate(j.effectiveDate) ?? null, airacText: j.airacText ?? null }); } catch (e) { reject(e); }
     });
   });
 }
+
+/** EAD answered that it does not publish this state or airport (ead-download-aip-pdf.mjs exit 3): an answer, not a failure. */
+export const isNotPublished = (e) => Boolean(e?.notPublished) || /EAD-NOT-PUBLISHED /.test(String(e?.message ?? e));
 
 /** Should the copy be fetched again? Unknown is not current; a newer date at the source means a new document. */
 export function needsRefetch(copy, source) {
@@ -161,7 +175,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  */
 /** The rig's stand-in for a fetch: a placeholder PDF and a sidecar with the stub's date, under the real key layout. */
 async function stubSync(icao) {
-  const stub = readStub() ?? {}; const src = stub[icao]; if (!src || src.fail) throw new Error(src?.fail || "download failed (stub)");
+  const stub = readStub() ?? {}; const src = stub[icao]; if (src?.notPublished) throw new Error(`node exited 3: EAD-NOT-PUBLISHED {"icao":"${icao}","why":"${src.notPublished}"}`); if (!src || src.fail) throw new Error(src?.fail || "download failed (stub)");
   const dir = storagePathForKey(PDF_DIR_KEY);
   try { for (const n of fs.readdirSync(dir)) if (icaoFromFilename(n) === icao) fs.rmSync(path.join(dir, n), { force: true }); } catch { /* nothing there */ }
   const key = `${PDF_DIR_KEY}/${icao}_AD2.pdf`;
@@ -185,7 +199,7 @@ export async function runRefresh({ mode = "check", scope, syncIcao, limit = Infi
   const upcoming = upcomingAirports(now);
   const scopeUsed = refreshScope(scope);
   const plan = orderRun(copies, upcoming, cycle).filter((i) => scopeUsed === "all" || i.why.startsWith("flight in the next 7 days")).slice(0, limit);
-  const summary = { airac: cycle?.airac ?? null, effective: cycle?.effective ?? null, startedAt: now.toISOString(), mode, scope: scopeUsed, reason, planned: plan.length, checked: 0, upToDate: 0, refetched: 0, wouldRefetch: 0, newerAtSource: [], noCopyYet: [], failed: [], noCopyFetched: 0, upcomingAirports: upcoming.size, copies: copies.length };
+  const summary = { airac: cycle?.airac ?? null, effective: cycle?.effective ?? null, startedAt: now.toISOString(), mode, scope: scopeUsed, reason, planned: plan.length, checked: 0, upToDate: 0, refetched: 0, wouldRefetch: 0, newerAtSource: [], noCopyYet: [], notInEad: [], failed: [], noCopyFetched: 0, upcomingAirports: upcoming.size, copies: copies.length };
   log(`refresh ${summary.airac ?? "?"} (${mode}, ${scopeUsed}, ${reason}): ${plan.length} airports, ${upcoming.size} with flights in 7 days, ${copies.length} copies`);
   let first = true;
   for (const item of plan) {
@@ -218,6 +232,12 @@ export async function runRefresh({ mode = "check", scope, syncIcao, limit = Infi
       }
     } catch (e) {
       const reasonText = e instanceof Error ? e.message : String(e);
+      if (isNotPublished(e)) {
+        summary.notInEad.push(item.icao);
+        log(`${item.icao}: not checkable through EAD — ${reasonText.slice(0, 200)}`);
+        if (item.copy) await recordLastCheck(item.copy, { at, ok: false, notCheckable: true, reason: "EAD does not publish this AIP, so the refresh cannot check this copy against its source." }).catch(() => {});
+        continue;
+      }
       summary.failed.push(item.icao);
       log(`${item.icao}: FAILED — ${reasonText}`);
       if (item.copy) await recordLastCheck(item.copy, { at, ok: false, reason: "The refresh could not read the source. The copy shown is the last one fetched." }).catch(() => {});
@@ -225,10 +245,10 @@ export async function runRefresh({ mode = "check", scope, syncIcao, limit = Infi
   }
   summary.finishedAt = new Date().toISOString(); summary.durationMs = Date.now() - now.getTime();
   const runs = { ...(state.runs ?? {}) }; const r = { ...(runs[summary.airac] ?? {}) };
-  if (reason === "recheck") r.recheckAt = summary.finishedAt; else if (!r.firstAt) r.firstAt = summary.finishedAt; else r.lastAt = summary.finishedAt;
+  if (reason === "recheck") r.recheckAt = summary.finishedAt; else if (reason === "full") r.fullAt = summary.finishedAt; else if (!r.firstAt) r.firstAt = summary.finishedAt; else r.lastAt = summary.finishedAt;
   if (summary.airac) runs[summary.airac] = { ...r, summary };
   await writeState({ ...state, runs, last: summary, tableHorizonOk: tableHorizonOk(now) });
-  if (summary.failed.length) await notifyDeveloper(`AIP refresh ${summary.airac} (${mode}): ${summary.checked} checked, ${summary.refetched} refetched, ${summary.failed.length} failed (${summary.failed.slice(0, 12).join(", ")}${summary.failed.length > 12 ? "…" : ""}). The old copies stay; each page says so.`);
+  if (summary.failed.length) await notifyDeveloper(`AIP refresh ${summary.airac} (${mode}, ${reason}): ${summary.checked} checked, ${summary.refetched} refetched, ${summary.failed.length} failed (${summary.failed.slice(0, 12).join(", ")}${summary.failed.length > 12 ? "…" : ""}). The old copies stay; each page says so.`);
   return summary;
 }
 
@@ -242,5 +262,5 @@ export async function tick({ syncIcao, log = () => {}, now = new Date() } = {}) 
     await saveFile(STATE_KEY, JSON.stringify({ ...state, runs: { ...(state.runs ?? {}), [due.cycle.airac]: { ...(state.runs?.[due.cycle.airac] ?? {}), missedNoted: true } } }, null, 2));
   }
   const mode = String(process.env.AIP_REFRESH_DOWNLOADS || "").toLowerCase() === "on" ? "download" : "check";
-  return runRefresh({ mode, scope: refreshScope(), syncIcao, log, now, reason: due.due });
+  return runRefresh({ mode, scope: due.due === "full" ? "all" : refreshScope(), syncIcao, log, now, reason: due.due });
 }

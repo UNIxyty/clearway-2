@@ -149,3 +149,27 @@ The first real run must be watched on production: check-only first, then with do
    about 2 h. Then a copy cannot sit behind its source unseen.
 3. **Do not count a country EAD does not publish as a failure.** Mark it "not checkable through EAD" on the copy and
    in the summary, or route it to that state's own source. Then the failures in the summary are real ones.
+
+## Closed on 3 Nov 2026, and what is parked
+
+**Done, together, then AIP work stopped:**
+- **Download mode is on:** `AIP_REFRESH_DOWNLOADS` defaults to `on` in `docker-compose.yml`.
+- **The airport page shows the copy's own cycle** (397dada3). It turns amber when the source is newer, when nobody has
+  checked the copy this cycle, or when EAD cannot check it.
+- **States EAD does not publish are no longer failures.** `ead-download-aip-pdf.mjs` exits 3 with an
+  `EAD-NOT-PUBLISHED` line, either when EAD's list has no such state or when its results have no such airport. The
+  refresh then marks the copy "not checkable through EAD" (`lastCheck.notCheckable`). The summary counts it in
+  `notInEad` and sends no developer alert. The page says "check the state's own AIP before relying on it".
+- **A full check runs once per cycle, overnight.** It covers every copy (scope `all`) and starts between 00:00 and
+  03:00Z, after the cycle's first run. It takes about 2 h for 247 copies. The status row says when the full check has
+  not run for the cycle in force.
+
+**Parked: not to be chased unless a dispatcher needs one of these airports.** The page already says plainly when the
+copy is missing or old.
+
+| What | Airports (3 Nov) | What it would take |
+|---|---|---|
+| A downloader for each state EAD does not publish | UAE (OMDW, OMAD), Israel (LLBG), Uzbekistan (UZTP, UZTT), Japan (RJAA), Belarus (UMMS), Egypt (HECA, HESN), India (VAAH), Algeria (DAAT), Nigeria (DNMM), Indonesia (WADD), Afghanistan (OAKB), China (ZBAD) | One scraper per state's eAIP: about half a day each for an HTML eAIP, more for one behind a login or a viewer. Each one then needs its own date check for the refresh. |
+| The Hong Kong eAIP downloader (VHHH) | VHHH | Fix the interactive downloader against the current site: about half a day. |
+| EGKK, LXGB, HELX: EAD's check or download failed | EGKK, LXGB, HELX | Read the worker log for each one's error first. It may be "airport not in EAD's results", which is now marked as not checkable on its own; otherwise it needs a case-by-case fix. |
+| Airports with flights and no copy | the downloads above that fail | Nothing beyond the rows above. The page says the copy is missing. |

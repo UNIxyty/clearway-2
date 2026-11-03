@@ -29,6 +29,7 @@ copy("EYVI", 3, cycle.effective, {}, true); // current, has a flight soon → ch
 copy("LSGG", 40, null);                  // undated → refetch
 copy("EGLL", 5, cycle.effective);        // current, source fails → recorded as a failure, copy kept
 copy("LFPG", 200);                       // no sidecar at all (fetched before sidecars existed) → undated → refetch
+copy("OMDW", 10, prevCycle.effective);   // a state EAD does not publish → "not checkable through EAD", never a failure (2026-11-03)
 // what the wall writes to data/portal/: the airports with flights in the next 7 days — EYVI, LSGG and EDDF (no copy of EDDF yet)
 fs.writeFileSync(path.join(WALL, "upcoming-airports.json"), JSON.stringify({ updatedAt: new Date().toISOString(), airports: ["EDDF", "EYVI", "LSGG"] }));
 fs.writeFileSync(path.join(WALL, "timeline-cache.json"), JSON.stringify({ flights: [
@@ -36,7 +37,7 @@ fs.writeFileSync(path.join(WALL, "timeline-cache.json"), JSON.stringify({ flight
   { key: "cwy-cwy:2", flight: { startTimeUTC: iso(now + 5 * DAY), adep: { icao: "EDDF" }, ades: { icao: "EYVI" } } },
   { key: "cwy-cwy:3", flight: { startTimeUTC: iso(now + 20 * DAY), adep: { icao: "LEBL" }, ades: { icao: "EVRA" } } }, // too far ahead to count
 ] }));
-fs.writeFileSync(STUB, JSON.stringify({ EVRA: { effectiveDate: cycle.effective }, EYVI: { effectiveDate: cycle.effective }, LSGG: { effectiveDate: cycle.effective }, EGLL: { fail: "EAD session expired (stub)" }, LFPG: { effectiveDate: prevCycle.effective }, EDDF: { effectiveDate: cycle.effective } }));
+fs.writeFileSync(STUB, JSON.stringify({ EVRA: { effectiveDate: cycle.effective }, EYVI: { effectiveDate: cycle.effective }, LSGG: { effectiveDate: cycle.effective }, EGLL: { fail: "EAD session expired (stub)" }, LFPG: { effectiveDate: prevCycle.effective }, OMDW: { notPublished: "state" }, EDDF: { effectiveDate: cycle.effective } }));
 
 const PORT = 3983;
 const worker = spawn("node", ["scripts/aip-sync-server.mjs"], { env: { ...process.env, STORAGE_ROOT: STORAGE, WALL_DATA_DIR: WALL, AIP_REFRESH_STUB: STUB, AIP_REFRESH_PAUSE_MS: "0", AIP_REFRESH_SCHEDULE: "off", AIP_REFRESH_SCOPE: "all", AIP_SYNC_PORT: String(PORT), SYNC_SECRET: "rig-refresh", TELEGRAM_BUG_BOT_TOKEN: "", TELEGRAM_BOT_TOKEN: "" }, stdio: ["ignore", "pipe", "pipe"] });
@@ -65,6 +66,8 @@ ok(order[0] === "EYVI" && order[1] === "LSGG" && order.indexOf("EVRA") < order.i
 ok(meta("EYVI")?.lastCheck?.ok === true && !meta("EYVI")?.lastCheck?.newer, "EYVI's sidecar: checked, nothing newer");
 ok(meta("EVRA")?.lastCheck?.ok === true && meta("EVRA")?.lastCheck?.newer === true && meta("EVRA")?.effectiveDate === prevCycle.effective, "EVRA's sidecar: checked, newer at the source, the old date kept (check-only)");
 ok(meta("EGLL")?.lastCheck?.ok === false && /could not read the source/.test(meta("EGLL")?.lastCheck?.reason ?? "") && fs.existsSync(path.join(STORAGE, "aip/ead-pdf/XX_AD_2_EGLL_en.pdf")), "EGLL's sidecar: the failure recorded in our words, the copy kept");
+ok(s1.notInEad?.length === 1 && s1.notInEad[0] === "OMDW" && !s1.failed.includes("OMDW"), "OMDW (EAD does not publish the state) is counted as not checkable through EAD, not as a failure", JSON.stringify({ notInEad: s1.notInEad, failed: s1.failed }));
+ok(meta("OMDW")?.lastCheck?.notCheckable === true && /does not publish/.test(meta("OMDW")?.lastCheck?.reason ?? "") && meta("OMDW")?.effectiveDate === prevCycle.effective, "OMDW's sidecar says the refresh cannot check it, and the copy is kept");
 ok(meta("LFPG") === null || !meta("LFPG")?.effectiveDate, "LFPG (no sidecar before) is still undated after check-only");
 const state1 = JSON.parse(fs.readFileSync(path.join(STORAGE, "aip/refresh-state.json"), "utf8"));
 ok(state1.last?.failed?.[0] === "EGLL" && state1.runs?.[cycle.airac]?.firstAt && state1.tableHorizonOk === true, "the state file: the run, the failure, the cycle's first run recorded, the table horizon fine");
@@ -85,6 +88,14 @@ const { dueRun } = await import("../scripts/aip-refresh.mjs");
 const stateNow = JSON.parse(fs.readFileSync(path.join(STORAGE, "aip/refresh-state.json"), "utf8"));
 ok(dueRun(stateNow, new Date()).due === null, "with a first run recorded, nothing is due now");
 ok(dueRun(stateNow, new Date(now + DAY + 60_000)).due === "recheck", "…but a recheck is due 24 hours after it");
+// the overnight full check (2026-11-03): once per cycle, every copy, only between 00:00 and 03:00Z, after the first run
+const at = (d, hhmm) => new Date(`${d}T${hhmm}:00Z`); const d2 = day(Date.parse(prevCycle.effective) + 2 * DAY);
+const done = { runs: { [prevCycle.airac]: { firstAt: `${prevCycle.effective}T00:40:00Z`, recheckAt: `${day(Date.parse(prevCycle.effective) + DAY)}T00:45:00Z` } } };
+ok(dueRun(done, at(d2, "01:00")).due === "full", "first run and recheck done: the full check is due at night", dueRun(done, at(d2, "01:00")).due);
+ok(dueRun(done, at(d2, "12:00")).due === null, "…but not in the day");
+ok(dueRun({ runs: { [prevCycle.airac]: { ...done.runs[prevCycle.airac], fullAt: `${d2}T02:50:00Z` } } }, at(day(Date.parse(prevCycle.effective) + 3 * DAY), "01:00")).due === null, "…and once a cycle: with fullAt recorded, nothing more is due");
+const { isNotPublished } = await import("../scripts/aip-refresh.mjs");
+ok(isNotPublished(new Error('node exited 3: EAD-NOT-PUBLISHED {"icao":"HECA","prefix":"HE","why":"state"} [EAD] ...')) && !isNotPublished(new Error("node exited 1: EAD session expired")), "the worker's download error carries EAD's 'not published' answer, and a real failure does not read as one");
 ok(dueRun({ runs: {} }, new Date()).due === "first" && dueRun({ runs: {} }, new Date()).cycle.airac === cycle.airac, "a state with no run for the cycle in force is due at once (a missed date runs at the next start)");
 const status = await (await fetch(`http://127.0.0.1:${PORT}/refresh/status`, { headers: H })).json();
 ok(status.ok && status.state?.last?.airac === cycle.airac && status.running === false, "/refresh/status reports the last run");

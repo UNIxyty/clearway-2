@@ -468,6 +468,10 @@ async function main() {
         if (byPrefix) {
           resolvedCountryLabel = byPrefix;
           log(`Country label fallback used: "${countryLabel}" -> "${resolvedCountryLabel}"`);
+        } else if (optionTexts.length >= 10) {
+          // EAD does not publish this state (2026-11-03): an answer, not a failure — the refresh marks the copy
+          // "not checkable through EAD" instead of counting it failed every cycle. Under 10 options the list has not loaded.
+          throw Object.assign(new Error(`EAD does not list ${prefix} (${countryLabel}) among its ${optionTexts.length} states`), { notPublished: { icao, prefix, why: "state" } });
         }
       }
       await authoritySelect.selectOption({ label: resolvedCountryLabel });
@@ -604,7 +608,7 @@ async function main() {
           pdfLink = fallbackLink;
           log(`Only variation file found for AD 2 ${icao}; using it as fallback.`);
         } else {
-          throw new Error(`AD 2/3/4 ${icao} not found in search results after paginating ${MAX_PAGES} pages. The airport may not exist in EAD for this country.`);
+          throw Object.assign(new Error(`AD 2/3/4 ${icao} not found in search results after paginating ${MAX_PAGES} pages. The airport may not exist in EAD for this country.`), { notPublished: { icao, prefix: icao.slice(0, 2), why: "airport" } });
         }
       } else {
         log('Using base AIP file (no variation number).');
@@ -656,6 +660,12 @@ async function main() {
       await browser.close();
       return;
     } catch (err) {
+      if (err?.notPublished) {
+        // one line the worker reads (scripts/aip-refresh.mjs), exit 3: no retry, EAD's answer will not change by retrying
+        console.log('EAD-NOT-PUBLISHED ' + JSON.stringify(err.notPublished));
+        try { await browser.close(); } catch { /* already closed */ }
+        process.exit(3);
+      }
       finalError = err;
       let currentUrl = "";
       try { currentUrl = page.url(); } catch (_) {}

@@ -689,7 +689,9 @@ function run(cmd, args, env = process.env, onStdoutLine = null) {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      if (code !== 0) reject(new Error(`${cmd} exited ${code}: ${(stderr || stdout).slice(-500)}`));
+      // EAD's "not published" answer is on stdout; keep it in the message even when stderr has text (aip-refresh.mjs reads it)
+      const np = stdout.split(/\r?\n/).find((l) => l.startsWith("EAD-NOT-PUBLISHED "));
+      if (code !== 0) reject(new Error(`${cmd} exited ${code}: ${np ? `${np.trim()} ` : ""}${(stderr || stdout).slice(-500)}`));
       else resolve();
     });
   });
@@ -754,7 +756,12 @@ async function runDownload(icao, preferScraper = false, allowFallbackToScraper =
       const fallbackScraper = getScraperSpecByIcao(icao);
       if (fallbackScraper) {
         logInfo("AIP-SYNC", `EAD AD2 failed for ${icao}, retrying via scraper flow (${fallbackScraper.country}).`);
-        return runDownload(icao, true, false);
+        try { return await runDownload(icao, true, false); }
+        catch (scraperErr) {
+          // EAD said it does not publish this state, and the state's own downloader failed too: still "not checkable through EAD"
+          if (/EAD-NOT-PUBLISHED /.test(String(eadErr?.message))) throw new Error(`${String(eadErr.message).slice(0, 300)}; the state's own downloader also failed: ${String(scraperErr?.message ?? scraperErr).slice(0, 200)}`);
+          throw scraperErr;
+        }
       }
     }
     throw eadErr;

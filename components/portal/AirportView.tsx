@@ -616,6 +616,9 @@ export default function AirportView({ icao }: { icao: string }) {
   const [aipCopyFetchedAt, setAipCopyFetchedAt] = useState<Record<string, string | null>>({});
   // The scheduled refresh's last look at this copy (AIP refresh, 2026-10-25): a failure keeps the old copy and the page says so.
   const [aipLastCheck, setAipLastCheck] = useState<Record<string, { at: string; ok: boolean } | null>>({});
+  // The copy's own revision, on the page a dispatcher reads (2026-11-03): its AIRAC cycle and effective date, and what the
+  // last check against the source found. The fetch date alone hid a copy two cycles behind its source.
+  const [aipRevision, setAipRevision] = useState<Record<string, { state: string; label: string; reason: string } | null>>({});
   const [pdfDownloadError, setPdfDownloadError] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [genPdfDownloadError, setGenPdfDownloadError] = useState<string | null>(null);
@@ -1444,8 +1447,9 @@ export default function AirportView({ icao }: { icao: string }) {
       .catch(() => {});
     fetch(`/api/aip/resolve?icao=${encodeURIComponent(icao)}`, { signal: controller.signal, cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { cached?: boolean; copyFetchedAt?: string | null; revision?: { lastCheck?: { at: string; ok: boolean } | null } | null } | null) => {
+      .then((d: { cached?: boolean; copyFetchedAt?: string | null; revision?: { state?: string; label?: string; reason?: string; lastCheck?: { at: string; ok: boolean } | null } | null } | null) => {
         if (cancelled || !d) return;
+        setAipRevision((c) => ({ ...c, [icao]: d.cached && d.revision?.state ? { state: d.revision.state, label: d.revision.label ?? "", reason: d.revision.reason ?? "" } : null }));
         setAipCopyFetchedAt((c) => (c[icao] && !d.copyFetchedAt ? c : { ...c, [icao]: d.cached ? d.copyFetchedAt ?? null : null }));
         setAipLastCheck((c) => ({ ...c, [icao]: d.cached ? d.revision?.lastCheck ?? null : null }));
       })
@@ -1956,13 +1960,17 @@ export default function AirportView({ icao }: { icao: string }) {
                     // 97 days old were labelled "refreshes on the next sync"); a copy older than one AIRAC cycle says so.
                     const ageMs = Date.now() - fetched.getTime();
                     const stale = expires != null && expires <= new Date();
-                    const oldCycle = ageMs > 28 * 24 * 60 * 60 * 1000;
+                    const rev = aipRevision[icao];
+                    // a copy the source has replaced, or that nobody checked this cycle, says so in amber; the fetch date alone is not its age
+                    const fetchedOld = ageMs > 28 * 24 * 60 * 60 * 1000;
+                    const oldCycle = fetchedOld || rev?.state === "superseded" || rev?.state === "unknown";
                     return (
                       <p className={`m-0 mt-2 flex items-start gap-2 text-[14px] leading-snug ${oldCycle ? "font-semibold text-cw-warning-text" : "text-cw-text-body"}`} data-aip-refresh-failed={aipLastCheck[icao] && aipLastCheck[icao]!.ok === false ? "1" : undefined} data-aip-copy-age={oldCycle ? "old-cycle" : stale ? "stale" : "fresh"}>
                         {oldCycle && <MaskIcon name="triangle-alert" size={15} color="var(--cw-warning)" />}
                         <span>
-                          This copy is from <span className="font-mono">{dateLong(fetched)}</span>.
-                          {oldCycle && " That is more than one AIRAC cycle (28 days) ago."}
+                          {aipRevision[icao] && <>This copy: <span className="font-mono">{aipRevision[icao]!.label}</span> ({aipRevision[icao]!.reason}). </>}
+                          It was fetched <span className="font-mono">{dateLong(fetched)}</span>.
+                          {fetchedOld && " That is more than one AIRAC cycle (28 days) ago."}
                           {aipLastCheck[icao] && aipLastCheck[icao]!.ok === false && <> The refresh on <span className="font-mono">{dateLong(new Date(aipLastCheck[icao]!.at))}</span> failed; this copy is from the date above. Press <strong>Re-sync</strong>, or use the Web AIP.</>}
                           {stale && (hasLiveSync ? <> It is not refreshed automatically. Press <strong>Re-sync</strong> to fetch the current document.</> : " It is not refreshed automatically.")}
                         </span>

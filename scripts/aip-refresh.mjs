@@ -185,7 +185,7 @@ export async function runRefresh({ mode = "check", scope, syncIcao, limit = Infi
   const upcoming = upcomingAirports(now);
   const scopeUsed = refreshScope(scope);
   const plan = orderRun(copies, upcoming, cycle).filter((i) => scopeUsed === "all" || i.why.startsWith("flight in the next 7 days")).slice(0, limit);
-  const summary = { airac: cycle?.airac ?? null, effective: cycle?.effective ?? null, startedAt: now.toISOString(), mode, scope: scopeUsed, reason, planned: plan.length, checked: 0, upToDate: 0, refetched: 0, wouldRefetch: 0, failed: [], noCopyFetched: 0, upcomingAirports: upcoming.size, copies: copies.length };
+  const summary = { airac: cycle?.airac ?? null, effective: cycle?.effective ?? null, startedAt: now.toISOString(), mode, scope: scopeUsed, reason, planned: plan.length, checked: 0, upToDate: 0, refetched: 0, wouldRefetch: 0, newerAtSource: [], noCopyYet: [], failed: [], noCopyFetched: 0, upcomingAirports: upcoming.size, copies: copies.length };
   log(`refresh ${summary.airac ?? "?"} (${mode}, ${scopeUsed}, ${reason}): ${plan.length} airports, ${upcoming.size} with flights in 7 days, ${copies.length} copies`);
   let first = true;
   for (const item of plan) {
@@ -195,7 +195,7 @@ export async function runRefresh({ mode = "check", scope, syncIcao, limit = Infi
       if (!item.copy) {
         // no copy yet: a download when allowed, otherwise noted
         if (mode === "download" && syncIcao) { await syncIcao(item.icao); summary.noCopyFetched += 1; log(`${item.icao}: fetched (no copy before; ${item.why})`); }
-        else { summary.wouldRefetch += 1; log(`${item.icao}: no copy yet (${item.why}); would fetch in download mode`); }
+        else { summary.wouldRefetch += 1; summary.noCopyYet.push(item.icao); log(`${item.icao}: no copy yet (${item.why}); would fetch in download mode`); }
         continue;
       }
       const source = await checkSource(item.icao);
@@ -207,7 +207,7 @@ export async function runRefresh({ mode = "check", scope, syncIcao, limit = Infi
           await recordLastCheck(fresh, { at, ok: true, sourceEffectiveDate: source.effectiveDate, refetched: true });
           log(`${item.icao}: refetched (copy ${item.copy.effectiveDate ?? "undated"} → source ${source.effectiveDate ?? "undated"}; ${item.why})`);
         } else {
-          summary.wouldRefetch += 1;
+          summary.wouldRefetch += 1; summary.newerAtSource.push(item.icao);   // counted apart from "no copy yet" (2026-11-03)
           await recordLastCheck(item.copy, { at, ok: true, sourceEffectiveDate: source.effectiveDate, newer: true });
           log(`${item.icao}: newer at the source (copy ${item.copy.effectiveDate ?? "undated"} → ${source.effectiveDate ?? "undated"}); check-only, kept`);
         }

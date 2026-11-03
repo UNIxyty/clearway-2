@@ -395,7 +395,13 @@ function checkAipCopiesAge(): Promise<Outcome> {
       if (l.failed.length) return { state: "degraded", error: line };
       // Copies older than the source are what this row is about (2026-11-03: 17 such copies read operational, because
       // only failures counted). Check-only mode keeps them on purpose; the row says so instead of looking current.
-      if (l.wouldRefetch) return { state: "degraded", error: `${line} ${l.wouldRefetch} cop${l.wouldRefetch === 1 ? "y is" : "ies are"} older than the source and kept: the refresh is check-only until it is switched to download.` };
+      // "would refetch" is two things: copies the source has replaced, and airports with flights that have no copy at all
+      // (2026-11-03: both were called "older than the source"). Runs before this split recorded only the total.
+      const lx = l as typeof l & { newerAtSource?: string[]; noCopyYet?: string[] };
+      if (lx.newerAtSource || lx.noCopyYet) {
+        const parts = [lx.newerAtSource?.length ? `${lx.newerAtSource.length} cop${lx.newerAtSource.length === 1 ? "y is" : "ies are"} older than the source (${lx.newerAtSource.slice(0, 6).join(", ")})` : null, lx.noCopyYet?.length ? `${lx.noCopyYet.length} airport${lx.noCopyYet.length === 1 ? "" : "s"} with flights this week have no copy at all (${lx.noCopyYet.slice(0, 6).join(", ")}${lx.noCopyYet.length > 6 ? "…" : ""})` : null].filter(Boolean);
+        if (parts.length) return { state: "degraded", error: `${line} ${parts.join("; ")}. The refresh is check-only, so nothing is fetched.` };
+      } else if (l.wouldRefetch) return { state: "degraded", error: `${line} ${l.wouldRefetch} would be fetched in download mode: copies older than the source, or airports with flights and no copy. The refresh is check-only, so nothing is fetched.` };
       if (state.tableHorizonOk === false) return { state: "degraded", error: `${line} The AIRAC date table (data/airac-dates.json) runs out within six months.` };
       return { state: "operational", error: null };
     }

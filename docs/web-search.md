@@ -59,3 +59,23 @@ rule, so the mark and the filter always agree.
     that a citation came back.
 - **The eight test prompts on production's key:**
   `AGENT_CODE=checkout scripts/check-accounts.sh run agent-web-prompts`.
+
+## What the API does that the docs did not say (measured on production's key, 3 Nov 2026)
+
+1. **A tool result that holds `search_result` blocks may hold nothing else.** "If any blocks in a tool result are of
+   type `search_result`, all blocks must be of that type." The tool's note and its pass therefore go beside the results,
+   as text in the same user message. The first run of the eight prompts failed every Tavily turn on this.
+2. **A search the model asks for can be left unanswered.** If it asks for searches in the same response as one of our
+   tools (`widen_web_search`), those searches stay pending. The API runs them at the start of the next request, under
+   that request's settings. So a widen in that response would have let pass-one searches run unrestricted (question 3
+   of the ten). Pass two now begins only on a round with no search pending. Each search is labelled by the request it
+   ran under, and a pass-one result outside the approved list is logged ("the filter was not applied").
+3. **`user_location.country` "LV" is refused.** Riga goes by city and time zone.
+4. **A 400 is a fault in our request.** It used to read as "the model is not available" (a Bedrock-era mapping) and
+   set off a fallback to another model. It is now a refused call (`model_error`), never retried on another model.
+
+## Browser check
+
+`rig/web-citations-ui.mjs` needs a console build (`rig/build-portal.sh`), so it is not in `run-all-suites.sh`. It
+checks desk and phone widths, light and dark: each claim's number, the mark on the one unapproved claim, the markdown
+intact, the sources' classes, and Settings › Web search (18 checks, passing 3 Nov).

@@ -8,6 +8,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
 [ -f .env.rig ] || { echo "no .env.rig — run rig/db.sh start first"; exit 2; }
 set -a; . ./.env.rig; set +a
 export CW_RIG_BUILD=1   # the rig's build only: keeps the rig switch in (next.config.mjs); every other build strips it
+# Next's build starts by clearing .next with a delete that FOLLOWS symlinked folders (next/dist/lib/recursive-delete.js):
+# on 2026-11-04 a worktree whose node_modules was a link to the main checkout's left such a link in .next/standalone,
+# and the next build emptied the main checkout's node_modules. So: no linked node_modules, and no links left in .next.
+[ -L node_modules ] && { echo "REFUSED: node_modules is a symlink ($(readlink node_modules)); a build would delete through it. Install here: npm ci"; exit 2; }
+[ -d .next ] && find .next -type l -print -delete | sed 's/^/removed link before build: /'
 rm -rf .next/cache/fetch-cache            # responses cached by an earlier build may be production data
 npm run build
 rm -f .next/standalone/.env .next/standalone/.env.*

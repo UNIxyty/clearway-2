@@ -1,60 +1,15 @@
-// Reranking — the cheapest large quality gain available, per the brief.
-//
-// THE CONSTRAINT: Cohere Rerank is not offered in eu-north-1 (established in
-// Part 0 and re-confirmed for Part 4; `--list` shows Cohere Embed only). Moving
-// this one call to a US region would take flight-operations text out of the EU,
-// which is not a trade worth making for ranking.
-//
-// So: the Cohere path is implemented and is used the moment a rerank model
-// appears in an EU region, and until then the fallback is a listwise LLM
-// reranker on the cheap tier. It is a real cross-encoder-style pass — the model
-// sees the query and each candidate together, which is exactly what a bi-encoder
-// embedding cannot do — at a fraction of the reasoning model's cost.
-//
-// The chosen path is recorded on every retrieval, so an answer's ranking
-// provenance is never a guess.
+// Reranking: a listwise LLM pass on the fast tier over the full-text candidates (tier 2 only). The model sees the
+// question and each candidate together, which a word match cannot do. The Bedrock Cohere path went with the AWS
+// account (2026-11-03). If the pass fails, the search order stands and the result says so (method "search-order").
 
-import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
-import { loadModelConfig } from "../models.mjs";
-// converseOnce already walks the tier's candidate list and falls through when a
-// model is unavailable to this account. Calling Bedrock directly here meant
-// taking only the first candidate — which is account-gated — so reranking
-// silently degraded to embedding order on every request.
 import { converseOnce } from "../bedrock.mjs";
 
 const TIMEOUT_MS = 30_000;
 let lastRerankModelId = null;
 
-let client = null;
-function runtime() {
-  if (!client) client = new BedrockRuntimeClient({ region: loadModelConfig().region });
-  return client;
-}
-
-function cohereRerankModelId() {
-  // Empty unless an EU rerank model exists; set BEDROCK_RERANK_MODEL_ID to enable.
-  return String(process.env.BEDROCK_RERANK_MODEL_ID || "").trim();
-}
-
-async function cohereRerank(query, candidates, topN) {
-  const modelId = cohereRerankModelId();
-  const response = await runtime().send(
-    new InvokeModelCommand({
-      modelId,
-      contentType: "application/json",
-      accept: "application/json",
-      body: JSON.stringify({ query, documents: candidates.map((c) => c.text), top_n: topN, api_version: 2 }),
-    }),
-    { abortSignal: AbortSignal.timeout(TIMEOUT_MS) }
-  );
-  const payload = JSON.parse(Buffer.from(response.body).toString("utf8"));
-  if (!Array.isArray(payload.results)) throw new Error("Cohere rerank returned no results");
-  return payload.results.map((r) => ({ ...candidates[r.index], rerankScore: r.relevance_score }));
-}
-
 /**
  * Listwise LLM rerank. Asks for indices in relevance order and nothing else;
- * anything unparseable falls back to the embedding order rather than throwing,
+ * anything unparseable falls back to the search order rather than throwing,
  * because a worse ORDER is recoverable and a failed answer is not.
  */
 async function llmRerank(query, candidates, topN) {
@@ -102,18 +57,12 @@ export async function rerank(query, candidates, { topN = 8 } = {}) {
   if (candidates.length === 0) return { results: [], model: null, method: "none" };
   if (candidates.length === 1) return { results: candidates, model: null, method: "single" };
 
-  if (cohereRerankModelId()) {
-    try {
-      return { results: await cohereRerank(query, candidates, topN), model: cohereRerankModelId(), method: "cohere-rerank" };
-    } catch (error) {
-      process.stderr.write(`[rerank] Cohere rerank failed, falling back to LLM: ${error.message}\n`);
-    }
-  }
   try {
     const results = await llmRerank(query, candidates, topN);
     return { results, model: lastRerankModelId, method: "llm-listwise" };
   } catch (error) {
-    process.stderr.write(`[rerank] LLM rerank failed, using embedding order: ${error.message}\n`);
-    return { results: candidates.slice(0, topN), model: null, method: "embedding-order" };
+    // a fallback, said (2026-11-03): the result carries it, so the tool's audit row has it
+    process.stderr.write(`[rerank] LLM rerank failed, using search order: ${error.message}\n`);
+    return { results: candidates.slice(0, topN), model: null, method: "search-order", fallback: { kind: "rerank", to: "search-order", reason: String(error?.message ?? error).slice(0, 200) } };
   }
 }

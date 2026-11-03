@@ -11,7 +11,6 @@
 // object says so, so the panel can put it in the ink frame and the model is
 // told not to restate it in its own words.
 
-import { embed, activeEmbeddingModel } from "./embeddings.mjs";
 import { rerank } from "./rerank.mjs";
 
 const REST_TIMEOUT_MS = 20_000;
@@ -20,23 +19,14 @@ const REST_TIMEOUT_MS = 20_000;
 // off-topic paragraph, a weak tier-1 hit is an unrelated RULE presented as
 // authoritative. Enforced in the RPC and again here, so an older deployed
 // function cannot quietly reintroduce unfiltered neighbours.
-const MIN_SIMILARITY_TIER1 = Number(process.env.AGENT_MIN_SIMILARITY_TIER1 || 0.40);
-const MIN_SIMILARITY_TIER2 = Number(process.env.AGENT_MIN_SIMILARITY_TIER2 || 0.25);
+// Scores are now the share of the question's words a passage holds (0..1), not a cosine similarity (2026-11-03).
+const MIN_SIMILARITY_TIER1 = Number(process.env.AGENT_MIN_COVERAGE_TIER1 || 0.5);
+const MIN_SIMILARITY_TIER2 = Number(process.env.AGENT_MIN_COVERAGE_TIER2 || 0.34);
+export const SEARCH_METHOD = "postgres-fts (english)";
 
 function url() { return String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim().replace(/\/+$/, ""); }
 function key() { return String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim(); }
 export function knowledgeConfigured() { return Boolean(url() && key()); }
-
-async function rpc(fn, args) {
-  const response = await fetch(`${url()}/rest/v1/rpc/${fn}`, {
-    method: "POST",
-    headers: { apikey: key(), Authorization: `Bearer ${key()}`, "Content-Type": "application/json" },
-    body: JSON.stringify(args),
-    signal: AbortSignal.timeout(REST_TIMEOUT_MS),
-  });
-  if (!response.ok) throw new Error(`${fn} -> ${response.status}: ${(await response.text()).slice(0, 240)}`);
-  return response.json();
-}
 
 export async function rest(pathAndQuery, init = {}) {
   const headers = { apikey: key(), Authorization: `Bearer ${key()}`, "Content-Type": "application/json", ...(init.headers ?? {}) };
@@ -49,8 +39,8 @@ export async function rest(pathAndQuery, init = {}) {
 function tier1Source(row) {
   return {
     source: row.source_document,
-    documentId: null,
-    recordId: row.record_id,
+    documentId: row.document_id ?? null,
+    recordId: row.id,
     reference: row.reference,
     title: row.title,
     version: row.version ?? null,
@@ -62,27 +52,27 @@ function tier1Source(row) {
     verbatim: true,
     approvedBy: row.approved_by_email ?? null,
     approvedAt: row.approved_at ?? null,
-    score: row.similarity ?? null,
+    score: row.score ?? null,
     rerankScore: null,
   };
 }
 
 function tier2Source(row) {
   return {
-    source: row.source ?? row.title,
+    source: row.agent_documents?.source ?? row.agent_documents?.title,
     documentId: row.document_id,
-    recordId: row.chunk_id,
+    recordId: row.id,
     reference: row.heading ?? null,
-    title: row.title,
-    version: row.version ?? null,
-    effectiveDate: row.effective_date ?? null,
-    retrievalType: "tier2-semantic",
+    title: row.agent_documents?.title ?? null,
+    version: row.agent_documents?.version ?? null,
+    effectiveDate: row.agent_documents?.effective_date ?? null,
+    retrievalType: "tier2-fulltext",
     tier: "tier2",
     text: row.text,
     verbatim: false,
     page: row.page ?? null,
     heading: row.heading ?? null,
-    score: row.similarity ?? null,
+    score: row.score ?? null,
     rerankScore: null,
   };
 }
@@ -96,68 +86,69 @@ function tier2Source(row) {
  * limitation because a manual paragraph reads more relevant would be exactly
  * the failure this design exists to prevent.
  */
+// Postgres full-text search (2026-11-03), replacing Bedrock embeddings: the corpus is one document and a handful of
+// verbatim records, so matching runs on the columns at query time through PostgREST's fts filter (to_tsvector('english',
+// text) @@ to_tsquery(...)), with the question's words joined by OR. Ranking is ours: the share of the question's words a
+// passage holds, plus a little for how often. An index migration (a tsvector column with GIN) is for when it grows.
+const STOP = new Set("a an and are as at be by can do does for from has have how i in is it its may me my of on or our please should so that the there this to was we what when where which who why will with would you your".split(" "));
+export function queryTerms(q) {
+  return [...new Set(String(q ?? "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").match(/[a-z0-9]{2,}/g) ?? [])].filter((t) => !STOP.has(t)).slice(0, 16);
+}
+/** A word's stem, roughly as Postgres's English stemmer would cut it: enough for scoring what Postgres already matched. */
+const stem = (t) => (t.length > 5 ? t.slice(0, Math.max(4, t.length - 3)) : t);
+export function coverage(text, terms) {
+  if (!terms.length) return 0;
+  const low = String(text ?? "").toLowerCase();
+  let hit = 0, freq = 0;
+  for (const t of terms) { const re = new RegExp(`\\b${stem(t)}`, "g"); const n = (low.match(re) ?? []).length; if (n) { hit += 1; freq += n; } }
+  return Math.round(((hit / terms.length) * 0.85 + Math.min(0.15, freq / 100)) * 1000) / 1000;
+}
+const scopeFilter = (icao, country, today, withExpiry) => {
+  const parts = [];
+  if (icao) parts.push(`or(icao.is.null,icao.eq.${encodeURIComponent(icao)})`);
+  if (country) parts.push(`or(country.is.null,country.eq.${encodeURIComponent(country)})`);
+  if (withExpiry) parts.push(`or(expires_date.is.null,expires_date.gte.${today})`);
+  return parts.length ? `and=(${parts.join(",")})` : "";
+};
+
 export async function searchKnowledge(query, { icao = null, country = null, limit = 8, tier = "both" } = {}) {
   if (!knowledgeConfigured()) throw new Error("The knowledge base is not configured.");
-  const [vector] = await embed(query, { purpose: "query" });
-  const embeddingModel = activeEmbeddingModel();
-
+  const terms = queryTerms(query);
   const wantTier1 = tier === "both" || tier === "tier1";
   const wantTier2 = tier === "both" || tier === "tier2";
+  const failures = []; const fallbacks = [];
+  if (!terms.length) return { query, tier1: [], tier2: [], embeddingModel: SEARCH_METHOD, rerankModel: null, rerankMethod: "none", candidateCount: 0, failures, fallbacks };
+  const tsq = encodeURIComponent(terms.join(" | "));
+  const today = new Date().toISOString().slice(0, 10);
 
-  // A swallowed RPC error here is indistinguishable from an empty corpus, which
-  // is exactly how a broken migration hid for a whole test run. Failures are
-  // surfaced on stderr and the tier is reported as errored, not as empty.
-  const failures = [];
-  const safeRpc = async (fn, args) => {
-    try {
-      return await rpc(fn, args);
-    } catch (error) {
-      failures.push(`${fn}: ${error.message}`);
-      process.stderr.write(`[retrieval] ${fn} FAILED: ${error.message}\n`);
-      return [];
-    }
-  };
-
+  // A failed search is reported as failed, never as empty (an empty result hid a broken migration once).
+  const safe = async (what, path) => { try { return (await rest(path)) ?? []; } catch (error) { failures.push(`${what}: ${error.message}`); process.stderr.write(`[retrieval] ${what} FAILED: ${error.message}\n`); return []; } };
+  const t1 = scopeFilter(icao, country, today, true);
+  const t2 = scopeFilter(icao, country, today, false).replace(/^and=/, "agent_documents.and=");
   const [tier1Rows, tier2Rows] = await Promise.all([
-    wantTier1
-      ? safeRpc("agent_match_tier1", { query_embedding: vector, match_count: Math.min(limit, 10), filter_icao: icao, filter_country: country, min_similarity: MIN_SIMILARITY_TIER1 })
-      : Promise.resolve([]),
-    wantTier2
-      ? safeRpc("agent_match_chunks", { query_embedding: vector, match_count: 24, filter_icao: icao, filter_country: country, min_similarity: MIN_SIMILARITY_TIER2 })
-      : Promise.resolve([]),
+    wantTier1 ? safe("tier 1 search", `agent_tier1_records?select=id,document_id,reference,title,text,source_document,version,effective_date,approved_by_email,approved_at&retired_at=is.null&text=fts(english).${tsq}${t1 ? `&${t1}` : ""}&limit=200`) : [],
+    wantTier2 ? safe("tier 2 search", `agent_chunks?select=id,document_id,ordinal,text,page,heading,agent_documents!inner(title,source,version,effective_date,status)&agent_documents.status=in.(indexed,approved)&text=fts(english).${tsq}${t2 ? `&${t2}` : ""}&limit=300`) : [],
   ]);
 
-  const tier1 = (tier1Rows ?? []).map(tier1Source).filter((s) => (s.score ?? 0) >= MIN_SIMILARITY_TIER1);
-  // The match function returns the clause, not which document holds it. The viewer needs the
-  // document to open the source at the passage (§V6), so look it up for the records that matched.
-  const recordIds = tier1.map((s) => s.recordId).filter(Boolean);
-  if (recordIds.length > 0) {
-    try {
-      const where = await rest(`agent_tier1_records?id=in.(${recordIds.map((id) => encodeURIComponent(id)).join(",")})&select=id,document_id`);
-      const byId = new Map((where ?? []).map((r) => [r.id, r]));
-      for (const s of tier1) { const w = byId.get(s.recordId); if (w) s.documentId = w.document_id ?? null; }  // records carry no page: the viewer searches the whole file for the clause
-    } catch (error) {
-      console.warn(`[retrieval] tier1 record lookup failed: ${error?.message ?? error}`);
-    }
-  }
-  const candidates = (tier2Rows ?? []).map(tier2Source).filter((s) => (s.score ?? 0) >= MIN_SIMILARITY_TIER2);
+  const scored = (rows, min) => rows.map((r) => ({ ...r, score: coverage(`${r.title ?? ""} ${r.heading ?? ""} ${r.text}`, terms) })).filter((r) => r.score >= min).sort((a, b) => b.score - a.score);
+  const tier1 = scored(tier1Rows, MIN_SIMILARITY_TIER1).slice(0, Math.min(limit, 10)).map(tier1Source);
+  const candidates = scored(tier2Rows, MIN_SIMILARITY_TIER2).slice(0, 24).map(tier2Source);
 
   // Rerank tier 2 only — see the note above.
-  const reranked = candidates.length > 0
-    ? await rerank(query, candidates, { topN: limit })
-    : { results: [], model: null, method: "none" };
-
+  const reranked = candidates.length > 0 ? await rerank(query, candidates, { topN: limit }) : { results: [], model: null, method: "none" };
+  if (reranked.fallback) fallbacks.push(reranked.fallback);
   for (const r of reranked.results) r.rerankScore = r.rerankScore ?? null;
 
   return {
     query,
     tier1,
     tier2: reranked.results,
-    embeddingModel,
+    embeddingModel: SEARCH_METHOD,
     rerankModel: reranked.model,
     rerankMethod: reranked.method,
     candidateCount: candidates.length,
     failures,
+    fallbacks,
   };
 }
 

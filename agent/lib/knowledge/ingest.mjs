@@ -9,7 +9,6 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile, access } from "node:fs/promises";
 import path from "node:path";
 import { converseOnce } from "../bedrock.mjs";
-import { embed, activeEmbeddingModel } from "./embeddings.mjs";
 import { rest } from "./retrieval.mjs";
 import { logDetail } from "../public-errors.mjs";
 
@@ -160,26 +159,17 @@ export async function classifyDocument({ title, source, sample }) {
   }
 }
 
-/** Embed and store chunks. Tier 2 only — tier 1 records are indexed on approval. */
+/** Store chunks. Tier 2 only — tier 1 records are stored on approval. Searched by Postgres full text (retrieval.mjs,
+ * 2026-11-03): nothing to compute at upload, so indexing works again (the Bedrock embeddings it waited on are gone). */
 export async function indexDocument(document, text) {
   const chunks = chunkText(text);
   if (chunks.length === 0) return { chunks: 0 };
-  const model = activeEmbeddingModel();
-
-  for (let i = 0; i < chunks.length; i += 48) {
-    const slice = chunks.slice(i, i + 48);
-    const vectors = await embed(slice.map((c) => c.text), { purpose: "document", model });
+  for (let i = 0; i < chunks.length; i += 200) {
+    const slice = chunks.slice(i, i + 200);
     await rest("agent_chunks", {
       method: "POST",
       headers: { Prefer: "return=minimal" },
-      body: JSON.stringify(slice.map((c, j) => ({
-        document_id: document.id,
-        ordinal: c.ordinal,
-        text: c.text,
-        heading: c.heading ?? null,
-        embedding: vectors[j],
-        embedding_model: model,
-      }))),
+      body: JSON.stringify(slice.map((c) => ({ document_id: document.id, ordinal: c.ordinal, text: c.text, heading: c.heading ?? null }))),
     });
   }
   return { chunks: chunks.length };
@@ -192,7 +182,6 @@ export async function indexDocument(document, text) {
  */
 export async function approveTier1Record({ document, record, approver }) {
   if (!approver?.userId || !approver?.email) throw new Error("A named approver is required for Tier 1.");
-  const [vector] = await embed(`${record.title}\n\n${record.text}`, { purpose: "document" });
   const rows = await rest("agent_tier1_records", {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -211,7 +200,6 @@ export async function approveTier1Record({ document, record, approver }) {
       tags: record.tags ?? [],
       approved_by: approver.userId,
       approved_by_email: approver.email,
-      embedding: vector,
     }]),
   });
   return rows?.[0] ?? null;

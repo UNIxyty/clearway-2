@@ -8,7 +8,6 @@
 
 import { defineTool, S } from "./framework.mjs";
 import { searchKnowledge, logRetrieval, rest } from "../knowledge/retrieval.mjs";
-import { checkGrounding, groundingConfigured } from "../knowledge/grounding.mjs";
 import { REVISION_SCHEMA, attachDocumentRevisions, documentRevision, loadSiblings, preferCurrent, publicRevision, revisionNotesFor } from "../knowledge/revision.mjs";
 import { NotFound, ServiceUnavailable } from "./errors.mjs";
 
@@ -72,8 +71,9 @@ defineTool({
       verified: { type: "boolean", description: "False when nothing sufficiently relevant was found." },
       note: { type: ["string", "null"] },
       revisionNotes: { type: "array", items: { type: "string" }, description: "Documents that are superseded, not yet effective or of unknown revision. Say each next to the claim it supports." },
-      embeddingModel: { type: ["string", "null"] },
+      embeddingModel: { type: ["string", "null"], description: "How it was searched: postgres-fts (english) since 2026-11-03." },
       rerankMethod: { type: ["string", "null"] },
+      fallbacks: { type: "array", description: "Anything that fell back while searching (the rerank), with why." },
     },
   },
   async handler({ query, icao, country, tier, limit }, { user, conversationId }) {
@@ -109,7 +109,9 @@ defineTool({
     //
     // Calibrated on a small sample. Re-tune from agent_retrievals once a real
     // corpus exists; the scores are logged for exactly that.
-    const CONFIDENT = Number(process.env.AGENT_MIN_CONFIDENT_SIMILARITY || 0.32);
+    // Since 2026-11-03 a score is the share of the question's words a passage holds (Postgres full text), so the bar
+    // is coverage: at least half the meaningful words. Re-tune from agent_retrievals once a real corpus exists.
+    const CONFIDENT = Number(process.env.AGENT_MIN_CONFIDENT_COVERAGE || 0.5);
     const best = Math.max(0, ...[...result.tier1, ...result.tier2].map((s) => s.score ?? 0));
 
     const found = result.tier1.length + result.tier2.length;
@@ -128,10 +130,11 @@ defineTool({
         note:
           found === 0
             ? "Nothing in the knowledge base matched this question. Say that it could not be verified — do not answer from general knowledge."
-            : `Nothing matched closely enough to rely on (best similarity ${best.toFixed(2)}, below ${CONFIDENT}). Say the information could not be verified. Do not answer from general knowledge, and do not present the passages below as if they answered the question.`,
+            : `Nothing matched closely enough to rely on (best match ${best.toFixed(2)} of the question's words, below ${CONFIDENT}). Say the information could not be verified. Do not answer from general knowledge, and do not present the passages below as if they answered the question.`,
         revisionNotes,
         embeddingModel: result.embeddingModel,
         rerankMethod: result.rerankMethod,
+        fallbacks: result.fallbacks ?? [],
       };
     }
 
@@ -144,12 +147,13 @@ defineTool({
       note: [
         result.tier1.length > 0
           ? "The verbatim records are approved operational text. They are shown to the dispatcher word for word — explain around them, never in place of them."
-          : groundingConfigured() ? null : "Grounding verification is not configured, so this answer is unverified.",
+          : null,
         ...revisionNotes,
       ].filter(Boolean).join(" ") || null,
       revisionNotes,
       embeddingModel: result.embeddingModel,
       rerankMethod: result.rerankMethod,
+      fallbacks: result.fallbacks ?? [],
     };
   },
 });

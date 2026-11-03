@@ -39,13 +39,13 @@ accounts and smoke runs. "Would anyone have known?" is about before today.
 | Router (picks the tier) | `agent/lib/router.mjs` | 2026-11-02 | **No**: a failure falls back to "standard" silently | works | smoke `router` (fails if the answer came from the fallback) |
 | Intake extraction | `agent/lib/intake/extract.mjs` | 2026-10-08 (Sonnet 4.6 on Bedrock) | **No**: see #1 | works | smoke `extraction` (an invented request, read back) |
 | Knowledge upload: tier proposal | `agent/lib/knowledge/ingest.mjs` › classifyDocument | 2026-09-30 | **No**: a failure proposes "reference" silently | works | smoke `ingest-classify` (fails if the model did not answer) |
-| Knowledge upload: indexing (embeddings) | `agent/lib/knowledge/embeddings.mjs` (Bedrock) | 2026-09-30 | No | **dead since 31 Oct** (Bedrock) | smoke `knowledge` (same embedding call); replaced by the full-text search item |
-| Knowledge search | `agent/lib/knowledge/retrieval.mjs` (Bedrock embeddings) | 2026-09-26 | **No**: nobody had searched since September | **dead since 31 Oct**: every search is refused | smoke `knowledge`: it alarms from the first scheduled run until the full-text search replaces it |
-| Rerank | `agent/lib/knowledge/rerank.mjs` | with search | No | only reached after embeddings, so dead with them | smoke `knowledge` |
-| Grounding guardrail | `agent/lib/knowledge/grounding.mjs` (Bedrock) | none in a live path | — | not called by any live path; dead code | removed with the citations item |
+| Knowledge upload: indexing | `agent/lib/knowledge/ingest.mjs` | 2026-09-30 | No | **works again** (2026-11-03): no embedding step, Postgres full text | smoke `knowledge`; `rig/knowledge-fts-check.mjs` |
+| Knowledge search | `agent/lib/knowledge/retrieval.mjs` | 2026-09-26 | **No**: nobody had searched since September | dead 31 Oct → 2026-11-03, now **Postgres full text** (docs/knowledge-search.md) | smoke `knowledge` |
+| Rerank | `agent/lib/knowledge/rerank.mjs` | with search | No | the fast tier; a failure keeps the search order and says so (`fallbacks`) | smoke `knowledge` |
+| Grounding guardrail | — | — | — | **removed** 2026-11-03 (citations replace it) | — |
 | Web search (Tavily) | `agent/lib/tools/web.mjs` | 2026-09-24 | No | works | smoke `web-search` |
 | Voice: speech to text, text to speech (ElevenLabs) | `agent/lib/voice/` | 2026-09-27 | No | works | smoke `voice`: speaks a sentence, hears it back, compares the words |
-| AI rewrite of AIP text (OpenRouter/OpenAI) | `app/api/aip/gen-non-ead`, `app/api/aip/usa`, `scripts/ead-extract-aip-from-pdf-ai.mjs` | never on production | — | **off**: no key in any container; returns the raw text | nothing to defend while it is off; a decision to remove it or give it a key |
+| AI rewrite and extraction of AIP text | — | never on production | — | **removed** 2026-11-03: no model writes AIP data (the GEN rewrite, USA field extraction, and the Claude-vision extractor the AIP sync ran, which failed on import on every sync) | — |
 | Model health probe | `converseOnce`'s "live probe" | — | — | wired to nothing | — |
 
 **How the smoke calls are defended themselves:**

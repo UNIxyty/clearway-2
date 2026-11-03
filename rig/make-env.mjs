@@ -41,7 +41,7 @@ const lines = [
   "ELEVENLABS_API_BASE=http://127.0.0.1:3986",
   "ELEVENLABS_REALTIME_URL=ws://127.0.0.1:3999/__elevenlabs/v1/speech-to-text/realtime",
 ];
-const MODEL_KEYS = ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "BEDROCK_REGION", "BEDROCK_GUARDRAIL_ID", "BEDROCK_GUARDRAIL_VERSION", "TAVILY_API_KEY", "CHECKWX_API_KEY"];
+const MODEL_KEYS = ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "BEDROCK_REGION", "TAVILY_API_KEY", "CHECKWX_API_KEY"];
 const PHRASE = "yes, copy model keys into the rig";
 if (process.env.RIG_COPY_MODEL_KEYS === PHRASE && fs.existsSync(path.join(root, ".env"))) {
   const src = Object.fromEntries(fs.readFileSync(path.join(root, ".env"), "utf8").split("\n").filter((l) => /^[A-Z_]+=/.test(l)).map((l) => { const i = l.indexOf("="); return [l.slice(0, i), l.slice(i + 1)]; }));

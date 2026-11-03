@@ -1,3 +1,5 @@
+> **The grounding guardrail was removed on 2026-11-03 (the AWS account is gone; citations replace it, shown beside each claim). This page is history.**
+
 # Bedrock Guardrail — contextual grounding for the agent
 
 The grounding check is what separates *"the model wrote something plausible"*

@@ -1,3 +1,5 @@
+> **Bedrock is no longer used (2026-11-02: the agent calls the Anthropic API; 2026-11-03: embeddings, rerank and the guardrail removed, knowledge search is Postgres full text). This page is history.**
+
 # AWS + Amazon Bedrock for the dispatcher agent (Part 0 / P5)
 
 The agent service calls models through **Amazon Bedrock** only (Anthropic Claude, Amazon Nova,

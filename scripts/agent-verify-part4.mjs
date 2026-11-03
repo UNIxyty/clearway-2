@@ -173,14 +173,7 @@ async function main() {
     nothing.verified === false && (nothing.verbatim ?? []).length === 0 && /could not be verified/i.test(nothing.note ?? ""),
     nothing.verified === false ? `verified:false — "${String(nothing.note).slice(0, 80)}…"` : `verified=${nothing.verified} verbatim=${nothing.verbatim?.length} reference=${nothing.reference?.length}`);
 
-  // ── Grounding rejects unsupported output ────────────────────────────────
-  const { checkGrounding, groundingConfigured } = await import("../agent/lib/knowledge/grounding.mjs");
-  check("a guardrail is configured", groundingConfigured());
-  const sources = [{ text: stored?.[0]?.text ?? "" }];
-  const good = await checkGrounding({ query: "Can we operate into LLBG at 2am?", answer: "No — LLBG is closed between 0100 and 0430 local, except for pre-approved medical evacuation flights.", sources });
-  check("grounding PASSES a supported answer", good.ran && good.verified, good.scores?.map((s) => `${s.type.toLowerCase()} ${s.score?.toFixed(2)}`).join(" · "));
-  const bad = await checkGrounding({ query: "Can we operate into LLBG at 2am?", answer: "Yes — LLBG is open 24 hours, and a night surcharge of 400 EUR applies.", sources });
-  check("grounding REJECTS an unsupported answer", bad.ran && !bad.verified, bad.reason ?? "");
+  // (Grounding through the Bedrock guardrail was removed on 2026-11-03: citations show the source beside each claim.)
 
   // ── The retrieval log can reconstruct what supported an answer ──────────
   // The MOST RECENT retrieval is the deliberately-unanswerable one, which

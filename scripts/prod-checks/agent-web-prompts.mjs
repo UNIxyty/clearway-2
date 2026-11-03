@@ -32,6 +32,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
   const { costUsd } = await import(`${root}/lib/routing.mjs`);
   const { sourcesFromToolCalls } = await import(`${root}/lib/tools/framework.mjs`);
   const { citationsToClaims } = await import(`${root}/lib/citations.mjs`);
+  const { checkQuestion } = await import(`${root}/lib/question-check.mjs`);
   const user = { userId: u.id, email: u.email, name: "Check account", agentRole: "user", accessToken: u.bearer, cookieHeader: u.cookie };
   const only = String(process.env.ONLY || "").split(",").filter(Boolean);
   let total = 0;
@@ -40,9 +41,16 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     const saved = {}; for (const [k, v] of Object.entries(p.env ?? {})) { saved[k] = process.env[k]; process.env[k] = v; }
     const started = Date.now();
     let text = "", thought = "", done = null, err = null; const tools = [];
+    // the question check, as the chat route runs it (prompts marked check: the ten questions)
+    const qc = p.check ? await checkQuestion(p.q, user) : { ask: null, note: null, codes: [], dates: [], fallback: null };
+    if (qc.ask) {
+      for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+      console.log(`\n━━━━ ${p.k}. ${p.title}\nQ: ${p.q}\nquestion check → ASKED, nothing searched · codes: ${qc.codes.map((c) => `${c.code} = ${c.is ?? "?"}${c.mismatch ? " (mismatch)" : ""}${c.kind === "unknown" ? " (unknown)" : ""}`).join("; ")}\n\nANSWER (as written):\n${qc.ask}`);
+      ok(true, `${p.k}: asked`); continue;
+    }
     const route = await routeTurn({ question: p.q, hasHistory: false, allowReasoning: true });
     try {
-      for await (const ev of streamConversationWithTools({ tier: route.tier, system: `${systemPrompt()}\n\n${currentTimeLine()}`, messages: [{ role: "user", content: p.q }], user, conversationId: null })) {
+      for await (const ev of streamConversationWithTools({ tier: route.tier, system: [systemPrompt(), currentTimeLine(), qc.note].filter(Boolean).join("\n\n"), messages: [{ role: "user", content: p.q }], user, conversationId: null })) {
         if (ev.type === "delta") text += ev.text;
         else if (ev.type === "thought") { if (text.endsWith(ev.text)) text = text.slice(0, text.length - ev.text.length); thought += ev.text; }
         else if (ev.type === "tool") tools.push(ev);
@@ -53,6 +61,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     const secs = Math.round((Date.now() - started) / 1000);
     console.log(`\n━━━━ ${p.k}. ${p.title}`);
     console.log(`Q: ${p.q}`);
+    if (p.check) console.log(`question check → went ahead · codes: ${qc.codes.map((c) => `${c.code} = ${c.is ?? "?"}`).join("; ") || "none"}${qc.dates?.length ? ` · dates: ${qc.dates.map((d) => `${d.written} = ${d.iso} (${d.past ? `${-d.days} days ago` : `in ${d.days} days`})`).join("; ")}` : ""}${qc.fallback ? ` · CHECK FELL BACK: ${qc.fallback.reason}` : ""}`);
     if (err || !done) { console.log(`FAILED: ${err?.code ?? ""} ${String(err?.message ?? "no answer").slice(0, 200)}`); ok(false, `${p.k}: answered`, err?.code ?? "no done"); continue; }
     const c = citationsToClaims({ answer: text, answerBlocks: done.answerBlocks ?? [], sources: sourcesFromToolCalls(tools), web: done.web, toolCalls: tools });
     const w = done.web ?? {};

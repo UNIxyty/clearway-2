@@ -73,6 +73,14 @@ const api = http.createServer(async (req, res) => {
   // the API's own rule (measured 2026-11-03), so the stand-in cannot accept what production refuses
   const mixed = (body.messages ?? []).some((m) => Array.isArray(m.content) && m.content.some((c) => c.type === "tool_result" && Array.isArray(c.content) && c.content.some((x) => x.type === "search_result") && c.content.some((x) => x.type !== "search_result")));
   if (mixed) { res.writeHead(400, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "tool_result: if any blocks in a tool result are of type `search_result`, all blocks must be of that type" } })); }
+  // the question check (lib/question-check.mjs): a mismatch in the rig's question gets the question back
+  if (!body.stream && /You check a flight dispatcher's question/.test(JSON.stringify(body.system ?? ""))) {
+    const q = JSON.stringify(body.messages ?? "");
+    const verdict = /ZSPD/.test(q)
+      ? { codes: [{ code: "ZSPD", is: "Shanghai Pudong, China", kind: "aerodrome", writtenAs: "Hong Kong", mismatch: true }, { code: "VHHH", is: "Hong Kong International", kind: "aerodrome", writtenAs: "Macao", mismatch: true }], ask: "You've written Hong Kong ZSPD and Macao VHHH, but ZSPD is Shanghai Pudong and VHHH is Hong Kong — Macao is VMMC. Which pair did you mean?\n• Hong Kong VHHH and Macao VMMC\n• Shanghai ZSPD and Hong Kong VHHH" }
+      : { codes: [{ code: "EVRA", is: "Riga International, Latvia", kind: "aerodrome", writtenAs: null, mismatch: false }], ask: null };
+    res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ content: [{ type: "text", text: JSON.stringify(verdict) }], stop_reason: "end_turn", usage: { input_tokens: 10, output_tokens: 5 } }));
+  }
   const isRouter = !(body.tools ?? []).length && /classif|tier/i.test(JSON.stringify(body.system ?? "")) ;
   if (isRouter || !body.stream) { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ content: [{ type: "text", text: '{"tier":"standard","confidence":0.9,"reason":"rig"}' }], stop_reason: "end_turn", usage: { input_tokens: 10, output_tokens: 5 } })); }
   const round = body.messages.filter((m) => m.role === "assistant").length;
@@ -156,6 +164,15 @@ try {
   ok(res1?.is_error === true && /approved sources first/i.test(JSON.stringify(res1.content)), "widen_web_search before any approved search is refused, and says why", JSON.stringify(res1?.content ?? null).slice(0, 140));
   const ws1 = seen.filter((b) => b.stream)[1]?.tools?.find((x) => x.type === "web_search_20250305");
   ok(ws1?.allowed_domains?.length > 0, "…and the next round is still pass one", wf.done ? "answered" : "no answer");
+  // ── 5. the question check: a code that does not match its place name is asked about, and nothing is searched ──
+  script = "turn"; seen.length = 0; tavilySeen.length = 0;
+  const q1 = await chat(5191, "Do you need to submit API or flight to Hong Kong ZSPD same as for flight to Macao VHHH.");
+  ok(/ZSPD is Shanghai Pudong/.test(q1.done?.content ?? "") && /Which pair did you mean/.test(q1.done?.content ?? ""), "question 1 as written gets a question back, naming what each code actually is", (q1.done?.content ?? JSON.stringify(q1.error)).slice(0, 120));
+  ok(seen.filter((b) => b.stream).length === 0 && tavilySeen.length === 0 && q1.done?.routing?.source === "question-check", "…and nothing was searched: no turn, no web search (the router was not even asked)", `${seen.filter((b) => b.stream).length} turn call(s), ${tavilySeen.length} Tavily`);
+  const { candidateCodes, datesIn } = await import("../agent/lib/question-check.mjs");
+  ok(JSON.stringify(candidateCodes("Direct flight possible? LTBS-LCLK, UDYZ-UBBB. B735 with 64PAX, FBO or GAT, ASAP")) === JSON.stringify(["LTBS", "LCLK", "UDYZ", "UBBB"]), "codes: four capitals standing alone, routes split, aircraft types, PAX and plain words left out");
+  const d10 = datesIn("Any restrictions for Marsell FIR LFMM for 08Oct2026?", now)[0];
+  ok(d10?.iso === "2026-10-08" && d10.past === true && d10.days === -26, "08Oct2026 on 3 Nov resolves to 8 October 2026, 26 days ago (past)", JSON.stringify(d10));
 } finally { A.child.kill(); }
 
 // ── 4. the ceiling reached mid-turn ──

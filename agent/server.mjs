@@ -39,6 +39,7 @@ import { audit, storeConfigured, agentEnabled } from "./lib/store.mjs";
 import { streamConversationWithTools } from "./lib/bedrock.mjs";
 import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
 import { citationsToClaims } from "./lib/citations.mjs";
+import { checkQuestion } from "./lib/question-check.mjs";
 import { webSettings, setWebSettings } from "./lib/web-sources.mjs";
 import { SOURCE_TIERS, setCapabilityGate, actionsFromToolCalls, airportsFromToolCalls, documentsFromToolCalls, filesFromToolCalls, flightCardsFromToolCalls, monoFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
 import {
@@ -1453,6 +1454,25 @@ async function handleChat(req, res, user) {
     blocks: attachments.length || pageContext ? { ...(attachments.length ? { attachments: attachmentStatus } : {}), ...(pageContext ? { pageContext } : {}) } : null,
   });
 
+  // ── The question, checked before anything is searched (lib/question-check.mjs, 2026-11-03) ──
+  // A code that does not match the place written next to it, or is no known code, gets a question back and nothing
+  // is researched. Dates are resolved here and handed to the turn. A check that could not run is a recorded fallback.
+  const qcheck = question && !pinTool
+    ? await checkQuestion(question, user).catch((e) => ({ ask: null, note: null, codes: [], fallback: { kind: "question-check", reason: String(e?.message ?? e).slice(0, 120) } }))
+    : { ask: null, note: null, codes: [], fallback: null };
+  if (qcheck.ask) {
+    res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform", connection: "keep-alive", "x-accel-buffering": "no" });
+    const sendQ = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    sendQ("start", { conversationId, title: conversation.title, requestedTier: null, effectiveTier: null, tools: [] });
+    sendQ("delta", { text: qcheck.ask });
+    const routingBlock = { startTier: null, finalTier: null, source: "question-check", reason: "a code in the question does not match the place written next to it, or is not a known code: asked before researching", confidence: null, escalations: [], modelId: null, costUsd: null };
+    await appendMessage({ conversationId, role: "assistant", content: qcheck.ask, blocks: { routing: routingBlock }, sources: [], toolActivity: [], modelId: null, modelTier: null, inputTokens: null, outputTokens: null });
+    sendQ("done", { conversationId, modelId: null, modelTier: null, routing: routingBlock, thinking: null, routeSource: "question-check", routeReason: routingBlock.reason, stopReason: "asked", inputTokens: null, outputTokens: null, cacheReadTokens: 0, cacheWriteTokens: 0, sources: [], verbatim: [], flights: [], actions: [], mono: [], documents: [], files: [], airports: [], confirmations: [], claims: [], content: qcheck.ask, toolActivity: [], latencyMs: Date.now() - startedAt });
+    await audit({ kind: "chat.response", userId: user.userId, userEmail: user.email, conversationId, modelTier: null, modelId: null, success: true, latencyMs: Date.now() - startedAt, confirmationStatus: "not_required", detail: { route: { source: "question-check" }, questionCheck: { asked: true, codes: qcheck.codes.map((c) => ({ code: c.code, kind: c.kind ?? null, mismatch: c.mismatch ?? null })) }, sourceCount: 0 } });
+    res.end();
+    return;
+  }
+
   // ── Routing ─────────────────────────────────────────────────────────────
   // The caller may pin a tier; otherwise the router classifies. The router
   // NEVER answers — it returns a tier and a reason, both of which are audited,
@@ -1543,7 +1563,7 @@ async function handleChat(req, res, user) {
         { text: modelQuestion },
       ]
     : modelQuestion;
-  const system = [systemPrompt(), currentTimeLine(), languageDirective(voiceLanguage), body.system ? String(body.system) : null, contextLine, memory.text, attachmentRule, pageRule]
+  const system = [systemPrompt(), currentTimeLine(), languageDirective(voiceLanguage), body.system ? String(body.system) : null, contextLine, memory.text, attachmentRule, pageRule, qcheck.note]
     .filter(Boolean)
     .join("\n\n") || undefined;
 
@@ -1650,6 +1670,7 @@ async function handleChat(req, res, user) {
       ...(route.source === "fallback" || route.source === "unparsed" ? [{ kind: "router", to: route.tier, reason: route.reason }] : []),
       ...(retried ? [{ kind: "retry", from: retried.from, to: retried.to, reason: retried.reason }] : []),
       ...(done?.fallbacks ?? []),
+      ...(qcheck.fallback ? [qcheck.fallback] : []),
     ];
     const routingBlock = { startTier: route.tier, finalTier, source: route.source, reason: route.reason, confidence: route.confidence ?? null, escalations, modelId: done?.modelId ?? null, costUsd: turnCost, ...(fallbacks.length ? { fallbacks } : {}) };
     await appendMessage({

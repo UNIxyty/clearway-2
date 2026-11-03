@@ -4,13 +4,19 @@ import { MOBILE_CHROME, MONO } from './mobileChrome';
 import { hmsZ } from './mobileUtil';
 
 /** LIVE / CONNECTING / RECONNECTING / STALE chip (design A1/A5/B1/B2). */
-export function ConnChip({ status }) {
+// feedUnknown (2026-11-03): the stream is live but the Leon feed's verdict could not be read — said, in grey, never an alarm
+export function ConnChip({ status, feedUnknown = false, feed = null }) {
   const chrome = chromeFor(useWallColors());
+  const feedWord = { failing: 'LEON ERROR', not_set_up: 'LEON NOT SET UP' }[feed];
   const v =
-    status === 'live'
+    status === 'live' && feedUnknown
+      ? { bg: chrome.insetBg, border: chrome.gridLine, dot: chrome.legendLabel, text: chrome.legendLabel, label: 'LIVE · FEED UNKNOWN' }
+    : status === 'partial'
+      ? { bg: MOBILE_CHROME.staleBannerBg, border: MOBILE_CHROME.staleBannerBorder, dot: MOBILE_CHROME.staleDot, text: MOBILE_CHROME.staleTitle, label: 'LEON PARTIAL' }
+    : status === 'live'
       ? { bg: MOBILE_CHROME.liveBg, border: MOBILE_CHROME.liveBorder, dot: MOBILE_CHROME.liveDot, text: MOBILE_CHROME.liveText, label: 'LIVE' }
       : status === 'stale'
-        ? { bg: MOBILE_CHROME.staleBannerBg, border: MOBILE_CHROME.staleBannerBorder, dot: MOBILE_CHROME.staleDot, text: MOBILE_CHROME.staleTitle, label: 'STALE' }
+        ? { bg: MOBILE_CHROME.staleBannerBg, border: MOBILE_CHROME.staleBannerBorder, dot: MOBILE_CHROME.staleDot, text: MOBILE_CHROME.staleTitle, label: feedWord ?? 'STALE' }
         : {
             bg: chrome.insetBg,
             border: chrome.gridLine,

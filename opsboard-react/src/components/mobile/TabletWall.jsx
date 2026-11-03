@@ -132,7 +132,7 @@ export default function TabletWall({
           <span style={{ fontFamily: MONO, fontSize: 19, fontWeight: 700, color: chrome.headerTime, whiteSpace: 'nowrap' }}>
             {stale ? `frozen at ${hmsZ(conn.lastAliveMs)}Z` : `${hmsZ(nowMs)}Z`}
           </span>
-          <ConnChip status={conn.status} />
+          <ConnChip status={conn.status} feedUnknown={conn.feedUnknown} feed={conn.feed} />
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ display: 'flex', gap: 3, background: chrome.panelBg, border: `1px solid ${chrome.gridLine}`, borderRadius: 10, padding: 3 }}>
               {ZOOMS.map((z) => (

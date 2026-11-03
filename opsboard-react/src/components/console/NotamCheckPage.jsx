@@ -163,6 +163,7 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
   const ageH = Number.isFinite(asOfMs) ? (Date.now() - asOfMs) / 3600e3 : null;
   const asOfLabel = ageH === null ? null : ageH < 1 ? `${new Date(asOfMs).toISOString().slice(11, 16)}Z` : `${Math.round(ageH)} h old`;
   const clearFresh = ageH !== null && ageH <= 12;
+  const fetchedWhen = ageH === null ? null : ageH < 1 ? `at ${new Date(asOfMs).toISOString().slice(11, 16)}Z` : `${Math.round(ageH)} h ago`;
   const visible = expanded ? airport.all : airport.filtered;
   const c = checked
     ? { border: t.greenBorder, headBg: t.greenTint, headBorder: t.greenBorder, iconBg: t.greenTint, iconColor: t.greenDeep }
@@ -226,8 +227,8 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
           </div>
         )}
         {!expanded && noneFlagged && !airport.error && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: t.greenDeep, background: t.greenTint, border: `1px solid ${t.greenBorder}`, borderRadius: 10, padding: '11px 14px' }}>
-            <Icon name="shield-check" size={16} />No keyword-flagged NOTAMs for today{asOfLabel ? `, in the NOTAMs fetched ${asOfLabel}` : ' (when these NOTAMs were fetched is not known)'}. Full list available below.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: clearFresh ? t.greenDeep : t.amber, background: clearFresh ? t.greenTint : t.amberTint, border: `1px solid ${clearFresh ? t.greenBorder : t.amberBorder}`, borderRadius: 10, padding: '11px 14px' }}>
+            <Icon name={clearFresh ? 'shield-check' : 'clock'} size={16} />No keyword-flagged NOTAMs for today{fetchedWhen ? ` in the NOTAMs fetched ${fetchedWhen}` : ' (when these NOTAMs were fetched is not known)'}{clearFresh ? '' : ' — fetch them again before relying on this'}. Full list available below.
           </div>
         )}
         {expanded && visible.length === 0 && (

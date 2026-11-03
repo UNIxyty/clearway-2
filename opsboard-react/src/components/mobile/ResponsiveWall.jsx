@@ -151,7 +151,7 @@ function LandscapePhoneWall({
       {stale && <StaleBanner ageMin={conn.ageMin} lastAliveMs={conn.lastAliveMs} onRetry={onRetry} />}
       <div style={{ flex: 'none', padding: '10px 16px 9px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: `1px solid ${chrome.gridLine}` }}>
         <span style={{ fontSize: 14, fontWeight: 800, color: chrome.headerTime }}>Timeline</span>
-        <ConnChip status={conn.status} />
+        <ConnChip status={conn.status} feedUnknown={conn.feedUnknown} feed={conn.feed} />
         <span style={{ fontFamily: MONO, fontSize: 11.5, color: chrome.legendLabel }}>
           {hmZ(nowMs)}Z · {aircraft.length} aircraft
         </span>

@@ -2132,7 +2132,6 @@ export class LeonTimelineService {
       oprId: this.operatorId,
       operators: [...new Set(records.map((row) => row.oprId).filter(Boolean))],
       windowCheck: this.getWindowCheck(),
-      verdict: this.feedVerdict(),
     };
   }
 
@@ -2483,6 +2482,7 @@ export class LeonTimelineService {
       storage: this.operatorsStore?.storageMode?.() ?? "unknown",
       cacheStats: this.state.cacheStats ?? { updated: 0, skipped: 0, deleted: 0 },
       windowCheck: this.getWindowCheck(),
+      verdict: this.feedVerdict(),
     };
   }
 

@@ -84,9 +84,12 @@ const TONE = {
 
 function LivePill({ state, ageMin, feed = null }) {
   // the Leon feed's own state when that is what keeps it from LIVE (2026-11-03)
-  const feedWord = { partial: 'LEON PARTIAL', failing: 'LEON ERROR', unknown: 'LEON NOT SYNCED', not_set_up: 'LEON NOT SET UP' }[feed];
+  const feedWord = { failing: 'LEON ERROR', not_set_up: 'LEON NOT SET UP' }[feed];
   const s = {
     live: { label: 'LIVE', bg: v('ok-soft'), line: v('ok-line'), fg: v('ok') },
+    // the stream is live and the feed's verdict could not be read: unknown, in a calm grey — never an alarm
+    partial: { label: 'LEON PARTIAL', bg: v('warn-soft'), line: v('warn-line'), fg: v('warn') },
+    liveUnknown: { label: 'LIVE · FEED UNKNOWN', bg: v('surface-3'), line: v('line-3'), fg: v('text-2') },
     connecting: { label: 'CONNECTING', bg: v('surface-3'), line: v('line-3'), fg: v('text-3') },
     stale: { label: feedWord ?? `STALE ${ageMin} MIN`, bg: v('warn-soft'), line: v('warn-line'), fg: v('warn') },
     none: { label: 'NO DATA', bg: v('bad-soft'), line: v('bad-line'), fg: v('bad') },
@@ -280,7 +283,7 @@ export default function PhoneWall({ aircraft = [], limitations = [], clocks: roo
   const failed = loadedOnce && Boolean(error) && aircraft.length === 0;
   const stale = !failed && loadedOnce && (conn.stale || Boolean(error));
   const state = !loadedOnce ? 'loading' : failed ? 'failed' : 'ok';
-  const live = !loadedOnce ? 'connecting' : failed ? 'none' : stale ? 'stale' : conn.status === 'live' ? 'live' : 'connecting';
+  const live = !loadedOnce ? 'connecting' : failed ? 'none' : stale ? 'stale' : conn.partial ? 'partial' : conn.status === 'live' ? (conn.feedUnknown ? 'liveUnknown' : 'live') : 'connecting';
   const retry = () => { setLastTry(Date.now()); onReload?.(); };
 
   useEffect(() => { if (initialFlightId) setOpenId(initialFlightId); }, [initialFlightId]);

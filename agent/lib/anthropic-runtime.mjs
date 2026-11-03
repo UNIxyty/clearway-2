@@ -23,12 +23,14 @@ function apiError(status, type, message) {
 const b64 = (bytes) => Buffer.from(bytes ?? []).toString("base64");
 
 // What a model refuses, measured against the production key on 2026-11-03 (each refused with a 400):
-//   temperature — Haiku 5.5, Sonnet 5.5 and Opus 5.5 ("deprecated for this model"). Dropped for them: the callers
-//                 that set it (router, extraction, rerank, ingest) asked for 0, which the API no longer offers.
+//   temperature — every model from Opus 4.7 on, Sonnet 5 and Opus 5 included ("deprecated for this model"); Haiku 4.5,
+//                 Sonnet 4.5, Sonnet 4.6 and Opus 4.6 still take it. Sent only to those (an allow-list: a model not on
+//                 it gets none, rather than a refused call). Found because extraction and ingest asked Sonnet 5 for 0
+//                 and every such call had failed since the move on 2026-11-02.
 //   a forced tool_choice ("tool"/"any") — Sonnet 5.5 and Opus 5.5. Not dropped: refused here, before the call, because
 //                 silently letting the model choose would change what the caller asked for (bedrock.mjs writes the
 //                 pinned call itself instead of forcing it).
-const NO_SAMPLING = /^claude-(haiku|sonnet|opus)-5-5$/;
+const TAKES_TEMPERATURE = /^claude-(haiku-4-5|sonnet-4-5|sonnet-4-6|opus-4-6|opus-4-5|opus-4-1|opus-4|sonnet-4)(-\d{8})?$/;
 const NO_FORCED_TOOL = /^claude-(sonnet|opus)-5-5$/;
 const TEXT_DOCS = { txt: "text/plain", csv: "text/plain", md: "text/plain", html: "text/plain" };
 
@@ -73,7 +75,7 @@ export function toMessagesRequest(input, { stream }) {
   }
   const choice = input.toolConfig?.toolChoice?.tool?.name ? { type: "tool", name: input.toolConfig.toolChoice.tool.name } : null;
   if (choice && NO_FORCED_TOOL.test(String(input.modelId))) throw apiError(400, "invalid_request_error", `${input.modelId} does not accept a forced tool_choice`);
-  const sampling = !NO_SAMPLING.test(String(input.modelId));
+  const sampling = TAKES_TEMPERATURE.test(String(input.modelId));
   return {
     model: input.modelId,
     max_tokens: input.inferenceConfig?.maxTokens ?? 4096,

@@ -51,8 +51,13 @@ function compare(label, outputs, ok) {
   const differ = [...paths].filter((p) => new Set(maps.map((m) => m.get(p) ?? "<absent>")).size > 1);
   const record = differ.filter((p) => !isCommentary(p)), comment = differ.filter(isCommentary);
   console.log(`${label}: ${outputs.length} runs · ${paths.size} fields · differ: ${record.length} record field(s), ${comment.length} commentary field(s)`);
-  for (const p of record.slice(0, 25)) console.log(`    record  ${p}  (${new Set(maps.map((m) => m.get(p) ?? "<absent>")).size} different answers)`);
-  if (record.length > 25) console.log(`    … ${record.length - 25} more`);
+  // how it varied, without a value: enumerations (state, source, type…) by their words, anything else as set/empty
+  const ENUM = new Set(["state", "source", "requestType", "requested", "direction", "kind", "classification", "order", "tier", "isNote", "conditional", "length"]);
+  for (const p of record) {
+    const vals = maps.map((m) => m.get(p) ?? "<absent>"); const key = p.split(".").pop().replace(/\[\d+\]$/, "");
+    const shown = ENUM.has(key) ? vals.join(" | ") : vals.map((v) => (v === "null" || v === "<absent>" ? "empty" : v === '""' ? "blank" : "set")).join(" | ") + ` (${new Set(vals).size} distinct)`;
+    console.log(`    record  ${p}: ${shown}`);
+  }
   if (comment.length) console.log(`    commentary: ${comment.slice(0, 8).join(", ")}${comment.length > 8 ? " …" : ""}`);
   ok(record.length === 0, `${label}: the same email gives the same record every time`, `${record.length} record field(s) varied`);
   return record.length;
@@ -64,7 +69,7 @@ export async function check({ ok }) {
   const { classifyDocument } = await import(`${root}/lib/knowledge/ingest.mjs`);
   const { loadModelConfig } = await import(`${root}/lib/models.mjs`);
   const cfg = loadModelConfig(); const saved = JSON.parse(JSON.stringify(cfg.tiers));
-  const variants = [["now", null], ...(process.env.REPEAT_BEFORE === "0" ? [] : [["before (Sonnet 5, temperature 0)", { id: "claude-sonnet-5", fallbackId: null, request: null }]])];
+  const variants = [["now", null], ...(process.env.REPEAT_BEFORE === "0" ? [] : [["before (Sonnet 4.6, temperature 0: what extraction ran on under Bedrock)", { id: "claude-sonnet-4-6", fallbackId: null, request: null }]])];
   for (const [label, swap] of variants) {
     if (swap) { cfg.tiers.extraction = { ...saved.extraction, ...swap }; cfg.tiers.standard = { ...saved.standard, ...swap }; }
     const outs = []; let tokens = { in: 0, out: 0 }; let model = null;

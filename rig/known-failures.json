@@ -12,7 +12,8 @@
       "intake/browser-flows",
       "intake/browser-people",
       "intake/browser-check",
-      "intake/browser-edits"
+      "intake/browser-edits",
+      "intake/extraction-repeat"
     ],
     "probe": "node --env-file=.env.rig rig/probes/no-model-key.mjs"
   }

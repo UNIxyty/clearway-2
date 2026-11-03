@@ -5,9 +5,14 @@
 // extractor reads Leon's checklist list, nothing else). Prints field PATHS and counts — never a value.
 export const ROLES = [];
 const RUNS = Number(process.env.REPEAT_RUNS || 5);
-// Fields that become the record vs the model's commentary on it
+// Three kinds of field. RECORD: what goes to Leon and the request (values, states, enumerations, counts, times,
+// people) — must be identical on every run. PROVENANCE: what the reviewer reads beside a value (the source's words
+// copied, where it was found, the notes) — wording varies even at temperature 0 (Sonnet 4.6, 2026-11-03); counted and
+// reported. COMMENTARY: the model's own confidence and reasons — reported.
 const COMMENTARY = new Set(["confidence", "typeConfidence", "whyType", "why", "reason", "note"]);
-const EMAIL = {
+const PROVENANCE = new Set(["said", "source"]);
+export const kindOf = (p) => { const key = p.split(".").pop().replace(/\[\d+\]$/, ""); return COMMENTARY.has(key) ? "commentary" : PROVENANCE.has(key) || /^notes(\.|\[|$)/.test(p) ? "provenance" : "record"; };
+export const EMAIL = {
   message: { from: "ops@example.invalid", to: ["intake@example.invalid"], date: "Mon, 2 Nov 2026 09:12:00 +0000", subject: "Handling request YL-TST EVRA 05NOV" },
   bodyText: `Dear Clearway team,
 
@@ -43,24 +48,22 @@ function leaves(x, path = "", out = new Map()) {
   for (const [k, v] of Object.entries(x)) leaves(v, path ? `${path}.${k}` : k, out);
   return out;
 }
-const isCommentary = (p) => COMMENTARY.has(p.split(".").pop().replace(/\[\d+\]$/, ""));
 
-function compare(label, outputs, ok) {
+export function compareRuns(label, outputs, ok, log = console.log) {
   const maps = outputs.map((o) => leaves(o));
   const paths = new Set(maps.flatMap((m) => [...m.keys()]));
   const differ = [...paths].filter((p) => new Set(maps.map((m) => m.get(p) ?? "<absent>")).size > 1);
-  const record = differ.filter((p) => !isCommentary(p)), comment = differ.filter(isCommentary);
-  console.log(`${label}: ${outputs.length} runs · ${paths.size} fields · differ: ${record.length} record field(s), ${comment.length} commentary field(s)`);
+  const by = { record: [], provenance: [], commentary: [] }; for (const p of differ) by[kindOf(p)].push(p);
+  log(`${label}: ${outputs.length} runs · ${paths.size} fields · differ: ${by.record.length} record, ${by.provenance.length} provenance (wording shown to the reviewer), ${by.commentary.length} commentary`);
   // how it varied, without a value: enumerations (state, source, type…) by their words, anything else as set/empty
-  const ENUM = new Set(["state", "source", "requestType", "requested", "direction", "kind", "classification", "order", "tier", "isNote", "conditional", "length"]);
-  for (const p of record) {
+  const ENUM = new Set(["state", "source", "requestType", "requested", "direction", "kind", "role", "order", "tier", "isNote", "conditional", "length"]);
+  for (const p of [...by.record, ...by.provenance]) {
     const vals = maps.map((m) => m.get(p) ?? "<absent>"); const key = p.split(".").pop().replace(/\[\d+\]$/, "");
     const shown = ENUM.has(key) ? vals.join(" | ") : vals.map((v) => (v === "null" || v === "<absent>" ? "empty" : v === '""' ? "blank" : "set")).join(" | ") + ` (${new Set(vals).size} distinct)`;
-    console.log(`    record  ${p}: ${shown}`);
+    log(`    ${kindOf(p).padEnd(10)} ${p}: ${shown}`);
   }
-  if (comment.length) console.log(`    commentary: ${comment.slice(0, 8).join(", ")}${comment.length > 8 ? " …" : ""}`);
-  ok(record.length === 0, `${label}: the same email gives the same record every time`, `${record.length} record field(s) varied`);
-  return record.length;
+  ok(by.record.length === 0, `${label}: the same email gives the same record every time (values, states, counts, times, people)`, `${by.record.length} record field(s) varied`);
+  return by;
 }
 
 export async function check({ ok }) {
@@ -75,10 +78,10 @@ export async function check({ ok }) {
     const outs = []; let tokens = { in: 0, out: 0 }; let model = null;
     for (let i = 0; i < RUNS; i++) { const r = await runModel(EMAIL); outs.push(r.raw); model = r.modelId; tokens.in += r.usage.inputTokens; tokens.out += r.usage.outputTokens; }
     console.log(`extraction ${label} on ${model} · avg in ${Math.round(tokens.in / RUNS)} out ${Math.round(tokens.out / RUNS)}`);
-    compare(`extraction ${label}`, outs, ok);
+    compareRuns(`extraction ${label}`, outs, ok);
     const docs = []; const sample = "1. Aircraft with a maximum take-off mass above 5,700 kg shall not land at EVRA between 2300 and 0500 UTC without prior permission from the airport operator. 2. Requests shall be sent at least 24 hours in advance. 3. Ground handling at the general aviation apron is provided by the airport's designated handler.";
     for (let i = 0; i < RUNS; i++) docs.push(await classifyDocument({ title: "EVRA night restrictions (invented test text)", source: "test", sample }));
-    compare(`ingest tier proposal ${label}`, docs, ok);
+    compareRuns(`ingest tier proposal ${label}`, docs, ok);
     cfg.tiers.extraction = saved.extraction; cfg.tiers.standard = saved.standard;
   }
 }

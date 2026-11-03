@@ -20,16 +20,27 @@ api.close();
 
 // 2. the thresholds
 const turn = (fb) => ({ detail: fb === "router-old" ? { route: { source: "fallback" } } : fb ? { fallbacks: [{ kind: fb }] } : { fallbacks: [] } });
-let v = w.judge({ chatRows: [turn("router"), ...Array(9).fill(turn(null))] });
-ok(v.chat.problem === null && v.chat.fellBack === 1, "one fallback in ten turns: a blip, no alarm");
-v = w.judge({ chatRows: [turn("router"), turn("model"), turn(null), turn(null)] });
-ok(/2 of 4 chat turns/.test(v.chat.problem ?? "") && /router/.test(v.chat.problem) && /model/.test(v.chat.problem), "two of four turns fell back: alarm, naming the kinds", v.chat.problem);
-v = w.judge({ chatRows: [turn("router-old"), turn("router-old")] });
-ok(/2 of 2/.test(v.chat.problem ?? ""), "rows from before the trace (route.source fallback) count too");
-v = w.judge({ chatRows: [turn("model"), turn("model"), ...Array(10).fill(turn(null))] });
-ok(v.chat.problem === null, "two of twelve (under a quarter): no alarm");
+let v = w.judge({ chatRows: [turn(null), turn(null)] });
+ok(v.chat.problem === null, "no fallback: no alarm");
+v = w.judge({ chatRows: [{ detail: { fallbacks: [{ kind: "router", reason: "router unavailable" }] } }] });
+ok(/1 of 1 chat turn/.test(v.chat.problem ?? "") && /router: router unavailable/.test(v.chat.problem) && v.chat.rule === "any", "at today's volume ONE fallback alarms, with its reason (one turn in the window is 100% of it)", v.chat.problem);
+v = w.judge({ chatRows: [turn("model"), ...Array(9).fill(turn(null))] });
+ok(v.chat.problem !== null, "one fallback in ten turns (under the 20-turn switch): alarm");
+v = w.judge({ chatRows: [turn("router-old")] });
+ok(/1 of 1/.test(v.chat.problem ?? ""), "rows from before the trace (route.source fallback) count too");
+v = w.judge({ chatRows: [turn("model"), turn("model"), ...Array(23).fill(turn(null))] });
+ok(v.chat.rule === "share" && v.chat.problem === null, `from ${w.SWITCH_AT} turns in a window the share rule takes over: 2 of 25 does not alarm`);
+v = w.judge({ chatRows: [turn("model"), turn("model"), turn("router"), turn("model"), ...Array(21).fill(turn(null))] });
+ok(v.chat.rule === "share" && /4 of 25/.test(v.chat.problem ?? ""), "4 of 25 (at least 3, at least 15%) alarms under the share rule");
 v = w.judge({ uploadRows: [{ detail: { fallbacks: [{ kind: "ingest-classify" }] } }] });
 ok(/1 knowledge upload/.test(v.ingest.problem ?? ""), "any tier proposal that fell back: alarm (each is a model that did not answer)");
+const sendRow = (from) => ({ delivery_detail: { fallback: { kind: "sender", from, to: "no-reply@verxyl.com" } } });
+v = w.judge({ senderRows: [sendRow("Clearway <no-reply@clearway.verxyl.com>")], domains: { "clearway.verxyl.com": "pending", "verxyl.com": "verified" } });
+ok(v.sender.problem === null && v.sender.exempt === 1, "a sender fallback while Resend reports the domain not verified: exempt (expected until the DNS is in)");
+v = w.judge({ senderRows: [sendRow("Clearway <no-reply@clearway.verxyl.com>")], domains: { "clearway.verxyl.com": "verified" } });
+ok(/clearway\.verxyl\.com is verified/.test(v.sender.problem ?? ""), "once Resend reports it verified, the exemption lapses by itself: a sender fallback alarms", v.sender.problem);
+v = w.judge({ senderRows: [sendRow("no-reply@clearway.verxyl.com")], domains: null });
+ok(/Resend could not be asked/.test(v.sender.problem ?? ""), "Resend cannot be asked: no exemption, it alarms");
 
 // 3. the alarm: once, again a day later, back to normal; an alert not sent is not counted
 const before = await rest("agent_settings?id=eq.fallbacks%3Alast&select=reason").catch(() => null);

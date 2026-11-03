@@ -12,10 +12,14 @@ only symptom is a slightly bigger bill. Every fallback must therefore be visible
   model, a retry a tier up), and `knowledge.uploaded` detail.fallbacks (the tier proposal). A sender fallback is on the
   mail's own send row.
 - **Under the reply:** the model line says "router unavailable" or "fell back to sonnet-5".
-- **In the alarm:** `agent/lib/fallback-watch.mjs` alerts every hour when, in the last 6 h, at least 2 chat turns fell
-  back and they are at least a quarter of the turns, or when any tier proposal fell back. Sender fallbacks are recorded
-  but not alarmed: they are expected until clearway.verxyl.com is verified.
-- **Proof:** `rig/fallback-watch-check.mjs`, 12 checks.
+- **In the alarm:** `agent/lib/fallback-watch.mjs` checks every hour.
+  - **Chat:** at today's volume (about 4 turns a day), **one** chat fallback in 6 h alarms, with its reason. A
+    percentage needs a denominator, and a window often holds one turn or none. From **20 turns in a 6-hour window**
+    (about 80 a day, twenty times today) the share rule takes over: at least 3 fallbacks and at least 15% of turns.
+  - **Tier proposals:** any one that fell back alarms.
+  - **Sender:** a sender fallback is exempt only while Resend itself reports the intended domain as not verified. The
+    exemption clears itself the moment the domain verifies. If Resend cannot be asked, there is no exemption.
+- **Proof:** `rig/fallback-watch-check.mjs`, 17 checks.
 
 It is the same fault five times in one week. Each time, a safeguard or a path nobody exercised had stopped working,
 and nothing said so.

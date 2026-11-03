@@ -126,6 +126,25 @@ export const EXTRACTION_SCHEMA = {
   },
 };
 
+/**
+ * One shape, every time (2026-11-03). The model left an optional key out on one run and wrote it as null on the next
+ * (salutation, sex, dob…: the same email, five runs), so the record's structure drifted with nothing to see. Structured
+ * outputs cannot carry this schema (the API's limit is 16 nullable fields; this has 102), so the shape is forced here,
+ * in code, before validation: every key the schema allows to be empty and the model left out is written as null.
+ * A key that may not be empty is left missing, and the validator refuses it.
+ */
+export function fillShape(x, schema = EXTRACTION_SCHEMA) {
+  if (!schema || x === null || typeof x !== "object") return x;
+  if (Array.isArray(x)) { if (schema.items) x.forEach((v) => fillShape(v, schema.items)); return x; }
+  if (!schema.properties) return x;
+  for (const [k, sub] of Object.entries(schema.properties)) {
+    if (k in x) { fillShape(x[k], sub); continue; }
+    const nullable = Object.keys(sub).length === 0 || [].concat(sub.type ?? []).includes("null") || (sub.enum ?? []).includes(null);
+    if (nullable) x[k] = null;
+  }
+  return x;
+}
+
 /** Minimal strict validator for the schema above (shape, required keys, no extra keys, enums). */
 export function validateExtraction(x, schema = EXTRACTION_SCHEMA, at = "$") {
   const errs = [];

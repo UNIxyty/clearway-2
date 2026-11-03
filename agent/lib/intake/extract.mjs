@@ -7,7 +7,7 @@
 //   confidence< 0.7 → low_confidence (warns, does not block)
 // There is no per-sender parser and no template: the two samples are examples, not formats.
 import { converseOnce } from "../bedrock.mjs";
-import { EXTRACTION_SCHEMA, UNKNOWN_WORDS, validateExtraction } from "./schema.mjs";
+import { EXTRACTION_SCHEMA, UNKNOWN_WORDS, fillShape, validateExtraction } from "./schema.mjs";
 import { airport, aircraftByRegistration, checklistDefinitions, localToUtcChecked, offsetMinutes } from "./leon-lookup.mjs";
 import { tzVersion } from "../tzdata.mjs";
 
@@ -49,6 +49,7 @@ Rules, all mandatory:
 11. Reading order: read the email body first. For anything the request needs that the body does not give (schedule, aircraft, services, crew and passenger counts, people), look in the attachments: first an attached EMAIL (an Outlook .msg or .eml forwarded as an attachment — it is usually the original request), then the files inside it and the other files, and analyse them. When the body is only a cover note ("see attached", "FYI", a forward, a signature), the attached email or document IS the request: set requestSource.attachment to its exact name and read everything from it. Otherwise the body is the request and attachments only fill gaps and support it. Say which, and why, in requestSource. Never read values from the subject line alone when an attachment carries them.
 12. Conflicts: when the body and an attachment disagree about a value (a count, a time, a registration), set that field's state to "conflict", keep the BODY's value in value, and add an entry to conflicts with both versions and the attachment name. Do not silently prefer either.
 13. People (crew and passenger identities) go ONLY in personal.people, one entry each, with leg (0-based) or null for all legs. Names, dates of birth, nationalities, passport numbers and expiry exactly as written. A Salutation / Title column (Mr., Mrs., Ms.) goes in salutation and a Gender / Sex column (M, F) in sex, each exactly as written; when the request has no such column they are null — never infer sex from a salutation or a name. When the list's header declares the order of the name column, copy the header words into personal.nameOrder.said and set personal.nameOrder.order: "given_first" for "First, Middle, Last Name" / "Name Surname", "surname_first" for "Surname, Name" / "Last, First"; when nothing declares it, personal.nameOrder is null. Never split or reorder the name yourself: name stays exactly as written. Placeholder rows ("-----", "TBA") are not people — do not list them. Never put identities anywhere else, including notes and said.
+13a. requester: company is the organisation that sends the request (its signature, or the sender's domain when nothing else names it). contact is a PERSON's name, as signed or in the From header's display name; a team or department ("Ops", "Example Air Operations", "Dispatch"), a role or an address alone is not a contact: state "not_given".
 14. crewCount and pax.total: the counts the request states. Infants: fill pax.infants as stated; do not fold them into adults.
 15. confidence 0..1 per field: your own certainty that value is what the source means.
 16. requestType, typeConfidence and ask. A message is "handling" ONLY when it ASKS us to provide or arrange something (handling, ground services, fuel, a permit, a slot…) for specific flights AND carries the flight details itself. Put the words that ask, copied verbatim from the message, in ask.said (and where they are in ask.source); if nothing in the message asks us for anything, ask.said is null and it is NOT "handling", however many flight details it has. "scheduled" is a provider's notification that a flight exists (it informs; the data lives in the provider's system). "other" is anything else (quote request, invoice, price bulletin, newsletter, chat). typeConfidence is how sure you are of requestType, 0 to 1: use 0.9 or more only when it is plain; below 0.7 when a careful colleague could read it differently. Give the reason in whyType in one sentence. Never choose "handling" because the message merely mentions flights.
@@ -88,12 +89,12 @@ export async function runModel({ message, bodyText, attachments }) {
   let res = await converseOnce({ tier: "extraction", system: SYSTEM, messages, maxTokens: 16000, temperature: 0 });
   usage.inputTokens += res.inputTokens ?? 0; usage.outputTokens += res.outputTokens ?? 0;
   let raw, errs;
-  try { raw = parseJson(res.text); errs = validateExtraction(raw); } catch (e) { raw = null; errs = [String(e.message)]; }
+  try { raw = fillShape(parseJson(res.text)); errs = validateExtraction(raw); } catch (e) { raw = null; errs = [String(e.message)]; }
   if (errs.length) {
     const retry = [...messages, { role: "assistant", content: [{ text: res.text || "{}" }] }, { role: "user", content: [{ text: `That answer does not match the schema:\n${errs.slice(0, 30).join("\n")}\nReturn the corrected JSON object only.` }] }];
     res = await converseOnce({ tier: "extraction", system: SYSTEM, messages: retry, maxTokens: 16000, temperature: 0 });
     usage.inputTokens += res.inputTokens ?? 0; usage.outputTokens += res.outputTokens ?? 0;
-    try { raw = parseJson(res.text); errs = validateExtraction(raw); } catch (e) { raw = null; errs = [String(e.message)]; }
+    try { raw = fillShape(parseJson(res.text)); errs = validateExtraction(raw); } catch (e) { raw = null; errs = [String(e.message)]; }
     if (errs.length) { const err = new Error(`The model's answer did not fit the extraction schema (${errs.length} problem${errs.length === 1 ? "" : "s"}).`); err.schemaErrors = errs.slice(0, 20); throw err; }
   }
   // A checklist nid the model named must exist in Leon's live list; otherwise it is dropped (never trusted).

@@ -239,8 +239,8 @@ export async function usageThisMonth() {
   const rate = (modelId) => { const k = Object.keys(pricing).find((p) => String(modelId ?? "").includes(p)); return pricing[k] ?? pricing.default ?? { input: 3, output: 15, cacheRead: 0.3 }; };
   let eur = 0; const perUser = {};
   for (const r of rows) {
-    const p = rate(r.model_id); const inTok = r.input_tokens ?? 0, outTok = r.output_tokens ?? 0, cr = r.detail?.cacheReadTokens ?? 0;
-    const usd = (inTok / 1e6) * p.input + (outTok / 1e6) * p.output + (cr / 1e6) * (p.cacheRead ?? p.input * 0.1);
+    const p = rate(r.model_id); const inTok = r.input_tokens ?? 0, outTok = r.output_tokens ?? 0, cr = r.detail?.cacheReadTokens ?? 0, cw = r.detail?.cacheWriteTokens ?? 0;
+    const usd = (inTok / 1e6) * p.input + (outTok / 1e6) * p.output + (cr / 1e6) * (p.cacheRead ?? p.input * 0.1) + (cw / 1e6) * (p.cacheWrite ?? p.input * 1.25);
     const e = usd * Number(process.env.AGENT_USD_TO_EUR || 0.92); eur += e; perUser[r.user_email ?? "—"] = (perUser[r.user_email ?? "—"] ?? 0) + e;
   }
   const heaviest = Object.entries(perUser).sort((a, b) => b[1] - a[1])[0] ?? null;

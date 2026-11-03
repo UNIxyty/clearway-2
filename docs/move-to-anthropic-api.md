@@ -95,6 +95,63 @@ list prices, so the Settings usage card is right.
   real tool turn and answered from the result; reasoning on Opus 5.5 made three tool calls across rounds. Extraction
   returned the JSON asked for.
 
+### Measured, not inferred (2026-11-03)
+
+List prices fell, but Sonnet 5.5 and Opus 5.5 think, and thinking is billed as output. So the cost of a turn was
+measured on production, as a check account: `scripts/prod-checks/agent-turn-cost.mjs`. It ran the same questions with
+the same tools, priced the real token counts at list price (cache writes included), and graded each answer against the
+tool's own result. The figures below are a warm turn (prompt already cached), averaged over three measurement runs.
+
+| Tier | Before | After (as deployed) | One effort lower |
+|---|---|---|---|
+| fast (Haiku) | $0.0030 | $0.0003 (−89%) | — |
+| standard (Sonnet) | $0.0148 | $0.0178 (**+20%**: 344–415 output tokens became 845–979) | low: $0.0158 (+7%), answers graded the same |
+| reasoning (Opus) | $0.0275 | $0.0236 (−14%) | medium: $0.0216 (−21%), answers graded the same |
+
+- **Standard got more expensive at medium.** It now runs at low.
+- **Reasoning stays at high.** The test question was a simple one, not the heavy work that tier exists for, and the tier
+  carries about 5% of turns.
+- **Real volume** (audit log, last 90 days): 347 turns. 331 were in September; October was quiet. At September's volume
+  the agent costs about **$10–11 a month**, before or after. At ten times that, about $100.
+- **Usage figures were wrong:** the per-turn cost and the Settings usage card never counted prompt-cache writes, which
+  are billed at 1.25× input. They do now.
+
+### temperature: refused from Opus 4.7 on
+
+Sonnet 5 and Opus 5 refuse `temperature` too. Extraction, ingest's tier proposal and rerank asked Sonnet 5 for 0, so
+every such call failed from the move (2026-11-02) until the 5.5 change. Intake is not live yet, and the router falls
+back to standard, so nothing visible broke. The runtime now sends `temperature` only to the models that take it (Haiku
+4.5, Sonnet 4.5 and 4.6, Opus 4.6 and older), and never to an unknown model.
+
+### Extraction is not identical run to run (and was not at temperature 0)
+
+`scripts/prod-checks/agent-extraction-repeat.mjs` sends one invented intake email through the real extractor five
+times. It ran on Sonnet 5.5, and on Sonnet 4.6 at temperature 0, which is what extraction ran on under Bedrock.
+
+- **Flight data held steady on both:** airports, times, registration, counts, and every person's name and passport.
+- **On Sonnet 5.5 the structure drifted.** Optional person fields (salutation, sex, …) were left out on some runs and
+  written as null on others. The requester contact was filled in 2 of 5 runs.
+- **Fixed:** `fillShape` writes every nullable key the model left out as null, and rule 13a makes the contact a named
+  person. Structured outputs could not do this: the API allows 16 nullable fields, and this schema has 102. After the
+  fix, record values were identical in 5 of 5 runs.
+- **Still varies, on both models:** the wording shown to the reviewer (the source's words copied, where something was
+  found, whether an informational line becomes a note). None of it goes to Leon.
+- **Suite:** `rig/intake/extraction-repeat.mjs` waits on the rig key. `rig/intake/test-fill-shape.mjs` always runs.
+- **Ingest's tier proposal** was identical in 5 of 5 on both models.
+
+### Thinking is shown, not kept
+
+The notes between tool calls are now the model's thinking summary. They reach the person asking, live, and nowhere else:
+
+- **Chat history** keeps only how long the thinking took: `{ ms, kept: false }`.
+- **Audit rows** never carried it. `chat.response` stores routing, tool activity and token counts.
+- **Logs and error reports** carry the API's own error text only.
+- **The model's next turn** gets earlier answers, not earlier thinking.
+- **History search** reads answers only.
+
+Messages stored before 2026-11-03 still hold their older note text, which was the model's visible words before a tool
+call. Clearing it is a write to production and waits on a decision.
+
 ## Not done here
 
 - Embeddings and the guardrail: the decisions above.

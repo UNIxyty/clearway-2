@@ -6,7 +6,8 @@
     "`id` is the Bedrock inference-profile id actually invoked. Use eu.* only: global.* profiles route outside the EU. Any id can be overridden per tier with BEDROCK_MODEL_<TIER> (e.g. BEDROCK_MODEL_STANDARD).",
     "Availability (verified 2026-09-23, account 039066033404, eu-north-1): Opus 5 / Sonnet 5 / Opus 4.8 / 4.7 are account-gated by AWS. `id` names the model this build TARGETS; `fallbackId` is proven to work in this account today and is used when the primary is unavailable.",
     "2026-11-02: the AWS account that carried Bedrock is gone. `provider` is \"anthropic\": each tier's `anthropic` block names the same model it targeted on Bedrock, on the Anthropic API (the router moves from Amazon Nova, which the Anthropic API does not offer, to Claude Haiku 4.5). Override per tier with ANTHROPIC_MODEL_<TIER>; MODEL_PROVIDER=bedrock goes back. Embeddings and rerank have no Anthropic equivalent: see docs/move-to-anthropic-api.md.",
-    "2026-11-03: every tier on the newest model in its family, confirmed against the Models API with the production key (it serves claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5). Fallbacks are the previous generation, used only when the primary is unavailable. `request` holds the model's own request fields (thinking, effort): the router and fast tier run Haiku 5.5 with thinking off (as Haiku 4.5 ran); Sonnet 5.5 and Opus 5.5 cannot turn thinking off, so their effort is set and maxTokens has room for thinking. See docs/move-to-anthropic-api.md › Model generation."
+    "2026-11-03: every tier on the newest model in its family, confirmed against the Models API with the production key (it serves claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5). Fallbacks are the previous generation, used only when the primary is unavailable. `request` holds the model's own request fields (thinking, effort): the router and fast tier run Haiku 5.5 with thinking off (as Haiku 4.5 ran); Sonnet 5.5 and Opus 5.5 cannot turn thinking off, so their effort is set and maxTokens has room for thinking. See docs/move-to-anthropic-api.md › Model generation.",
+    "2026-11-03, measured (scripts/prod-checks/agent-turn-cost.mjs): standard at effort medium cost 20% more per warm turn than Sonnet 5 had; at low the answers graded the same and the turn cost 11% less than at medium. Standard runs at low. Reasoning stays at high: medium graded the same on a simple question, which is not the heavy work that tier exists for, and the tier carries about 5% of turns."
   ],
   "activeTier": null,
   "provider": "anthropic",
@@ -56,7 +57,7 @@
             "display": "summarized"
           },
           "output_config": {
-            "effort": "medium"
+            "effort": "low"
           }
         }
       }

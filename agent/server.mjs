@@ -1607,7 +1607,7 @@ async function handleChat(req, res, user) {
     }));
 
     const finalTier = done?.effectiveTier ?? escalations.at(-1)?.to ?? route.tier;
-    const turnCost = costUsd({ modelId: done?.modelId, inputTokens: done?.inputTokens ?? 0, outputTokens: done?.outputTokens ?? 0, cacheReadTokens: done?.cacheReadTokens ?? 0 });
+    const turnCost = costUsd({ modelId: done?.modelId, inputTokens: done?.inputTokens ?? 0, outputTokens: done?.outputTokens ?? 0, cacheReadTokens: done?.cacheReadTokens ?? 0, cacheWriteTokens: done?.cacheWriteTokens ?? 0 });
     const thinkingBlock = thinking.length ? { text: thinking.map((t) => t.text.trim()).join("\n\n"), ms: thinking.reduce((n, t) => n + t.ms, 0) } : null;
     // The notes between tool calls are shown to the person asking, live, and NOT kept (2026-11-03): since the 5.5 models
     // they are the model's thinking summary, and a turn about a passenger thinks about that passenger. Only how long it

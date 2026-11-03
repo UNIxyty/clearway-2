@@ -151,9 +151,10 @@ export async function setSkipConfirmLock({ all, userIds }, admin) {
 }
 
 /** USD for one turn, from the pricing table (per million tokens). */
-export function costUsd({ modelId, inputTokens = 0, outputTokens = 0, cacheReadTokens = 0 }) {
+export function costUsd({ modelId, inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0 }) {
   const pricing = loadModelConfig().pricing ?? {};
   const key = Object.keys(pricing).find((p) => p !== "_comment" && p !== "default" && String(modelId ?? "").includes(p));
   const rate = pricing[key] ?? pricing.default ?? { input: 3, output: 15, cacheRead: 0.3 };
-  return Math.round(((inputTokens * rate.input + outputTokens * rate.output + cacheReadTokens * (rate.cacheRead ?? rate.input * 0.1)) / 1e6) * 1e6) / 1e6;
+  // cache writes are billed at 1.25x input (5-minute cache); left out until 2026-11-03, so every figure ran low
+  return Math.round(((inputTokens * rate.input + outputTokens * rate.output + cacheReadTokens * (rate.cacheRead ?? rate.input * 0.1) + cacheWriteTokens * (rate.cacheWrite ?? rate.input * 1.25)) / 1e6) * 1e6) / 1e6;
 }

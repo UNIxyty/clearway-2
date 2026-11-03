@@ -63,6 +63,8 @@ run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/inta
 run intake/test-no-calendar-response node rig/intake/test-no-calendar-response.mjs
 run intake/test-retention $E rig/intake/test-retention.mjs
 run intake/test-webhook $E rig/intake/test-webhook.mjs
+run intake/receiving-address $E rig/intake/receiving-address-check.mjs   # Receiving addresses decide what is read (2026-11-03)
+run intake/silence $E rig/intake/silence-check.mjs   # the silence alarm, armed when intake goes live (2026-11-03)
 run email-status-check $E rig/email-status-check.mjs
 run wall/test-portal-folder node rig/wall/test-portal-folder.mjs
 run airport-sheets-check node rig/airport-sheets-check.mjs

@@ -11,6 +11,7 @@
 //  - The request row is unique per message, so extraction can be re-run without a second request.
 //  - Delivery events for mail WE sent (delivered / delayed / bounced / complained / failed) are recorded for
 //    the Sent tab — a bounce is how a missing reply is explained.
+import { intakeSettings } from "./settings.mjs";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { simpleParser } from "mailparser";
 import { rest } from "../knowledge/retrieval.mjs";
@@ -89,9 +90,21 @@ async function receive(emailId, data, audit) {
     return { error: String(e.message) };
   });
   // 3. Reading happens off the response path; one request per message is enforced there (unique key).
-  if (!stored?.error) enqueue(message.id);
-  await audit?.({ kind: "intake.received", success: !stored?.error, detail: { messageId: message.id, attachments: stored?.attachments ?? 0, rawBytes: stored?.rawBytes ?? null } });
-  return { outcome: stored?.error ? "stored_metadata_only" : "received", messageId: message.id };
+  if (!stored?.error && stored?.addressed !== false) enqueue(message.id);
+  await audit?.({ kind: "intake.received", success: !stored?.error, detail: { messageId: message.id, attachments: stored?.attachments ?? 0, rawBytes: stored?.rawBytes ?? null, ...(stored?.addressed === false ? { notAddressed: true } : {}) } });
+  return { outcome: stored?.error ? "stored_metadata_only" : stored?.addressed === false ? "not_addressed" : "received", messageId: message.id };
+}
+
+const bare = (a) => String(a ?? "").toLowerCase().replace(/^.*</, "").replace(/>.*$/, "").trim();
+/**
+ * Every address this message was for: the webhook's to, Resend's to, cc, bcc and received_for (the `for` of forwarded mail's Received
+ * headers), and the raw message's Delivered-To / X-Original-To. Mail forwarded or BCC'd to a receiving address still
+ * counts as addressed to it.
+ */
+export function recipientsOf(full, raw, message = null) {
+  const head = raw ? raw.subarray(0, Math.min(raw.length, 64 * 1024)).toString("latin1").split(/\r?\n\r?\n/)[0] : "";
+  const fromHeaders = [...head.matchAll(/^(?:Delivered-To|X-Original-To):\s*(.+)$/gim)].map((m) => m[1]);
+  return [...new Set([...(message?.to_addrs ?? []), ...(full?.to ?? []), ...(full?.cc ?? []), ...(full?.bcc ?? []), ...(full?.received_for ?? []), ...fromHeaders].map(bare).filter(Boolean))];
 }
 
 /** Fetches the full message and its raw .eml, stores both, records attachments. Re-runnable (fresh signed URL). */
@@ -104,11 +117,22 @@ export async function fetchAndStore(message) {
   const raw = Buffer.from(await r.arrayBuffer());
   const put = await putRaw(message.id, message.received_at, raw);
   const attachments = await storeAttachmentsFromRaw(message.id, raw);
+  // Settings › Flight intake › Receiving addresses decides what is read (2026-11-03: the list used to decide nothing; any
+  // mail to any address on a receiving domain was read). Decided in the same write that makes the message "waiting",
+  // so the reader can never pick it up first. Not addressed → Ignored, said why, still in the Mailbox, where a person
+  // can still process it as a request.
+  const listed = (await intakeSettings({ fresh: true })).addresses.map(bare);
+  const recipients = recipientsOf(full, raw, message);
+  const addressed = recipients.some((r) => listed.includes(r));
+  const shown = recipients.filter((r) => !listed.includes(r)).slice(0, 3).join(", ") || "no recipient address";
   await rest(`intake_messages?id=eq.${message.id}`, {
     method: "PATCH", body: JSON.stringify({ raw_key: put.key, raw_sha256: put.sha256, raw_bytes: put.bytes, fetch_status: "stored", fetch_error: null,
-      auth: full.authentication ?? null, cc_addrs: Array.isArray(full.cc) ? full.cc : [], rfc_message_id: full.message_id ?? message.rfc_message_id ?? null, status: "waiting" }),
+      auth: full.authentication ?? null, cc_addrs: Array.isArray(full.cc) ? full.cc : [], rfc_message_id: full.message_id ?? message.rfc_message_id ?? null,
+      ...(addressed ? { status: "waiting" } : { status: "ignored", status_reason: "Not to a receiving address",
+        understood: { kind: "ignored", title: "Not to a receiving address", body: `Sent to ${shown}. Only mail to a receiving address on Settings › Flight intake is read (${listed.join(", ") || "none set"}). If it is a request, process it as one.`, checks: [] },
+        search_text: `${message.from_addr ?? ""}\n${message.subject ?? ""}` }) }),
   });
-  return { rawBytes: put.bytes, attachments };
+  return { rawBytes: put.bytes, attachments, addressed };
 }
 
 /** Attachments come from the raw MIME itself (the thing we keep), not from a second listing that could differ. */

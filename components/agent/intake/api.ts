@@ -103,7 +103,7 @@ async function call<T>(path: string, init?: RequestInit & { json?: unknown }): P
   return j as T;
 }
 export const intakeApi = {
-  overview: () => call<{ health: { mailbox: { ok: boolean; lastAt: string | null; failed?: number; unread?: number; note: string | null }; leon: { ok: boolean; state?: "answered" | "refused" | "no_answer" | "not_set_up"; at?: string | null; error?: string | null }; portals: { built: boolean; lookup: boolean; note: string }; timezones?: { ok: boolean; version: string; minimum: string; latest: string | null; behind: boolean; note: string } }; queue: number }>("/api/intake/overview"),
+  overview: () => call<{ health: { silence?: { state: "not_armed" | "ok" | "silent" | "unreadable"; hours?: number | null; lastAt?: string | null }; mailbox: { ok: boolean; lastAt: string | null; failed?: number; unread?: number; note: string | null }; leon: { ok: boolean; state?: "answered" | "refused" | "no_answer" | "not_set_up"; at?: string | null; error?: string | null }; portals: { built: boolean; lookup: boolean; note: string }; timezones?: { ok: boolean; version: string; minimum: string; latest: string | null; behind: boolean; note: string } }; queue: number }>("/api/intake/overview"),
   list: (q: { tab?: string; q?: string; type?: string }) => call<{ rows: ListRow[]; counts: { all: number; needs: number; progress: number; loaded: number; closed: number } }>(`/api/intake/requests?${new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][])}`),
   detail: (id: string) => call<RequestDetail>(`/api/intake/requests/${id}`),
   /** The request's one original email, masked, logged (intake.requests.email) — not the mailbox. */

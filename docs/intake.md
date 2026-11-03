@@ -126,6 +126,25 @@ protocol, not the DOM; details and the column map are in `docs/cnair-portal-inve
 Tests: `node --env-file=.env.rig rig/intake/e2e-scheduled.mjs` (decline / no answer / approve → Leon on the mock
 / reply path / unknown aircraft / altered structure / portal down), `e2e-classify.mjs`, `rig/.scratch/reader-check`.
 
+## Which mail is read, and the silence alarm (2026-11-03)
+
+- **Receiving addresses decide what is read.** Resend receives every address on a receiving domain
+  (agent.verxyl.com). Only mail to an address on Settings › Flight intake › Receiving addresses is read. An address
+  counts if it appears in To, Cc or Bcc, in Resend's `received_for` (forwarded mail), in `Delivered-To` /
+  `X-Original-To`, or in the webhook's own `to`.
+- **Mail to any other address** is kept in the Mailbox as **Ignored**, saying where it went and what is read, and can
+  still be processed by hand. The decision is made in the same write that queues the message, so the reader never
+  sees it first.
+- **Before 2026-11-03** the list decided nothing, while the setting said it did.
+- **Production:** handling@ and scheduling@agent.verxyl.com. 12 of the 13 inbound mails ever received went to them.
+- **The silence alarm.** An admin turns it on when intake goes live (the same settings card). From then, no inbound
+  email for 24 working hours (Mon–Fri 08:00–18:00 Riga) fails the `intake-silence` smoke check. That alerts the
+  developers and marks the agent degraded on the service-status page.
+- **When the alarm cannot read.** If the mailbox cannot be read, the check fails. The wall watches the smoke runs
+  themselves.
+- **The Intake page's mailbox pill** shows the age of the last email ("Last email 26 days ago (intake not live)").
+- **Proof:** `rig/intake/receiving-address-check.mjs` (5 checks) and `rig/intake/silence-check.mjs` (6).
+
 ## Where the model stops and code starts (THE LINE)
 
 - The model (the Anthropic API since 2026-11-02, tier `extraction`, recorded per version in `intake_extractions.model_id`) fills

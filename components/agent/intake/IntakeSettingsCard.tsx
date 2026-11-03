@@ -9,12 +9,13 @@ import { AGENT_BASE } from "../types";
 import { cw } from "@/lib/portal-tokens";
 
 type Key = "addresses" | "notifyTo" | "mailboxReaders";
-type Settings = { addresses: string[]; notifyTo: string[]; mailboxReaders: string[]; retentionDays: number; source: Record<string, string>; updated: Record<string, { at: string; by: string | null }> };
+type Settings = { addresses: string[]; notifyTo: string[]; mailboxReaders: string[]; retentionDays: number; silenceAlarm?: { armed: boolean; since: string | null }; source: Record<string, string>; updated: Record<string, { at: string; by: string | null }> };
+type Silence = { state: "not_armed" | "ok" | "silent" | "unreadable"; lastAt?: string | null; hours?: number | null; thresholdHours?: number; error?: string } | null;
 type Health = { addresses: { address: string; ok: boolean; why: string | null }[] } | null;
 const EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/;
 
 const ROWS: { key: Key; title: string; help: string; empty: string }[] = [
-  { key: "addresses", title: "Receiving addresses", help: "The agent's own addresses. Mail sent to them is read as handling requests. Each must be on a domain where Resend receiving is enabled.", empty: "No address: nothing can arrive." },
+  { key: "addresses", title: "Receiving addresses", help: "Only mail to one of these addresses is read as a request: in To, Cc or Bcc, or forwarded for it. Mail to any other address on the domain is kept in the Mailbox as Ignored, saying why, and can still be processed by hand. Each must be on a domain where Resend receiving is enabled.", empty: "No address: nothing can arrive." },
   { key: "notifyTo", title: "Send intake emails to", help: "Who gets \"Review\", \"Loaded\" and \"Needs you\" emails. Usually the ops team address.", empty: "Nobody: intake emails are not sent, and the pipeline says so." },
   { key: "mailboxReaders", title: "Agent mailbox access", help: "People who may open the Agent mailbox, besides admins. It holds passport numbers and dates of birth.", empty: "Admins only." },
 ];
@@ -22,6 +23,7 @@ const ROWS: { key: Key; title: string; help: string; empty: string }[] = [
 export default function IntakeSettingsCard() {
   const [s, setS] = useState<Settings | null>(null);
   const [health, setHealth] = useState<Health>(null);
+  const [silence, setSilence] = useState<Silence>(null);
   const [hidden, setHidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export default function IntakeSettingsCard() {
     if (r.status === 401 || r.status === 403) { setHidden(true); return; }
     const j = await r.json().catch(() => null);
     if (!r.ok || !j?.ok) { setError(j?.message ?? `The server answered ${r.status}.`); return false; }
-    setS(j.settings); setHealth(j.health); setError(null); return true;
+    setS(j.settings); setHealth(j.health); setSilence(j.silence ?? null); setError(null); return true;
   }, []);
   useEffect(() => { void call(); }, [call]);
   const save = async (key: string, value: unknown) => { setSaving(key); const ok = await call({ method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [key]: value }) }); setSaving(null); return ok; };
@@ -49,6 +51,7 @@ export default function IntakeSettingsCard() {
           status={row.key === "addresses" ? (a) => health?.addresses.find((h) => h.address === a) ?? null : undefined}
           onSave={(v) => save(row.key, v)} />
       ))}
+      {s && <SilenceEditor armed={s.silenceAlarm?.armed === true} since={s.silenceAlarm?.since ?? null} silence={silence} saving={saving === "silenceAlarm"} onSave={(on) => save("silenceAlarm", on)} />}
       {s && <RetentionEditor days={s.retentionDays} source={s.source.retentionDays} updated={s.updated.retentionDays} saving={saving === "retentionDays"} onSave={(d) => save("retentionDays", d)} />}
     </section>
   );
@@ -94,6 +97,30 @@ function ListEditor({ title, help, empty, values, source, updated, saving, statu
           {dirty && !saving && <Button size="xs" variant="ghost" onClick={() => { setDraft(values); setText(""); setBad(null); }}>Cancel</Button>}
         </div>
         {bad && <div role="alert" style={{ fontSize: 12.5, color: cw.dangerText }}>{bad}</div>}
+      </div>
+    </div>
+  );
+}
+
+/** The silence alarm (2026-11-03): armed when intake goes live. It says what it watches and what it found, not just on/off. */
+function SilenceEditor({ armed, since, silence, saving, onSave }: { armed: boolean; since: string | null; silence: Silence; saving: boolean; onSave: (on: boolean) => Promise<boolean | undefined> }) {
+  const n = silence?.thresholdHours ?? 24;
+  const last = silence?.lastAt ? `the last email arrived ${dateLong(silence.lastAt)}` : "no email has ever arrived";
+  const now = silence?.state === "unreadable" ? `The mailbox could not be read just now (${silence.error ?? "no answer"}); armed, that alarms.`
+    : !armed ? `Off: intake is not live, so silence is expected — ${last}.`
+    : silence?.state === "silent" ? `ALARMING: ${silence.hours} working hours without an email — ${last}.`
+    : `Armed${since ? ` since ${dateLong(since)}` : ""}: ${silence?.hours ?? 0} of ${n} working hours so far — ${last}.`;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,260px) minmax(0,1fr)", gap: 16, paddingTop: 14, borderTop: `1px solid ${cw.divider}` }}>
+      <div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: cw.text }}>Silence alarm</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, color: cw.textMuted, marginTop: 3 }}>Turn on when intake goes live. No inbound email for {n} working hours (Monday to Friday, 08:00–18:00 Riga) alerts the developers, as a failure does: a broken mail route looks exactly like a quiet day.</div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <Button size="xs" variant={armed ? "secondary" : "primary"} disabled={saving} onClick={() => void onSave(!armed)}>{saving ? "Saving…" : armed ? "Turn off" : "Turn on"}</Button>
+        </div>
+        <div role="status" style={{ fontSize: 12.5, lineHeight: 1.5, color: silence?.state === "silent" || silence?.state === "unreadable" ? cw.dangerText : cw.textMuted }}>{now}</div>
       </div>
     </div>
   );

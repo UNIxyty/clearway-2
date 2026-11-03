@@ -12,6 +12,7 @@
 //   knowledge       a knowledge-base search, end to end
 //   web-search      one search on the configured provider
 //   voice           text to speech, then that audio back to text, and the words compared
+//   intake-silence  armed when intake goes live: no inbound email for 24 working hours fails it (lib/intake/silence.mjs)
 //
 // The result of each run is the agent_settings row `smoke:last` (JSON in `reason`). A failure alerts the developers'
 // Telegram chat (the path the AIP refresh uses), counted sent only when Telegram accepted it; a path that stays down is
@@ -78,6 +79,15 @@ export const SMOKES = {
     return `${r.tier1.length + r.tier2.length} hit(s)`;
   },
   "web-search": async () => { const { searchWeb } = await import("./tools/web.mjs"); const r = await searchWeb("EUROCONTROL network operations", { count: 1 }); must(r.length > 0, "no results"); return `${r.length} result(s)`; },
+  // Not a call but an absence (2026-11-03): armed when intake goes live; no inbound email for 24 working hours fails it.
+  "intake-silence": async () => {
+    const { intakeSilence, SILENCE_WORKING_HOURS } = await import("./intake/silence.mjs");
+    const x = await intakeSilence();
+    const last = x.lastAt ? `${x.lastAt.slice(0, 16)}Z` : "never";
+    if (x.state === "not_armed") return `not armed (intake not live) · last email ${last}`;
+    must(x.state !== "silent", `no inbound email for ${x.hours} working hours (armed; alarms from ${SILENCE_WORKING_HOURS}) · last email ${last}`);
+    return `${x.hours} working hours since the last email (${last})`;
+  },
   voice: async () => {
     const { synthesize, ttsConfigured } = await import("./voice/tts.mjs");
     const { transcribe } = await import("./voice/stt.mjs");

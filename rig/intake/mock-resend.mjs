@@ -30,7 +30,10 @@ http.createServer(async (req, res) => {
   let m;
   if ((m = /^\/emails\/receiving\/([\w-]+)$/.exec(u.pathname))) {
     const f = reg.get(m[1]); if (!f) return send(res, 404, { message: "not found" });
-    return send(res, 200, { object: "email", id: m[1], message_id: `<${m[1]}@rig>`, cc: [], authentication: { spf: "pass", dkim: "pass", dmarc: "pass" }, raw: { download_url: `http://127.0.0.1:${PORT}/raw/${m[1]}`, expires_at: new Date(Date.now() + 3600e3).toISOString() } });
+    // to / cc from the fixture's own headers, as Resend fills them (2026-11-03: the receiving-address rule reads them)
+    let head = ""; try { head = readFileSync(f, "latin1").split(/\r?\n\r?\n/)[0].replace(/\r?\n[ \t]+/g, " "); } catch { /* a missing fixture is the 404 below's business */ }
+    const hdr = (name) => (head.match(new RegExp(`^${name}:\\s*(.+)$`, "im"))?.[1] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+    return send(res, 200, { object: "email", id: m[1], message_id: `<${m[1]}@rig>`, to: hdr("To"), cc: hdr("Cc"), bcc: [], received_for: [], authentication: { spf: "pass", dkim: "pass", dmarc: "pass" }, raw: { download_url: `http://127.0.0.1:${PORT}/raw/${m[1]}`, expires_at: new Date(Date.now() + 3600e3).toISOString() } });
   }
   if ((m = /^\/raw\/([\w-]+)$/.exec(u.pathname))) { const f = reg.get(m[1]); try { return f ? send(res, 200, readFileSync(f), "message/rfc822") : send(res, 404, "no"); } catch { return send(res, 404, "no such fixture"); } }
   if (req.method === "POST" && u.pathname === "/_rig/fail-sends") { let b = ""; for await (const c of req) b += c; failSends = Boolean(JSON.parse(b || "{}").on); return send(res, 200, { ok: true, failSends }); }

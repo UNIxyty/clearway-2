@@ -23,6 +23,7 @@ import { sanitizeEmailHtml } from "./sanitize.mjs";
 import { retentionDays, deleteAtFor } from "./retention.mjs";
 import { notifyTo } from "./notify.mjs";
 import { intakeSettings, setIntakeSettings } from "./settings.mjs";
+import { intakeSilence, SILENCE_WORKING_HOURS } from "./silence.mjs";
 import { agentFrom } from "../email/send.mjs";
 import { sendEmail as deliver } from "../../../digital-wall/lib/mailer.mjs";
 
@@ -73,6 +74,7 @@ async function health() {
   const unread = ((await rest("intake_requests?select=id&status=eq.needs_you&status_reason=like.Could%20not%20be%20read*").catch(() => [])) ?? []).length;
   const secret = Boolean(process.env.RESEND_WEBHOOK_SECRET);
   return {
+    silence: await intakeSilence().catch(() => ({ state: "unreadable" })),
     mailbox: { ok: secret, lastAt: last, failed, unread, note: !secret ? "No Resend webhook secret is set on the server, so nothing can arrive." : failed ? `${failed} email${failed === 1 ? "" : "s"} in the last 7 days could not be read. ${unread ? `${unread} wait${unread === 1 ? "s" : ""} on this page as Needs you.` : "Each was dealt with by a person."}` : null },
     leon: { ...(await leonReachable()), lastWrite: lastLeon },
     portals: { built: true, lookup: lookupState().on, note: lookupState().on ? "Flight notifications are recognised; after ops approve, the record is read once from the CNAIR portal. Changes the provider makes after import are not detected." : "Flight notifications are recognised, but the CNAIR portal look-up is switched off on this server: approved requests wait for a person." },
@@ -542,7 +544,8 @@ export async function handleIntakeRoutes({ req, res, url, pathname, user, sendJs
         await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { intake: Object.fromEntries(Object.keys(body).filter((k) => k in after).map((k) => [k, { from: before[k], to: after[k] }])) } }).catch(() => {});
       }
       const s = await intakeSettings({ fresh: true });
-      return send({ ok: true, settings: s, health: await addressHealth().catch(() => null) });
+      const silence = await intakeSilence().catch((e) => ({ state: "unreadable", error: String(e?.message ?? e).slice(0, 120) }));
+      return send({ ok: true, settings: s, health: await addressHealth().catch(() => null), silence: { ...silence, thresholdHours: SILENCE_WORKING_HOURS } });
     }
     if (P === "/api/intake/checklist-definitions" && req.method === "GET") return send({ ok: true, definitions: (await checklistDefinitions()).map((d) => ({ nid: d.nid, label: d.label, section: d.section })) });
 

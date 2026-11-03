@@ -24,7 +24,10 @@ const a = await handleEvent({ svixId: "msg_1", event: ev }); const b = await han
 console.log("  first:", a.outcome, "| same delivery again:", b.outcome, "| new delivery, same email:", c.outcome);
 const msgs = await rest("intake_messages?select=id,fetch_status&provider_message_id=eq.11111111-2222-4333-8444-555555555555");
 const reqs = await rest(`intake_requests?select=id,status&message_id=eq.${msgs[0].id}`);
-ok("one message row after three deliveries", msgs.length === 1); ok("the webhook creates no request itself (the pipeline reads it off the response path)", reqs.length === 0); ok("retry outcomes are duplicates", b.outcome === "duplicate_delivery" && c.outcome === "duplicate_message");
+ok("one message row after three deliveries", msgs.length === 1); // The raw fetch fails here (Resend unreachable on purpose): the webhook then records ONE "needs you" request, so a person
+// sees the envelope and chases the sender (2026-10-25). It never reads or extracts: that is the pipeline's, off the
+// response path. (This line said "no request" until 2026-11-03, which the code had stopped being on purpose.)
+ok("a message that cannot be fetched: one 'needs you' request for a person, nothing read", reqs.length === 1 && reqs[0].status === "needs_you"); ok("retry outcomes are duplicates", b.outcome === "duplicate_delivery" && c.outcome === "duplicate_message");
 // 3. Attachments from raw MIME: stored once per content, real type sniffed, owner-only permissions
 const pdf = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
 const eml = [`From: ops@handler.example`, `To: intake@agent.verxyl.com`, `Subject: t`, `MIME-Version: 1.0`, `Content-Type: multipart/mixed; boundary="b"`, ``, `--b`, `Content-Type: text/plain`, ``, `body`, `--b`, `Content-Type: image/png; name="gendec.png"`, `Content-Disposition: attachment; filename="gendec.png"`, `Content-Transfer-Encoding: base64`, ``, pdf.toString("base64"), `--b`, `Content-Type: application/pdf; name="copy.pdf"`, `Content-Disposition: attachment; filename="copy.pdf"`, `Content-Transfer-Encoding: base64`, ``, pdf.toString("base64"), `--b--`, ``].join("\r\n");

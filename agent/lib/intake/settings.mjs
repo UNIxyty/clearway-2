@@ -3,12 +3,13 @@
 //   notifyTo       — who gets the E2 / E3 / E4 emails
 //   mailboxReaders — who may open the Agent mailbox besides admins/developers
 //   retentionDays  — how long raw mail, attachments and personal data are kept (default 90)
+//   silenceAlarm   — armed when intake goes live: no inbound email for 24 working hours alarms (lib/intake/silence.mjs)
 // Stored as agent_settings rows (`intake:*`, the value in `reason`, as the retention row already was).
 // A value never saved falls back to the server environment, and the page says so.
 import { rest } from "../knowledge/retrieval.mjs";
 import { DEFAULT_RETENTION_DAYS } from "./retention.mjs";
 
-const KEYS = { addresses: "intake:addresses", notifyTo: "intake:notify_to", mailboxReaders: "intake:mailbox_readers", retentionDays: "intake:retention" };
+const KEYS = { addresses: "intake:addresses", notifyTo: "intake:notify_to", mailboxReaders: "intake:mailbox_readers", retentionDays: "intake:retention", silenceAlarm: "intake:silence_alarm" };
 const ENV = { addresses: "INTAKE_ADDRESSES", notifyTo: "INTAKE_NOTIFY_TO", mailboxReaders: "INTAKE_MAILBOX_READERS" };
 const EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/;
 const list = (s) => [...new Set(String(s ?? "").split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean))];
@@ -16,12 +17,13 @@ const list = (s) => [...new Set(String(s ?? "").split(/[,;\s]+/).map((x) => x.tr
 let cache = { at: 0, value: null };
 export async function intakeSettings({ fresh = false } = {}) {
   if (!fresh && cache.value && Date.now() - cache.at < 15_000) return cache.value;
-  const rows = (await rest(`agent_settings?select=id,reason,updated_at,updated_by_email&id=in.(${Object.values(KEYS).map((k) => `"${k}"`).join(",")})`).catch(() => [])) ?? [];
+  const rows = (await rest(`agent_settings?select=id,enabled,reason,updated_at,updated_by_email&id=in.(${Object.values(KEYS).map((k) => `"${k}"`).join(",")})`).catch(() => [])) ?? [];
   const byId = new Map(rows.map((r) => [r.id, r]));
   const out = { source: {}, updated: {} };
   for (const [k, id] of Object.entries(KEYS)) {
     const row = byId.get(id);
-    if (k === "retentionDays") { const n = Number(row?.reason); out[k] = Number.isFinite(n) && n >= 1 ? Math.floor(n) : DEFAULT_RETENTION_DAYS; out.source[k] = row ? "settings" : "default"; }
+    if (k === "silenceAlarm") { out[k] = { armed: row?.enabled === true, since: row?.enabled === true ? row.reason || row.updated_at || null : null }; out.source[k] = row ? "settings" : "default"; }
+    else if (k === "retentionDays") { const n = Number(row?.reason); out[k] = Number.isFinite(n) && n >= 1 ? Math.floor(n) : DEFAULT_RETENTION_DAYS; out.source[k] = row ? "settings" : "default"; }
     else if (row) { out[k] = list(row.reason); out.source[k] = "settings"; }
     else { out[k] = list(process.env[ENV[k]]); out.source[k] = out[k].length ? "environment" : "unset"; }
     if (row) out.updated[k] = { at: row.updated_at, by: row.updated_by_email ?? null };
@@ -46,6 +48,10 @@ export async function setIntakeSettings(patch, user) {
     const n = Math.floor(Number(patch.retentionDays));
     if (!Number.isFinite(n) || n < 1 || n > 3650) throw Object.assign(new Error("Retention must be between 1 and 3650 days."), { status: 400 });
     rows.push({ id: KEYS.retentionDays, enabled: true, reason: String(n), updated_at: new Date().toISOString(), updated_by_email: user?.email ?? null });
+  }
+  if (patch.silenceAlarm !== undefined) {
+    const on = patch.silenceAlarm === true || patch.silenceAlarm?.armed === true;
+    rows.push({ id: KEYS.silenceAlarm, enabled: on, reason: on ? new Date().toISOString() : "", updated_at: new Date().toISOString(), updated_by_email: user?.email ?? null });
   }
   if (rows.length) await rest("agent_settings?on_conflict=id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rows) });
   cache = { at: 0, value: null };

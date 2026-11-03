@@ -51,9 +51,16 @@ export async function check({ accounts: [u], ok }) {
     if (r.get_notams && Number.isInteger(r.get_notams.count)) mark("NOTAM count", new RegExp(`\\b${r.get_notams.count}\\b`).test(text));
     const metar = r.get_weather?.metar ?? r.get_weather?.weather;
     const wind = String(metar ?? "").match(/\b(\d{3}|VRB)(\d{2,3})(?:G\d{2,3})?KT\b/);
-    if (wind) mark(`wind (${wind[1] === "VRB" ? "variable" : "direction"}/${Number(wind[2])} kt)`, new RegExp(`\\b${wind[1]}\\b|${wind[1] === "VRB" ? "variable" : "\\b" + wind[1] + "°"}`, "i").test(text) && new RegExp(`\\b${Number(wind[2])}\\s*(kt|knots?)`, "i").test(text));
+    if (wind) {
+      const dirOk = wind[1] === "VRB" ? /variable|VRB/i.test(text) : new RegExp(`\\b${wind[1]}\\b|${wind[1]}°`).test(text);
+      const spdOk = new RegExp(`\\b0*${Number(wind[2])}\\s*(kt|knots?)\\b`, "i").test(text);
+      mark(`wind (${wind[1] === "VRB" ? "variable" : "direction"}/${Number(wind[2])} kt)`, text.includes(wind[0]) || (dirOk && spdOk));
+    }
+    // the category the answer gives is the first one it names ("VMC, well above IMC minima" is VMC)
     const cat = wxCategory(metar);
-    if (cat) mark(`category (${cat})`, new RegExp(`\\b${cat}\\b`).test(text) && !new RegExp(`\\b${cat === "VMC" ? "IMC" : "VMC"}\\b`).test(text.replace(/not\s+(VMC|IMC)/g, "")));
+    if (cat) mark(`category (${cat})`, (text.match(/\b(VMC|IMC)\b/) ?? [])[1] === cat);
+    if (miss.includes("flight count")) miss[miss.indexOf("flight count")] = `flight count (tool ${r.get_wall_state.flightCount}, answer gave ${[...new Set(text.match(/\b\d{1,4}\b/g) ?? [])].slice(0, 6).join("/") || "none"})`;
+    const w = miss.findIndex((m) => m.startsWith("wind")); if (w >= 0) miss[w] += ` — answer said ${[...new Set(text.match(/\b(?:VRB|\d{1,3})\s*(?:°|kt\b|knots?\b|degrees)/gi) ?? [])].slice(0, 4).join(" / ") || "no wind"}`;
     return { got: marks.filter(Boolean).length, of: marks.length, miss, chars: text.length };
   };
   const turn = async (tier) => {

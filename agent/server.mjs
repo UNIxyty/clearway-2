@@ -19,6 +19,7 @@ import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/auth.mjs";
 import { assertRigSafe } from "../lib/rig-guard.mjs";
+import { startSmokeSchedule, EVERY_HOURS as SMOKE_EVERY_HOURS } from "./lib/smoke.mjs";
 import { verifySvix, handleEvent as handleIntakeEvent } from "./lib/intake/resend.mjs";
 import { handleIntakeRoutes } from "./lib/intake/api.mjs";
 import { handlePassengerRoutes } from "./lib/passengers/api.mjs";
@@ -1772,6 +1773,8 @@ if (storeConfigured()) {
   setTimeout(runSweep, 60_000).unref(); setInterval(runSweep, 24 * 60 * 60 * 1000).unref();
 }
 setInterval(() => sweepGeneratedFiles().catch(() => {}), 24 * 60 * 60 * 1000).unref();
+// Smoke calls on every model and AI path, on a schedule, alerting on failure (lib/smoke.mjs, 2026-11-03).
+if (startSmokeSchedule()) console.log(`[agent] smoke checks every ${SMOKE_EVERY_HOURS} h`);
 
 server.listen(PORT, () => {
   const models = loadModelConfig();

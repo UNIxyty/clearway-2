@@ -146,6 +146,7 @@ export async function classifyDocument({ title, source, sample }) {
     if (!match) throw new Error("no JSON in classifier reply");
     const parsed = JSON.parse(match[0]);
     return {
+      automatic: true,
       tier: parsed.tier === "tier1" ? "tier1" : "tier2",
       confidence: Number(parsed.confidence) || 0,
       reason: String(parsed.reason ?? "").slice(0, 400),
@@ -154,7 +155,8 @@ export async function classifyDocument({ title, source, sample }) {
     // An unclassifiable document is proposed as tier 2: the safe default is the
     // one that does NOT put unreviewed text where it will be quoted as law.
     logDetail("agent", `could not classify "${String(title ?? "a document").slice(0, 80)}" automatically`, error);
-    return { tier: "tier2", confidence: 0, reason: "It could not be classified automatically, so it is proposed as reference. Check it before you approve it." };
+    // automatic: false says the model did not answer (the smoke check reads it: this fallback hides an outage otherwise)
+    return { automatic: false, tier: "tier2", confidence: 0, reason: "It could not be classified automatically, so it is proposed as reference. Check it before you approve it." };
   }
 }
 

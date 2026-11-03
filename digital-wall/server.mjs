@@ -52,6 +52,7 @@ import {
   assertSafeIds,
 } from "./lib/attachment-store.mjs";
 import { errorDetail, isPublicError, logFailure, PublicError, REASONS, shownReason } from "./lib/public-error.mjs";
+import { startSmokeWatch } from "./lib/agent-smoke-watch.mjs";
 
 // Permissions startup check (docs/permissions.md): every write route below must be in lib/permissions/catalogue.mjs,
 // and every wall entry there must still exist here. Refuse to start rather than serve a route nobody decided on.
@@ -2543,6 +2544,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, "0.0.0.0", () => {
+  if (startSmokeWatch()) console.log("[smoke-watch] watching the agent's smoke checks every 30 min");
   process.stdout.write(`Serving copied timeline at http://localhost:${port}\n`);
   process.stdout.write(
     `Timeline API ready at /api/timeline/flights, /api/timeline/aircraft, /api/timeline/limitations, /api/timeline/sync-status\n`

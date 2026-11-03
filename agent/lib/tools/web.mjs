@@ -74,6 +74,13 @@ async function tavilySearch(query, { count, domains }) {
   }));
 }
 
+/** One search on whichever provider is configured — the smoke check's call (lib/smoke.mjs) and the tool's. */
+export async function searchWeb(query, { count = 3, domains = AVIATION_DOMAINS } = {}) {
+  const provider = webSearchProvider();
+  if (!provider) throw new Error("no web search provider key is configured");
+  return provider === "brave" ? braveSearch(query, { count, domains }) : tavilySearch(query, { count, domains });
+}
+
 defineTool({
   name: "web_search",
   description:

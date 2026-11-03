@@ -122,7 +122,9 @@ try {
   const evs = await drain(streamConversationWithTools({ tier: "standard", system: "rig", messages: [{ role: "user", content: "Where is RIG1?" }], user, conversationId: null }));
   const reqs = seen.slice(from).map((x) => x.body), r2 = reqs[1];
   const echoed = r2?.messages?.find((m) => m.role === "assistant")?.content ?? [];
-  ok(reqs[0]?.model === "claude-sonnet-5-5" && reqs[0].temperature === undefined && reqs[0].thinking?.type === "adaptive" && reqs[0].output_config?.effort === "medium", "the standard tier runs Sonnet 5.5 with its thinking and effort, no temperature", reqs[0]?.model);
+  const { loadModelConfig } = await import("../agent/lib/models.mjs");
+  const std = loadModelConfig().tiers.standard.request;
+  ok(reqs[0]?.model === "claude-sonnet-5-5" && reqs[0].temperature === undefined && reqs[0].thinking?.type === std.thinking.type && reqs[0].output_config?.effort === std.output_config.effort, "the standard tier runs Sonnet 5.5 with the thinking and effort models.json gives it, no temperature", `${reqs[0]?.model} · effort ${reqs[0]?.output_config?.effort}`);
   ok(echoed[0]?.type === "thinking" && echoed[0].thinking === "Check the tracker." && echoed[0].signature === "sig-rig-abc" && echoed[1]?.type === "redacted_thinking" && echoed[1].data === "redacted-rig" && echoed[2]?.type === "tool_use" && echoed[2].input?.callsign === "RIG1", "round 2 carries round 1's thinking unmodified (text, signature, redacted block), then the tool call", JSON.stringify(echoed.map((c) => c.type)));
   const done = evs.find((e) => e.type === "done"), thought = evs.find((e) => e.type === "thought");
   ok(done?.stopReason === "end_turn" && evs.some((e) => e.type === "tool" && e.name === "get_flight_tracking") && thought?.text === "Check the tracker.", "the turn ends on the answer; the thinking summary is shown as the thought between tool calls, not in the reply");

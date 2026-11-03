@@ -15,6 +15,7 @@ export const EIGHT = [
   { k: "5", title: "Nothing on the approved list, something elsewhere", q: "What do crews say about handling delays at Tamanrasset DAAT?" },
   { k: "6", title: "Nothing anywhere", q: "What are the current overflight permit requirements for the Republic of Westarctica?" },
   { k: "7", title: "The allowlist actually filters (allowed_domains = easa.europa.eu alone)", q: "What are the current restrictions on flying over Belarus?", env: { AGENT_WEB_ALLOWED: "easa.europa.eu" } },
+  { k: "7b", title: "The allowlist actually filters — the API's own search alone (allowed_domains = easa.europa.eu)", q: "What are the current restrictions on flying over Belarus?", env: { AGENT_WEB_ALLOWED: "easa.europa.eu", AGENT_WEB_PROVIDER: "anthropic" } },
   { k: "8a", title: "Tavily against Anthropic — question 1 on Tavily only", q: "What does EASA's current conflict zone bulletin say about Russian airspace?", env: { AGENT_WEB_PROVIDER: "tavily" } },
   { k: "8b", title: "Tavily against Anthropic — question 1 on Anthropic only", q: "What does EASA's current conflict zone bulletin say about Russian airspace?", env: { AGENT_WEB_PROVIDER: "anthropic" } },
   { k: "8c", title: "Tavily against Anthropic — question 4 on Tavily only", q: "Is Sudan's airspace open, and what overflight restrictions apply?", env: { AGENT_WEB_PROVIDER: "tavily" } },

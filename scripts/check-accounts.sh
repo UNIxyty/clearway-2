@@ -16,6 +16,8 @@ docker cp scripts/check-accounts.mjs "$C:/tmp/check-accounts/check-accounts.mjs"
 # and settings) instead of the deployed code: a model or runtime change is proven on production's key before it is
 # deployed. The running service is not touched.
 ENVS=(-e AGENT_ROOT=/app)
+# ONLY=k1,k2: a check that runs a list of prompts runs only those (scripts/prod-checks/agent-web-prompts.mjs)
+[ -n "${ONLY:-}" ] && ENVS+=(-e "ONLY=$ONLY")
 if [ "$C" = agent-service ] && [ "${AGENT_CODE:-}" = checkout ]; then
   # laid out as the agent image lays it out (agent/Dockerfile): the agent folder, with lib/ and digital-wall/lib beside it
   docker exec "$C" mkdir -p /tmp/check-accounts/agent /tmp/check-accounts/lib /tmp/check-accounts/digital-wall/lib \
@@ -25,7 +27,7 @@ if [ "$C" = agent-service ] && [ "${AGENT_CODE:-}" = checkout ]; then
     && docker cp digital-wall/lib/mailer.mjs "$C:/tmp/check-accounts/digital-wall/lib/mailer.mjs" >/dev/null \
     && docker cp digital-wall/lib/flight-record.mjs "$C:/tmp/check-accounts/digital-wall/lib/flight-record.mjs" >/dev/null \
     && docker exec "$C" ln -s /app/node_modules /tmp/check-accounts/agent/node_modules || exit 2
-  ENVS=(-e AGENT_ROOT=/tmp/check-accounts/agent)
+  ENVS=(-e AGENT_ROOT=/tmp/check-accounts/agent); [ -n "${ONLY:-}" ] && ENVS+=(-e "ONLY=$ONLY")
   echo "agent code: this checkout ($(git rev-parse --short HEAD)), not the deployed image"
 fi
 docker exec "${ENVS[@]}" "$C" node /tmp/check-accounts/check-accounts.mjs "$@"; rc=$?

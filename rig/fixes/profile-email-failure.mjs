@@ -12,7 +12,7 @@ try {
   await page.getByLabel("Current password").fill("rig-access-check-only");
   await page.getByRole("button", { name: /Check and send the link/ }).click(); await sleep(4000);
   const shown = await text(page.locator("body"));
-  ok(!/Check your email/.test(shown), "no Check your email when nothing was sent");
+  ok(!/Check your email|Link handed to the mail service/.test(shown), "no success message when nothing was sent");
   ok(/The email could not be sent/.test(shown), "it says the email could not be sent, and what to do", shown.match(/The email could not.{0,120}/)?.[0] ?? shown.match(/[^\n]*(Password|current password|reset|could not|minute|seconds|Too many)[^\n]{0,160}/)?.[0]);
 } finally { await browser.close(); await failSends(false); }
 done();

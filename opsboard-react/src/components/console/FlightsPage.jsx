@@ -142,7 +142,7 @@ function SendSection({ flight, touch = false }) {
     fetching: [...docRows, { key: 'st', spin: true, text: 'Fetching documents (checking shared cache, then source)…', weight: 700, color: t.blueDeep }],
     ready: [...docRows, { key: 'st', icon: 'check', iconColor: t.green, text: 'Documents ready — preparing email…', weight: 700, color: t.blueDeep }],
     emailing: [...docRows, { key: 'st', spin: true, text: 'Sending email…', weight: 700, color: t.blueDeep }],
-    sent: [...docRows, { key: 'st', icon: 'mail-check', iconColor: t.green, text: `Sent to ${job?.to || user?.email || 'your inbox'}`, weight: 700, color: t.greenDeep }],
+    sent: [...docRows, { key: 'st', icon: 'mail-check', iconColor: t.green, text: `Handed to the mail service for ${job?.to || user?.email || 'your inbox'}`, weight: 700, color: t.greenDeep }],
     error: [...docRows, { key: 'st', icon: 'alert-triangle', iconColor: t.red, text: job?.error || 'Send failed', weight: 700, color: t.red }],
   }[stage];
 

@@ -65,19 +65,24 @@ function tzHealth() {
       : t.behind ? `IANA has published ${t.latest}; this server runs ${t.version}. Rebuild the agent image to pick it up.` : `tz data ${t.version}; check conversions correct.` };
 }
 async function health() {
-  const last = (await rest("intake_messages?select=received_at&direction=eq.inbound&order=received_at.desc&limit=1").catch(() => []))?.[0]?.received_at ?? null;
-  const lastLeon = (await rest("intake_leon_writes?select=state,updated_at&order=updated_at.desc&limit=1").catch(() => []))?.[0] ?? null;
+  // A read that fails is "could not read", never "0 failed, no email" (2026-11-03: every query fell back to [] and the
+  // pill went green with the database down).
+  let readFailed = false; const read = (q) => rest(q).catch(() => { readFailed = true; return []; });
+  const last = (await read("intake_messages?select=received_at&direction=eq.inbound&order=received_at.desc&limit=1"))?.[0]?.received_at ?? null;
+  const lastLeon = (await read("intake_leon_writes?select=state,updated_at&order=updated_at.desc&limit=1"))?.[0] ?? null;
   // The mailbox label tells the truth (2026-10-25): when the last email came, and how many could not be read in the last
   // 7 days (each of those is a request on this page, Needs you, until a person deals with it). "Reachable" said nothing.
   const since = new Date(Date.now() - 7 * 86400_000).toISOString();
-  const failed = ((await rest(`intake_messages?select=id&direction=eq.inbound&status=eq.failed&received_at=gte.${encodeURIComponent(since)}`).catch(() => [])) ?? []).length;
-  const unread = ((await rest("intake_requests?select=id&status=eq.needs_you&status_reason=like.Could%20not%20be%20read*").catch(() => [])) ?? []).length;
+  const failed = ((await read(`intake_messages?select=id&direction=eq.inbound&status=eq.failed&received_at=gte.${encodeURIComponent(since)}`)) ?? []).length;
+  const unread = ((await read("intake_requests?select=id&status=eq.needs_you&status_reason=like.Could%20not%20be%20read*")) ?? []).length;
+  // CNAIR: when the portal was last actually read, not that the look-up is switched on
+  const lastPortal = (await read("agent_audit_log?kind=eq.intake.portal_collected&success=eq.true&select=created_at&order=created_at.desc&limit=1"))?.[0]?.created_at ?? null;
   const secret = Boolean(process.env.RESEND_WEBHOOK_SECRET);
   return {
     silence: await intakeSilence().catch(() => ({ state: "unreadable" })),
-    mailbox: { ok: secret, lastAt: last, failed, unread, note: !secret ? "No Resend webhook secret is set on the server, so nothing can arrive." : failed ? `${failed} email${failed === 1 ? "" : "s"} in the last 7 days could not be read. ${unread ? `${unread} wait${unread === 1 ? "s" : ""} on this page as Needs you.` : "Each was dealt with by a person."}` : null },
+    mailbox: { ok: secret && !readFailed, readFailed, lastAt: last, failed, unread, note: readFailed ? "The mailbox could not be read just now, so this is not known." : !secret ? "No Resend webhook secret is set on the server, so nothing can arrive." : failed ? `${failed} email${failed === 1 ? "" : "s"} in the last 7 days could not be read. ${unread ? `${unread} wait${unread === 1 ? "s" : ""} on this page as Needs you.` : "Each was dealt with by a person."}` : null },
     leon: { ...(await leonReachable()), lastWrite: lastLeon },
-    portals: { built: true, lookup: lookupState().on, note: lookupState().on ? "Flight notifications are recognised; after ops approve, the record is read once from the CNAIR portal. Changes the provider makes after import are not detected." : "Flight notifications are recognised, but the CNAIR portal look-up is switched off on this server: approved requests wait for a person." },
+    portals: { built: true, lookup: lookupState().on, lastReadAt: lastPortal, note: lookupState().on ? "Flight notifications are recognised; after ops approve, the record is read once from the CNAIR portal. Changes the provider makes after import are not detected." : "Flight notifications are recognised, but the CNAIR portal look-up is switched off on this server: approved requests wait for a person." },
     timezones: tzHealth(),
   };
 }
@@ -386,9 +391,16 @@ async function addressHealth() {
     const dom = a.split("@")[1]; const d = Array.isArray(resendDomains.value) ? resendDomains.value.find((x) => x.name === dom) : null;
     const last = (await rest(`intake_messages?select=received_at&direction=eq.inbound&to_addrs=cs.{${encodeURIComponent(a)}}&order=received_at.desc&limit=1`).catch(() => []))?.[0]?.received_at ?? null;
     const receiving = d?.capabilities?.receiving === "enabled";
-    out.push({ address: a, ok: receiving && secret, lastAt: last, why: !d ? (resendDomains.value?.error ? `Resend did not answer (${resendDomains.value.error})` : `${dom} is not a Resend domain`) : !receiving ? `Receiving is ${d.capabilities?.receiving ?? "off"} for ${dom} in Resend` : !secret ? "No webhook secret on the server" : null });
+    // "ok" is the set-up (receiving on, webhook secret set); "proven" is mail that actually arrived in the last 7 days
+    out.push({ address: a, ok: receiving && secret, proven: Boolean(last && Date.now() - Date.parse(last) < 7 * 86400_000), lastAt: last, why: !d ? (resendDomains.value?.error ? `Resend did not answer (${resendDomains.value.error})` : `${dom} is not a Resend domain`) : !receiving ? `Receiving is ${d.capabilities?.receiving ?? "off"} for ${dom} in Resend` : !secret ? "No webhook secret on the server" : null });
   }
-  return { addresses: out, resend: { ok: Array.isArray(resendDomains.value), delayed: 0 } };
+  // Resend, by what it did (2026-11-03: green meant the domain list loaded, and "delayed" was always 0): the last real
+  // send and its delivery status, and the delayed / failed sends of the last 24 hours.
+  const day = encodeURIComponent(new Date(Date.now() - 86400_000).toISOString());
+  const lastSend = (await rest("intake_messages?direction=eq.outbound&select=received_at,delivery_status&order=received_at.desc&limit=1").catch(() => null))?.[0] ?? null;
+  const recent = (await rest(`intake_messages?direction=eq.outbound&received_at=gte.${day}&select=delivery_status&limit=1000`).catch(() => null)) ?? null;
+  return { addresses: out, resend: { ok: Array.isArray(resendDomains.value), apiAnswers: Array.isArray(resendDomains.value), lastSendAt: lastSend?.received_at ?? null, lastSendStatus: lastSend?.delivery_status ?? null,
+    delayed: recent ? recent.filter((r) => r.delivery_status === "delivery_delayed").length : null, failed24h: recent ? recent.filter((r) => /^(failed|bounced|suppressed|complained)$/.test(String(r.delivery_status))).length : null } };
 }
 
 async function readerPayload(id, user) {

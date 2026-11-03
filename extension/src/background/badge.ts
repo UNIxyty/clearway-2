@@ -62,8 +62,14 @@ export async function markSiteEnabled(host: string) { const p = await getPending
 export async function pollBadge() {
   const session = await getSession(); if (session.status !== "signed-in") return;
   const { status, body } = await apiJson<{ ok: boolean; confirmations: { token: string; what: string | null; expiresAt: string | null; conversationId: string | null; toolName: string }[]; notamReview: number; jobs: { id: string; filename: string; at: string; conversationId: string | null }[] }>("/extension/badge");
-  if (status !== 200 || !body?.ok) return;
+  if (status !== 200 || !body?.ok) {
+    // the counts are no longer known: grey them and say since when (2026-11-03: they stayed up as if current)
+    const p = await getPending(); await chrome.action.setBadgeBackgroundColor({ color: "#9aa0a6" }).catch(() => {});
+    await chrome.action.setTitle({ title: `Clearway Ops Agent — counts not updated since ${p.updatedAt ? new Date(p.updatedAt).toISOString().slice(11, 16) + "Z" : "the agent last answered"}` }).catch(() => {});
+    return;
+  }
   const p = await getPending();
+  p.updatedAt = Date.now();
   const known = new Set(p.confirmations.map((c) => c.token));
   // Only confirmations this browser started are badged; the server's list confirms which of ours are still pending.
   const live = new Set((body.confirmations ?? []).map((c) => c.token));

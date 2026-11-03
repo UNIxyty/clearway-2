@@ -185,6 +185,8 @@ export default function App() {
         <History conversations={t.conversations} query={historyQuery} setQuery={setHistoryQuery} currentId={t.conversationId} onOpen={(id) => { void t.openConversation(id); setView("thread"); }} />
       ) : (
         <>
+          {/* signed in, but the agent is not answering: say so, and since when (2026-11-03: the panel looked normal) */}
+          {signedIn && session.error && <div role="status" style={{ margin: "8px 12px 0", padding: "8px 10px", borderRadius: 8, fontSize: 12.5, lineHeight: 1.45, background: "var(--cw-warning-tint, #fff4e0)", color: "var(--cw-warning-text, #8a5300)", border: "1px solid var(--cw-warning-border, #f0c27a)" }}>The agent is not answering ({session.error}){session.okAt ? `; it last answered at ${new Date(session.okAt).toISOString().slice(11, 16)}Z` : ""}. Approved sites and counts may be out of date.</div>}
           {signedIn && settings.firstRunDone && tab && <TabBar tab={tab} selectionHas={ext.selectionHas} requestedAt={requestedAt} quick={quickRow} blockedNote={requesting || (tab.status === "not-on-list" && t.messages.length === 0) ? "Selections, the page and quick actions are off here." : tab.status === "approved-pending-enable" ? `Approved${approvedEntry?.approvedBy ? ` by ${approvedEntry.approvedBy}` : ""}. Allow it in Chrome to finish.` : null}
             onSend={(k) => { if (k === "region") post({ type: "panel.action", action: "region" }); else if (k === "page") post({ type: "panel.action", action: "page" }); else post({ type: "panel.action", action: "selection" }); }} />}
 

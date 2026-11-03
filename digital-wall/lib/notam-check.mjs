@@ -173,8 +173,15 @@ export class NotamCheckService {
     this.state = await this.store.read();
   }
 
-  signState() {
-    if (!this.state.day || this.state.airports.length === 0) return "NONE";
+  /**
+   * The TV's sign is about TODAY (2026-11-03: it kept yesterday's CHECKED past midnight, and for good if the morning
+   * run failed before writing state). Before today's check hour: no sign — nothing has been claimed for today yet.
+   * At or after it, with no run for today (late, or failed): CHECK — today's NOTAMs have not been checked. Otherwise
+   * today's acks decide. (Per-flight markers keep the last cycle's acks overnight on purpose: isAirportCheckedToday.)
+   */
+  signState(now = zonedNow()) {
+    if (this.state.day !== now.day) return now.hour >= checkHour() ? "CHECK" : "NONE";
+    if (this.state.airports.length === 0) return "NONE";
     return this.state.airports.every((a) => a.checked) ? "CHECKED" : "CHECK";
   }
 
@@ -219,6 +226,7 @@ export class NotamCheckService {
   broadcast() {
     if (!this.sseHub) return;
     const s = this.publicState();
+    this.lastBroadcastSign = s.sign;
     this.sseHub.broadcast({ type: "notam-check.changed", sign: s.sign, done: s.done, total: s.total, day: s.day });
   }
 
@@ -228,6 +236,10 @@ export class NotamCheckService {
     // downtime (a boot at 11:30 still runs the 10:00 check).
     this.interval = setInterval(() => {
       const { day, hour } = zonedNow();
+      // the sign can change on the clock alone (midnight, the check hour): tell the screens (2026-11-03)
+      const sign = this.signState({ day, hour });
+      if (this.lastBroadcastSign !== undefined && sign !== this.lastBroadcastSign) this.broadcast();
+      this.lastBroadcastSign = sign;
       // Fire on a DEDICATED per-day marker, not on state.day: a manual
       // "Run check now" before 10:00 also sets state.day, which used to
       // swallow the scheduled run (and its notification) for the whole day —
@@ -372,6 +384,8 @@ export class NotamCheckService {
           name: target.name,
           flights: target.flights,
           error: result.ok ? null : result.error,
+          // when the portal fetched these NOTAMs: "all clear" is only as good as the data's age (2026-11-03)
+          notamsAsOf: result.ok ? result.data?.updatedAt ?? null : null,
           checked: previousAcks.get(target.icao) ?? null,
           ...this.annotateNotams(result.ok ? result.data?.notams ?? [] : [], groups, nowMs, windowTo),
         });
@@ -462,6 +476,7 @@ export class NotamCheckService {
       if (result.ok) {
         Object.assign(airport, {
           error: null,
+          notamsAsOf: result.data?.updatedAt ?? null,
           ...this.annotateNotams(result.data?.notams ?? [], groups, nowMs, nowMs + CHECK_WINDOW_MS),
         });
       } else {

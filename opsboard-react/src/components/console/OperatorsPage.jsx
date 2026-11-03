@@ -28,6 +28,7 @@ import {
   ConfirmDialog,
   useLoadPhase,
   TableSkeleton,
+  feedStatus,
 } from './ui';
 import { TABLE_GRID, gridHeader } from './pageMeta';
 import { errorText } from '../../services/errorText';
@@ -36,9 +37,20 @@ import { errorText } from '../../services/errorText';
 
 const STATUS_MAP = {
   success: { c: t.greenDeep, b: t.greenTint, label: 'Synced', dot: t.green },
+  stale: { c: t.amberDeep, b: t.amberTint, label: 'Stale', dot: t.amber },
+  never: { c: t.amberDeep, b: t.amberTint, label: 'Not synced yet', dot: t.amber },
   error: { c: t.redDeep, b: t.redTint, label: 'Error', dot: t.red },
   idle: { c: t.neutralText, b: t.neutralTint, label: 'Paused', dot: 'var(--cw-neutral)' },
 };
+// "Synced" is this operator's own success in the last 10 minutes (the sync runs every 2), never another operator's
+// (2026-11-03: an active operator that had never synced showed Synced, with the global sync time beside it).
+const STALE_MS = 10 * 60 * 1000;
+function operatorStatus(operator) {
+  if (!operator.isActive) return 'idle';
+  if (operator.lastSyncStatus === 'error') return 'error';
+  if (operator.lastSyncStatus !== 'success' || !operator.lastSyncAt) return 'never';
+  return Date.now() - Date.parse(operator.lastSyncAt) > STALE_MS ? 'stale' : 'success';
+}
 
 function OperatorForm({ operator = null, onSaved, onCancel }) {
   const editing = Boolean(operator);
@@ -241,7 +253,7 @@ export default function OperatorsPage() {
     }
   }
 
-  const healthy = sync ? sync.healthy !== false : null;
+  const feed = feedStatus(sync);   // the wall's verdict (2026-11-03)
   const stats = sync
     ? [
         { label: 'DATA SOURCE', value: sync.source || '—' },
@@ -269,13 +281,9 @@ export default function OperatorsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
             <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Sync health</h3>
-            {healthy !== null && (
-              <StatusPill
-                color={healthy ? t.greenDeep : t.red}
-                bg={healthy ? t.greenTint : t.redTint}
-                dot={healthy ? t.green : t.red}
-              >
-                {healthy ? 'Healthy' : 'Error'}
+            {feed && (
+              <StatusPill color={feed.c} bg={feed.b} dot={feed.dot}>
+                {feed.pill}
               </StatusPill>
             )}
           </div>
@@ -340,7 +348,7 @@ export default function OperatorsPage() {
           </EmptyState>
         )}
         {phase === 'content' && operators.map((operator) => {
-          const status = operator.lastSyncStatus === 'error' ? 'error' : operator.isActive ? (operator.lastSyncStatus === 'success' ? 'success' : healthy ? 'success' : 'idle') : 'idle';
+          const status = operatorStatus(operator);
           const st = STATUS_MAP[status];
           return (
             <div key={operator.id} style={{ padding: '15px 18px', borderBottom: `1px solid ${t.rowLine}` }}>
@@ -348,7 +356,7 @@ export default function OperatorsPage() {
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{operator.name || operator.oprId}</div>
                 <div style={{ fontFamily: t.mono, fontSize: 14, color: t.body }}>{operator.oprId}</div>
                 <div style={{ fontSize: 13.5, color: t.muted }}>
-                  {operator.lastSyncAt ? timeAgo(operator.lastSyncAt) : operator.isActive ? timeAgo(sync?.lastRunAt) : 'paused'}
+                  {operator.lastSyncAt ? timeAgo(operator.lastSyncAt) : operator.isActive ? 'never' : 'paused'}
                 </div>
                 <div>
                   <StatusPill color={st.c} bg={st.b} dot={st.dot}>{st.label}</StatusPill>

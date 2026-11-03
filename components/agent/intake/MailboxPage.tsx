@@ -201,8 +201,13 @@ export default function MailboxPage() {
           </div>
           <div aria-label="Connection health" role="group" style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 520 }}>
             {!overview && <HealthPill tone="slate" label="Checking connections…" />}
-            {addrs.map((a) => <HealthPill key={a.address} tone={a.ok ? "green" : "red"} addr={a.address} label={a.ok ? (a.lastAt ? `Connected · last mail ${dayTimeZ(a.lastAt)}` : "Connected · no mail yet") : `Not connected · ${a.why ?? "reason unknown"}`} />)}
-            {overview && <HealthPill tone={!overview.health.resend.ok ? "red" : overview.mailMode === "capture" ? "slate" : overview.health.resend.delayed ? "amber" : "green"} addr="Resend" plainName label={!overview.health.resend.ok ? "Not answering" : overview.mailMode === "capture" ? "Test mode · captured, not sent" : overview.health.resend.delayed ? `Sending · ${overview.health.resend.delayed} delayed` : "Sending"} />}
+            {/* set up is not proven (2026-11-03): green only when mail actually arrived in the last 7 days */}
+            {addrs.map((a) => <HealthPill key={a.address} tone={!a.ok ? "red" : a.proven ? "green" : "slate"} addr={a.address} label={a.ok ? (a.lastAt ? `Receiving enabled · last mail ${dayTimeZ(a.lastAt)}${a.proven ? "" : " (none in 7 days)"}` : "Receiving enabled · no mail yet, so not proven") : `Not connected · ${a.why ?? "reason unknown"}`} />)}
+            {/* Resend by what it did, not that it answered (2026-11-03): the last real send and its delivery */}
+            {overview && (() => { const r = overview.health.resend; const bad = (r.failed24h ?? 0) > 0 || /^(failed|bounced|suppressed|complained)$/.test(String(r.lastSendStatus ?? ""));
+              const tone = !r.ok ? "red" : overview.mailMode === "capture" ? "slate" : bad ? "red" : r.delayed ? "amber" : r.lastSendStatus === "delivered" ? "green" : "slate";
+              const label = !r.ok ? "Not answering" : overview.mailMode === "capture" ? "Test mode · captured, not sent" : (r.failed24h ?? 0) > 0 ? `${r.failed24h} not delivered in 24 h` : r.delayed ? `${r.delayed} delayed in 24 h` : r.lastSendAt ? `Last send ${r.lastSendStatus ?? "handed over"} · ${dayTimeZ(r.lastSendAt)}` : "No send yet";
+              return <HealthPill tone={tone} addr="Resend" plainName label={label} />; })()}
           </div>
         </header>
 

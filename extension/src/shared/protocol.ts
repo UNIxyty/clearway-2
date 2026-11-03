@@ -15,11 +15,12 @@ export type SessionState = {
   user?: SessionUser | null; tools?: string[]; admins?: { name: string; email: string }[];
   sites?: { approved: SiteEntry[]; requests: SiteRequest[] }; quickActions?: { rules: QuickActionRule[] } | null;
   replyMode?: string | null; checkedAt: number; error?: string | null;
+  okAt?: number | null;   // when the agent last answered (2026-11-03): signed in while it is unreachable says since when
 };
 export type SiteStatus = "approved" | "approved-pending-enable" | "requested" | "not-on-list" | "chrome" | "unknown";
 export type TabInfo = { id: number | null; url: string; host: string; path: string; title: string; favIconUrl: string | null; status: SiteStatus; scriptable: boolean; captureWorks?: boolean };
 export type PendingConfirmation = { token: string; what: string | null; expiresAt: string | null; conversationId: string | null; toolName: string; fromThisBrowser: boolean };
-export type PendingState = { confirmations: PendingConfirmation[]; jobs: { id: string; filename: string; at: string; conversationId: string | null }[]; approvedSites: string[]; notamReview: number };
+export type PendingState = { updatedAt?: number; confirmations: PendingConfirmation[]; jobs: { id: string; filename: string; at: string; conversationId: string | null }[]; approvedSites: string[]; notamReview: number };
 export type Settings = { pill: boolean; notifications: boolean; firstRunDone: boolean; mic: "pending" | "allowed" | "skipped" };
 export const DEFAULT_SETTINGS: Settings = { pill: true, notifications: true, firstRunDone: false, mic: "pending" };
 export type Draft = { text?: string; pageContext?: PageContext; at: number; send?: boolean };

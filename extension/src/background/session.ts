@@ -20,7 +20,7 @@ export async function refreshSession({ force = false }: { force?: boolean } = {}
   let next: SessionState;
   if (status === 200 && body?.ok) {
     if (body.authPath) await chrome.storage.local.set({ authPath: body.authPath });
-    next = { status: "signed-in", user: body.user as SessionState["user"], tools: (body.tools as string[]) ?? [], admins: (body.admins as SessionState["admins"]) ?? [], sites: (body.sites as SessionState["sites"]) ?? { approved: [], requests: [] }, quickActions: (body.quickActions as SessionState["quickActions"]) ?? null, replyMode: (body.replyMode as string | null) ?? null, checkedAt: Date.now() };
+    next = { okAt: Date.now(), status: "signed-in", user: body.user as SessionState["user"], tools: (body.tools as string[]) ?? [], admins: (body.admins as SessionState["admins"]) ?? [], sites: (body.sites as SessionState["sites"]) ?? { approved: [], requests: [] }, quickActions: (body.quickActions as SessionState["quickActions"]) ?? null, replyMode: (body.replyMode as string | null) ?? null, checkedAt: Date.now() };
   } else if (status === 401 || status === 403) {
     next = { status: "signed-out", checkedAt: Date.now(), error: status === 403 ? String((body as { message?: string })?.message ?? "No access to the agent.") : null };
   } else {

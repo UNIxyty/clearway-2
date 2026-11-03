@@ -158,6 +158,11 @@ function ProgressCard({ done, total, legend }) {
 function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, onResync, resyncBusy }) {
   const checked = Boolean(airport.checked);
   const noneFlagged = airport.filtered.length === 0;
+  // "All clear" is only as good as the data's age (2026-11-03): green when the NOTAMs were fetched in the last 12 hours
+  const asOfMs = airport.notamsAsOf ? Date.parse(airport.notamsAsOf) : NaN;
+  const ageH = Number.isFinite(asOfMs) ? (Date.now() - asOfMs) / 3600e3 : null;
+  const asOfLabel = ageH === null ? null : ageH < 1 ? `${new Date(asOfMs).toISOString().slice(11, 16)}Z` : `${Math.round(ageH)} h old`;
+  const clearFresh = ageH !== null && ageH <= 12;
   const visible = expanded ? airport.all : airport.filtered;
   const c = checked
     ? { border: t.greenBorder, headBg: t.greenTint, headBorder: t.greenBorder, iconBg: t.greenTint, iconColor: t.greenDeep }
@@ -184,12 +189,12 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
           style={{
             fontSize: 12, fontWeight: 700, letterSpacing: '0.02em', padding: '6px 12px', borderRadius: 999,
             display: 'inline-flex', alignItems: 'center', gap: 7,
-            color: airport.error ? t.redDeep : noneFlagged ? t.greenDeep : t.amber,
-            background: airport.error ? t.redTint : noneFlagged ? t.greenTint : t.amberTint,
+            color: airport.error ? t.redDeep : noneFlagged ? (clearFresh ? t.greenDeep : t.amber) : t.amber,
+            background: airport.error ? t.redTint : noneFlagged ? (clearFresh ? t.greenTint : t.amberTint) : t.amberTint,
           }}
         >
           <Icon name={airport.error ? 'wifi-off' : noneFlagged ? 'check' : 'flag'} size={14} />
-          {airport.error ? 'Fetch failed' : noneFlagged ? 'All clear' : `${airport.filtered.length} flagged`}
+          {airport.error ? 'Fetch failed' : noneFlagged ? (clearFresh ? `All clear · data ${asOfLabel}` : `No flags · ${asOfLabel ? `data ${asOfLabel}` : 'data age unknown'}`) : `${airport.filtered.length} flagged`}
         </span>
         {checked ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -222,7 +227,7 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
         )}
         {!expanded && noneFlagged && !airport.error && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: t.greenDeep, background: t.greenTint, border: `1px solid ${t.greenBorder}`, borderRadius: 10, padding: '11px 14px' }}>
-            <Icon name="shield-check" size={16} />No keyword-flagged NOTAMs for today. Full list available below.
+            <Icon name="shield-check" size={16} />No keyword-flagged NOTAMs for today{asOfLabel ? `, in the NOTAMs fetched ${asOfLabel}` : ' (when these NOTAMs were fetched is not known)'}. Full list available below.
           </div>
         )}
         {expanded && visible.length === 0 && (
@@ -613,7 +618,7 @@ export default function NotamCheckPage({ navigate }) {
     try {
       const payload = await runNotamCheck();
       setState(payload);
-      flash(`NOTAM check complete · ${payload.total} airports, notification ${payload.emailedTo ? `sent to ${payload.emailedTo}` : 'not sent'}`);
+      flash(`NOTAM check complete · ${payload.total} airports, notification ${payload.emailedTo ? `handed to the mail service for ${payload.emailedTo}` : 'not sent'}`);
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -860,7 +865,7 @@ export default function NotamCheckPage({ navigate }) {
           </div>
           <div style={{ fontSize: 12.5, color: t.faint, marginTop: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
             {state.emailedTo && (
-              <span>Notification email sent to {state.emailedTo}{state.emailedAt ? ` at ${zTime(state.emailedAt)}` : ''}</span>
+              <span>Notification email handed to the mail service for {state.emailedTo}{state.emailedAt ? ` at ${zTime(state.emailedAt)}` : ''}</span>
             )}
             {state.emailError && (
               <span style={{ color: t.redDeep, fontWeight: 600 }}>Email problem: {state.emailError}</span>
@@ -899,7 +904,7 @@ export default function NotamCheckPage({ navigate }) {
           </div>
           <div style={{ fontSize: 12.5, color: t.faint, marginTop: 14, textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
             {state.emailedTo && (
-              <span>Notification email sent to {state.emailedTo}{state.emailedAt ? ` at ${zTime(state.emailedAt)}` : ''}</span>
+              <span>Notification email handed to the mail service for {state.emailedTo}{state.emailedAt ? ` at ${zTime(state.emailedAt)}` : ''}</span>
             )}
             {state.remindersSent > 0 && (
               <span>

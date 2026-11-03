@@ -82,11 +82,13 @@ const TONE = {
   ntm: { b: v('chk-ntm-bg'), c: v('chk-ntm-fg'), br: v('chk-ntm-line') },
 };
 
-function LivePill({ state, ageMin }) {
+function LivePill({ state, ageMin, feed = null }) {
+  // the Leon feed's own state when that is what keeps it from LIVE (2026-11-03)
+  const feedWord = { partial: 'LEON PARTIAL', failing: 'LEON ERROR', unknown: 'LEON NOT SYNCED', not_set_up: 'LEON NOT SET UP' }[feed];
   const s = {
     live: { label: 'LIVE', bg: v('ok-soft'), line: v('ok-line'), fg: v('ok') },
     connecting: { label: 'CONNECTING', bg: v('surface-3'), line: v('line-3'), fg: v('text-3') },
-    stale: { label: `STALE ${ageMin} MIN`, bg: v('warn-soft'), line: v('warn-line'), fg: v('warn') },
+    stale: { label: feedWord ?? `STALE ${ageMin} MIN`, bg: v('warn-soft'), line: v('warn-line'), fg: v('warn') },
     none: { label: 'NO DATA', bg: v('bad-soft'), line: v('bad-line'), fg: v('bad') },
   }[state];
   return (
@@ -325,7 +327,7 @@ export default function PhoneWall({ aircraft = [], limitations = [], clocks: roo
         <div style={{ height: 30, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             <h1 style={{ margin: 0, fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em', color: v('text-1'), whiteSpace: 'nowrap' }}>Digital Wall</h1>
-            <LivePill state={live} ageMin={conn.ageMin} />
+            <LivePill state={live} ageMin={conn.ageMin} feed={conn.feed} />
           </div>
           {!showClocks && <span style={{ fontSize: 15, fontWeight: 800, color: v('utc'), whiteSpace: 'nowrap' }}>{hmZ(nowMs)} UTC</span>}
         </div>

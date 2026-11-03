@@ -47,20 +47,14 @@ function healthOf(tenant) {
   if (attention.length > 0) {
     return { label: `${attention.length} trigger${attention.length > 1 ? 's' : ''} need attention`, color: t.red, bg: t.redTint, dot: t.red };
   }
-  const silent = () => {
-    const timestamps = Object.values(tenant.lastEventAt || {});
-    if (timestamps.length === 0) return null;
-    const newest = Math.max(...timestamps.map((v) => new Date(v).getTime()));
-    return Date.now() - newest > 24 * 3600e3;
-  };
-  if (notAvailable.length > 0) {
-    return { label: 'Healthy · some triggers not available', color: t.greenDeep, bg: t.greenTint, dot: t.green };
-  }
-  if (tenant.allEnabledLive === true) {
-    if (silent() === true) return { label: 'Live on Leon · >24h silent', color: t.amber, bg: t.amberTint, dot: t.amber };
-    return { label: 'Healthy', color: t.greenDeep, bg: t.greenTint, dot: t.green };
-  }
-  return { label: 'Registering…', color: t.amber, bg: t.amberTint, dot: t.amber };
+  // "Healthy" needs Leon to confirm every enabled trigger AND an event in the last 24 h (2026-11-03: "some triggers not
+  // available" read Healthy without that, and so did an operator that had never received an event).
+  if (tenant.allEnabledLive !== true) return { label: 'Registering… (not confirmed on Leon)', color: t.amber, bg: t.amberTint, dot: t.amber };
+  const timestamps = Object.values(tenant.lastEventAt || {}).map((v) => new Date(v).getTime()).filter(Number.isFinite);
+  if (timestamps.length === 0) return { label: 'Live on Leon · no event yet', color: t.amber, bg: t.amberTint, dot: t.amber };
+  if (Date.now() - Math.max(...timestamps) > 24 * 3600e3) return { label: 'Live on Leon · >24h silent', color: t.amber, bg: t.amberTint, dot: t.amber };
+  if (notAvailable.length > 0) return { label: 'Healthy · some triggers not available', color: t.greenDeep, bg: t.greenTint, dot: t.green };
+  return { label: 'Healthy', color: t.greenDeep, bg: t.greenTint, dot: t.green };
 }
 
 const EVENT_STATE_CHIP = {

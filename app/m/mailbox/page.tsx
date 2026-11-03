@@ -13,6 +13,8 @@ import { dayTime, hmZ, useAction, useResource, agentUrl, dayHeading, groupBy } f
 
 const STATUS: Record<string, { label: string; tone: Tone }> = { waiting: { label: "Waiting", tone: "warn" }, processed: { label: "Processed", tone: "ok" }, not_recognised: { label: "Not recognised", tone: "neutral" }, failed: { label: "Failed", tone: "bad" }, reply: { label: "Reply", tone: "info" }, ignored: { label: "Ignored", tone: "neutral" }, sent: { label: "Sent", tone: "ok" } };
 type View = "needs" | "all" | "sent";
+// A sent email shows what happened to it (2026-11-03: every outbound row showed a green "Sent", bounced or not).
+const delivery = (d: string | null): readonly [string, Tone] => d === "delivered" ? ["Delivered", "ok"] : d === "delivery_delayed" ? ["Delayed", "warn"] : d === "bounced" ? ["Bounced", "bad"] : d === "complained" ? ["Marked as spam", "bad"] : d === "failed" || d === "suppressed" ? ["Not delivered", "bad"] : d === "captured" ? ["Captured, not sent", "neutral"] : ["Queued", "neutral"];
 
 export default function MailboxPhonePage() {
   const search = useSearchParams(); const router = useRouter();
@@ -36,7 +38,7 @@ export default function MailboxPhonePage() {
       <span className="px-0.5 text-[13px] leading-normal text-cw-text-muted">The email’s body and raw source are shown on a desk, where opening them is logged.</span>
     </div>
   );
-  const groups = groupBy(rows, (m) => dayHeading(m.at)).map((g) => ({ h: g.h, rows: g.rows.map((m) => ({ key: m.id, title: m.subject || "(no subject)", sub: `${m.direction === "outbound" ? (m.to ?? []).join(", ") : m.from}${m.what ? ` · ${m.what}` : ""}`, meta: hmZ(m.at), badge: [STATUS[m.status]?.label ?? m.status, STATUS[m.status]?.tone ?? "neutral"] as const, href: `/m/mailbox?id=${encodeURIComponent(m.id)}` })) }));
+  const groups = groupBy(rows, (m) => dayHeading(m.at)).map((g) => ({ h: g.h, rows: g.rows.map((m) => ({ key: m.id, title: m.subject || "(no subject)", sub: `${m.direction === "outbound" ? (m.to ?? []).join(", ") : m.from}${m.what ? ` · ${m.what}` : ""}`, meta: hmZ(m.at), badge: (m.direction === "outbound" ? delivery(m.delivery) : [STATUS[m.status]?.label ?? m.status, STATUS[m.status]?.tone ?? "neutral"]) as readonly [string, Tone], href: `/m/mailbox?id=${encodeURIComponent(m.id)}` })) }));
   return (
     <T2Page loading={(access.loading && !access.data) || (r.loading && !r.data)} error={access.error ?? r.error} stale={Boolean(r.data)} empty={rows.length === 0} emptyCopy={[view === "needs" ? "Nothing needs you" : "Nothing here", view === "needs" ? "Every email this week was read." : "Emails from the last 7 days appear here."]} errorCopy={["Couldn’t load the mailbox", "Try again in a moment."]} onRetry={r.reload}
       top={<T2Chips value={view} onChange={setView} chips={[{ k: "needs", label: "Needs you" }, { k: "all", label: "Received" }, { k: "sent", label: "Sent" }]} />}>

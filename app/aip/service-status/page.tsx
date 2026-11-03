@@ -95,7 +95,7 @@ export default function ServiceStatusPage() {
       </span>
     ) },
     { id: "note", header: "Note", cell: (r) => (r.note ? <span className="line-clamp-2 text-[13px] text-cw-text-body" title={r.note}>{r.note}</span> : <span className="text-cw-text-muted">—</span>) },
-    { id: "updated", header: "Updated", width: "120px", sortValue: (r) => (r.updatedAt ? -new Date(r.updatedAt).getTime() : null), cell: (r) => <span className="font-mono text-[12.5px] text-cw-text-muted" title={r.updatedAt ?? "Never set"}>{day(r.updatedAt) ?? "—"}</span> },
+    { id: "updated", header: "Set by the team", width: "130px", sortValue: (r) => (r.updatedAt ? -new Date(r.updatedAt).getTime() : null), cell: (r) => <span className="font-mono text-[12.5px] text-cw-text-muted" title={r.updatedAt ?? "Never set"}>{day(r.updatedAt) ?? "—"}</span> },
   ];
 
   return (

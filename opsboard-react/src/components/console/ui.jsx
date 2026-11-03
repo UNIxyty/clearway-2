@@ -1112,6 +1112,25 @@ export function ToastProvider({ children }) {
 }
 
 // ── Misc helpers shared by pages ─────────────────────────────────────────────
+/**
+ * The Leon feed, as every console surface shows it (2026-11-03): from the wall's own verdict, never "healthy unless told
+ * otherwise". Green only for "working" (every operator synced, recently); the age of the last run is always in the line.
+ */
+export function feedStatus(sync) {
+  if (!sync) return null;
+  const v = sync.verdict ?? (sync.healthy === true ? 'working' : sync.healthy === false ? 'failing' : 'unknown');
+  const ran = sync.lastRunAt ? timeAgo(sync.lastRunAt) : 'never';
+  const map = {
+    working: { dot: t.green, c: t.greenDeep, b: t.greenTint, pill: 'Healthy', line: `Leon feed healthy · last sync ${ran}` },
+    partial: { dot: t.amber, c: t.amberDeep, b: t.amberTint, pill: 'Partial', line: `${sync.operatorsOk} of ${sync.operatorsTotal} operators syncing · last sync ${ran}` },
+    stale: { dot: t.amber, c: t.amberDeep, b: t.amberTint, pill: 'Stale', line: `Leon feed stopped · last sync ${ran}` },
+    unknown: { dot: t.border, c: t.neutralText, b: t.neutralTint, pill: 'Not run yet', line: 'Leon feed: no sync has finished yet' },
+    failing: { dot: t.red, c: t.redDeep, b: t.redTint, pill: 'Error', line: `Sync error · ${sync.lastError || 'see Operators page'}` },
+    not_set_up: { dot: t.red, c: t.redDeep, b: t.redTint, pill: 'Not set up', line: 'Leon feed is not set up' },
+  };
+  return { verdict: v, ...(map[v] ?? map.unknown) };
+}
+
 export function timeAgo(iso) {
   if (!iso) return '—';
   const ms = Date.now() - new Date(iso).getTime();

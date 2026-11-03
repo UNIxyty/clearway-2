@@ -14,6 +14,8 @@ import { dayTime, getJson, useAction, useResource, wallUrl } from "@/lib/m/t2";
 type Tenant = { enabledEvents?: Record<string, boolean>; eventStates?: Record<string, { state: "live" | "notAvailable" | "needsAttention" }>; lastEventAt?: Record<string, string>; allEnabledLive?: boolean | null; remoteError?: string | null };
 type Data = { tenants?: Record<string, Tenant>; events?: Record<string, { description?: string }> };
 type Operator = { id: string; oprId: string; name: string };
+// "Healthy" needs Leon to confirm every enabled trigger AND an event to have arrived in the last 24 h (2026-11-03: it
+// fell through to Healthy when nothing was confirmed, and with no event ever). Same rule as the console's page.
 function healthOf(t: Tenant): { label: string; tone: Tone } {
   const enabled = Object.entries(t.enabledEvents ?? {}).filter(([, on]) => on).map(([e]) => e);
   if (enabled.length === 0) return { label: "Off", tone: "neutral" };
@@ -21,9 +23,12 @@ function healthOf(t: Tenant): { label: string; tone: Tone } {
   const st = t.eventStates ?? {};
   const attention = enabled.filter((e) => st[e]?.state === "needsAttention").length;
   if (attention) return { label: `${attention} need${attention === 1 ? "s" : ""} attention`, tone: "bad" };
+  if (t.allEnabledLive !== true) return { label: "Not confirmed on Leon", tone: "warn" };
+  const times = Object.values(t.lastEventAt ?? {}).map((v) => Date.parse(String(v))).filter(Number.isFinite);
+  if (!times.length) return { label: "Live on Leon · no event yet", tone: "warn" };
+  if (Date.now() - Math.max(...times) > 24 * 3600e3) return { label: "Live on Leon · >24 h silent", tone: "warn" };
   const notAvailable = enabled.filter((e) => st[e]?.state === "notAvailable").length;
-  if (notAvailable) return { label: `${notAvailable} not available`, tone: "warn" };
-  return { label: "Healthy", tone: "ok" };
+  return { label: notAvailable ? "Healthy · some triggers not available" : "Healthy", tone: "ok" };
 }
 
 export default function WebhooksPhonePage() {

@@ -687,7 +687,11 @@ const server = http.createServer(async (req, res) => {
         time: new Date().toISOString(),
         leon: {
           configured: Boolean(leonStatus.configured),
-          healthy: leonStatus.healthy !== false,
+          healthy: leonStatus.healthy === true,   // not good by default (2026-11-03)
+          verdict: leonStatus.verdict ?? "unknown",
+          operatorsOk: leonStatus.operatorsOk ?? null,
+          operatorsTotal: leonStatus.operatorsTotal ?? null,
+          lastSuccessAt: leonStatus.lastSuccessAt ?? null,
           lastSyncTimestamp: leonStatus.lastSyncTimestamp ?? null,
           lastRunAt: leonStatus.lastRunAt ?? null,
           lastError: leonStatus.lastError ?? null,

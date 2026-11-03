@@ -8,7 +8,7 @@ import {
   timeAgo,
   ToastProvider, initialsOf, ViewOnly, ViewOnlyNote, PermissionsProvider } from './components/console/ui';
 import { MOBILE } from './components/console/mobile';
-import { Skel } from './components/console/ui';
+import { Skel, feedStatus } from './components/console/ui';
 import PageSkeleton from './components/console/PageSkeleton';
 import { usePortalTheme } from './theme/portalTheme';
 import useViewport from './hooks/useViewport';
@@ -412,7 +412,8 @@ export default function ConsoleApp({ page, navigate }) {
         dot: t.green,
         glow: t.greenTint,
         color: t.greenDeep,
-        label: `Wall live · ${wallFlight?.callsign ?? '…'} on screen`,
+        // the show request was sent; no screen confirms it rendered (2026-11-03: said "on screen")
+        label: `Sent to the wall · ${wallFlight?.callsign ?? '…'}`,
       };
     }
     return {
@@ -425,7 +426,7 @@ export default function ConsoleApp({ page, navigate }) {
     };
   }, [overlay.open, wallFlight]);
 
-  const healthy = sync ? sync.healthy !== false : null;
+  const feed = feedStatus(sync);   // the wall's verdict, with the age (2026-11-03)
   // Second dot + line: the flight-count check (bug report 7 follow-up item 2).
   const countLine = windowCheckLine(sync?.windowCheck ?? null);
   const repairLine = windowRepairLine(sync?.windowCheck ?? null);
@@ -754,15 +755,13 @@ export default function ConsoleApp({ page, navigate }) {
                   <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
                     Sync status
                     <span style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: healthy === null ? t.border : healthy ? t.green : t.red }} />
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: feed ? feed.dot : t.border }} />
                       <span title="Flight count check (Leon vs wall)" style={{ width: 8, height: 8, borderRadius: '50%', background: countDot }} />
                     </span>
                   </div>
                   <div style={{ fontSize: 11.5, lineHeight: 1.45, color: t.faint }}>
                     {sync
-                      ? healthy
-                        ? `Leon feed healthy · last sync ${timeAgo(sync.lastRunAt)}`
-                        : `Sync error · ${sync.lastError || 'see Operators page'}`
+                      ? feed.line
                       : <Skel w="82%" h={10} style={{ margin: '3px 0' }} />}
                   </div>
                   {countLine && <div style={{ fontSize: 11.5, lineHeight: 1.45, marginTop: 4, color: countLine.level === 'error' ? t.red : countLine.level === 'warn' ? t.amber ?? t.red : t.faint, fontWeight: countLine.level === 'ok' ? 400 : 700 }}>{countLine.text}</div>}
@@ -951,15 +950,13 @@ export default function ConsoleApp({ page, navigate }) {
                 <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
                   Sync status
                   <span style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: healthy === null ? t.border : healthy ? t.green : t.red }} />
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: feed ? feed.dot : t.border }} />
                     <span title="Flight count check (Leon vs wall)" style={{ width: 8, height: 8, borderRadius: '50%', background: countDot }} />
                   </span>
                 </div>
                 <div style={{ fontSize: 11.5, lineHeight: 1.45, color: t.faint }}>
                   {sync
-                    ? healthy
-                      ? `Leon feed healthy · last sync ${timeAgo(sync.lastRunAt)}`
-                      : `Sync error · ${sync.lastError || 'see Operators page'}`
+                    ? feed.line
                     : <Skel w="82%" h={10} style={{ margin: '3px 0' }} />}
                 </div>
                 {countLine && <div style={{ fontSize: 11.5, lineHeight: 1.45, marginTop: 4, color: countLine.level === 'error' ? t.red : countLine.level === 'warn' ? t.amber ?? t.red : t.faint, fontWeight: countLine.level === 'ok' ? 400 : 700 }}>{countLine.text}</div>}

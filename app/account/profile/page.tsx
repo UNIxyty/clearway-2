@@ -186,7 +186,7 @@ export default function ProfilePage() {
                   ) : (
                     <div className="flex flex-col gap-2.5">
                       <div className="flex flex-wrap items-center gap-2"><span className="min-w-0 flex-1 text-[13.5px] text-cw-text-body">We check your current password, then email you a secure link to set a new one.</span><Button size="sm" onClick={() => { setPwOpen(true); setPwSentTo(null); }}>Change password</Button></div>
-                      {pwSentTo && <Callout tone="success" icon="mail" title="Check your email">We sent a link to <span className="font-mono">{pwSentTo}</span>. It opens a page where you choose the new password.</Callout>}
+                      {pwSentTo && <Callout tone="success" icon="mail" title="Link handed to the mail service">A link is on its way to <span className="font-mono">{pwSentTo}</span>: the mail service has accepted it. It opens a page where you choose the new password. If it has not arrived in a few minutes, look in spam, then send it again.</Callout>}
                     </div>
                   )}
                 </Row>

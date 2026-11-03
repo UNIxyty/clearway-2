@@ -776,7 +776,11 @@ export class LeonTimelineService {
 
     this.state = {
       source: "empty", // nothing yet: the cache or the first Leon sync replaces this
-      healthy: true,
+      // null until a cycle finishes (2026-11-03: it started true, so the feed read healthy before Leon was ever asked)
+      healthy: null,
+      operatorsOk: null,
+      operatorsTotal: null,
+      lastSuccessAt: null,
       lastSyncTimestamp: null,
       lastRunAt: null,
       lastError: null,
@@ -1173,6 +1177,7 @@ export class LeonTimelineService {
       .catch((error) => {
         const message = errorDetail(error);
         this.state.lastError = /abandoning hung cycle/.test(message) ? REASONS.leonTooLong() : REASONS.leonSyncFailed();
+        this.state.healthy = false;   // a hung or failed cycle is not healthy (2026-11-03: it was left as it was)
         console.error(`[leon-sync] ${message}`);
       })
       .finally(() => {
@@ -1304,6 +1309,9 @@ export class LeonTimelineService {
       // Healthy while at least one operator syncs; failing operators are
       // named so the error reads as THEIR problem, not a global outage.
       this.state.healthy = succeeded > 0;
+      this.state.operatorsOk = succeeded;
+      this.state.operatorsTotal = operators.length;
+      if (succeeded > 0) this.state.lastSuccessAt = new Date().toISOString();
       this.state.lastError = leonSummaryReason(operatorErrors);
       if (operatorErrors.length > 0) {
         console.error(`[leon-sync] ${operatorErrors.length} operator(s) failing: ${operatorErrors.map((e) => `${e.oprId} (${e.message.slice(0, 200)})`).join("; ")}`);
@@ -2124,7 +2132,23 @@ export class LeonTimelineService {
       oprId: this.operatorId,
       operators: [...new Set(records.map((row) => row.oprId).filter(Boolean))],
       windowCheck: this.getWindowCheck(),
+      verdict: this.feedVerdict(),
     };
+  }
+
+  /**
+   * One word for every reader of the feed's health (2026-11-03): the console dot, the Operators page, the wall's
+   * /api/health and the portal's service checker. Green only for "working": the last cycle synced every operator and
+   * ran within five cycles. "partial" names that some operators fail; "stale" that the cycles stopped; "unknown" that
+   * none has finished yet — never green by default.
+   */
+  feedVerdict(now = Date.now()) {
+    if (!this.state.configured) return "not_set_up";
+    if (this.state.healthy === null || !this.state.lastRunAt) return "unknown";
+    if (now - Date.parse(this.state.lastRunAt) > Math.max(10 * 60_000, 5 * this.pollMs)) return "stale";
+    if (this.state.healthy === false) return "failing";
+    if (this.state.operatorsTotal != null && this.state.operatorsOk < this.state.operatorsTotal) return "partial";
+    return "working";
   }
 
   async getAircraftSchedule({ days = 7, refresh = true } = {}) {

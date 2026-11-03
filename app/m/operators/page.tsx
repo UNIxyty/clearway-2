@@ -12,7 +12,8 @@ import { useWallUser, userCan } from "@/lib/m/wall";
 import { dayTime, getJson, useAction, useResource, wallUrl } from "@/lib/m/t2";
 
 type Operator = { id: string; oprId: string; name: string; isActive: boolean; hasRefreshToken?: boolean; lastSyncAt?: string | null; lastSyncStatus?: "idle" | "success" | "error" | null; lastSyncError?: string | null; createdAt?: string; updatedAt?: string };
-const statusOf = (o: Operator): { label: string; tone: Tone } => o.lastSyncStatus === "error" ? { label: "Sync failing", tone: "bad" } : !o.isActive ? { label: "Paused", tone: "neutral" } : o.lastSyncStatus === "success" ? { label: "Connected", tone: "ok" } : { label: "Waiting", tone: "warn" };
+// "Connected" is this operator's own sync in the last 10 minutes (the sync runs every 2), not a success of any age (2026-11-03).
+const statusOf = (o: Operator): { label: string; tone: Tone } => o.lastSyncStatus === "error" ? { label: "Sync failing", tone: "bad" } : !o.isActive ? { label: "Paused", tone: "neutral" } : o.lastSyncStatus === "success" && o.lastSyncAt ? (Date.now() - Date.parse(o.lastSyncAt) <= 10 * 60_000 ? { label: "Connected", tone: "ok" } : { label: "Stale", tone: "warn" }) : { label: "Not synced yet", tone: "warn" };
 
 export default function OperatorsPhonePage() {
   const search = useSearchParams(); const router = useRouter();

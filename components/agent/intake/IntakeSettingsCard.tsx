@@ -11,7 +11,7 @@ import { cw } from "@/lib/portal-tokens";
 type Key = "addresses" | "notifyTo" | "mailboxReaders";
 type Settings = { addresses: string[]; notifyTo: string[]; mailboxReaders: string[]; retentionDays: number; silenceAlarm?: { armed: boolean; since: string | null }; source: Record<string, string>; updated: Record<string, { at: string; by: string | null }> };
 type Silence = { state: "not_armed" | "ok" | "silent" | "unreadable"; lastAt?: string | null; hours?: number | null; thresholdHours?: number; error?: string } | null;
-type Health = { addresses: { address: string; ok: boolean; why: string | null }[] } | null;
+type Health = { addresses: { address: string; ok: boolean; proven?: boolean; lastAt?: string | null; why: string | null }[] } | null;
 const EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/;
 
 const ROWS: { key: Key; title: string; help: string; empty: string }[] = [
@@ -64,7 +64,7 @@ function sourceLine(source: string | undefined, updated?: { at: string; by: stri
   return "Not set";
 }
 
-function ListEditor({ title, help, empty, values, source, updated, saving, status, onSave }: { title: string; help: string; empty: string; values: string[]; source?: string; updated?: { at: string; by: string | null }; saving: boolean; status?: (a: string) => { ok: boolean; why: string | null } | null; onSave: (v: string[]) => Promise<boolean | undefined> }) {
+function ListEditor({ title, help, empty, values, source, updated, saving, status, onSave }: { title: string; help: string; empty: string; values: string[]; source?: string; updated?: { at: string; by: string | null }; saving: boolean; status?: (a: string) => { ok: boolean; proven?: boolean; why: string | null } | null; onSave: (v: string[]) => Promise<boolean | undefined> }) {
   const [draft, setDraft] = useState<string[]>(values); const [text, setText] = useState(""); const [bad, setBad] = useState<string | null>(null);
   const id = useId();
   useEffect(() => setDraft(values), [values]);
@@ -82,7 +82,8 @@ function ListEditor({ title, help, empty, values, source, updated, saving, statu
           {draft.length === 0 && <li style={{ fontSize: 12.5, color: cw.textMuted }}>{empty}</li>}
           {draft.map((a) => { const h = status?.(a); return (
             <li key={a} style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 6, maxWidth: "100%", minWidth: 0, border: `1px solid ${cw.borderControl}`, borderRadius: 14, padding: "3px 4px 3px 10px", background: cw.bgSurface }}>
-              {h && <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: h.ok ? TONE.green.ic : TONE.red.ic }} />}
+              {/* green only when mail actually arrived in the last 7 days; set up but unproven is grey (2026-11-03) */}
+              {h && <span aria-hidden title={!h.ok ? (h.why ?? "Not connected") : h.proven ? "Mail arrived in the last 7 days" : "Receiving enabled; no mail in 7 days, so not proven"} style={{ width: 7, height: 7, borderRadius: "50%", background: !h.ok ? TONE.red.ic : h.proven ? TONE.green.ic : TONE.slate.ic }} />}
               <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), overflowWrap: "anywhere", minWidth: 0 }}>{a}</span>
               {h && !h.ok && h.why && <span style={{ fontSize: 11.5, color: cw.dangerText, overflowWrap: "anywhere", minWidth: 0 }}>{h.why}</span>}
               <button type="button" className="ag-focus" aria-label={`Remove ${a}`} onClick={() => setDraft((d) => d.filter((x) => x !== a))} style={{ width: 22, height: 22, borderRadius: 999, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="x" size={13} color={cw.textMuted} /></button>

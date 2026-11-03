@@ -239,7 +239,10 @@ async function checkWeatherRead(): Promise<Outcome> {
   const r = await getJson(`${await portalBase()}/api/weather?icao=${PROBE_ICAO}`, probeAuthHeaders());
   if (r.status === 401 || r.status === 403) return unauthenticatedOutcome(r);
   const body = asRecord(r.json);
-  if (r.status === 200 && body?.icao === PROBE_ICAO && typeof body.weather === "string") return OK;
+  // Weather text must actually be there (2026-11-03: an empty string passed, and the route answers "" with 200 when it
+  // has no data at all).
+  if (r.status === 200 && body?.icao === PROBE_ICAO && typeof body.weather === "string" && body.weather.trim()) return OK;
+  if (r.status === 200 && body?.icao === PROBE_ICAO) return failed("degraded", "Answers, but has no weather for the probe airport", `weather for ${PROBE_ICAO} is empty`);
   return downBecause(r, "unexpected weather response");
 }
 
@@ -296,6 +299,17 @@ async function checkWallHealth(): Promise<Outcome> {
 }
 
 function leonOutcomeFromStatus(st: Record<string, unknown>): Outcome {
+  // The wall's own verdict, tied to the last cycle and its age (2026-11-03): OK only when every operator synced recently.
+  const v = typeof st.verdict === "string" ? st.verdict : null;
+  if (v) {
+    const ago = typeof st.lastRunAt === "string" ? `${Math.round((Date.now() - Date.parse(st.lastRunAt)) / 60000)} min ago` : "never";
+    if (v === "working") return OK;
+    if (v === "not_set_up") return failed("degraded", NOT_SET_UP, "Leon sync is not configured on the wall backend");
+    if (v === "partial") return failed("degraded", `${st.operatorsOk} of ${st.operatorsTotal} operators syncing`, `Leon sync partial: ${String(st.lastError ?? "")}`);
+    if (v === "stale") return failed("degraded", `Leon sync last ran ${ago}`, `Leon sync stale: last cycle ${String(st.lastRunAt ?? "never")}`);
+    if (v === "unknown") return failed("unknown", "Leon sync has not finished a cycle yet", "no Leon cycle has finished since the wall started");
+    if (v === "failing") return failed("degraded", "Leon sync is failing", `Leon sync failing: ${String(st.lastError ?? "")}`);
+  }
   if (st.configured === false) {
     return failed("degraded", NOT_SET_UP, "Leon sync is not configured on the wall backend");
   }
@@ -304,7 +318,8 @@ function leonOutcomeFromStatus(st: Record<string, unknown>): Outcome {
     const detail = typeof st.lastError === "string" && st.lastError ? `: ${st.lastError}` : "";
     return failed("degraded", "Leon sync is failing", `Leon sync reports unhealthy${detail}`);
   }
-  return OK;
+  // an older wall without a verdict: healthy must be true, never OK by default
+  return st.healthy === true ? OK : failed("unknown", "Leon sync state not reported", "the wall reported no Leon verdict");
 }
 
 async function checkLeonFeed(): Promise<Outcome> {
@@ -409,19 +424,19 @@ function checkAipCopiesAge(): Promise<Outcome> {
 // ── Check inventory (audit §6.4 cadences) ───────────────────────────────────
 
 const CHECK_DEFS: CheckDef[] = [
-  { id: "portal-health", label: "Portal (/api/health)", intervalMs: 1 * MIN, run: checkPortalHealth },
-  { id: "aip-resolve", label: `AIP lookup (/api/aip/resolve ${PROBE_ICAO})`, intervalMs: 5 * MIN, run: checkAipResolve },
-  { id: "notams-cached", label: `NOTAM cached read (/api/notams ${PROBE_ICAO})`, intervalMs: 10 * MIN, run: checkNotamsCachedRead },
-  { id: "weather", label: `Weather (/api/weather ${PROBE_ICAO})`, intervalMs: 10 * MIN, run: checkWeatherRead },
-  { id: "notam-sync", label: "NOTAM sync worker (/health)", intervalMs: 2 * MIN, run: makeWorkerHealthCheck(notamSyncBase, "notam-sync") },
-  { id: "weather-sync", label: "Weather sync worker (/health)", intervalMs: 2 * MIN, run: makeWorkerHealthCheck(weatherSyncBase, "weather-sync") },
-  { id: "aip-sync", label: "AIP sync worker (/health)", intervalMs: 2 * MIN, run: makeWorkerHealthCheck(aipSyncBase, "aip-sync") },
-  { id: "wall-health", label: "Digital Wall backend (/api/health)", intervalMs: 1 * MIN, run: checkWallHealth },
-  { id: "agent-health", label: "Dispatcher agent (/api/health)", intervalMs: 1 * MIN, run: checkAgentHealth },
-  { id: "leon-feed", label: "Leon feed (wall sync-status)", intervalMs: 2 * MIN, run: checkLeonFeed },
-  { id: "checkwx-freshness", label: "CheckWX cache freshness (weather/)", intervalMs: 30 * MIN, run: makeFreshnessCheck("weather", "CheckWX weather") },
-  { id: "crewbriefing-freshness", label: "CrewBriefing cache freshness (notam/)", intervalMs: 30 * MIN, run: makeFreshnessCheck("notam", "CrewBriefing NOTAM") },
-  { id: "ead-freshness", label: "EAD AIP copies (aip/ead-pdf/)", intervalMs: 30 * MIN, run: checkAipCopiesAge },
+  { id: "portal-health", label: "Portal process (/api/health: running; tests nothing it serves)", intervalMs: 1 * MIN, run: checkPortalHealth },
+  { id: "aip-resolve", label: `AIP source table (/api/aip/resolve ${PROBE_ICAO}: names a source; fetches no AIP)`, intervalMs: 5 * MIN, run: checkAipResolve },
+  { id: "notams-cached", label: `NOTAM read (/api/notams ${PROBE_ICAO}: a stored file answers; its age is the CrewBriefing row)`, intervalMs: 10 * MIN, run: checkNotamsCachedRead },
+  { id: "weather", label: `Weather read (/api/weather ${PROBE_ICAO}: weather text returned; its age is the CheckWX row)`, intervalMs: 10 * MIN, run: checkWeatherRead },
+  { id: "notam-sync", label: "NOTAM sync worker process (/health: running; tests no sync)", intervalMs: 2 * MIN, run: makeWorkerHealthCheck(notamSyncBase, "notam-sync") },
+  { id: "weather-sync", label: "Weather sync worker process (/health: running; tests no sync)", intervalMs: 2 * MIN, run: makeWorkerHealthCheck(weatherSyncBase, "weather-sync") },
+  { id: "aip-sync", label: "AIP sync worker process (/health: running; tests no sync)", intervalMs: 2 * MIN, run: makeWorkerHealthCheck(aipSyncBase, "aip-sync") },
+  { id: "wall-health", label: "Digital Wall backend process (/api/health: running; the Leon feed is its own row)", intervalMs: 1 * MIN, run: checkWallHealth },
+  { id: "agent-health", label: "Dispatcher agent (its last smoke run: every model and AI path called for real)", intervalMs: 1 * MIN, run: checkAgentHealth },
+  { id: "leon-feed", label: "Leon feed (every operator synced within 10 min)", intervalMs: 2 * MIN, run: checkLeonFeed },
+  { id: "checkwx-freshness", label: "CheckWX weather arriving (newest cached file under 24 h, any airport)", intervalMs: 30 * MIN, run: makeFreshnessCheck("weather", "CheckWX weather") },
+  { id: "crewbriefing-freshness", label: "CrewBriefing NOTAMs arriving (newest cached file under 24 h, any airport)", intervalMs: 30 * MIN, run: makeFreshnessCheck("notam", "CrewBriefing NOTAM") },
+  { id: "ead-freshness", label: "EAD AIP copies (this AIRAC cycle's refresh ran with no failures)", intervalMs: 30 * MIN, run: checkAipCopiesAge },
 ];
 
 // ── Singleton runner ────────────────────────────────────────────────────────

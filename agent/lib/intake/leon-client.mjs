@@ -40,7 +40,7 @@ export async function leonReachable({ now = Date.now() } = {}) {
   if (now - reach.at < 120_000 && reach.value) return reach.value;
   let value;
   // a query intake already makes, so the mock and real Leon both answer it
-  try { const r = await leonGraphql("query{ checklist{ getAvailableDefinitions(groupId: OPS){ nid } } }", {}, { timeoutMs: 10_000 }); value = r?.errors ? { ok: false, state: "refused", at: new Date(now).toISOString(), error: String(r.errors[0]?.message ?? "refused").slice(0, 120) } : { ok: true, state: "answered", at: new Date(now).toISOString(), error: null }; }
+  try { const r = await leonGraphql("query{ checklist{ getAvailableDefinitions(groupId: OPS){ nid } } }", {}, { timeoutMs: 10_000 }); value = r?.errors || r?.httpStatus !== 200 || !r?.data ? { ok: false, state: "refused", at: new Date(now).toISOString(), error: String(r.errors?.[0]?.message ?? `HTTP ${r.httpStatus}`).slice(0, 120) } : { ok: true, state: "answered", at: new Date(now).toISOString(), error: null }; }
   catch (e) { value = { ok: false, state: "no_answer", at: new Date(now).toISOString(), error: String(e?.message ?? e).slice(0, 120) }; }
   reach = { at: now, value };
   return value;

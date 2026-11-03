@@ -44,7 +44,51 @@ Not the shape, checked: the workers' `/health` routes say only that the process 
 them so, with separate freshness checks proving that the data arrives. Leon operators show "Connected" only after a
 successful sync.
 
-## The earlier cases
+## Every status in the four apps, traced (2026-11-03)
+
+A status page is a special case of this fault: everything on it is a claim about something else, and each claim can be
+true of the wrong thing. A green dot that means less than the reader thinks is worse than no dot, because the reader
+stops looking elsewhere.
+
+Every status, badge, dot and "Reachable" in the portal, the agent, the wall and the extension was traced to what
+computes it. Each one now either rests on the last real success of the thing it describes, with the time shown, or
+says what it actually means.
+
+| App | Status | It proved | Now |
+|---|---|---|---|
+| Wall | Operators **"Synced"** | another operator synced. An operator that had never synced showed Synced, with the global sync time beside it | this operator's own sync in the last 10 min. Otherwise "Stale" or "Not synced yet", and its own time (or "never") |
+| Wall | TV sign **"NOTAM CHECKED"** | some past round was acknowledged. Yesterday's sign stayed past midnight, and for good if the morning run failed | about today: no sign before the check hour, then **CHECK** until today's round is acknowledged. A clock-driven change is broadcast |
+| Wall | **"Leon feed healthy"**, Operators **"Sync health: Healthy"** | the feed was healthy before any cycle, through a hung cycle, with one operator in N, at any age | the wall's verdict: **working** (every operator synced within 10 min), **partial** ("3 of 4 operators syncing"), **stale**, **failing**, or **unknown** (not run yet). The age is always in the line |
+| Wall | NOTAM airport **"All clear"** | no flags in a NOTAM copy of unknown age | green only when the NOTAMs were fetched under 12 h ago, with the time. Otherwise "No flags · data N h old", or "data age unknown" |
+| Wall | Webhooks **"Healthy"** | registrations existed when last refreshed. No event ever counted as healthy, and so did "some triggers not available" | Leon confirms every trigger and an event arrived in the last 24 h. Otherwise "Registering… (not confirmed)", "no event yet" or ">24h silent". Same rule on the phone |
+| Wall | Phone and tablet **"LIVE"** | the wall's stream was alive, however old Leon's data | also needs the Leon feed working. Otherwise LEON PARTIAL, LEON ERROR, LEON NOT SYNCED or STALE N MIN |
+| Wall | **"Wall live · X on screen"** | a show request was sent | "Sent to the wall · X" |
+| Wall | **"Sent to …"** (AIP documents), **"Notification email sent"** | the mail service accepted it | "Handed to the mail service for …" |
+| Portal | Service status **Weather** | the route answered, even with an empty string and no data | weather text must be there. The label says its age is the CheckWX row |
+| Portal | **AIP lookup**, **NOTAM read** | an in-memory table that always names a source; a stored file of any age | the labels say so ("names a source; fetches no AIP", "a stored file answers; its age is the CrewBriefing row") |
+| Portal | **Leon feed** | `healthy !== false`: good by default, at any age | the wall's verdict (above). "N of M operators syncing", "last ran N min ago", or "unknown" |
+| Portal | Worker, wall and portal **/health** rows | the process is up | labelled "process: running; tests no sync" |
+| Portal | **Dispatcher agent** | the process answered | the last smoke run (fixed earlier today) |
+| Portal | Phone dashboard **"Working"** | as above, with no time | the same verdicts, with "checked HH:MMZ" |
+| Portal | Phone operators **"Connected"** | a past success of any age | own sync in the last 10 min; otherwise Stale or Not synced yet |
+| Portal | Phone mailbox green **"Sent"** | a row was written, even for a bounced send | its delivery: Delivered, Delayed, Bounced, Not delivered, or Queued |
+| Portal | Profile **"We sent a link"** | the mail service accepted it | "A link is on its way … the mail service has accepted it", with what to do if it does not arrive |
+| Agent | Mailbox **"Resend: Sending"** | the domain list loaded; its "N delayed" was always 0 | the last real send and its delivery status, plus the delayed and undelivered sends of the last 24 h |
+| Agent | Address pills **"Connected"** (mailbox, settings card) | receiving switched on and the webhook secret set | "Receiving enabled · last mail …". Green only when mail arrived in the last 7 days; grey "not proven" otherwise |
+| Agent | Intake **mailbox** pill | the webhook secret set; a database outage read as "0 failed" and green | a read that fails says "Could not be read". Shows the age of the last email |
+| Agent | Intake **CNAIR** pill | the look-up switched on | "Look-up on · last read N ago", or "never read yet" |
+| Agent | Intake **Leon API** | (fixed earlier today) | also refuses a non-200 or empty answer as "answered" |
+| Extension | Signed in, approved sites, badge | the agent answered at some earlier time; counts stayed up | while the agent does not answer, a banner says so with the time it last answered. The badge greys out, its tooltip says since when |
+
+**Kept as they are, because they say what they are:**
+- the AIP service-status page (set by the team, now labelled "Set by the team")
+- "Containers running"
+- presence dots
+- the Leon flight-count line
+- device last-seen times
+- the extension's "offline" banner, which only makes a negative claim
+
+
 
 | # | Found | What the screen said | What was true | Fixed by |
 |---|---|---|---|---|

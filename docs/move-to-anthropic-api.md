@@ -108,7 +108,8 @@ tool's own result. The figures below are a warm turn (prompt already cached), av
 | standard (Sonnet) | $0.0148 | $0.0178 (**+20%**: 344–415 output tokens became 845–979) | low: $0.0158 (+7%), answers graded the same |
 | reasoning (Opus) | $0.0275 | $0.0236 (−14%) | medium: $0.0216 (−21%), answers graded the same |
 
-- **Standard got more expensive at medium.** It now runs at low.
+- **Standard got more expensive at medium**, by about fifteen cents a month at real volume. Effort is set for the best
+  answer, not the price (the user's rule, 2026-11-03), so standard stays at medium.
 - **Reasoning stays at high.** The test question was a simple one, not the heavy work that tier exists for, and the tier
   carries about 5% of turns.
 - **Real volume** (audit log, last 90 days): 347 turns. 331 were in September; October was quiet. At September's volume

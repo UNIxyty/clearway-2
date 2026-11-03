@@ -128,7 +128,7 @@ Tests: `node --env-file=.env.rig rig/intake/e2e-scheduled.mjs` (decline / no ans
 
 ## Where the model stops and code starts (THE LINE)
 
-- The model (Bedrock, tier `extraction`, recorded per version in `intake_extractions.model_id`) fills
+- The model (the Anthropic API since 2026-11-02, tier `extraction`, recorded per version in `intake_extractions.model_id`) fills
   `EXTRACTION_SCHEMA` (`schema.mjs`) and nothing else: values as written, `said` verbatim, source, confidence, and
   the words that fix a time zone. It never converts, never builds a Leon payload, and cannot name a field Leon accepts.
 - Code (`extract.mjs` normalise/enforce) does every lookup and every piece of arithmetic: airports through Leon's own
@@ -137,6 +137,10 @@ Tests: `node --env-file=.env.rig rig/intake/e2e-scheduled.mjs` (decline / no ans
   body-vs-attachment conflicts (by comparing each attachment's own copied facts), and scrubbing any identity the model
   put outside `personal`.
 - `leon-payload.mjs` builds `FlightCreate` from the REVIEWED values. It refuses on any blocking state.
+- **Fixed records, variable wording (2026-11-03).** The same email through extraction gives the same record values every
+  run: values, states, counts, times, people (`fillShape` forces the shape; `rig/intake/test-fill-shape.mjs`). The
+  wording the reviewer reads beside them (`said`, `source`, notes) varies between runs, and never reaches Leon. Keep
+  that boundary: never make the record looser to absorb wording variation.
 
 ## Time zones
 

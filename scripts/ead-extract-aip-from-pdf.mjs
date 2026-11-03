@@ -14,7 +14,7 @@
  * Usage: node scripts/ead-extract-aip-from-pdf.mjs [dir]
  * Default dir: data/ead-aip
  * Output: data/ead-aip-extracted.json (array of airport records)
- * AI extraction: ead-extract-aip-from-pdf-ai.mjs (OPENAI_API_KEY).
+ * (No AI extraction: AIP data is never written by a model — removed 2026-11-03.)
  */
 
 import { readFile, readdir, writeFile } from "fs/promises";

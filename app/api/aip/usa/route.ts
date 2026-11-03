@@ -1,75 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip";
-import { readJsonFromStorage, readPdfFromStorage, storageObjectExists, writeJsonToStorage } from "@/lib/aip-storage";
-import { TRY_AGAIN, failure, logFailure, upstreamFailure } from "@/lib/public-error";
+import { isUsaAipIcao } from "@/lib/usa-aip";
+import { readJsonFromStorage, storageObjectExists, writeJsonToStorage } from "@/lib/aip-storage";
+import { failure } from "@/lib/public-error";
 import { requirePermission } from "@/lib/permissions/server";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 
-// What a person sees; the detail (a missing file path, a model provider's error) goes to the log.
+// What a person sees; the detail (a missing file path) goes to the log.
 const noPdf = (icao: string) => `There is no stored AIP document for ${icao} yet. If you need it, report it from Help & support.`;
-const READ_FAILED = `The portal could not read this airport's AIP document. ${TRY_AGAIN}`;
 
 const PDF_PREFIX = "aip/usa-pdf";
 const JSON_PREFIX = "aip/usa";
-
-type ExtractedAirportRow = {
-  "Airport Code": string;
-  "Airport Name": string;
-  "AD2.2 Types of Traffic Permitted": string;
-  "AD2.2 Remarks": string;
-  "AD2.2 AD Operator": string;
-  "AD2.2 Address": string;
-  "AD2.2 Telephone": string;
-  "AD2.2 Telefax": string;
-  "AD2.2 E-mail": string;
-  "AD2.2 AFS": string;
-  "AD2.2 Website": string;
-  "AD2.3 AD Operator": string;
-  "AD 2.3 Customs and Immigration": string;
-  "AD2.3 ATS": string;
-  "AD2.3 Remarks": string;
-  "AD2.6 AD category for fire fighting": string;
-  "AD2.12 Runway Number": string;
-  "AD2.12 Runway Dimensions": string;
-};
-
-function clip(text: string, maxChars = 18000): string {
-  const trimmed = String(text || "").trim();
-  if (!trimmed) return "";
-  const ad2Start = trimmed.search(/\b(AD\s*2\.1|AERODROME\s+LOCATION)\b/i);
-  const runway = trimmed.search(/\b(AD\s*2\.12|RUNWAY\s+PHYSICAL\s+CHARACTERISTICS)\b/i);
-  const start = ad2Start >= 0 ? ad2Start : 0;
-  const end = runway > start ? runway + 1200 : start + maxChars;
-  return trimmed.slice(start, Math.min(trimmed.length, end)).slice(0, maxChars);
-}
-
-function normalizeExtracted(parsed: Partial<ExtractedAirportRow>, icao: string): ExtractedAirportRow {
-  const get = (k: keyof ExtractedAirportRow) => String(parsed[k] || "").trim() || "NIL";
-  return {
-    "Airport Code": String(parsed["Airport Code"] || icao).trim().toUpperCase() || icao,
-    "Airport Name": get("Airport Name"),
-    "AD2.2 Types of Traffic Permitted": get("AD2.2 Types of Traffic Permitted"),
-    "AD2.2 Remarks": get("AD2.2 Remarks"),
-    "AD2.2 AD Operator": get("AD2.2 AD Operator"),
-    "AD2.2 Address": get("AD2.2 Address"),
-    "AD2.2 Telephone": get("AD2.2 Telephone"),
-    "AD2.2 Telefax": get("AD2.2 Telefax"),
-    "AD2.2 E-mail": get("AD2.2 E-mail"),
-    "AD2.2 AFS": get("AD2.2 AFS"),
-    "AD2.2 Website": get("AD2.2 Website"),
-    "AD2.3 AD Operator": get("AD2.3 AD Operator"),
-    "AD 2.3 Customs and Immigration": get("AD 2.3 Customs and Immigration"),
-    "AD2.3 ATS": get("AD2.3 ATS"),
-    "AD2.3 Remarks": get("AD2.3 Remarks"),
-    "AD2.6 AD category for fire fighting": get("AD2.6 AD category for fire fighting"),
-    "AD2.12 Runway Number": get("AD2.12 Runway Number"),
-    "AD2.12 Runway Dimensions": get("AD2.12 Runway Dimensions"),
-  };
-}
-
-async function getPdfBytes(icao: string): Promise<Uint8Array | null> {
-  return readPdfFromStorage(`${PDF_PREFIX}/${icao}.pdf`);
-}
 
 async function hasPdf(icao: string): Promise<boolean> {
   return storageObjectExists(`${PDF_PREFIX}/${icao}.pdf`);
@@ -85,66 +25,6 @@ async function getCachedJson(icao: string): Promise<{ airports: unknown[]; updat
 
 async function putCachedJson(icao: string, payload: { airports: unknown[]; updatedAt: string }) {
   await writeJsonToStorage(`${JSON_PREFIX}/${icao}.json`, payload);
-}
-
-async function aiExtractAirport(icao: string, text: string, signal?: AbortSignal): Promise<ExtractedAirportRow> {
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-  const isOpenRouter = model.includes("/");
-  const apiUrl = isOpenRouter
-    ? "https://openrouter.ai/api/v1/chat/completions"
-    : "https://api.openai.com/v1/chat/completions";
-  const apiKey = isOpenRouter ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error(isOpenRouter ? "OPENROUTER_API_KEY not set" : "OPENAI_API_KEY not set");
-
-  const state = getUsaStateByIcao(icao) || "Unknown state";
-  const prompt = `Extract one airport record from this USA AIP AD 2 text.\nICAO: ${icao}\nState: ${state}\n\nReturn ONLY valid JSON with keys:\n` +
-    `["Airport Code","Airport Name","AD2.2 Types of Traffic Permitted","AD2.2 Remarks","AD2.2 AD Operator","AD2.2 Address","AD2.2 Telephone","AD2.2 Telefax","AD2.2 E-mail","AD2.2 AFS","AD2.2 Website","AD2.3 AD Operator","AD 2.3 Customs and Immigration","AD2.3 ATS","AD2.3 Remarks","AD2.6 AD category for fire fighting","AD2.12 Runway Number","AD2.12 Runway Dimensions"]\n` +
-    `Use "NIL" when missing. Keep concise.`;
-
-  const res = await fetch(apiUrl, {
-    method: "POST",
-    signal,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You extract structured airport fields from FAA AIP AD 2 text. Output only a JSON object. No markdown.",
-        },
-        { role: "user", content: `${prompt}\n\n${clip(text)}` },
-      ],
-      temperature: 0.1,
-      max_tokens: 1400,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`AI API ${res.status}: ${err.slice(0, 500)}`);
-  }
-  const data = await res.json();
-  const content = String(data?.choices?.[0]?.message?.content || "").trim();
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("AI response did not contain JSON");
-  const parsed = JSON.parse(jsonMatch[0]) as Partial<ExtractedAirportRow>;
-  return normalizeExtracted(parsed, icao);
-}
-
-async function extractFromPdfBytes(icao: string, bytes: Uint8Array, signal?: AbortSignal): Promise<ExtractedAirportRow> {
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: Buffer.from(bytes) });
-  const result = await parser.getText();
-  await parser.destroy?.();
-  const text =
-    typeof result?.text === "string"
-      ? result.text
-      : (result?.pages && result.pages.map((p) => p.text).join("\n")) || "";
-  if (!text.trim()) throw new Error("PDF text extraction returned empty text");
-  return aiExtractAirport(icao, text, signal);
 }
 
 export async function GET(request: NextRequest) {
@@ -164,74 +44,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ airports: [], updatedAt: null }, { status: 200 });
   }
 
+  // No model reads the AD 2 PDF into fields any more (2026-11-03): the PDF is the AIP, served as it is (/api/aip/usa/pdf).
+  // Rows a model extracted earlier are not served either. `extract` is accepted and ignored.
+  void extract;
   if (!sync) {
     const fromStorage = await getCachedJson(icao);
-    if (fromStorage && fromStorage.airports.length > 0) {
-      return NextResponse.json({ airports: fromStorage.airports, updatedAt: fromStorage.updatedAt });
-    }
-    return NextResponse.json({ airports: [], updatedAt: null });
+    return NextResponse.json({ airports: [], updatedAt: fromStorage?.updatedAt ?? null });
   }
-
-  if (!extract) {
-    const exists = await hasPdf(icao);
-    if (!exists) {
-      return failure(404, noPdf(icao), { tag: "AIP-USA", what: `USA AD 2 PDF missing: ${PDF_PREFIX}/${icao}.pdf` }, { code: "not_found" });
-    }
-    const updatedAt = new Date().toISOString();
-    await putCachedJson(icao, { airports: [], updatedAt });
-    return NextResponse.json({ done: true, airports: [], updatedAt, pdfReady: true });
+  const exists = await hasPdf(icao);
+  if (!exists) {
+    if (stream) return sse([{ error: noPdf(icao), code: "not_found" }]);
+    return failure(404, noPdf(icao), { tag: "AIP-USA", what: `USA AD 2 PDF missing: ${PDF_PREFIX}/${icao}.pdf` }, { code: "not_found" });
   }
+  const updatedAt = new Date().toISOString();
+  await putCachedJson(icao, { airports: [], updatedAt });
+  const done = { done: true, airports: [], updatedAt, pdfReady: true };
+  return stream ? sse([{ step: "USA AD 2 PDF ready." }, done]) : NextResponse.json(done);
+}
 
-  if (!stream) {
-    const bytes = await getPdfBytes(icao);
-    if (!bytes) {
-      return failure(404, noPdf(icao), { tag: "AIP-USA", what: `USA AD 2 PDF missing: ${PDF_PREFIX}/${icao}.pdf` }, { code: "not_found" });
-    }
-    try {
-      const row = await extractFromPdfBytes(icao, bytes, request.signal);
-      const updatedAt = new Date().toISOString();
-      await putCachedJson(icao, { airports: [row], updatedAt });
-      return NextResponse.json({ airports: [row], updatedAt, pdfReady: true });
-    } catch (err) {
-      return upstreamFailure(READ_FAILED, "unknown", { tag: "AIP-USA", what: `USA AI extraction for ${icao} failed (AI provider)`, detail: err });
-    }
-  }
-
-  const encoder = new TextEncoder();
-  const body = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const send = (obj: unknown) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
-      };
-      try {
-        send({ step: "Loading USA AD 2 PDF from storage…" });
-        const bytes = await getPdfBytes(icao);
-        if (!bytes) {
-          logFailure("AIP-USA", `USA AD 2 PDF missing: ${PDF_PREFIX}/${icao}.pdf`);
-          send({ error: noPdf(icao), code: "not_found" });
-          return;
-        }
-        send({ step: "Extracting PDF text…" });
-        const row = await extractFromPdfBytes(icao, bytes, request.signal);
-        const updatedAt = new Date().toISOString();
-        await putCachedJson(icao, { airports: [row], updatedAt });
-        send({ step: "USA AI extraction complete." });
-        send({ done: true, airports: [row], updatedAt, pdfReady: true });
-      } catch (err) {
-        logFailure("AIP-USA", `USA AI extraction for ${icao} failed`, err);
-        send({ error: READ_FAILED });
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(body, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
+function sse(events: unknown[]) {
+  const body = events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join("");
+  return new Response(body, { headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache" } });
 }

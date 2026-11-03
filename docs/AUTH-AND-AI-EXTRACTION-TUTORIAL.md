@@ -44,16 +44,11 @@ This guide explains exactly what was changed, what to configure in Supabase, and
   - `lib/auth-email-flow-utils.mjs`
   - `lib/auth-email-flow-utils.d.ts`
 
-## 2) What changed in AI extraction prompts
+## 2) AI extraction prompts: removed (2026-11-03)
 
-English-only output requirement was added to extraction/rewriting prompt sources:
-
-- `scripts/ead-extract-aip-from-pdf-ai.mjs`
-- `docs/AIP-EXTRACT-PROMPT.md`
-- `docs/GEN-REWRITE-PROMPT.md`
-- `app/api/textract-benchmark/run/route.ts`
-- `app/api/aip/gen-non-ead/route.ts`
-- `scripts/gen-rewrite-claude-openrouter.mjs`
+No model extracts or rewrites AIP data any more. The state's own wording is the source a dispatcher is held to,
+and the portal serves the PDF itself. The extraction and GEN-rewrite scripts, their prompts and the English-only
+prompt test went with them.
 
 ## 3) Environment variables to set
 
@@ -128,12 +123,11 @@ If you move logos to AWS S3, replace those `src` values with your public object 
 ## 8) Tests added
 
 - `tests/auth-email-flow-utils.test.mjs`
-- `tests/ai-prompts-english.test.mjs`
 
 Run:
 
 ```bash
-node --test tests/auth-email-flow-utils.test.mjs tests/ai-prompts-english.test.mjs
+node --test tests/auth-email-flow-utils.test.mjs
 ```
 
 ## 9) Deployment checklist

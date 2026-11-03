@@ -177,7 +177,7 @@ scripts/
 ├── ead-download-gen-pdf.mjs        # EAD GEN 1.2 PDF download
 ├── ead-download-enr-pdf.mjs        # EAD ENR 1.1 PDF download (not wired to sync server)
 ├── ead-extract-aip-from-pdf.mjs    # regex extractor  → data/ead-aip-extracted.json
-├── ead-extract-aip-from-pdf-ai.mjs # OpenAI/OpenRouter extractor
+├── (ead-extract-aip-from-pdf-ai.mjs: removed 2026-11-03)
 ├── rus_aip_download_by_icao.py     # Russia AIP download (python)
 ├── web-table-scrapers/<country>-*-interactive.mjs   # ~75 national eAIP scrapers
 ├── run-notam-sync-server.sh, run-weather-sync-server.sh, run-notam-worker.sh, run-aip-sync-server.sh
@@ -252,7 +252,7 @@ The AIP sync server (`aip-sync-server.mjs`) routes an ICAO to a source by preced
 **There is NO AIXM/XML anywhere** (verified by grep across `scripts/`, `services/`, `workers/`, `lib/` — no `aixm`, `AIXMBasicMessage`, XML parsing). Neither is there structured NOTAM decoding.
 
 - **NOTAMs:** SkyLink returns **JSON** (fields mapped directly). CrewBriefing returns **raw ICAO NOTAM text**, from which only the `A)` (location), `B)` (start), `C)` (end) fields and the NOTAM number/class are regex-extracted; the **`Q)` line, `D)` schedule, coordinates, radius, and `F)/G)` altitude limits are NOT parsed** — the full text lands verbatim in `condition`. FAA returns an **Excel** export mapped by column headers.
-- **AIP field extraction from PDFs:** the **live path** used by `aip-sync-server.mjs` is the **Python `aip-meta-extractor.py`** — Phase 1 regex over the PDF text layer, then fallback to **Anthropic Claude vision** (`claude-sonnet-4-20250514`, pages rendered to images via pymupdf). Two alternate JS extractors exist: `ead-extract-aip-from-pdf.mjs` (pure regex) and `ead-extract-aip-from-pdf-ai.mjs` (OpenAI/OpenRouter, default `gpt-4.1-mini`). The **USA route** extracts inline with `pdf-parse` + OpenAI (`gpt-4o-mini`). GEN rewriting uses AI as well.
+- **AIP field extraction from PDFs (all model extraction and rewriting removed 2026-11-03; the PDF is served as it is):** the **live path** used by `aip-sync-server.mjs` is the **Python `aip-meta-extractor.py`** — Phase 1 regex over the PDF text layer, then fallback to **Anthropic Claude vision** (`claude-sonnet-4-20250514`, pages rendered to images via pymupdf). Two alternate JS extractors exist: `ead-extract-aip-from-pdf.mjs` (pure regex) and `ead-extract-aip-from-pdf-ai.mjs` (OpenAI/OpenRouter, default `gpt-4.1-mini`). The **USA route** extracts inline with `pdf-parse` + OpenAI (`gpt-4o-mini`). GEN rewriting uses AI as well.
 - **Extraction target:** ICAO **AD 2** subsections (2.2 traffic types, 2.3 operator/customs/ATS, 2.6 fire category, 2.12 runways) — see [§6.3](#63-aip-airport-record). Non-English values are translated to English by the LLM.
 
 ---

@@ -27,7 +27,7 @@ function normPart(p: unknown): GenPart {
     const o = p as { raw?: string; rewritten?: string };
     return {
       raw: typeof o.raw === "string" ? o.raw : "",
-      rewritten: typeof o.rewritten === "string" ? o.rewritten : o.raw ?? "",
+      rewritten: typeof o.raw === "string" ? o.raw : "",   // the original, never a cached model rewrite (2026-11-03)
     };
   }
   return emptyPart();
@@ -64,41 +64,6 @@ function splitGenIntoThreeParts(fullText: string) {
     nonScheduled: idxNonSched === firstIdx ? firstBlock : idxNonSched === secondIdx ? secondBlock : "",
     privateFlights: idxPrivate === firstIdx ? firstBlock : idxPrivate === secondIdx ? secondBlock : "",
   };
-}
-
-async function rewriteWithAI(rawText: string, model: string, signal?: AbortSignal): Promise<string> {
-  if (!rawText?.trim()) return "";
-  const isOpenRouter = model.includes("/");
-  const apiUrl = isOpenRouter
-    ? "https://openrouter.ai/api/v1/chat/completions"
-    : "https://api.openai.com/v1/chat/completions";
-  const apiKey = isOpenRouter ? process.env.OPENROUTER_API_KEY : process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error(isOpenRouter ? "OPENROUTER_API_KEY not set" : "OPENAI_API_KEY not set");
-
-  const res = await fetch(apiUrl, {
-    method: "POST",
-    signal,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an aviation AIP editor. Rewrite the given AIP GEN 1.2 section into continuous prose. Preserve all regulatory information, requirements, and references. Output format: flowing paragraphs only — no section numbers (e.g. 1.1.1, 1.1.2), no headings, no bullet or numbered lists; convert lists and subsections into clear sentences and paragraphs. Keep contact details (addresses, phone, email, URLs) where they are part of procedures. Output must be in English only (translate source text when needed). Output only the rewritten text, no preamble or commentary.",
-        },
-        { role: "user", content: rawText.slice(0, 120000) },
-      ],
-      temperature: 0.2,
-      max_tokens: 4096,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`AI API ${res.status}: ${err.slice(0, 500)}`);
-  }
-  const data = await res.json();
-  return (data.choices?.[0]?.message?.content ?? "").trim();
 }
 
 async function getCachedJson(prefix: string): Promise<GenPayload | null> {
@@ -181,21 +146,13 @@ export async function GET(request: NextRequest) {
   const { general: generalRaw, nonScheduled: nonSchedRaw, privateFlights: privateRaw } =
     splitGenIntoThreeParts(pdfText);
 
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-
+  // No model rewrites AIP text (2026-11-03): the state's own wording is the source a dispatcher is held to, and a
+  // paraphrase can shift a meaning. `rewritten` stays in the shape for old readers and is the original text.
   try {
-    const hasKey = model.includes("/")
-      ? !!process.env.OPENROUTER_API_KEY
-      : !!process.env.OPENAI_API_KEY;
-
-    const generalRewritten = generalRaw && hasKey ? await rewriteWithAI(generalRaw, model, request.signal) : generalRaw;
-    const nonSchedRewritten = nonSchedRaw && hasKey ? await rewriteWithAI(nonSchedRaw, model, request.signal) : nonSchedRaw;
-    const privateRewritten = privateRaw && hasKey ? await rewriteWithAI(privateRaw, model, request.signal) : privateRaw;
-
     const payload: GenPayload = {
-      general: { raw: generalRaw, rewritten: generalRewritten || generalRaw },
-      nonScheduled: { raw: nonSchedRaw, rewritten: nonSchedRewritten || nonSchedRaw },
-      privateFlights: { raw: privateRaw, rewritten: privateRewritten || privateRaw },
+      general: { raw: generalRaw, rewritten: generalRaw },
+      nonScheduled: { raw: nonSchedRaw, rewritten: nonSchedRaw },
+      privateFlights: { raw: privateRaw, rewritten: privateRaw },
       updatedAt: new Date().toISOString(),
     };
 

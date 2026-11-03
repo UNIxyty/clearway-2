@@ -5,7 +5,7 @@ This guide walks you through creating a **separate** EC2 instance dedicated to E
 **What runs on this instance:**
 
 1. **Download:** `ead-download-aip-pdf.mjs` – Playwright + Chromium, one ICAO per run.
-2. **Extract:** `ead-extract-aip-from-pdf.mjs` (regex) or `ead-extract-aip-from-pdf-ai.mjs` (OpenAI).
+2. **Extract:** `ead-extract-aip-from-pdf.mjs` (regex). The AI extractor was removed on 2026-11-03: no model writes AIP data.
 3. **Upload (optional):** `ead-aip-extracted.json` → S3 `your-bucket/aip/`; and per-ICAO cache → `your-bucket/aip/ead/ICAO.json` (portal reads from S3 like NOTAMs).
 
 **Triggering runs:** You can run the scripts via SSH/cron on EC2 (then credentials must be in `.env`), or trigger them from the **portal** at **/aip-test** by passing credentials in the request (no `.env` on EC2 needed).
@@ -218,7 +218,7 @@ node scripts/ead-extract-aip-from-pdf.mjs
 Use **AI extraction** instead of regex (requires `OPENAI_API_KEY` in `.env` for CLI):
 
 ```bash
-node scripts/ead-extract-aip-from-pdf-ai.mjs
+# (the AI extractor was removed on 2026-11-03)
 ```
 
 **Multiple ICAOs (download each, then extract once):**
@@ -229,7 +229,7 @@ for icao in ESGG EVAD EBAM; do
   xvfb-run -a -s "-screen 0 1920x1200x24" node scripts/ead-download-aip-pdf.mjs "$icao"
 done
 node scripts/ead-extract-aip-from-pdf.mjs
-# or: node scripts/ead-extract-aip-from-pdf-ai.mjs
+# or: # (the AI extractor was removed on 2026-11-03)
 ```
 
 **Results:**
@@ -355,7 +355,7 @@ crontab -e
 Add (replace ICAO list and bucket if needed):
 
 ```
-0 3 * * * cd /home/ubuntu/clearway-2 && . .env 2>/dev/null; for icao in ESGG EVAD EBAM; do xvfb-run -a -s "-screen 0 1920x1200x24" node scripts/ead-download-aip-pdf.mjs "$icao"; done && node scripts/ead-extract-aip-from-pdf-ai.mjs
+0 3 * * * cd /home/ubuntu/clearway-2 && . .env 2>/dev/null; for icao in ESGG EVAD EBAM; do xvfb-run -a -s "-screen 0 1920x1200x24" node scripts/ead-download-aip-pdf.mjs "$icao"; done && # (the AI extractor was removed on 2026-11-03)
 ```
 
 - Ensure `.env` exists in `/home/ubuntu/clearway-2` with `EAD_USER`, `EAD_PASSWORD_ENC`, and (for AI) `OPENAI_API_KEY`.

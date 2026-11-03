@@ -629,7 +629,6 @@ export default function AirportView({ icao }: { icao: string }) {
   const [genLoadingPrefix, setGenLoadingPrefix] = useState<string | null>(null);
   const [genSyncingPrefix, setGenSyncingPrefix] = useState<string | null>(null);
   const [genSyncSteps, setGenSyncSteps] = useState<string[]>([]);
-  const [genViewMode, setGenViewMode] = useState<"raw" | "rewritten">("rewritten");
   const [genPartMode, setGenPartMode] = useState<"general" | "nonScheduled" | "privateFlights">("general");
   const [webAipConsent, setWebAipConsent] = useState<{ url: string; label: string } | null>(null);
   const [recents, setRecents] = useState<RecentEntry[]>([]);
@@ -1486,7 +1485,7 @@ export default function AirportView({ icao }: { icao: string }) {
     setGenLoadingPrefix(prefix);
     const useSyncedGen = isEadIcao(icao) || isRussiaIcao(icao) || isAsecnaIcao(icao) || isBahrainScraperIcao(icao, viewingAirport) || isUsaAipIcao(icao);
     if (useSyncedGen) updateStage(icao, "gen", "running", "Loading GEN…");
-    else updateStage(icao, "gen-non-ead", "running", "Rewriting non-EAD GEN…");
+    else updateStage(icao, "gen-non-ead", "running", "Loading non-EAD GEN…");
     const genUrl = useSyncedGen
       ? `/api/aip/gen?icao=${encodeURIComponent(icao)}`
       : `/api/aip/gen-non-ead?prefix=${encodeURIComponent(prefix)}`;

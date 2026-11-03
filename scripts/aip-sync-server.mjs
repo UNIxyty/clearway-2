@@ -31,8 +31,6 @@ const RUN_TIMEOUT_MS = 600_000; // 10 min per step (large AD2 PDFs can be slow o
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const RUS_DOWNLOAD_SCRIPT = join(PROJECT_ROOT, "scripts", "rus_aip_download_by_icao.py");
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
-const META_EXTRACT_SCRIPT = join(PROJECT_ROOT, "aip-meta-extractor.py");
-const EXTRACTED_PATH = join(PROJECT_ROOT, "data", "ead-aip-extracted.json");
 const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
 const RWANDA_ICAO_PREFIX = "HR";
 const EAD_COUNTRY_ICAOS_PATH = join(PROJECT_ROOT, "data", "ead-country-icaos.json");
@@ -648,17 +646,10 @@ function requireAuth(req) {
   return (header && header === SYNC_SECRET) || (querySecret && querySecret === SYNC_SECRET);
 }
 
-/** Map thrown errors to client-facing payload; detect OpenRouter insufficient credits (402). */
+/** Map thrown errors to client-facing payload. (No model is called by the sync: the OpenRouter credit case went with the AIP rewrite, 2026-11-03.) */
 function syncFailurePayload(err) {
   const msg = err?.message ?? String(err);
-  const base = { error: "Sync failed", detail: msg };
-  if (/OpenRouter API 402\b/.test(msg) || /"code"\s*:\s*402/.test(msg) || /Insufficient credits/i.test(msg)) {
-    let shortDetail = "Insufficient credits — add credits at https://openrouter.ai/settings/credits";
-    const um = msg.match(/"message"\s*:\s*"([^"]+)"/);
-    if (um) shortDetail = um[1];
-    return { error: "Insufficient API credits", detail: shortDetail, code: 402 };
-  }
-  return base;
+  return { error: "Sync failed", detail: msg };
 }
 
 function run(cmd, args, env = process.env, onStdoutLine = null) {
@@ -770,72 +761,6 @@ async function runDownload(icao, preferScraper = false, allowFallbackToScraper =
   }
 }
 
-function mapMetaToAirportRow(meta, icao) {
-  return {
-    "Publication Date": meta.publication_date || "NIL",
-    "Airport Code": meta.airport_code || icao,
-    "Airport Name": meta.airport_name || "NIL",
-    "AD2.2 Types of Traffic Permitted": meta.ad2_2_types_of_traffic || "NIL",
-    "AD2.2 Remarks": meta.ad2_2_remarks || "NIL",
-    "AD2.2 AD Operator": meta.ad2_2_operator_name || "NIL",
-    "AD2.2 Address": meta.ad2_2_address || "NIL",
-    "AD2.2 Telephone": meta.ad2_2_telephone || "NIL",
-    "AD2.2 Telefax": meta.ad2_2_telefax || "NIL",
-    "AD2.2 E-mail": meta.ad2_2_email || "NIL",
-    "AD2.2 AFS": meta.ad2_2_afs || "NIL",
-    "AD2.2 Website": meta.ad2_2_website || "NIL",
-    "AD2.3 AD Operator": meta.ad2_3_ad_operator || "NIL",
-    "AD 2.3 Customs and Immigration": meta.ad2_3_customs_immigration || "NIL",
-    "AD2.3 ATS": meta.ad2_3_ats || "NIL",
-    "AD2.3 Remarks": meta.ad2_3_remarks || "NIL",
-    "AD2.6 AD category for fire fighting": meta.ad2_6_fire_fighting_category || "NIL",
-    "AD2.12 Runway Number":
-      meta.ad2_12_runway_number || meta.ad2_12_runway_designators || "NIL",
-    "AD2.12 Runway Dimensions": meta.ad2_12_runway_dimensions || "NIL",
-  };
-}
-
-async function runExtract(icao, downloadedPdfPath = null, progress = null) {
-  const pdfPath = downloadedPdfPath || findDownloadedPdf(icao);
-  if (!pdfPath) {
-    throw new Error(`Downloaded PDF not found for ${icao}`);
-  }
-  const tempOut = join(PROJECT_ROOT, "data", "ead-aip", `${icao}-meta.json`);
-  await run(
-    getPythonCommand(),
-    [META_EXTRACT_SCRIPT, pdfPath, "--out", tempOut, "--quiet"],
-    process.env,
-    (line) => {
-      if (!progress) return;
-      progress(line);
-    }
-  );
-  const metaRaw = readFileSync(tempOut, "utf8");
-  const meta = JSON.parse(metaRaw);
-  try {
-    unlinkSync(tempOut);
-  } catch (_) {}
-
-  const airportRow = mapMetaToAirportRow(meta, icao);
-  const out = {
-    source: "EAD AD 2 PDFs (unified meta extractor)",
-    extracted: new Date().toISOString(),
-    airports: [airportRow],
-  };
-  writeFileSync(EXTRACTED_PATH, JSON.stringify(out, null, 2), "utf8");
-}
-
-function readExtracted() {
-  if (!existsSync(EXTRACTED_PATH)) return null;
-  const raw = readFileSync(EXTRACTED_PATH, "utf8");
-  return JSON.parse(raw);
-}
-
-async function uploadToS3() {
-  const body = readFileSync(EXTRACTED_PATH, "utf8");
-  await saveFile("aip/ead-aip-extracted.json", body);
-}
-
 async function deleteOldFromS3(icao, namespace = "ead") {
   const keys = namespace === "scraper"
     ? [`aip/scraper/${icao}.json`, `aip/scraper-pdf/${icao}.pdf`]
@@ -945,17 +870,6 @@ async function saveRevisionMeta({ key, icao, source, body, pdfPath }) {
   } catch (error) {
     logError("AIP-SYNC", `Revision sidecar not written for ${key}`, error);
   }
-}
-
-async function uploadPerIcaoToS3(icao, data, namespace = "ead") {
-  if (!data?.airports) return;
-  const match = data.airports.find((a) => (a["Airport Code"] ?? "").toUpperCase() === icao);
-  if (!match) return;
-  const body = JSON.stringify({
-    airports: [match],
-    updatedAt: new Date().toISOString(),
-  });
-  await saveFile(namespace === "scraper" ? `aip/scraper/${icao}.json` : `aip/ead/${icao}.json`, body);
 }
 
 async function runGenDownload(prefix) {
@@ -1255,10 +1169,8 @@ async function syncIcaoForRefresh(icao) {
   await deleteOldFromS3(icao, "ead");
   const downloadedPdfPath = await runDownload(icao, false);
   await uploadPdfToS3(icao, "ead", downloadedPdfPath);
-  await runExtract(icao, downloadedPdfPath, null);
-  const data = readExtracted();
-  await uploadToS3();
-  await uploadPerIcaoToS3(icao, data, "ead");
+  // the PDF is the refresh (2026-11-03): no model extraction step, which also failed every airport on production
+  // because the image has no Python model library
 }
 let refreshRunning = false;
 async function refreshNow(opts) {
@@ -1282,7 +1194,9 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
   const stream = url.searchParams.get("stream") === "1" || url.searchParams.get("stream") === "true";
-  const shouldExtract = !(url.searchParams.get("extract") === "0" || url.searchParams.get("extract") === "false");
+  // No model reads AIP PDFs into fields (2026-11-03): the extractor's every value came from Claude vision, and AIP data
+  // is the state's own wording, served as the PDF. `extract` is accepted and ignored: a sync is the PDF only.
+  const shouldExtract = false;
   const scraperRequested = url.searchParams.get("scraper") === "1" || url.searchParams.get("scraper") === "true";
   // Health probe (platform audit §6.4): unauthenticated, no scraping — proves
   // the worker process answers.
@@ -1420,21 +1334,8 @@ const server = createServer(async (req, res) => {
     send({ step: AIP_STEPS[2] });
     send({ step: `PDF saved: ${uploadedPdfKey}` });
     send({ step: "PDF ready", pdfReady: true, type: "aip", icao });
-    let data = null;
-    if (shouldExtract) {
-      send({ step: AIP_STEPS[3] });
-      await runExtract(icao, downloadedPdfPath, (line) => {
-        const cleaned = line.replace(/^[-•]\s*/, "").trim();
-        if (!cleaned) return;
-        send({ step: cleaned });
-      });
-      data = readExtracted();
-      send({ step: AIP_STEPS[4] });
-      await uploadToS3();
-      await uploadPerIcaoToS3(icao, data, aipNamespace);
-    } else {
-      send({ step: "Extraction skipped (PDF only)." });
-    }
+    const data = null;   // PDF only (2026-11-03): no model extraction
+    send({ step: "Extraction skipped (PDF only)." });
     const payload = {
       done: true,
       ok: true,

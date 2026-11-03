@@ -4,21 +4,14 @@ import { join } from "path";
 import { requirePermission } from "@/lib/permissions/server";
 
 const SCRIPT_REGEX = join(process.cwd(), "scripts", "ead-extract-aip-from-pdf.mjs");
-const SCRIPT_AI = join(process.cwd(), "scripts", "ead-extract-aip-from-pdf-ai.mjs");
 const TIMEOUT_MS = 120_000;
 
 export async function POST(request: NextRequest) {
   const permission = await requirePermission("portal.aip.fetch");
   if ("error" in permission) return permission.error;
-  const useAi = request.nextUrl.searchParams.get("useAi") === "1" || request.nextUrl.searchParams.get("useAi") === "true";
-  const script = useAi ? SCRIPT_AI : SCRIPT_REGEX;
-
+  // The regex extractor only (2026-11-03): no model writes AIP data, and no key is taken from a request body.
+  const script = SCRIPT_REGEX;
   const env = { ...process.env };
-  try {
-    const body = (await request.json().catch(() => ({}))) as { openaiApiKey?: string; openaiModel?: string };
-    if (body.openaiApiKey?.trim()) env.OPENAI_API_KEY = body.openaiApiKey.trim();
-    if (body.openaiModel?.trim()) env.OPENAI_MODEL = body.openaiModel.trim();
-  } catch {}
 
   return new Promise<NextResponse>((resolve) => {
     const child = spawn("node", [script], { cwd: process.cwd(), env, stdio: ["ignore", "pipe", "pipe"] });
@@ -49,7 +42,7 @@ export async function POST(request: NextRequest) {
         resolve(
           NextResponse.json({
             ok: false,
-            error: useAi ? "AI extract failed. Check OPENAI_API_KEY in .env." : "Extract failed.",
+            error: "Extract failed.",
             stderr: stderr.slice(-800),
           }, { status: 500 })
         );

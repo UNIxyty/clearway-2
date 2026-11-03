@@ -23,7 +23,7 @@ function normPart(p: unknown): GenPart {
     const o = p as { raw?: string; rewritten?: string };
     return {
       raw: typeof o.raw === "string" ? o.raw : "",
-      rewritten: typeof o.rewritten === "string" ? o.rewritten : (o.raw ?? ""),
+      rewritten: typeof o.raw === "string" ? o.raw : "",   // the original, never a cached model rewrite (2026-11-03)
     };
   }
   return emptyPart();
@@ -56,7 +56,7 @@ async function getGenFromStorage(prefix: string): Promise<GenPayload | null> {
     // Legacy: single raw/rewritten
     if (typeof data.raw !== "string") return null;
     return {
-      general: { raw: data.raw, rewritten: typeof data.rewritten === "string" ? data.rewritten : data.raw },
+      general: { raw: data.raw, rewritten: data.raw },
       nonScheduled: emptyPart(),
       privateFlights: emptyPart(),
       updatedAt: data.updatedAt ?? new Date().toISOString(),

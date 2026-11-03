@@ -46,6 +46,15 @@ accounts and smoke runs. "Would anyone have known?" is about before today.
 - **Neither runs on a rig.** `rig/smoke-alarm-check.mjs` proves the alarm with stand-ins: 19 checks.
 - **On demand:** `scripts/check-accounts.sh run agent-smoke` runs every smoke once, now, with alerts off.
 
+**The runaway ceiling** (`agent/lib/spend.mjs`). Every model call on the API passes a daily ledger, priced from the
+real tokens of each response. The day's total is kept in the agent_settings row `spend:<date>`.
+- **At the ceiling:** once the UTC day reaches `AGENT_DAILY_CEILING_USD` (default $25, about 25 times a busy day), every
+  model call is refused before it is made.
+- **What the person sees:** "the assistant has stopped for today … starts again at 00:00 UTC".
+- **Who is told:** the developers are alerted once that day. The smoke checks fail too, so the stop is reported twice.
+- **Why it exists:** at our volume, a bill can only surprise us through a loop.
+- **Before 2026-11-03:** nothing stopped anything. `AGENT_MONTHLY_CAP_EUR` only feeds a figure on the Settings card.
+
 **Cost:** about 13 cents a run, about $15 a month, mostly the full standard tool turn and extraction. It is the price
 of not finding out from a dispatcher.
 

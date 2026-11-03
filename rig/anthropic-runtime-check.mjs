@@ -6,10 +6,12 @@
 import http from "node:http";
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 200)}` : ""}`); if (!c) failures += 1; };
 
-const seen = []; let mode = "ok";
+const seen = []; const telegram = []; let mode = "ok";
 const sse = (res, events) => { res.writeHead(200, { "content-type": "text/event-stream" }); for (const e of events) res.write(`event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`); res.end(); };
 const server = http.createServer(async (req, res) => {
-  let b = ""; for await (const c of req) b += c; const body = JSON.parse(b || "{}"); seen.push({ headers: req.headers, body });
+  let b = ""; for await (const c of req) b += c; const body = JSON.parse(b || "{}");
+  if (req.url.includes("/sendMessage")) { telegram.push(body.text); res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: true })); }
+  seen.push({ headers: req.headers, body });
   if (mode === "404") { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "not_found_error", message: "model: claude-nope" } })); }
   if (mode === "429") { res.writeHead(429, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "rate_limit_error", message: "slow down" } })); }
   if (mode === "529") { res.writeHead(529, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "overloaded_error", message: "overloaded" } })); }
@@ -50,6 +52,8 @@ const server = http.createServer(async (req, res) => {
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${server.address().port}`;
 process.env.ANTHROPIC_API_KEY = "rig-anthropic-stand-in";   // not a key: the stand-in accepts anything
+Object.assign(process.env, { TELEGRAM_API_BASE: process.env.ANTHROPIC_BASE_URL, TELEGRAM_BUG_BOT_TOKEN: "rig-not-a-token", TELEGRAM_BUG_ALLOWED_CHAT_IDS: "1", AGENT_DAILY_CEILING_USD: "25" });
+delete process.env.NEXT_PUBLIC_SUPABASE_URL;   // the ledger keeps today in memory here
 const { anthropicRuntime, toMessagesRequest } = await import("../agent/lib/anthropic-runtime.mjs");
 const { ConverseStreamCommand, ConverseCommand } = await import("@aws-sdk/client-bedrock-runtime");
 const { classifyBedrockError } = await import("../agent/lib/errors.mjs");
@@ -134,6 +138,22 @@ try {
   const pinned = p1?.messages?.find((m) => m.role === "assistant")?.content?.[0];
   ok(p1?.model === "claude-opus-5-5" && !p1.tool_choice && pinned?.type === "tool_use" && pinned.name === "get_flight_tracking" && pinned.input?.callsign === "PIN1" && p1.messages.at(-1).content[0]?.type === "tool_result", "a pinned tool on Opus 5.5: the agent writes the call with the pinned input, the model's first request already holds its result, no forced tool_choice", p1?.model);
   mode = "ok";
+
+  // 6. the runaway ceiling (lib/spend.mjs): every call counted; at the ceiling, refused before any request, said plainly
+  const spend = await import("../agent/lib/spend.mjs");
+  spend.resetForTest(0);
+  await anthropicRuntime.send(new ConverseCommand({ modelId: "claude-haiku-5-5", messages: [{ role: "user", content: [{ text: "x" }] }] }), {});
+  const after1 = spend.spentToday().usd;
+  ok(Math.abs(after1 - (11 * 0.10 + 2 * 0.50) / 1e6) < 1e-12, "each response's real tokens are priced and added to today (Haiku 5.5: 11 in, 2 out)", after1);
+  const s0 = await anthropicRuntime.send(new ConverseStreamCommand({ modelId: "claude-sonnet-5-5", messages: [{ role: "user", content: [{ text: "x" }] }] }), {}); for await (const _ of s0.stream) { /* drain */ }
+  ok(spend.spentToday().usd > after1, "a streamed response is counted too, cache reads included", spend.spentToday().usd);
+  spend.resetForTest(25); const n0 = seen.length; let ceiling = null;
+  try { await anthropicRuntime.send(new ConverseCommand({ modelId: "claude-sonnet-5-5", messages: [{ role: "user", content: [{ text: "x" }] }] }), {}); } catch (e) { ceiling = e; }
+  ok(ceiling?.code === "spend_ceiling" && seen.length === n0, "at the ceiling: refused before any request is made", ceiling?.code);
+  ok(classifyBedrockError(ceiling).code === "spend_ceiling" && /stopped for today/.test(classifyBedrockError(ceiling).publicMessage), "the refusal keeps its own code (not 'unavailable') and tells the person the agent has stopped for today", classifyBedrockError(ceiling).publicMessage);
+  try { await anthropicRuntime.send(new ConverseCommand({ modelId: "claude-sonnet-5-5", messages: [{ role: "user", content: [{ text: "x" }] }] }), {}); } catch { /* refused again */ }
+  ok(telegram.length === 1 && /stopped for today/.test(telegram[0]), "the developers are alerted once that day, not on every refused call", `${telegram.length} alert(s)`);
+  spend.resetForTest(0);
 } finally { server.close(); }
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");
 process.exit(failures ? 1 : 0);

@@ -6,6 +6,8 @@
 // The key is ANTHROPIC_API_KEY in this service's environment; it is sent in a header and never logged or printed.
 // ANTHROPIC_BASE_URL points the rig at its mock (rig/mock-anthropic.mjs) when no rig key is set.
 
+import { checkCeiling, recordUsage } from "./spend.mjs";
+
 const API_VERSION = "2023-06-01";
 const base = () => String(process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/+$/, "");
 const key = () => String(process.env.ANTHROPIC_API_KEY || "").trim();
@@ -91,6 +93,7 @@ export function toMessagesRequest(input, { stream }) {
 
 async function post(body, abortSignal) {
   if (!key()) throw apiError(401, "authentication_error", "ANTHROPIC_API_KEY is not set in this service's environment");
+  await checkCeiling();   // the runaway ceiling (lib/spend.mjs): refused before any request once today's spend reaches it
   const res = await fetch(`${base()}/v1/messages`, { method: "POST", headers: { "x-api-key": key(), "anthropic-version": API_VERSION, "content-type": "application/json" }, body: JSON.stringify(body), signal: abortSignal });
   if (!res.ok) { const j = await res.json().catch(() => ({})); throw apiError(res.status, j?.error?.type, j?.error?.message); }
   return res;
@@ -99,7 +102,7 @@ async function post(body, abortSignal) {
 const usageOf = (u) => ({ inputTokens: (u?.input_tokens ?? 0), outputTokens: u?.output_tokens ?? 0, cacheReadInputTokens: u?.cache_read_input_tokens ?? 0, cacheWriteInputTokens: u?.cache_creation_input_tokens ?? 0 });
 
 /** The Anthropic SSE stream → Converse stream events, as bedrock.mjs reads them. */
-async function* converseEvents(res) {
+async function* converseEvents(res, model) {
   const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
   let usage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }; let stop = null;
   for (;;) {
@@ -125,6 +128,7 @@ async function* converseEvents(res) {
     }
   }
   yield { messageStop: { stopReason: stop } };
+  recordUsage(model, usageOf(usage));
   yield { metadata: { usage: usageOf(usage) } };
 }
 
@@ -134,8 +138,9 @@ export const anthropicRuntime = {
     // by name, not instanceof: two copies of the SDK (the agent's own and the repo's) are two different classes
     const stream = command?.constructor?.name === "ConverseStreamCommand";
     const res = await post(toMessagesRequest(command.input, { stream }), abortSignal);
-    if (stream) return { stream: converseEvents(res) };
+    if (stream) return { stream: converseEvents(res, command.input.modelId) };
     const j = await res.json();
+    recordUsage(command.input.modelId, usageOf(j.usage));
     const content = (j.content ?? []).map((c) => (c.type === "text" ? { text: c.text } : c.type === "tool_use" ? { toolUse: { toolUseId: c.id, name: c.name, input: c.input } } : null)).filter(Boolean);
     return { output: { message: { role: "assistant", content } }, stopReason: j.stop_reason ?? null, usage: usageOf(j.usage) };
   },

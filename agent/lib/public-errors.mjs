@@ -23,6 +23,7 @@ export const REPLY_FAILED = {
   model_timeout: "The answer took too long. Ask again.",
   model_error: "Something went wrong while answering. Try again.",
   internal_error: "Something went wrong while answering. Try again.",
+  spend_ceiling: "The assistant has stopped for today: it reached its daily spending ceiling. It starts again at 00:00 UTC. Your administrator has been told.",
 };
 export const REPLY_FAILED_DEFAULT = REPLY_FAILED.model_error;
 /** Saved reply errors whose own wording is ours and worth keeping on reload (not in REPLY_FAILED: that overrides). */

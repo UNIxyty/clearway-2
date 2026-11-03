@@ -22,6 +22,7 @@ import { loadModelConfig, systemPrompt, currentTimeLine } from "./models.mjs";
 import { routeTurn } from "./router.mjs";
 import { rest } from "./knowledge/retrieval.mjs";
 import { logDetail } from "./public-errors.mjs";
+import { alertDevelopers } from "./alert.mjs";
 import { isRigRun, isLocalSupabase } from "../../lib/rig-guard.mjs";
 
 export const EVERY_HOURS = Number(process.env.SMOKE_EVERY_HOURS || 6);
@@ -88,21 +89,7 @@ export const SMOKES = {
   },
 };
 
-/** Telegram to the developers' chat; true only when Telegram accepted it for at least one chat. */
-export async function alertDevelopers(text) {
-  const token = String(process.env.TELEGRAM_BUG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "").trim();
-  const chats = String(process.env.TELEGRAM_BUG_ALLOWED_CHAT_IDS || process.env.TELEGRAM_DEBUG_ALLOWED_CHAT_IDS || "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (!token || !chats.length) { logDetail("smoke", "alert NOT sent", "no Telegram bot token or chat configured"); return false; }
-  let sent = 0;
-  for (const chat_id of chats) {
-    try {
-      const r = await fetch(`${String(process.env.TELEGRAM_API_BASE || "https://api.telegram.org").replace(/\/+$/, "")}/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id, text }), signal: AbortSignal.timeout(10_000) });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j.ok) sent += 1; else logDetail("smoke", "alert refused by Telegram", `${r.status} ${j?.description ?? ""}`);
-    } catch (e) { logDetail("smoke", "alert NOT sent", e); }
-  }
-  return sent > 0;
-}
+export { alertDevelopers };
 
 async function readRow() { const row = (await rest(`agent_settings?id=eq.${encodeURIComponent(ROW)}&select=reason`))?.[0]; try { return row?.reason ? JSON.parse(row.reason) : null; } catch { return null; } }
 async function writeRow(body) { await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: ROW, enabled: true, reason: JSON.stringify(body), updated_at: new Date().toISOString(), updated_by_email: SMOKE_USER.email }]) }); }

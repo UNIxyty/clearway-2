@@ -1545,7 +1545,7 @@ async function handleChat(req, res, user) {
       try { for await (const c of stream) yield c; }
       catch (error) {
         const up = oneUp(route.tier);
-        if (!routing.escalation.retryOnFailure || answer || toolCalls.length || up === route.tier || error?.code === "kill_switch" || error?.status === 401 || error?.status === 403) throw error;
+        if (!routing.escalation.retryOnFailure || answer || toolCalls.length || up === route.tier || error?.code === "kill_switch" || error?.code === "spend_ceiling" || error?.status === 401 || error?.status === 403) throw error;
         // The model's own error text is logged, not saved in the routing block the Activity page shows.
         logDetail("agent", `first attempt on ${route.tier} failed; retrying on ${up}`, error?.detail ? `${error?.message} (${error.detail})` : error);
         retried = { from: route.tier, to: up, reason: "first attempt failed" };

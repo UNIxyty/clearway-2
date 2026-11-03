@@ -44,6 +44,7 @@ export const BadRequest = (message) => new AgentError("bad_request", message, { 
  * lives here once rather than at each call site.
  */
 export function classifyBedrockError(error) {
+  if (error instanceof AgentError) return error;   // already ours (the spending ceiling): never reclassified as "unavailable"
   const name = String(error?.name || "");
   const message = String(error?.message || "");
   const both = `${name} ${message}`;

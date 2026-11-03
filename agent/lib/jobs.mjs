@@ -31,5 +31,5 @@ export async function jobProblems({ now = Date.now(), startedAt = 0 } = {}) {
     if (!last.ok) problems.push(`${name} FAILED at ${last.ranAt.slice(0, 16)}Z: ${last.detail ?? "no reason recorded"} (${job.what})`);
     else if (now - Date.parse(last.ranAt) > dueBy) problems.push(`${name} last ran ${last.ranAt.slice(0, 16)}Z, overdue (${job.what})`);
   }
-  return problems;
+  return Object.assign(problems, { seen: Object.keys(JOBS).map((n) => `${n} ${byName[n]?.ranAt ? `${byName[n].ok ? "ok" : "FAILED"} ${byName[n].ranAt.slice(0, 16)}Z` : "not run yet"}`) });
 }

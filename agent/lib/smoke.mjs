@@ -91,10 +91,10 @@ export const SMOKES = {
   },
   // The agent's scheduled jobs, by their own recorded runs (lib/jobs.mjs, 2026-11-03): a report nobody reads is not a check.
   "scheduled-jobs": async () => {
-    const { jobProblems, JOBS } = await import("./jobs.mjs");
+    const { jobProblems } = await import("./jobs.mjs");
     const problems = await jobProblems({ startedAt: Date.now() - process.uptime() * 1000 });
     must(problems.length === 0, problems.join("; "));
-    return `${Object.keys(JOBS).length} job(s) ran on time`;
+    return problems.seen.join(" · ");   // what was seen, not a count that sounds like more (2026-11-03)
   },
   voice: async () => {
     const { synthesize, ttsConfigured } = await import("./voice/tts.mjs");

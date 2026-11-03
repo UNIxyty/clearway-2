@@ -79,7 +79,10 @@ export async function checkQuestion(question, user, { now = new Date() } = {}) {
     if (!parsed || !Array.isArray(parsed.codes)) { reason = "the check did not answer in the expected form"; parsed = null; }
   } catch (e) { reason = `the check could not run: ${String(e?.code ?? e?.message ?? e).slice(0, 120)}`; logDetail("agent", "question check failed; the turn goes ahead unchecked", e); }
   if (!parsed) return { ask: null, note: dateNote, codes: ours, dates, fallback: { kind: "question-check", reason } };
-  const resolved = parsed.codes.filter((c) => c?.code);
+  // what a code IS comes from our own data when it names the place (2026-11-04: "Liepaja EVRA" came back as
+  // "EVRA = Liepāja" from the model while our data says Riga); the model only judges the match
+  const named = new Map(ours.filter((o) => !/^(not in our|our airports data could not|in our data, no name)/.test(o.ours)).map((o) => [o.code, o.ours]));
+  const resolved = parsed.codes.filter((c) => c?.code).map((c) => (named.has(String(c.code).toUpperCase()) ? { ...c, is: named.get(String(c.code).toUpperCase()), source: "our data" } : { ...c, source: "model" }));
   const ask = typeof parsed.ask === "string" && parsed.ask.trim() && resolved.some((c) => c.mismatch === true || c.kind === "unknown") ? parsed.ask.trim() : null;
   const codeNote = resolved.length ? `Codes in the question, checked before this turn: ${resolved.map((c) => `${c.code} = ${c.is ?? "unknown"}${c.kind === "fir" ? " (FIR)" : ""}`).join("; ")}. Name each aerodrome with its code in the answer ("For Riyadh King Khalid (OERK)…") so a typo shows.` : null;
   return { ask, note: [codeNote, dateNote].filter(Boolean).join("\n") || null, codes: resolved, dates, fallback: null };

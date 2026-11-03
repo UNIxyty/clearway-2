@@ -170,6 +170,8 @@ export type MessageBlocks = {
   tables?: TableData[];
   confirmations?: PendingConfirmation[];
   claims?: ClaimSpan[];
+  /** The first reply, when it sent the reader to a check the agent then made itself (2026-11-04); the content is the full answer. */
+  partial?: { text: string; checks: string[]; outcome?: "checked" | "failed" | "not_made" };
 };
 
 export type AgentMessage = {

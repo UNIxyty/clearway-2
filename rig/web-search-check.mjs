@@ -101,6 +101,12 @@ const api = http.createServer(async (req, res) => {
     if (round === 1) return sse(res, [start(), { type: "content_block_start", index: 0, content_block: { type: "web_search_tool_result", tool_use_id: "srvtoolu_pend", content: [{ type: "web_search_result", url: "https://ops.group/armenia", title: "Armenia", encrypted_content: "e", page_age: "2 days ago" }] } }, ...toolUse(1, "toolu_p_t2", "tavily_search", { query: "Armenia news" }), end("tool_use", 1)]);
     return sse(res, [start(), ...text(0, "Done."), end("end_turn")]);
   }
+  if (script === "follow-up") {
+    // the reply sends the reader to the NOTAMs; after the nudge the model reads them, then answers in full
+    if (round === 0) return sse(res, [start(), ...text(0, "Sudan's airspace is restricted. Check the current HSSS NOTAMs before planning."), end("end_turn")]);
+    if (round === 1) return sse(res, [start(), ...toolUse(0, "toolu_f_n", "get_notams", { icao: "HSSS" }), end("tool_use")]);
+    return sse(res, [start(), ...text(0, "FULL: Sudan's airspace is restricted; the HSSS NOTAMs were read just now."), end("end_turn")]);
+  }
   if (script === "widen-first") {
     if (round === 0) return sse(res, [start(), ...toolUse(0, "toolu_rig_w0", "widen_web_search", { reason: "skip ahead" }), end("tool_use")]);
     return sse(res, [start(), ...text(0, "I could not establish this."), end("end_turn")]);
@@ -182,6 +188,21 @@ try {
   const pdAudit = (await (await fetch(`${SB}/rest/v1/agent_audit_log?kind=eq.chat.response&conversation_id=eq.${pd.done?.conversationId}&select=detail&limit=1`, { headers: H })).json())?.[0]?.detail?.web;
   const ps = pdAudit?.searches?.find((s) => s.provider === "anthropic");
   ok(ps?.pass === 1 && ps.round === 1 && !ps.outsideApproved, "the pending search is labelled by the request it ran under (pass one, round 1), its result inside the list", JSON.stringify(ps));
+
+  // ── 7. a reply that sends the reader to a check the agent can make is a partial answer; then the check; then the full answer
+  script = "follow-up"; seen.length = 0;
+  const fu = await chat(5191, "Rig check: is Sudan's airspace open?");
+  const fcalls = seen.filter((b) => b.stream);
+  ok(fcalls.length === 3 && /Your answer above is partial/.test(JSON.stringify(fcalls[1]?.messages?.at(-1) ?? "")), "the reply that said 'check the current HSSS NOTAMs' is followed up: the model is told to make that check itself", `${fcalls.length} model calls`);
+  ok(fu.events.some((e) => e.ev === "partial" && /Check the current HSSS NOTAMs/.test(e.data.text) && e.data.checks?.includes("the NOTAMs")), "the console is told it was a partial answer, and which check follows");
+  ok(fu.done?.partial?.text?.includes("Check the current HSSS NOTAMs") && /^FULL:/.test(fu.done?.content ?? "") && !/Check the current HSSS NOTAMs/.test(fu.done?.content ?? ""), "the full answer is the reply; the partial one is kept apart from it", (fu.done?.content ?? "").slice(0, 80));
+  const fmsg = (await (await fetch(`${SB}/rest/v1/agent_messages?conversation_id=eq.${fu.done?.conversationId}&role=eq.assistant&select=content,blocks&limit=1`, { headers: H })).json())?.[0];
+  ok(fmsg?.blocks?.partial?.checks?.[0] === "the NOTAMs" && /^FULL:/.test(fmsg.content), "stored the same way: a reload shows the partial answer, then the full one");
+  const nCall = fu.events.filter((e) => e.ev === "tool" && e.data.name === "get_notams");
+  ok(fu.done?.partial?.outcome === (nCall.some((e) => e.data.ok) ? "checked" : "failed"), "the partial answer says what became of the check: checked only when the NOTAM call succeeded", `${fu.done?.partial?.outcome} · get_notams ok=${nCall.map((e) => e.data.ok).join(",")}`);
+  const { deferredChecks } = await import("../agent/lib/follow-up.mjs");
+  const offered = new Set(["get_notams", "get_gen_document"]);
+  ok(deferredChecks("I did not check NOTAMs for LFMM.", offered).length === 1 && deferredChecks("Then check GEN 1.2 for LBBG.", offered)[0]?.tool === "get_gen_document" && deferredChecks("Sudan's airspace is closed.", offered).length === 0 && deferredChecks("Check the NOTAMs.", new Set()).length === 0, "detection: NOTAM and GEN 1.2 advice, not plain statements, and only for a tool the turn has");
 
   // ── 5. the question check: a code that does not match its place name is asked about, and nothing is searched ──
   script = "turn"; seen.length = 0; tavilySeen.length = 0;

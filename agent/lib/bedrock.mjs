@@ -9,6 +9,7 @@ import { executeTool, toolSpecsFor } from "./tools/index.mjs";
 import { anthropicRuntime } from "./anthropic-runtime.mjs";
 import { webSettings, anthropicWebTool, classifyUrl } from "./web-sources.mjs";
 import { logDetail } from "./public-errors.mjs";
+import { deferredChecks, followUpPrompt } from "./follow-up.mjs";
 
 // A turn that keeps calling tools without producing an answer is a loop. The
 // cap is on ROUNDS of tool use, not individual calls, so a model that fans out
@@ -205,6 +206,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
   const webResults = new Map();   // url → { title, pageAge, pass, provider }: what the API's search returned, for the cited sources
   let webSearchRequests = 0;
   let carried = [];               // text blocks of rounds the API paused (pause_turn): part of the answer that follows
+  let followedUp = null;          // the one follow-up a turn may make: an answer that sent the reader to a check we can make
   const conversation = toBedrockMessages(messages);
   let usedModelId = null;
   let totalIn = 0;
@@ -364,6 +366,18 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       continue;
     }
     if (stopReason !== "tool_use" || requestedTools.length === 0) {
+      // A reply that tells the reader to check something this turn's tools can check is a partial answer (lib/follow-up.mjs):
+      // shown as one, then the check, then the full answer. Once a turn, and only with two rounds left (the check, the answer).
+      const replyText = [...carried, ...roundCited].map((b) => b.text).join("") || roundText;
+      const found = !followedUp && stopReason === "end_turn" && round <= MAX_TOOL_ROUNDS - 2 ? deferredChecks(replyText, new Set(toolSpecs.map((t) => t.toolSpec.name))) : [];
+      if (found.length) {
+        followedUp = found;
+        yield { type: "partial", text: replyText, checks: found.map((f) => f.label), tools: found.map((f) => f.tool), ms: Date.now() - roundStarted };
+        conversation.push({ role: "assistant", content: assistantBlocks });
+        conversation.push({ role: "user", content: [{ text: followUpPrompt(found) }] });
+        carried = [];
+        continue;
+      }
       yield {
         type: "done",
         modelId: usedModelId,
@@ -381,6 +395,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         fallbacks,
         // the answer's text blocks with the citations the API attached to each (server.mjs makes them claims and sources)
         answerBlocks: [...carried, ...roundCited],
+        followUp: followedUp ? followedUp.map((f) => f.tool) : null,
         web: { provider: anthropicSearch && tavilySearch ? "both" : anthropicSearch ? "anthropic" : tavilySearch ? "tavily" : "none", widened: turn.widened, widenedFor: turn.widenedFor, searches: turn.searches.map(({ id, ...s }) => s), results: [...webResults].map(([url, r]) => ({ url, ...r })), anthropicSearches: webSearchRequests, tavilySearches: turn.searches.filter((s) => s.provider === "tavily").length, settings: web ? { official: web.official, industry: web.industry, source: web.source, overridden: web.overridden === true, allowedOverride: web.allowedOverride === true } : null },
       };
       return;

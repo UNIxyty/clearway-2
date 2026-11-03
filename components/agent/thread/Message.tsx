@@ -135,6 +135,17 @@ export function AgentReply({
         {!m.streaming && (m.modelId || m.modelTier) && <ModelLine m={m} panel={panel} />}
 
         <Thinking block={thinking} running={Boolean(m.streaming) && !m.content && (Boolean(thinking) || Boolean(live))} panel={panel} />
+        {b.partial && (
+          <div data-partial-answer style={{ border: `1px dashed ${cw.borderStrong}`, borderRadius: 10, padding: panel ? "8px 10px" : "10px 14px", background: cw.bgSunken, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: cw.textMuted }}>
+              Partial answer · {m.streaming && !m.content ? `checking ${b.partial.checks.join(" and ")} it pointed to…`
+                : b.partial.outcome === "failed" ? `then tried to check ${b.partial.checks.join(" and ")}, and that check failed; the answer below says what is still known`
+                : b.partial.outcome === "not_made" ? `the check of ${b.partial.checks.join(" and ")} was not made; the answer below says why`
+                : `then checked ${b.partial.checks.join(" and ")}; the full answer is below`}
+            </div>
+            <div style={{ ...proseStyle, color: cw.textBody }}><Markdown text={b.partial.text} /></div>
+          </div>
+        )}
         {live ? <LiveSteps steps={steps} panel={panel} /> : steps.length > 0 && <ToolSummary steps={steps} elapsedMs={m.latencyMs ?? null} panel={panel} defaultOpen={false} />}
 
         {failed.map((s, i) => {

@@ -1571,6 +1571,8 @@ async function handleChat(req, res, user) {
   let answer = "";
   const toolCalls = [];
   const thinking = [];
+  let partial = null;
+  let partialAt = null;
   const escalations = [];
   let retried = null;
   try {
@@ -1606,6 +1608,13 @@ async function handleChat(req, res, user) {
         if (answer.endsWith(chunk.text)) answer = answer.slice(0, answer.length - chunk.text.length);
         thinking.push({ text: chunk.text, ms: chunk.ms });
         send("thought", { text: chunk.text, ms: chunk.ms });
+      } else if (chunk.type === "partial") {
+        // the reply so far sent the reader to a check the agent can make (lib/follow-up.mjs): kept as the partial answer,
+        // out of the reply; the full answer follows it
+        if (answer.endsWith(chunk.text)) answer = answer.slice(0, answer.length - chunk.text.length);
+        partial = { text: chunk.text, checks: chunk.checks };
+        partialAt = { calls: toolCalls.length, tools: chunk.tools ?? [] };
+        send("partial", partial);
       } else if (chunk.type === "escalated") {
         escalations.push({ from: chunk.from, to: chunk.to, reason: chunk.reason, round: chunk.round });
         send("escalated", { from: chunk.from, to: chunk.to, reason: chunk.reason });
@@ -1620,6 +1629,11 @@ async function handleChat(req, res, user) {
     // Attribution and verbatim records are derived from the tools that ACTUALLY
     // ran, not from anything the model claims. A model cannot cite a source it
     // was never given, or promote its own paraphrase into the verbatim frame.
+    // what became of the check a partial answer pointed to — said as it happened, never "checked" when it failed
+    if (partial && partialAt) {
+      const after = toolCalls.slice(partialAt.calls).filter((c) => partialAt.tools.includes(c.name));
+      partial.outcome = after.some((c) => c.ok !== false && c.result?.ok !== false) ? "checked" : after.length ? "failed" : "not_made";
+    }
     const toolSources = sourcesFromToolCalls(toolCalls);
     // Citations next to the claim (2026-11-03, lib/citations.mjs): the API attached them to the answer's text; each cited
     // web page becomes a numbered source, each cited passage maps to its document's source, and the claims carry the
@@ -1685,6 +1699,7 @@ async function handleChat(req, res, user) {
             ...(mono.length ? { mono } : {}), ...(documents.length ? { documents } : {}), ...(files.length ? { files } : {}), ...(airports.length ? { airports } : {}),
             ...(confirmations.length ? { confirmations } : {}),
             ...(claims.length ? { claims } : {}),
+            ...(partial ? { partial } : {}),
           }
         : null,
       sources,
@@ -1720,6 +1735,7 @@ async function handleChat(req, res, user) {
       airports,
       confirmations,
       claims,
+      partial,
       content: answer,
       ...(attachmentStatus.length ? { attachments: attachmentStatus } : {}),
       toolActivity,
@@ -1745,6 +1761,7 @@ async function handleChat(req, res, user) {
         sourceCount: sources.length,
         // web search and citations (2026-11-03): which provider and pass, each search by query and host, what was cited
         web: done?.web ? { provider: done.web.provider, widened: done.web.widened, widenedFor: done.web.widenedFor, searches: done.web.searches, anthropicSearches: done.web.anthropicSearches, tavilySearches: done.web.tavilySearches, settingsSource: done.web.settings?.source ?? null, overridden: done.web.settings?.overridden ?? false } : null,
+        followUp: partial ? partial.checks : null,
         citations: { claims: claims.length, marked: claims.filter((c) => c.mark).length, ...cited.counts },
         // The routing decision, stored so a cost or quality regression can be
         // traced to the choice that caused it rather than guessed at.

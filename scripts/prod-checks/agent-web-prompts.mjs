@@ -41,7 +41,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     if (only.length && !only.includes(p.k)) continue;
     const saved = {}; for (const [k, v] of Object.entries(p.env ?? {})) { saved[k] = process.env[k]; process.env[k] = v; }
     const started = Date.now();
-    let text = "", thought = "", done = null, err = null; const tools = [];
+    let text = "", thought = "", done = null, err = null; const tools = []; const partials = [];
     // the question check, as the chat route runs it (prompts marked check: the ten questions)
     const qc = p.check ? await checkQuestion(p.q, user) : { ask: null, note: null, codes: [], dates: [], fallback: null };
     if (qc.ask) {
@@ -55,6 +55,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
         if (ev.type === "delta") text += ev.text;
         else if (ev.type === "thought") { if (text.endsWith(ev.text)) text = text.slice(0, text.length - ev.text.length); thought += ev.text; }
         else if (ev.type === "tool") tools.push(ev);
+        else if (ev.type === "partial") { if (text.endsWith(ev.text)) text = text.slice(0, text.length - ev.text.length); partials.push(ev); }
         else if (ev.type === "done") done = ev;
       }
     } catch (e) { err = e; }
@@ -75,7 +76,8 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     // the answer as the console shows it: [n] after each cited claim, the mark in «»
     let shown = text;
     for (const cl of [...c.claims].sort((a, b) => b.end - a.end)) shown = `${shown.slice(0, cl.end)} [${(cl.ns ?? [cl.n]).join(",")}]${cl.mark ? ` «${cl.mark}»` : ""}${shown.slice(cl.end)}`;
-    console.log(`\nANSWER (as written):\n${shown.trim()}\n`);
+    for (const pa of partials) console.log(`\nPARTIAL ANSWER (it then checked ${pa.checks.join(" and ")} itself):\n${pa.text.trim()}`);
+    console.log(`\n${partials.length ? "FULL ANSWER" : "ANSWER"} (as written):\n${shown.trim()}\n`);
     console.log(`SOURCES:`);
     for (const s of c.sources) console.log(`  [${s.n}] ${s.tierLabel ?? s.tier} · ${s.label}${s.published ? ` · ${s.published}` : ""}${s.href ? ` · ${s.href}` : ""}`);
     if (!c.sources.length) console.log("  (none)");

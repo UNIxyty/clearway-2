@@ -29,12 +29,15 @@ const api = http.createServer(async (req, res) => {
   const round = body.messages.filter((m) => m.role === "assistant").length;
   if (round === 0) return sse(res, [st(), ...srch(0, "srvtoolu_ui1", [{ url: EASA, title: "Airspace of Sudan" }]), ...tu(2, "toolu_ui_t", "tavily_search", { query: "Sudan airspace" }), end("tool_use", 1)]);
   if (round === 1) return sse(res, [st(), ...tu(0, "toolu_ui_w", "widen_web_search", { reason: "the latest news" }), end("tool_use")]);
-  return sse(res, [st(), ...srch(0, "srvtoolu_ui2", [{ url: NEWS, title: "Sudan airspace" }]),
+  // the first reply points to the NOTAMs: a partial answer; the agent reads them, then the full answer with its citations
+  if (round === 2) return sse(res, [st(), ...srch(0, "srvtoolu_ui2", [{ url: NEWS, title: "Sudan airspace" }]), ...txt(2, "Sudan's airspace is restricted. Check the current HSSS NOTAMs before planning."), end("end_turn", 1)]);
+  if (round === 3) return sse(res, [st(), ...tu(0, "toolu_ui_n", "get_notams", { icao: "HSSS" }), end("tool_use")]);
+  return sse(res, [st(),
     ...txt(2, "**No — Sudan's airspace is closed to civil traffic.**"),
     ...txt(3, " EASA recommends not operating in the Khartoum FIR at any level.", [{ type: "web_search_result_location", url: EASA, title: "Airspace of Sudan", cited_text: "x", encrypted_index: "a" }]),
     ...txt(4, "\n\n- **Industry:** SafeAirspace rates Sudan risk level one, do not fly.", [{ type: "search_result_location", source: SAFE, title: "safeairspace.net — Sudan", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]),
     ...txt(5, "\n- **Latest:** Reuters reported on 2 November that Port Sudan reopened to humanitarian flights.", [{ type: "web_search_result_location", url: NEWS, title: "Sudan airspace", cited_text: "x", encrypted_index: "b" }]),
-    ...txt(6, "\n\nCheck the HSSS NOTAMs before planning."), end("end_turn", 1)]);
+    ...txt(6, "\n\n(rig stand-in text: the answer after the NOTAM check)"), end("end_turn", 0)]);
 });
 await new Promise((r) => api.listen(0, "127.0.0.1", r));
 const API = `http://127.0.0.1:${api.address().port}`;
@@ -67,6 +70,8 @@ try {
     ok(cites === 3, `${label}: a source number after each of the three cited claims`, cites);
     ok(marks.length === 1 && /^not from an official source: reuters\.com, 2 Nov/.test(marks[0]), `${label}: the mark on the Reuters claim only, in words`, marks.join(" | "));
     ok(strong === 1 && (await page.locator("li").filter({ hasText: "SafeAirspace" }).count()) >= 1, `${label}: the markdown still renders (bold, the list) with the citations in it`);
+    const partialBox = page.locator("[data-partial-answer]");
+    ok((await partialBox.count()) === 1 && /Partial answer · then tried to check the NOTAMs, and that check failed/i.test(await partialBox.innerText()) && /Check the current HSSS NOTAMs/.test(await partialBox.innerText()), `${label}: the first reply shows as a partial answer, and says the NOTAM check failed (the rig has no NOTAM source) — never "checked"`, (await partialBox.innerText().catch(() => "")).slice(0, 90));
     const chips = await page.locator("body").innerText();
     ok(/Official/.test(chips) && /Industry reference/.test(chips) && /Web · not approved/.test(chips), `${label}: the sources say what they are`);
     await page.screenshot({ path: path.join(OUT, `answer-${theme}-${width}.png`), fullPage: false });

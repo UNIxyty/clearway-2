@@ -133,6 +133,11 @@ export function useThread({ context, initialConversationId = null, initials = nu
             thoughtText += (thoughtText ? "\n\n" : "") + String(payload.text).trim(); thoughtMs += Number(payload.ms) || 0;
             patchAssistant({ content: answer, blocks: { ...(currentBlocks()), thinking: { text: thoughtText, ms: thoughtMs } } as never });
           }
+          else if (event === "partial") {
+            // the reply so far is a partial answer: the agent is now making the check it pointed to, then answers in full
+            if (answer.endsWith(payload.text)) answer = answer.slice(0, answer.length - String(payload.text).length);
+            patchAssistant({ content: answer, blocks: { ...(currentBlocks()), partial: { text: String(payload.text), checks: (payload.checks as string[]) ?? [] } } as never });
+          }
           else if (event === "tool_progress") {
             // Item 11: a tool started or reported a step. Long jobs show as running steps; a file being built
             // shows as a building card with its named steps until the finished card replaces it.
@@ -171,6 +176,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
           ...(d.thinking ? { thinking: d.thinking as never } : thoughtText ? { thinking: { text: thoughtText, ms: thoughtMs } as never } : {}),
           ...(d.routing ? { routing: d.routing as never } : {}),
           ...(Array.isArray(d.claims) && d.claims.length ? { claims: d.claims as never } : {}),
+          ...(d.partial ? { partial: d.partial as never } : {}),
         },
       });
       if (confirmations.length) setPendingConfirmation(confirmations[0]);

@@ -7,7 +7,8 @@ import { loadModelConfig, modelCandidates, resolveTier } from "./models.mjs";
 import { classifyBedrockError, ModelUnavailable } from "./errors.mjs";
 import { executeTool, toolSpecsFor } from "./tools/index.mjs";
 import { anthropicRuntime } from "./anthropic-runtime.mjs";
-import { webSettings, anthropicWebTool } from "./web-sources.mjs";
+import { webSettings, anthropicWebTool, classifyUrl } from "./web-sources.mjs";
+import { logDetail } from "./public-errors.mjs";
 
 // A turn that keeps calling tools without producing an answer is a loop. The
 // cap is on ROUNDS of tool use, not individual calls, so a model that fans out
@@ -222,6 +223,9 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     let assistantBlocks = [];
     let stopReason = null;
     let roundCited = [];
+    // the pass this round's request was SENT with (the label follows what the API was told, not the state after the round)
+    const roundPass = turn.widened ? 2 : 1;
+    const roundWebTool = anthropicSearch && !lastRound && web ? anthropicWebTool(web, { widened: roundPass === 2 }) : null;
 
     let lastUnavailable = null;
     let streamed = false;
@@ -247,7 +251,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
             ...(toolSpecs.length > 0 && !lastRound
               ? { toolConfig: { tools: withCachePoint(toolSpecs, modelId) } }
               : {}),
-            ...(anthropicSearch && !lastRound && web ? { serverTools: [anthropicWebTool(web, { widened: turn.widened })] } : {}),
+            ...(roundWebTool ? { serverTools: [roundWebTool] } : {}),
           }),
           { abortSignal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS) }
         );
@@ -305,12 +309,16 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         // the round's searches on the API's own tool: which pass, what came back (by host only), for the audit and sources
         for (const b of blocks.values()) {
           if (b.type !== "raw") continue;
-          if (b.block.type === "server_tool_use") { if (b.inputJson) b.block.input = safeJson(b.inputJson); turn.searches.push({ provider: "anthropic", id: b.block.id, query: String(b.block.input?.query ?? "").slice(0, 300), pass: turn.widened ? 2 : 1, results: null, hosts: [] }); }
+          if (b.block.type === "server_tool_use") { if (b.inputJson) b.block.input = safeJson(b.inputJson); turn.searches.push({ provider: "anthropic", id: b.block.id, query: String(b.block.input?.query ?? "").slice(0, 300), pass: roundPass, allowedSent: roundWebTool?.allowed_domains?.length ?? 0, round, results: null, hosts: [] }); }
           if (b.block.type === "web_search_tool_result") {
             const s = turn.searches.find((x) => x.id === b.block.tool_use_id);
             if (Array.isArray(b.block.content)) {
-              for (const r of b.block.content) if (r?.url && !webResults.has(r.url)) webResults.set(r.url, { title: r.title ?? null, pageAge: r.page_age ?? null, pass: s?.pass ?? (turn.widened ? 2 : 1), provider: "anthropic" });
-              if (s) { s.results = b.block.content.length; s.hosts = [...new Set(b.block.content.map((r) => { try { return new URL(r.url).hostname.replace(/^www\./, ""); } catch { return ""; } }).filter(Boolean))].slice(0, 8); }
+              for (const r of b.block.content) if (r?.url && !webResults.has(r.url)) webResults.set(r.url, { title: r.title ?? null, pageAge: r.page_age ?? null, pass: s?.pass ?? roundPass, provider: "anthropic" });
+              if (s) {
+                s.results = b.block.content.length; s.hosts = [...new Set(b.block.content.map((r) => { try { return new URL(r.url).hostname.replace(/^www\./, ""); } catch { return ""; } }).filter(Boolean))].slice(0, 8);
+                // pass one must return only approved hosts: anything else means the filter was not applied, said loudly
+                if (s.pass === 1 && web) { const outside = b.block.content.filter((r) => classifyUrl(r.url, web) === "other").map((r) => { try { return new URL(r.url).hostname; } catch { return "?"; } }); if (outside.length) { s.outsideApproved = [...new Set(outside)].slice(0, 8); logDetail("web", "pass one returned hosts outside the approved list: the filter was not applied", s.outsideApproved.join(", ")); } }
+              }
             } else if (s) { s.results = 0; s.error = String(b.block.content?.error_code ?? "error"); }
           }
         }

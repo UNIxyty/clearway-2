@@ -6,6 +6,38 @@ The rule (2026-10-26): nothing claims success until the thing has succeeded. "Ac
 Each time this pattern has turned up, the screen reported the step that ran, not the outcome a person was relying on.
 They are listed here so that the next one is recognised.
 
+## Case 6 (2026-11-03): the alarm itself
+
+Cases 1 to 5 were features misreporting their own work. Case 6 was the mechanism that tells us when features do.
+
+The developers' alert (`notifyDeveloper` in `scripts/aip-refresh.mjs`) returned **true whenever a Telegram token was
+set**. It fired the request, ignored the answer and reported the alert as sent. We were about to build smoke calls on
+every model path on top of it, with alarms on failure and a watcher over the watcher. Every one of them would have
+reported its alert delivered because a token existed. Failures would have been found, nothing delivered, and every
+screen green.
+
+The shape is narrower than "does it handle errors": **success claimed because something is configured, not because it
+worked.** A key is present, a URL is set, a file exists, a client was constructed, and that is called success. The
+sweep for that shape found:
+
+| Where | What it said | What it rested on | Now |
+|---|---|---|---|
+| `scripts/aip-refresh.mjs` › notifyDeveloper | alert sent | a token was set | true only when Telegram accepted the message for a chat |
+| `lib/debug-runner` › Telegram summary | "Telegram summary sent." | the request had been made | logged as sent only when Telegram accepted it; otherwise "NOT sent" with the reason |
+| The Intake page, **Leon API: Reachable** | Leon reachable | a refresh token was set | Leon must answer a real query (every 2 minutes at most): "Answered 18:31Z", "Not answering", "Refused the check" or "Not set up" |
+| The agent's `/api/health` and the **service-status page** | the agent OK | the process answered; "auth" and "store" were "configured" because their settings were present | health carries the last smoke run's verdict. The status page shows the agent degraded when a path fails or the runs stop, and "unknown" when nothing has checked. From 31 Oct to 2 Nov every model call failed and this page read OK |
+| The Settings card's monthly cap | a spending cap | a figure in the environment; nothing enforced it | see the Settings audit |
+
+New code for alerts uses `agent/lib/alert.mjs` (the agent) and `digital-wall/lib/agent-smoke-watch.mjs` (the wall).
+Both count a message as sent only when Telegram accepted it. Proof: `rig/smoke-alarm-check.mjs` (an alert Telegram
+refuses is recorded NOT sent and tried again) and `rig/configured-not-working-check.mjs`.
+
+Not the shape, checked: the workers' `/health` routes say only that the process is up, and the status page labels
+them so, with separate freshness checks proving that the data arrives. Leon operators show "Connected" only after a
+successful sync.
+
+## The earlier cases
+
 | # | Found | What the screen said | What was true | Fixed by |
 |---|---|---|---|---|
 | 1 | 2026-10-26 | The agent's email card said **Sent** on the click | The send could still fail or bounce, and nothing would say so | Every send is a row in Mailbox › Sent with a live delivery status from Resend's events. The card reads it: "Handed to the mail service", then Delivered or NOT delivered |

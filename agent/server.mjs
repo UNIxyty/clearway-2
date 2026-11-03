@@ -19,7 +19,7 @@ import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { authenticateRequest, describeAuthPosture, authConfigured } from "./lib/auth.mjs";
 import { assertRigSafe } from "../lib/rig-guard.mjs";
-import { startSmokeSchedule, EVERY_HOURS as SMOKE_EVERY_HOURS } from "./lib/smoke.mjs";
+import { startSmokeSchedule, smokeHealth, EVERY_HOURS as SMOKE_EVERY_HOURS } from "./lib/smoke.mjs";
 import { verifySvix, handleEvent as handleIntakeEvent } from "./lib/intake/resend.mjs";
 import { handleIntakeRoutes } from "./lib/intake/api.mjs";
 import { handlePassengerRoutes } from "./lib/passengers/api.mjs";
@@ -306,6 +306,8 @@ async function handleRequest(req, res) {
         activeTier: models.activeTier,
         tzdata: (() => { const t = tzStatus(); return { version: t.version, minimum: t.minimum, ok: t.ok, latest: t.latest }; })(),
         manifestFont: MANIFEST_FONT,
+        // the model and AI paths as the last smoke run found them — not as configured (lib/smoke.mjs, 2026-11-03)
+        smoke: await smokeHealth(),
       });
     }
 

@@ -274,6 +274,15 @@ async function checkAgentHealth(): Promise<Outcome> {
   if (broken.length > 0) {
     return failed("degraded", "Running, but turns every request away (a set-up problem)", `agent is up but ${broken.join(" and ")} misconfigured — all requests fail closed`);
   }
+  // Answering is not working either (2026-11-03): from 31 Oct to 2 Nov every model call failed and this read OK. The
+  // agent's scheduled smoke calls say whether its model and AI paths actually work; an old agent without them is
+  // "unknown", never OK by default.
+  const smoke = asRecord(body.smoke);
+  const state = typeof smoke?.state === "string" ? smoke.state : null;
+  const failing = Array.isArray(smoke?.failing) ? (smoke!.failing as unknown[]).map(String) : [];
+  if (state === "failing") return failed("degraded", `Running, but ${failing.length === 1 ? "one path fails" : `${failing.length} paths fail`}: ${failing.join(", ")}`, `agent smoke checks failing: ${failing.join(", ")} (last run ${String(smoke?.ranAt ?? "?")})`);
+  if (state === "stale") return failed("degraded", "Running, but its smoke checks have stopped", `agent smoke checks last ran ${String(smoke?.ranAt ?? "?")}`);
+  if (state !== "working") return failed("unknown", "Running; whether its models work has not been checked yet", `agent smoke state: ${state ?? "absent"}`);
   return OK;
 }
 

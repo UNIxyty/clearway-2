@@ -344,12 +344,19 @@ async function sendTelegramSummary(run: DebugRun) {
     `Timeout: ${timedOut}\n` +
     `Link: ${run.baseUrl}/admin/debug?run=${encodeURIComponent(run.id)}`;
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: body }),
-  });
-  logEvent(run, { level: "info", message: "Telegram summary sent." });
+  // "sent" only when Telegram accepted it (2026-11-03): this said "sent" once the request had been made
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: body }),
+    });
+    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
+    if (res.ok && j.ok) logEvent(run, { level: "info", message: "Telegram summary sent." });
+    else logEvent(run, { level: "error", message: `Telegram summary NOT sent: ${res.status} ${j.description ?? ""}`.trim() });
+  } catch (err) {
+    logEvent(run, { level: "error", message: `Telegram summary NOT sent: ${String((err as Error).message || err)}` });
+  }
 }
 
 async function runAirport(run: DebugRun, card: AirportDebugCard, artifactCountries: Set<string>) {

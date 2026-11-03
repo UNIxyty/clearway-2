@@ -17,7 +17,7 @@ import { STAGES, enqueue, processMessage, loadParsed, attachmentsOf, queueDepth 
 import { prepareSend, confirmSend, sendStatus, legStates, resolveUnknown, TOOL, checklistPlan, preparePeopleSend, confirmPeopleSend } from "./send.mjs";
 import { blockersFor, validateValue, recomputeTimes, applyTzChoice, tzOptions, CORE_FIELDS, fmtDate } from "./review.mjs";
 import { aircraftByRegistration, airport, checklistDefinitions } from "./leon-lookup.mjs";
-import { leonConfigured } from "./leon-client.mjs";
+import { leonConfigured, leonReachable } from "./leon-client.mjs";
 import { maskForReader, MASK, personalTokens, scrubString } from "./personal.mjs";
 import { sanitizeEmailHtml } from "./sanitize.mjs";
 import { retentionDays, deleteAtFor } from "./retention.mjs";
@@ -74,7 +74,7 @@ async function health() {
   const secret = Boolean(process.env.RESEND_WEBHOOK_SECRET);
   return {
     mailbox: { ok: secret, lastAt: last, failed, unread, note: !secret ? "No Resend webhook secret is set on the server, so nothing can arrive." : failed ? `${failed} email${failed === 1 ? "" : "s"} in the last 7 days could not be read. ${unread ? `${unread} wait${unread === 1 ? "s" : ""} on this page as Needs you.` : "Each was dealt with by a person."}` : null },
-    leon: { ok: leonConfigured(), lastWrite: lastLeon },
+    leon: { ...(await leonReachable()), lastWrite: lastLeon },
     portals: { built: true, lookup: lookupState().on, note: lookupState().on ? "Flight notifications are recognised; after ops approve, the record is read once from the CNAIR portal. Changes the provider makes after import are not detected." : "Flight notifications are recognised, but the CNAIR portal look-up is switched off on this server: approved requests wait for a person." },
     timezones: tzHealth(),
   };

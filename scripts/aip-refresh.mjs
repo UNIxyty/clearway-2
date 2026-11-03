@@ -144,8 +144,13 @@ async function notifyDeveloper(text) {
   const token = String(process.env.TELEGRAM_BUG_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "").trim();
   const chats = String(process.env.TELEGRAM_BUG_ALLOWED_CHAT_IDS || process.env.TELEGRAM_DEBUG_ALLOWED_CHAT_IDS || "").split(",").map((s) => s.trim()).filter(Boolean);
   if (!token || !chats.length) return false;
-  for (const chat_id of chats) { try { await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id, text }), signal: AbortSignal.timeout(10_000) }); } catch { /* the log has it */ } }
-  return true;
+  // true only when Telegram accepted it (2026-11-03): this returned true whenever a token was set, sent or not
+  let sent = 0;
+  for (const chat_id of chats) {
+    try { const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id, text }), signal: AbortSignal.timeout(10_000) }); const j = await r.json().catch(() => ({})); if (r.ok && j.ok) sent += 1; else console.error(`[aip-refresh] developer alert refused by Telegram: ${r.status} ${j?.description ?? ""}`); }
+    catch (e) { console.error(`[aip-refresh] developer alert NOT sent: ${e?.message ?? e}`); }
+  }
+  return sent > 0;
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

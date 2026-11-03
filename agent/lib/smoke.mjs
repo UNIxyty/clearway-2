@@ -94,6 +94,27 @@ export { alertDevelopers };
 async function readRow() { const row = (await rest(`agent_settings?id=eq.${encodeURIComponent(ROW)}&select=reason`))?.[0]; try { return row?.reason ? JSON.parse(row.reason) : null; } catch { return null; } }
 async function writeRow(body) { await rest("agent_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id: ROW, enabled: true, reason: JSON.stringify(body), updated_at: new Date().toISOString(), updated_by_email: SMOKE_USER.email }]) }); }
 
+/**
+ * What the health answer says about the model and AI paths: the last smoke run, read at most once a minute. Not "ok"
+ * because a key is set (2026-11-03): ok only when a run happened recently and every path in it worked.
+ */
+let healthCache = { at: 0, value: null };
+export async function smokeHealth({ now = Date.now() } = {}) {
+  if (now - healthCache.at < 60_000 && healthCache.value) return healthCache.value;
+  let value;
+  try {
+    const last = await readRow();
+    if (!last?.ranAt) value = { state: "unchecked", ranAt: null, failing: [] };
+    else {
+      const failing = Object.entries(last.results ?? {}).filter(([, r]) => !r.ok).map(([n]) => n);
+      const stale = now - Date.parse(last.ranAt) > (Number(last.everyHours) || EVERY_HOURS) * 2 * 3600_000 + 3600_000;
+      value = { state: stale ? "stale" : failing.length ? "failing" : "working", ranAt: last.ranAt, failing };
+    }
+  } catch { value = { state: "unreadable", ranAt: null, failing: [] }; }
+  healthCache = { at: now, value };
+  return value;
+}
+
 /** One run of every smoke (or the named ones). Records the run and alerts on what failed or recovered. */
 export async function runSmokes({ only = null, alert = true, now = () => new Date() } = {}) {
   const prev = (await readRow().catch(() => null)) ?? {};

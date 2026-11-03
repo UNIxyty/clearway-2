@@ -30,6 +30,22 @@ async function accessToken() {
  * path, extensions) — callers decide what a refusal means. Network failures and timeouts THROW, because then
  * we do not know whether Leon acted (the caller must treat that as "unknown", never as "refused").
  */
+/**
+ * Did Leon answer? A real, tiny query, at most every two minutes (2026-11-03). The Intake page's "Leon API: Reachable"
+ * used to mean only that a refresh token was set.
+ */
+let reach = { at: 0, value: null };
+export async function leonReachable({ now = Date.now() } = {}) {
+  if (!leonConfigured()) return { ok: false, state: "not_set_up", at: null, error: null };
+  if (now - reach.at < 120_000 && reach.value) return reach.value;
+  let value;
+  // a query intake already makes, so the mock and real Leon both answer it
+  try { const r = await leonGraphql("query{ checklist{ getAvailableDefinitions(groupId: OPS){ nid } } }", {}, { timeoutMs: 10_000 }); value = r?.errors ? { ok: false, state: "refused", at: new Date(now).toISOString(), error: String(r.errors[0]?.message ?? "refused").slice(0, 120) } : { ok: true, state: "answered", at: new Date(now).toISOString(), error: null }; }
+  catch (e) { value = { ok: false, state: "no_answer", at: new Date(now).toISOString(), error: String(e?.message ?? e).slice(0, 120) }; }
+  reach = { at: now, value };
+  return value;
+}
+
 export async function leonGraphql(query, variables = {}, { timeoutMs = 30000 } = {}) {
   const started = Date.now();
   const r = await fetch(`${base()}/api/graphql/`, {

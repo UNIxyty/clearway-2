@@ -113,3 +113,39 @@ The first real run must be watched on production: check-only first, then with do
 3. **Failure alerts:** Telegram to the developer, or something else, and to whom?
 4. **Run window:** after 00:00Z on the effective date, or another time that suits ops?
 5. **Pre-fetching** airports with upcoming flights that have no copy yet: yes or no?
+
+## What the refresh found, and a download-mode run (2026-11-03)
+
+**The AIRAC 2611 run (30 Oct, check-only)** recorded "17 would refetch". That was two things, now counted apart
+(`newerAtSource`, `noCopyYet`):
+- **1 copy behind its source:** EFHK, AIRAC 2608 (eff. 6 Aug) against the source's 2610 (eff. 1 Oct), so two cycles
+  behind. Refreshed on 3 Nov: now AIRAC 2610, matching the source.
+- **16 airports with flights that week had no copy at all.** On 3 Nov the list was 14.
+
+**Its 8 failed checks, rechecked on 3 Nov, fall into two groups.**
+- **Transient (passed on 3 Nov):** LEPA, LIML, LIPK, LTCG.
+- **The country is not in EAD's list,** so the check cannot select it: OMDW, RJAA, UMMS, UZTP. The 2610 failures LLBG,
+  OMAD and UZTT are the same.
+- Their copies sit in `aip/ead-pdf` with a sidecar saying "ead", but EAD does not publish these states. The EAD
+  refresh will always count them as failed.
+
+**A download-mode run** (manual, this week's airports): 58 planned, 33 min.
+- **38 checked:** all up to date.
+- **5 copies fetched for the first time:** FOON, LEBZ, LFLX, LZIB, RJTT.
+- **15 failed, all at the country choice** in EAD's form, or for VHHH in its own interactive downloader:
+  - checks: DAAT, EGKK, LLBG, OMDW, UZTP, VAAH
+  - downloads: DNMM, HECA, HELX, HESN, LXGB, OAKB, VHHH, WADD, ZBAD
+
+**Not yet known:** 191 of the 247 copies have never been checked against their source. The refresh's scope is
+"airports with flights in the next 7 days", so for most of the cache, nobody knows whether a newer AIP exists.
+
+**Recommendation, 3 Nov:**
+1. **Switch the refresh to download mode** (`AIP_REFRESH_DOWNLOADS=on`). Check-only notices a newer source and keeps
+   serving the old copy. It also never fetches a first copy for an airport with flights.
+   - Cost at today's scope: about 35 s per airport (a 7 s check, a 20 s pause between requests, plus the download
+     where one is needed). That is about 33 min per run for ~58 airports, or about 1 h per cycle (the first run and the
+     24 h recheck).
+2. **Check every copy once per cycle,** not only this week's: scope `all`, overnight. That is 247 copies × ~27 s,
+   about 2 h. Then a copy cannot sit behind its source unseen.
+3. **Do not count a country EAD does not publish as a failure.** Mark it "not checkable through EAD" on the copy and
+   in the summary, or route it to that state's own source. Then the failures in the summary are real ones.

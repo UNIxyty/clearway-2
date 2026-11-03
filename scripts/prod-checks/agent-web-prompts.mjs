@@ -34,7 +34,8 @@ export async function askAll(prompts, { accounts: [u], ok }) {
   const { citationsToClaims } = await import(`${root}/lib/citations.mjs`);
   const { checkQuestion } = await import(`${root}/lib/question-check.mjs`);
   const user = { userId: u.id, email: u.email, name: "Check account", agentRole: "user", accessToken: u.bearer, cookieHeader: u.cookie };
-  const only = String(process.env.ONLY || "").split(",").filter(Boolean);
+  const only = String(process.env.ONLY || "").split(",").filter((x) => x && x !== "dump");
+  if (String(process.env.ONLY || "").split(",").includes("dump")) process.env.AGENT_DUMP_REQUESTS = "/tmp/check-dump";   // replay material, removed by the caller
   let total = 0;
   for (const p of prompts) {
     if (only.length && !only.includes(p.k)) continue;

@@ -100,6 +100,9 @@ export function toMessagesRequest(input, { stream }) {
 
 async function post(body, abortSignal) {
   if (!key()) throw apiError(401, "authentication_error", "ANTHROPIC_API_KEY is not set in this service's environment");
+  // a check run may keep each request body to replay it (scripts/prod-checks: ONLY=…,dump); never set on a service, and
+  // the key is in a header, never in the body
+  if (process.env.AGENT_DUMP_REQUESTS) { try { const fs = await import("node:fs"); fs.mkdirSync(process.env.AGENT_DUMP_REQUESTS, { recursive: true }); fs.writeFileSync(`${process.env.AGENT_DUMP_REQUESTS}/${Date.now()}.json`, JSON.stringify(body)); } catch { /* a dump is best-effort */ } }
   await checkCeiling();   // the runaway ceiling (lib/spend.mjs): refused before any request once today's spend reaches it
   const res = await fetch(`${base()}/v1/messages`, { method: "POST", headers: { "x-api-key": key(), "anthropic-version": API_VERSION, "content-type": "application/json" }, body: JSON.stringify(body), signal: abortSignal });
   if (!res.ok) { const j = await res.json().catch(() => ({})); throw apiError(res.status, j?.error?.type, j?.error?.message); }

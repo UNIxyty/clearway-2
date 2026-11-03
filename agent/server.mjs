@@ -1609,6 +1609,10 @@ async function handleChat(req, res, user) {
     const finalTier = done?.effectiveTier ?? escalations.at(-1)?.to ?? route.tier;
     const turnCost = costUsd({ modelId: done?.modelId, inputTokens: done?.inputTokens ?? 0, outputTokens: done?.outputTokens ?? 0, cacheReadTokens: done?.cacheReadTokens ?? 0 });
     const thinkingBlock = thinking.length ? { text: thinking.map((t) => t.text.trim()).join("\n\n"), ms: thinking.reduce((n, t) => n + t.ms, 0) } : null;
+    // The notes between tool calls are shown to the person asking, live, and NOT kept (2026-11-03): since the 5.5 models
+    // they are the model's thinking summary, and a turn about a passenger thinks about that passenger. Only how long it
+    // took is stored with the message — no text in chat history, as in the audit and the log.
+    const storedThinking = thinkingBlock ? { ms: thinkingBlock.ms, kept: false } : null;
     const routingBlock = { startTier: route.tier, finalTier, source: route.source, reason: route.reason, confidence: route.confidence ?? null, escalations, modelId: done?.modelId ?? null, costUsd: turnCost };
     await appendMessage({
       conversationId,
@@ -1617,7 +1621,7 @@ async function handleChat(req, res, user) {
       blocks: true
         ? {
             routing: routingBlock,
-            ...(thinkingBlock ? { thinking: thinkingBlock } : {}),
+            ...(storedThinking ? { thinking: storedThinking } : {}),
             ...(verbatim.length ? { verbatim } : {}), ...(flights.length ? { flights } : {}), ...(actions.length ? { actions } : {}),
             ...(mono.length ? { mono } : {}), ...(documents.length ? { documents } : {}), ...(files.length ? { files } : {}), ...(airports.length ? { airports } : {}),
             ...(confirmations.length ? { confirmations } : {}),

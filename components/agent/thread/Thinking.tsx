@@ -14,18 +14,19 @@ import { Icon } from "../ui/primitives";
 import type { PerformedAction } from "../types";
 import { cw } from "@/lib/portal-tokens";
 
-export type ThinkingBlock = { text: string; ms: number };
+export type ThinkingBlock = { text?: string; ms: number; kept?: boolean };   // stored messages carry ms only (2026-11-03)
 
 export function Thinking({ block, running, panel = false }: { block: ThinkingBlock | null | undefined; running: boolean; panel?: boolean }) {
   const [open, setOpen] = useState(false);
-  if (!block?.text?.trim() && !running) return null;
+  // a reloaded message keeps only how long it took: the notes themselves are not stored (2026-11-03)
+  if (!block?.text?.trim() && !running && !block?.ms) return null;
   const secs = Math.max(1, Math.round((block?.ms ?? 0) / 1000));
   return (
     <div data-thinking style={{ background: cw.bgSurface, border: `1px solid ${cw.border}`, borderRadius: 12, overflow: "hidden" }}>
       <button type="button" aria-expanded={open} disabled={!block?.text?.trim()} onClick={() => setOpen((v) => !v)} className="ag-row-hover ag-focus"
         style={{ width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: panel ? "7px 12px" : "8px 14px", border: "none", background: "transparent", cursor: block?.text?.trim() ? "pointer" : "default", fontFamily: "inherit" }}>
         {running ? <span className="ag-pulse-1200" style={{ width: 8, height: 8, borderRadius: "50%", background: cw.primary, flex: "none" }} /> : <Icon name="brain" size={14} color={cw.textMuted} />}
-        <span style={{ fontSize: 13, color: cw.textMuted, flex: 1 }}>{running ? "Thinking…" : `Thought for ${secs}s`}</span>
+        <span style={{ fontSize: 13, color: cw.textMuted, flex: 1 }}>{running ? "Thinking…" : `Thought for ${secs}s`}{!running && !block?.text?.trim() ? <span style={{ color: cw.textMuted }}> · notes not kept</span> : null}</span>
         {block?.text?.trim() && <Icon name={open ? "chevron-up" : "chevron-down"} size={15} color={cw.textMuted} />}
       </button>
       {open && block?.text && (

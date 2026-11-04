@@ -10,7 +10,7 @@
 // Pure: sentences, the claim spans the console draws (lib/citations.mjs), and a few patterns. The turn uses it to send a
 // defective draft back once (agent/lib/bedrock.mjs); the production checks count it.
 
-const OURS = /\b(Clearway|the wall|wall's|on the wall|our (own )?(data|records?|knowledge base|stores?|airports data)|internal|CAA (record|store|entry)|limitations store|IMPORTANT (store|entr(y|ies)|bulletins?)|knowledge base|CrewBriefing|the platform|NOTAM (cache|feed)|store|configured|the (record|entry)|[A-Z]\d{4}\/\d{2})\b/i;
+const OURS = /\b(Clearway|the wall|wall's|on the wall|our (own )?(data|records?|knowledge base|stores?|airports data)|internal|CAA (record|store|entry)|limitations store|IMPORTANT (store|entr(y|ies)|bulletins?)|knowledge base|CrewBriefing|the platform|NOTAM (cache|feed)|store|configured|the (record|entry)|[A-Z]\d{4}\/\d{2}|cache|saved notes|revision check|date check|code check|the console)\b/i;
 const EXEMPT_SECTION = /\b(could not|couldn't|cannot|can't) (establish|confirm|check|find|verify)|not established|not checked|not confirmed|gaps?\b|still open|what (i|you) need|questions? for you|what to do|before (you|relying|planning)|what i checked|sources?:?$/i;
 const META = /^(I|I'm|I've|I'd|I'll|My|Me)\b|^(If you|Tell me|Please|Let me|Say if|Want me)\b/;
 const ADVICE = /^(Check|Confirm|Contact|Ask|Use|Plan|Treat|Before|Send|Open|Pull|Get|Make sure|Do not|Don't|Apply|File|Read|Keep|Avoid|Expect|Allow|Book|Call)\b/i;

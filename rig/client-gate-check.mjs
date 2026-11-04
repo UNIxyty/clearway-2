@@ -58,25 +58,16 @@ ok(Boolean((await session("rig-gate-client@rig.invalid")).access_token && S.acce
 // (the proxy, as production): the client allow-list must refuse everything not on it. A public address (UNGATED, or a
 // page a signed-out visitor gets) passes only if the session adds nothing: the same status and the same redirect a
 // signed-out visitor gets. Every address is called with every identity; nothing is skipped silently.
-const { CLIENT_PAGES, CLIENT_APIS, CLIENT_HOLDING_PAGES } = await import("../lib/clients/allow.mjs");
-const docsSection = readdirSync("content/docs").filter((d) => /^\d+-admin$/.test(d))[0];
-const docsPage = readdirSync(`content/docs/${docsSection}`).filter((f) => /^\d+-.+\.md$/.test(f))[0];
-// a sample value per dynamic segment, real where the page would otherwise 404 for everyone (and prove nothing)
-const SEGMENT = { "[icao]": "EGLL", "[section]": docsSection.replace(/^\d+-/, ""), "[page]": docsPage.replace(/^\d+-/, "").replace(/\.md$/, ""), "[n]": "1", "[[...tab]]": null, "[...path]": "aip/ead-pdf/RIGX.pdf" };
-const UUID = "00000000-0000-4000-8000-000000000000";
-const toAddress = (rel) => "/" + path.dirname(rel).replace(/^app\/?/, "").split("/").filter((x) => !/^\(.+\)$/.test(x)).map((x) => (x in SEGMENT ? SEGMENT[x] : x.startsWith("[") ? UUID : x)).filter((x) => x !== null).join("/");
-const files = []; const walk = (d) => { for (const n of readdirSync(d)) { const p = path.join(d, n); if (statSync(p).isDirectory()) walk(p); else if (n === "route.ts" || n === "page.tsx") files.push(p); } };
-walk("app");
-const addresses = [];
-for (const f of files) {
-  const rel = f.split(path.sep).join("/");
-  const route = toAddress(rel).replace(/\/$/, "") || "/";
-  if (rel.endsWith("/page.tsx")) { addresses.push({ kind: "page", method: "GET", route, file: rel }); continue; }
-  const src = readFileSync(f, "utf8");
-  for (const m of src.matchAll(/^export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD)\b|^export\s+const\s+(GET|POST|PUT|PATCH|DELETE|HEAD)\s*=/gm)) addresses.push({ kind: "api", method: m[1] ?? m[2], route, file: rel, ungated: Boolean(UNGATED[rel]) });
+const { CLIENT_HOLDING_PAGES } = await import("../lib/clients/allow.mjs");
+// the inventory (rig/lib/gate-inventory.mjs): the same list the production walk reads from its copy
+const { inventory, COPY } = await import("./lib/gate-inventory.mjs");
+const INV = inventory();
+const addresses = INV.portal;
+{
+  const copy = (() => { try { return readFileSync(COPY, "utf8"); } catch { return ""; } })();
+  const current = copy === JSON.stringify(INV, null, 1) + "\n";
+  ok(current, `the production walk's copy of the inventory (${COPY}) is what the code says today`, current ? "" : `${copy ? "stale" : "missing"}: node rig/lib/gate-inventory.mjs --write`);
 }
-// signing out ends the session the walk is using: it goes last, for every identity
-addresses.sort((a, b) => (a.route === "/auth/sign-out") - (b.route === "/auth/sign-out"));
 const handlers = addresses.filter((a) => a.kind === "api"), pages = addresses.filter((a) => a.kind === "page");
 ok(handlers.length >= 135 && pages.length >= 100, `the portal: ${handlers.length} handlers in ${new Set(handlers.map((h) => h.file)).size} route files (${handlers.filter((h) => h.ungated).length} of them public by design, on UNGATED), and ${pages.length} pages`);
 // the walk posts to every public form too; its own sender address keeps it off the rate limits other suites rely on
@@ -90,7 +81,6 @@ const streams = [];
 const t0 = Date.now(); const lap = (what) => console.log(`      ${what}: ${Math.round((Date.now() - t0) / 1000)} s`);
 // where a refused page may send them: sign-in, the holding and refusal pages, their own front door
 const REFUSED_TO = /^\/(login|forbidden|access-blocked|pending-approval|client(\/(refused|removed))?)$/;
-const onList = (a) => a.kind === "page" ? CLIENT_PAGES.some((e) => e.path === a.route) : CLIENT_APIS.some((e) => e.path === a.route && e.methods.includes(a.method));
 // the same anonymous answer for every address on both portals, once
 const anon = { BARE: new Map(), PROXY: new Map() };
 for (const [name, base] of [["BARE", BARE], ["PROXY", PROXY]]) for (const a of addresses) anon[name].set(`${a.method} ${a.route}`, await call(base, null, a));
@@ -117,7 +107,7 @@ for (const [label, meta, isClient] of roles) {
     const here = name === "BARE" ? handlers : addresses;
     for (const a of here) {
       const r = await call(base, who, a);
-      const listed = isClient && onList(a);
+      const listed = isClient && a.onList;
       if (listed) { if (r.st === 200) reached += 1; else leaks.push(`${a.method} ${a.route} on the list → ${r.st}`); continue; }
       if (REFUSED.has(r.st) || (r.st >= 300 && r.st < 400 && REFUSED_TO.test(r.to))) continue;
       // the sign-in pages send anyone signed in to the root; the root is walked itself (a client → /client, others refused)
@@ -159,31 +149,10 @@ const UNKNOWN = []; for (const [i, [label]] of roles.slice(1).entries()) UNKNOWN
 // The endpoints are the permissions inventory's (lib/permissions/check.mjs › codeRouteBlocks), plus the wall routes it
 // misses (no method test, or second in an `a || b`). A route with a parameter gets a made-up value that is checked
 // against the route's own pattern; a route no path can be made for is named, never skipped silently.
-const { codeRouteBlocks } = await import("../lib/permissions/check.mjs");
-const { CLIENT_READS } = await import("../digital-wall/lib/client-scope.mjs");
-const sample = (route) => {
-  if (!route.startsWith("re:")) return route.endsWith("*") ? `${route.slice(0, -1)}rig-gate-probe` : route;
-  const src = route.slice(3);
-  let p = src.replace(/^\^/, "").replace(/\$$/, "").replace(/\(\?:\\\/[^()]*(?:\([^()]*\)[^()]*)*\)\?/g, "").replace(/\[0-9\]\+/g, "1").replace(/\\\//g, "/")
-    .replace(/\(\[0-9a-f-\]\{36\}\)/g, "00000000-0000-4000-8000-000000000000")
-    .replace(/\(\\d\+\)|\(\\d\{1,\d+\}\)/g, "1")
-    .replace(/\((?:\?:)?([a-z0-9_-]+(?:\|[a-z0-9_-]+)+)\)/gi, (_m, alts) => alts.split("|")[0])
-    .replace(/\(\[\^\/\]\+\)|\(\.\+\)|\(\.\*\)|\[\^\/\]\+/g, "rigx").replace(/\(\[[a-z0-9_\-]+\]\+\)/gi, "rigx").replace(/\(\?:\/\)\?|\/\?$/g, "").replace(/\\\./g, ".");
-  try { return new RegExp(src).test(p) ? p : null; } catch { return null; }
-};
-const routesOf = (service, files) => { const out = []; for (const b of codeRouteBlocks(files.map((f) => readFileSync(f, "utf8")).join("\n"))) for (const m of b.methods) out.push({ method: m, route: b.route }); return out; };
-const WALL_EXTRA = ["/api/timeline/flights", "/api/timeline/aircraft", "/api/timeline/sync-status", "/api/flights/data", "/api/limitations", "/api/users/me", "/api/geo/airports", "/api/geo/countries"].map((route) => ({ method: "GET", route }));
-const services = [
-  { name: "wall", prefix: "/digital-wall", routes: [...routesOf("wall", ["digital-wall/server.mjs"]), ...WALL_EXTRA], clientMay: (m, p) => m === "GET" && p in CLIENT_READS,
-    // answered before the wall's session gate, on purpose (digital-wall/server.mjs › Device registration): an unpaired
-    // ops-room screen has no session; it may announce itself and poll its own approval, nothing more
-    public: { "/api/device/announce": "an unpaired screen announces itself", "/api/device/state": "an unpaired screen polls its own approval" } },
-  { name: "agent", prefix: "/agent", routes: routesOf("agent", ["agent/server.mjs", "agent/lib/intake/api.mjs", "agent/lib/passengers/api.mjs"]), clientMay: (m, p) => /^\/api\/flights\/[^/]+\/passengers/.test(p) },
-];
+const services = INV.services;
 const via = (who, method, p) => fetch(`${PROXY}${p}`, { method, redirect: "manual", headers: { cookie: ck(who), "content-type": "application/json" }, body: ["GET", "HEAD"].includes(method) ? undefined : "{}" }).then((r) => r.status, () => 0);
 for (const svc of services) {
-  const seen = new Set(), walk = [], unmade = [];
-  for (const r of svc.routes) { const p = sample(r.route); if (!p) { unmade.push(`${r.method} ${r.route}`); continue; } const k = `${r.method} ${p}`; if (!seen.has(k)) { seen.add(k); walk.push({ method: r.method, path: p }); } }
+  const { walk, unmade } = svc;
   ok(walk.length > 20, `${svc.name}: ${walk.length} endpoints to walk from the inventory${unmade.length ? `; ${unmade.length} with no path made: ${unmade.slice(0, 6).join(" | ")}` : ""}`);
   if (svc.name === "agent") {
     // the two the client must never reach, whatever a switch says: a passport scan and a raw email (.eml)
@@ -193,14 +162,13 @@ for (const svc of services) {
   for (const [label, who] of [["client", C], ...UNKNOWN]) {
     const leaks = [];
     for (const e of walk) {
-      if (e.path === "/api/health") continue;   // the public health probe
-      if (svc.public?.[e.path]) continue;        // public by design, each with its reason (below)
-      if (label === "client" && svc.clientMay(e.method, e.path)) continue;   // the client's own allow-list (scoped by the service)
+      if (e.public) continue;   // the health probe, and the wall's unpaired-screen pair (rig/lib/gate-inventory.mjs says why)
+      if (label === "client" && e.clientMay) continue;   // the client's own allow-list (scoped by the service)
       const st = await via(who, e.method, `${svc.prefix}${e.path}`);
       if (!(st === 404 || st === 401 || st === 403 || st === 405)) leaks.push(`${e.method} ${e.path} → ${st}`);
     }
     lap(`${svc.name}, ${label}`);
-    ok(leaks.length === 0, `${svc.name}, reached directly: every endpoint outside the ${label === "client" ? "client's allow-list" : "health probe"} refuses the ${label} (${walk.length - (svc.public ? Object.keys(svc.public).length : 0) - 1}${label === "client" ? " less the list" : ""})`, leaks.length ? `${leaks.length} answered: ${leaks.slice(0, 10).join(" | ")}` : "");
+    ok(leaks.length === 0, `${svc.name}, reached directly: every endpoint outside the ${label === "client" ? "client's allow-list" : "health probe"} refuses the ${label} (${walk.filter((e) => !e.public).length}${label === "client" ? " less the list" : ""})`, leaks.length ? `${leaks.length} answered: ${leaks.slice(0, 10).join(" | ")}` : "");
   }
 }
 const board = await via(C, "GET", "/digital-wall/api/timeline/flights?allOperators=true");

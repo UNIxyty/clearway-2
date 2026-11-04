@@ -1,0 +1,3157 @@
+{
+ "portal": [
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/access-blocked",
+   "file": "app/access-blocked/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/account/guide",
+   "file": "app/account/guide/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/account/profile",
+   "file": "app/account/profile/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin/agent-sites",
+   "file": "app/admin/agent-sites/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin/airports/deleted",
+   "file": "app/admin/airports/deleted/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin/clients",
+   "file": "app/admin/clients/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin/debug",
+   "file": "app/admin/debug/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin/debug/raw",
+   "file": "app/admin/debug/raw/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin/maintenance",
+   "file": "app/admin/maintenance/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin",
+   "file": "app/admin/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin/permissions",
+   "file": "app/admin/permissions/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin/service-status",
+   "file": "app/admin/service-status/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/admin/users",
+   "file": "app/admin/users/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent/activity",
+   "file": "app/agent/activity/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent/doc",
+   "file": "app/agent/doc/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent/history",
+   "file": "app/agent/history/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent/intake",
+   "file": "app/agent/intake/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent/knowledge",
+   "file": "app/agent/knowledge/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent/mailbox",
+   "file": "app/agent/mailbox/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent",
+   "file": "app/agent/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent/panel",
+   "file": "app/agent/panel/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent/settings",
+   "file": "app/agent/settings/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/agent/t/00000000-0000-4000-8000-000000000000",
+   "file": "app/agent/t/[id]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/aip/EGLL",
+   "file": "app/aip/[icao]/[[...tab]]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/aip",
+   "file": "app/aip/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/aip/service-status",
+   "file": "app/aip/service-status/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/account/email-change",
+   "file": "app/api/account/email-change/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "DELETE",
+   "route": "/api/admin/aip/clear-cache",
+   "file": "app/api/admin/aip/clear-cache/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/admin/clients/00000000-0000-4000-8000-000000000000/00000000-0000-4000-8000-000000000000",
+   "file": "app/api/admin/clients/[id]/[decision]/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/admin/clients/00000000-0000-4000-8000-000000000000/link",
+   "file": "app/api/admin/clients/[id]/link/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "PATCH",
+   "route": "/api/admin/clients/00000000-0000-4000-8000-000000000000",
+   "file": "app/api/admin/clients/[id]/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/clients/catalogue",
+   "file": "app/api/admin/clients/catalogue/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/clients",
+   "file": "app/api/admin/clients/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/clients/settings",
+   "file": "app/api/admin/clients/settings/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "PUT",
+   "route": "/api/admin/clients/settings",
+   "file": "app/api/admin/clients/settings/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/country-service-status",
+   "file": "app/api/admin/country-service-status/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/admin/country-service-status",
+   "file": "app/api/admin/country-service-status/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/debug/runs/00000000-0000-4000-8000-000000000000",
+   "file": "app/api/admin/debug/runs/[id]/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/admin/debug/runs/00000000-0000-4000-8000-000000000000",
+   "file": "app/api/admin/debug/runs/[id]/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/debug/runs/00000000-0000-4000-8000-000000000000/stream",
+   "file": "app/api/admin/debug/runs/[id]/stream/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/debug/runs",
+   "file": "app/api/admin/debug/runs/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/admin/debug/runs",
+   "file": "app/api/admin/debug/runs/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/maintenance",
+   "file": "app/api/admin/maintenance/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/admin/maintenance",
+   "file": "app/api/admin/maintenance/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/metrics",
+   "file": "app/api/admin/metrics/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/permissions",
+   "file": "app/api/admin/permissions/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/admin/permissions",
+   "file": "app/api/admin/permissions/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/status",
+   "file": "app/api/admin/status/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/admin/users/password-reset",
+   "file": "app/api/admin/users/password-reset/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/admin/users",
+   "file": "app/api/admin/users/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/admin/users",
+   "file": "app/api/admin/users/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/asecna/gen/pdf",
+   "file": "app/api/aip/asecna/gen/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "HEAD",
+   "route": "/api/aip/asecna/pdf",
+   "file": "app/api/aip/asecna/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/asecna/pdf",
+   "file": "app/api/aip/asecna/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/asecna",
+   "file": "app/api/aip/asecna/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/download-estimate",
+   "file": "app/api/aip/download-estimate/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/aip/download-stats",
+   "file": "app/api/aip/download-stats/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "HEAD",
+   "route": "/api/aip/ead/pdf",
+   "file": "app/api/aip/ead/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/ead/pdf",
+   "file": "app/api/aip/ead/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/ead",
+   "file": "app/api/aip/ead/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/gen/pdf/exists",
+   "file": "app/api/aip/gen/pdf/exists/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/gen/pdf",
+   "file": "app/api/aip/gen/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/gen",
+   "file": "app/api/aip/gen/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/gen/sync",
+   "file": "app/api/aip/gen/sync/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/gen-non-ead",
+   "file": "app/api/aip/gen-non-ead/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/resolve",
+   "file": "app/api/aip/resolve/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/scraper/gen/pdf",
+   "file": "app/api/aip/scraper/gen/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "HEAD",
+   "route": "/api/aip/scraper/pdf",
+   "file": "app/api/aip/scraper/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/scraper/pdf",
+   "file": "app/api/aip/scraper/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/scraper",
+   "file": "app/api/aip/scraper/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/sync",
+   "file": "app/api/aip/sync/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "HEAD",
+   "route": "/api/aip/usa/gen/pdf",
+   "file": "app/api/aip/usa/gen/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/usa/gen/pdf",
+   "file": "app/api/aip/usa/gen/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "HEAD",
+   "route": "/api/aip/usa/pdf",
+   "file": "app/api/aip/usa/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/usa/pdf",
+   "file": "app/api/aip/usa/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/usa",
+   "file": "app/api/aip/usa/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/aip-meta-compare",
+   "file": "app/api/aip-meta-compare/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/aip-test/download",
+   "file": "app/api/aip-test/download/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/aip-test/extract",
+   "file": "app/api/aip-test/extract/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip-test/extracted",
+   "file": "app/api/aip-test/extracted/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip-test/list",
+   "file": "app/api/aip-test/list/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip-test/pdf",
+   "file": "app/api/aip-test/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip-test/sync",
+   "file": "app/api/aip-test/sync/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/airports/delete",
+   "file": "app/api/airports/delete/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/airports/list",
+   "file": "app/api/airports/list/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/airports/restore",
+   "file": "app/api/airports/restore/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/airports",
+   "file": "app/api/airports/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/asecna/job/00000000-0000-4000-8000-000000000000",
+   "file": "app/api/asecna/job/[id]/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/asecna/trigger-ad2",
+   "file": "app/api/asecna/trigger-ad2/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/assistant/access",
+   "file": "app/api/assistant/access/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/assistant/access",
+   "file": "app/api/assistant/access/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "DELETE",
+   "route": "/api/assistant/access",
+   "file": "app/api/assistant/access/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/assistant/availability",
+   "file": "app/api/assistant/availability/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/assistant/kill-switch",
+   "file": "app/api/assistant/kill-switch/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "PUT",
+   "route": "/api/assistant/kill-switch",
+   "file": "app/api/assistant/kill-switch/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/auth/email/confirm",
+   "file": "app/api/auth/email/confirm/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/auth/email/confirm",
+   "file": "app/api/auth/email/confirm/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/auth/email/request-confirmation",
+   "file": "app/api/auth/email/request-confirmation/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/auth/password/forgot",
+   "file": "app/api/auth/password/forgot/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/auth/password/reset",
+   "file": "app/api/auth/password/reset/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/blocked-hitl-vnc",
+   "file": "app/api/blocked-hitl-vnc/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/client/me",
+   "file": "app/api/client/me/route.ts",
+   "ungated": false,
+   "onList": true
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/client-invite/new-link",
+   "file": "app/api/client-invite/new-link/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/client-invite",
+   "file": "app/api/client-invite/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/client-invite",
+   "file": "app/api/client-invite/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/client-requests",
+   "file": "app/api/client-requests/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/country-service-status",
+   "file": "app/api/country-service-status/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/dashboard/changelog",
+   "file": "app/api/dashboard/changelog/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/dashboard/recents",
+   "file": "app/api/dashboard/recents/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/ead-extracted",
+   "file": "app/api/ead-extracted/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/health",
+   "file": "app/api/health/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/help/attachments/00000000-0000-4000-8000-000000000000",
+   "file": "app/api/help/attachments/[id]/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/help/attachments",
+   "file": "app/api/help/attachments/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/help/context",
+   "file": "app/api/help/context/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/help/drafts",
+   "file": "app/api/help/drafts/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "PUT",
+   "route": "/api/help/drafts",
+   "file": "app/api/help/drafts/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "DELETE",
+   "route": "/api/help/drafts",
+   "file": "app/api/help/drafts/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/help/guide-search",
+   "file": "app/api/help/guide-search/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/help/inbox",
+   "file": "app/api/help/inbox/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/help/saved-replies",
+   "file": "app/api/help/saved-replies/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/help/saved-replies",
+   "file": "app/api/help/saved-replies/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "DELETE",
+   "route": "/api/help/saved-replies",
+   "file": "app/api/help/saved-replies/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/help/stream",
+   "file": "app/api/help/stream/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/help/threads/00000000-0000-4000-8000-000000000000/messages",
+   "file": "app/api/help/threads/[id]/messages/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/help/threads/00000000-0000-4000-8000-000000000000/presence",
+   "file": "app/api/help/threads/[id]/presence/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/help/threads/00000000-0000-4000-8000-000000000000/read",
+   "file": "app/api/help/threads/[id]/read/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/help/threads/00000000-0000-4000-8000-000000000000",
+   "file": "app/api/help/threads/[id]/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "PATCH",
+   "route": "/api/help/threads/00000000-0000-4000-8000-000000000000",
+   "file": "app/api/help/threads/[id]/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/help/threads",
+   "file": "app/api/help/threads/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/help/threads",
+   "file": "app/api/help/threads/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/inac-eaip-package-root",
+   "file": "app/api/inac-eaip-package-root/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/korea-koca-eaip-package-root",
+   "file": "app/api/korea-koca-eaip-package-root/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/lithuania-hitl-auto",
+   "file": "app/api/lithuania-hitl-auto/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/lithuania-hitl-test",
+   "file": "app/api/lithuania-hitl-test/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/lithuania-hitl-vnc",
+   "file": "app/api/lithuania-hitl-vnc/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/maintenance",
+   "file": "app/api/maintenance/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/mnav-eaip-package-root",
+   "file": "app/api/mnav-eaip-package-root/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/notams",
+   "file": "app/api/notams/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/oman-eaip-package-root",
+   "file": "app/api/oman-eaip-package-root/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/regions",
+   "file": "app/api/regions/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/rus-aip-test/airports",
+   "file": "app/api/rus-aip-test/airports/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/rus-aip-test/download",
+   "file": "app/api/rus-aip-test/download/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/search/log",
+   "file": "app/api/search/log/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/search",
+   "file": "app/api/search/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/service-checks/recheck",
+   "file": "app/api/service-checks/recheck/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/service-checks",
+   "file": "app/api/service-checks/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/telegram/debug",
+   "file": "app/api/telegram/debug/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/telegram/support/attachment/00000000-0000-4000-8000-000000000000",
+   "file": "app/api/telegram/support/attachment/[id]/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/telegram/support",
+   "file": "app/api/telegram/support/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/telegram/support",
+   "file": "app/api/telegram/support/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/textract-benchmark/run",
+   "file": "app/api/textract-benchmark/run/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/unsubscribe",
+   "file": "app/api/unsubscribe/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/usa-states",
+   "file": "app/api/usa-states/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/user/preferences",
+   "file": "app/api/user/preferences/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/user/preferences",
+   "file": "app/api/user/preferences/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/weather",
+   "file": "app/api/weather/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/auth/callback",
+   "file": "app/auth/callback/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/auth/confirm",
+   "file": "app/auth/confirm/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/auth/reset",
+   "file": "app/auth/reset/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/client/airports",
+   "file": "app/client/airports/page.tsx",
+   "ungated": false,
+   "onList": true
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/client/documents",
+   "file": "app/client/documents/page.tsx",
+   "ungated": false,
+   "onList": true
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/client",
+   "file": "app/client/page.tsx",
+   "ungated": false,
+   "onList": true
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/client/refused",
+   "file": "app/client/refused/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/client/removed",
+   "file": "app/client/removed/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/dashboard/changelog",
+   "file": "app/dashboard/changelog/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/dashboard",
+   "file": "app/dashboard/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/developer/agent-access",
+   "file": "app/developer/agent-access/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/developer/components",
+   "file": "app/developer/components/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/developer/docs-components",
+   "file": "app/developer/docs-components/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/developer/inbox",
+   "file": "app/developer/inbox/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/developer/knowledge",
+   "file": "app/developer/knowledge/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/developer/saved-replies",
+   "file": "app/developer/saved-replies/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/docs/404.css",
+   "file": "app/docs/404.css/route.ts",
+   "ungated": true,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/docs/admin/users",
+   "file": "app/docs/[section]/[page]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/docs/admin",
+   "file": "app/docs/[section]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/docs/glossary",
+   "file": "app/docs/glossary/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/docs",
+   "file": "app/docs/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/docs/search",
+   "file": "app/docs/search/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/docs/search-index.json",
+   "file": "app/docs/search-index.json/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/files/aip/ead-pdf/RIGX.pdf",
+   "file": "app/files/[...path]/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/forbidden",
+   "file": "app/forbidden/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/greece-hitl-auto-test/viewer",
+   "file": "app/greece-hitl-auto-test/viewer/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/help/00000000-0000-4000-8000-000000000000",
+   "file": "app/help/[ref]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/help/new",
+   "file": "app/help/new/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/help",
+   "file": "app/help/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/intake/answer",
+   "file": "app/intake/answer/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/lithuania-hitl-auto-test/viewer",
+   "file": "app/lithuania-hitl-auto-test/viewer/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/login",
+   "file": "app/login/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/activity",
+   "file": "app/m/activity/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/agent",
+   "file": "app/m/agent/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/agent-settings",
+   "file": "app/m/agent-settings/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/agent-sites",
+   "file": "app/m/agent-sites/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/aircraft",
+   "file": "app/m/aircraft/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/airport/EGLL",
+   "file": "app/m/airport/[icao]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/airport",
+   "file": "app/m/airport/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/caa",
+   "file": "app/m/caa/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/dashboard",
+   "file": "app/m/dashboard/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/desk/00000000-0000-4000-8000-000000000000",
+   "file": "app/m/desk/[id]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/flights/00000000-0000-4000-8000-000000000000",
+   "file": "app/m/flights/[id]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/flights/00000000-0000-4000-8000-000000000000/passengers",
+   "file": "app/m/flights/[id]/passengers/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/flights",
+   "file": "app/m/flights/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/help/00000000-0000-4000-8000-000000000000",
+   "file": "app/m/help/[ref]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/help",
+   "file": "app/m/help/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/hidden-airports",
+   "file": "app/m/hidden-airports/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/history",
+   "file": "app/m/history/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/important",
+   "file": "app/m/important/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/inbox",
+   "file": "app/m/inbox/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/intake/00000000-0000-4000-8000-000000000000/confirm",
+   "file": "app/m/intake/[id]/confirm/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/intake/00000000-0000-4000-8000-000000000000/email",
+   "file": "app/m/intake/[id]/email/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/intake/00000000-0000-4000-8000-000000000000/leg/1",
+   "file": "app/m/intake/[id]/leg/[n]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/intake/00000000-0000-4000-8000-000000000000",
+   "file": "app/m/intake/[id]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/intake",
+   "file": "app/m/intake/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/knowledge",
+   "file": "app/m/knowledge/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/limitations",
+   "file": "app/m/limitations/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/mailbox",
+   "file": "app/m/mailbox/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/maintenance",
+   "file": "app/m/maintenance/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/notam-check",
+   "file": "app/m/notam-check/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/operators",
+   "file": "app/m/operators/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m",
+   "file": "app/m/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/profile",
+   "file": "app/m/profile/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/reports",
+   "file": "app/m/reports/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/service-status",
+   "file": "app/m/service-status/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/settings",
+   "file": "app/m/settings/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/users",
+   "file": "app/m/users/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/wall/00000000-0000-4000-8000-000000000000",
+   "file": "app/m/wall/[id]/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/wall",
+   "file": "app/m/wall/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/wall-settings",
+   "file": "app/m/wall-settings/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/m/webhooks",
+   "file": "app/m/webhooks/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/maintenance",
+   "file": "app/maintenance/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/netherlands-hitl-auto-test/viewer",
+   "file": "app/netherlands-hitl-auto-test/viewer/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/",
+   "file": "app/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/pending-approval",
+   "file": "app/pending-approval/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/request-access",
+   "file": "app/request-access/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/settings",
+   "file": "app/settings/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/signup",
+   "file": "app/signup/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/status",
+   "file": "app/status/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/telegram/support",
+   "file": "app/telegram/support/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/welcome",
+   "file": "app/welcome/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/auth/sign-out",
+   "file": "app/auth/sign-out/route.ts",
+   "ungated": true,
+   "onList": false
+  }
+ ],
+ "services": [
+  {
+   "name": "wall",
+   "prefix": "/digital-wall",
+   "walk": [
+    {
+     "method": "GET",
+     "path": "/api/health",
+     "clientMay": true,
+     "public": true
+    },
+    {
+     "method": "HEAD",
+     "path": "/api/health",
+     "clientMay": false,
+     "public": true
+    },
+    {
+     "method": "POST",
+     "path": "/leon/webhook/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/device/announce",
+     "clientMay": false,
+     "public": true
+    },
+    {
+     "method": "GET",
+     "path": "/api/device/state",
+     "clientMay": false,
+     "public": true
+    },
+    {
+     "method": "GET",
+     "path": "/api/stream",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/device/list",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/device/approve",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/device/revoke",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/presence",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/display/overlay",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/display/overlay",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/reports",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/reports",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/reports/config",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/reports/config",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/reports/rigx/send",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/reports/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/reports/rigx/restore",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/reports/rigx/purge",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PATCH",
+     "path": "/api/reports/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/reports/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/flight-checks",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/flight-checks",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/flight-services",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/flight-info",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/aip-pdf",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "HEAD",
+     "path": "/api/aip-pdf",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/aip/send",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/aip/send/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/alerts/rules",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/alerts/rules",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/alerts/findings",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/notam-check/digest-config",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/notam-check/digest-config",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/admin/refresh-flight-weather",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/admin/clear-flight-cache",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/notam-check/today",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/notam-check/ack",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/notam-check/resync",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/notam-check/run",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/alerts/scan",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/display/settings",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/display/settings",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/display/settings/profile/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/display/env",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/display/devices",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PATCH",
+     "path": "/api/display/devices/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/display/devices/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/display/clocks",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/display/clocks",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/operators",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/operators",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/operators/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PATCH",
+     "path": "/api/operators/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/operators/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/upcoming/flights",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/aircraft/schedule",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/aircraft/visibility",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/aircraft/visibility",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/aircraft",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/airports/search",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/countries",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/timeline/limitations",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/admin/reset-important-reviews",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/caa",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/caa",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/caa/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PATCH",
+     "path": "/api/caa/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/caa/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/webhooks",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/webhooks/log",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/webhooks/toggle",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/webhooks/reregister",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/webhooks/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/important",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/important",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/important/rigx/attachments",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/important/rigx/attachments",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/important/rigx/attachments",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/important/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/important/rigx/restore",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/important/rigx/purge",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PATCH",
+     "path": "/api/important/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/important/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/timeline/limitations",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/timeline/limitations/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/timeline/limitations/rigx/restore",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/timeline/limitations/rigx/purge",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PATCH",
+     "path": "/api/timeline/limitations/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/timeline/limitations/rig-gate-probe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/flights/normalized",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/timeline/refresh",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/timeline/flights",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/timeline/aircraft",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/timeline/sync-status",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/flights/data",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/limitations",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/users/me",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/geo/airports",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/geo/countries",
+     "clientMay": true,
+     "public": false
+    }
+   ],
+   "unmade": []
+  },
+  {
+   "name": "agent",
+   "prefix": "/agent",
+   "walk": [
+    {
+     "method": "GET",
+     "path": "/api/health",
+     "clientMay": false,
+     "public": true
+    },
+    {
+     "method": "HEAD",
+     "path": "/api/health",
+     "clientMay": false,
+     "public": true
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/resend-webhook",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/answer",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/answer",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/availability",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/chat",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/tools",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/tools/invoke",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/activity",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/activity/1/request",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/settings",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/email/status",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/commands",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/settings/me",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PATCH",
+     "path": "/api/settings/me",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/settings/routing",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/settings/routing",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/settings/web",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/settings/web",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/settings/skip-confirm-lock",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PATCH",
+     "path": "/api/settings",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/settings/permissions",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/usage",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/knowledge/stats",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/knowledge/documents/rigx/clauses",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/suggestions",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/history",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/extension/token",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/extension/token/refresh",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/extension/session",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/extension/badge",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/extension/sites/request",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/extension/sites/admin",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/extension/sites/decide",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/extension/sites/revoke",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/extension/sites/add",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/extension/resolve",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/extension/lookup",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/extension/insert-log",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/extension/disconnect",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/voice/transcribe",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/voice/activity",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/voice/realtime-token",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/voice/speak",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/attachments/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/documents/knowledge/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/citations/check",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/attachments",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/confirmations/00000000-0000-4000-8000-000000000000",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/confirmations/00000000-0000-4000-8000-000000000000",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/verbatim/limitation/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/files/rigx/pax-note",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/files/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/email/preview",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/email/log",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/knowledge/documents",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/knowledge/documents/rigx/file",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PATCH",
+     "path": "/api/knowledge/documents/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/knowledge/documents",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/knowledge/documents/rigx/approve",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/knowledge/documents/rigx/reject",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/knowledge/documents/rigx/file",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/conversations",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/conversations/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/conversations/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/overview",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/requests",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/lookup",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/approve",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/cancel-approve",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/email",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/edit",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/people",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/people/edit",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/people/passport-decision",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/people/reveal",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/reprocess",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/prepare",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/send/00000000-0000-4000-8000-000000000000/confirm",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/legs/1/people/prepare",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/people/00000000-0000-4000-8000-000000000000/confirm",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/send/00000000-0000-4000-8000-000000000000",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/intake/requests/00000000-0000-4000-8000-000000000000/legs/1/check",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/attachments/00000000-0000-4000-8000-000000000000",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/settings",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/intake/settings",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/intake/checklist-definitions",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/mailbox/access",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/mailbox/overview",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/mailbox/messages",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/mailbox/messages/00000000-0000-4000-8000-000000000000",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/mailbox/messages/00000000-0000-4000-8000-000000000000/body",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/mailbox/messages/00000000-0000-4000-8000-000000000000/reveal",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/mailbox/messages/00000000-0000-4000-8000-000000000000/raw",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/mailbox/messages/00000000-0000-4000-8000-000000000000/cid/rigx",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/mailbox/messages/00000000-0000-4000-8000-000000000000/image",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/mailbox/messages/00000000-0000-4000-8000-000000000000/ignore",
+     "clientMay": false,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/flights/rigx/passengers",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "POST",
+     "path": "/api/flights/rigx/passengers/rigx/reveal",
+     "clientMay": true,
+     "public": false
+    }
+   ],
+   "unmade": []
+  }
+ ],
+ "clientSwitches": [
+  "flight_board",
+  "weather",
+  "notams",
+  "radar",
+  "service_status",
+  "notam_check_status",
+  "documents",
+  "airport_search",
+  "limitations",
+  "important",
+  "caa"
+ ]
+}

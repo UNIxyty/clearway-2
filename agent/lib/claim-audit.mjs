@@ -18,7 +18,7 @@ const ABSENCE = /\b(no|none|nothing|not any|never|all clear|clear of)\b[^.;:\n]{
 const NAMED_STORE = new RegExp(`${OURS.source}|\\b(recorded|configured|held|stored|listed) (in|on|by)\\b|\\bstore\\b|\\bcache\\b`, "i");
 // what a sentence says about a source or about what could not be found, rather than about the world
 const NOT_FOUND = /\bno (current )?(information|data|record|statement|source)s? (was |were )?found\b|\b(not|never) (found|established|confirmed|checked|cached)\b|\bunknown\b/i;
-const EVALUATION = /\b(undated|is old|may no longer|suggests?|my (reading|guess|inference|view)|not a finding|treat (it|this|that) as|unreliable|weak|the sources disagree|conflicts? with|I read (that|this|it) as)\b/i;
+const EVALUATION = /\b(undated|is old|may no longer|suggests?|my (reading|guess|inference|view|reasoning)|not a finding|treat (it|this|that) as|unreliable|weak|the sources disagree|conflicts? with|I read (that|this|it) as)\b/i;
 const OWN_FINDING = /^(I|We) (found|saw|could|did|have|searched|checked)|\b(no|none of the) sources? I found\b|\bI( also)? (found|searched|checked)\b|\b(can't|cannot) say\b|\bfrom an official source\b/i;
 
 /** Sentences of a reply with their offsets and the section heading above them. */

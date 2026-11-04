@@ -399,7 +399,10 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         const found = deferredChecks(replyText, offeredNames);
         if (found.length) { followedUp = found; action = { kind: "check", label: found.map((f) => f.label).join(" and "), tools: found.map((f) => f.tool), prompt: followUpPrompt(found) }; }
       }
-      if (!action && room && !acted.has("audit")) {
+      // the audit judges the answer the person will read: once, and once more if the turn moved again after it
+      const auditsDone = followUps.filter((f) => f.kind === "audit").length;
+      const movedSinceAudit = auditsDone > 0 && followUps.at(-1)?.kind !== "audit";
+      if (!action && room && (auditsDone === 0 || (auditsDone === 1 && movedSinceAudit))) {
         let pos = 0; const claims = [];
         for (const b of named) { if ((b.citations ?? []).length) claims.push({ start: pos, end: pos + b.text.length }); pos += b.text.length; }
         const a = auditClaims({ text: replyText, claims, searched: turn.searches.length > 0 });
@@ -418,10 +421,10 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         carried = [];
         continue;
       }
-      if (audits.length && acted.has("audit")) { let pos = 0; const claims = []; for (const b of named) { if ((b.citations ?? []).length) claims.push({ start: pos, end: pos + b.text.length }); pos += b.text.length; } const a = auditClaims({ text: replyText, claims, searched: turn.searches.length > 0 }); audits.push({ unsourced: a.unsourced.length, absences: a.absences.length, sentences: a.unsourced.concat(a.absences).slice(0, 12), after: true }); }
+      if (audits.length && acted.has("audit") && !audits.at(-1).after) { let pos = 0; const claims = []; for (const b of named) { if ((b.citations ?? []).length) claims.push({ start: pos, end: pos + b.text.length }); pos += b.text.length; } const a = auditClaims({ text: replyText, claims, searched: turn.searches.length > 0 }); audits.push({ unsourced: a.unsourced.length, absences: a.absences.length, sentences: a.unsourced.concat(a.absences).slice(0, 12), after: true }); }
       // what became of each move: checked, found nothing, failed, or not made — never "checked" on a failure
       for (const f of followUps) {
-        if (f.kind === "audit") { f.outcome = audits.at(-1)?.after ? (audits.at(-1).unsourced + audits.at(-1).absences === 0 ? "checked" : "partly") : "not_made"; continue; }
+        if (f.kind === "audit") { const last = audits.at(-1); f.outcome = last?.after ? (last.unsourced + last.absences === 0 ? "checked" : "partly") : last && last.unsourced + last.absences === 0 ? "checked" : "partly"; continue; }
         if (f.kind === "search" || f.kind === "widen") { const s = turn.searches.slice(f.searchesAt); f.outcome = s.some((x) => (x.results ?? 0) > 0) ? "checked" : s.some((x) => x.error) ? "failed" : s.length ? "empty" : "not_made"; continue; }
         const c = toolCalls.slice(f.callsAt).filter((x) => f.tools.includes(x.name)); f.outcome = c.some((x) => x.ok !== false) ? "checked" : c.length ? "failed" : "not_made";
       }

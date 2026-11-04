@@ -119,7 +119,7 @@ const api = http.createServer(async (req, res) => {
   if (script === "uncited") {
     if (round === 0) return sse(res, [start(), ...toolUse(0, "toolu_u_t", "tavily_search", { query: "Westarctica" }), end("tool_use")]);
     if (round === 1) return sse(res, [start(), ...text(0, "SafeAirspace lists nothing for it.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — x", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), ...text(1, " Norway administers Peter I Island under the Antarctic Treaty arrangements."), end("end_turn")]);
-    return sse(res, [start(), ...text(0, "SafeAirspace lists nothing for it.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — x", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), ...text(1, "\n\nWhat I could not establish: who, if anyone, regulates that airspace."), end("end_turn")]);
+    return sse(res, [start(), ...text(0, "SafeAirspace lists nothing for it.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — x", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), end("end_turn")]);
   }
   if (script === "absence") {
     if (round === 0) return sse(res, [start(), ...text(0, "There are no restrictions for the Marseille FIR today."), end("end_turn")]);
@@ -233,6 +233,9 @@ try {
   ok(deferredChecks("I did not check NOTAMs for LFMM.", offered).length === 1 && deferredChecks("Then check GEN 1.2 for LBBG.", offered)[0]?.tool === "read_gen_document" && deferredChecks("Sudan's airspace is closed.", offered).length === 0 && deferredChecks("Check the NOTAMs.", new Set()).length === 0, "detection: NOTAM and GEN 1.2 advice, not plain statements, and only for a tool the turn has");
 
   // ── 8. what a turn must do in code before it may answer (2026-11-04) ──
+  const { nextAction } = await import("../agent/lib/turn-policy.mjs");
+  const na = (t, cited = true) => nextAction({ reply: { text: t, blocks: cited ? [{ citations: [{ type: "web_search_result_location", url: "https://acukwik.com/x" }] }] : [] }, turn: { searches: [{ pass: 1, results: 10 }], widened: false }, policy: { mustSearch: true, kinds: ["handling and FBO"] }, webAvailable: true, done: new Set() })?.kind ?? null;
+  ok(na("Handling is not mandatory. I did not widen the search to forums or blogs.") === "widen" && na("X.\n\n**What I could not establish**\n- crew reports") === "widen" && na("Nothing useful.", false) === "widen" && na("Handling is not mandatory.") === null, "pass one alone that cites nothing, or admits a part it could not establish, widens; a fully answered pass one does not (prompt 5)");
   script = "must-search"; seen.length = 0; tavilySeen.length = 0;
   const ms = await chat(5191, "Rig check: does Bulgaria require a landing permit?");
   const mcalls = seen.filter((b) => b.stream);
@@ -244,7 +247,7 @@ try {
   ok(ep.done?.partial?.followUps?.[0]?.label === "sources beyond the approved list" && /Crews report/.test(ep.done?.content ?? ""), "…shown as a partial answer, then the widened one");
   script = "uncited"; seen.length = 0;
   const un = await chat(5191, "Rig check: permits for the micronation?");
-  ok(/cannot trace to a source/.test(JSON.stringify(seen.filter((b) => b.stream)[2]?.messages?.at(-1) ?? "")) && !/Norway/.test(un.done?.content ?? "") && /could not establish/.test(un.done?.content ?? ""), "a searched answer with an uncited sentence is sent back once; the reply has no unsourced substance", (un.done?.content ?? "").slice(0, 90));
+  ok(/cannot trace to a source/.test(JSON.stringify(seen.filter((b) => b.stream)[2]?.messages?.at(-1) ?? "")) && !/Norway/.test(un.done?.content ?? "") && /^SafeAirspace lists nothing for it\.$/.test(un.done?.content ?? ""), "a searched answer with an uncited sentence is sent back once; the reply has no unsourced substance", (un.done?.content ?? "").slice(0, 90));
   ok(!un.done?.partial && un.done?.thinking?.text?.includes("Norway"), "the defective draft is not shown as an answer (it is in the thinking, where it can be read)");
   const unAudit = (await (await fetch(`${SB}/rest/v1/agent_audit_log?kind=eq.chat.response&conversation_id=eq.${un.done?.conversationId}&select=detail&limit=1`, { headers: H })).json())?.[0]?.detail?.claimAudit;
   ok(unAudit?.[0]?.unsourced === 1 && unAudit?.[1]?.after === true && unAudit[1].unsourced === 0, "the audit row has the claim audit, before and after the redraft", JSON.stringify(unAudit?.map((a) => `${a.after ? "after" : "draft"} ${a.unsourced}/${a.absences}`)));

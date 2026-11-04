@@ -17,6 +17,7 @@ defineTool({
     "Current NOTAMs for one airport by ICAO code, from CrewBriefing. Returns the full NOTAM text of each notice. Use for questions about closures, works in progress, unserviceable equipment or temporary restrictions at an airport. Can be slow on a cache miss because it scrapes the source.",
   permission: "user",
   sourceTier: "web",
+  noSource: true,   // each NOTAM it returns is cited on its own, as Clearway data with the cache time (lib/citations.mjs)
   sourceLabel: (input) => `Web · CrewBriefing NOTAMs · ${input.icao}`,
   // NOTAM retrieval is Playwright-backed on a cache miss; the portal's own
   // timeout is generous, so this one has to be too or it fails the slow path.

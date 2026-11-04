@@ -29,6 +29,11 @@ export function questionKinds(question, now = new Date()) {
 
 const OFFER = /\b(if you (want|like|need)|if needed|want me to|shall I|I can|I could|I'd only|happy to|say if)\b[^.\n]{0,90}\b(search|look (it|this|that) up|look further|wider web|broader search)\b|\bsearch again\b|\bI (have not|haven't|did not|didn't) search(ed)? the web\b|\b(I'd|I would) only run that search\b/i;
 export const offersToSearch = (text) => OFFER.test(String(text ?? ""));
+// "nothing useful for a part of the question": the reply names a part it could not establish, or says it did not widen
+// (2026-11-04, prompt 5: it cited AC-U-KWIK listings and said "I did not widen the search to forums or blogs" about
+// the very thing asked)
+const GAP = /\b(could not|couldn't|can't|cannot|was unable to) (find|establish|confirm)\b|\bnot (found|established)\b|\bno (current )?(information|crew reports?|reports?|data) (was |were )?found\b|\bdid(n't| not) widen\b|\bwhat i could not establish\b/i;
+export const admitsGap = (text) => GAP.test(String(text ?? ""));
 
 /** Did the reply cite anything from the web (either provider)? */
 export const citesWeb = (blocks) => blocks.some((b) => (b.citations ?? []).some((c) => c.type === "web_search_result_location" || (c.type === "search_result_location" && /^https?:/.test(String(c.source)))));
@@ -49,7 +54,7 @@ export function nextAction({ reply, turn, policy, webAvailable, done }) {
     return { kind: "search", label: "the web", tools: ["web_search", "tavily_search"], prompt: `${why} Search now — the approved sources first — for what the question needs. Then write the FULL answer, from the start and complete on its own, citing what you found and saying what you could not establish. Never offer to search: search.` };
   }
   const pass1 = turn.searches.some((s) => s.pass === 1);
-  if (searched && pass1 && !turn.widened && !done.has("widen") && (!citesWeb(reply.blocks) || offersToSearch(reply.text))) {
+  if (searched && pass1 && !turn.widened && !done.has("widen") && (!citesWeb(reply.blocks) || offersToSearch(reply.text) || admitsGap(reply.text))) {
     return { kind: "widen", label: "sources beyond the approved list", tools: ["web_search", "tavily_search"], widen: true, prompt: `Pass one (the approved sources) gave you nothing you could cite for this. Pass two is now open: search again, unrestricted, for what the question needs. Then write the FULL answer, from the start and complete on its own. Every claim from outside the approved list is marked in the console; name the site and its date in the sentence. If pass two finds nothing either, say plainly that it could not be established.` };
   }
   return null;

@@ -9,7 +9,7 @@ import { executeTool, toolSpecsFor } from "./tools/index.mjs";
 import { anthropicRuntime } from "./anthropic-runtime.mjs";
 import { webSettings, anthropicWebTool, classifyUrl } from "./web-sources.mjs";
 import { logDetail } from "./public-errors.mjs";
-import { deferredChecks, followUpPrompt } from "./follow-up.mjs";
+import { deferredChecks, followUpPrompt, subjectsOf } from "./follow-up.mjs";
 import { nextAction } from "./turn-policy.mjs";
 import { auditClaims, repairPrompt } from "./claim-audit.mjs";
 import { applyResolvedNames } from "./names.mjs";
@@ -214,7 +214,6 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
   let followedUp = null;          // the deferred check a turn may make: an answer that sent the reader to a check we can make
   const followUps = [];           // every move the turn made after a reply (search, widen, a check, a redraft), with what became of it
   const acted = new Set();
-  let partialShown = false;
   const audits = [];
   const nameCorrections = [];
   const conversation = toBedrockMessages(messages);
@@ -394,7 +393,8 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       const offeredNames = new Set(toolSpecs.map((t) => t.toolSpec.name));
       let action = room ? nextAction({ reply: { text: replyText, blocks: named }, turn, policy, webAvailable: anthropicSearch, done: acted }) : null;
       if (!action && room && !followedUp) {
-        const found = deferredChecks(replyText, offeredNames);
+        const subjects = policy?.subjects ?? subjectsOf([...messages].reverse().find((m) => m.role === "user")?.content?.map?.((c) => c.text ?? "").join(" ") ?? "", policy?.names);
+        const found = deferredChecks(replyText, offeredNames, subjects);
         if (found.length) { followedUp = found; action = { kind: "check", label: found.map((f) => f.label).join(" and "), tools: found.map((f) => f.tool), prompt: followUpPrompt(found) }; }
       }
       // the audit judges the answer the person will read: once, and once more if the turn moved again after it
@@ -411,9 +411,10 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         acted.add(action.kind);
         if (action.widen) { turn.widened = true; turn.widenedFor = turn.widenedFor ?? "by the turn: pass one gave nothing citable, or the answer left a part it could not establish"; }   // pass two opens in code
         followUps.push({ kind: action.kind, label: action.label, tools: action.tools, callsAt: toolCalls.length, searchesAt: turn.searches.length });
-        // the first reply is shown as the partial answer; a later draft, or a draft sent back for its sources, is not shown
-        if (!action.hidden && !partialShown) { partialShown = true; yield { type: "partial", text: replyText, streamed: streamedTail, checks: [action.label], tools: action.tools, ms: Date.now() - roundStarted }; }
-        else { const t = { text: streamedTail, ms: Date.now() - roundStarted, redraft: action.kind }; thoughts.push(t); yield { type: "thought", ...t }; if (!action.hidden) yield { type: "partial", append: true, checks: [action.label] }; }
+        // Working out whether another call is needed is internal (2026-11-05): the draft that led to it goes to the
+        // thinking, never to the reader as a "partial answer". The reader sees one answer. Only a check that was owed and
+        // could not be made reaches them, as one line naming it and why (agent/server.mjs › partial).
+        { const t = { text: streamedTail, ms: Date.now() - roundStarted, redraft: action.kind }; thoughts.push(t); yield { type: "thought", ...t }; }
         // A search the model asked for in this reply and never got an answer to cannot stand before a plain message: the
         // API refuses it ("web_search tool use … without a corresponding web_search_tool_result", question 7, 2026-11-04).
         // It was never run, so it is left out of what is sent back.
@@ -433,8 +434,9 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       // what became of each move: checked, found nothing, failed, or not made — never "checked" on a failure
       for (const f of followUps) {
         if (f.kind === "audit") { const last = audits.at(-1); f.outcome = last?.after ? (last.unsourced + last.absences === 0 ? "checked" : "partly") : last && last.unsourced + last.absences === 0 ? "checked" : "partly"; continue; }
-        if (f.kind === "search" || f.kind === "widen") { const s = turn.searches.slice(f.searchesAt); f.outcome = s.some((x) => (x.results ?? 0) > 0) ? "checked" : s.some((x) => x.error) ? "failed" : s.length ? "empty" : "not_made"; continue; }
+        if (f.kind === "search" || f.kind === "widen") { const s = turn.searches.slice(f.searchesAt); f.outcome = s.some((x) => (x.results ?? 0) > 0) ? "checked" : s.some((x) => x.error) ? "failed" : s.length ? "empty" : "not_made"; if (f.outcome === "failed") f.why = String(s.find((x) => x.error)?.error ?? ""); continue; }
         const c = toolCalls.slice(f.callsAt).filter((x) => f.tools.includes(x.name)); f.outcome = c.some((x) => x.ok !== false) ? "checked" : c.length ? "failed" : "not_made";
+        if (f.outcome === "failed") { const e = c.find((x) => x.ok === false); f.why = String(e?.error ?? ""); f.tool = e?.name ?? f.tools[0]; }
       }
       yield {
         type: "done",

@@ -222,20 +222,25 @@ try {
   const ps = pdAudit?.searches?.find((s) => s.provider === "anthropic");
   ok(ps?.pass === 1 && ps.round === 1 && !ps.outsideApproved, "the pending search is labelled by the request it ran under (pass one, round 1), its result inside the list", JSON.stringify(ps));
 
-  // ── 7. a reply that sends the reader to a check the agent can make is a partial answer; then the check; then the full answer
+  // ── 7. a reply that hands the reader a check the agent can make: the agent makes it, and the reader sees one answer.
+  // Working out that it was needed is internal (2026-11-05): no partial-answer banner unless the check could not be made.
   script = "follow-up"; seen.length = 0;
   const fu = await chat(5191, "Rig check: what should I know about Sudan?");
   const fcalls = seen.filter((b) => b.stream);
-  ok(fcalls.length === 3 && /Your answer above is partial/.test(JSON.stringify(fcalls[1]?.messages?.at(-1) ?? "")), "the reply that said 'check the current HSSS NOTAMs' is followed up: the model is told to make that check itself", `${fcalls.length} model calls`);
-  ok(fu.events.some((e) => e.ev === "partial" && /Check the current HSSS NOTAMs/.test(e.data.text) && e.data.checks?.includes("the NOTAMs")), "the console is told it was a partial answer, and which check follows");
-  ok(fu.done?.partial?.text?.includes("Check the current HSSS NOTAMs") && /^FULL:/.test(fu.done?.content ?? "") && !/Check the current HSSS NOTAMs/.test(fu.done?.content ?? ""), "the full answer is the reply; the partial one is kept apart from it", (fu.done?.content ?? "").slice(0, 80));
-  const fmsg = (await (await fetch(`${SB}/rest/v1/agent_messages?conversation_id=eq.${fu.done?.conversationId}&role=eq.assistant&select=content,blocks&limit=1`, { headers: H })).json())?.[0];
-  ok(fmsg?.blocks?.partial?.checks?.[0] === "the NOTAMs" && /^FULL:/.test(fmsg.content), "stored the same way: a reload shows the partial answer, then the full one");
+  ok(fcalls.length === 3 && /hands the reader a check you can make yourself/.test(JSON.stringify(fcalls[1]?.messages?.at(-1) ?? "")), "the reply that said 'check the current HSSS NOTAMs' (the question named Sudan) is followed up: the model makes that check itself", `${fcalls.length} model calls`);
+  ok(!fu.events.some((e) => e.ev === "partial") && fu.done?.thinking?.text?.includes("Check the current HSSS NOTAMs") && /^FULL:/.test(fu.done?.content ?? "") && !/Check the current HSSS NOTAMs/.test(fu.done?.content ?? ""), "the draft that pointed to the check goes to the thinking; the reader gets one answer, never a partial one shown first", (fu.done?.content ?? "").slice(0, 80));
   const nCall = fu.events.filter((e) => e.ev === "tool" && e.data.name === "get_notams");
-  ok(fu.done?.partial?.outcome === (nCall.some((e) => e.data.ok) ? "checked" : "failed"), "the partial answer says what became of the check: checked only when the NOTAM call succeeded", `${fu.done?.partial?.outcome} · get_notams ok=${nCall.map((e) => e.data.ok).join(",")}`);
-  const { deferredChecks } = await import("../agent/lib/follow-up.mjs");
+  const nOk = nCall.some((e) => e.data.ok);
+  ok(nOk ? !fu.done?.partial : /^The NOTAMs could not be checked: .+\.$/.test(fu.done?.partial?.line ?? ""), "a partial line only when the check could not be made, naming it and why — none when it was made", `get_notams ok=${nCall.map((e) => e.data.ok).join(",")} · ${fu.done?.partial?.line ?? "no partial line"}`);
+  const fmsg = (await (await fetch(`${SB}/rest/v1/agent_messages?conversation_id=eq.${fu.done?.conversationId}&role=eq.assistant&select=content,blocks&limit=1`, { headers: H })).json())?.[0];
+  ok(/^FULL:/.test(fmsg?.content ?? "") && (nOk ? !fmsg.blocks?.partial : fmsg.blocks?.partial?.line === fu.done?.partial?.line) && !fmsg?.blocks?.partial?.text, "stored the same way: a reload shows the one answer, and the missing check only if it was missing");
+  const fuAudit = (await (await fetch(`${SB}/rest/v1/agent_audit_log?kind=eq.chat.response&conversation_id=eq.${fu.done?.conversationId}&select=detail&limit=1`, { headers: H })).json())?.[0]?.detail?.followUp;
+  ok(fuAudit?.[0]?.kind === "check" && fuAudit[0].label === "the NOTAMs", "the audit row still records the follow-up the turn made, internal or not", JSON.stringify(fuAudit));
+  const { deferredChecks, subjectsOf } = await import("../agent/lib/follow-up.mjs");
   const offered = new Set(["get_notams", "read_gen_document"]);
-  ok(deferredChecks("I did not check NOTAMs for LFMM.", offered).length === 1 && deferredChecks("Then check GEN 1.2 for LBBG.", offered)[0]?.tool === "read_gen_document" && deferredChecks("Sudan's airspace is closed.", offered).length === 0 && deferredChecks("Check the NOTAMs.", new Set()).length === 0, "detection: NOTAM and GEN 1.2 advice, not plain statements, and only for a tool the turn has");
+  const dc = (q, a, tools = offered) => deferredChecks(a, tools, subjectsOf(q)).length;
+  ok(dc("Anything for LFMM?", "I did not check the NOTAMs for LFMM.") === 1 && deferredChecks("Then check GEN 1.2 for Bulgaria.", offered, subjectsOf("Does Bulgaria need a permit?"))[0]?.tool === "read_gen_document" && dc("Is Sudan open?", "Sudan's airspace is closed.") === 0 && dc("Anything for LFMM?", "Check the NOTAMs.", new Set()) === 0, "detection: a check handed to the reader on the asked subject, not a plain statement, and only for a tool the turn has");
+  ok(dc("hey", "Hi! I can look up flights, airport documents, NOTAMs, weather and limitations. What do you need?") === 0 && dc("Any NOTAMs at EVRA?", "Give me an ICAO code and I'll check the NOTAMs.") === 0 && dc("Is Sudan open?", "This comes from the HSSS NOTAM A0073/26.") === 0 && dc("Anything for LFMM?", "Also check the NOTAMs for EGLL.") === 0, "…never: a capability offered, a request for what it needs, a source it already used, another airport than the one asked about, or any turn whose question named no subject");
 
   // ── 8. what a turn must do in code before it may answer (2026-11-04) ──
   const { nextAction } = await import("../agent/lib/turn-policy.mjs");
@@ -246,12 +251,12 @@ try {
   const mcalls = seen.filter((b) => b.stream);
   const msSearches = (ms.done?.toolActivity ?? []).filter((a) => a.name === "web_search").length;
   ok(/always searched/.test(JSON.stringify(mcalls[1]?.messages?.at(-1) ?? "")) && msSearches === 1, "a permit question answered without a search is sent back to search: a rule in code, not a hope in the prompt", `${msSearches} search(es)`);
-  ok(ms.done?.partial?.text?.includes("I can search the wider web") && ms.done?.partial?.followUps?.[0]?.outcome === "checked" && /^Yes: SafeAirspace/.test(ms.done?.content ?? ""), "the offer to search is the partial answer; the searched one is the reply", JSON.stringify(ms.done?.partial?.followUps));
+  ok(!ms.done?.partial && ms.done?.thinking?.text?.includes("I can search the wider web") && /^Yes: SafeAirspace/.test(ms.done?.content ?? ""), "the offer to search goes to the thinking; the searched answer is the one answer, with no partial banner", (ms.done?.content ?? "").slice(0, 60));
   script = "empty-pass-one"; seen.length = 0;
   const ep = await chat(5191, "Rig check: what do crews say about handling at the desert strip?");
   const epCalls = seen.filter((b) => b.stream).map((b) => b.tools?.find((x) => x.type === "web_search_20250305"));
   ok(epCalls.length === 2 && epCalls[0]?.allowed_domains?.length > 0 && epCalls[1] && !epCalls[1].allowed_domains, "pass one found nothing citable: pass two opens in code and the second search is unrestricted", epCalls.map((t) => (t?.allowed_domains ? "pass 1" : "pass 2")).join(", "));
-  ok(ep.done?.partial?.followUps?.[0]?.label === "sources beyond the approved list" && /Crews report/.test(ep.done?.content ?? ""), "…shown as a partial answer, then the widened one");
+  ok(!ep.done?.partial && /Crews report/.test(ep.done?.content ?? "") && ep.done?.thinking?.text?.includes("The approved sources had nothing"), "…and the reader sees only the widened answer; the empty first one is in the thinking");
   script = "uncited"; seen.length = 0;
   const un = await chat(5191, "Rig check: permits for the micronation?");
   ok(/cannot trace to a source/.test(JSON.stringify(seen.filter((b) => b.stream)[1]?.messages?.at(-1) ?? "")) && !/Norway/.test(un.done?.content ?? "") && /^SafeAirspace lists nothing for it\.$/.test(un.done?.content ?? ""), "a searched answer with an uncited sentence is sent back once; the reply has no unsourced substance", (un.done?.content ?? "").slice(0, 90));

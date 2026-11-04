@@ -115,3 +115,40 @@ beside the sentence: "no source given".
 
 **A correction.** The "Connexion France published a strike calendar" sentence was cited one sentence late, not
 unsourced: the next sentence carries [6], the same Connexion page.
+
+## Disclosure only when it names something real (2026-11-05)
+
+Dmitry typed "hey" and got a partial-answer banner, a line saying the NOTAMs were not checked, three paragraphs about
+nothing having been checked, a "No source" footer, and 366 output tokens over 7.1 seconds. The rules behind it were
+written always-on. The real rules stand (cite a claim that rests on a source; name what could not be established; say
+which store an absence speaks for). What goes is the machinery firing with nothing to report.
+
+Every turn:
+1. **Whether another call is needed is worked out silently.** The draft that raises a check goes to the thinking, never
+   to the reader (`agent/lib/bedrock.mjs`).
+2. **Needed and possible: the turn makes it, then answers.** The reader sees one answer and no banner.
+3. **Needed and impossible** (the tool failed, the source did not answer): one short line, naming the check and why:
+   "The NOTAMs could not be checked: the source did not answer." The only time a partial line appears
+   (`agent/server.mjs` › `partial.line`). Rows from 2026-11-04 still show the old banner.
+4. **Nothing needed: none of it.** No banner, no "I have not checked", no "could not establish" with nothing under it,
+   and no "No source" footer on a reply that asserts nothing (`assertsNothing`, judged by the claim audit).
+
+**The trigger relates the answer to the question** (`agent/lib/follow-up.mjs`). It used to match words: "I can look up
+flights, airport documents, NOTAMs…" raised a NOTAM check nobody owed. Now both must hold:
+- the question named a subject (a code, a flight, a registration, a date, a country, a place after "about", "at", "in"…);
+- a sentence of the answer hands the reader a check on that subject that a tool of the turn can make.
+
+Never a deferred check: offering a capability, listing what the agent does, asking for what it needs, naming a source
+already used, or a check on another airport than the one asked about.
+
+The prompt (`agent/config/system-prompt.md` › Disclosure names something real) tells the model the same: a greeting
+gets one or two sentences; a disclosure line names something real or is left out. Greetings route to the fast tier.
+
+**Checks:**
+- `rig/web-search-check.mjs` (59) covers the machinery against stand-ins.
+- `rig/agent-disclosure-check.mjs` (21) runs on the real model with the rig key:
+  - "hey", "thanks", "what can you do": no banner, footer or disclosure, under 100 output tokens (29 to 84 measured),
+    and the fast tier;
+  - a question answered completely: no banner, citations present;
+  - a failed tool: the failure is shown, naming the tool;
+  - a question partly answered: "could not establish" lists only what was asked.

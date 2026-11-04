@@ -41,6 +41,11 @@ import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
 import { citationsToClaims } from "./lib/citations.mjs";
 import { checkQuestion } from "./lib/question-check.mjs";
 import { questionKinds } from "./lib/turn-policy.mjs";
+import { subjectsOf } from "./lib/follow-up.mjs";
+import { auditClaims } from "./lib/claim-audit.mjs";
+// why a check that was owed could not be made, in the reader's words (the tool's error code, never its message)
+const MISSING_WHY = { SERVICE_UNAVAILABLE: "the source did not answer", TIMEOUT: "it took too long and was stopped", NO_PERMISSION: "your account cannot run that check", NOT_FOUND: "our data has nothing for it", INVALID_INPUT: "the request for it was not valid", TOO_LARGE: "the result was too large to read", INTERNAL: "it returned an error" };
+const missingCheckLine = (f) => `${f.label.charAt(0).toUpperCase()}${f.label.slice(1)} could not be checked: ${MISSING_WHY[f.why] ?? (f.kind === "search" || f.kind === "widen" ? "the web search did not run" : "it returned an error")}.`;
 import { webSettings, setWebSettings } from "./lib/web-sources.mjs";
 import { SOURCE_TIERS, setCapabilityGate, actionsFromToolCalls, airportsFromToolCalls, documentsFromToolCalls, filesFromToolCalls, flightCardsFromToolCalls, monoFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
 import {
@@ -536,7 +541,7 @@ async function handleRequest(req, res) {
         catch (e) { if (e?.status === 400) return sendJson(res, { ok: false, error: "invalid", message: e.message }, 400); throw settingNotSaved(e, "web search settings"); }
         await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { web: { provider: body.provider ?? null, official: Array.isArray(body.official) ? body.official.length : null, industry: Array.isArray(body.industry) ? body.industry.length : null } } });
       } else w = await webSettings({ fresh: true });
-      return sendJson(res, { ok: true, canEdit, web: { provider: w.provider, official: w.official, industry: w.industry, source: w.source, updated: w.updated, tavilyConfigured: Boolean(String(process.env.TAVILY_API_KEY || "").trim()) } });
+      return sendJson(res, { ok: true, canEdit, web: { provider: w.provider, official: w.official, industry: w.industry, source: w.source, updated: w.updated } });
     }
     if (pathname === "/api/settings/skip-confirm-lock" && req.method === "PUT") {
       await assertMayUseAgent(user);
@@ -1583,6 +1588,7 @@ async function handleChat(req, res, user) {
     const onToolProgress = (e) => { if (!res.writableEnded) send("tool_progress", { name: e.name, toolUseId: e.toolUseId ?? null, step: e.step, index: e.index ?? null, steps: e.steps ?? null, filename: e.filename ?? e.input?.filename ?? null, format: e.format ?? e.input?.format ?? null }); };
     // what the question is and the checked name of each code in it (2026-11-04): the turn acts on them in code
     const policy = { ...questionKinds(question), names: (qcheck.codes ?? []).filter((c) => c.kind !== "unknown" && c.short).map(({ code, short, is }) => ({ code, short, is })) };
+    policy.subjects = subjectsOf(question, policy.names);   // what a deferred check could be about (lib/follow-up.mjs)
     const run = (tier) => streamConversationWithTools({ pinTool, onToolProgress, signal: abort.signal, tier, system, messages: [...history, { role: "user", content: currentUserContent }], user, conversationId, inputMode, onRound, skipConfirm: prefs.skipConfirm === true && inputMode !== "voice", policy });
     let stream = run(route.tier);
     // A failed first attempt is retried once, one tier up — only if nothing was shown yet, so the reply
@@ -1610,16 +1616,6 @@ async function handleChat(req, res, user) {
         if (answer.endsWith(chunk.text)) answer = answer.slice(0, answer.length - chunk.text.length);
         thinking.push({ text: chunk.text, ms: chunk.ms });
         send("thought", { text: chunk.text, ms: chunk.ms });
-      } else if (chunk.type === "partial") {
-        // the reply so far sent the reader to a check the agent can make (lib/follow-up.mjs): kept as the partial answer,
-        // out of the reply; the full answer follows it
-        if (chunk.append) { if (partial) { partial.checks = [...partial.checks, ...chunk.checks]; send("partial", { append: true, checks: chunk.checks }); } }
-        else {
-          const streamed = chunk.streamed ?? chunk.text;
-          if (answer.endsWith(streamed)) answer = answer.slice(0, answer.length - streamed.length);
-          partial = { text: chunk.text, checks: chunk.checks };
-          send("partial", partial);
-        }
       } else if (chunk.type === "escalated") {
         escalations.push({ from: chunk.from, to: chunk.to, reason: chunk.reason, round: chunk.round });
         send("escalated", { from: chunk.from, to: chunk.to, reason: chunk.reason });
@@ -1638,7 +1634,11 @@ async function handleChat(req, res, user) {
     // (2026-11-04). The stored reply ends with what streamed; that tail is replaced.
     if (done?.replaceTail && answer.endsWith(done.replaceTail.from)) answer = answer.slice(0, answer.length - done.replaceTail.from.length) + done.replaceTail.to;
     // what became of each move the turn made after a reply — said as it happened, never "checked" when it failed
-    if (partial) { partial.followUps = (done?.followUps ?? []).filter((f) => f.kind !== "audit").map((f) => ({ label: f.label, outcome: f.outcome })); partial.outcome = partial.followUps[0]?.outcome ?? "not_made"; }
+    // The partial answer (2026-11-05): only a check that was owed and could not be made — the tool failed, the source did
+    // not answer — and then one short line naming it and why. A check that was made is simply part of the one answer;
+    // working out that it was needed is internal (agent/lib/bedrock.mjs puts that draft in the thinking).
+    { const failedChecks = (done?.followUps ?? []).filter((f) => f.kind !== "audit" && f.outcome === "failed");
+      partial = failedChecks.length ? { line: failedChecks.map(missingCheckLine).join(" "), checks: failedChecks.map((f) => f.label), followUps: failedChecks.map((f) => ({ label: f.label, outcome: f.outcome, tool: f.tool ?? null })), outcome: "failed" } : null; }
     const toolSources = sourcesFromToolCalls(toolCalls);
     // Citations next to the claim (2026-11-03, lib/citations.mjs): the API attached them to the answer's text; each cited
     // web page becomes a numbered source, each cited passage maps to its document's source, and the claims carry the
@@ -1646,6 +1646,10 @@ async function handleChat(req, res, user) {
     const cited = citationsToClaims({ answer, answerBlocks: done?.answerBlocks ?? [], sources: toolSources, web: done?.web ?? null, toolCalls });
     if (cited.dropped) logDetail("agent", "citations not placed on the reply", cited.dropped);
     const sources = cited.sources;
+    // A reply that asserts nothing about the world — a greeting, a thank-you, what the agent can do — gets no "No source"
+    // footer (2026-11-05): an empty section is noise, and noise teaches people to skip the line on the day it matters.
+    // Judged on the answer by the claim audit, as if the turn had searched: a reply it would find nothing to source in.
+    const assertsNothing = sources.length === 0 && (() => { const a = auditClaims({ text: answer, claims: [], searched: true }); return a.unsourced.length + a.absences.length === 0; })();
     // what the final claim audit still found (lib/claim-audit.mjs) is marked beside the sentence, like an unapproved source
     const tailAt = done?.replaceTail ? answer.length - done.replaceTail.to.length : -1;
     const claims = [...cited.claims, ...(tailAt >= 0 ? (done?.unsourcedSpans ?? []).map((u) => ({ start: tailAt + u.start, end: tailAt + u.end, n: null, ns: [], mark: u.kind === "absence" ? "no source given: what was checked is not said" : "no source given" })) : [])].sort((a, b) => a.start - b.start);
@@ -1681,7 +1685,7 @@ async function handleChat(req, res, user) {
     }))];
 
     const finalTier = done?.effectiveTier ?? escalations.at(-1)?.to ?? route.tier;
-    const turnCost = costUsd({ modelId: done?.modelId, inputTokens: done?.inputTokens ?? 0, outputTokens: done?.outputTokens ?? 0, cacheReadTokens: done?.cacheReadTokens ?? 0, cacheWriteTokens: done?.cacheWriteTokens ?? 0, webSearches: done?.web?.anthropicSearches ?? 0, tavilySearches: done?.web?.tavilySearches ?? 0 });
+    const turnCost = costUsd({ modelId: done?.modelId, inputTokens: done?.inputTokens ?? 0, outputTokens: done?.outputTokens ?? 0, cacheReadTokens: done?.cacheReadTokens ?? 0, cacheWriteTokens: done?.cacheWriteTokens ?? 0, webSearches: done?.web?.anthropicSearches ?? 0 });
     const thinkingBlock = thinking.length ? { text: thinking.map((t) => t.text.trim()).join("\n\n"), ms: thinking.reduce((n, t) => n + t.ms, 0) } : null;
     // The notes between tool calls are shown to the person asking, live, and NOT kept (2026-11-03): since the 5.5 models
     // they are the model's thinking summary, and a turn about a passenger thinks about that passenger. Only how long it
@@ -1710,6 +1714,7 @@ async function handleChat(req, res, user) {
             ...(confirmations.length ? { confirmations } : {}),
             ...(claims.length ? { claims } : {}),
             ...(partial ? { partial } : {}),
+            ...(assertsNothing ? { assertsNothing: true } : {}),
           }
         : null,
       sources,
@@ -1746,6 +1751,7 @@ async function handleChat(req, res, user) {
       confirmations,
       claims,
       partial,
+      assertsNothing,
       content: answer,
       ...(attachmentStatus.length ? { attachments: attachmentStatus } : {}),
       toolActivity,
@@ -1770,8 +1776,9 @@ async function handleChat(req, res, user) {
         toolActivity,
         sourceCount: sources.length,
         // web search and citations (2026-11-03): which provider and pass, each search by query and host, what was cited
-        web: done?.web ? { provider: done.web.provider, widened: done.web.widened, widenedFor: done.web.widenedFor, searches: done.web.searches, anthropicSearches: done.web.anthropicSearches, tavilySearches: done.web.tavilySearches, settingsSource: done.web.settings?.source ?? null, overridden: done.web.settings?.overridden ?? false } : null,
-        followUp: partial ? partial.followUps : null,
+        web: done?.web ? { provider: done.web.provider, widened: done.web.widened, widenedFor: done.web.widenedFor, searches: done.web.searches, anthropicSearches: done.web.anthropicSearches, settingsSource: done.web.settings?.source ?? null, overridden: done.web.settings?.overridden ?? false } : null,
+        // every move the turn made after a reply, internal ones included (only a failed one reaches the reader)
+        followUp: (done?.followUps ?? []).filter((f) => f.kind !== "audit").map((f) => ({ kind: f.kind, label: f.label, outcome: f.outcome, ...(f.why ? { why: f.why } : {}) })),
         followUps: done?.followUps ?? [],
         claimAudit: done?.audits ?? [],
         nameCorrections: done?.nameCorrections ?? [],

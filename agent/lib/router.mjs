@@ -39,7 +39,8 @@ fast — a direct lookup or a simple list read out as it is; one source, no judg
   "what's the METAR for EVRA" · "TAF for LOWW" · "show today's flights" · "flights to LFPG on Friday" ·
   "is the wall up" · "list the limitations for EVRA" · "any NOTAMs at EGKK" · "which aircraft are hidden" ·
   "show the CAA records we hold" · "has the weather sync run" · "what have I asked you to remember" ·
-  "remember that I work nights" · "which reports were deleted" · "what can you do" · "where is YL-ABC"
+  "remember that I work nights" · "which reports were deleted" · "what can you do" · "where is YL-ABC" ·
+  a greeting or a thank-you, with nothing asked: "hey" · "hi" · "thanks" · "good morning"
 
 standard — a normal task that needs a few steps or some interpretation:
   anything answered from INSIDE a document — an AIP or GEN section's contents, runway dimensions, fuel,

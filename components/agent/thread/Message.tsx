@@ -135,7 +135,14 @@ export function AgentReply({
         {!m.streaming && (m.modelId || m.modelTier) && <ModelLine m={m} panel={panel} />}
 
         <Thinking block={thinking} running={Boolean(m.streaming) && !m.content && (Boolean(thinking) || Boolean(live))} panel={panel} />
-        {b.partial && (
+        {/* since 2026-11-05: a check that was owed and could not be made, in one line, and only then */}
+        {b.partial?.line && (
+          <div data-partial-answer data-missing-check role="note" style={{ border: `1px dashed ${cw.borderStrong}`, borderRadius: 10, padding: panel ? "6px 10px" : "8px 14px", background: cw.bgSunken, fontSize: 13, color: cw.textBody }}>
+            {b.partial.line}
+          </div>
+        )}
+        {/* before 2026-11-05 a reply that pointed to a check was kept as a "partial answer" above the full one: old rows still show it */}
+        {b.partial && !b.partial.line && b.partial.text && (
           <div data-partial-answer style={{ border: `1px dashed ${cw.borderStrong}`, borderRadius: 10, padding: panel ? "8px 10px" : "10px 14px", background: cw.bgSunken, display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: cw.textMuted }}>
               Partial answer · {m.streaming && !m.content ? `checking ${b.partial.checks.join(" and ")}…`
@@ -187,7 +194,8 @@ export function AgentReply({
         )}
         {m.stopped && onContinue && <StoppedRow at={m.stopped.at} finished={m.stopped.finished} cancelled={m.stopped.cancelled} onContinue={onContinue} panel={panel} />}
 
-        {!m.streaming && (m.content || sources.length > 0) && confirmations.length === 0 && (panel ? <SourceStrip sources={sources} hot={hot} setHot={setHot} /> : <SourceChips sources={sources} hot={hot} setHot={setHot} />)}
+        {/* a reply that asserts nothing (a greeting, what the agent can do) has no sources and needs no "No source" line */}
+        {!m.streaming && (m.content || sources.length > 0) && confirmations.length === 0 && !(sources.length === 0 && b.assertsNothing) && (panel ? <SourceStrip sources={sources} hot={hot} setHot={setHot} /> : <SourceChips sources={sources} hot={hot} setHot={setHot} />)}
       </div>
     </div>
   );

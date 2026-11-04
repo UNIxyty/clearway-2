@@ -68,7 +68,7 @@ try {
     ok(marks.length === 1 && /^not from an official source: reuters\.com, \d{1,2} [A-Z][a-z]{2}$/.test(marks[0].trim()), `${label}: the mark on the Reuters claim only, in words`, marks.join(" | "));
     ok(strong === 1 && (await page.locator("li").filter({ hasText: "SafeAirspace" }).count()) >= 1, `${label}: the markdown still renders (bold, the list) with the citations in it`);
     const partialBox = page.locator("[data-partial-answer]");
-    ok((await partialBox.count()) === 1 && /Partial answer · tried the NOTAMs, and that failed/i.test(await partialBox.innerText()) && /Check the current HSSS NOTAMs/.test(await partialBox.innerText()), `${label}: the first reply shows as a partial answer, and says the NOTAM check failed (the rig has no NOTAM source) — never "checked"`, (await partialBox.innerText().catch(() => "")).slice(0, 90));
+    ok((await partialBox.count()) === 1 && /^The NOTAMs could not be checked: .+\.$/.test((await partialBox.innerText()).trim()) && !/Check the current HSSS NOTAMs/.test(await partialBox.innerText()), `${label}: the missing check is one line naming it and why (the rig has no NOTAM source); the draft that pointed to it is not shown as an answer`, (await partialBox.innerText().catch(() => "")).slice(0, 90));
     const chips = await page.locator("body").innerText();
     ok(/Official/.test(chips) && /Industry reference/.test(chips) && /Web · not approved/.test(chips), `${label}: the sources say what they are`);
     await page.screenshot({ path: path.join(OUT, `answer-${theme}-${width}.png`), fullPage: false });

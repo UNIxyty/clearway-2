@@ -182,6 +182,7 @@ export function useThread({ context, initialConversationId = null, initials = nu
           ...(d.routing ? { routing: d.routing as never } : {}),
           ...(Array.isArray(d.claims) && d.claims.length ? { claims: d.claims as never } : {}),
           ...(d.partial ? { partial: d.partial as never } : {}),
+          ...(d.assertsNothing ? { assertsNothing: true as never } : {}),
         },
       });
       if (confirmations.length) setPendingConfirmation(confirmations[0]);

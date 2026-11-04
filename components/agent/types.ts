@@ -171,8 +171,11 @@ export type MessageBlocks = {
   tables?: TableData[];
   confirmations?: PendingConfirmation[];
   claims?: ClaimSpan[];
-  /** The first reply, when it sent the reader to a check the agent then made itself (2026-11-04); the content is the full answer. */
-  partial?: { text: string; checks: string[]; outcome?: FollowUpOutcome; followUps?: { label: string; outcome: FollowUpOutcome }[] };
+  /** A check that was owed and could not be made, as one line (2026-11-05). Rows from 2026-11-04 carry `text` instead:
+   *  the first reply, kept above the full answer when it pointed to a check. */
+  partial?: { line?: string; text?: string; checks: string[]; outcome?: FollowUpOutcome; followUps?: { label: string; outcome: FollowUpOutcome; tool?: string | null }[] };
+  /** The reply asserts nothing about the world (a greeting, what the agent can do): no "No source" line. */
+  assertsNothing?: boolean;
 };
 
 export type AgentMessage = {

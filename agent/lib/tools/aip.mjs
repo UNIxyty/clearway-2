@@ -3,7 +3,7 @@
 // reimplemented here, so the agent and the AIP page can never disagree.
 
 import { defineTool, S } from "./framework.mjs";
-import { portalGet } from "./http.mjs";
+import { portalGet, portalGetBytes } from "./http.mjs";
 import { NotFound } from "./errors.mjs";
 import { REVISION_SCHEMA, revisionFromPortal, revisionNotice } from "../knowledge/revision.mjs";
 
@@ -200,6 +200,56 @@ defineTool({
         updatedAt: r.updatedAt ?? r.updated_at ?? null,
         debugRunning: Boolean(r.debugRunning),
       })),
+    };
+  },
+});
+
+// Reading the GEN 1.2, not only finding it (2026-11-04): question 7 held the LBBG GEN 1.2 and could not open it, because
+// get_gen_document only locates. This fetches it (from the national source when it is not cached — the portal's own
+// route does that), reads its text, and returns the pages that bear on the question as citable search results.
+const GEN_WORDS = ["permit", "permission", "authori", "non-scheduled", "charter", "private", "landing", "overflight", "flight plan", "entry", "customs", "immigration", "passenger", "api", "advance", "notice", "hours", "days", "application", "general aviation", "commercial"];
+defineTool({
+  name: "read_gen_document",
+  description:
+    "Read the country-level GEN 1.2 (entry, transit and departure of aircraft: permits, landing and overflight authorisation, customs, passenger data) for an airport, by ICAO code, and return the pages that bear on the question as citable text. Use it whenever a permit, entry or overflight question turns on the state's own rules: this is the state's AIP, the official source. Slow when no copy is cached (it fetches from the national source).",
+  permission: "user",
+  sourceTier: "internal",
+  noSource: true,   // its pages are cited one by one (lib/citations.mjs)
+  sourceLabel: (input) => `Internal · GEN 1.2 text · ${input.icao}`,
+  timeoutMs: 150_000,
+  input: {
+    type: "object",
+    required: ["icao"],
+    additionalProperties: false,
+    properties: { icao: S.icao, about: { type: "string", maxLength: 200, description: "What the question needs from it, e.g. 'landing permit for a non-scheduled commercial flight'." } },
+  },
+  output: {
+    type: "object",
+    required: ["icao", "read"],
+    properties: { icao: { type: "string" }, read: { type: "boolean" }, pages: { type: "integer" }, returned: { type: "array" }, revision: REVISION_SCHEMA, revisionNote: { type: ["string", "null"] }, note: { type: ["string", "null"] }, message: { type: "string" }, searchResults: { type: "array" } },
+  },
+  async handler({ icao, about }, { user }) {
+    const code = up(icao);
+    const probe = await portalGet(`/api/aip/gen/pdf/exists?icao=${encodeURIComponent(code)}`, user, { timeoutMs: 15_000 }).catch(() => null);
+    const bytes = await portalGetBytes(`/api/aip/gen/pdf?icao=${encodeURIComponent(code)}`, user);
+    const revision = revisionFromPortal(probe?.revision, Boolean(probe?.exists));
+    if (!bytes) return { icao: code, read: false, revision, revisionNote: revisionNotice(revision, { name: `The GEN 1.2 document for ${code}` }), note: `No GEN 1.2 could be fetched for ${code}: the national source did not give one. Say that the state's own rules could not be read.`, message: "GEN 1.2 not available" };
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({ data: new Uint8Array(bytes) });
+    let pages = [];
+    try { const r = await parser.getText(); pages = (r.pages ?? []).map((p) => ({ num: p.num, text: String(p.text ?? "").replace(/[ \t]+/g, " ").trim() })); }
+    finally { await parser.destroy().catch(() => {}); }
+    const want = [...new Set([...GEN_WORDS, ...String(about ?? "").toLowerCase().split(/[^a-z0-9-]+/).filter((w) => w.length > 3)])];
+    const scored = pages.map((p) => ({ ...p, score: want.reduce((n, w) => n + (p.text.toLowerCase().split(w).length - 1), 0) })).filter((p) => p.text.length > 40);
+    const chosen = [...scored].sort((a, b) => b.score - a.score).slice(0, 6).sort((a, b) => a.num - b.num);
+    const label = revision?.label ?? "revision unknown";
+    if (!chosen.length) return { icao: code, read: false, pages: pages.length, revision, note: "The GEN 1.2 has no text layer the agent can read (a scanned document). Say so; the dispatcher can open it.", message: "GEN 1.2 has no readable text" };
+    return {
+      icao: code, read: true, pages: pages.length, returned: chosen.map((p) => p.num), revision,
+      revisionNote: revisionNotice(revision, { name: `The GEN 1.2 document for ${code}` }),
+      note: "The state's own AIP: an official source. Cite the page you rely on, and say its revision next to the claim.",
+      message: `GEN 1.2 read · ${chosen.length} of ${pages.length} pages`,
+      searchResults: chosen.map((p) => ({ source: `cw:gen:${code}#p${p.num}`, title: `GEN 1.2 · ${code} · p. ${p.num} · ${label}`, text: p.text.slice(0, 6000) })),
     };
   },
 });

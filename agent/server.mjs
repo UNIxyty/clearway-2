@@ -40,6 +40,7 @@ import { streamConversationWithTools } from "./lib/bedrock.mjs";
 import { executeTool, toolNamesFor, toolSpecsFor } from "./lib/tools/index.mjs";
 import { citationsToClaims } from "./lib/citations.mjs";
 import { checkQuestion } from "./lib/question-check.mjs";
+import { questionKinds } from "./lib/turn-policy.mjs";
 import { webSettings, setWebSettings } from "./lib/web-sources.mjs";
 import { SOURCE_TIERS, setCapabilityGate, actionsFromToolCalls, airportsFromToolCalls, documentsFromToolCalls, filesFromToolCalls, flightCardsFromToolCalls, monoFromToolCalls, sourcesFromToolCalls, verbatimFromToolCalls } from "./lib/tools/framework.mjs";
 import {
@@ -1572,7 +1573,6 @@ async function handleChat(req, res, user) {
   const toolCalls = [];
   const thinking = [];
   let partial = null;
-  let partialAt = null;
   const escalations = [];
   let retried = null;
   try {
@@ -1581,7 +1581,9 @@ async function handleChat(req, res, user) {
     const abort = new AbortController();
     res.on("close", () => { if (!res.writableEnded) abort.abort(); });
     const onToolProgress = (e) => { if (!res.writableEnded) send("tool_progress", { name: e.name, toolUseId: e.toolUseId ?? null, step: e.step, index: e.index ?? null, steps: e.steps ?? null, filename: e.filename ?? e.input?.filename ?? null, format: e.format ?? e.input?.format ?? null }); };
-    const run = (tier) => streamConversationWithTools({ pinTool, onToolProgress, signal: abort.signal, tier, system, messages: [...history, { role: "user", content: currentUserContent }], user, conversationId, inputMode, onRound, skipConfirm: prefs.skipConfirm === true && inputMode !== "voice" });
+    // what the question is and the checked name of each code in it (2026-11-04): the turn acts on them in code
+    const policy = { ...questionKinds(question), names: (qcheck.codes ?? []).filter((c) => c.kind !== "unknown" && c.short).map(({ code, short, is }) => ({ code, short, is })) };
+    const run = (tier) => streamConversationWithTools({ pinTool, onToolProgress, signal: abort.signal, tier, system, messages: [...history, { role: "user", content: currentUserContent }], user, conversationId, inputMode, onRound, skipConfirm: prefs.skipConfirm === true && inputMode !== "voice", policy });
     let stream = run(route.tier);
     // A failed first attempt is retried once, one tier up — only if nothing was shown yet, so the reply
     // is never a splice of two models.
@@ -1611,10 +1613,13 @@ async function handleChat(req, res, user) {
       } else if (chunk.type === "partial") {
         // the reply so far sent the reader to a check the agent can make (lib/follow-up.mjs): kept as the partial answer,
         // out of the reply; the full answer follows it
-        if (answer.endsWith(chunk.text)) answer = answer.slice(0, answer.length - chunk.text.length);
-        partial = { text: chunk.text, checks: chunk.checks };
-        partialAt = { calls: toolCalls.length, tools: chunk.tools ?? [] };
-        send("partial", partial);
+        if (chunk.append) { if (partial) { partial.checks = [...partial.checks, ...chunk.checks]; send("partial", { append: true, checks: chunk.checks }); } }
+        else {
+          const streamed = chunk.streamed ?? chunk.text;
+          if (answer.endsWith(streamed)) answer = answer.slice(0, answer.length - streamed.length);
+          partial = { text: chunk.text, checks: chunk.checks };
+          send("partial", partial);
+        }
       } else if (chunk.type === "escalated") {
         escalations.push({ from: chunk.from, to: chunk.to, reason: chunk.reason, round: chunk.round });
         send("escalated", { from: chunk.from, to: chunk.to, reason: chunk.reason });
@@ -1629,11 +1634,11 @@ async function handleChat(req, res, user) {
     // Attribution and verbatim records are derived from the tools that ACTUALLY
     // ran, not from anything the model claims. A model cannot cite a source it
     // was never given, or promote its own paraphrase into the verbatim frame.
-    // what became of the check a partial answer pointed to — said as it happened, never "checked" when it failed
-    if (partial && partialAt) {
-      const after = toolCalls.slice(partialAt.calls).filter((c) => partialAt.tools.includes(c.name));
-      partial.outcome = after.some((c) => c.ok !== false && c.result?.ok !== false) ? "checked" : after.length ? "failed" : "not_made";
-    }
+    // The reply as it ends: the checked names written in (lib/names.mjs), narration before an in-response search taken out
+    // (2026-11-04). The stored reply ends with what streamed; that tail is replaced.
+    if (done?.replaceTail && answer.endsWith(done.replaceTail.from)) answer = answer.slice(0, answer.length - done.replaceTail.from.length) + done.replaceTail.to;
+    // what became of each move the turn made after a reply — said as it happened, never "checked" when it failed
+    if (partial) { partial.followUps = (done?.followUps ?? []).filter((f) => f.kind !== "audit").map((f) => ({ label: f.label, outcome: f.outcome })); partial.outcome = partial.followUps[0]?.outcome ?? "not_made"; }
     const toolSources = sourcesFromToolCalls(toolCalls);
     // Citations next to the claim (2026-11-03, lib/citations.mjs): the API attached them to the answer's text; each cited
     // web page becomes a numbered source, each cited passage maps to its document's source, and the claims carry the
@@ -1659,7 +1664,10 @@ async function handleChat(req, res, user) {
     const confirmations = toolCalls
       .filter((c) => c.result?.confirmationRequired === true && c.result?.confirmationToken)
       .map((c) => ({ token: c.result.confirmationToken, level: c.result.level, toolName: c.name, input: c.input, what: c.result.what ?? null, target: c.result.target ?? null, expiresAt: c.result.expiresAt ?? null }));
-    const toolActivity = toolCalls.map((c) => ({
+    // the API's own searches ran inside the model's response, not as our tool calls: listed too, with the provider named,
+    // so the steps line shows which search the model chose (2026-11-04)
+    const apiSearches = (done?.web?.searches ?? []).filter((s) => s.provider === "anthropic").map((s) => ({ name: "web_search", ok: !s.error, error: s.error ?? null, startedAt: null, durationMs: null, args: { query: s.query }, summary: `Anthropic search · pass ${s.pass} · ${s.results ?? 0} result${s.results === 1 ? "" : "s"}${s.error ? ` (${s.error})` : ""}`, write: false }));
+    const toolActivity = [...apiSearches, ...toolCalls.map((c) => ({
       name: c.name, ok: c.ok, error: c.error ?? null,
       startedAt: c.startedAt ? new Date(c.startedAt).toISOString() : null, durationMs: c.durationMs ?? null,
       args: c.input ?? null,
@@ -1668,7 +1676,7 @@ async function handleChat(req, res, user) {
       summary: !c.ok || c.result?.ok === false ? stepFailedText(c.error ?? c.result?.error)
         : c.result?.message ?? (typeof c.result?.count === "number" ? `${c.result.count} result${c.result.count === 1 ? "" : "s"}` : c.result?.file?.filename ?? (c.result?.confirmationRequired ? "awaiting confirmation" : "ok")),
       write: Boolean(c.result?.actionId || c.result?.confirmationRequired),
-    }));
+    }))];
 
     const finalTier = done?.effectiveTier ?? escalations.at(-1)?.to ?? route.tier;
     const turnCost = costUsd({ modelId: done?.modelId, inputTokens: done?.inputTokens ?? 0, outputTokens: done?.outputTokens ?? 0, cacheReadTokens: done?.cacheReadTokens ?? 0, cacheWriteTokens: done?.cacheWriteTokens ?? 0, webSearches: done?.web?.anthropicSearches ?? 0, tavilySearches: done?.web?.tavilySearches ?? 0 });
@@ -1761,7 +1769,10 @@ async function handleChat(req, res, user) {
         sourceCount: sources.length,
         // web search and citations (2026-11-03): which provider and pass, each search by query and host, what was cited
         web: done?.web ? { provider: done.web.provider, widened: done.web.widened, widenedFor: done.web.widenedFor, searches: done.web.searches, anthropicSearches: done.web.anthropicSearches, tavilySearches: done.web.tavilySearches, settingsSource: done.web.settings?.source ?? null, overridden: done.web.settings?.overridden ?? false } : null,
-        followUp: partial ? partial.checks : null,
+        followUp: partial ? partial.followUps : null,
+        followUps: done?.followUps ?? [],
+        claimAudit: done?.audits ?? [],
+        nameCorrections: done?.nameCorrections ?? [],
         citations: { claims: claims.length, marked: claims.filter((c) => c.mark).length, ...cited.counts },
         // The routing decision, stored so a cost or quality regression can be
         // traced to the choice that caused it rather than guessed at.

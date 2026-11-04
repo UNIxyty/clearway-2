@@ -8,7 +8,7 @@ const CHECKS = [
     /\b(did not|didn't|have not|haven't|could not|couldn't|not)\s+(check|pull|look at|read|retrieve)(ed)?\b[^.\n]{0,40}\bNOTAMs?\b/i,
     /\bNOTAMs?\b[^.\n]{0,40}\b(not checked|unchecked|were not checked)\b/i,
   ] },
-  { tool: "get_gen_document", label: "the GEN 1.2", re: [
+  { tool: "read_gen_document", label: "the GEN 1.2", re: [
     /\b(check|consult|open|read|pull|look up|confirm|see)\b[^.\n]{0,60}\bGEN 1\.2\b/i,
     /\b(did not|didn't|have not|haven't)\s+(open|read|check)(ed)?\b[^.\n]{0,40}\bGEN 1\.2\b/i,
   ] },

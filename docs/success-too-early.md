@@ -6,6 +6,34 @@ The rule (2026-10-26): nothing claims success until the thing has succeeded. "Ac
 Each time this pattern has turned up, the screen reported the step that ran, not the outcome a person was relying on.
 They are listed here so that the next one is recognised.
 
+## Case 7 (2026-11-04): an empty table reported as an empty world, in the agent's own words
+
+**What happened.** Question 10 of the ten asked about the Marseille FIR. The answer led with "no restrictions for the
+Marseille FIR (LFMM)". It had read one place, the wall's limitations store, and found nothing configured. It had not
+read the NOTAMs, the AIP, or anything on the web. A dispatcher reading it has been told something false by a system
+that checked one place out of four.
+
+**Why it is this list's fault.** This is our oldest bug, an empty result reported as "none", now in the product's
+output rather than its plumbing. The step that ran (one store, read without error) was reported as the outcome a
+person relies on (no restrictions).
+
+**The rule.**
+- The agent may never state an absence from our own data alone. "No limitations are recorded in Clearway for LFMM"
+  is true and useful. "No restrictions for LFMM" is a claim about the world: it needs NOTAMs, the AIP or a search
+  behind it, cited.
+- Every absence says what was checked and what was not, before the conclusion.
+
+**Where it is enforced:**
+- Every internal store that returns nothing says so in those words (`agent/lib/tools/framework.mjs`, `absence`).
+  The wall's limitations, IMPORTANT and CAA stores and the NOTAM cache name themselves and the time they were read.
+- A reply that states an absence about the world without a source is sent back once (`agent/lib/claim-audit.mjs`).
+- A question about airspace, permits, fuel, handling or a date is always searched, whatever our own data says
+  (`agent/lib/turn-policy.mjs`).
+
+**The sweep, done the same day:** the "none", "no" and "nothing found" wordings in the agent's own tool results now
+name the store (the four stores above, and the generic rule for any internal tool with `count: 0`). The
+knowledge-base search already said "could not be verified" rather than "none".
+
 ## Case 6 (2026-11-03): the alarm itself
 
 Cases 1 to 5 were features misreporting their own work. Case 6 was the mechanism that tells us when features do.

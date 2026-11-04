@@ -77,6 +77,22 @@ async function request(service, base, path, { user, method = "GET", timeoutMs = 
 }
 
 export const portalGet = (path, user, opts = {}) => request("the portal", portalBase(), path, { ...opts, user });
+
+/** A document's bytes from the portal, as the asking user (read_gen_document, 2026-11-04). 404 → null; other failures throw. */
+export async function portalGetBytes(path, user, { timeoutMs = 120_000, maxBytes = 30 * 1024 * 1024 } = {}) {
+  let response;
+  try { response = await fetch(`${portalBase()}${path}`, { headers: { ...callerHeaders(user), accept: "application/pdf" }, redirect: "manual", signal: AbortSignal.timeout(timeoutMs) }); }
+  catch (error) {
+    if (/timeout|abort/i.test(String(error?.name) + String(error?.message))) throw Timeout(`the portal did not respond within ${Math.round(timeoutMs / 1000)}s.`, path);
+    throw ServiceUnavailable("the portal is unreachable.", `${path}: ${error?.message}`);
+  }
+  if (response.status >= 300 && response.status < 400) throw fromHttpStatus(401, { service: "the portal", path, body: "redirected" });
+  if (response.status === 404) return null;
+  if (!response.ok) throw fromHttpStatus(response.status, { service: "the portal", path, body: (await response.text()).slice(0, 200) });
+  const buf = Buffer.from(await response.arrayBuffer());
+  if (buf.length > maxBytes) throw fromHttpStatus(500, { service: "the portal", path, body: "document too large" });
+  return buf;
+}
 export const wallGet = (path, user, opts = {}) => request("the digital wall", wallBase(), path, { ...opts, user });
 
 /** HEAD-style existence probe that never downloads a PDF body. */

@@ -16,6 +16,21 @@
 import { defineTool, S } from "./framework.mjs";
 import { wallGet } from "./http.mjs";
 
+// Our own data cites like the web does (2026-11-04): each record goes to the model as a citable search result, so a claim
+// drawn from it carries a number and "Clearway data · <store> · read HH:MMZ" beside it (lib/citations.mjs). And an empty
+// list says what it is: nothing recorded in THIS store, never "none" about the world (case seven).
+const STORE = { limitation: "Clearway limitations store", important: "Clearway IMPORTANT store", caa: "Clearway CAA store" };
+const hmz = (d = new Date()) => `${d.toISOString().slice(11, 16)}Z`;
+function citable(out, kind) {
+  const rows = out.limitations ?? out.entries ?? [];
+  const at = hmz();
+  if (!rows.length) return { ...out, absence: `Nothing is recorded in the ${STORE[kind]} for this (read ${at}). That is a statement about this one store: say "No ${kind === "caa" ? "CAA record is" : kind === "important" ? "IMPORTANT entries are" : "limitations are"} recorded in Clearway for …", never that there are no restrictions. Say what you did not check (NOTAMs, the AIP, a search).` };
+  const text = (r) => kind === "caa"
+    ? [r.country, r.authorityName, r.functionText, r.validity && `Validity: ${r.validity}`, r.email && `Email: ${r.email}`, r.phone && `Phone: ${r.phone}`, r.website && `Website: ${r.website}`, r.remarks].filter(Boolean).join("\n")
+    : [r.title, r.description, r.matchCriteria?.airportIcaos?.length ? `Airports: ${r.matchCriteria.airportIcaos.join(", ")}` : null, r.matchCriteria?.countries?.length ? `Countries: ${r.matchCriteria.countries.join(", ")}` : null, r.effectiveFrom || r.effectiveTo ? `In force: ${r.effectiveFrom ?? "—"} to ${r.effectiveTo ?? (r.isPermanent ? "permanent" : "—")}` : null].filter(Boolean).join("\n");
+  return { ...out, searchResults: rows.slice(0, 20).map((r) => ({ source: `cw:${kind}:${r.id}`, title: `${STORE[kind]} · ${kind === "caa" ? r.country : r.title} · read ${at}`.slice(0, 300), text: text(r) || "(no text)" })) };
+}
+
 const RECORD_LIMIT = S.limit(200, 100);
 
 /**
@@ -153,7 +168,7 @@ defineTool({
     }
 
     const nearest = query && rows.length === 0 ? closestMatches(unfiltered, (r) => `${r.title ?? ""} ${r.description ?? ""}`, query) : [];
-    return {
+    return citable({
       count: rows.length,
       closestMatches: nearest,
       note: query && rows.length === 0 ? NO_MATCH_NOTE : null,
@@ -175,7 +190,7 @@ defineTool({
         },
         updatedAt: r.updatedAt ?? null,
       })),
-    };
+    }, "limitation");
   },
 });
 
@@ -255,7 +270,7 @@ defineTool({
     if (query) rows = rows.filter((r) => matchesQuery(`${r.title ?? ""} ${r.body ?? ""}`, query));
 
     const nearest = query && rows.length === 0 ? closestMatches(unfiltered, (r) => `${r.title ?? ""} ${r.body ?? ""}`, query) : [];
-    return {
+    return citable({
       count: rows.length,
       closestMatches: nearest,
       note: query && rows.length === 0 ? NO_MATCH_NOTE : null,
@@ -278,7 +293,7 @@ defineTool({
         attachments: Array.isArray(r.attachments) ? r.attachments : [],
         updatedAt: r.updatedAt ?? null,
       })),
-    };
+    }, "important");
   },
 });
 
@@ -345,7 +360,7 @@ defineTool({
     if (query) rows = rows.filter((r) => matchesQuery(`${r.country ?? ""} ${r.authorityName ?? ""} ${r.functionText ?? ""} ${r.remarks ?? ""}`, query));
 
     const nearest = query && rows.length === 0 ? closestMatches(unfiltered, (r) => `${r.country ?? ""} ${r.authorityName ?? ""} ${r.functionText ?? ""} ${r.remarks ?? ""}`, query) : [];
-    return {
+    return citable({
       count: rows.length,
       closestMatches: nearest,
       note: query && rows.length === 0 ? NO_MATCH_NOTE : null,
@@ -366,6 +381,6 @@ defineTool({
         isActive: r.isActive !== false,
         updatedAt: r.updatedAt ?? null,
       })),
-    };
+    }, "caa");
   },
 });

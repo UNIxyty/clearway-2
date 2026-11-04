@@ -12,8 +12,8 @@ import { cw } from "@/lib/portal-tokens";
 type Provider = "both" | "anthropic" | "tavily";
 type Web = { provider: Provider; official: string[]; industry: string[]; source: Record<string, string>; updated: Record<string, { at: string; by: string | null }>; tavilyConfigured: boolean };
 const PROVIDERS: { id: Provider; label: string; help: string }[] = [
-  { id: "both", label: "Both", help: "The model may search with either; the answer cites whichever it used." },
-  { id: "anthropic", label: "Anthropic", help: "The API's own web search only." },
+  { id: "anthropic", label: "Anthropic", help: "The API's own web search. The default: it found more official sources in the tests." },
+  { id: "both", label: "Both", help: "The model may use either. In the tests it chose Tavily almost every time; the steps line under each answer says which ran." },
   { id: "tavily", label: "Tavily", help: "Tavily only." },
 ];
 

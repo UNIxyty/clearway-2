@@ -46,6 +46,8 @@ ok(tool1.allowed_domains?.includes("safeairspace.net") && tool1.allowed_domains.
   ok(!c2.mark && !c3.mark && !c4.mark, "no mark on an industry claim, on a claim one official source also supports, or on the company's own document");
   ok(c4.n === 1 && r.sources.length === 4, "the knowledge base citation maps to the document's existing source; each web page is one numbered source", r.sources.map((s) => `${s.n}:${s.tierLabel ?? s.tier}`).join(" "));
   ok(r.sources.find((s) => s.href?.includes("reuters"))?.tierLabel === "Web · not approved" && r.sources.find((s) => s.href?.includes("safeairspace"))?.tierLabel === "Industry reference" && r.sources.find((s) => s.href?.includes("easa"))?.tierLabel === "Official", "each web source says what it is: Official, Industry reference, Web · not approved");
+  const ours = citationsToClaims({ answer: "HSR5 covers Sudan.", answerBlocks: [{ text: "HSR5 covers Sudan.", citations: [{ type: "search_result_location", source: "cw:notam:HSSS:A0073/26", title: "NOTAM A0073/26 · HSSS · CrewBriefing cache 2026-11-03 21:42Z", cited_text: "x" }] }], sources: [], web: { settings: S }, now });
+  ok(ours.sources[0]?.tierLabel === "Clearway data" && ours.sources[0].domainClass === "ours" && /CrewBriefing cache 2026-11-03 21:42Z/.test(ours.sources[0].label) && !ours.claims[0]?.mark && ours.counts.ours === 1, "a cited NOTAM is a 'Clearway data' source with its cache time, numbered beside the claim, never marked", ours.sources[0]?.label);
   const off = citationsToClaims({ answer, answerBlocks: blocks, sources: [], web: { settings: S, results: [] }, now });
   ok(off.claims[0]?.start === "Thinking aloud before a tool. ".length, "spans index the stored reply, after any text that was taken out as thinking", off.claims[0]?.start);
   const bad = citationsToClaims({ answer: "Something else entirely.", answerBlocks: blocks, sources: [], web: { settings: S }, now });
@@ -76,7 +78,8 @@ const api = http.createServer(async (req, res) => {
   // the question check (lib/question-check.mjs): a mismatch in the rig's question gets the question back
   if (!body.stream && /You check a flight dispatcher's question/.test(JSON.stringify(body.system ?? ""))) {
     const q = JSON.stringify(body.messages ?? "");
-    const verdict = /ZSPD/.test(q)
+    const verdict = /DAAT/.test(q) ? { codes: [{ code: "DAAT", is: "Aguenar – Hadj Bey Akhamok Airport, Tamanrasset, Algeria", short: "Tamanrasset", kind: "aerodrome", writtenAs: null, mismatch: false }], ask: null }
+      : /ZSPD/.test(q)
       ? { codes: [{ code: "ZSPD", is: "Shanghai Pudong, China", kind: "aerodrome", writtenAs: "Hong Kong", mismatch: true }, { code: "VHHH", is: "Hong Kong International", kind: "aerodrome", writtenAs: "Macao", mismatch: true }], ask: "You've written Hong Kong ZSPD and Macao VHHH, but ZSPD is Shanghai Pudong and VHHH is Hong Kong — Macao is VMMC. Which pair did you mean?\n• Hong Kong VHHH and Macao VMMC\n• Shanghai ZSPD and Hong Kong VHHH" }
       : { codes: [{ code: "EVRA", is: "Riga International, Latvia", kind: "aerodrome", writtenAs: null, mismatch: false }], ask: null };
     res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ content: [{ type: "text", text: JSON.stringify(verdict) }], stop_reason: "end_turn", usage: { input_tokens: 10, output_tokens: 5 } }));
@@ -87,10 +90,10 @@ const api = http.createServer(async (req, res) => {
   if (script === "turn") {
     if (round === 0) return sse(res, [start(), ...search(0, "srvtoolu_rig1", "EASA CZIB Russia", [{ url: "https://www.easa.europa.eu/en/czib/russia", title: "CZIB Russia" }]), ...toolUse(2, "toolu_rig_t", "tavily_search", { query: "Sudan airspace" }), end("tool_use", 1)]);
     if (round === 1) return sse(res, [start(), ...toolUse(0, "toolu_rig_w", "widen_web_search", { reason: "current news on Sudan" }), end("tool_use")]);
-    return sse(res, [start(), ...search(0, "srvtoolu_rig2", "Sudan airspace news", [{ url: "https://www.reuters.com/world/africa/sudan-airspace", title: "Sudan airspace" }]),
-      ...text(2, "Sudan's airspace is closed east of Khartoum.", [{ type: "web_search_result_location", url: "https://www.reuters.com/world/africa/sudan-airspace", title: "Sudan airspace", cited_text: "closed", encrypted_index: "x" }]),
-      ...text(3, " SafeAirspace rates Sudan do-not-fly.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — Sudan", cited_text: "do not fly", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]),
-      ...text(4, " EASA advises against Russian airspace.", [{ type: "web_search_result_location", url: "https://www.easa.europa.eu/en/czib/russia", title: "CZIB Russia", cited_text: "advises", encrypted_index: "y" }]),
+    return sse(res, [start(), ...text(0, "So I'll search the news as well."), ...search(1, "srvtoolu_rig2", "Sudan airspace news", [{ url: "https://www.reuters.com/world/africa/sudan-airspace", title: "Sudan airspace" }]),
+      ...text(3, "Sudan's airspace is closed east of Khartoum.", [{ type: "web_search_result_location", url: "https://www.reuters.com/world/africa/sudan-airspace", title: "Sudan airspace", cited_text: "closed", encrypted_index: "x" }]),
+      ...text(4, " SafeAirspace rates Sudan do-not-fly.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — Sudan", cited_text: "do not fly", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]),
+      ...text(5, " EASA advises against Russian airspace.", [{ type: "web_search_result_location", url: "https://www.easa.europa.eu/en/czib/russia", title: "CZIB Russia", cited_text: "advises", encrypted_index: "y" }]),
       end("end_turn", 1)]);
   }
   if (script === "pending") {
@@ -101,6 +104,28 @@ const api = http.createServer(async (req, res) => {
     if (round === 1) return sse(res, [start(), { type: "content_block_start", index: 0, content_block: { type: "web_search_tool_result", tool_use_id: "srvtoolu_pend", content: [{ type: "web_search_result", url: "https://ops.group/armenia", title: "Armenia", encrypted_content: "e", page_age: "2 days ago" }] } }, ...toolUse(1, "toolu_p_t2", "tavily_search", { query: "Armenia news" }), end("tool_use", 1)]);
     return sse(res, [start(), ...text(0, "Done."), end("end_turn")]);
   }
+  if (script === "must-search") {
+    // a permit question answered from nothing, offering to search: it must search, then answer
+    if (round === 0) return sse(res, [start(), ...text(0, "I couldn't find a rule in our records. I can search the wider web if you want."), end("end_turn")]);
+    if (round === 1) return sse(res, [start(), ...toolUse(0, "toolu_ms_t", "tavily_search", { query: "Bulgaria landing permit" }), end("tool_use")]);
+    return sse(res, [start(), ...text(0, "Yes: SafeAirspace rates it do-not-fly.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — Sudan", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), end("end_turn")]);
+  }
+  if (script === "empty-pass-one") {
+    if (round === 0) return sse(res, [start(), ...toolUse(0, "toolu_e_t", "tavily_search", { query: "DAAT handling" }), end("tool_use")]);
+    if (round === 1) return sse(res, [start(), ...text(0, "The approved sources had nothing on handling delays there."), end("end_turn")]);
+    if (round === 2) return sse(res, [start(), ...toolUse(0, "toolu_e_t2", "tavily_search", { query: "DAAT handling delays crews" }), end("tool_use")]);
+    return sse(res, [start(), ...text(0, "Crews report long waits for fuel.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — Sudan", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), end("end_turn")]);
+  }
+  if (script === "uncited") {
+    if (round === 0) return sse(res, [start(), ...toolUse(0, "toolu_u_t", "tavily_search", { query: "Westarctica" }), end("tool_use")]);
+    if (round === 1) return sse(res, [start(), ...text(0, "SafeAirspace lists nothing for it.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — x", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), ...text(1, " Norway administers Peter I Island under the Antarctic Treaty arrangements."), end("end_turn")]);
+    return sse(res, [start(), ...text(0, "SafeAirspace lists nothing for it.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — x", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), ...text(1, "\n\nWhat I could not establish: who, if anyone, regulates that airspace."), end("end_turn")]);
+  }
+  if (script === "absence") {
+    if (round === 0) return sse(res, [start(), ...text(0, "There are no restrictions for the Marseille FIR today."), end("end_turn")]);
+    return sse(res, [start(), ...text(0, "No limitations are recorded in Clearway for the Marseille FIR. I did not check the NOTAMs or the AIP."), end("end_turn")]);
+  }
+  if (script === "names") return sse(res, [start(), ...text(0, "Djanet (DAAT) is a desert aerodrome and {{DAAT}} has one runway."), end("end_turn")]);
   if (script === "follow-up") {
     // the reply sends the reader to the NOTAMs; after the nudge the model reads them, then answers in full
     if (round === 0) return sse(res, [start(), ...text(0, "Sudan's airspace is restricted. Check the current HSSS NOTAMs before planning."), end("end_turn")]);
@@ -161,6 +186,9 @@ try {
   ok(reuters?.mark?.startsWith("not from an official source: reuters.com"), "the Reuters claim carries the mark, on that claim", reuters?.mark);
   ok(d?.claims?.filter((c) => c.mark).length === 1, "…and only that one: the industry (SafeAirspace) and official (EASA) claims carry none");
   ok(byHost("reuters")?.domainClass === "other" && byHost("safeairspace")?.domainClass === "industry" && byHost("easa")?.domainClass === "official", "the sources are numbered and classed", d?.sources?.map((s) => `${s.n} ${s.domainClass ?? s.tier} ${s.host ?? ""}`).join(" · "));
+  ok(!/So I'll search the news/.test(d?.content ?? "") && /So I'll search the news/.test(JSON.stringify(t.events.filter((e) => e.ev === "delta"))), "narration written before an in-response search streamed, and is not in the stored reply (8d)");
+  const apiSteps = (d?.toolActivity ?? []).filter((a) => a.name === "web_search");
+  ok(apiSteps.length === 2 && apiSteps.every((a) => /^Anthropic search · pass [12]/.test(a.summary)) && (d?.toolActivity ?? []).some((a) => a.name === "tavily_search" && /^Tavily search · pass 1/.test(a.summary)), "the steps line lists the API's own searches and Tavily's, each naming its provider and pass", (d?.toolActivity ?? []).map((a) => `${a.name}: ${a.summary}`).join(" | "));
   ok(typeof d?.content === "string" && d.claims.every((c) => c.end <= d.content.length) && d.content.slice(d.claims[0].start, d.claims[0].end).startsWith("Sudan"), "spans index done.content (the stored reply)", d?.content?.slice(0, 60));
   // the stored message and the audit row
   const msg = (await (await fetch(`${SB}/rest/v1/agent_messages?conversation_id=eq.${d?.conversationId}&role=eq.assistant&select=content,blocks,sources&order=created_at.desc&limit=1`, { headers: H })).json())?.[0];
@@ -191,7 +219,7 @@ try {
 
   // ── 7. a reply that sends the reader to a check the agent can make is a partial answer; then the check; then the full answer
   script = "follow-up"; seen.length = 0;
-  const fu = await chat(5191, "Rig check: is Sudan's airspace open?");
+  const fu = await chat(5191, "Rig check: what should I know about Sudan?");
   const fcalls = seen.filter((b) => b.stream);
   ok(fcalls.length === 3 && /Your answer above is partial/.test(JSON.stringify(fcalls[1]?.messages?.at(-1) ?? "")), "the reply that said 'check the current HSSS NOTAMs' is followed up: the model is told to make that check itself", `${fcalls.length} model calls`);
   ok(fu.events.some((e) => e.ev === "partial" && /Check the current HSSS NOTAMs/.test(e.data.text) && e.data.checks?.includes("the NOTAMs")), "the console is told it was a partial answer, and which check follows");
@@ -201,8 +229,33 @@ try {
   const nCall = fu.events.filter((e) => e.ev === "tool" && e.data.name === "get_notams");
   ok(fu.done?.partial?.outcome === (nCall.some((e) => e.data.ok) ? "checked" : "failed"), "the partial answer says what became of the check: checked only when the NOTAM call succeeded", `${fu.done?.partial?.outcome} · get_notams ok=${nCall.map((e) => e.data.ok).join(",")}`);
   const { deferredChecks } = await import("../agent/lib/follow-up.mjs");
-  const offered = new Set(["get_notams", "get_gen_document"]);
-  ok(deferredChecks("I did not check NOTAMs for LFMM.", offered).length === 1 && deferredChecks("Then check GEN 1.2 for LBBG.", offered)[0]?.tool === "get_gen_document" && deferredChecks("Sudan's airspace is closed.", offered).length === 0 && deferredChecks("Check the NOTAMs.", new Set()).length === 0, "detection: NOTAM and GEN 1.2 advice, not plain statements, and only for a tool the turn has");
+  const offered = new Set(["get_notams", "read_gen_document"]);
+  ok(deferredChecks("I did not check NOTAMs for LFMM.", offered).length === 1 && deferredChecks("Then check GEN 1.2 for LBBG.", offered)[0]?.tool === "read_gen_document" && deferredChecks("Sudan's airspace is closed.", offered).length === 0 && deferredChecks("Check the NOTAMs.", new Set()).length === 0, "detection: NOTAM and GEN 1.2 advice, not plain statements, and only for a tool the turn has");
+
+  // ── 8. what a turn must do in code before it may answer (2026-11-04) ──
+  script = "must-search"; seen.length = 0; tavilySeen.length = 0;
+  const ms = await chat(5191, "Rig check: does Bulgaria require a landing permit?");
+  const mcalls = seen.filter((b) => b.stream);
+  ok(/always searched/.test(JSON.stringify(mcalls[1]?.messages?.at(-1) ?? "")) && tavilySeen.length === 1, "a permit question answered without a search is sent back to search: a rule in code, not a hope in the prompt", `${tavilySeen.length} Tavily search(es)`);
+  ok(ms.done?.partial?.text?.includes("I can search the wider web") && ms.done?.partial?.followUps?.[0]?.outcome === "checked" && /^Yes: SafeAirspace/.test(ms.done?.content ?? ""), "the offer to search is the partial answer; the searched one is the reply", JSON.stringify(ms.done?.partial?.followUps));
+  script = "empty-pass-one"; seen.length = 0; tavilySeen.length = 0;
+  const ep = await chat(5191, "Rig check: what do crews say about handling at the desert strip?");
+  ok(tavilySeen.length === 2 && tavilySeen[0].include_domains?.length > 0 && !tavilySeen[1].include_domains, "pass one found nothing citable: pass two opens in code and the second search is unrestricted", tavilySeen.map((t) => (t.include_domains ? "pass 1" : "pass 2")).join(", "));
+  ok(ep.done?.partial?.followUps?.[0]?.label === "sources beyond the approved list" && /Crews report/.test(ep.done?.content ?? ""), "…shown as a partial answer, then the widened one");
+  script = "uncited"; seen.length = 0;
+  const un = await chat(5191, "Rig check: permits for the micronation?");
+  ok(/cannot trace to a source/.test(JSON.stringify(seen.filter((b) => b.stream)[2]?.messages?.at(-1) ?? "")) && !/Norway/.test(un.done?.content ?? "") && /could not establish/.test(un.done?.content ?? ""), "a searched answer with an uncited sentence is sent back once; the reply has no unsourced substance", (un.done?.content ?? "").slice(0, 90));
+  ok(!un.done?.partial && un.done?.thinking?.text?.includes("Norway"), "the defective draft is not shown as an answer (it is in the thinking, where it can be read)");
+  const unAudit = (await (await fetch(`${SB}/rest/v1/agent_audit_log?kind=eq.chat.response&conversation_id=eq.${un.done?.conversationId}&select=detail&limit=1`, { headers: H })).json())?.[0]?.detail?.claimAudit;
+  ok(unAudit?.[0]?.unsourced === 1 && unAudit?.[1]?.after === true && unAudit[1].unsourced === 0, "the audit row has the claim audit, before and after the redraft", JSON.stringify(unAudit?.map((a) => `${a.after ? "after" : "draft"} ${a.unsourced}/${a.absences}`)));
+  script = "absence"; seen.length = 0;
+  const ab = await chat(5191, "Rig check: anything for Marseille?");
+  ok(/an absence about the world/.test(JSON.stringify(seen.filter((b) => b.stream)[1]?.messages?.at(-1) ?? "")) && /^No limitations are recorded in Clearway/.test(ab.done?.content ?? ""), "case seven: 'no restrictions' from nothing is sent back; the reply says what was recorded where, and what was not checked", (ab.done?.content ?? "").slice(0, 80));
+  script = "names"; seen.length = 0;
+  const nm = await chat(5191, "Rig check: tell me about DAAT.");
+  ok(nm.done?.content === "Tamanrasset (DAAT) is a desert aerodrome and Tamanrasset (DAAT) has one runway.", "the checked name is the only name a code carries: 'Djanet (DAAT)' and {{DAAT}} both become 'Tamanrasset (DAAT)'", nm.done?.content);
+  const nmAudit = (await (await fetch(`${SB}/rest/v1/agent_audit_log?kind=eq.chat.response&conversation_id=eq.${nm.done?.conversationId}&select=detail&limit=1`, { headers: H })).json())?.[0]?.detail?.nameCorrections;
+  ok(nmAudit?.[0]?.from === "Djanet" && nmAudit[0].to === "Tamanrasset", "the correction is recorded on the audit row", JSON.stringify(nmAudit));
 
   // ── 5. the question check: a code that does not match its place name is asked about, and nothing is searched ──
   script = "turn"; seen.length = 0; tavilySeen.length = 0;

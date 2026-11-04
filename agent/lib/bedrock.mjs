@@ -10,11 +10,16 @@ import { anthropicRuntime } from "./anthropic-runtime.mjs";
 import { webSettings, anthropicWebTool, classifyUrl } from "./web-sources.mjs";
 import { logDetail } from "./public-errors.mjs";
 import { deferredChecks, followUpPrompt } from "./follow-up.mjs";
+import { nextAction } from "./turn-policy.mjs";
+import { auditClaims, repairPrompt } from "./claim-audit.mjs";
+import { applyResolvedNames } from "./names.mjs";
 
 // A turn that keeps calling tools without producing an answer is a loop. The
 // cap is on ROUNDS of tool use, not individual calls, so a model that fans out
 // three lookups in one round is not punished for being efficient.
-const MAX_TOOL_ROUNDS = Number(process.env.AGENT_MAX_TOOL_ROUNDS || 6);
+// 10 since 2026-11-04: a turn may now make up to three moves of its own after a reply (search, widen, a deferred check,
+// one redraft), each needing a round for the tools and one for the answer.
+const MAX_TOOL_ROUNDS = Number(process.env.AGENT_MAX_TOOL_ROUNDS || 10);
 
 const DEFAULT_TIMEOUT_MS = Number(process.env.AGENT_MODEL_TIMEOUT_MS || 120_000);
 
@@ -178,7 +183,9 @@ export async function converseOnce({ tier = "standard", system, messages, ...ove
  *    and returns the standard error vocabulary. The model never gets to run
  *    anything the framework has not approved.
  */
-export async function* streamConversationWithTools({ tier: startTier = "standard", system, messages, user, conversationId, inputMode = "text", onRound = null, skipConfirm = false, onToolProgress = null, signal = null, pinTool = null }) {
+export async function* streamConversationWithTools({ tier: startTier = "standard", system, messages, user, conversationId, inputMode = "text", onRound = null, skipConfirm = false, onToolProgress = null, signal = null, pinTool = null, policy = null }) {
+  // policy (2026-11-04, lib/question-check.mjs + lib/turn-policy.mjs): { kinds, mustSearch, names } — what the question is,
+  // whether it must be searched, and the checked name of each code in it
   // pinTool { name, input } (2026-10-26): a slash command whose meaning is fixed — /blank-manifest — does not leave the
   // tool and its input to the model. On the first round the model is made to call that tool (toolChoice), and the
   // input it writes is replaced by the pinned one; later rounds are free again. Seen twice: asked for the blank form,
@@ -199,14 +206,19 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
   const turn = { widened: false, widenedFor: null, searches: [] };
   let toolSpecs = toolSpecsFor(user);
   const offered = new Set(toolSpecs.map((t) => t.toolSpec.name));
-  const provider = web?.provider ?? "both";
+  const provider = web?.provider ?? "anthropic";
   const anthropicSearch = offered.has("widen_web_search") && loadModelConfig().provider === "anthropic" && (provider === "anthropic" || provider === "both");
   const tavilySearch = offered.has("tavily_search") && (provider === "tavily" || provider === "both") && Boolean(String(process.env.TAVILY_API_KEY || "").trim());
   toolSpecs = toolSpecs.filter((t) => (t.toolSpec.name === "tavily_search" ? tavilySearch : t.toolSpec.name === "widen_web_search" ? anthropicSearch || tavilySearch : true));
   const webResults = new Map();   // url → { title, pageAge, pass, provider }: what the API's search returned, for the cited sources
   let webSearchRequests = 0;
   let carried = [];               // text blocks of rounds the API paused (pause_turn): part of the answer that follows
-  let followedUp = null;          // the one follow-up a turn may make: an answer that sent the reader to a check we can make
+  let followedUp = null;          // the deferred check a turn may make: an answer that sent the reader to a check we can make
+  const followUps = [];           // every move the turn made after a reply (search, widen, a check, a redraft), with what became of it
+  const acted = new Set();
+  let partialShown = false;
+  const audits = [];
+  const nameCorrections = [];
   const conversation = toBedrockMessages(messages);
   let usedModelId = null;
   let totalIn = 0;
@@ -225,6 +237,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     let assistantBlocks = [];
     let stopReason = null;
     let roundCited = [];
+    let roundStreamed = "";   // every text block of the round as it streamed, narration included
     // The pass this round's request is SENT with. The API runs a search the model asked for but did not get an answer to
     // in its last response (a server_tool_use with no result, next to one of our tool calls) at the start of THIS request,
     // under THIS request's settings (found 2026-11-03: three pass-one searches asked for alongside widen_web_search ran
@@ -331,7 +344,14 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
             } else if (s) { s.results = 0; s.error = String(b.block.content?.error_code ?? "error"); }
           }
         }
-        roundCited = [...blocks.values()].filter((b) => b.type === "text" && (b.text ?? "").length).map((b) => ({ text: b.text, citations: b.citations ?? [] }));
+        // Text written BEFORE a search the model ran inside this response, with more text after it, is narration
+        // ("so I'll search the approved sources.") — not the answer (2026-11-03, prompt 8d). It is kept apart.
+        const ordered = [...blocks.entries()].sort((a, b) => a[0] - b[0]).map(([, b]) => b);
+        const lastSearch = ordered.reduce((at, b, i) => (b.type === "raw" ? i : at), -1);
+        const textAfter = ordered.some((b, i) => i > lastSearch && b.type === "text" && (b.text ?? "").trim());
+        const cut = lastSearch >= 0 && textAfter ? lastSearch : -1;
+        roundStreamed = ordered.filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
+        roundCited = ordered.filter((b, i) => i > cut && b.type === "text" && (b.text ?? "").length).map((b) => ({ text: b.text, citations: b.citations ?? [] }));
         assistantBlocks = [...blocks.values()].map((b) =>
           b.type === "toolUse"
             ? { toolUse: { toolUseId: b.toolUseId, name: b.name, input: safeJson(b.inputJson) } }
@@ -366,17 +386,44 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       continue;
     }
     if (stopReason !== "tool_use" || requestedTools.length === 0) {
-      // A reply that tells the reader to check something this turn's tools can check is a partial answer (lib/follow-up.mjs):
-      // shown as one, then the check, then the full answer. Once a turn, and only with two rounds left (the check, the answer).
-      const replyText = [...carried, ...roundCited].map((b) => b.text).join("") || roundText;
-      const found = !followedUp && stopReason === "end_turn" && round <= MAX_TOOL_ROUNDS - 2 ? deferredChecks(replyText, new Set(toolSpecs.map((t) => t.toolSpec.name))) : [];
-      if (found.length) {
-        followedUp = found;
-        yield { type: "partial", text: replyText, checks: found.map((f) => f.label), tools: found.map((f) => f.tool), ms: Date.now() - roundStarted };
+      // The reply, with each checked code's name written by lib/names.mjs (never the model's own), and what streamed.
+      const named = [...carried, ...roundCited].map((b) => { const r = applyResolvedNames(b.text, policy?.names); nameCorrections.push(...r.corrections); return { ...b, text: r.text }; });
+      const replyText = named.map((b) => b.text).join("") || roundText;
+      const streamedTail = [...carried.map((b) => b.text), roundStreamed].join("") || roundText;
+      // What the turn must still do before it may answer (lib/turn-policy.mjs, lib/follow-up.mjs, lib/claim-audit.mjs):
+      // in this order, each at most once, only while two rounds are left (the tools, then the answer).
+      const room = stopReason === "end_turn" && round <= MAX_TOOL_ROUNDS - 2;
+      const offeredNames = new Set(toolSpecs.map((t) => t.toolSpec.name));
+      let action = room ? nextAction({ reply: { text: replyText, blocks: named }, turn, policy, webAvailable: anthropicSearch || tavilySearch, done: acted }) : null;
+      if (!action && room && !followedUp) {
+        const found = deferredChecks(replyText, offeredNames);
+        if (found.length) { followedUp = found; action = { kind: "check", label: found.map((f) => f.label).join(" and "), tools: found.map((f) => f.tool), prompt: followUpPrompt(found) }; }
+      }
+      if (!action && room && !acted.has("audit")) {
+        let pos = 0; const claims = [];
+        for (const b of named) { if ((b.citations ?? []).length) claims.push({ start: pos, end: pos + b.text.length }); pos += b.text.length; }
+        const a = auditClaims({ text: replyText, claims, searched: turn.searches.length > 0 });
+        audits.push({ unsourced: a.unsourced.length, absences: a.absences.length, sentences: a.unsourced.concat(a.absences).slice(0, 12) });
+        if (a.unsourced.length || a.absences.length) action = { kind: "audit", label: "the sources of its claims", tools: [], hidden: true, prompt: repairPrompt(a) };
+      }
+      if (action) {
+        acted.add(action.kind);
+        if (action.widen) turn.widened = true;   // pass two opens in code (an empty pass one always widens)
+        followUps.push({ kind: action.kind, label: action.label, tools: action.tools, callsAt: toolCalls.length, searchesAt: turn.searches.length });
+        // the first reply is shown as the partial answer; a later draft, or a draft sent back for its sources, is not shown
+        if (!action.hidden && !partialShown) { partialShown = true; yield { type: "partial", text: replyText, streamed: streamedTail, checks: [action.label], tools: action.tools, ms: Date.now() - roundStarted }; }
+        else { const t = { text: streamedTail, ms: Date.now() - roundStarted, redraft: action.kind }; thoughts.push(t); yield { type: "thought", ...t }; if (!action.hidden) yield { type: "partial", append: true, checks: [action.label] }; }
         conversation.push({ role: "assistant", content: assistantBlocks });
-        conversation.push({ role: "user", content: [{ text: followUpPrompt(found) }] });
+        conversation.push({ role: "user", content: [{ text: action.prompt }] });
         carried = [];
         continue;
+      }
+      if (audits.length && acted.has("audit")) { let pos = 0; const claims = []; for (const b of named) { if ((b.citations ?? []).length) claims.push({ start: pos, end: pos + b.text.length }); pos += b.text.length; } const a = auditClaims({ text: replyText, claims, searched: turn.searches.length > 0 }); audits.push({ unsourced: a.unsourced.length, absences: a.absences.length, sentences: a.unsourced.concat(a.absences).slice(0, 12), after: true }); }
+      // what became of each move: checked, found nothing, failed, or not made — never "checked" on a failure
+      for (const f of followUps) {
+        if (f.kind === "audit") { f.outcome = audits.at(-1)?.after ? (audits.at(-1).unsourced + audits.at(-1).absences === 0 ? "checked" : "partly") : "not_made"; continue; }
+        if (f.kind === "search" || f.kind === "widen") { const s = turn.searches.slice(f.searchesAt); f.outcome = s.some((x) => (x.results ?? 0) > 0) ? "checked" : s.some((x) => x.error) ? "failed" : s.length ? "empty" : "not_made"; continue; }
+        const c = toolCalls.slice(f.callsAt).filter((x) => f.tools.includes(x.name)); f.outcome = c.some((x) => x.ok !== false) ? "checked" : c.length ? "failed" : "not_made";
       }
       yield {
         type: "done",
@@ -394,8 +441,12 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         toolCalls,
         fallbacks,
         // the answer's text blocks with the citations the API attached to each (server.mjs makes them claims and sources)
-        answerBlocks: [...carried, ...roundCited],
-        followUp: followedUp ? followedUp.map((f) => f.tool) : null,
+        answerBlocks: named,
+        // the stored reply ends with what streamed; it is replaced by the named reply without the narration
+        replaceTail: { from: streamedTail, to: replyText },
+        followUps: followUps.map(({ callsAt, searchesAt, ...f }) => f),
+        audits,
+        nameCorrections,
         web: { provider: anthropicSearch && tavilySearch ? "both" : anthropicSearch ? "anthropic" : tavilySearch ? "tavily" : "none", widened: turn.widened, widenedFor: turn.widenedFor, searches: turn.searches.map(({ id, ...s }) => s), results: [...webResults].map(([url, r]) => ({ url, ...r })), anthropicSearches: webSearchRequests, tavilySearches: turn.searches.filter((s) => s.provider === "tavily").length, settings: web ? { official: web.official, industry: web.industry, source: web.source, overridden: web.overridden === true, allowedOverride: web.allowedOverride === true } : null },
       };
       return;

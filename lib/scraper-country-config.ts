@@ -148,8 +148,16 @@ export const SCRAPER_COUNTRIES: ScraperCountryConfig[] = [
   {
     country: "Hong Kong",
     aliases: ["Hongkong"],
-    prefixes: ["VH", "VM"],
+    prefixes: ["VH"],
     webAipUrl: "https://www.ais.gov.hk/eaip_20260319/VH-history-en-US.html",
+  },
+  {
+    // Macao is its own territory with its own AIP (2026-11-04: VMMC was shown as "Hong Kong"). Its authority's site;
+    // the AIP sync worker still fetches VM documents with the Hong Kong downloader (scripts/aip-sync-server.mjs), unchanged.
+    country: "Macao",
+    aliases: ["Macau"],
+    prefixes: ["VM"],
+    webAipUrl: "https://www.aacm.gov.mo/",
   },
   {
     country: "India",

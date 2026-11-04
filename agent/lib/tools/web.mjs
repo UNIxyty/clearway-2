@@ -92,6 +92,7 @@ defineTool({
       provider: { type: ["string", "null"] },
       authoritative: { type: "boolean" },
       note: { type: "string" },
+      message: { type: "string" },
       results: { type: "array", items: { type: "object" } },
       searchResults: { type: "array", items: { type: "object" } },
     },
@@ -117,6 +118,7 @@ defineTool({
     if (turn) turn.searches.push({ provider: "tavily", query, pass: widened ? 2 : 1, results: results.length, hosts: [...new Set(results.map((r) => r.domain))].slice(0, 8) });
     return {
       query, pass: widened ? 2 : 1, provider: "tavily", authoritative: false,
+      message: `Tavily search · pass ${widened ? 2 : 1} · ${results.length} result${results.length === 1 ? "" : "s"}`,   // the steps line names the provider
       note: results.length === 0
         ? (widened ? "Nothing found, on the whole web. Say plainly that this could not be established — do not answer from memory." : "Nothing on the approved sources. If this part of the question needs an answer, call widen_web_search and search again; otherwise say it could not be established.")
         : (widened ? "Unrestricted results (pass two). Cite each claim. A claim resting on a source outside the approved list is marked in the console; name the site and its date in your sentence." : "Results from the approved sources (pass one). Cite each claim. Name an industry reference (OPSGROUP, Universal, AC-U-KWIK…) as such."),

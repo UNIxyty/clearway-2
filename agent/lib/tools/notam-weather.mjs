@@ -55,7 +55,11 @@ defineTool({
     const code = up(icao);
     const data = await portalGet(`/api/notams?icao=${encodeURIComponent(code)}&scraper=crewbriefing`, user, { timeoutMs: 55_000 });
     const raw = Array.isArray(data?.notams) ? data.notams : [];
+    // the cache's own time on every NOTAM it cites (2026-11-04): "CrewBriefing cache 21:42Z"
+    const cacheAt = data?.updatedAt ? `${String(data.updatedAt).slice(0, 16).replace("T", " ")}Z` : "time unknown";
+    const notams = raw.slice(0, limit);
     return {
+      ...(notams.length ? { searchResults: notams.map((n, i) => ({ source: `cw:notam:${code}:${n?.id ?? n?.number ?? i}`, title: `NOTAM ${n?.id ?? n?.number ?? ""} · ${code} · CrewBriefing cache ${cacheAt}`.slice(0, 300), text: String(n?.condition ?? n?.text ?? n?.message ?? n?.raw ?? (typeof n === "string" ? n : "")) || "(no text)" })) } : { absence: `The CrewBriefing NOTAM cache held no NOTAMs for ${code} (cache ${cacheAt}). A cache can be empty or stale: say which cache and when, never that there are no NOTAMs or restrictions.` }),
       icao: code,
       count: raw.length,
       truncated: raw.length > limit,

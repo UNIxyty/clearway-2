@@ -36,6 +36,7 @@ const tierOf = (t: Tier) => (t === "memory" ? null : TIER[t]);
 /** A web source says what it is against the approved list (2026-11-03): Official, Industry reference, or not approved. */
 const metaOf = (s: SourceRef) => {
   const base = TIER_META[s.tier as keyof typeof TIER_META] ?? { label: s.tierLabel ?? "Remembered", icon: "bookmark" };
+  if (s.domainClass === "ours") return { ...base, label: "Clearway data" };   // a NOTAM, a store record, a GEN 1.2 page we hold (2026-11-04)
   return s.tier === "web" && s.domainClass ? { ...base, label: s.domainClass === "official" ? "Official" : s.domainClass === "industry" ? "Industry reference" : "Web · not approved" } : base;
 };
 

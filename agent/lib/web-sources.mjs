@@ -1,6 +1,6 @@
 // Web search settings (2026-11-03): which provider searches, and the approved sources. Settings data, not code — the
 // agent_settings rows below, edited on Settings › Web search without a deploy:
-//   web:provider  "both" (the default) | "anthropic" | "tavily"
+//   web:provider  "anthropic" (the default since 2026-11-04) | "both" | "tavily"
 //   web:sources   { official: [domain…], industry: [domain…] } — seeded from agent/config/web-sources.json on first read
 //
 // The two-pass policy reads them: pass one searches only official + industry; pass two (after widen_web_search) is
@@ -18,7 +18,10 @@ import { logDetail } from "./public-errors.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SEED = path.join(HERE, "..", "config", "web-sources.json");
 const KEYS = { provider: "web:provider", sources: "web:sources" };
-export const PROVIDERS = ["both", "anthropic", "tavily"];
+export const PROVIDERS = ["anthropic", "both", "tavily"];
+// Anthropic's own search by default (2026-11-04): with both on the model chose Tavily in 13 of 14 turns, and the API's
+// search gave more official sourcing (question 1: 7 official citations against 3; Sudan: the ICAO plan and EASA's CZIB).
+export const DEFAULT_PROVIDER = "anthropic";
 const DOMAIN = /^(?=.{3,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 export function seedSources() {
@@ -37,9 +40,9 @@ export async function webSettings({ fresh = false } = {}) {
   try { rows = (await rest(`agent_settings?select=id,enabled,reason,updated_at,updated_by_email&id=in.(${Object.values(KEYS).map((k) => `"${k}"`).join(",")})`)) ?? []; }
   catch (e) { logDetail("web", "could not read the web search settings; using the seed list", e); }
   const byId = new Map((rows ?? []).map((r) => [r.id, r]));
-  const out = { provider: "both", official: [], industry: [], source: {}, updated: {} };
+  const out = { provider: DEFAULT_PROVIDER, official: [], industry: [], source: {}, updated: {} };
   const p = byId.get(KEYS.provider);
-  out.provider = PROVIDERS.includes(String(p?.reason)) ? String(p.reason) : "both";
+  out.provider = PROVIDERS.includes(String(p?.reason)) ? String(p.reason) : DEFAULT_PROVIDER;
   out.source.provider = p ? "settings" : rows === null ? "default (settings unreadable)" : "default";
   const s = byId.get(KEYS.sources);
   let parsed = null; try { parsed = s ? JSON.parse(s.reason) : null; } catch { parsed = null; }

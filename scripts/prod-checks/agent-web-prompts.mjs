@@ -33,6 +33,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
   const { sourcesFromToolCalls } = await import(`${root}/lib/tools/framework.mjs`);
   const { citationsToClaims } = await import(`${root}/lib/citations.mjs`);
   const { checkQuestion } = await import(`${root}/lib/question-check.mjs`);
+  const { questionKinds } = await import(`${root}/lib/turn-policy.mjs`);
   const user = { userId: u.id, email: u.email, name: "Check account", agentRole: "user", accessToken: u.bearer, cookieHeader: u.cookie };
   const only = String(process.env.ONLY || "").split(",").filter((x) => x && x !== "dump");
   if (String(process.env.ONLY || "").split(",").includes("dump")) process.env.AGENT_DUMP_REQUESTS = "/tmp/check-dump";   // replay material, removed by the caller
@@ -51,7 +52,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     }
     const route = await routeTurn({ question: p.q, hasHistory: false, allowReasoning: true });
     try {
-      for await (const ev of streamConversationWithTools({ tier: route.tier, system: [systemPrompt(), currentTimeLine(), qc.note].filter(Boolean).join("\n\n"), messages: [{ role: "user", content: p.q }], user, conversationId: null })) {
+      for await (const ev of streamConversationWithTools({ tier: route.tier, system: [systemPrompt(), currentTimeLine(), qc.note].filter(Boolean).join("\n\n"), messages: [{ role: "user", content: p.q }], user, conversationId: null, policy: { ...questionKinds(p.q), names: (qc.codes ?? []).filter((c) => c.kind !== "unknown" && c.short).map(({ code, short, is }) => ({ code, short, is })) } })) {
         if (ev.type === "delta") text += ev.text;
         else if (ev.type === "thought") { if (text.endsWith(ev.text)) text = text.slice(0, text.length - ev.text.length); thought += ev.text; }
         else if (ev.type === "tool") tools.push(ev);
@@ -65,6 +66,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     console.log(`Q: ${p.q}`);
     if (p.check) console.log(`question check → went ahead · codes: ${qc.codes.map((c) => `${c.code} = ${c.is ?? "?"}`).join("; ") || "none"}${qc.dates?.length ? ` · dates: ${qc.dates.map((d) => `${d.written} = ${d.iso} (${d.past ? `${-d.days} days ago` : `in ${d.days} days`})`).join("; ")}` : ""}${qc.fallback ? ` · CHECK FELL BACK: ${qc.fallback.reason}` : ""}`);
     if (err || !done) { console.log(`FAILED: ${err?.code ?? ""} ${String(err?.message ?? "no answer").slice(0, 200)}`); ok(false, `${p.k}: answered`, err?.code ?? "no done"); continue; }
+    if (done?.replaceTail && text.endsWith(done.replaceTail.from)) text = text.slice(0, text.length - done.replaceTail.from.length) + done.replaceTail.to;
     const c = citationsToClaims({ answer: text, answerBlocks: done.answerBlocks ?? [], sources: sourcesFromToolCalls(tools), web: done.web, toolCalls: tools });
     const w = done.web ?? {};
     const usd = costUsd({ modelId: done.modelId, inputTokens: done.inputTokens, outputTokens: done.outputTokens, cacheReadTokens: done.cacheReadTokens, cacheWriteTokens: done.cacheWriteTokens, webSearches: w.anthropicSearches ?? 0, tavilySearches: w.tavilySearches ?? 0 });
@@ -81,6 +83,9 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     console.log(`SOURCES:`);
     for (const s of c.sources) console.log(`  [${s.n}] ${s.tierLabel ?? s.tier} · ${s.label}${s.published ? ` · ${s.published}` : ""}${s.href ? ` · ${s.href}` : ""}`);
     if (!c.sources.length) console.log("  (none)");
+    if (done.followUps?.length) console.log(`MOVES AFTER A REPLY: ${done.followUps.map((f) => `${f.kind} (${f.label}) → ${f.outcome}`).join("; ")}`);
+    if (done.audits?.length) console.log(`CLAIM AUDIT: ${done.audits.map((a) => `${a.after ? "after redraft" : "draft"}: ${a.unsourced} unsourced, ${a.absences} absence`).join(" · ")}`);
+    if (done.nameCorrections?.length) console.log(`NAMES CORRECTED: ${done.nameCorrections.map((n) => `${n.from} → ${n.to} (${n.code})`).join("; ")}`);
     console.log(`CLAIMS: ${c.claims.length} cited · ${c.claims.filter((x) => x.mark).length} marked · by class ${JSON.stringify(c.counts)}${c.dropped ? ` · NOT PLACED: ${c.dropped}` : ""}`);
     ok(true, `${p.k}: answered`, `${done.modelId} ${c.claims.length} claims`);
   }

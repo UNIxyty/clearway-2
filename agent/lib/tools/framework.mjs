@@ -472,6 +472,11 @@ export async function executeTool({ name, input, user, conversationId, inputMode
   // object with a field quietly missing.
   try {
     const validated = validate(output, tool.output, `${name} result`);
+    // An empty table is not an empty world (case seven, 2026-11-04): any of our own stores that found nothing says so in
+    // those words, whatever tool it is, unless the tool said it more precisely itself.
+    if (validated.count === 0 && (tool.sourceTier === "internal" || tool.sourceTier === "company") && !validated.absence) {
+      validated.absence = `${name} found nothing in ${validated.source ?? "this platform store"}. That is a statement about this one store only: say which store you checked and what you did not check, and never turn it into "there are none" about the world.`;
+    }
     const auto = confirmationEntry?.auto === true;
     const result = { ok: true, ...validated, ...(auto ? { autoConfirmed: true, message: `Done without a confirmation card (your setting: skip confirmation for low-risk actions). It can be undone${validated.actionId ? ` — action ${validated.actionId}` : ""}.` } : confirmationEntry ? { confirmedAt: new Date().toISOString(), confirmationToken: confirmationEntry.token } : {}) };
     if (confirmationEntry && !auto) settleConfirmation(confirmationEntry, result);

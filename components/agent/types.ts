@@ -36,12 +36,13 @@ export type SourceRef = {
   /** Revision state of the cited document — shown next to the citation, unknown included. */
   revision?: RevisionInfo | null;
   /** A web source's class against the approved list (2026-11-03): official, industry, or other (not approved). */
-  domainClass?: "official" | "industry" | "other";
+  domainClass?: "official" | "industry" | "other" | "ours";
   host?: string;
   published?: string | null;
 };
 
 /** A claim in the prose that a source supports (§4.7 A). Only present when the model returned claim boundaries. */
+export type FollowUpOutcome = "checked" | "empty" | "failed" | "not_made" | "partly";
 export type ClaimSpan = { start: number; end: number; n: number; ns?: number[]; mark?: string };
 
 export type VerbatimRecord = {
@@ -171,7 +172,7 @@ export type MessageBlocks = {
   confirmations?: PendingConfirmation[];
   claims?: ClaimSpan[];
   /** The first reply, when it sent the reader to a check the agent then made itself (2026-11-04); the content is the full answer. */
-  partial?: { text: string; checks: string[]; outcome?: "checked" | "failed" | "not_made" };
+  partial?: { text: string; checks: string[]; outcome?: FollowUpOutcome; followUps?: { label: string; outcome: FollowUpOutcome }[] };
 };
 
 export type AgentMessage = {

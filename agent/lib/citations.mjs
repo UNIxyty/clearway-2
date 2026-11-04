@@ -34,7 +34,7 @@ export function shortDate(raw, now = new Date()) {
 export function citationsToClaims({ answer, answerBlocks = [], sources = [], web = null, toolCalls = [], now = new Date() }) {
   const out = [...sources];
   const settings = web?.settings ?? null;
-  const counts = { official: 0, industry: 0, other: 0, company: 0 };
+  const counts = { official: 0, industry: 0, other: 0, company: 0, ours: 0 };
   const joined = answerBlocks.map((b) => b.text).join("");
   if (!joined || !answerBlocks.some((b) => b.citations?.length)) return { sources: out, claims: [], counts, dropped: null };
   // the blocks are the last part of the stored answer (thinking aloud before a tool call was taken out of it)
@@ -64,6 +64,17 @@ export function citationsToClaims({ answer, answerBlocks = [], sources = [], web
     return s;
   };
 
+  // our own data (2026-11-04): a NOTAM from the CrewBriefing cache, a record from the wall's stores, a page of a GEN 1.2 —
+  // "Clearway data", with the store and its read or cache time in the label, never marked
+  const KIND = { notam: "NOTAM", limitation: "Limitation", important: "IMPORTANT", caa: "CAA record", gen: "GEN 1.2" };
+  const oursSource = (ref, title) => {
+    const found = out.find((s) => s.ref === ref);
+    if (found) return found;
+    const kind = String(ref).split(":")[1] ?? "";
+    const s = { n: out.length + 1, tier: "internal", tierLabel: "Clearway data", domainClass: "ours", ref, label: String(title ?? KIND[kind] ?? "Clearway data").slice(0, 120), tool: kind === "notam" ? "get_notams" : kind === "gen" ? "read_gen_document" : `list_${kind === "caa" ? "caa" : kind === "important" ? "important" : "limitations"}`, meta: /(read|cache) ([^·]+)$/.exec(String(title ?? ""))?.[0] ?? null };
+    out.push(s);
+    return s;
+  };
   const claims = [];
   let pos = 0;
   for (const b of answerBlocks) {
@@ -72,7 +83,7 @@ export function citationsToClaims({ answer, answerBlocks = [], sources = [], web
     const cited = [];
     for (const c of b.citations) {
       const src = c.type === "web_search_result_location" ? webSource(c.url, c.title)
-        : c.type === "search_result_location" ? (String(c.source).startsWith("kb:") ? kbSource(c.source, c.title) : webSource(c.source, String(c.title ?? "").replace(/^[^—]+—\s*/, "")))
+        : c.type === "search_result_location" ? (String(c.source).startsWith("kb:") ? kbSource(c.source, c.title) : String(c.source).startsWith("cw:") ? oursSource(c.source, c.title) : webSource(c.source, String(c.title ?? "").replace(/^[^—]+—\s*/, "")))
         : null;
       if (src && !cited.includes(src)) cited.push(src);
     }
@@ -81,7 +92,7 @@ export function citationsToClaims({ answer, answerBlocks = [], sources = [], web
     const text = b.text; const lead = text.length - text.trimStart().length; const trail = text.length - text.trimEnd().length;
     const others = cited.filter((s) => s.tier === "web" && s.domainClass === "other");
     const marked = others.length === cited.length;
-    for (const s of cited) counts[s.tier === "company" ? "company" : s.domainClass ?? "other"] += 1;
+    for (const s of cited) counts[s.domainClass === "ours" ? "ours" : s.tier === "company" ? "company" : s.domainClass ?? "other"] += 1;
     claims.push({
       start: offset + start + lead, end: offset + end - trail, n: cited[0].n, ns: cited.map((s) => s.n),
       ...(marked ? { mark: `not from an official source: ${[...new Set(others.map((s) => s.host))].join(", ")}${others[0].published ? `, ${others[0].published}` : ""}` } : {}),

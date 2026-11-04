@@ -57,7 +57,8 @@ For every code listed, say what it is: an aerodrome (name, city, country) or a F
 Then read the question. A place name written next to a code ("Hong Kong ZSPD", "ZSPD Hong Kong", "Macao VHHH") is what the writer believes the code is. If that place is NOT the code's place, it is a mismatch. A country or region that contains the aerodrome, or the FIR it lies in, is not a mismatch ("Bulgarian ... LBBG" is fine). A misspelled name for the right place is not a mismatch ("Marsell FIR LFMM" is Marseille).
 
 Return ONLY JSON:
-{"codes":[{"code":"ZSPD","is":"Shanghai Pudong, China","kind":"aerodrome|fir|unknown","writtenAs":"Hong Kong"|null,"mismatch":true|false}],"ask":null|"..."}
+{"codes":[{"code":"ZSPD","is":"Shanghai Pudong International, China","short":"Shanghai Pudong","kind":"aerodrome|fir|unknown","writtenAs":"Hong Kong"|null,"mismatch":true|false}],"ask":null|"..."}
+"short" is how a dispatcher names the place in a sentence: the city, plus the airport's name where the city has more than one ("Tamanrasset", "Riyadh King Khalid", "Paris Le Bourget", "Marseille FIR").
 
 Set "ask" when any code is unknown or mismatched. Write it to the dispatcher, plainly: what they wrote, what each code actually is, and the likely intended pairs as bullet lines starting "• ". Example: "You've written Hong Kong ZSPD and Macao VHHH, but ZSPD is Shanghai Pudong and VHHH is Hong Kong — Macao is VMMC. Which pair did you mean?\\n• Hong Kong VHHH and Macao VMMC\\n• Shanghai ZSPD and Hong Kong VHHH". For an unknown code: "I don't recognise URXX as an ICAO code. Which airport did you mean?" Otherwise "ask" is null.`;
 
@@ -84,6 +85,9 @@ export async function checkQuestion(question, user, { now = new Date() } = {}) {
   const named = new Map(ours.filter((o) => !/^(not in our|our airports data could not|in our data, no name)/.test(o.ours)).map((o) => [o.code, o.ours]));
   const resolved = parsed.codes.filter((c) => c?.code).map((c) => (named.has(String(c.code).toUpperCase()) ? { ...c, is: named.get(String(c.code).toUpperCase()), source: "our data" } : { ...c, source: "model" }));
   const ask = typeof parsed.ask === "string" && parsed.ask.trim() && resolved.some((c) => c.mismatch === true || c.kind === "unknown") ? parsed.ask.trim() : null;
-  const codeNote = resolved.length ? `Codes in the question, checked before this turn: ${resolved.map((c) => `${c.code} = ${c.is ?? "unknown"}${c.kind === "fir" ? " (FIR)" : ""}`).join("; ")}. Name each aerodrome with its code in the answer ("For Riyadh King Khalid (OERK)…") so a typo shows.` : null;
+  // the name is not the model's to remember (2026-11-04, DAAT written as "Djanet"): it writes {{CODE}} and lib/names.mjs
+  // writes the checked name; any other name next to a checked code is replaced by it
+  for (const c of resolved) if (!c.short) c.short = String(c.is ?? c.code).split(",")[0].replace(/\s+(International\s+)?Airport$/i, "").trim();
+  const codeNote = resolved.length ? `Codes in the question, checked before this turn: ${resolved.map((c) => `${c.code} = ${c.is ?? "unknown"}${c.kind === "fir" ? " (FIR)" : ""}`).join("; ")}. Write each of these as {{CODE}} — {{${resolved[0].code}}} — and the console writes its checked name and code ("${resolved[0].short} (${resolved[0].code})"). Never write another name for them.` : null;
   return { ask, note: [codeNote, dateNote].filter(Boolean).join("\n") || null, codes: resolved, dates, fallback: null };
 }

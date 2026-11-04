@@ -135,8 +135,12 @@ export function useThread({ context, initialConversationId = null, initials = nu
           }
           else if (event === "partial") {
             // the reply so far is a partial answer: the agent is now making the check it pointed to, then answers in full
-            if (answer.endsWith(payload.text)) answer = answer.slice(0, answer.length - String(payload.text).length);
-            patchAssistant({ content: answer, blocks: { ...(currentBlocks()), partial: { text: String(payload.text), checks: (payload.checks as string[]) ?? [] } } as never });
+            if (payload.append) { const cur = (currentBlocks().partial ?? null) as { text: string; checks: string[] } | null; if (cur) patchAssistant({ blocks: { ...(currentBlocks()), partial: { ...cur, checks: [...cur.checks, ...((payload.checks as string[]) ?? [])] } } as never }); }
+            else {
+              const streamed = String(payload.streamed ?? payload.text);
+              if (answer.endsWith(streamed)) answer = answer.slice(0, answer.length - streamed.length);
+              patchAssistant({ content: answer, blocks: { ...(currentBlocks()), partial: { text: String(payload.text), checks: (payload.checks as string[]) ?? [] } } as never });
+            }
           }
           else if (event === "tool_progress") {
             // Item 11: a tool started or reported a step. Long jobs show as running steps; a file being built
@@ -164,7 +168,8 @@ export function useThread({ context, initialConversationId = null, initials = nu
       const confirmations = ((d.confirmations as PendingConfirmation[] | undefined) ?? []);
       patchAssistant({
         // the stored reply when it came with citations: their offsets are into that text (2026-11-03)
-        id: `msg-${Date.now()}`, content: Array.isArray(d.claims) && d.claims.length && typeof d.content === "string" ? d.content : answer, streaming: false,
+        // the stored reply is the reply (2026-11-04): checked names written in, narration and partial drafts taken out
+        id: `msg-${Date.now()}`, content: typeof d.content === "string" ? d.content : answer, streaming: false,
         sources: (d.sources as AgentMessage["sources"]) ?? [],
         toolActivity: ((d.toolActivity as ToolActivity[] | undefined) ?? tools).map((t) => ({ ...t, state: "done" })),
         latencyMs: (d.latencyMs as number | undefined) ?? null,

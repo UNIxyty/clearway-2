@@ -93,6 +93,11 @@ Every service caches grants for 10 seconds, so a change in the grid reaches all 
    - The portal's shell builds its menu from a role the server names (`/api/admin/status` › `role`). A role it cannot
      name, or a failed probe, gets no menu. It used to fall back to the User menu.
    - Same rule as a gate whose input is missing: no answer means no.
+   - **Pages too (2026-11-04).** The middleware answers an unknown role 404 on every page and API, signing out aside
+     (a page that says so, with a Sign out button). Until then only the APIs refused it, and 93 of the 104 pages
+     rendered their frame for it. A browser check the same evening found no row on any of them: every row comes
+     through an API, and those already refused. Pages have no gate of their own and get none; the middleware is their
+     door, by decision. `rig/client-gate-check.mjs` walks all 239 addresses through it.
 9. **Gates live at the endpoint; the middleware is the second layer** (2026-11-02). Every portal route handler calls a
    gate (`lib/permissions/route-gates.mjs` › `GATES`): `staffGate`, `requireAuthenticatedUser`, `currentPerson`,
    `requirePermission`, `requireAdmin`, `requireDeveloper` or `requireClient`. Otherwise its file is on `UNGATED` with

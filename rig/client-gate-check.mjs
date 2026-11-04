@@ -1,18 +1,26 @@
 // A client, or a role nobody planned for, is refused AT THE ENDPOINT (2026-11-02, docs/permissions.md rules 8 and 9).
 // Until then one middleware block was the whole client restriction, and beneath it a client was the User role.
 //
-// 1. The portal with its middleware's client block and write gate OFF (a second rig portal on :3981 started with
-//    RIG_CLIENT_MIDDLEWARE_OFF=1, which only works against the rig's local Supabase): every handler of every route file
-//    is called as an approved client and as an account whose role marker nobody planned for. Each must refuse (404, or
-//    401/403/405), except the client allow-list (GET /api/client/me, for the client only) and the files on UNGATED.
-//    A staff account passes the same gates (sanity: the gate refuses by role, not everyone).
-// 2. The wall and the agent, through the sign-in proxy (:3989) the way Cloudflare routes /digital-wall/* and
-//    /agent/api/* past the portal: the client gets only its wall read allow-list; the unknown role gets nothing.
+// 1. The portal, every address in app/ — 135 handlers (the 19 public ones on UNGATED too) and 104 pages — as an approved
+//    client with every switch and the documents level, and as two roles nobody planned for ("contractor"; "Client " in
+//    another case with a space). Two layers (2026-11-04):
+//    - middleware client block OFF (a second rig portal on :3981 started with RIG_CLIENT_MIDDLEWARE_OFF=1, which only
+//      works against the rig's local Supabase): every HANDLER must refuse on its own (404, or 401/403/405);
+//    - middleware ON (the proxy, as production): every handler AND page must refuse, except the client's allow-list.
+//    A public address passes only if the session adds nothing: the same status and redirect a signed-out visitor gets.
+//    Controls: staff pass the same gates, and 95 of 104 pages render for staff (refusing them means something).
+//    An account with no role written is the User role by design, not unknown, so it is not one of the identities.
+// 2. The wall and the agent, through the sign-in proxy the way Cloudflare routes /digital-wall/* and /agent/api/* past
+//    the portal: the client gets only its own allow-lists; a role nobody planned for gets nothing. The agent's walk must
+//    include the passport-scan and raw-email downloads.
+// Every call has a time limit and drops the body once the status is in: a stream that answers never ends, and on
+// 2026-11-04 one held this check for 35 minutes. About 80 seconds in all.
 //   node --env-file=.env.rig rig/client-gate-check.mjs
 // Invented accounts only; removed at the end.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { UNGATED } from "../lib/permissions/route-gates.mjs";
+import { SWITCH_KEYS } from "../lib/clients/switches.mjs";
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, SVC = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
@@ -36,47 +44,116 @@ async function account(email, appMeta) {
   if (!u.id) throw new Error(`no account for ${email}`);
   return u;
 }
+// a run stopped half-way leaves its client row, which holds the account: clear it first
+await svc(`/rest/v1/clients?email=eq.rig-gate-client%40rig.invalid`, { method: "DELETE" });
 const clientUser = await account("rig-gate-client@rig.invalid", { role: "client", is_approved: true, client_status: "approved" });
 await svc(`/rest/v1/clients?email=eq.rig-gate-client%40rig.invalid`, { method: "DELETE" });
-const row = await (await svc("/rest/v1/clients", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ user_id: clientUser.id, email: "rig-gate-client@rig.invalid", person_name: "Rig Gate Client", company: "Rig Gate Charter (invented)", kind: "operator", status: "approved", scope: [{ kind: "operator", value: "cwy-cwy" }], switches: ["flight_board"], passenger_level: "off", decided_at: new Date().toISOString() }) })).json();
-const unknownUser = await account("rig-gate-unknown@rig.invalid", { role: "contractor", is_approved: true });
-const C = await session("rig-gate-client@rig.invalid"), U = await session("rig-gate-unknown@rig.invalid");
+const row = await (await svc("/rest/v1/clients", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ user_id: clientUser.id, email: "rig-gate-client@rig.invalid", person_name: "Rig Gate Client", company: "Rig Gate Charter (invented)", kind: "operator", status: "approved", scope: [{ kind: "operator", value: "cwy-cwy" }], switches: SWITCH_KEYS, passenger_level: "documents", decided_at: new Date().toISOString() }) })).json();
 const staffPw = JSON.parse(readFileSync("rig/dark-audit.mjs", "utf8").match(/token\?grant_type=password[^\n]*?password: ("[^"]+")/)[1]);
 const S = await session("rig-access-user@rig.invalid", staffPw);
-ok(Boolean(C.access_token && U.access_token && S.access_token), "a client, an unknown role and a staff user sign in");
+ok(Boolean((await session("rig-gate-client@rig.invalid")).access_token && S.access_token), "a client and a staff user sign in");
 
-// ── 1. every portal handler, middleware client block off ──
-const files = []; const walk = (d) => { for (const n of readdirSync(d)) { const p = path.join(d, n); if (statSync(p).isDirectory()) walk(p); else if (n === "route.ts") files.push(p); } };
+// ── 1. every portal address — every handler of every route file (the public ones too) and every page — both layers ──
+// Layer one, the middleware's client block OFF (BARE): each endpoint's own gate must refuse. Layer two, the block ON
+// (the proxy, as production): the client allow-list must refuse everything not on it. A public address (UNGATED, or a
+// page a signed-out visitor gets) passes only if the session adds nothing: the same status and the same redirect a
+// signed-out visitor gets. Every address is called with every identity; nothing is skipped silently.
+const { CLIENT_PAGES, CLIENT_APIS, CLIENT_HOLDING_PAGES } = await import("../lib/clients/allow.mjs");
+const docsSection = readdirSync("content/docs").filter((d) => /^\d+-admin$/.test(d))[0];
+const docsPage = readdirSync(`content/docs/${docsSection}`).filter((f) => /^\d+-.+\.md$/.test(f))[0];
+// a sample value per dynamic segment, real where the page would otherwise 404 for everyone (and prove nothing)
+const SEGMENT = { "[icao]": "EGLL", "[section]": docsSection.replace(/^\d+-/, ""), "[page]": docsPage.replace(/^\d+-/, "").replace(/\.md$/, ""), "[n]": "1", "[[...tab]]": null, "[...path]": "aip/ead-pdf/RIGX.pdf" };
+const UUID = "00000000-0000-4000-8000-000000000000";
+const toAddress = (rel) => "/" + path.dirname(rel).replace(/^app\/?/, "").split("/").filter((x) => !/^\(.+\)$/.test(x)).map((x) => (x in SEGMENT ? SEGMENT[x] : x.startsWith("[") ? UUID : x)).filter((x) => x !== null).join("/");
+const files = []; const walk = (d) => { for (const n of readdirSync(d)) { const p = path.join(d, n); if (statSync(p).isDirectory()) walk(p); else if (n === "route.ts" || n === "page.tsx") files.push(p); } };
 walk("app");
-const handlers = [];
+const addresses = [];
 for (const f of files) {
   const rel = f.split(path.sep).join("/");
-  if (UNGATED[rel]) continue;   // public by design, each with its reason (lib/permissions/route-gates.mjs)
+  const route = toAddress(rel).replace(/\/$/, "") || "/";
+  if (rel.endsWith("/page.tsx")) { addresses.push({ kind: "page", method: "GET", route, file: rel }); continue; }
   const src = readFileSync(f, "utf8");
-  const route = "/" + path.dirname(rel).replace(/^app\/?/, "").split("/").filter((x) => !/^\(.+\)$/.test(x)).map((x) => x.startsWith("[...") ? "aip/ead-pdf/RIGX.pdf" : x.startsWith("[") ? "00000000-0000-4000-8000-000000000000" : x).join("/");
-  for (const m of src.matchAll(/^export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD)\b|^export\s+const\s+(GET|POST|PUT|PATCH|DELETE|HEAD)\s*=/gm)) handlers.push({ method: m[1] ?? m[2], route, file: rel });
+  for (const m of src.matchAll(/^export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD)\b|^export\s+const\s+(GET|POST|PUT|PATCH|DELETE|HEAD)\s*=/gm)) addresses.push({ kind: "api", method: m[1] ?? m[2], route, file: rel, ungated: Boolean(UNGATED[rel]) });
 }
-ok(handlers.length > 100, `${handlers.length} gated handlers to walk (route files on UNGATED are public by design: ${Object.keys(UNGATED).length})`);
-const call = (who, h) => fetch(`${BARE}${h.route}`, { method: h.method, redirect: "manual", headers: { cookie: ck(who), "content-type": "application/json" }, body: ["GET", "HEAD"].includes(h.method) ? undefined : "{}" }).then((r) => r.status, () => 0);
-const refused = (st) => st === 404 || st === 401 || st === 403 || st === 405;
-for (const [label, who] of [["client", C], ["unknown role", U]]) {
-  const leaks = [];
-  for (const h of handlers) {
-    const st = await call(who, h);
-    const allowed = label === "client" && h.method === "GET" && h.route === "/api/client/me";
-    if (allowed ? st !== 200 : !refused(st)) leaks.push(`${h.method} ${h.route} → ${st}`);
+// signing out ends the session the walk is using: it goes last, for every identity
+addresses.sort((a, b) => (a.route === "/auth/sign-out") - (b.route === "/auth/sign-out"));
+const handlers = addresses.filter((a) => a.kind === "api"), pages = addresses.filter((a) => a.kind === "page");
+ok(handlers.length >= 135 && pages.length >= 100, `the portal: ${handlers.length} handlers in ${new Set(handlers.map((h) => h.file)).size} route files (${handlers.filter((h) => h.ungated).length} of them public by design, on UNGATED), and ${pages.length} pages`);
+// the walk posts to every public form too; its own sender address keeps it off the rate limits other suites rely on
+// (8 asks an hour per address on /api/client-requests: the onboarding suite got 429 after a few walks, 2026-11-04)
+const WALK_FROM = { "x-forwarded-for": "10.255.0.1" };
+const call = (base, who, a) => fetch(`${base}${a.route}`, { method: a.method, redirect: "manual", headers: { ...(who ? { cookie: ck(who) } : {}), "content-type": "application/json", ...WALK_FROM }, body: ["GET", "HEAD"].includes(a.method) ? undefined : "{}", signal: AbortSignal.timeout(20000) })
+  // the status is the answer; a stream that answered stays open forever, so the body is dropped, never read
+  .then(async (r) => { await r.body?.cancel().catch(() => null); if (/event-stream/.test(r.headers.get("content-type") || "")) streams.push(`${a.method} ${a.route} ${r.status} (${who ? who.user?.app_metadata?.role ?? "no role" : "signed out"})`); return { st: r.status, to: (r.headers.get("location") || "").replace(/^https?:\/\/[^/]+/, "").replace(/\?.*$/, "") }; }, () => ({ st: 0, to: "" }));
+const REFUSED = new Set([401, 403, 404, 405]);
+const streams = [];
+const t0 = Date.now(); const lap = (what) => console.log(`      ${what}: ${Math.round((Date.now() - t0) / 1000)} s`);
+// where a refused page may send them: sign-in, the holding and refusal pages, their own front door
+const REFUSED_TO = /^\/(login|forbidden|access-blocked|pending-approval|client(\/(refused|removed))?)$/;
+const onList = (a) => a.kind === "page" ? CLIENT_PAGES.some((e) => e.path === a.route) : CLIENT_APIS.some((e) => e.path === a.route && e.methods.includes(a.method));
+// the same anonymous answer for every address on both portals, once
+const anon = { BARE: new Map(), PROXY: new Map() };
+for (const [name, base] of [["BARE", BARE], ["PROXY", PROXY]]) for (const a of addresses) anon[name].set(`${a.method} ${a.route}`, await call(base, null, a));
+lap(`signed-out answers for ${addresses.length} addresses on both portals`);
+const asAnon = (name, a, r) => { const x = anon[name].get(`${a.method} ${a.route}`); return x && x.st === r.st && x.to === r.to; };
+const asStaff = []; for (const a of pages) { const r = await call(BARE, S, a); if (r.st !== 200) asStaff.push(`${a.route} ${r.st}${r.to ? `→${r.to}` : ""}`); }
+ok(true, `control: ${pages.length - asStaff.length} of ${pages.length} pages render for staff (so refusing them means something)${asStaff.length ? `; not for staff either: ${asStaff.slice(0, 12).join(" | ")}` : ""}`);
+lap("the staff control");
+const roles = [
+  ["client", { role: "client", is_approved: true, client_status: "approved" }, true],
+  ["unknown role (contractor)", { role: "contractor", is_approved: true }, false],
+  // not "no role written": an empty role is the User role by design (agent/lib/auth.mjs KNOWN_META_ROLES; the wall reads it as "user")
+  ["unknown role (Client, another case)", { role: "Client ", is_approved: true, client_status: "approved" }, false],
+];
+const roleUsers = [];
+for (const [label, meta, isClient] of roles) {
+  const email = isClient ? "rig-gate-client@rig.invalid" : `rig-gate-unknown-${roleUsers.length}@rig.invalid`;
+  if (!isClient) roleUsers.push(await account(email, meta));
+  for (const [layer, name, base] of [["middleware client block off", "BARE", BARE], ["middleware on (production)", "PROXY", PROXY]]) {
+    const who = await session(email);   // a fresh session per pass: the last call signs it out
+    const leaks = []; let reached = 0, publicSame = 0;
+    // layer one is the handlers' own gates; a page has none and needs none (2026-11-04, decided: the middleware is the
+    // page's door, not gated 104 times), so pages are walked in layer two, through the middleware, as production runs
+    const here = name === "BARE" ? handlers : addresses;
+    for (const a of here) {
+      const r = await call(base, who, a);
+      const listed = isClient && onList(a);
+      if (listed) { if (r.st === 200) reached += 1; else leaks.push(`${a.method} ${a.route} on the list → ${r.st}`); continue; }
+      if (REFUSED.has(r.st) || (r.st >= 300 && r.st < 400 && REFUSED_TO.test(r.to))) continue;
+      // the sign-in pages send anyone signed in to the root; the root is walked itself (a client → /client, others refused)
+      if (/^\/(login|signup|request-access)$/.test(a.route) && r.st >= 300 && r.st < 400 && r.to === "/") continue;
+      // their own front door: the root and the holding pages send an approved client to /client
+      if (isClient && (a.route === "/" || CLIENT_HOLDING_PAGES.includes(a.route)) && r.st >= 300 && r.st < 400 && r.to === "/client") continue;
+      // public by design (UNGATED, each with the check it makes itself, e.g. a signed token): with the middleware off a
+      // signed-out visitor is still sent to sign-in, so there is nothing to compare with here; layer two holds them to it
+      if (name === "BARE" && a.ungated) { publicSame += 1; continue; }
+      if (asAnon(name, a, r)) { publicSame += 1; continue; }
+      leaks.push(`${a.kind === "api" ? "API " : "page "}${a.method} ${a.route} → ${r.st}${r.to ? `→${r.to}` : ""}`);
+    }
+    leaks.sort((x, y) => x.startsWith("API") === y.startsWith("API") ? 0 : x.startsWith("API") ? -1 : 1);
+    lap(`${label}, ${layer}`);
+    ok(leaks.length === 0, `portal, ${layer}: all ${here.length} ${name === "BARE" ? "handlers" : "addresses (handlers and pages)"} refuse the ${label}${isClient ? `, except its ${reached} on the allow-list` : ""}; ${publicSame} public ones ${name === "BARE" ? "on UNGATED (their own checks)" : "answer as for a signed-out visitor"}`, leaks.length ? `${leaks.filter((x) => x.startsWith("API")).length} APIs, ${leaks.filter((x) => x.startsWith("page")).length} pages: ${leaks.slice(0, 14).join(" | ")}` : "");
   }
-  ok(leaks.length === 0, `portal, middleware client block off: every handler refuses the ${label}${label === "client" ? " except GET /api/client/me" : ""}`, leaks.length ? `${leaks.length} of ${handlers.length} answered: ${leaks.slice(0, 12).join(" | ")}` : "");
 }
 {
-  const st = await call(U, { method: "GET", route: "/api/client/me" });
-  ok(st === 404, "the client allow-list is for clients only: the unknown role gets 404 from GET /api/client/me", st);
+  const st = (await call(PROXY, await session("rig-gate-unknown-0@rig.invalid"), { method: "GET", route: "/api/client/me" })).st;
+  ok(st === 404, "the client allow-list is for clients only: an unknown role gets 404 from GET /api/client/me", st);
+  // what an unknown role sees instead: the refusal page, none of the portal's code, and a way out that works
+  const unk = await session("rig-gate-unknown-0@rig.invalid");
+  const page = await fetch(`${PROXY}/dashboard`, { redirect: "manual", headers: { cookie: ck(unk) }, signal: AbortSignal.timeout(20000) });
+  const html = await page.text();
+  ok(page.status === 404 && html.includes("data-unknown-role") && !/<script/i.test(html), "an unknown role gets the refusal page: 404, no script, nothing of the portal's code", page.status);
+  const out = await fetch(`${PROXY}/auth/sign-out`, { method: "POST", redirect: "manual", headers: { cookie: ck(unk) }, signal: AbortSignal.timeout(20000) });
+  ok(out.status === 303 && /\/login$/.test(out.headers.get("location") || "") && /Max-Age=0|expires=Thu, 01 Jan 1970/i.test(out.headers.get("set-cookie") || ""), "its Sign out button works: 303 to /login, the session cookie expired", out.status);
   const staffOk = [];
-  for (const r of ["/api/regions", "/api/usa-states", "/api/user/preferences", "/api/dashboard/recents"]) staffOk.push(`${r} ${await call(S, { method: "GET", route: r })}`);
+  for (const r of ["/api/regions", "/api/usa-states", "/api/user/preferences", "/api/dashboard/recents", "/docs/search-index.json"]) staffOk.push(`${r} ${(await call(BARE, S, { method: "GET", route: r })).st}`);
   ok(staffOk.every((x) => / 200$/.test(x)), "staff pass the same gates (the gate refuses by role, not everyone)", staffOk.join(" | "));
-  const st2 = await call(S, { method: "GET", route: "/api/client/me" });
+  const st2 = (await call(BARE, S, { method: "GET", route: "/api/client/me" })).st;
   ok(st2 === 404, "staff get 404 from the client's own route", st2);
 }
+// sessions for the wall and agent walk, made after the portal walk signed the earlier ones out
+const C = await session("rig-gate-client@rig.invalid"), U = await session("rig-gate-unknown-0@rig.invalid");
+const UNKNOWN = []; for (const [i, [label]] of roles.slice(1).entries()) UNKNOWN.push([label, await session(`rig-gate-unknown-${i}@rig.invalid`)]);
 
 // ── 2. every wall and agent endpoint, reached past the portal (the proxy routes them as Cloudflare does) ──
 // The endpoints are the permissions inventory's (lib/permissions/check.mjs › codeRouteBlocks), plus the wall routes it
@@ -108,7 +185,12 @@ for (const svc of services) {
   const seen = new Set(), walk = [], unmade = [];
   for (const r of svc.routes) { const p = sample(r.route); if (!p) { unmade.push(`${r.method} ${r.route}`); continue; } const k = `${r.method} ${p}`; if (!seen.has(k)) { seen.add(k); walk.push({ method: r.method, path: p }); } }
   ok(walk.length > 20, `${svc.name}: ${walk.length} endpoints to walk from the inventory${unmade.length ? `; ${unmade.length} with no path made: ${unmade.slice(0, 6).join(" | ")}` : ""}`);
-  for (const [label, who] of [["client", C], ["unknown role", U]]) {
+  if (svc.name === "agent") {
+    // the two the client must never reach, whatever a switch says: a passport scan and a raw email (.eml)
+    const scan = walk.find((e) => e.method === "GET" && /^\/api\/intake\/attachments\/[^/]+$/.test(e.path)), eml = walk.find((e) => e.method === "GET" && /^\/api\/mailbox\/messages\/[^/]+\/raw$/.test(e.path));
+    ok(Boolean(scan && eml), "agent: the walk includes the passport-scan download and the raw-email download", `${scan?.path ?? "missing"} | ${eml?.path ?? "missing"}`);
+  }
+  for (const [label, who] of [["client", C], ...UNKNOWN]) {
     const leaks = [];
     for (const e of walk) {
       if (e.path === "/api/health") continue;   // the public health probe
@@ -117,7 +199,8 @@ for (const svc of services) {
       const st = await via(who, e.method, `${svc.prefix}${e.path}`);
       if (!(st === 404 || st === 401 || st === 403 || st === 405)) leaks.push(`${e.method} ${e.path} → ${st}`);
     }
-    ok(leaks.length === 0, `${svc.name}, reached directly: every endpoint outside the ${label === "client" ? "client's allow-list" : "health probe"} refuses the ${label}`, leaks.length ? `${leaks.length} answered: ${leaks.slice(0, 10).join(" | ")}` : "");
+    lap(`${svc.name}, ${label}`);
+    ok(leaks.length === 0, `${svc.name}, reached directly: every endpoint outside the ${label === "client" ? "client's allow-list" : "health probe"} refuses the ${label} (${walk.length - (svc.public ? Object.keys(svc.public).length : 0) - 1}${label === "client" ? " less the list" : ""})`, leaks.length ? `${leaks.length} answered: ${leaks.slice(0, 10).join(" | ")}` : "");
   }
 }
 const board = await via(C, "GET", "/digital-wall/api/timeline/flights?allOperators=true");
@@ -129,6 +212,8 @@ ok(staffWall === 200, "wall: staff still reach their endpoints", staffWall);
 
 // cleanup: the invented client row is append-only-logged only if a decision was written; none was
 await svc(`/rest/v1/clients?id=eq.${row?.[0]?.id}`, { method: "DELETE" });
-for (const u of [clientUser, unknownUser]) await svc(`/auth/v1/admin/users/${u.id}`, { method: "DELETE" });
+for (const u of [clientUser, ...roleUsers]) await svc(`/auth/v1/admin/users/${u.id}`, { method: "DELETE" });
+ok(streams.length === 0 || streams.every((x) => / (401|403|404|405)/.test(x)), `no event stream opened for anyone the walk called as (${streams.length} stream answers seen)`, streams.join(" | "));
+lap("whole check");
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");
 process.exit(failures ? 1 : 0);

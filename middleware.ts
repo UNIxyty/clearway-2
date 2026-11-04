@@ -5,7 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 import { safeNextPath } from "@/lib/auth-next-path.mjs";
 import { rigViolation } from "@/lib/rig-guard.mjs";
-import { resolveRole } from "@/lib/role-resolve";
+import { resolveRole, roleFromSupabaseUser } from "@/lib/role-resolve";
 import { endpointFor, isWriteMethod } from "@/lib/permissions/catalogue.mjs";
 import { can, canAny, REFUSED, roleKey } from "@/lib/permissions/grants.mjs";
 import { DEFAULT_START, isStartPage } from "@/lib/user-settings";
@@ -57,6 +57,13 @@ function failClosed(request: NextRequest, pathname: string) {
 // portal's root not-found payload would carry the docs. One sentence, the portal's tokens by name only, light and dark.
 function clientNotFoundResponse() {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not found</title><meta name="robots" content="noindex"><style>:root{color-scheme:light dark}body{margin:0;min-height:100dvh;display:grid;place-items:center;font:16px/1.5 system-ui,sans-serif;background:#f6f7f9;color:#1b1f24}@media (prefers-color-scheme:dark){body{background:#0f1216;color:#e6e9ee}}main{max-width:560px;padding:32px 16px}h1{font-size:22px;margin:0 0 8px}p{opacity:.8;margin:0 0 20px}a{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid currentColor;color:inherit;text-decoration:none}</style></head><body><main data-client-notfound=""><h1>That is not on your account.</h1><p>If you reached this from a link, the flight or page is not one your account covers.</p><a href="/client">Your flights</a></main></body></html>`;
+  return new NextResponse(html, { status: 404, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+}
+
+// A role nobody planned for: 404, nothing confirmed to exist, and the way out (signing out: POST, as the route takes).
+function unknownRoleResponse(isApi: boolean) {
+  if (isApi) return NextResponse.json({ ok: false, error: "That is not on your account." }, { status: 404 });
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not found</title><meta name="robots" content="noindex"><style>:root{color-scheme:light dark}body{margin:0;min-height:100dvh;display:grid;place-items:center;font:16px/1.5 system-ui,sans-serif;background:#f6f7f9;color:#1b1f24}@media (prefers-color-scheme:dark){body{background:#0f1216;color:#e6e9ee}}main{max-width:560px;padding:32px 16px}h1{font-size:22px;margin:0 0 8px}p{opacity:.8;margin:0 0 20px}button{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid currentColor;background:none;color:inherit;font:inherit;cursor:pointer}</style></head><body><main data-unknown-role=""><h1>That is not on your account.</h1><p>Your account has no access here yet. Ask your Clearway contact to set it up.</p><form method="post" action="/auth/sign-out"><button type="submit">Sign out</button></form></main></body></html>`;
   return new NextResponse(html, { status: 404, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
@@ -332,6 +339,14 @@ async function gate(request: NextRequest) {
     if (clientMayReach(pathname, request.method, clientSwitches).ok) return response;
     return notOnAccount();
   }
+  // A role nobody planned for (docs/permissions.md › Unknown roles) gets nothing, pages included (2026-11-04). Until then
+  // only the APIs refused it, each at its own gate; 93 of the 104 pages rendered their frame for it (the gate walk found
+  // it). The same definition as everywhere: roleFromSupabaseUser, app_metadata only. Signing out still works. Under the
+  // same rig switch as the client block, so the walk can prove the handlers refuse it on their own.
+  if (!clientBlockOff && roleFromSupabaseUser(user) === "unknown" && !pathname.startsWith("/auth/") && !pathname.startsWith("/api/auth/")) {
+    return unknownRoleResponse(pathname.startsWith("/api/"));
+  }
+
   // Staff never land in the client's world.
   if (pathname === "/client" || pathname.startsWith("/client/")) return clientNotFoundResponse();
 

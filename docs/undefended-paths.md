@@ -34,6 +34,8 @@ and nothing said so.
 
 **Testing a function is not testing the wiring (2026-11-03).** The Leon verdict went into the timeline payload instead of the health route, and the rig check passed because it called the function directly; only the before-and-after walk, which read the real route, caught it.
 
+**A check with no time limit can stop being a check (2026-11-04).** The extended client gate walk waited 35 minutes on one event stream that answered and never ended, and reported nothing the whole time. Every call in `rig/client-gate-check.mjs` now has a 20 s limit and drops the body once the status is in. A check that can wait forever is one more path that stops without saying so.
+
 ## The fifth shape: a report with no reader is not a check (2026-11-03)
 
 A job that writes its result somewhere and trusts a person to come and find it reports nothing, however true the

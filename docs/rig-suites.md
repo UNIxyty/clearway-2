@@ -95,7 +95,7 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | clients-page-check | 41 (red on the pre-fix page: padding ×6, past the edge at 1250, focus; `CLIENTS_CHECK_SELFTEST=overlap` turns the overlap assertion red) | 2026-11-02 |
 | client-onboarding-check | 54 | 2026-11-02 |
 | files-route-check | 9 (red on 1b3fbbf1: another person read a help draft through /files) | 2026-11-02 |
-| client-gate-check | 14 (red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client) | 2026-11-02 |
+| client-gate-check | 27 (red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client; red on fcf442fb: 93 pages rendered for an unknown role, and the docs search index answered one) | 2026-11-04 |
 | personal-data-paths-check | 16 (red on the code before: a person without the reveal permission got the scan, the list and the .eml; one row of four; no limit) | 2026-11-02 |
 | mail-image-check | 11 (red on the code before: "show images" fetched a loopback listener) | 2026-11-02 |
 | telegram-media-token | 9 (the old hourly token opened every file and named no one) | 2026-11-02 |

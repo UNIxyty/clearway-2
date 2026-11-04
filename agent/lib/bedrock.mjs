@@ -404,7 +404,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       const movedSinceAudit = auditsDone > 0 && followUps.at(-1)?.kind !== "audit";
       if (!action && room && (auditsDone === 0 || (auditsDone === 1 && movedSinceAudit))) {
         let pos = 0; const claims = [];
-        for (const b of named) { if ((b.citations ?? []).length) claims.push({ start: pos, end: pos + b.text.length }); pos += b.text.length; }
+        for (const b of named) { if ((b.citations ?? []).length) claims.push({ start: pos, end: pos + b.text.length, names: b.citations.flatMap((c) => [c.url, c.source, c.title]).filter(Boolean) }); pos += b.text.length; }
         const a = auditClaims({ text: replyText, claims, searched: turn.searches.length > 0 });
         audits.push({ unsourced: a.unsourced.length, absences: a.absences.length, sentences: a.unsourced.concat(a.absences).slice(0, 12) });
         if (a.unsourced.length || a.absences.length) action = { kind: "audit", label: "the sources of its claims", tools: [], hidden: true, prompt: repairPrompt(a) };
@@ -426,7 +426,12 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         carried = [];
         continue;
       }
-      if (audits.length && acted.has("audit") && !audits.at(-1).after) { let pos = 0; const claims = []; for (const b of named) { if ((b.citations ?? []).length) claims.push({ start: pos, end: pos + b.text.length }); pos += b.text.length; } const a = auditClaims({ text: replyText, claims, searched: turn.searches.length > 0 }); audits.push({ unsourced: a.unsourced.length, absences: a.absences.length, sentences: a.unsourced.concat(a.absences).slice(0, 12), after: true }); }
+      // The audit of the answer that is read, always (2026-11-04): what it still finds is a real miss, and it is marked in
+      // the console beside the sentence ("no source given"), so unsourced substance cannot pass unmarked.
+      let finalAudit = null;
+      { let pos = 0; const claims = []; for (const b of named) { if ((b.citations ?? []).length) claims.push({ start: pos, end: pos + b.text.length, names: b.citations.flatMap((c) => [c.url, c.source, c.title]).filter(Boolean) }); pos += b.text.length; } finalAudit = auditClaims({ text: replyText, claims, searched: turn.searches.length > 0 }); }
+      if (audits.length && !audits.at(-1).after) audits.push({ unsourced: finalAudit.unsourced.length, absences: finalAudit.absences.length, sentences: finalAudit.unsourced.concat(finalAudit.absences).slice(0, 12), after: true });
+      else if (!audits.length) audits.push({ unsourced: finalAudit.unsourced.length, absences: finalAudit.absences.length, sentences: finalAudit.unsourced.concat(finalAudit.absences).slice(0, 12), final: true });
       // what became of each move: checked, found nothing, failed, or not made — never "checked" on a failure
       for (const f of followUps) {
         if (f.kind === "audit") { const last = audits.at(-1); f.outcome = last?.after ? (last.unsourced + last.absences === 0 ? "checked" : "partly") : last && last.unsourced + last.absences === 0 ? "checked" : "partly"; continue; }
@@ -452,6 +457,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         answerBlocks: named,
         // the stored reply ends with what streamed; it is replaced by the named reply without the narration
         replaceTail: { from: streamedTail, to: replyText },
+        unsourcedSpans: (finalAudit?.spans ?? []).map(({ start, end, kind }) => ({ start, end, kind })),   // offsets into replyText
         followUps: followUps.map(({ callsAt, searchesAt, ...f }) => f),
         audits,
         nameCorrections,

@@ -126,6 +126,11 @@ const api = http.createServer(async (req, res) => {
     if (round === 1) return sse(res, [start(), ...text(0, "SafeAirspace lists nothing for it.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — x", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), ...text(1, " Norway administers Peter I Island under the Antarctic Treaty arrangements."), end("end_turn")]);
     return sse(res, [start(), ...text(0, "SafeAirspace lists nothing for it.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — x", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), end("end_turn")]);
   }
+  if (script === "still-uncited") {
+    if (round === 0) return sse(res, [start(), ...toolUse(0, "toolu_s_t", "tavily_search", { query: "Westarctica" }), end("tool_use")]);
+    // the draft and the redraft both keep the from-memory sentence: the answer read must carry the mark on it
+    return sse(res, [start(), ...text(0, "SafeAirspace lists nothing for it.", [{ type: "search_result_location", source: "https://safeairspace.net/sudan/", title: "safeairspace.net — x", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]), ...text(1, " Norway administers Peter I Island under the Antarctic Treaty arrangements."), end("end_turn")]);
+  }
   if (script === "absence") {
     if (round === 0) return sse(res, [start(), ...text(0, "There are no restrictions for the Marseille FIR today."), end("end_turn")]);
     return sse(res, [start(), ...text(0, "No limitations are recorded in Clearway for the Marseille FIR. I did not check the NOTAMs or the AIP."), end("end_turn")]);
@@ -262,6 +267,10 @@ try {
   ok(!un.done?.partial && un.done?.thinking?.text?.includes("Norway"), "the defective draft is not shown as an answer (it is in the thinking, where it can be read)");
   const unAudit = (await (await fetch(`${SB}/rest/v1/agent_audit_log?kind=eq.chat.response&conversation_id=eq.${un.done?.conversationId}&select=detail&limit=1`, { headers: H })).json())?.[0]?.detail?.claimAudit;
   ok(unAudit?.[0]?.unsourced === 1 && unAudit?.[1]?.after === true && unAudit[1].unsourced === 0, "the audit row has the claim audit, before and after the redraft", JSON.stringify(unAudit?.map((a) => `${a.after ? "after" : "draft"} ${a.unsourced}/${a.absences}`)));
+  script = "still-uncited"; seen.length = 0;
+  const su = await chat(5191, "Rig check: permits for the micronation, again?");
+  const suMark = (su.done?.claims ?? []).find((c) => c.mark === "no source given");
+  ok(suMark && (su.done?.content ?? "").slice(suMark.start, suMark.end).startsWith("Norway administers"), "a sentence still unsourced after the redraft is marked 'no source given' beside it, so it cannot pass unmarked", suMark ? (su.done.content ?? "").slice(suMark.start, suMark.end).slice(0, 50) : JSON.stringify(su.done?.claims));
   script = "absence"; seen.length = 0;
   const ab = await chat(5191, "Rig check: anything for Marseille?");
   ok(/an absence about the world/.test(JSON.stringify(seen.filter((b) => b.stream)[1]?.messages?.at(-1) ?? "")) && /^No limitations are recorded in Clearway/.test(ab.done?.content ?? ""), "case seven: 'no restrictions' from nothing is sent back; the reply says what was recorded where, and what was not checked", (ab.done?.content ?? "").slice(0, 80));

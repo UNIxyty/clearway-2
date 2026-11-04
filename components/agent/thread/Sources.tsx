@@ -79,11 +79,11 @@ export function ClaimedProse({ text, spans, sources, hot, setHot, panel = false 
   const ordered = [...spans].sort((a, b) => a.start - b.start);
   ordered.forEach((span, i) => {
     if (span.start > cursor) parts.push(<span key={`t${i}`}>{text.slice(cursor, span.start)}</span>);
-    const src = byN.get(span.n);
+    const src = span.n != null ? byN.get(span.n) : undefined;
     const tier = src ? tierOf(src.tier) : null;
-    const highlight = hot === span.n;
+    const highlight = span.n != null && hot === span.n;
     parts.push(
-      <span key={`c${i}`} onMouseEnter={() => setHot(span.n)} onMouseLeave={() => setHot(null)}
+      <span key={`c${i}`} onMouseEnter={() => setHot(span.n ?? null)} onMouseLeave={() => setHot(null)}
         style={{ borderBottom: `2px solid ${tier?.underline ?? cw.border}`, background: highlight ? (tier?.claimBg ?? tier?.bg ?? cw.primaryWash) : (src?.tier === "web" ? TIER.web.claimBg : "transparent"), borderRadius: 2, transition: "background-color 120ms" }}>
         {text.slice(span.start, span.end)}
         <sup style={{ fontSize: panel ? 9.5 : 10, fontWeight: 700, color: tier?.fg ?? cw.textMuted, marginLeft: 1, lineHeight: 0 }}>{span.n}</sup>

@@ -41,7 +41,7 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
     if (token.startsWith(CITE_OPEN)) {
       const [nums, ...markParts] = token.slice(1, -1).split("|");
       const ns = nums.split(",").map(Number).filter((n) => Number.isFinite(n) && n > 0);
-      if (renderCite && ns.length) out.push(<span key={key}>{renderCite(ns, markParts.join("|") || null, key)}</span>);
+      if (renderCite && (ns.length || markParts.length)) out.push(<span key={key}>{renderCite(ns, markParts.join("|") || null, key)}</span>);
     } else if (token.startsWith("`")) {
       out.push(
         <code key={key} style={{ fontFamily: FONT.mono, fontSize: "0.92em", background: cw.bgHover, borderRadius: 4, padding: "1px 4px" }}>
@@ -115,11 +115,11 @@ const splitRow = (line: string) =>
   line.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
 
 /** Puts each claim's citation after it, in the text the renderer reads (spans index the stored reply). */
-export function withCitations(text: string, claims: { start: number; end: number; n: number; ns?: number[]; mark?: string }[]): string {
+export function withCitations(text: string, claims: { start: number; end: number; n: number | null; ns?: number[]; mark?: string }[]): string {
   let out = text;
   for (const c of [...claims].sort((a, b) => b.end - a.end)) {
     if (c.end < 0 || c.end > out.length) continue;
-    const ns = (c.ns?.length ? c.ns : [c.n]).join(",");
+    const ns = (c.ns?.length ? c.ns : c.n != null ? [c.n] : []).join(",");
     out = `${out.slice(0, c.end)}${CITE_OPEN}${ns}${c.mark ? `|${c.mark.replace(/[\u27E6\u27E7|]/g, "")}` : ""}${CITE_CLOSE}${out.slice(c.end)}`;
   }
   return out;

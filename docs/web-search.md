@@ -83,3 +83,32 @@ rule, so the mark and the filter always agree.
 `rig/web-citations-ui.mjs` needs a console build (`rig/build-portal.sh`), so it is not in `run-all-suites.sh`. It
 checks desk and phone widths, light and dark: each claim's number, the mark on the one unapproved claim, the markdown
 intact, the sources' classes, and Settings › Web search (18 checks, passing 3 Nov).
+
+## The claim audit (`agent/lib/claim-audit.mjs`), tightened on 4 Nov
+
+**What does not count as a claim.** A comment on a source is the agent showing its judgement, and it is not penalised.
+That covers "that looks like an old article", "the two pages disagree", "I did not use it", "marked Premium, so I
+could not read it" and "neither concerns flights from Turkey". Also not counted:
+- a pointer ("for the exact wording, use the EASA page");
+- what the answer turns on;
+- a label line;
+- an opening summary when cited detail follows it;
+- a detail nested under a named NOTAM or record;
+- a sentence that refers back to the source cited just before it ("It also lists…");
+- a sentence that names the very source cited next on its line.
+
+**What counts:**
+- a claim with no citation;
+- a source described without being cited ("SafeAirspace reports attacks…");
+- anything from memory (the Westarctica paragraph);
+- reasoning not labelled as reasoning;
+- an absence stated about the world from our own data.
+
+**The target is zero**, so a non-zero count is a real miss. A miss that survives the one redraft is marked in the console
+beside the sentence: "no source given".
+
+**Baseline over the 21 answers read on 3 Nov: 19 real misses (18 unsourced, 1 absence).** Over the four reruns of
+4 Nov: 0.
+
+**A correction.** The "Connexion France published a strike calendar" sentence was cited one sentence late, not
+unsourced: the next sentence carries [6], the same Connexion page.

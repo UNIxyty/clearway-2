@@ -43,7 +43,7 @@ export type SourceRef = {
 
 /** A claim in the prose that a source supports (§4.7 A). Only present when the model returned claim boundaries. */
 export type FollowUpOutcome = "checked" | "empty" | "failed" | "not_made" | "partly";
-export type ClaimSpan = { start: number; end: number; n: number; ns?: number[]; mark?: string };
+export type ClaimSpan = { start: number; end: number; n: number | null; ns?: number[]; mark?: string };
 
 export type VerbatimRecord = {
   id: string;

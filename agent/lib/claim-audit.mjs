@@ -19,6 +19,8 @@ const NAMED_STORE = new RegExp(`${OURS.source}|\\b(recorded|configured|held|stor
 // what a sentence says about a source or about what could not be found, rather than about the world
 const NOT_FOUND = /\bno (current )?(information|data|record|statement|source)s? (was |were )?found\b|\b(not|never) (found|established|confirmed|checked|cached)\b|\bunknown\b/i;
 const EVALUATION = /\b(undated|is old|may no longer|suggests?|my (reading|guess|inference|view|reasoning)|not a finding|treat (it|this|that) as|unreliable|weak|the sources disagree|conflicts? with|I read (that|this|it) as)\b/i;
+// comment on the sources just listed ("That is marketing, not feedback.", "None of them mentions handling.")
+const SOURCE_COMMENT = /^(That|This|These|Those) (is|are|was|were)\b|^(The|This|That) (page|listing|result|source|site|entry|article)s?\b|^(None|Neither|Every one|Each|All|Most) of (them|these|those)\b|^Nothing is recorded in any of them\b/i;
 const OWN_FINDING = /^(I|We) (found|saw|could|did|have|searched|checked)|\b(no|none of the) sources? I found\b|\bI( also)? (found|searched|checked)\b|\b(can't|cannot) say\b|\bfrom an official source\b/i;
 
 /** Sentences of a reply with their offsets and the section heading above them. */
@@ -76,7 +78,7 @@ export function auditClaims({ text, claims = [], searched = false }) {
     // case seven: "no restrictions" from our own data. Naming the store, or saying what a search did not find, is honest;
     // a bare absence is not — and with no search at all, even "I found no restrictions" rests on one store.
     if (ABSENCE.test(plain) && !NAMED_STORE.test(plain) && !NOT_FOUND.test(plain) && !(searched && OWN_FINDING.test(plain))) { absences.push(plain.slice(0, 220)); continue; }
-    if (!searched || exempt || META.test(plain) || ADVICE.test(plain) || OURS.test(plain) || NOT_FOUND.test(plain) || EVALUATION.test(plain) || OWN_FINDING.test(plain)) continue;
+    if (!searched || exempt || META.test(plain) || ADVICE.test(plain) || OURS.test(plain) || NOT_FOUND.test(plain) || EVALUATION.test(plain) || OWN_FINDING.test(plain) || SOURCE_COMMENT.test(plain)) continue;
     unsourced.push(plain.slice(0, 220));
   }
   return { unsourced, absences, sentences: sents.length };

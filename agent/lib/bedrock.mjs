@@ -416,7 +416,12 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         // the first reply is shown as the partial answer; a later draft, or a draft sent back for its sources, is not shown
         if (!action.hidden && !partialShown) { partialShown = true; yield { type: "partial", text: replyText, streamed: streamedTail, checks: [action.label], tools: action.tools, ms: Date.now() - roundStarted }; }
         else { const t = { text: streamedTail, ms: Date.now() - roundStarted, redraft: action.kind }; thoughts.push(t); yield { type: "thought", ...t }; if (!action.hidden) yield { type: "partial", append: true, checks: [action.label] }; }
-        conversation.push({ role: "assistant", content: assistantBlocks });
+        // A search the model asked for in this reply and never got an answer to cannot stand before a plain message: the
+        // API refuses it ("web_search tool use … without a corresponding web_search_tool_result", question 7, 2026-11-04).
+        // It was never run, so it is left out of what is sent back.
+        const answeredIds = new Set(assistantBlocks.filter((b) => b.raw?.type === "web_search_tool_result").map((b) => b.raw.tool_use_id));
+        const sendBack = assistantBlocks.filter((b) => !(b.raw?.type === "server_tool_use" && !answeredIds.has(b.raw.id)));
+        conversation.push({ role: "assistant", content: sendBack.length ? sendBack : [{ text: replyText || "(no text)" }] });
         conversation.push({ role: "user", content: [{ text: action.prompt }] });
         carried = [];
         continue;

@@ -74,6 +74,10 @@ const api = http.createServer(async (req, res) => {
   seen.push(body);
   // the API's own rule (measured 2026-11-03), so the stand-in cannot accept what production refuses
   const mixed = (body.messages ?? []).some((m) => Array.isArray(m.content) && m.content.some((c) => c.type === "tool_result" && Array.isArray(c.content) && c.content.some((x) => x.type === "search_result") && c.content.some((x) => x.type !== "search_result")));
+  // and the API refuses a search the model asked for and never got an answer to, unless tool results follow it
+  const msgs = body.messages ?? [];
+  const orphan = msgs.some((m, i) => m.role === "assistant" && Array.isArray(m.content) && m.content.some((c) => c.type === "server_tool_use" && !m.content.some((r) => r.type === "web_search_tool_result" && r.tool_use_id === c.id)) && !(Array.isArray(msgs[i + 1]?.content) && msgs[i + 1].content.some((x) => x.type === "tool_result")));
+  if (orphan) { res.writeHead(400, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "web_search tool use was found without a corresponding web_search_tool_result block" } })); }
   if (mixed) { res.writeHead(400, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "tool_result: if any blocks in a tool result are of type `search_result`, all blocks must be of that type" } })); }
   // the question check (lib/question-check.mjs): a mismatch in the rig's question gets the question back
   if (!body.stream && /You check a flight dispatcher's question/.test(JSON.stringify(body.system ?? ""))) {
@@ -124,6 +128,12 @@ const api = http.createServer(async (req, res) => {
   if (script === "absence") {
     if (round === 0) return sse(res, [start(), ...text(0, "There are no restrictions for the Marseille FIR today."), end("end_turn")]);
     return sse(res, [start(), ...text(0, "No limitations are recorded in Clearway for the Marseille FIR. I did not check the NOTAMs or the AIP."), end("end_turn")]);
+  }
+  if (script === "orphan") {
+    // a reply that ends with a search it never got an answer to, and advice the turn follows up
+    if (round === 0) return sse(res, [start(), ...text(0, "Restricted. Check the current HSSS NOTAMs."), { type: "content_block_start", index: 1, content_block: { type: "server_tool_use", id: "srvtoolu_orphan", name: "web_search", input: {} } }, { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: '{"query":"x"}' } }, end("end_turn")]);
+    if (round === 1) return sse(res, [start(), ...toolUse(0, "toolu_o_n", "get_notams", { icao: "HSSS" }), end("tool_use")]);
+    return sse(res, [start(), ...text(0, "FULL: restricted."), end("end_turn")]);
   }
   if (script === "names") return sse(res, [start(), ...text(0, "Djanet (DAAT) is a desert aerodrome and {{DAAT}} has one runway."), end("end_turn")]);
   if (script === "follow-up") {
@@ -254,6 +264,9 @@ try {
   script = "absence"; seen.length = 0;
   const ab = await chat(5191, "Rig check: anything for Marseille?");
   ok(/an absence about the world/.test(JSON.stringify(seen.filter((b) => b.stream)[1]?.messages?.at(-1) ?? "")) && /^No limitations are recorded in Clearway/.test(ab.done?.content ?? ""), "case seven: 'no restrictions' from nothing is sent back; the reply says what was recorded where, and what was not checked", (ab.done?.content ?? "").slice(0, 80));
+  script = "orphan"; seen.length = 0;
+  const or = await chat(5191, "Rig check: tell me about Khartoum.");
+  ok(or.done && /^FULL:/.test(or.done.content ?? "") && !JSON.stringify(seen.filter((b) => b.stream)[1]?.messages ?? []).includes("srvtoolu_orphan"), "a search the model never got an answer to is left out of what is sent back after a follow-up (question 7's refusal)", or.error ? JSON.stringify(or.error) : (or.done?.content ?? "").slice(0, 40));
   script = "names"; seen.length = 0;
   const nm = await chat(5191, "Rig check: tell me about DAAT.");
   ok(nm.done?.content === "Tamanrasset (DAAT) is a desert aerodrome and Tamanrasset (DAAT) has one runway.", "the checked name is the only name a code carries: 'Djanet (DAAT)' and {{DAAT}} both become 'Tamanrasset (DAAT)'", nm.done?.content);

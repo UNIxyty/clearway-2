@@ -81,7 +81,7 @@ const handlers = addresses.filter((a) => a.kind === "api"), pages = addresses.fi
 ok(handlers.length >= 135 && pages.length >= 100, `the portal: ${handlers.length} handlers in ${new Set(handlers.map((h) => h.file)).size} route files (${handlers.filter((h) => h.ungated).length} of them public by design, on UNGATED), and ${pages.length} pages`);
 // the walk posts to every public form too; its own sender address keeps it off the rate limits other suites rely on
 // (8 asks an hour per address on /api/client-requests: the onboarding suite got 429 after a few walks, 2026-11-04)
-const WALK_FROM = { "x-forwarded-for": "10.255.0.1" };
+const WALK_FROM = { "x-rig-visitor": "10.255.0.1" };   // the rig proxy makes it cf-connecting-ip, as Cloudflare would
 const call = (base, who, a) => fetch(`${base}${a.route}`, { method: a.method, redirect: "manual", headers: { ...(who ? { cookie: ck(who) } : {}), "content-type": "application/json", ...WALK_FROM }, body: ["GET", "HEAD"].includes(a.method) ? undefined : "{}", signal: AbortSignal.timeout(20000) })
   // the status is the answer; a stream that answered stays open forever, so the body is dropped, never read
   .then(async (r) => { await r.body?.cancel().catch(() => null); if (/event-stream/.test(r.headers.get("content-type") || "")) streams.push(`${a.method} ${a.route} ${r.status} (${who ? who.user?.app_metadata?.role ?? "no role" : "signed out"})`); return { st: r.status, to: (r.headers.get("location") || "").replace(/^https?:\/\/[^/]+/, "").replace(/\?.*$/, "") }; }, () => ({ st: 0, to: "" }));
@@ -209,6 +209,81 @@ const guide = await via(C, "GET", "/digital-wall/guide/");
 ok(guide === 404, "wall: the staff guide refuses a client", guide);
 const staffWall = await via(S, "GET", "/digital-wall/api/operators");
 ok(staffWall === 200, "wall: staff still reach their endpoints", staffWall);
+
+// ── 3. every address we put in an email, fetched with no session at all (2026-11-05) ──
+// An email link that needs a session is a broken link. A link for someone outside (a token link, the sign-in page) must
+// reach its page signed out: never the middleware's sign-in redirect. A link to a staff page must go through sign-in
+// and keep the deep link (/login?next=<that page>). The list is checked against the code that builds the emails: a link
+// built there and missing here fails. (rig/client-onboarding-check.mjs opens the real ones, with real tokens.)
+{
+  const EMAIL_LINKS = [
+    { at: "/welcome?token=rig-gate-invalid", for: "outside", built: "lib/clients/onboarding.ts › the set-password link" },
+    { at: "/auth/reset?token_hash=rig-gate-invalid&type=recovery", for: "outside", built: "lib/mail/auth-links.ts › password reset" },
+    { at: "/auth/callback?signup_token=rig-gate-invalid&continue=%2F&token_hash=rig-gate-invalid&type=invite", for: "outside", built: "sign-up confirmation" },
+    { at: "/auth/callback?type=email_change&email=rig-gate%40rig.invalid&otp=000000&next=%2Faccount%2Fprofile", for: "outside", built: "lib/mail/auth-links.ts › email change" },
+    { at: "/login", for: "outside", built: "lib/clients/mail.ts › approved, refused, access ended" },
+    { at: "/maintenance", for: "outside", built: "(no email; the page a signed-out visitor is sent to during maintenance)" },
+    { at: "/api/maintenance", for: "outside", built: "(what /maintenance reads, signed out)" },
+    { at: "/admin/clients", for: "staff", built: "lib/clients/onboarding.ts › the ops email" },
+    { at: "/digital-wall/console/notam-check", for: "staff", built: "digital-wall/lib/notam-check.mjs › the NOTAM digest" },
+    { at: "/digital-wall/console/reports?report=rig-gate-invalid", for: "staff", built: "digital-wall/server.mjs › a wall report" },
+  ];
+  // the paths the email code builds, read from the code: `${appUrl…}/x`, `${base}/x`, and the wall's links
+  const built = new Set();
+  for (const file of ["lib/clients/onboarding.ts", "lib/clients/mail.ts", "lib/mail/auth-links.ts", "lib/mail/send.ts", "app/api/auth/email/request-confirmation/route.ts"]) {
+    for (const m of readFileSync(file, "utf8").matchAll(/\$\{(?:appUrl(?:\(\))?|requestUrl\.origin|base)\}(\/[a-z][\w\-/]*)/g)) built.add(m[1]);
+  }
+  for (const m of readFileSync("digital-wall/lib/notam-check.mjs", "utf8").matchAll(/const link = `\$\{base\}(\/[\w\-/]+)/g)) built.add(`/digital-wall${m[1]}`);
+  for (const m of readFileSync("digital-wall/server.mjs", "utf8").matchAll(/link: `\$\{base\}(\/[\w\-/]+)/g)) built.add(`/digital-wall${m[1]}`);
+  const listed = EMAIL_LINKS.map((l) => l.at.split("?")[0]);
+  const missing = [...built].filter((b) => !listed.includes(b));
+  ok(built.size >= 6 && missing.length === 0, `every link the email code builds is on the list (${built.size} found in the code)`, missing.length ? `not on the list: ${missing.join(" | ")}` : [...built].join(" "));
+  const wrong = [];
+  for (const l of EMAIL_LINKS) {
+    const r = await fetch(`${PROXY}${l.at}`, { redirect: "manual", headers: WALK_FROM, signal: AbortSignal.timeout(20000) }).catch(() => null);
+    await r?.body?.cancel().catch(() => null);
+    const to = r?.headers.get("location") || "";
+    const toUrl = to ? new URL(to, PROXY) : null;
+    // the middleware's sign-in wall: /login?next=<this very link>, no error. A handler's own answer to an invalid token
+    // (/login?error=…) is the link working: with a real token it goes on (rig/client-onboarding-check.mjs proves that)
+    const toSignIn = toUrl?.pathname === "/login" && toUrl.searchParams.get("next") === l.at && !toUrl.searchParams.has("error");
+    if (l.for === "outside" ? (!r || r.status >= 500 || toSignIn) : !(r && r.status >= 300 && r.status < 400 && toSignIn && toUrl.searchParams.get("next") === l.at)) wrong.push(`${l.at} → ${r?.status ?? "no answer"}${to ? ` ${toUrl.pathname}${toUrl.search}` : ""}`);
+  }
+  ok(wrong.length === 0, `every address we email, with no session: ${EMAIL_LINKS.filter((l) => l.for === "outside").length} for people outside reach their page, ${EMAIL_LINKS.filter((l) => l.for === "staff").length} staff links go through sign-in and keep the deep link`, wrong.join(" | "));
+}
+
+// ── 4. the signed-out limiters key on what a caller cannot write (2026-11-05) ──
+// They keyed on the FIRST x-forwarded-for value, which a visitor writes and Cloudflare only appends to: a fresh bucket
+// per request. Now cf-connecting-ip only (set by Cloudflare; here by the rig proxy, the same way), else refused. Ten asks from one visitor, each with a different invented x-forwarded-for: the ninth
+// is refused. Malformed bodies, so nothing is written and nobody is emailed (the limit counts before the body is read).
+{
+  const visitor = `10.255.${Math.floor(Math.random() * 200) + 1}.${Math.floor(Math.random() * 200) + 1}`;
+  const got = [];
+  for (let i = 1; i <= 10; i += 1) {
+    const r = await fetch(`${PROXY}/api/client-requests`, { method: "POST", headers: { "content-type": "application/json", "x-rig-visitor": visitor, "x-forwarded-for": `203.0.113.${i}` }, body: "{}", signal: AbortSignal.timeout(20000) });
+    await r.body?.cancel().catch(() => null); got.push(r.status);
+  }
+  ok(got.slice(0, 8).every((s) => s !== 429) && got[8] === 429 && got[9] === 429, "ask for access: ten requests with ten invented x-forwarded-for values from one visitor — the ninth is refused", got.join(" "));
+  const forgot = [];
+  for (let i = 1; i <= 11; i += 1) {
+    const r = await fetch(`${PROXY}/api/auth/password/forgot`, { method: "POST", headers: { "content-type": "application/json", "x-rig-visitor": visitor, "x-forwarded-for": `203.0.113.${i}` }, body: "{}", signal: AbortSignal.timeout(20000) });
+    await r.body?.cancel().catch(() => null); forgot.push(r.status);
+  }
+  ok(forgot.slice(0, 10).every((s) => s !== 429) && forgot[10] === 429, "forgot password: the eleventh from one visitor is refused, whatever x-forwarded-for says", forgot.join(" "));
+  const signup = [];
+  for (let i = 1; i <= 11; i += 1) {
+    const r = await fetch(`${PROXY}/api/auth/email/request-confirmation`, { method: "POST", headers: { "content-type": "application/json", "x-rig-visitor": visitor, "x-forwarded-for": `203.0.113.${i}` }, body: "{}", signal: AbortSignal.timeout(20000) });
+    await r.body?.cancel().catch(() => null); signup.push(r.status);
+  }
+  ok(signup.slice(0, 10).every((s) => s !== 429) && signup[10] === 429, "sign-up confirmation (no limit until today): the eleventh from one visitor is refused", signup.join(" "));
+  // no address of ours on it at all (the portal reached past every proxy): refused, not let through
+  const bare = [];
+  for (const xff of [null, "198.51.100.7", "198.51.100.8, 198.51.100.9"]) {
+    const r = await fetch(`${BARE}/api/client-requests`, { method: "POST", headers: { "content-type": "application/json", ...(xff ? { "x-forwarded-for": xff } : {}) }, body: "{}", signal: AbortSignal.timeout(20000) });
+    await r.body?.cancel().catch(() => null); bare.push(r.status);
+  }
+  ok(bare.every((s) => s === 403), "a request without Cloudflare's address is refused, whatever x-forwarded-for it writes (none, one, two)", bare.join(" "));
+}
 
 // cleanup: the invented client row is append-only-logged only if a decision was written; none was
 await svc(`/rest/v1/clients?id=eq.${row?.[0]?.id}`, { method: "DELETE" });

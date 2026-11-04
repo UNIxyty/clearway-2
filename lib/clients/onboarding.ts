@@ -57,6 +57,9 @@ export async function setNotifyList(service: SupabaseClient, emails: string[], b
 
 // ── 1 + 2. the request, and ops told ────────────────────────────────────────────────────────────────────────────────
 export type RequestInput = { name: string; company: string; email: string; kind: string; note: string };
+/** The most access-request emails the ops notify list gets in any 24 hours (a human inbox; a normal week has a few). */
+export const OPS_EMAILS_PER_DAY = 10;
+
 export async function createRequest(service: SupabaseClient, input: RequestInput, appUrl: string): Promise<{ problems: string[] } | { ok: true; opsNotified: boolean; opsNotice: string | null }> {
   const name = String(input.name ?? "").trim().slice(0, 120), company = String(input.company ?? "").trim().slice(0, 120);
   const email = String(input.email ?? "").trim().toLowerCase().slice(0, 200), note = String(input.note ?? "").trim().slice(0, 1000);
@@ -80,10 +83,19 @@ export async function createRequest(service: SupabaseClient, input: RequestInput
   await service.from("client_decisions").insert({ client_id: clientId, kind: "requested", actor_id: null, actor_email: email, detail: { company, kind } });
   const to = await notifyList(service);
   if (!to.length) { console.error("[clients] a request arrived and nobody is on the notify list (Admin › Clients › Who is told)"); return { ok: true, opsNotified: false, opsNotice: "no-list" }; }
+  // A ceiling on the ops emails themselves (2026-11-05), apart from the limiter on who asks: the notify list is a human
+  // inbox. At most OPS_EMAILS_PER_DAY in any 24 hours; past it the request is still recorded and shown in Admin › Clients,
+  // only not emailed, and the last email says so. If the count cannot be read, no email: a gate fails closed.
+  const { count: sentToday, error: countError } = await service.from("intake_messages").select("id", { count: "exact", head: true })
+    .eq("direction", "outbound").eq("sent_kind", "client-request-ops").gte("received_at", new Date(Date.now() - 24 * 3600e3).toISOString());
+  if (countError || sentToday === null) { console.error("[clients] a request arrived; the ops emails sent today could not be counted, so none was sent (it is in Admin › Clients)"); return { ok: true, opsNotified: false, opsNotice: "not-sent" }; }
+  if (sentToday >= OPS_EMAILS_PER_DAY) { console.error(`[clients] a request arrived; ${sentToday} ops emails in 24 hours is the ceiling, so it was recorded without one (Admin › Clients)`); return { ok: true, opsNotified: false, opsNotice: "ceiling" }; }
+  const lastToday = sentToday === OPS_EMAILS_PER_DAY - 1;
   const product = productName();
   const mail = layoutEmail({
     title: `${company} is asking for access`,
-    paragraphs: [`${name} (${email}) is waiting for approval, for ${company}, as ${kind === "broker" ? "a broker" : "an operator"}.`, ...(note ? [`They wrote: “${note}”`] : []), `Nothing has been created yet: no account exists until you approve them and they set a password. Review the request, set what they can see, and approve or refuse it in Admin › Clients.`],
+    paragraphs: [`${name} (${email}) is waiting for approval, for ${company}, as ${kind === "broker" ? "a broker" : "an operator"}.`, ...(note ? [`They wrote: “${note}”`] : []), `Nothing has been created yet: no account exists until you approve them and they set a password. Review the request, set what they can see, and approve or refuse it in Admin › Clients.`,
+      ...(lastToday ? [`This is the ${OPS_EMAILS_PER_DAY}th access request email in 24 hours, the most this list is sent in a day. Any more requests in the next 24 hours are recorded in Admin › Clients without an email.`] : [])],
     button: appUrl ? { label: "Open Admin › Clients", url: `${appUrl}/admin/clients` } : undefined,
     footnote: `You get this because you are on the list of people ${product} tells about new client requests (Admin › Clients).`,
   });

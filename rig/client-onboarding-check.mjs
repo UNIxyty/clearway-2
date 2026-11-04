@@ -25,7 +25,10 @@ const PW = JSON.parse(readFileSync("rig/dark-audit.mjs", "utf8").match(/token\?g
 const session = async (email, password = PW) => (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email, password }) })).json();
 const cookie = (s) => ({ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(s)).toString("base64")}`, url: B });
 const cookieHeader = (s) => { const c = cookie(s); return `${c.name}=${c.value}`; };
-const api = (path, s, init = {}) => fetch(`${B}${path}`, { ...init, headers: { "content-type": "application/json", ...(s ? { cookie: cookieHeader(s) } : {}), ...(init.headers ?? {}) } });
+// each run is its own visitor to the rig proxy (which sets cf-connecting-ip from it, as Cloudflare does): the signed-out
+// limiters count per visitor, and a run must not spend the next run's allowance (2026-11-05)
+const VISITOR = `10.254.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+const api = (path, s, init = {}) => fetch(`${B}${path}`, { ...init, headers: { "content-type": "application/json", "x-rig-visitor": VISITOR, ...(s ? { cookie: cookieHeader(s) } : {}), ...(init.headers ?? {}) } });
 const sentList = async () => (await fetch(`${MOCK}/_rig/sent`)).json();
 const sentBody = async (id) => (await fetch(`${MOCK}/_rig/sent/${id}`)).json();
 /** the sends since `n`, to `to`, whose subject matches; waits a little for the server to finish */
@@ -45,7 +48,7 @@ const ME = { name: "Rig Onboard Person", company: "Rig Onboard Charter (invented
 const LATE = { name: "Rig Late Person", company: "Rig Late Aviation (invented)", email: "rig-onboard-late@rig.invalid" };
 const OPS = ["rig-ops-one@rig.invalid", "rig-ops-two@rig.invalid"];
 async function clean() {
-  for (const e of [ME.email, LATE.email, "rig-onboard-refused@rig.invalid", "rig-signup@rig.invalid", "rig-mailchange@rig.invalid", "rig-mailchange-new@rig.invalid"]) {
+  for (const e of [ME.email, LATE.email, "rig-onboard-refused@rig.invalid", "rig-signup@rig.invalid", "rig-mailchange@rig.invalid", "rig-mailchange-new@rig.invalid", "rig-onboard-ceiling-1@rig.invalid", "rig-onboard-ceiling-2@rig.invalid"]) {
     // the decision log is append-only and keeps its client (on delete restrict). On the rig, for these invented addresses
     // only, the trigger is lifted for the delete (as rig/permissions-check.mjs does for permission_changes)
     const ids = (await db(`clients?select=id&email=eq.${encodeURIComponent(e)}`)).map((c) => c.id);
@@ -74,7 +77,7 @@ try {
   // ── 1. the client asks: name, company, email; no password, no account ──
   let n = (await sentList()).length;
   {
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, extraHTTPHeaders: { "x-rig-visitor": VISITOR } });
     const page = await ctx.newPage();
     await page.goto(`${B}/request-access`, { waitUntil: "load" });
     ok(await page.locator('input[type="password"]').count() === 0, "ask for access: no password field");
@@ -93,6 +96,17 @@ try {
   ok(/^Clearway </.test(String(opsMail?.from)), "ops: from the brand's sender name", opsMail?.from);
   const opsHtml = opsMail ? (await sentBody(opsMail.id)).html : "";
   ok(opsHtml.includes(ME.name) && opsHtml.includes(ME.company) && opsHtml.includes(ME.email) && /\/admin\/clients"/.test(opsHtml), "ops: says who, for which company, from which address, and links to Admin › Clients");
+
+  {
+    // an email link that needs a session is a broken link (2026-11-05): ops's link, opened in a fresh browser, is the
+    // sign-in page that then goes on to Admin › Clients, not a dead end
+    const opsLink = linkIn(opsHtml, /https?:\/\/[^"\s<]+\/admin\/clients/);
+    const ctx = await browser.newContext(); const page = await ctx.newPage();
+    const res = opsLink ? await page.goto(onRig(opsLink), { waitUntil: "load" }) : null;
+    const u = new URL(page.url());
+    ok(res?.ok() && u.pathname === "/login" && u.searchParams.get("next") === "/admin/clients", "ops's link, opened signed out: the sign-in page, going on to Admin › Clients", `${u.pathname}${u.search}`);
+    await ctx.close();
+  }
 
   // ── 2. ops approve with a scope; the link goes out ──
   const page0 = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -197,7 +211,36 @@ try {
     const ref = (await db(`clients?select=id&email=eq.rig-onboard-refused%40rig.invalid`))[0];
     r = await api(`/api/admin/clients/${ref?.id}/refuse`, admin, { method: "POST", body: JSON.stringify({ note: "" }) });
     j = await r.json();
-    ok(refusedReq.ok && r.ok && j.email?.ok === true && (await newSends(n, "rig-onboard-refused@rig.invalid", /About your request|access request/i)).length === 1, "refusing a request: they are told by email, and no account was ever made", `${r.status} ${j.error ?? ""}`);
+let refusal = [];
+        ok(refusedReq.ok && r.ok && j.email?.ok === true && (refusal = (await newSends(n, "rig-onboard-refused@rig.invalid", /About your request|access request/i))).length === 1, "refusing a request: they are told by email, and no account was ever made", `${r.status} ${j.error ?? ""}`);
+    // the refusal notice's link, opened in a fresh browser with no session: the sign-in page itself
+    const refusalLink = refusal[0] ? linkIn((await sentBody(refusal[0].id)).html, /https?:\/\/[^"\s<]+\/login/) : null;
+    const rctx = await browser.newContext(); const rpage = await rctx.newPage();
+    const rres = refusalLink ? await rpage.goto(onRig(refusalLink), { waitUntil: "load" }) : null;
+    ok(rres?.ok() && new URL(rpage.url()).pathname === "/login" && (await rpage.locator("input[type=email]").count()) === 1, "the refusal notice's link, opened signed out: the sign-in page", refusalLink ? new URL(rpage.url()).pathname : "no link in the email");
+    await rctx.close();
+  }
+
+  // ── 4b. a ceiling on the ops emails themselves (2026-11-05): the notify list is a human inbox. Seeded sends bring the
+  // day to one below the ceiling; the next request's email says it is the last; the one after is recorded, not emailed.
+  {
+    const CAP = Number((readFileSync("lib/clients/onboarding.ts", "utf8").match(/OPS_EMAILS_PER_DAY = (\d+)/) ?? [])[1]);
+    const today = Number(psql("select count(*) from intake_messages where direction='outbound' and sent_kind='client-request-ops' and received_at > now() - interval '24 hours';"));
+    const seed = Math.max(0, CAP - 1 - today);
+    if (seed) psql(`insert into intake_messages (provider, provider_message_id, direction, received_at, status, sent_kind, subject) select 'rig', 'rig-ops-ceiling-' || g, 'outbound', now() - interval '1 minute', 'sent', 'client-request-ops', 'rig seeded (ops ceiling check)' from generate_series(1, ${seed}) g;`);
+    const ask = (email) => api("/api/client-requests", null, { method: "POST", body: JSON.stringify({ name: "Rig Ceiling Person", company: "Rig Ceiling Air (invented)", email }) });
+    n = (await sentList()).length;
+    const r1 = await ask("rig-onboard-ceiling-1@rig.invalid");
+    const last = (await newSends(n, OPS[0], /Access request/))[0];
+    const lastHtml = last ? (await sentBody(last.id)).html : "";
+    ok(r1.ok && Boolean(last) && lastHtml.includes(`the most this list is sent in a day`), `ops ceiling: the ${CAP}th email in 24 hours goes, and says it is the last`, `${CAP} a day; ${today} today before the seed`);
+    n = (await sentList()).length;
+    const r2 = await ask("rig-onboard-ceiling-2@rig.invalid");
+    await new Promise((res) => setTimeout(res, 1500));
+    const after = (await sentList()).slice(n).filter((e) => /Access request/.test(e.subject));
+    const kept = (await db(`clients?select=status&email=eq.rig-onboard-ceiling-2%40rig.invalid`))[0];
+    ok(r2.ok && after.length === 0 && kept?.status === "requested", "ops ceiling: the next request is recorded for Admin › Clients, and nobody is emailed", `${after.length} emails · ${kept?.status}`);
+    psql("delete from intake_messages where provider = 'rig' and provider_message_id like 'rig-ops-ceiling-%';");
   }
 
   // ── 5. the emails Supabase used to send, now ours ──

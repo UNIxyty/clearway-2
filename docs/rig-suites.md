@@ -6,6 +6,16 @@ What the rig cannot test at all — no Cloudflare, mail, real Leon, sync service
 **Rule (2026-10-11):** no suite stays red. A suite passes, or its failure is written here as a known bug with a date and
 a reason. "Same failures as before" is not a result. Update this list whenever a suite is touched or run.
 
+**A check that consumes a shared allowance changes the next check's result (2026-11-04).** The gate walk posted to the
+public forms and used up the 8-an-hour ask-for-access limit, and the onboarding suite then failed with 429; give the walk
+its own sender and onboarding passed 53 of 53 on the same portal. A suite that spends a limit, a quota or a seeded row
+gets its own: each run is its own visitor to the rig proxy (`x-rig-visitor`, rig only).
+
+**The rig proxy plays Cloudflare (2026-11-05).** It sets `cf-connecting-ip` to the address that connected (or to
+`x-rig-visitor`) and appends it to `x-forwarded-for`; the portal's signed-out limiters key on it alone and refuse a
+request without it (lib/caller-address.mjs). After pulling this, restart the sign-in proxy (:3989) along with the portal: the
+new portal behind an old proxy answers every signed-out form 403.
+
 Run them all with `rig/run-all-suites.sh` (order and setup in the script; see `rig/README.md`). Counts are the
 number of checks passed in the last full run.
 
@@ -93,9 +103,9 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | client-scope-check | 60 | 2026-10-28 |
 | client-ui-check | 60 | 2026-10-28 |
 | clients-page-check | 41 (red on the pre-fix page: padding ×6, past the edge at 1250, focus; `CLIENTS_CHECK_SELFTEST=overlap` turns the overlap assertion red) | 2026-11-02 |
-| client-onboarding-check | 54 | 2026-11-02 |
+| client-onboarding-check | 57 | 2026-11-05 |
 | files-route-check | 9 (red on 1b3fbbf1: another person read a help draft through /files) | 2026-11-02 |
-| client-gate-check | 27 (red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client; red on fcf442fb: 93 pages rendered for an unknown role, and the docs search index answered one) | 2026-11-04 |
+| client-gate-check | 33 (red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client; red on fcf442fb: 93 pages rendered for an unknown role, and the docs search index answered one) | 2026-11-04 |
 | personal-data-paths-check | 16 (red on the code before: a person without the reveal permission got the scan, the list and the .eml; one row of four; no limit) | 2026-11-02 |
 | mail-image-check | 11 (red on the code before: "show images" fetched a loopback listener) | 2026-11-02 |
 | telegram-media-token | 9 (the old hourly token opened every file and named no one) | 2026-11-02 |

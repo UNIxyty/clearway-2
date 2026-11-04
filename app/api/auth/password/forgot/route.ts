@@ -3,6 +3,7 @@
 // so this page does not tell anyone which addresses exist; `sent: false` only when an email to a real account failed
 // (the signed-in profile pages use that to say so). One reset email per address a minute, a few per asker an hour.
 import { NextResponse } from "next/server";
+import { callerAddress, hourlyLimit, NO_ADDRESS } from "@/lib/caller-address.mjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { isValidEmail, normalizeEmail } from "@/lib/auth-email-flow-utils.mjs";
 import { failure, logFailure } from "@/lib/public-error";
@@ -12,22 +13,22 @@ import { resetWait, sendResetEmail } from "@/lib/mail/auth-links";
 
 export const dynamic = "force-dynamic";
 const GENERIC = "If this email exists, a reset link has been sent.";
-const asked = new Map<string, number[]>();
+const asked = hourlyLimit(10);   // per address of the asker (lib/caller-address.mjs: never a header the caller writes)
 
 export async function POST(request: Request) {
   const service = createSupabaseServiceRoleClient();
   if (!service) {
     return failure(500, `The reset email could not be sent. ${TRY_AGAIN_SIGNED_OUT}`, { tag: "AUTH-FORGOT", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
   }
+  // counted before the body is read: a malformed request spends the allowance too
+  const ip = callerAddress(request.headers);
+  if (!ip) return NextResponse.json({ error: NO_ADDRESS }, { status: 403 });
+  if (!asked.take(ip)) return NextResponse.json({ error: "Too many reset requests from here in the last hour. Try again later." }, { status: 429 });
   const body = (await request.json().catch(() => ({}))) as { email?: string };
   const email = normalizeEmail(body.email);
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
   }
-  const ip = (request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "local").split(",")[0].trim();
-  const now = Date.now(); const hits = (asked.get(ip) ?? []).filter((t) => now - t < 3600e3);
-  if (hits.length >= 10) return NextResponse.json({ error: "Too many reset requests from here in the last hour. Try again later." }, { status: 429 });
-  asked.set(ip, [...hits, now]);
   const wait = resetWait(email);
   if (wait > 0) return NextResponse.json({ error: `A reset email went to this address a moment ago. Check that inbox; you can ask again in ${wait} seconds.`, code: "too_soon" }, { status: 429 });
 

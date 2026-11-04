@@ -2,6 +2,7 @@
 // link (lib/mail/auth-links.ts) and we send it: the brand's sender, a row in Mailbox › Sent, a delivery status. Client
 // access requests no longer come here — they have no account until approved (/api/client-requests).
 import { NextResponse } from "next/server";
+import { callerAddress, hourlyLimit, NO_ADDRESS } from "@/lib/caller-address.mjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import {
   isValidEmail,
@@ -33,11 +34,21 @@ function getPublicOrigin(requestUrl: URL, headers: Headers): string {
   return requestUrl.origin;
 }
 
+const asked = hourlyLimit(10);
+const lastSentTo = new Map<string, number>();
+
 export async function POST(request: Request) {
   const service = createSupabaseServiceRoleClient();
   if (!service) {
     return failure(503, NOT_SENT, { tag: "AUTH-SIGNUP", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
   }
+
+  // Limits (2026-11-05): there were none, though the public list said "rate-limited by the address". Every POST sent an
+  // email to any address it named, with a name the caller wrote. Now: 10 an hour per caller (lib/caller-address.mjs,
+  // never a header the caller writes), and one email a minute to any one address, whoever asks.
+  const ip = callerAddress(request.headers);
+  if (!ip) return NextResponse.json({ error: NO_ADDRESS }, { status: 403 });
+  if (!asked.take(ip)) return NextResponse.json({ error: "Too many sign-up requests from here in the last hour. Try again later." }, { status: 429 });
 
   const requestUrl = new URL(request.url);
   const body = (await request.json().catch(() => ({}))) as {
@@ -59,6 +70,11 @@ export async function POST(request: Request) {
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
   }
+
+  const last = lastSentTo.get(email) ?? 0;
+  if (Date.now() - last < 60_000) return NextResponse.json({ error: "A confirmation email went to this address a moment ago. Check that inbox; you can ask again in a minute.", code: "too_soon" }, { status: 429 });
+  lastSentTo.set(email, Date.now());
+  if (lastSentTo.size > 10_000) for (const [k, t] of lastSentTo) if (Date.now() - t > 60_000) lastSentTo.delete(k);
 
   const token = randomToken();
   const tokenHash = sha256Hex(token);

@@ -46,6 +46,13 @@ const server = http.createServer((req, res) => {
     fs.appendFileSync(LOG, line + "\n");
     if (fs.existsSync(path.join(process.env.RIG_SCRATCH || here, "rig-401"))) { res.writeHead(401, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "unauthorized", message: "Sign in through the Clearway portal first." })); return; }
   }
+  // As Cloudflare does (2026-11-05): cf-connecting-ip is the address that connected, overwriting any the visitor sent,
+  // and x-forwarded-for gets that address appended. The portal's limiters key on it (lib/caller-address.mjs). RIG ONLY:
+  // x-rig-visitor plays a different visitor, so a check can keep its own allowance (the gate walk) or prove the limit.
+  const visitor = String(req.headers["x-rig-visitor"] || req.socket.remoteAddress || "").replace(/^::ffff:/, "");
+  delete req.headers["x-rig-visitor"];
+  req.headers["cf-connecting-ip"] = visitor;
+  req.headers["x-forwarded-for"] = req.headers["x-forwarded-for"] ? `${req.headers["x-forwarded-for"]}, ${visitor}` : visitor;
   const up = http.request({ ...target, path: p, method: req.method, headers: { ...req.headers, host: `${target.host}:${target.port}` } }, (r) => {
     // As in production (where the portal's redirects reach the browser as relative paths): a Location pointing back at
     // the upstream's own address becomes a path, so the browser stays on this proxy, with its cookies.

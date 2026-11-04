@@ -162,8 +162,10 @@ async function gate(request: NextRequest) {
   }
 
   // /maintenance must always render: it is both the maintenance-mode page and
-  // the fail-closed landing page. Allowing it here prevents a redirect loop.
-  if (pathname.startsWith("/maintenance")) {
+  // the fail-closed landing page. Allowing it here prevents a redirect loop. Its message and expected end come from
+  // /api/maintenance, which the page fetches signed out too: until 2026-11-05 that fetch was sent to sign-in, so a
+  // signed-out visitor saw the page without them (the route reads one public row and nothing else).
+  if (pathname.startsWith("/maintenance") || pathname === "/api/maintenance") {
     return NextResponse.next();
   }
 

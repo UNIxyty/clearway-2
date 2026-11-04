@@ -109,6 +109,32 @@ try {
   ok(found > 10, "the control: the same probe finds the staff menu in a staff member's scripts, so the clean result means something", `${found} definitions in ${staffScripts.size} scripts`);
   await browser.close();
 
+  // ── 6. the whole bundle, not only the menu (2026-11-04, rig/lib/bundle-sweep.mjs): source maps, our routes, internal
+  //    hosts, permission names, server setting names, operators, registrations, airport lists, hashes, local paths,
+  //    people, emails, privileged keys, comments — for a client and for a signed-out visitor. Only the anon key is allowed.
+  {
+    const { sweepAssets, downloadedAssets, permissionNamesFrom, ourRoutesFrom, readCatalogue } = await import("./lib/bundle-sweep.mjs");
+    const permissionNames = permissionNamesFrom(readCatalogue()), ourRoutes = ourRoutesFrom("app");
+    const publicHosts = [String(SB).replace(/\/+$/, "")];
+    const operators = (await (await svc("/rest/v1/leon_operators?select=opr_id,name")).json()).flatMap((o) => [o.opr_id, o.name]).filter(Boolean);
+    const fetchMap = async (u) => { try { return (await fetch(u)).status; } catch { return 0; } };
+    const common = { permissionNames, operators, fetchMap, ourRoutes, publicHosts };
+    const bad = (t) => Object.entries(t).filter(([k]) => k !== "jwtAnon").map(([k, n]) => `${k} ${n}`);
+    const cl = await sweepAssets(await downloadedAssets({ base: B, pages: ["/client"], cookie: cookieOf(s) }), { ...common, allowedRoutes: /^\/(client(\/|$)|api\/client\/me$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/ });
+    ok(bad(cl.total).length === 0, `a client's bundle (${cl.rows.length} assets): nothing but the public anon key`, bad(cl.total).join(", ") || `jwtAnon ${cl.total.jwtAnon ?? 0}`);
+    const so = await sweepAssets(await downloadedAssets({ base: B, pages: ["/login", "/request-access", "/welcome"] }), { ...common, allowedRoutes: /^\/(api\/(auth|client-requests|client-invite)\b)/ });
+    ok(bad(so.total).length === 0, `a signed-out visitor's bundle (${so.rows.length} assets): nothing but the public anon key`, bad(so.total).join(", ") || `jwtAnon ${so.total.jwtAnon ?? 0}`);
+    // controls: every detector fires on a planted asset, and a staff page swept as staff shows our routes
+    const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+    const planted = ["//# sourceMappingURL=x.js.map", 'fetch("/admin/users")', "http://agent-service:5175", '"clients.manage"', "SUPABASE_SERVICE_ROLE_KEY", " LY-ABC ", "0123456789abcdef0123456789abcdef01234567", "/Users/someone/x", "dev@clearway.aero", `eyJ${b64({ alg: "HS256" }).slice(3)}.${b64({ role: "service_role", iss: "rig-planted" })}.plantedsignatureplanted`, "/* a block comment left in the shipped code, long enough */"].join("\n");
+    const pc = (await sweepAssets(new Map([["http://x/planted.js", planted]]), { permissionNames: ["clients.manage"], ourRoutes: ["/admin/users"] })).total;
+    ok(["sourceMapRef", "staffRoutes", "internalHosts", "permissionNames", "serverEnvNames", "registrations", "hashes", "localPaths", "people", "jwtPrivileged", "comments"].every((k) => pc[k] >= 1), "control: every detector fires on a planted asset", JSON.stringify(pc));
+    const staffPw2 = JSON.parse(fs.readFileSync("rig/dark-audit.mjs", "utf8").match(/token\?grant_type=password[^\n]*?password: ("[^"]+")/)[1]);
+    const st2 = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: "rig-access-user@rig.invalid", password: staffPw2 }) })).json();
+    const sf = await sweepAssets(await downloadedAssets({ base: B, pages: ["/dashboard"], cookie: cookieOf(st2) }), common);
+    ok((sf.total.staffRoutes ?? 0) > 20, "control: the same sweep finds our routes in a staff member's bundle", `staffRoutes ${sf.total.staffRoutes ?? 0}`);
+  }
+
   // ── 4. with Airports and Documents on ──
   await svc(`/rest/v1/clients?id=eq.${rowId}`, { method: "PATCH", body: JSON.stringify({ switches: ["flight_board", "weather", "airport_search", "documents"] }) });
   await new Promise((r2) => setTimeout(r2, 11_000));   // the scope is cached ten seconds

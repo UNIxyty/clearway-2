@@ -6,7 +6,7 @@ import "@/shared/portal-tokens.css";
 import "@/shared/client-tokens.css";
 import "@/shared/mobile-tokens.css";
 import "./globals.css";
-import { Providers } from "@/components/Providers";
+import { ToastProvider } from "@/components/kit";
 import { FrameGate } from "@/components/portal/FrameGate";
 import { THEME_SCRIPT } from "@/components/portal/theme-script";
 
@@ -63,7 +63,7 @@ export default function RootLayout({
         {/* One persistent portal frame (sidebar, agent panel, viewer) around every staff page; only the content changes on
             navigation (portal foundations 3.1). Full-screen routes are left bare: components/portal/Shell.tsx. A client's
             pages never load it (components/portal/FrameGate.tsx). */}
-        <Providers><FrameGate>{children}</FrameGate></Providers>
+        <ToastProvider><FrameGate>{children}</FrameGate></ToastProvider>
       </body>
     </html>
   );

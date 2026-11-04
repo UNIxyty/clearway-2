@@ -37,9 +37,9 @@ export function setChoice(choice: ThemeChoice, { save = true }: { save?: boolean
   try { localStorage.setItem(THEME_KEY, choice); } catch { /* private mode: still applies for this page */ }
   apply(choice);
   window.dispatchEvent(new CustomEvent(EVENT, { detail: choice }));
-  if (save) {
-    void fetch("/api/user/preferences", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ theme: choice }) }).catch(() => {});
-  }
+  // the account save is its own module, loaded only when a choice is made (2026-11-04): a client's or a signed-out
+  // visitor's bundle carries no portal API name it cannot use (rig/lib/bundle-sweep.mjs)
+  if (save) void import("./theme-save").then((m) => m.saveThemeChoice(choice)).catch(() => {});
 }
 
 /** The account's saved choice wins over this device's (it is the one the person last made, anywhere). */

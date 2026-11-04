@@ -34,7 +34,6 @@ export default function ClientWall() {
   const [day, setDay] = useState<"today" | "tomorrow" | "week">("today");
   const [sel, setSel] = useState<string | null>(null);
   const [view, setView] = useState<"board" | "flight">("board");
-  const [tab, setTab] = useState<"flights" | "airports" | "documents">("flights");
   const [now, setNow] = useState(() => Date.now());
   const [check, setCheck] = useState<{ sign?: string; ranAt?: string } | null>(null);
   const [viewerName, setViewerName] = useState("");
@@ -69,25 +68,13 @@ export default function ClientWall() {
   }, [shown, tripScoped, todayKey, tomorrowKey]);
   const selected = useMemo(() => (recs ?? []).find((r) => r.key === sel) ?? shown[0] ?? null, [recs, sel, shown]);
 
-  const tabs = [{ k: "flights" as const, t: "Flights", icon: "plane" }, ...(on("airport_search") ? [{ k: "airports" as const, t: "Airports", icon: "search" }] : []), ...(on("documents") ? [{ k: "documents" as const, t: "Documents", icon: "file-text" }] : [])];
-  const utc = new Date(now).toISOString().slice(11, 16);
-  const initials = (me?.personName || me?.company || "").split(/\s+/).map((s) => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 
   if (err && !recs) return <main className="clw-hold"><h1>Your flights</h1><p>{err}</p><button type="button" className="cl-btn" onClick={() => void load()}>Try again</button></main>;
 
   return (
-    <div className={`clw ${tabs.length > 1 ? "clw-tabs" : ""}`} data-client-wall data-view={view}>
-      <header className="clw-head">
-        <span className="clw-brand">Clearway</span><span className="clw-sep" />
-        <span className="clw-name">{me?.company ?? ""}</span>
-        {tabs.length > 1 && <nav className="clw-topnav" aria-label="Areas">{tabs.map((t) => <button type="button" key={t.k} className={tab === t.k ? "on" : ""} onClick={() => setTab(t.k)}><MaskIcon name={t.icon} size={15} />{t.t}</button>)}</nav>}
-        <span className="clw-grow" />
-        {on("notam_check_status") && check?.sign === "CHECKED" && <span className="clw-chip" data-notam-checked><MaskIcon name="shield-check" size={14} />NOTAMs reviewed by Clearway{check.ranAt ? ` · ${hhmm(check.ranAt)} UTC` : ""}</span>}
-        <span className="clw-clock"><span className="clw-utc">{utc}<small>UTC</small></span></span>
-        <span className="clw-avatar" aria-hidden>{initials || "·"}</span>
-      </header>
-
-      {tab === "flights" && (
+    // the shell (components/client/ClientShell.tsx) carries the header and the menu; this is the Flights page itself
+    <div className="clw-wall" data-client-wall data-view={view}>
+        {on("notam_check_status") && check?.sign === "CHECKED" && <div className="clw-wallbar"><span className="clw-chip" data-notam-checked><MaskIcon name="shield-check" size={14} />NOTAMs reviewed by Clearway{check.ranAt ? ` · ${hhmm(check.ranAt)} UTC` : ""}</span></div>}
         <div className="clw-body">
           <aside className="clw-board" data-board>
             <div className="clw-board-head">
@@ -115,11 +102,6 @@ export default function ClientWall() {
             {selected ? <FlightDetail rec={selected} on={on} level={me?.passengerLevel ?? "off"} viewerName={viewerName} onBack={() => setView("board")} /> : recs !== null ? <div className="clw-empty">Pick a flight.</div> : null}
           </main>
         </div>
-      )}
-      {tab === "airports" && <AirportsTab documents={on("documents")} />}
-      {tab === "documents" && <DocumentsTab recs={recs ?? []} />}
-      {tabs.length > 1 && <nav className="clw-bottomnav" aria-label="Areas">{tabs.map((t) => <button type="button" key={t.k} className={tab === t.k ? "on" : ""} onClick={() => setTab(t.k)}><MaskIcon name={t.icon} size={22} />{t.t}</button>)}</nav>}
-      <footer className="clw-foot"><span>Times in UTC. Data from Clearway handling, updated live.</span></footer>
     </div>
   );
 }
@@ -162,7 +144,8 @@ function FlightDetail({ rec, on, level, viewerName, onBack }: { rec: Rec; on: (k
   );
 }
 
-function AirportsTab({ documents }: { documents: boolean }) {
+/** /client/airports (switch airport_search): the wall's airport search; the AIP link only with documents on. */
+export function AirportsTab({ documents }: { documents: boolean }) {
   const [q, setQ] = useState(""); const [rows, setRows] = useState<Array<{ icao: string; name?: string; country?: string }>>([]);
   useEffect(() => { if (q.trim().length < 2) { setRows([]); return; } const t = setTimeout(() => { fetch(`/digital-wall/api/airports/search?q=${encodeURIComponent(q.trim())}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => setRows(((d?.results ?? d?.airports ?? d ?? []) as Array<{ icao: string; name?: string; country?: string }>).slice(0, 20))).catch(() => setRows([])); }, 250); return () => clearTimeout(t); }, [q]);
   return (
@@ -172,6 +155,14 @@ function AirportsTab({ documents }: { documents: boolean }) {
       <div className="clw-results">{rows.map((a) => <div key={a.icao} className="clw-doc"><b className="mono">{a.icao}</b><span className="clw-grow">{a.name ?? ""}{a.country ? ` · ${a.country}` : ""}</span>{documents && <a href={`/digital-wall/api/aip-pdf?icao=${a.icao}`} target="_blank" rel="noreferrer" aria-label={`AIP for ${a.icao}`}><MaskIcon name="download" size={15} /></a>}</div>)}{q.trim().length >= 2 && !rows.length && <span className="clw-muted">No airport matches.</span>}</div>
     </main>
   );
+}
+
+/** /client/documents (switch documents): the AIP pages for the airports on their flights — read from the wall, scoped. */
+export function ClientDocuments() {
+  const [recs, setRecs] = useState<Rec[] | null>(null);
+  useEffect(() => { fetch(`/digital-wall/api/flights/normalized?window=all-cached&limit=500&from=${encodeURIComponent(new Date(Date.now() - 2 * 3600e3).toISOString())}&to=${encodeURIComponent(new Date(Date.now() + 7 * 86400e3).toISOString())}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => setRecs(((d?.flights ?? []) as Rec[]).filter((x) => !x.flight?.isCnl))).catch(() => setRecs([])); }, []);
+  if (recs === null) return <main className="clw-tab" data-tab="documents"><h2 className="clw-h">Documents</h2><div className="clw-skel" /></main>;
+  return <DocumentsTab recs={recs} />;
 }
 
 function DocumentsTab({ recs }: { recs: Rec[] }) {

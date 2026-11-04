@@ -7,7 +7,7 @@ import "@/shared/client-tokens.css";
 import "@/shared/mobile-tokens.css";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-import { PortalFrame } from "@/components/portal/Shell";
+import { FrameGate } from "@/components/portal/FrameGate";
 import { THEME_SCRIPT } from "@/components/portal/theme-script";
 
 // Portal redesign: the same type stack as the Display Console — Public Sans
@@ -60,9 +60,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-cw-bg-page font-sans text-cw-text">
         <script dangerouslySetInnerHTML={{ __html: bootstrapScript }} />
-        {/* One persistent portal frame (sidebar, agent panel, viewer) around every page; only the content changes on
-            navigation (portal foundations 3.1). Full-screen routes are left bare: components/portal/Shell.tsx. */}
-        <Providers><PortalFrame>{children}</PortalFrame></Providers>
+        {/* One persistent portal frame (sidebar, agent panel, viewer) around every staff page; only the content changes on
+            navigation (portal foundations 3.1). Full-screen routes are left bare: components/portal/Shell.tsx. A client's
+            pages never load it (components/portal/FrameGate.tsx). */}
+        <Providers><FrameGate>{children}</FrameGate></Providers>
       </body>
     </html>
   );

@@ -1646,7 +1646,9 @@ async function handleChat(req, res, user) {
     const cited = citationsToClaims({ answer, answerBlocks: done?.answerBlocks ?? [], sources: toolSources, web: done?.web ?? null, toolCalls });
     if (cited.dropped) logDetail("agent", "citations not placed on the reply", cited.dropped);
     const sources = cited.sources;
-    const claims = cited.claims;
+    // what the final claim audit still found (lib/claim-audit.mjs) is marked beside the sentence, like an unapproved source
+    const tailAt = done?.replaceTail ? answer.length - done.replaceTail.to.length : -1;
+    const claims = [...cited.claims, ...(tailAt >= 0 ? (done?.unsourcedSpans ?? []).map((u) => ({ start: tailAt + u.start, end: tailAt + u.end, n: null, ns: [], mark: u.kind === "absence" ? "no source given: what was checked is not said" : "no source given" })) : [])].sort((a, b) => a.start - b.start);
     // Content the user sent from a web page is a Web-tier source of this turn
     // (spec §E6): "{host} · sent by you HH:MMZ" / "Capture · {host} · HH:MMZ".
     // A capture's href is null — its URL carries the host only.

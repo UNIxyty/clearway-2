@@ -25,6 +25,55 @@ service key and cached ten seconds. `flightInScope(scope, flight)`: the flight's
 is named. **Outside scope the answer is 404 — never 403**, which would confirm the flight exists. The sentence is the
 same everywhere: "That is not on your account."
 
+## The client allow-list (2026-11-04): a list, not a filter
+`lib/clients/allow.mjs` names every address in the portal a client may reach, and the switch that opens each one.
+`middleware.ts` enforces it on every request, reading the client's switches with `scopeFor` (cached ten seconds; any
+read error is NOBODY, so it fails closed). An address that is not on the list answers 404, whatever it is and whoever
+adds it later.
+
+| Address | Opened by |
+| --- | --- |
+| `/client` (Flights) | every approved client |
+| `/client/airports` | Airport & AIP search |
+| `/client/documents` | Documents |
+| `GET /api/client/me` (their own standing) | every approved client |
+
+Matching is exact: `/api/client/me/x` is not `/api/client/me`. Two kinds of address are not on the list, and neither
+belongs to a client:
+- **The public addresses** the middleware answers before it knows who is asking: sign-in, `/api/auth/*` for confirming
+  an email and resetting a password, asking for access, and the set-password link.
+- **The holding pages**, reached by status, never by switch.
+
+The wall backend (`CLIENT_READS`) and the agent (the passenger routes) keep their own lists, because they are separate
+servers.
+
+**Why a list and not filtering. Do not build filtering here.** Of the portal's 135 endpoints, 19 hold rows that trace
+to no operator, aircraft or trip: users, permissions, metrics, debug runs, the help inbox, maintenance (the inventory of
+2026-11-02). There is nothing to filter them by. A filter must be right in every endpoint, forever, and fails open the
+day someone adds one and forgets. A list is right by default for every endpoint nobody thought about.
+
+## The client's shell and menu (2026-11-04)
+`app/client/layout.tsx` reads the client's switches on the server and gives an approved client
+`components/client/ClientShell.tsx`. Its menu is `clientMenu(switches)` from the same allow-list:
+- Flights, Airports and Documents, each only with its switch.
+- A single page is no menu at all.
+- A client who can reach nothing gets an empty menu, which is correct and honest.
+- The holding pages render with no shell and no menu.
+
+**The page source stays clean.** The client shell imports nothing of the staff shell or `components/portal/nav.ts`. The
+staff frame (`PortalFrame`) used to wrap every page and draw nothing on `/client`, but its code still reached a client's
+browser, staff menu and all. It is now loaded only outside `/client` (`components/portal/FrameGate.tsx`).
+
+**`rig/client-allow-check.mjs` proves it through a real build with sign-in on:**
+- the list against every page and API in `app/`: 214 addresses, 4 reachable by a client with every switch;
+- the 404s;
+- the menu at two switch settings;
+- the page source;
+- every script a client's browser downloads, run-time loading included, with no staff menu definition in any of them.
+  The control is that the same probe finds 55 of those definitions in a staff member's browser.
+
+The screens' design is still to come; this is the plumbing it will sit on.
+
 ## Where it is enforced — on the server, on every request
 | Service | Gate | What a client gets |
 | --- | --- | --- |

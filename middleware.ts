@@ -1,3 +1,5 @@
+import { clientMayReach, CLIENT_HOLDING_PAGES } from "@/lib/clients/allow.mjs";
+import { scopeFor } from "@/lib/clients/scope.mjs";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
@@ -311,22 +313,24 @@ async function gate(request: NextRequest) {
     const status = String(appMetaForClient.client_status ?? "").toLowerCase();
     const holding = status === "approved" ? null : status === "refused" ? "/client/refused" : "/client/removed";
     const isApi = pathname.startsWith("/api/");
-    if (isApi) {
-      // Their own request and sign-out only; the wall's API is reached at /digital-wall/api and enforces scope itself.
-      if (pathname.startsWith("/api/client/") || pathname.startsWith("/api/auth/")) return response;
-      return NextResponse.json({ ok: false, error: "That is not on your account." }, { status: 404 });
-    }
+    const notOnAccount = () => (isApi ? NextResponse.json({ ok: false, error: "That is not on your account." }, { status: 404 }) : clientNotFoundResponse());
     // The root is where sign-in lands them: their world's front door (approved) or their holding page. Nothing else
     // outside /client redirects — it is 404, so no portal page is confirmed to exist.
     if (pathname === "/") { const to = request.nextUrl.clone(); to.pathname = holding ?? "/client"; to.search = ""; return NextResponse.redirect(to); }
     if (holding) {
-      if (pathname === holding || pathname.startsWith("/api/auth/")) return response;
+      // a holding page, their own standing and signing out; nothing else
+      if (pathname === holding || pathname.startsWith("/api/auth/") || (pathname === "/api/client/me" && request.method === "GET")) return response;
       if (pathname.startsWith("/client")) { const to = request.nextUrl.clone(); to.pathname = holding; to.search = ""; return NextResponse.redirect(to); }
-      return clientNotFoundResponse();
+      return notOnAccount();
     }
-    if (pathname.startsWith("/client/refused") || pathname.startsWith("/client/removed")) { const to = request.nextUrl.clone(); to.pathname = "/client"; to.search = ""; return NextResponse.redirect(to); }
-    if (pathname === "/client" || pathname.startsWith("/client/")) return response;
-    return clientNotFoundResponse();
+    if (CLIENT_HOLDING_PAGES.some((h) => pathname === h || pathname.startsWith(`${h}/`))) { const to = request.nextUrl.clone(); to.pathname = "/client"; to.search = ""; return NextResponse.redirect(to); }
+    // The client allow-list (lib/clients/allow.mjs, 2026-11-04): the ONLY addresses an approved client reaches, each
+    // behind its switch, read from their clients row (scopeFor: cached ten seconds, NOBODY on any read error — fail
+    // closed). Not on the list, or its switch off: 404. Their flights come from the wall's API, which keeps its own list.
+    const clientScope = await scopeFor(user);
+    const clientSwitches = clientScope && !clientScope.nobody ? clientScope.switches : new Set<string>();
+    if (clientMayReach(pathname, request.method, clientSwitches).ok) return response;
+    return notOnAccount();
   }
   // Staff never land in the client's world.
   if (pathname === "/client" || pathname.startsWith("/client/")) return clientNotFoundResponse();

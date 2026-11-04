@@ -107,6 +107,7 @@ run self-promotion-check $E rig/self-promotion-check.mjs
 run temporary-access-check $E rig/temporary-access-check.mjs
 run client-scope-check $E rig/client-scope-check.mjs
 run client-ui-check $E rig/client-ui-check.mjs
+run client-allow-check $E rig/client-allow-check.mjs   # the client allow-list, the menu, and no staff menu in a client's page or scripts (2026-11-04; needs the rig build, uses :3982/:3979)
 run clients-page-check $E rig/clients-page-check.mjs   # Admin › Clients: padding, overlap at 6 widths, a whole word in every field
 run client-onboarding-check $E rig/client-onboarding-check.mjs   # ask → ops mail → approve → set-password link → account; our own sign-in emails, all in Mailbox › Sent
 run files-route-check $E rig/files-route-check.mjs   # /files serves only its allow-list: AIP PDFs; a new folder, a .json, another's draft → 404

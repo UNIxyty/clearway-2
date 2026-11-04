@@ -9,7 +9,7 @@ import fs from "node:fs";
 import { settled } from "./lib/settle.mjs";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, SVC = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
-const B = "http://127.0.0.1:3989", OUT = "rig/.scratch/shots"; fs.mkdirSync(OUT, { recursive: true });
+const B = (process.env.RIG_SIGNIN_BASE || "http://127.0.0.1:3989"), OUT = "rig/.scratch/shots"; fs.mkdirSync(OUT, { recursive: true });
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 170)}` : ""}`); if (!c) failures += 1; };
 const H = { apikey: SVC, authorization: `Bearer ${SVC}`, "content-type": "application/json" };
 const svc = (path, init = {}) => fetch(`${SB}${path}`, { ...init, headers: { ...H, ...(init.headers ?? {}) } });
@@ -137,7 +137,9 @@ for (const theme of ["light", "dark"]) {
   const c2 = await browser.newContext({ viewport: { width: 1440, height: 900 } }); await c2.addCookies([cookie(cs)]); const p2 = await c2.newPage();
   const resp = await p2.goto(`${B}/`, { waitUntil: "load" });
   ok(p2.url().includes("/client/removed") && resp && resp.status() === 200, "the removed client lands on the removed page", p2.url());
-  ok(await p2.locator("[data-client-hold]").count() === 1 && await p2.locator("[data-cw-sidebar]").count() === 0, "the removed page: shell-less, with Sign out");
+  // the client's layout reads their standing on the server (2026-11-04), so the page streams in after a blank skeleton: wait for it
+  await p2.waitForSelector("[data-client-hold]", { timeout: 15000 }).catch(() => {});
+  ok(await p2.locator("[data-client-hold]").count() === 1 && await p2.locator("[data-cw-sidebar]").count() === 0 && await p2.locator("[data-client-shell]").count() === 0, "the removed page: shell-less (no portal shell, no client shell, no menu), with Sign out");
   await p2.screenshot({ path: `${OUT}/client-removed-1440.png` });
   await c2.close(); await ctx.close();
 }

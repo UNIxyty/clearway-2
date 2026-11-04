@@ -135,6 +135,28 @@ try {
     ok((sf.total.staffRoutes ?? 0) > 20, "control: the same sweep finds our routes in a staff member's bundle", `staffRoutes ${sf.total.staffRoutes ?? 0}`);
   }
 
+  // ── 7. step 3, the Flights page (the client wall, inside the client shell): what it may ask for ──
+  {
+    const { STARTING_SWITCHES, SWITCHES } = await import("../lib/clients/switches.mjs");
+    ok(!STARTING_SWITCHES.includes("documents"), "Documents is off by default (not among the switches a new client starts with)", STARTING_SWITCHES.join(","));
+    ok(!SWITCHES.some((w) => /passport|scan|raw|e-?mail|\.eml|attachment/i.test(`${w.key} ${w.label}`)), "no switch exists for passport scans or raw email downloads — they are not a client's at any setting");
+    // every request the client's pages make, a flight opened: the wall's scoped reads, their passengers, their standing
+    const { chromium } = await import("playwright");
+    const br = await chromium.launch(); const ctx = await br.newContext({ viewport: { width: 1440, height: 900 } });
+    await ctx.addCookies([{ name: cookieOf(s).split("=")[0], value: cookieOf(s).slice(cookieOf(s).indexOf("=") + 1), url: B }]);
+    const pg = await ctx.newPage(); const asked = new Set();
+    pg.on("request", (rq) => { const u = new URL(rq.url()); if (u.origin === B) asked.add(`${rq.method()} ${u.pathname}`); });
+    for (const p of ["/client", "/client/airports", "/client/documents"]) { await pg.goto(`${B}${p}`, { waitUntil: "load" }); await pg.waitForTimeout(1500); if (p === "/client") { const f = pg.locator("[data-flight]").first(); if (await f.count()) { await f.click(); await pg.waitForTimeout(2000); } } }
+    await br.close();
+    const ALLOWED = /^(GET|HEAD) \/(client(\/(airports|documents))?$|_next\/|api\/client\/me$|digital-wall\/api\/(flights\/normalized|notam-check\/today|flight-info|airports\/search|aip-pdf|stream|weather)\b|agent\/api\/flights\/[^/]+\/passengers\b|favicon|PFP\.png$|icons\/)/;
+    const other = [...asked].filter((a) => !ALLOWED.test(a) && !/^(GET|HEAD) \/[^/]+\.(png|svg|ico|woff2?)$/.test(a));
+    ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, their standing, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
+    // passport scans and raw email: unreachable to a client, through the same path Cloudflare sends them (straight to the agent)
+    const id = "00000000-0000-4000-8000-000000000001";
+    const scan = await get(`/agent/api/intake/attachments/${id}`), raw = await get(`/agent/api/mailbox/messages/${id}/raw`);
+    ok(scan.status === 404 && raw.status === 404, "a passport scan (intake attachment) and a raw email (.eml) answer 404 to a client at the agent", `${scan.status} ${raw.status}`);
+  }
+
   // ── 4. with Airports and Documents on ──
   await svc(`/rest/v1/clients?id=eq.${rowId}`, { method: "PATCH", body: JSON.stringify({ switches: ["flight_board", "weather", "airport_search", "documents"] }) });
   await new Promise((r2) => setTimeout(r2, 11_000));   // the scope is cached ten seconds

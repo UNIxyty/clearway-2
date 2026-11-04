@@ -411,7 +411,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       }
       if (action) {
         acted.add(action.kind);
-        if (action.widen) turn.widened = true;   // pass two opens in code (an empty pass one always widens)
+        if (action.widen) { turn.widened = true; turn.widenedFor = turn.widenedFor ?? "by the turn: pass one gave nothing citable, or the answer left a part it could not establish"; }   // pass two opens in code
         followUps.push({ kind: action.kind, label: action.label, tools: action.tools, callsAt: toolCalls.length, searchesAt: turn.searches.length });
         // the first reply is shown as the partial answer; a later draft, or a draft sent back for its sources, is not shown
         if (!action.hidden && !partialShown) { partialShown = true; yield { type: "partial", text: replyText, streamed: streamedTail, checks: [action.label], tools: action.tools, ms: Date.now() - roundStarted }; }

@@ -150,6 +150,10 @@ try {
   spend.resetForTest(25); const n0 = seen.length; let ceiling = null;
   try { await anthropicRuntime.send(new ConverseCommand({ modelId: "claude-sonnet-5-5", messages: [{ role: "user", content: [{ text: "x" }] }] }), {}); } catch (e) { ceiling = e; }
   ok(ceiling?.code === "spend_ceiling" && seen.length === n0, "at the ceiling: refused before any request is made", ceiling?.code);
+  // 2026-11-04: a PDF's NUL characters never reach the API in a search result (it refused the whole request)
+  const withNul = toMessagesRequest({ modelId: "claude-sonnet-5-5", messages: [{ role: "user", content: [{ toolResult: { toolUseId: "t1", content: [{ searchResult: { source: "cw:gen:LBBG#p3", title: "GEN 1.2\u0000", text: "Permit\u0000 required\u0007." } }] } }] }] }, { stream: false });
+  const srb = withNul.messages[0].content[0].content[0];
+  ok(srb.type === "search_result" && !/[\u0000\u0007]/.test(JSON.stringify(srb).replace(/\\u000[07]/g, (m) => String.fromCharCode(parseInt(m.slice(2), 16)))) && /Permit\s+required/.test(srb.content[0].text), "control characters in a search result are replaced before the request is sent", srb.content[0].text);
   // 2026-11-03: a 400 from the API is a fault in OUR request — not "the model is not available", and not retried on another model
   const bad = classifyBedrockError(Object.assign(new Error("Anthropic API 400 invalid_request_error: messages.2.content.0.tool_result: if any blocks in a tool result are of type `search_result`, all blocks must be of that type"), { name: "ValidationException", status: 400 }));
   ok(bad.code === "model_error" && !/not available/i.test(bad.message), "a 400 refusing our request reads as a refused call, never as 'the model is not available'", `${bad.code}: ${bad.message}`);

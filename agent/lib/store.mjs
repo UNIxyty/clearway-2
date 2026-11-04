@@ -169,7 +169,9 @@ export async function auditOrThrow(entry) {
     output_tokens: entry.outputTokens ?? null,
     detail: detailWithClient,
   };
-  await rest("agent_audit_log", { method: "POST", prefer: "return=minimal", body: [row] });
+  // Postgres text cannot hold NUL (2026-11-04: a GEN 1.2's text in a tool result lost the whole audit row)
+  const safe = JSON.parse(JSON.stringify(row).replace(/\\u0000/g, " "));
+  await rest("agent_audit_log", { method: "POST", prefer: "return=minimal", body: [safe] });
 }
 
 /** The audit row; a failed write is reported on stderr and does not stop the caller. */

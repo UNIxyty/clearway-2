@@ -22,6 +22,8 @@ function apiError(status, type, message) {
   return Object.assign(new Error(`Anthropic API ${status} ${type ?? ""}: ${String(message ?? "").slice(0, 400)}`), { name, status }); // public-error-ok: for the log; classifyBedrockError gives the person our words
 }
 
+// control characters (not tab or newline) never reach the API in a search result: it refuses the whole request
+const clean = (s) => String(s ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ");
 const b64 = (bytes) => Buffer.from(bytes ?? []).toString("base64");
 
 // What a model refuses, measured against the production key on 2026-11-03 (each refused with a 400):
@@ -55,7 +57,7 @@ function blocks(list) {
     if (b.toolResult) {
       // a tool's search results (Tavily, the knowledge base) go back as search_result blocks, so the answer cites them
       // with search_result_location citations next to the claim — the same as the API's own web search (2026-11-03)
-      const content = (b.toolResult.content ?? []).map((c) => (c.searchResult ? { type: "search_result", source: String(c.searchResult.source), title: String(c.searchResult.title ?? c.searchResult.source).slice(0, 500), content: [{ type: "text", text: String(c.searchResult.text ?? "") || "(no text)" }], citations: { enabled: true } } : c.json !== undefined ? { type: "text", text: JSON.stringify(c.json) } : c.text != null ? { type: "text", text: String(c.text) } : null)).filter(Boolean);
+      const content = (b.toolResult.content ?? []).map((c) => (c.searchResult ? { type: "search_result", source: clean(c.searchResult.source), title: clean(c.searchResult.title ?? c.searchResult.source).slice(0, 500), content: [{ type: "text", text: clean(c.searchResult.text).trim() || "(no text)" }], citations: { enabled: true } } : c.json !== undefined ? { type: "text", text: JSON.stringify(c.json) } : c.text != null ? { type: "text", text: String(c.text) } : null)).filter(Boolean);
       out.push({ type: "tool_result", tool_use_id: b.toolResult.toolUseId, content: content.length ? content : [{ type: "text", text: "" }], ...(b.toolResult.status === "error" ? { is_error: true } : {}) });
       continue;
     }

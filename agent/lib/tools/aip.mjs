@@ -237,7 +237,9 @@ defineTool({
     const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: new Uint8Array(bytes) });
     let pages = [];
-    try { const r = await parser.getText(); pages = (r.pages ?? []).map((p) => ({ num: p.num, text: String(p.text ?? "").replace(/[ \t]+/g, " ").trim() })); }
+    // a PDF's text layer can carry NUL and other control characters: the API refuses them in a search result and the
+    // audit table cannot store them (2026-11-04, the LBBG GEN 1.2)
+    try { const r = await parser.getText(); pages = (r.pages ?? []).map((p) => ({ num: p.num, text: String(p.text ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ").replace(/[ \t]+/g, " ").trim() })); }
     finally { await parser.destroy().catch(() => {}); }
     const want = [...new Set([...GEN_WORDS, ...String(about ?? "").toLowerCase().split(/[^a-z0-9-]+/).filter((w) => w.length > 3)])];
     const scored = pages.map((p) => ({ ...p, score: want.reduce((n, w) => n + (p.text.toLowerCase().split(w).length - 1), 0) })).filter((p) => p.text.length > 40);

@@ -65,7 +65,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     console.log(`\n━━━━ ${p.k}. ${p.title}`);
     console.log(`Q: ${p.q}`);
     if (p.check) console.log(`question check → went ahead · codes: ${qc.codes.map((c) => `${c.code} = ${c.is ?? "?"}`).join("; ") || "none"}${qc.dates?.length ? ` · dates: ${qc.dates.map((d) => `${d.written} = ${d.iso} (${d.past ? `${-d.days} days ago` : `in ${d.days} days`})`).join("; ")}` : ""}${qc.fallback ? ` · CHECK FELL BACK: ${qc.fallback.reason}` : ""}`);
-    if (err || !done) { console.log(`FAILED: ${err?.code ?? ""} ${String(err?.message ?? "no answer").slice(0, 200)}`); ok(false, `${p.k}: answered`, err?.code ?? "no done"); continue; }
+    if (err || !done) { console.log(`FAILED: ${err?.code ?? ""} ${String(err?.message ?? "no answer").slice(0, 200)}${err?.detail ? ` — ${String(err.detail).slice(0, 300)}` : ""}`); ok(false, `${p.k}: answered`, err?.code ?? "no done"); continue; }
     if (done?.replaceTail && text.endsWith(done.replaceTail.from)) text = text.slice(0, text.length - done.replaceTail.from.length) + done.replaceTail.to;
     const c = citationsToClaims({ answer: text, answerBlocks: done.answerBlocks ?? [], sources: sourcesFromToolCalls(tools), web: done.web, toolCalls: tools });
     const w = done.web ?? {};
@@ -78,7 +78,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     // the answer as the console shows it: [n] after each cited claim, the mark in «»
     let shown = text;
     for (const cl of [...c.claims].sort((a, b) => b.end - a.end)) shown = `${shown.slice(0, cl.end)} [${(cl.ns ?? [cl.n]).join(",")}]${cl.mark ? ` «${cl.mark}»` : ""}${shown.slice(cl.end)}`;
-    for (const pa of partials) console.log(`\nPARTIAL ANSWER (it then checked ${pa.checks.join(" and ")} itself):\n${pa.text.trim()}`);
+    for (const pa of partials.filter((x) => !x.append)) console.log(`\nPARTIAL ANSWER (it then checked ${pa.checks.join(" and ")} itself):\n${pa.text.trim()}`);
     console.log(`\n${partials.length ? "FULL ANSWER" : "ANSWER"} (as written):\n${shown.trim()}\n`);
     console.log(`SOURCES:`);
     for (const s of c.sources) console.log(`  [${s.n}] ${s.tierLabel ?? s.tier} · ${s.label}${s.published ? ` · ${s.published}` : ""}${s.href ? ` · ${s.href}` : ""}`);

@@ -76,7 +76,8 @@ const api = http.createServer(async (req, res) => {
   const mixed = (body.messages ?? []).some((m) => Array.isArray(m.content) && m.content.some((c) => c.type === "tool_result" && Array.isArray(c.content) && c.content.some((x) => x.type === "search_result") && c.content.some((x) => x.type !== "search_result")));
   // and the API refuses a search the model asked for and never got an answer to, unless tool results follow it
   const msgs = body.messages ?? [];
-  const orphan = msgs.some((m, i) => m.role === "assistant" && Array.isArray(m.content) && m.content.some((c) => c.type === "server_tool_use" && !m.content.some((r) => r.type === "web_search_tool_result" && r.tool_use_id === c.id)) && !(Array.isArray(msgs[i + 1]?.content) && msgs[i + 1].content.some((x) => x.type === "tool_result")));
+  // (measured 2026-11-04: it runs such a search only when the next message is tool results and nothing else)
+  const orphan = msgs.some((m, i) => m.role === "assistant" && Array.isArray(m.content) && m.content.some((c) => c.type === "server_tool_use" && !m.content.some((r) => r.type === "web_search_tool_result" && r.tool_use_id === c.id)) && !(Array.isArray(msgs[i + 1]?.content) && msgs[i + 1].content.length > 0 && msgs[i + 1].content.every((x) => x.type === "tool_result")));
   if (orphan) { res.writeHead(400, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "web_search tool use was found without a corresponding web_search_tool_result block" } })); }
   if (mixed) { res.writeHead(400, { "content-type": "application/json" }); return res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "tool_result: if any blocks in a tool result are of type `search_result`, all blocks must be of that type" } })); }
   // the question check (lib/question-check.mjs): a mismatch in the rig's question gets the question back

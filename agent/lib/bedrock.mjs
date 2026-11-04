@@ -511,7 +511,12 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         },
       });
     }
-    conversation.push({ role: "user", content: [...toolResultBlocks, ...afterResults] });
+    // A search the model asked for in this response and has not had answered runs at the start of the next request — but
+    // only if that message holds tool results and nothing else (measured 2026-11-04: with our note after the results the
+    // API refused it). Then the note is left out for this round.
+    const answeredHere = new Set(assistantBlocks.filter((b) => b.raw?.type === "web_search_tool_result").map((b) => b.raw.tool_use_id));
+    const searchPending = assistantBlocks.some((b) => b.raw?.type === "server_tool_use" && !answeredHere.has(b.raw.id));
+    conversation.push({ role: "user", content: searchPending ? toolResultBlocks : [...toolResultBlocks, ...afterResults] });
 
     // Escalation (one-way): the caller reads what the tools returned and may raise the tier for the rest
     // of the turn. A lower answer is ignored here as well as in the caller.
@@ -532,7 +537,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
     // One round left: tell the model so, rather than letting it discover the
     // cliff by having its next tool request silently ignored. Without this the
     // turn ends mid-sentence, which a dispatcher reads as the agent breaking.
-    if (round === MAX_TOOL_ROUNDS - 1) {
+    if (round === MAX_TOOL_ROUNDS - 1 && !searchPending) {
       conversation.push({
         role: "user",
         content: [{ text: "You have no tool calls left for this turn. Answer now with what you already have, and say plainly what you could not check." }],

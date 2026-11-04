@@ -70,6 +70,10 @@ rule, so the mark and the filter always agree.
    that request's settings. So a widen in that response would have let pass-one searches run unrestricted (question 3
    of the ten). Pass two now begins only on a round with no search pending. Each search is labelled by the request it
    ran under, and a pass-one result outside the approved list is logged ("the filter was not applied").
+   **Measured on 4 Nov:** the API runs such a search only when the next message is tool results and nothing else.
+   With our note after the results it refuses the request, and it refuses a plain message after the search too. So:
+   - in a round with a search pending, the note is left out;
+   - a follow-up after a reply drops a search that was never answered.
 3. **`user_location.country` "LV" is refused.** Riga goes by city and time zone.
 4. **A 400 is a fault in our request.** It used to read as "the model is not available" (a Bedrock-era mapping) and
    set off a fallback to another model. It is now a refused call (`model_error`), never retried on another model.

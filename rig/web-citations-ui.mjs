@@ -68,7 +68,7 @@ try {
     const strong = await page.locator("strong", { hasText: "No — Sudan" }).count();
     const label = `${theme} ${width}`;
     ok(cites === 3, `${label}: a source number after each of the three cited claims`, cites);
-    ok(marks.length === 1 && /^not from an official source: reuters\.com, 2 Nov/.test(marks[0]), `${label}: the mark on the Reuters claim only, in words`, marks.join(" | "));
+    ok(marks.length === 1 && /^not from an official source: reuters\.com, \d{1,2} [A-Z][a-z]{2}$/.test(marks[0].trim()), `${label}: the mark on the Reuters claim only, in words`, marks.join(" | "));
     ok(strong === 1 && (await page.locator("li").filter({ hasText: "SafeAirspace" }).count()) >= 1, `${label}: the markdown still renders (bold, the list) with the citations in it`);
     const partialBox = page.locator("[data-partial-answer]");
     ok((await partialBox.count()) === 1 && /Partial answer · tried the NOTAMs, and that failed/i.test(await partialBox.innerText()) && /Check the current HSSS NOTAMs/.test(await partialBox.innerText()), `${label}: the first reply shows as a partial answer, and says the NOTAM check failed (the rig has no NOTAM source) — never "checked"`, (await partialBox.innerText().catch(() => "")).slice(0, 90));

@@ -56,7 +56,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
         if (ev.type === "delta") text += ev.text;
         else if (ev.type === "thought") { if (text.endsWith(ev.text)) text = text.slice(0, text.length - ev.text.length); thought += ev.text; }
         else if (ev.type === "tool") tools.push(ev);
-        else if (ev.type === "partial") { if (text.endsWith(ev.text)) text = text.slice(0, text.length - ev.text.length); partials.push(ev); }
+        else if (ev.type === "partial") { const st = ev.streamed ?? ev.text ?? ""; if (st && text.endsWith(st)) text = text.slice(0, text.length - st.length); partials.push(ev); }
         else if (ev.type === "done") done = ev;
       }
     } catch (e) { err = e; }
@@ -84,7 +84,7 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     for (const s of c.sources) console.log(`  [${s.n}] ${s.tierLabel ?? s.tier} · ${s.label}${s.published ? ` · ${s.published}` : ""}${s.href ? ` · ${s.href}` : ""}`);
     if (!c.sources.length) console.log("  (none)");
     if (done.followUps?.length) console.log(`MOVES AFTER A REPLY: ${done.followUps.map((f) => `${f.kind} (${f.label}) → ${f.outcome}`).join("; ")}`);
-    if (done.audits?.length) console.log(`CLAIM AUDIT: ${done.audits.map((a) => `${a.after ? "after redraft" : "draft"}: ${a.unsourced} unsourced, ${a.absences} absence`).join(" · ")}`);
+    if (done.audits?.length) console.log(`CLAIM AUDIT: ${done.audits.map((a) => `${a.after ? "after redraft" : "draft"}: ${a.unsourced} unsourced, ${a.absences} absence`).join(" · ")}${done.audits.at(-1)?.after && done.audits.at(-1).sentences?.length ? `\n  still unsourced after the redraft:\n${done.audits.at(-1).sentences.map((x) => `    - ${x}`).join("\n")}` : ""}`);
     if (done.nameCorrections?.length) console.log(`NAMES CORRECTED: ${done.nameCorrections.map((n) => `${n.from} → ${n.to} (${n.code})`).join("; ")}`);
     console.log(`CLAIMS: ${c.claims.length} cited · ${c.claims.filter((x) => x.mark).length} marked · by class ${JSON.stringify(c.counts)}${c.dropped ? ` · NOT PLACED: ${c.dropped}` : ""}`);
     ok(true, `${p.k}: answered`, `${done.modelId} ${c.claims.length} claims`);

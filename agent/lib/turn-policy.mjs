@@ -51,11 +51,11 @@ export function nextAction({ reply, turn, policy, webAvailable, done }) {
   const searched = turn.searches.length > 0;
   if (!searched && !done.has("search") && (policy?.mustSearch || offersToSearch(reply.text))) {
     const why = policy?.mustSearch ? `This question is about ${policy.kinds.join(", ")}: it is always searched, whatever our own data says.` : "Your answer offers to search instead of searching.";
-    return { kind: "search", label: "the web", tools: ["web_search", "tavily_search"], prompt: `${why} Search now — the approved sources first — for what the question needs. Then write the FULL answer, from the start and complete on its own, citing what you found and saying what you could not establish. Never offer to search: search.` };
+    return { kind: "search", label: "the web", tools: ["web_search"], prompt: `${why} Search now — the approved sources first — for what the question needs. Then write the FULL answer, from the start and complete on its own, citing what you found and saying what you could not establish. Never offer to search: search.` };
   }
   const pass1 = turn.searches.some((s) => s.pass === 1);
   if (searched && pass1 && !turn.widened && !done.has("widen") && (!citesWeb(reply.blocks) || offersToSearch(reply.text) || admitsGap(reply.text))) {
-    return { kind: "widen", label: "sources beyond the approved list", tools: ["web_search", "tavily_search"], widen: true, prompt: `Pass one (the approved sources) gave you nothing you could cite for this. Pass two is now open: search again, unrestricted, for what the question needs. Then write the FULL answer, from the start and complete on its own. Every claim from outside the approved list is marked in the console; name the site and its date in the sentence. If pass two finds nothing either, say plainly that it could not be established.` };
+    return { kind: "widen", label: "sources beyond the approved list", tools: ["web_search"], widen: true, prompt: `Pass one (the approved sources) gave you nothing you could cite for this. Pass two is now open: search again, unrestricted, for what the question needs. Then write the FULL answer, from the start and complete on its own. Every claim from outside the approved list is marked in the console; name the site and its date in the sentence. If pass two finds nothing either, say plainly that it could not be established.` };
   }
   return null;
 }

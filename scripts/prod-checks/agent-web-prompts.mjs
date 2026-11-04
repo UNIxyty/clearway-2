@@ -15,11 +15,7 @@ export const EIGHT = [
   { k: "5", title: "Nothing on the approved list, something elsewhere", q: "What do crews say about handling delays at Tamanrasset DAAT?" },
   { k: "6", title: "Nothing anywhere", q: "What are the current overflight permit requirements for the Republic of Westarctica?" },
   { k: "7", title: "The allowlist actually filters (allowed_domains = easa.europa.eu alone)", q: "What are the current restrictions on flying over Belarus?", env: { AGENT_WEB_ALLOWED: "easa.europa.eu" } },
-  { k: "7b", title: "The allowlist actually filters — the API's own search alone (allowed_domains = easa.europa.eu)", q: "What are the current restrictions on flying over Belarus?", env: { AGENT_WEB_ALLOWED: "easa.europa.eu", AGENT_WEB_PROVIDER: "anthropic" } },
-  { k: "8a", title: "Tavily against Anthropic — question 1 on Tavily only", q: "What does EASA's current conflict zone bulletin say about Russian airspace?", env: { AGENT_WEB_PROVIDER: "tavily" } },
-  { k: "8b", title: "Tavily against Anthropic — question 1 on Anthropic only", q: "What does EASA's current conflict zone bulletin say about Russian airspace?", env: { AGENT_WEB_PROVIDER: "anthropic" } },
-  { k: "8c", title: "Tavily against Anthropic — question 4 on Tavily only", q: "Is Sudan's airspace open, and what overflight restrictions apply?", env: { AGENT_WEB_PROVIDER: "tavily" } },
-  { k: "8d", title: "Tavily against Anthropic — question 4 on Anthropic only", q: "Is Sudan's airspace open, and what overflight restrictions apply?", env: { AGENT_WEB_PROVIDER: "anthropic" } },
+  { k: "7b", title: "The allowlist actually filters — the API's own search alone (allowed_domains = easa.europa.eu)", q: "What are the current restrictions on flying over Belarus?", env: { AGENT_WEB_ALLOWED: "easa.europa.eu" } },
 ];
 
 /** Asks each prompt as a fresh conversation and prints what the person would read. Shared with agent-ten-questions. */
@@ -69,11 +65,11 @@ export async function askAll(prompts, { accounts: [u], ok }) {
     if (done?.replaceTail && text.endsWith(done.replaceTail.from)) text = text.slice(0, text.length - done.replaceTail.from.length) + done.replaceTail.to;
     const c = citationsToClaims({ answer: text, answerBlocks: done.answerBlocks ?? [], sources: sourcesFromToolCalls(tools), web: done.web, toolCalls: tools });
     const w = done.web ?? {};
-    const usd = costUsd({ modelId: done.modelId, inputTokens: done.inputTokens, outputTokens: done.outputTokens, cacheReadTokens: done.cacheReadTokens, cacheWriteTokens: done.cacheWriteTokens, webSearches: w.anthropicSearches ?? 0, tavilySearches: w.tavilySearches ?? 0 });
+    const usd = costUsd({ modelId: done.modelId, inputTokens: done.inputTokens, outputTokens: done.outputTokens, cacheReadTokens: done.cacheReadTokens, cacheWriteTokens: done.cacheWriteTokens, webSearches: w.anthropicSearches ?? 0});
     total += usd;
-    console.log(`router → ${route.tier} (${route.source}) · answered on ${done.modelId} · provider ${w.provider} · ${(w.searches ?? []).length} search(es): ${w.anthropicSearches ?? 0} Anthropic, ${w.tavilySearches ?? 0} Tavily · widened: ${w.widened ? `yes, for "${w.widenedFor}"` : "no"} · $${usd.toFixed(4)} · ${secs} s${w.settings?.allowedOverride ? ` · allowed list for this run: ${(w.settings.official ?? []).join(", ")}` : ""}`);
+    console.log(`router → ${route.tier} (${route.source}) · answered on ${done.modelId} · provider ${w.provider} · ${(w.searches ?? []).length} search(es): ${w.anthropicSearches ?? 0} Anthropic · widened: ${w.widened ? `yes, for "${w.widenedFor}"` : "no"} · $${usd.toFixed(4)} · ${secs} s${w.settings?.allowedOverride ? ` · allowed list for this run: ${(w.settings.official ?? []).join(", ")}` : ""}`);
     for (const s of w.searches ?? []) console.log(`  search · ${s.provider} · pass ${s.pass}${s.provider === "anthropic" ? ` (round ${s.round}, ${s.allowedSent} domains sent)` : ""} · "${s.query}" → ${s.results ?? "?"} result(s)${s.error ? ` (error ${s.error})` : ""}${s.hosts?.length ? `: ${s.hosts.join(", ")}` : ""}${s.outsideApproved ? ` — PASS ONE RETURNED UNAPPROVED HOSTS: ${s.outsideApproved.join(", ")}` : ""}`);
-    const otherTools = tools.filter((t) => !["tavily_search", "widen_web_search"].includes(t.name)).map((t) => `${t.name}${t.ok ? "" : " (failed)"}`);
+    const otherTools = tools.filter((t) => !["widen_web_search"].includes(t.name)).map((t) => `${t.name}${t.ok ? "" : " (failed)"}`);
     if (otherTools.length) console.log(`  other tools: ${otherTools.join(", ")}`);
     // the answer as the console shows it: [n] after each cited claim, the mark in «»
     let shown = text;

@@ -72,17 +72,9 @@ async function main() {
   check("you can forget your own note", forgetMine.ok === true && forgetMine.forgotten === true);
 
   // ── Web search ─────────────────────────────────────────────────────────
-  const web = await invoke("tavily_search", { query: "EUROCONTROL network operations slot rules" });   // renamed 2026-11-03: the API's own search owns "web_search"
-  if (web.ok === false && web.error === "SERVICE_UNAVAILABLE") {
-    check("web search refuses clearly when unconfigured, telling the model not to guess",
-      /not configured/i.test(web.message) && /do not answer from memory/i.test(web.message), web.message.slice(0, 80));
-    skip("web results are labelled external and non-authoritative", "no BRAVE_SEARCH_API_KEY or TAVILY_API_KEY set");
-  } else {
-    check("web search returns results", web.ok === true && Array.isArray(web.results), `${web.results?.length} results`);
-    check("results are marked non-authoritative and carry a domain",
-      web.authoritative === false && (web.results ?? []).every((r) => r.domain && r.retrievedAt),
-      `pass=${web.pass} provider=${web.provider}`);
-  }
+  // Web search is the Anthropic API's own, a server tool inside a model response, not a tool this harness can invoke
+  // (Tavily, the invokable one, was removed 2026-11-05): rig/web-search-check.mjs covers it through the route.
+  skip("web results are labelled external and non-authoritative", "the API's own search runs inside a model response: rig/web-search-check.mjs");
 
   // ── Flight tracking: declared, honest about not being enabled ───────────
   const track = await invoke("get_flight_tracking", { callsign: "BTI472" });

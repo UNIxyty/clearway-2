@@ -72,7 +72,7 @@ export function recordUsage(modelId, usage, { now = new Date() } = {}) {
   return usd;
 }
 
-/** A cost that is not a model response (a Tavily search), added to today the same way. */
+/** A cost that is not a model response, added to today the same way. */
 export function recordExtraUsd(usd, _what = "extra", { now = new Date() } = {}) {
   if (state.day !== today(now)) state = { ...state, day: today(now), usd: 0, loaded: false };
   if (Number.isFinite(usd) && usd > 0) { state.usd += usd; persistSoon(); }

@@ -1,5 +1,5 @@
 // Writes .env.rig for the local rig from the running local Supabase stack. Contains NO production database
-// credentials: the Supabase URL and keys are the local stack's. Model keys (Bedrock, ElevenLabs, Tavily)
+// credentials: the Supabase URL and keys are the local stack's. Model keys (Bedrock, ElevenLabs)
 // are copied from .env only when a person types the phrase, because a rig that cannot call a model is useless
 // — they are service keys, not the database.
 import fs from "node:fs";
@@ -41,7 +41,7 @@ const lines = [
   "ELEVENLABS_API_BASE=http://127.0.0.1:3986",
   "ELEVENLABS_REALTIME_URL=ws://127.0.0.1:3999/__elevenlabs/v1/speech-to-text/realtime",
 ];
-const MODEL_KEYS = ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "BEDROCK_REGION", "TAVILY_API_KEY", "CHECKWX_API_KEY"];
+const MODEL_KEYS = ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "BEDROCK_REGION", "CHECKWX_API_KEY"];
 const PHRASE = "yes, copy model keys into the rig";
 if (process.env.RIG_COPY_MODEL_KEYS === PHRASE && fs.existsSync(path.join(root, ".env"))) {
   const src = Object.fromEntries(fs.readFileSync(path.join(root, ".env"), "utf8").split("\n").filter((l) => /^[A-Z_]+=/.test(l)).map((l) => { const i = l.indexOf("="); return [l.slice(0, i), l.slice(i + 1)]; }));

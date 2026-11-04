@@ -10,7 +10,6 @@
 //   extraction      an invented handling request through the real extractor and its schema check
 //   ingest-classify the knowledge upload's tier proposal (a failure falls back to "reference" silently)
 //   knowledge       a knowledge-base search, end to end
-//   web-search      one Tavily search on the approved sources (pass one)
 //   web-search-api  the Anthropic API's own web search on one approved domain, with a citation back (2026-11-03)
 //   voice           text to speech, then that audio back to text, and the words compared
 //   scheduled-jobs  the retention and generated-files sweeps ran on time and worked (lib/jobs.mjs)
@@ -81,10 +80,8 @@ export const SMOKES = {
     return `${r.tier1.length + r.tier2.length} hit(s)`;
   },
   "web-search-api": async () => {
-    const { webSettings, anthropicWebTool } = await import("./web-sources.mjs");
+    const { anthropicWebTool } = await import("./web-sources.mjs");
     const { messagesOnce } = await import("./anthropic-runtime.mjs");
-    const s = await webSettings();
-    if (s.provider === "tavily") return "not in use (Settings › Web search: Tavily only)";
     const model = loadModelConfig().tiers?.fast?.id ?? "claude-haiku-5-5";
     const j = await messagesOnce({ model, max_tokens: 1200, messages: [{ role: "user", content: "Smoke check: search for EUROCONTROL's network operations portal and say in one sentence what it is, citing the page." }], tools: [{ ...anthropicWebTool({ official: ["eurocontrol.int"], industry: [] }, { widened: false }), max_uses: 1 }] });
     const result = (j.content ?? []).find((b) => b.type === "web_search_tool_result");
@@ -93,7 +90,6 @@ export const SMOKES = {
     must((j.content ?? []).some((b) => b.type === "text" && b.citations?.length), "no citation in the answer");
     return `${model} · ${result.content.length} result(s), cited`;
   },
-  "web-search": async () => { const { searchWeb } = await import("./tools/web.mjs"); const r = await searchWeb("EUROCONTROL network operations", { count: 1 }); must(r.length > 0, "no results"); return `${r.length} result(s)`; },
   // Not a call but an absence (2026-11-03): armed when intake goes live; no inbound email for 24 working hours fails it.
   "intake-silence": async () => {
     const { intakeSilence, SILENCE_WORKING_HOURS } = await import("./intake/silence.mjs");

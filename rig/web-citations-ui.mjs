@@ -14,7 +14,7 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(process.env.NEXT_PUBLI
 if (!fs.existsSync(".next/standalone/server.js")) { console.error("no console build: run rig/build-portal.sh"); process.exit(2); }
 const OUT = path.resolve(process.argv[2] || "rig/.scratch/web-citations-ui"); fs.mkdirSync(OUT, { recursive: true });
 
-// the stand-in: one turn — the API's search (official), Tavily (industry), widen, the API's search again (news)
+// the stand-in: one turn — the API's search (official, then industry), widen, the API's search again (news)
 const sse = (res, events) => { res.writeHead(200, { "content-type": "text/event-stream" }); for (const e of events) res.write(`event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`); res.end(); };
 const st = () => ({ type: "message_start", message: { usage: { input_tokens: 100, output_tokens: 1 } } });
 const txt = (i, t, cites = []) => [{ type: "content_block_start", index: i, content_block: { type: "text", text: "" } }, ...cites.map((c) => ({ type: "content_block_delta", index: i, delta: { type: "citations_delta", citation: c } })), { type: "content_block_delta", index: i, delta: { type: "text_delta", text: t } }];
@@ -24,20 +24,17 @@ const end = (s, n = 0) => ({ type: "message_delta", delta: { stop_reason: s }, u
 const EASA = "https://www.easa.europa.eu/en/domains/air-operations/czibs/czib-2023-01r8", SAFE = "https://safeairspace.net/sudan/", NEWS = "https://www.reuters.com/world/africa/sudan-airspace";
 const api = http.createServer(async (req, res) => {
   let b = ""; for await (const c of req) b += c; const body = JSON.parse(b || "{}");
-  if (req.url.startsWith("/search")) { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ results: [{ title: "Sudan", url: SAFE, content: "Sudan: risk level one, do not fly.", published_date: "2026-10-30" }] })); }
   if (!body.stream) { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ content: [{ type: "text", text: '{"tier":"standard","confidence":0.9,"reason":"rig","codes":[],"ask":null}' }], stop_reason: "end_turn", usage: { input_tokens: 10, output_tokens: 5 } })); }
   const round = body.messages.filter((m) => m.role === "assistant").length;
-  if (round === 0) return sse(res, [st(), ...srch(0, "srvtoolu_ui1", [{ url: EASA, title: "Airspace of Sudan" }]), ...tu(2, "toolu_ui_t", "tavily_search", { query: "Sudan airspace" }), end("tool_use", 1)]);
-  if (round === 1) return sse(res, [st(), ...tu(0, "toolu_ui_w", "widen_web_search", { reason: "the latest news" }), end("tool_use")]);
+  if (round === 0) return sse(res, [st(), ...srch(0, "srvtoolu_ui1", [{ url: EASA, title: "Airspace of Sudan" }]), ...srch(2, "srvtoolu_ui1b", [{ url: SAFE, title: "Sudan" }]), ...tu(4, "toolu_ui_w", "widen_web_search", { reason: "the latest news" }), end("tool_use", 2)]);
   // the first reply points to the NOTAMs: a partial answer; the agent reads them, then the full answer with its citations
-  if (round === 2) return sse(res, [st(), ...srch(0, "srvtoolu_ui2", [{ url: NEWS, title: "Sudan airspace" }]), ...txt(2, "Sudan's airspace is restricted. Check the current HSSS NOTAMs before planning."), end("end_turn", 1)]);
-  if (round === 3) return sse(res, [st(), ...tu(0, "toolu_ui_n", "get_notams", { icao: "HSSS" }), end("tool_use")]);
+  if (round === 1) return sse(res, [st(), ...srch(0, "srvtoolu_ui2", [{ url: NEWS, title: "Sudan airspace" }]), ...txt(2, "Sudan's airspace is restricted. Check the current HSSS NOTAMs before planning."), end("end_turn", 1)]);
+  if (round === 2) return sse(res, [st(), ...tu(0, "toolu_ui_n", "get_notams", { icao: "HSSS" }), end("tool_use")]);
   return sse(res, [st(),
     ...txt(2, "**No — Sudan's airspace is closed to civil traffic.**"),
     ...txt(3, " EASA recommends not operating in the Khartoum FIR at any level.", [{ type: "web_search_result_location", url: EASA, title: "Airspace of Sudan", cited_text: "x", encrypted_index: "a" }]),
-    ...txt(4, "\n\n- **Industry:** SafeAirspace rates Sudan risk level one, do not fly.", [{ type: "search_result_location", source: SAFE, title: "safeairspace.net — Sudan", cited_text: "x", search_result_index: 0, start_block_index: 0, end_block_index: 0 }]),
-    ...txt(5, "\n- **Latest:** Reuters reported on 2 November that Port Sudan reopened to humanitarian flights.", [{ type: "web_search_result_location", url: NEWS, title: "Sudan airspace", cited_text: "x", encrypted_index: "b" }]),
-    ...txt(6, "\n\n(rig stand-in text: the answer after the NOTAM check)"), end("end_turn", 0)]);
+    ...txt(4, "\n\n- **Industry:** SafeAirspace rates Sudan risk level one, do not fly.", [{ type: "web_search_result_location", url: SAFE, title: "Sudan", cited_text: "x", encrypted_index: "c" }]),
+    ...txt(5, "\n- **Latest:** Reuters reported on 2 November that Port Sudan reopened to humanitarian flights.", [{ type: "web_search_result_location", url: NEWS, title: "Sudan airspace", cited_text: "x", encrypted_index: "b" }]), end("end_turn", 0)]);
 });
 await new Promise((r) => api.listen(0, "127.0.0.1", r));
 const API = `http://127.0.0.1:${api.address().port}`;
@@ -47,7 +44,7 @@ const waitFor = async (url, label) => { for (let i = 0; i < 120; i += 1) { try {
 try {
   fs.rmSync(".next/standalone/.next/static", { recursive: true, force: true }); fs.cpSync(".next/static", ".next/standalone/.next/static", { recursive: true });
   fs.rmSync(".next/standalone/public", { recursive: true, force: true }); fs.cpSync("public", ".next/standalone/public", { recursive: true });
-  run(["node", "--env-file=.env.rig", "agent/server.mjs"], { ...process.env, PORT: "5193", DISABLE_AUTH_FOR_TESTING: "true", AGENT_TEST_ROLE: "developer", MODEL_PROVIDER: "anthropic", ANTHROPIC_BASE_URL: API, ANTHROPIC_API_KEY: "rig-stand-in", TAVILY_API_KEY: "rig-stand-in", TAVILY_BASE_URL: API, AGENT_WEB_PROVIDER: "both" }, "agent");
+  run(["node", "--env-file=.env.rig", "agent/server.mjs"], { ...process.env, PORT: "5193", DISABLE_AUTH_FOR_TESTING: "true", AGENT_TEST_ROLE: "developer", MODEL_PROVIDER: "anthropic", ANTHROPIC_BASE_URL: API, ANTHROPIC_API_KEY: "rig-stand-in" }, "agent");
   run(["node", "--env-file=.env.rig", ".next/standalone/server.js"], { PATH: process.env.PATH, HOME: process.env.HOME, PORT: "3982", HOSTNAME: "127.0.0.1" }, "portal");
   run(["node", "rig/proxy.mjs"], { ...process.env, RIG_PROXY_PORT: "3981", RIG_PORTAL_PORT: "3982", RIG_AGENT_PORT: "5193" }, "proxy");
   await waitFor("http://127.0.0.1:5193/health", "agent"); await waitFor("http://127.0.0.1:3982/", "portal"); await waitFor("http://127.0.0.1:3981/", "proxy");
@@ -77,9 +74,10 @@ try {
     await page.screenshot({ path: path.join(OUT, `answer-${theme}-${width}.png`), fullPage: false });
     if (width === 1280) {
       await page.goto("http://127.0.0.1:3981/agent/settings?tab=web", { waitUntil: "load" });
-      await page.getByRole("radiogroup", { name: "Provider" }).waitFor({ timeout: 20000 });
+      await page.getByRole("textbox", { name: "Official sources" }).waitFor({ timeout: 20000 });
       const official = await page.getByRole("textbox", { name: "Official sources" }).inputValue();
-      ok(official.split("\n").includes("easa.europa.eu") && (await page.getByRole("radio").count()) === 3, `${label}: Settings › Web search shows the three-state switch and the lists`, `${official.split("\n").length} official`);
+      const card = await page.getByRole("region", { name: "Web search" }).innerText();
+      ok(official.split("\n").includes("easa.europa.eu") && (await page.getByRole("radio").count()) === 0 && /Anthropic API.s own web search/.test(card) && !/Tavily/.test(card), `${label}: Settings › Web search names the one search, has no provider switch (Tavily removed), and shows the lists`, `${official.split("\n").length} official`);
       await page.screenshot({ path: path.join(OUT, `settings-${theme}.png`), fullPage: true });
     }
     await ctx.close();

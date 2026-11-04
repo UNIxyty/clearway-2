@@ -1,7 +1,7 @@
 "use client";
 
-// Agent settings → Web search (admins, 2026-11-03). Which provider searches — Tavily, the Anthropic API's own search, or
-// both — and the approved sources: official (regulators, ANSPs, state AIS: stated plainly) and industry references
+// Agent settings → Web search (admins, 2026-11-03). The search is the Anthropic API's own (the one provider since Tavily
+// was removed, 2026-11-05: no switch). The approved sources: official (regulators, ANSPs, state AIS: stated plainly) and industry references
 // (approved, named in the answer). Pass one searches only these; anything cited from elsewhere is marked on the claim.
 // Settings data, not code: saved here, applied within 15 seconds, no deploy. Every save is audited.
 import { useCallback, useEffect, useState } from "react";
@@ -9,13 +9,7 @@ import { Button, Eyebrow, dateLong } from "../ui/primitives";
 import { AGENT_BASE } from "../types";
 import { cw } from "@/lib/portal-tokens";
 
-type Provider = "both" | "anthropic" | "tavily";
-type Web = { provider: Provider; official: string[]; industry: string[]; source: Record<string, string>; updated: Record<string, { at: string; by: string | null }>; tavilyConfigured: boolean };
-const PROVIDERS: { id: Provider; label: string; help: string }[] = [
-  { id: "anthropic", label: "Anthropic", help: "The API's own web search. The default: it found more official sources in the tests." },
-  { id: "both", label: "Both", help: "The model may use either. In the tests it chose Tavily almost every time; the steps line under each answer says which ran." },
-  { id: "tavily", label: "Tavily", help: "Tavily only." },
-];
+type Web = { provider: string; official: string[]; industry: string[]; source: Record<string, string>; updated: Record<string, { at: string; by: string | null }> };
 
 export default function WebSearchSettingsCard({ canEdit }: { canEdit: boolean }) {
   const [w, setW] = useState<Web | null>(null);
@@ -47,18 +41,8 @@ export default function WebSearchSettingsCard({ canEdit }: { canEdit: boolean })
       {!w && !error && <div style={{ fontSize: 13, color: cw.textMuted }}>Loading…</div>}
       {w && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,260px) minmax(0,1fr)", gap: 16, paddingTop: 14, borderTop: `1px solid ${cw.divider}` }}>
-          <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: cw.text }}>Provider</div>
-            <div style={{ fontSize: 11.5, color: cw.textMuted, marginTop: 6 }}>{line("provider")}</div>
-          </div>
-          <div role="radiogroup" aria-label="Provider" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {PROVIDERS.map((p) => (
-              <label key={p.id} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 13, color: cw.text, cursor: canEdit ? "pointer" : "default" }}>
-                <input type="radio" name="web-provider" checked={w.provider === p.id} disabled={!canEdit || saving !== null} onChange={() => void save("provider", { provider: p.id })} />
-                <span><strong>{p.label}</strong> <span style={{ color: cw.textMuted }}>— {p.help}{p.id !== "anthropic" && !w.tavilyConfigured ? " Tavily has no key on this server, so it is not offered." : ""}</span></span>
-              </label>
-            ))}
-          </div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: cw.text }}>Search</div>
+          <div style={{ fontSize: 13, color: cw.text }}>The Anthropic API&rsquo;s own web search. <span style={{ color: cw.textMuted }}>The steps line under each answer says when it ran.</span></div>
         </div>
       )}
       {w && ([["official", "Official sources", "Regulators, air navigation service providers and state AIS. An answer from these is stated plainly. A domain covers its subdomains: gov.uk includes www.gov.uk."], ["industry", "Industry references", "Approved, and named in the answer so a reader can weigh them. For a permit, an airspace restriction or an entry requirement the agent prefers an official source, and says when it only found one of these."]] as const).map(([k, title, help]) => (

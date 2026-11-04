@@ -32,7 +32,7 @@ const TECHNICAL = [
   /https?:\/\//i, /\/(api|rest)\//i, /->|=>/, /\n\s*at\s/, /\bat\s+\S+\s+\(/,
   /\b\w*(Error|Exception)\b/, /\bE(CONN\w+|TIMEDOUT|NOENT|ACCES|PIPE|AI_AGAIN)\b/,
   /\b[A-Z][A-Z0-9]*_[A-Z0-9_]{2,}\b/, /\{\s*"|"\s*:\s*["\d{[]/, /\bHTTP\s?\d{3}\b/i, /\b(status|code)\s*:?\s*\d{3}\b/i,
-  /\b(Supabase|PostgREST|GraphQL|Bedrock|ElevenLabs|Scribe|Tavily|Brave|Resend|Playwright|Cohere|Titan|undefined|null)\b/,
+  /\b(Supabase|PostgREST|GraphQL|Bedrock|ElevenLabs|Scribe|Resend|Playwright|Cohere|Titan|undefined|null)\b/,
 ];
 export const looksTechnical = (s: string): boolean => TECHNICAL.some((re) => re.test(s));
 

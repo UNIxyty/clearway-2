@@ -1,5 +1,5 @@
 // What a person sees when something in the agent fails: what happened, then what to do, in our own words.
-// The detail — an exception's message, a stack, an upstream body (Bedrock, ElevenLabs, Brave/Tavily, Resend, Leon,
+// The detail — an exception's message, a stack, an upstream body (Bedrock, ElevenLabs, Resend, Leon,
 // Supabase), a missing setting — goes to the server log and nowhere else. We do not control what an upstream service
 // puts in an error body, so that is also how a token or a passenger's name would reach a screen.
 //

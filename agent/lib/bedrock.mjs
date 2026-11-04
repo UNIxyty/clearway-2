@@ -199,17 +199,15 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
   const thoughts = [];
   if (candidates.length === 0) throw ModelUnavailable(`No model is configured for tier "${effective}".`);
 
-  // Web search (2026-11-03, lib/web-sources.mjs): the provider setting decides which search tools this turn has — the
-  // API's own web_search (a server tool, Anthropic runtime only), tavily_search, or both — and `turn` carries the
-  // two-pass state: pass one on the approved sources until widen_web_search, then unrestricted.
+  // Web search (2026-11-03, lib/web-sources.mjs): the API's own web_search, a server tool (Anthropic runtime only; the
+  // one provider since Tavily was removed, 2026-11-05). `turn` carries the two-pass state: pass one on the approved
+  // sources until widen_web_search, then unrestricted.
   const web = await webSettings().catch(() => null);
   const turn = { widened: false, widenedFor: null, searches: [] };
   let toolSpecs = toolSpecsFor(user);
   const offered = new Set(toolSpecs.map((t) => t.toolSpec.name));
-  const provider = web?.provider ?? "anthropic";
-  const anthropicSearch = offered.has("widen_web_search") && loadModelConfig().provider === "anthropic" && (provider === "anthropic" || provider === "both");
-  const tavilySearch = offered.has("tavily_search") && (provider === "tavily" || provider === "both") && Boolean(String(process.env.TAVILY_API_KEY || "").trim());
-  toolSpecs = toolSpecs.filter((t) => (t.toolSpec.name === "tavily_search" ? tavilySearch : t.toolSpec.name === "widen_web_search" ? anthropicSearch || tavilySearch : true));
+  const anthropicSearch = offered.has("widen_web_search") && loadModelConfig().provider === "anthropic";
+  toolSpecs = toolSpecs.filter((t) => (t.toolSpec.name === "widen_web_search" ? anthropicSearch : true));
   const webResults = new Map();   // url → { title, pageAge, pass, provider }: what the API's search returned, for the cited sources
   let webSearchRequests = 0;
   let carried = [];               // text blocks of rounds the API paused (pause_turn): part of the answer that follows
@@ -394,7 +392,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       // in this order, each at most once, only while two rounds are left (the tools, then the answer).
       const room = stopReason === "end_turn" && round <= MAX_TOOL_ROUNDS - 2;
       const offeredNames = new Set(toolSpecs.map((t) => t.toolSpec.name));
-      let action = room ? nextAction({ reply: { text: replyText, blocks: named }, turn, policy, webAvailable: anthropicSearch || tavilySearch, done: acted }) : null;
+      let action = room ? nextAction({ reply: { text: replyText, blocks: named }, turn, policy, webAvailable: anthropicSearch, done: acted }) : null;
       if (!action && room && !followedUp) {
         const found = deferredChecks(replyText, offeredNames);
         if (found.length) { followedUp = found; action = { kind: "check", label: found.map((f) => f.label).join(" and "), tools: found.map((f) => f.tool), prompt: followUpPrompt(found) }; }
@@ -461,7 +459,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
         followUps: followUps.map(({ callsAt, searchesAt, ...f }) => f),
         audits,
         nameCorrections,
-        web: { provider: anthropicSearch && tavilySearch ? "both" : anthropicSearch ? "anthropic" : tavilySearch ? "tavily" : "none", widened: turn.widened, widenedFor: turn.widenedFor, searches: turn.searches.map(({ id, ...s }) => s), results: [...webResults].map(([url, r]) => ({ url, ...r })), anthropicSearches: webSearchRequests, tavilySearches: turn.searches.filter((s) => s.provider === "tavily").length, settings: web ? { official: web.official, industry: web.industry, source: web.source, overridden: web.overridden === true, allowedOverride: web.allowedOverride === true } : null },
+        web: { provider: anthropicSearch ? "anthropic" : "none", widened: turn.widened, widenedFor: turn.widenedFor, searches: turn.searches.map(({ id, ...s }) => s), results: [...webResults].map(([url, r]) => ({ url, ...r })), anthropicSearches: webSearchRequests, tavilySearches: turn.searches.filter((s) => s.provider === "tavily").length, settings: web ? { official: web.official, industry: web.industry, source: web.source, overridden: web.overridden === true, allowedOverride: web.allowedOverride === true } : null },
       };
       return;
     }
@@ -503,7 +501,7 @@ export async function* streamConversationWithTools({ tier: startTier = "standard
       // server keeps the result to itself; the SSE event still carries only
       // name/input/ok/error.
       yield { type: "tool", name: call.name, input: call.input, ok: result.ok !== false, error: result.ok === false ? result.error : null, result, startedAt, durationMs };
-      // search results (Tavily, the knowledge base) go to the model as citable search_result blocks, then the rest as JSON
+      // search results (the knowledge base) go to the model as citable search_result blocks, then the rest as JSON
       // The API refuses a tool result that mixes search_result blocks with anything else (measured 2026-11-03: "if any blocks
       // in a tool result are of type search_result, all blocks must be of that type"), so the rest goes after the results.
       const { searchResults, ...rest } = result ?? {};

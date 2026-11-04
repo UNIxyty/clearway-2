@@ -240,7 +240,7 @@ export async function usageThisMonth() {
   let usd = 0; const perUser = {};
   for (const r of rows) {
     const p = rate(r.model_id); const inTok = r.input_tokens ?? 0, outTok = r.output_tokens ?? 0, cr = r.detail?.cacheReadTokens ?? 0, cw = r.detail?.cacheWriteTokens ?? 0;
-    const ws = r.detail?.web?.anthropicSearches ?? 0, ts = r.detail?.web?.tavilySearches ?? 0; // searches, since 2026-11-03
+    const ws = r.detail?.web?.anthropicSearches ?? 0, ts = r.detail?.web?.tavilySearches ?? 0; // searches, since 2026-11-03 (Tavily's: rows before 2026-11-05)
     const turnUsd = (inTok / 1e6) * p.input + (outTok / 1e6) * p.output + (cr / 1e6) * (p.cacheRead ?? p.input * 0.1) + (cw / 1e6) * (p.cacheWrite ?? p.input * 1.25) + ws * Number(pricing.webSearchPerRequest ?? 0.01) + ts * 0.008;
     usd += turnUsd; perUser[r.user_email ?? "—"] = (perUser[r.user_email ?? "—"] ?? 0) + turnUsd;
   }

@@ -1,6 +1,6 @@
 // Citations next to the claim (2026-11-03). The API attaches citations to the answer's text blocks itself — for its own
 // web search (web_search_result_location, by URL) and for search results our tools returned (search_result_location:
-// Tavily by URL, the knowledge base by kb:<document id>). This turns them into what the console draws (Sources.tsx
+// the knowledge base, by kb:<document id>). This turns them into what the console draws (Sources.tsx
 // ClaimedProse): numbered sources, and claim spans over the answer's text, each with the source numbers beside it.
 //
 // The mark: a claim whose every source is outside the approved list (lib/web-sources.mjs classifyUrl → "other") carries
@@ -28,7 +28,7 @@ export function shortDate(raw, now = new Date()) {
  * @param answerBlocks [{ text, citations }] from bedrock.mjs's done chunk, in order
  * @param sources      the turn's sources so far (sourcesFromToolCalls), extended here
  * @param web          done.web: { results: [{ url, title, pageAge, pass }], settings: { official, industry } }
- * @param toolCalls    the turn's tool calls (for Tavily's results: published date, pass)
+ * @param toolCalls    the turn's tool calls (unused since Tavily was removed, 2026-11-05; kept for the callers)
  * @returns { sources, claims, counts: { official, industry, other, company }, dropped }
  */
 export function citationsToClaims({ answer, answerBlocks = [], sources = [], web = null, toolCalls = [], now = new Date() }) {
@@ -39,18 +39,16 @@ export function citationsToClaims({ answer, answerBlocks = [], sources = [], web
   if (!joined || !answerBlocks.some((b) => b.citations?.length)) return { sources: out, claims: [], counts, dropped: null };
   // the blocks are the last part of the stored answer (thinking aloud before a tool call was taken out of it)
   const offset = answer === joined ? 0 : answer.endsWith(joined) ? answer.length - joined.length : -1;
-  const tavily = new Map();
-  for (const c of toolCalls) if (c.name === "tavily_search" && c.ok !== false) for (const r of c.result?.results ?? []) if (r.url && !tavily.has(r.url)) tavily.set(r.url, { title: r.title, published: r.published, pass: c.result.pass });
   const api = new Map((web?.results ?? []).map((r) => [r.url, r]));
 
   const webSource = (url, title) => {
     const found = out.find((s) => s.tier === "web" && s.href === url);
     if (found) return found;
     const cls = classifyUrl(url, settings);
-    const t = tavily.get(url), a = api.get(url);
-    const published = t?.published ?? a?.pageAge ?? null;
+    const a = api.get(url);
+    const published = a?.pageAge ?? null;
     const host = hostOf(url);
-    const s = { n: out.length + 1, tier: "web", tierLabel: CLASS_LABEL[cls], label: `${host} · ${String(title ?? a?.title ?? t?.title ?? url).slice(0, 90)}`, tool: t ? "tavily_search" : "web_search", href: url, domainClass: cls, host, published: shortDate(published, now), pass: t?.pass ?? a?.pass ?? null, meta: shortDate(published, now) };
+    const s = { n: out.length + 1, tier: "web", tierLabel: CLASS_LABEL[cls], label: `${host} · ${String(title ?? a?.title ?? url).slice(0, 90)}`, tool: "web_search", href: url, domainClass: cls, host, published: shortDate(published, now), pass: a?.pass ?? null, meta: shortDate(published, now) };
     out.push(s);
     return s;
   };

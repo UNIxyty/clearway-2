@@ -19,7 +19,7 @@ const require_ = createRequire(import.meta.url);
 // not glued to an expression: `${this.url}/admin/users` is the Supabase library's own API, not a page of ours
 const STAFF_ROUTE = /(?<![\w.$}-])\/(?:api\/(?!client\/me\b)[a-z][\w-]*(?:\/[\w\-[\].]+)*|(?:admin|developer|agent|aip|dashboard|account|help|files|m)(?:\/[\w\-[\].]+)*|digital-wall\/(?:console|display|timeline)(?:\/[\w\-[\].]+)*)(?=["'`?#\s)/]|$)/g;
 const INTERNAL = /https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+|portal|agent-service|digital-wall-(?:backend|frontend|gateway)|aip-sync|notam-sync|weather-sync|lithuania-browser|clearway-2)(?::\d+)?|164\.92\.164\.35|\b[\w-]+\.ts\.net\b|\bclearway-2:\d+/g;
-const SERVER_ENV = /\b(?:SUPABASE_SERVICE_ROLE_KEY|RESEND_API_KEY|ANTHROPIC_API_KEY|TAVILY_API_KEY|BRAVE_SEARCH_API_KEY|ELEVENLABS_API_KEY|SYNC_SECRET|NOTAM_SYNC_SECRET|TELEGRAM_[A-Z_]+|LEON_[A-Z_]+|CNAIR_(?:USER|PASSWORD)|EAD_[A-Z_]+|AWS_[A-Z_]+|DATABASE_URL|PORTAL_INTERNAL_[A-Z_]+|INTERNAL_DEBUG_[A-Z_]+|AGENT_[A-Z_]+_SECRET|WALL_[A-Z_]+_SECRET)\b/g;
+const SERVER_ENV = /\b(?:SUPABASE_SERVICE_ROLE_KEY|RESEND_API_KEY|ANTHROPIC_API_KEY|ELEVENLABS_API_KEY|SYNC_SECRET|NOTAM_SYNC_SECRET|TELEGRAM_[A-Z_]+|LEON_[A-Z_]+|CNAIR_(?:USER|PASSWORD)|EAD_[A-Z_]+|AWS_[A-Z_]+|DATABASE_URL|PORTAL_INTERNAL_[A-Z_]+|INTERNAL_DEBUG_[A-Z_]+|AGENT_[A-Z_]+_SECRET|WALL_[A-Z_]+_SECRET)\b/g;
 const REG = /\b(?:[A-Z]{1,2}-[A-Z]{3,4}|N\d{1,5}[A-Z]{0,2})\b/g;
 const REG_NOT = new Set(["UTF-8", "ISO-8859", "SHA-256", "SHA-1", "AES-256", "X-UA", "IE-EDGE", "A-Z", "ES-ES", "EN-US", "EN-GB", "UTC-12", "X-CW", "N1", "N2"]);
 const ICAO = /\b[A-Z]{4}\b/g;

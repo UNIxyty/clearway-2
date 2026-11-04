@@ -1,7 +1,8 @@
-// Web search settings (2026-11-03): which provider searches, and the approved sources. Settings data, not code — the
-// agent_settings rows below, edited on Settings › Web search without a deploy:
-//   web:provider  "anthropic" (the default since 2026-11-04) | "both" | "tavily"
+// Web search settings (2026-11-03): the approved sources. Settings data, not code — the agent_settings row below,
+// edited on Settings › Web search without a deploy:
 //   web:sources   { official: [domain…], industry: [domain…] } — seeded from agent/config/web-sources.json on first read
+// The provider is the Anthropic API's own search, the only one since Tavily was removed (2026-11-05): no switch. A
+// web:provider row left from before is not read.
 //
 // The two-pass policy reads them: pass one searches only official + industry; pass two (after widen_web_search) is
 // unrestricted. Every cited source is classed by its domain — official, industry, or other — and a claim resting only
@@ -17,11 +18,9 @@ import { logDetail } from "./public-errors.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SEED = path.join(HERE, "..", "config", "web-sources.json");
-const KEYS = { provider: "web:provider", sources: "web:sources" };
-export const PROVIDERS = ["anthropic", "both", "tavily"];
-// Anthropic's own search by default (2026-11-04): with both on the model chose Tavily in 13 of 14 turns, and the API's
-// search gave more official sourcing (question 1: 7 official citations against 3; Sudan: the ICAO plan and EASA's CZIB).
-export const DEFAULT_PROVIDER = "anthropic";
+const KEYS = { sources: "web:sources" };
+// the one provider, named so the steps line and the settings card can say which search ran
+export const PROVIDER = "anthropic";
 const DOMAIN = /^(?=.{3,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 export function seedSources() {
@@ -40,10 +39,7 @@ export async function webSettings({ fresh = false } = {}) {
   try { rows = (await rest(`agent_settings?select=id,enabled,reason,updated_at,updated_by_email&id=in.(${Object.values(KEYS).map((k) => `"${k}"`).join(",")})`)) ?? []; }
   catch (e) { logDetail("web", "could not read the web search settings; using the seed list", e); }
   const byId = new Map((rows ?? []).map((r) => [r.id, r]));
-  const out = { provider: DEFAULT_PROVIDER, official: [], industry: [], source: {}, updated: {} };
-  const p = byId.get(KEYS.provider);
-  out.provider = PROVIDERS.includes(String(p?.reason)) ? String(p.reason) : DEFAULT_PROVIDER;
-  out.source.provider = p ? "settings" : rows === null ? "default (settings unreadable)" : "default";
+  const out = { provider: PROVIDER, official: [], industry: [], source: {}, updated: {} };
   const s = byId.get(KEYS.sources);
   let parsed = null; try { parsed = s ? JSON.parse(s.reason) : null; } catch { parsed = null; }
   if (parsed && (parsed.official?.length || parsed.industry?.length)) { out.official = cleanList(parsed.official); out.industry = cleanList(parsed.industry); out.source.sources = "settings"; }
@@ -59,26 +55,22 @@ export async function webSettings({ fresh = false } = {}) {
   return withOverrides(out);
 }
 
-// A check run (scripts/check-accounts.sh, the test prompts) may pin the provider or the approved list for its own
-// process only: AGENT_WEB_PROVIDER, AGENT_WEB_ALLOWED (comma list, replaces official+industry). Never set on a service.
+// A check run (scripts/check-accounts.sh, the test prompts) may pin the approved list for its own process only:
+// AGENT_WEB_ALLOWED (comma list, replaces official+industry). Never set on a service.
 function withOverrides(v) {
-  const prov = String(process.env.AGENT_WEB_PROVIDER || "").trim();
   const allowed = String(process.env.AGENT_WEB_ALLOWED || "").trim();
-  if (!prov && !allowed) return v;
-  return { ...v, ...(PROVIDERS.includes(prov) ? { provider: prov } : {}), ...(allowed ? { official: cleanList(allowed), industry: [] } : {}), overridden: true, allowedOverride: Boolean(allowed) };
+  if (!allowed) return v;
+  return { ...v, official: cleanList(allowed), industry: [], overridden: true, allowedOverride: true };
 }
 
 async function saveRow(id, reason, by) {
   await rest("agent_settings?on_conflict=id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ id, enabled: true, reason, updated_at: new Date().toISOString(), updated_by_email: by ?? null }]) });
 }
 
-/** Saves the provider and/or the lists. Throws with a plain reason for anything invalid; saves nothing then. */
+/** Saves the lists. Throws with a plain reason for anything invalid; saves nothing then. */
 export async function setWebSettings(patch, user) {
   const writes = [];
-  if (patch.provider !== undefined) {
-    if (!PROVIDERS.includes(String(patch.provider))) throw Object.assign(new Error(`Provider must be one of: ${PROVIDERS.join(", ")}`), { status: 400 });
-    writes.push([KEYS.provider, String(patch.provider)]);
-  }
+  if (patch.provider !== undefined && String(patch.provider) !== PROVIDER) throw Object.assign(new Error("There is one web search provider (the Anthropic API's own search); nothing to switch."), { status: 400 });
   if (patch.official !== undefined || patch.industry !== undefined) {
     const now = await webSettings({ fresh: true });
     const official = patch.official !== undefined ? cleanList(patch.official) : now.official;

@@ -55,7 +55,7 @@ function blocks(list) {
     if (b.raw) { out.push(b.raw); continue; }
     if (b.toolUse) { out.push({ type: "tool_use", id: b.toolUse.toolUseId, name: b.toolUse.name, input: b.toolUse.input ?? {} }); continue; }
     if (b.toolResult) {
-      // a tool's search results (Tavily, the knowledge base) go back as search_result blocks, so the answer cites them
+      // a tool's search results (the knowledge base) go back as search_result blocks, so the answer cites them
       // with search_result_location citations next to the claim — the same as the API's own web search (2026-11-03)
       const content = (b.toolResult.content ?? []).map((c) => (c.searchResult ? { type: "search_result", source: clean(c.searchResult.source), title: clean(c.searchResult.title ?? c.searchResult.source).slice(0, 500), content: [{ type: "text", text: clean(c.searchResult.text).trim() || "(no text)" }], citations: { enabled: true } } : c.json !== undefined ? { type: "text", text: JSON.stringify(c.json) } : c.text != null ? { type: "text", text: String(c.text) } : null)).filter(Boolean);
       out.push({ type: "tool_result", tool_use_id: b.toolResult.toolUseId, content: content.length ? content : [{ type: "text", text: "" }], ...(b.toolResult.status === "error" ? { is_error: true } : {}) });

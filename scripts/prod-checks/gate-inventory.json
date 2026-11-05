@@ -2904,6 +2904,12 @@
      "public": false
     },
     {
+     "method": "POST",
+     "path": "/api/knowledge/documents/rigx/remove",
+     "clientMay": false,
+     "public": false
+    },
+    {
      "method": "GET",
      "path": "/api/knowledge/documents/rigx/file",
      "clientMay": false,

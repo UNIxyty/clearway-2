@@ -123,6 +123,11 @@ function sendJson(res, payload, status = 200, extraHeaders = {}) {
 // its own disk. Every knowledge row it wrote pointed at bytes production could not read — that is how 22 of
 // 23 Knowledge base rows came to answer "file missing" on the server. Writes are refused on a rig unless
 // explicitly allowed for a run whose files will be copied to the server's volume.
+// the knowledge base: did this person upload this document? (approval is never the uploader's, 2026-11-05)
+const uploadedBy = (doc, user) => Boolean((doc.uploaded_by && doc.uploaded_by === user.userId) || (user.email && String(doc.uploaded_by_email ?? "").toLowerCase() === String(user.email).toLowerCase()));
+// how a removed document's record says so (agent_documents has no "removed" status without a schema change)
+const REMOVED_PREFIX = "Removed from answers";
+
 function assertRigMayWriteKnowledge() {
   if (String(process.env.DISABLE_AUTH_FOR_TESTING || "").toLowerCase() === "true" && process.env.AGENT_RIG_KB_WRITES !== "1") {
     // The switch that allows it is named in the log, not on the screen.
@@ -1039,7 +1044,9 @@ async function handleRequest(req, res) {
       const all = (rows ?? []).filter(view.visible).map(view.redact);
       // A row whose bytes are not on the persistent volume must not look healthy (file missing → re-upload).
       const present = await Promise.all(all.map((d) => documentFileExists(d.storage_key)));
-      return sendJson(res, { ok: true, documents: all.map((d, i) => ({ ...d, fileMissing: !present[i], revision: publicRevision(documentRevision(d, all)) })) });
+      // what this person may do here, from the grants (Admin › Permissions), so the page never guesses from a role
+      const may = { upload: await can(user.agentRole, "agent.kb.upload"), approve: await can(user.agentRole, "agent.kb.approve"), remove: await can(user.agentRole, "agent.kb.remove") };
+      return sendJson(res, { ok: true, may, documents: all.map((d, i) => ({ ...d, fileMissing: !present[i], revision: publicRevision(documentRevision(d, all)) })) });
     }
 
     // Re-upload the original for an existing row whose file is missing (or replace it with the same content).
@@ -1089,8 +1096,8 @@ async function handleRequest(req, res) {
 
     if (pathname === "/api/knowledge/documents" && req.method === "POST") {
       assertRigMayWriteKnowledge();
-      // Uploading to the knowledge base is a DEVELOPER action while the agent
-      // is a build in progress — same reasoning as the allowlist.
+      // Who uploads (2026-11-05, the user): ops and admin as well as developers — the people who hold the knowledge
+      // (permission agent.kb.upload, Admin › Permissions).
       await assertMayUseAgent(user);
       if (!(await can(user.agentRole, "agent.kb.upload"))) {
         return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
@@ -1126,15 +1133,22 @@ async function handleRequest(req, res) {
 
       const text = extractText(buffer, body.mime ?? null, filename);
       let proposal = null;
+      let indexed = { chunks: 0 };
       if (text) {
         proposal = await classifyDocument({ title: document.title, source: document.source, sample: text });
+        // Reference (Tier 2) indexes at once (2026-11-05, the user): background the agent cites with its source named,
+        // so a bad one is a visible, attributable citation a reader can judge. No approval, no job anyone must remember.
+        // A proposal for the verbatim tier stays a proposal: Tier 1 is quoted word for word as authoritative, and only
+        // an admin or developer who is not the uploader approves it (the approve route). Meanwhile it is reference.
+        indexed = await indexDocument(document, text);
         await knowledgeRest(`agent_documents?id=eq.${document.id}`, {
           method: "PATCH",
           body: JSON.stringify({
+            tier: "tier2",
             proposed_tier: proposal.tier,
             proposed_reason: proposal.reason,
-            // Never 'approved' here. A person decides.
-            status: "awaiting_approval",
+            status: indexed.chunks > 0 ? "indexed" : "failed",
+            ...(indexed.chunks > 0 ? {} : { error: "No text to index." }),
             updated_at: new Date().toISOString(),
           }),
         });
@@ -1150,9 +1164,9 @@ async function handleRequest(req, res) {
         toolName: "knowledge.upload", toolArgs: { filename, title: document.title },
         confirmationStatus: "pending", success: true,
         // fallbacks: the model did not answer and "reference" was proposed by default (lib/fallback-watch.mjs alarms on it)
-        detail: { documentId: document.id, proposedTier: proposal?.tier ?? "tier2", confidence: proposal?.confidence ?? null, fallbacks: proposal && proposal.automatic === false ? [{ kind: "ingest-classify", to: "tier2", reason: "the model did not answer" }] : [] },
+        detail: { documentId: document.id, proposedTier: proposal?.tier ?? "tier2", indexedOnUpload: indexed.chunks > 0, chunks: indexed.chunks, confidence: proposal?.confidence ?? null, fallbacks: proposal && proposal.automatic === false ? [{ kind: "ingest-classify", to: "tier2", reason: "the model did not answer" }] : [] },
       });
-      return sendJson(res, { ok: true, document, proposal });
+      return sendJson(res, { ok: true, document, proposal, indexed: indexed.chunks > 0, chunks: indexed.chunks });
     }
 
     // Approve: the single path into Tier 1, and the point where a human is on
@@ -1169,6 +1183,8 @@ async function handleRequest(req, res) {
       const rows = await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
       const document = rows?.[0];
       if (!document) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+      // never the uploader (2026-11-05): enforced here, not only by the page hiding the button
+      if (uploadedBy(document, user)) return sendJson(res, { ok: false, error: "forbidden", message: "You uploaded this document, so another admin or developer approves it." }, 403);
 
       let indexed = { chunks: 0 };
       let records = [];
@@ -1184,16 +1200,21 @@ async function handleRequest(req, res) {
           }));
         }
       } else {
-        const buffer = await readDocumentFile(document.storage_key);
-        const text = extractText(buffer, document.mime, document.filename);
-        if (!text) throw BadRequest("No text could be extracted, so this document cannot be indexed as reference material.");
-        indexed = await indexDocument(document, text);
+        // reference: indexed at upload since 2026-11-05; approving it as reference records the decision (the verbatim
+        // proposal declined). A document from before that is indexed now.
+        const have = (await knowledgeRest(`agent_chunks?document_id=eq.${encodeURIComponent(id)}&select=id&limit=1`)) ?? [];
+        if (!have.length) {
+          const buffer = await readDocumentFile(document.storage_key);
+          const text = extractText(buffer, document.mime, document.filename);
+          if (!text) throw BadRequest("No text could be extracted, so this document cannot be indexed as reference material.");
+          indexed = await indexDocument(document, text);
+        }
       }
 
       await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}`, {
         method: "PATCH",
         body: JSON.stringify({
-          tier, status: "indexed",
+          tier, status: "indexed", ...(tier === "tier2" ? { proposed_tier: "tier2" } : {}),
           approved_by: user.userId, approved_by_email: user.email,
           approved_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         }),
@@ -1216,6 +1237,9 @@ async function handleRequest(req, res) {
       }
       const id = pathname.split("/")[4];
       const body = await readJsonBody(req);
+      const doc = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=id,uploaded_by,uploaded_by_email&limit=1`))?.[0];
+      if (!doc) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+      if (uploadedBy(doc, user)) return sendJson(res, { ok: false, error: "forbidden", message: "You uploaded this document, so another admin or developer decides on it. To take it out, remove it." }, 403);
       await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}`, {
         method: "PATCH",
         body: JSON.stringify({ status: "rejected", rejected_reason: String(body.reason || "").slice(0, 400), updated_at: new Date().toISOString() }),
@@ -1227,6 +1251,30 @@ async function handleRequest(req, res) {
         confirmationStatus: "rejected", success: true, detail: { reason: body.reason ?? null },
       });
       return sendJson(res, { ok: true, id });
+    }
+
+    // Remove (2026-11-05, the user): an indexed document was a one-way door — the only way out was the server's reject.
+    // Taking something out is the safe direction, so no approval: anyone who may upload may remove, their own or not.
+    // At once: its reference chunks are deleted and its verbatim clauses retired, so no answer uses it from the next
+    // question on; the record stays (status rejected, the reason saying who removed it and when — the table has no
+    // "removed" status without a schema change) and the audit row says who, when and which document.
+    if (/^\/api\/knowledge\/documents\/[^/]+\/remove$/.test(pathname) && req.method === "POST") {
+      await assertMayUseAgent(user);
+      assertRigMayWriteKnowledge();
+      if (!(await can(user.agentRole, "agent.kb.remove"))) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
+      const id = pathname.split("/")[4];
+      const doc = (await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}&select=id,title,tier,status&limit=1`))?.[0];
+      if (!doc) return sendJson(res, { ok: false, error: "not_found", message: "No such document." }, 404);
+      const at = new Date().toISOString();
+      const gone = (await knowledgeRest(`agent_chunks?document_id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: { Prefer: "return=representation" } })) ?? [];
+      const retired = (await knowledgeRest(`agent_tier1_records?document_id=eq.${encodeURIComponent(id)}&retired_at=is.null`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ retired_at: at }) })) ?? [];
+      await knowledgeRest(`agent_documents?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "rejected", rejected_reason: `${REMOVED_PREFIX} by ${user.email ?? "unknown"} on ${at.slice(0, 16).replace("T", " ")}Z`, updated_at: at }) });
+      await audit({
+        kind: "knowledge.removed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email,
+        toolName: "knowledge.remove", toolArgs: { documentId: id, title: doc.title }, confirmationStatus: "confirmed", success: true,
+        detail: { documentId: id, title: doc.title, tier: doc.tier, statusBefore: doc.status, chunksDeleted: gone.length, clausesRetired: retired.length },
+      });
+      return sendJson(res, { ok: true, id, chunksDeleted: gone.length, clausesRetired: retired.length });
     }
 
     // The original file, always retrievable. Behind the same gate as everything.

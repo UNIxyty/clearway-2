@@ -27,13 +27,19 @@ type Doc = {
   uploaded_by: string | null; uploaded_by_email: string | null; approved_by_email: string | null; approved_at: string | null; rejected_reason: string | null; created_at: string; updated_at: string | null;
 };
 type Clause = { reference: string; text: string };
-type Decision = { kind: "approved" | "reference" | "rejected"; at: string; clauses?: number };
+type Decision = { kind: "approved" | "reference" | "rejected" | "removed"; at: string; clauses?: number };
+type May = { upload: boolean; approve: boolean; remove: boolean };
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const dateShort = (iso: string | null | undefined) => { if (!iso) return "—"; const d = new Date(iso); if (Number.isNaN(d.getTime())) return "—"; return `${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; };
 const dayTime = (iso: string | null | undefined) => { if (!iso) return ""; const d = new Date(iso); return `${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS[d.getUTCMonth()][0]}${MONTHS[d.getUTCMonth()].slice(1).toLowerCase()} ${hmZ(iso)}`; };
 const ext = (name: string) => (name.split(".").pop() || "").toUpperCase().slice(0, 4) || "FILE";
-const isPending = (d: Doc) => d.status === "awaiting_approval" || d.status === "classified" || d.status === "uploaded";
+// Since 2026-11-05 an upload is indexed as reference at once; a proposal for the verbatim tier stays open until an
+// admin or developer who did not upload it decides. Such a document is in answers AND waiting.
+const verbatimOpen = (d: Doc) => d.status === "indexed" && d.tier === "tier2" && d.proposed_tier === "tier1" && !d.approved_at;
+const isPending = (d: Doc) => d.status === "awaiting_approval" || d.status === "classified" || d.status === "uploaded" || verbatimOpen(d);
+// a removed document keeps its record (the table has no "removed" status): its reason says who removed it, and when
+const isRemoved = (d: Doc) => d.status === "rejected" && /^Removed from answers/.test(d.rejected_reason ?? "");
 
 const STATUS: Record<Doc["status"], { text: string; dot: string; fg: string }> = {
   indexed: { text: "Indexed", dot: cw.success, fg: cw.successText }, approved: { text: "Indexed", dot: cw.success, fg: cw.successText },
@@ -52,7 +58,9 @@ const UNCLASSIFIED = "It could not be classified automatically, so it is propose
 const proposalReason = (reason: string) => (/^Could not classify automatically/i.test(reason) ? UNCLASSIFIED : personText(reason, UNCLASSIFIED));
 
 export default function KnowledgePage() {
-  const { email, isDeveloper } = useIdentity();
+  const { email } = useIdentity();
+  // what this person may do, from the grants (the agent says, with the list): never guessed from a role
+  const [may, setMay] = useState<May>({ upload: false, approve: false, remove: false });
   const od = useOpenDocument("Knowledge base");
   const [rows, setRows] = useState<Doc[] | null>(null);
   const [stats, setStats] = useState<{ authoritative: number; clauses: number; reference: number; awaiting: number; oldestWaitingDays: number | null; failed: number } | null>(null);
@@ -65,7 +73,7 @@ export default function KnowledgePage() {
     const [d, s] = await Promise.all([agentFetch("/api/knowledge/documents"), agentFetch("/api/knowledge/stats")]);
     if (d.status === 401 || d.status === 403) { setError("The knowledge base needs agent access."); setRows([]); return; }
     if (!d.body?.ok) { setError(apiMessage(d.body, "Could not load the documents. Try again.")); setRows([]); return; }
-    setRows(d.body.documents ?? []); if (s.body?.ok) setStats(s.body.stats);
+    setRows(d.body.documents ?? []); if (d.body.may) setMay(d.body.may as May); if (s.body?.ok) setStats(s.body.stats);
   }, []);
   useEffect(() => { void load(); }, [load]);
 
@@ -82,8 +90,8 @@ export default function KnowledgePage() {
 
   return (
     <PortalShell crumb="Ops Agent" title="Knowledge base"
-      subtitle="Documents the agent can read. Authoritative documents are quoted verbatim and need an approver. Reference documents are searched and cited, never quoted as approved text."
-      headerRight={isDeveloper ? <Button variant="primary" size="lg" icon="upload" style={{ borderRadius: 10 }} onClick={() => setUploadOpen((v) => !v)}>Upload</Button> : undefined}>
+      subtitle="Documents the agent can read. Authoritative documents are quoted verbatim and need an approver. Reference documents are searched and cited from the moment they are uploaded, never quoted as approved text."
+      headerRight={may.upload ? <Button variant="primary" size="lg" icon="upload" style={{ borderRadius: 10 }} onClick={() => setUploadOpen((v) => !v)}>Upload</Button> : undefined}>
       <AgentStyles />
       <div style={{ padding: "30px 32px", display: "flex", flexDirection: "column", gap: 18 }}>
         {error && <div role="alert" style={{ fontSize: 13, color: cw.dangerText }}>{error}</div>}
@@ -103,9 +111,9 @@ export default function KnowledgePage() {
               {["DOCUMENT", "TIER", "STATUS", "OWNER", "UPDATED"].map((h) => <span key={h} style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: cw.textMuted }}>{h}</span>)}
             </div>
             {rows === null && <div style={{ padding: 18 }}><LoadingRows rows={4} /></div>}
-            {rows !== null && list.length === 0 && <EmptyState title="No documents yet">{isDeveloper ? "Upload the first one with the button above." : "Nothing has been uploaded for the agent to read."}</EmptyState>}
+            {rows !== null && list.length === 0 && <EmptyState title="No documents yet">{may.upload ? "Upload the first one with the button above." : "Nothing has been uploaded for the agent to read."}</EmptyState>}
             {list.map((d) => {
-              const st = STATUS[d.status] ?? STATUS.uploaded; const sel = current?.id === d.id;
+              const st = isRemoved(d) ? { text: "Removed", dot: cw.textMuted, fg: cw.textMuted } : verbatimOpen(d) ? { text: "Reference · verbatim proposed", dot: cw.warning, fg: cw.warningText } : (STATUS[d.status] ?? STATUS.uploaded); const sel = current?.id === d.id;
               const tier = d.tier === "tier1" && !isPending(d) && d.status !== "rejected" ? "auth" : d.proposed_tier === "tier1" && isPending(d) ? "requested" : "reference";
               return (
                 <button key={d.id} type="button" onClick={() => setSelected(d.id)} aria-pressed={sel} className="ag-row-hover ag-focus"
@@ -130,14 +138,15 @@ export default function KnowledgePage() {
           </div>
 
           {/* Approval panel */}
-          {current && <ApprovalPanel key={current.id} doc={current} me={email} canApprove={isDeveloper} decision={decisions[current.id] ?? null} onDecided={async (dec) => { setSelected(current.id); setDecisions((m) => ({ ...m, [current.id]: dec })); await load(); }} />}
+          {current && <ApprovalPanel key={current.id} doc={current} me={email} canApprove={may.approve} canRemove={may.remove} decision={decisions[current.id] ?? null} onDecided={async (dec) => { setSelected(current.id); setDecisions((m) => ({ ...m, [current.id]: dec })); await load(); }} />}
         </div>
       </div>
     </PortalShell>
   );
 }
 
-function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc; me: string | null; canApprove: boolean; decision: Decision | null; onDecided: (d: Decision) => Promise<void> }) {
+function ApprovalPanel({ doc, me, canApprove, canRemove, decision, onDecided }: { doc: Doc; me: string | null; canApprove: boolean; canRemove: boolean; decision: Decision | null; onDecided: (d: Decision) => Promise<void> }) {
+  const [removing, setRemoving] = useState(false);
   const [clauses, setClauses] = useState<Clause[] | null>(null);
   const [extracted, setExtracted] = useState<boolean | null>(null);
   const [i, setI] = useState(0);
@@ -147,6 +156,7 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const pending = isPending(doc) && !decision;
+  const inAnswers = (doc.status === "indexed" || doc.status === "approved") && decision?.kind !== "removed" && decision?.kind !== "rejected";
   const own = Boolean(me && doc.uploaded_by_email && me.toLowerCase() === doc.uploaded_by_email.toLowerCase());
 
   useEffect(() => {
@@ -156,7 +166,8 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
     return () => { alive = false; };
   }, [doc.id, pending, canApprove]);
 
-  const state = decision?.kind === "approved" || (!pending && doc.tier === "tier1" && (doc.status === "indexed" || doc.status === "approved")) ? "approved"
+  const state = decision?.kind === "removed" || (!decision && isRemoved(doc)) ? "removed"
+    : decision?.kind === "approved" || (!pending && doc.tier === "tier1" && (doc.status === "indexed" || doc.status === "approved")) ? "approved"
     : decision?.kind === "rejected" || (!pending && doc.status === "rejected") ? "rejected"
     : decision?.kind === "reference" || (!pending && doc.tier === "tier2") ? "reference" : "pending";
   const look = {
@@ -164,9 +175,21 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
     approved: { border: cw.successBorder, bg: cw.successTint, icon: "shield-check", color: cw.successText, title: `Approved as authoritative · by ${doc.approved_by_email && me && doc.approved_by_email.toLowerCase() === me.toLowerCase() ? "you" : doc.approved_by_email ?? "an approver"}${doc.approved_at || decision?.at ? ` ${hmZ(decision?.at ?? doc.approved_at)}` : ""}${decision?.clauses != null ? ` · ${decision.clauses} clause${decision.clauses === 1 ? "" : "s"} now quotable` : ""}` },
     reference: { border: cw.border, bg: cw.bgPage, icon: "book-open", color: cw.textBody, title: "Added as reference only · agent will cite, not quote" },
     rejected: { border: cw.dangerBorder, bg: cw.dangerTint, icon: "x-circle", color: cw.dangerText, title: `Rejected${doc.uploaded_by_email ? ` · ${doc.uploaded_by_email} can see your note` : ""}` },
+    removed: { border: cw.border, bg: cw.bgPage, icon: "x-circle", color: cw.textMuted, title: "Removed from answers" },
   }[state];
   const requestedTier = doc.proposed_tier === "tier1" ? "Authoritative" : "Reference";
-  const shownTitle = state === "pending" && doc.proposed_tier !== "tier1" ? "Review · reference tier proposed" : look.title;
+  const shownTitle = state === "pending" && verbatimOpen(doc) ? "In answers as reference · verbatim tier proposed"
+    : state === "pending" && doc.proposed_tier !== "tier1" ? "Review · reference tier proposed" : look.title;
+
+  async function remove() {
+    if (busy) return; setBusy("removed"); setError(null);
+    try {
+      const { status, body } = await agentFetch(`/api/knowledge/documents/${encodeURIComponent(doc.id)}/remove`, { method: "POST", body: "{}" });
+      if (status !== 200 || !body?.ok) throw new ShownError(apiMessage(body, "The document was not removed. Try again."));
+      setRemoving(false);
+      await onDecided({ kind: "removed", at: new Date().toISOString() });
+    } catch (e) { setError(shownText(e, "The document was not removed. Check the connection and try again.")); } finally { setBusy(null); }
+  }
 
   async function decide(kind: Decision["kind"]) {
     if (busy) return; setBusy(kind); setError(null);
@@ -187,7 +210,7 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
 
   const n = clauses?.length ?? 0; const clause = clauses?.[i] ?? null;
   const approveDisabled = !canApprove || own || busy !== null || !clauses || n === 0;
-  const approveTitle = !canApprove ? "Approving needs the developer role" : own ? "You uploaded this document — someone else must approve it" : !clauses || n === 0 ? "No clauses could be extracted to approve" : undefined;
+  const approveTitle = !canApprove ? "Approving needs an admin or developer" : own ? "You uploaded this document — someone else must approve it" : !clauses || n === 0 ? "No clauses could be extracted to approve" : undefined;
 
   return (
     <aside aria-label="Approval" style={{ width: 440, flex: "none", background: cw.bgSurface, borderRadius: 14, border: `1.5px solid ${look.border}`, overflow: "hidden" }}>
@@ -227,7 +250,8 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
           </div>
         )}
         {pending && canApprove && clauses && n === 0 && <div style={{ fontSize: 13, color: cw.dangerText }}>No text could be extracted, so nothing can enter the authoritative tier from this file. Reference indexing also needs text.</div>}
-        {pending && !canApprove && <div style={{ fontSize: 12.5, color: cw.textMuted }}>Waiting for an approver. Approving needs the developer role.</div>}
+        {pending && verbatimOpen(doc) && <div style={{ fontSize: 12.5, lineHeight: 1.5, color: cw.textBody }}>The agent already uses it as reference: it cites it, with its source named. Quoting it word for word as authoritative needs an approval.</div>}
+        {pending && (!canApprove || own) && <div style={{ fontSize: 12.5, color: cw.textMuted }}>Waiting for an admin or developer who did not upload it.</div>}
 
         {pending && <div style={{ fontSize: 12.5, lineHeight: 1.5, color: cw.textMuted }}>Approving puts these clauses in the verbatim tier: the agent will quote them exactly and cite you as approver. The uploader can&apos;t approve their own document.</div>}
         {error && <div role="alert" style={{ fontSize: 13, color: cw.dangerText }}>{error}</div>}
@@ -238,8 +262,8 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
               style={{ flex: 1, fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: cw.onInk, background: cw.ink, padding: "10px 14px", borderRadius: 9, border: "none", cursor: approveDisabled ? "not-allowed" : "pointer", opacity: approveDisabled ? 0.4 : 1 }}>
               {busy === "approved" ? "Approving…" : "Approve as authoritative"}
             </button>
-            <Button variant="secondary" size="md" disabled={!canApprove || busy !== null} spinning={busy === "reference"} onClick={() => void decide("reference")}>Reference only</Button>
-            <button type="button" disabled={!canApprove || busy !== null} onClick={() => setRejecting(true)} className="ag-focus" style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: cw.dangerText, background: cw.dangerTint, padding: "10px 14px", borderRadius: 9, border: "none", cursor: canApprove ? "pointer" : "not-allowed" }}>Reject</button>
+            <Button variant="secondary" size="md" disabled={!canApprove || own || busy !== null} spinning={busy === "reference"} onClick={() => void decide("reference")}>{verbatimOpen(doc) ? "Keep as reference" : "Reference only"}</Button>
+            {!verbatimOpen(doc) && <button type="button" disabled={!canApprove || own || busy !== null} onClick={() => setRejecting(true)} className="ag-focus" style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: cw.dangerText, background: cw.dangerTint, padding: "10px 14px", borderRadius: 9, border: "none", cursor: canApprove ? "pointer" : "not-allowed" }}>Reject</button>}
           </div>
         )}
         {pending && rejecting && (
@@ -253,7 +277,19 @@ function ApprovalPanel({ doc, me, canApprove, decision, onDecided }: { doc: Doc;
           </div>
         )}
         {!pending && (
-          <div style={{ background: cw.bgPage, border: `1px solid ${cw.border}`, borderRadius: 9, padding: "10px 12px", fontSize: 13 }}>{look.title}{state === "rejected" && doc.rejected_reason ? <div style={{ color: cw.textMuted, marginTop: 4 }}>“{doc.rejected_reason}”</div> : null}</div>
+          <div style={{ background: cw.bgPage, border: `1px solid ${cw.border}`, borderRadius: 9, padding: "10px 12px", fontSize: 13 }}>{look.title}{(state === "rejected" || state === "removed") && doc.rejected_reason ? <div style={{ color: cw.textMuted, marginTop: 4 }}>“{doc.rejected_reason}”</div> : null}</div>
+        )}
+        {inAnswers && canRemove && !removing && (
+          <Button variant="secondary" size="md" disabled={busy !== null} onClick={() => setRemoving(true)}>Remove from answers</Button>
+        )}
+        {inAnswers && canRemove && removing && (
+          <div role="group" aria-label="Remove from answers" style={{ display: "flex", flexDirection: "column", gap: 8, border: `1px solid ${cw.dangerBorder}`, borderRadius: 9, padding: "10px 12px" }}>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>The agent stops using this document from the next question on. The record stays, and the removal is logged under your name.</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button variant="destructive" size="md" disabled={busy !== null} spinning={busy === "removed"} onClick={() => void remove()}>Remove</Button>
+              <Button variant="ghost" size="md" onClick={() => setRemoving(false)}>Back</Button>
+            </div>
+          </div>
         )}
         {!pending && <div><IconTile icon="download" fg={cw.textMuted} bg={cw.bgSunken} /> <a href={`${AGENT_BASE}/api/knowledge/documents/${encodeURIComponent(doc.id)}/file`} style={{ fontSize: 12.5, color: cw.textLink, verticalAlign: "middle", marginLeft: 6 }}>Original file</a></div>}
       </div>
@@ -275,7 +311,7 @@ function UploadCard({ onDone, onCancel }: { onDone: () => Promise<void>; onCance
       const q = new URLSearchParams({ name: file.name, title: title.trim() || file.name });
       for (const [k, v] of [["source", source.trim()], ["version", version.trim()], ["effectiveDate", effectiveDate], ["country", country.trim()], ["icao", icao.trim().toUpperCase()]] as const) if (v) q.set(k, v);
       // Raw body with progress — a manual-sized PDF never fits a JSON body.
-      const { status, body } = await new Promise<{ status: number; body: { ok?: boolean; message?: string; proposal?: { tier: string; confidence?: number | null; reason: string } | null } | null }>((resolve, reject) => {
+      const { status, body } = await new Promise<{ status: number; body: { ok?: boolean; message?: string; indexed?: boolean; proposal?: { tier: string; confidence?: number | null; reason: string } | null } | null }>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", `${AGENT_BASE}/api/knowledge/documents?${q.toString()}`);
         xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
@@ -287,7 +323,10 @@ function UploadCard({ onDone, onCancel }: { onDone: () => Promise<void>; onCance
       });
       if (status !== 200 || !body?.ok) throw new ShownError(apiMessage(body, "The upload failed. Try again."));
       const p = body.proposal;
-      setNotice(p ? `Uploaded. Proposed ${p.tier === "tier1" ? "authoritative" : "reference"}${p.confidence != null ? ` at ${Math.round(p.confidence * 100)}% confidence` : ""}: ${proposalReason(p.reason)}` : "Uploaded. Text could not be extracted automatically — review before approving.");
+      // the outcome as it is (2026-11-05): indexed only when the agent says it indexed it
+      setNotice(body.indexed
+        ? `Uploaded and indexed: the agent can cite it as reference from now on.${p?.tier === "tier1" ? " It is also proposed for the verbatim tier, where it would be quoted word for word; an admin or developer who did not upload it decides that." : ""}`
+        : p ? "Uploaded, but no text could be indexed, so the agent cannot use it yet." : "Uploaded. Text could not be extracted automatically, so the agent cannot use it yet.");
       await onDone();
     } catch (e) { setError(shownText(e, "The upload failed. Try again.")); } finally { setBusy(false); setProgress(null); }
   }

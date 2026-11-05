@@ -2,7 +2,7 @@
 // link (lib/mail/auth-links.ts) and we send it: the brand's sender, a row in Mailbox › Sent, a delivery status. Client
 // access requests no longer come here — they have no account until approved (/api/client-requests).
 import { NextResponse } from "next/server";
-import { callerAddress, hourlyLimit, NO_ADDRESS } from "@/lib/caller-address.mjs";
+import { callerAddress, hourlyLimit, NO_ADDRESS, noAddressRefused } from "@/lib/caller-address.mjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import {
   isValidEmail,
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   // email to any address it named, with a name the caller wrote. Now: 10 an hour per caller (lib/caller-address.mjs,
   // never a header the caller writes), and one email a minute to any one address, whoever asks.
   const ip = callerAddress(request.headers);
-  if (!ip) return NextResponse.json({ error: NO_ADDRESS }, { status: 403 });
+  if (!ip) { noAddressRefused("/api/auth/email/request-confirmation"); return NextResponse.json({ error: NO_ADDRESS }, { status: 403 }); }
   if (!asked.take(ip)) return NextResponse.json({ error: "Too many sign-up requests from here in the last hour. Try again later." }, { status: 429 });
 
   const requestUrl = new URL(request.url);

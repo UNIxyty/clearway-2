@@ -246,6 +246,13 @@ try {
   const { nextAction } = await import("../agent/lib/turn-policy.mjs");
   const na = (t, cited = true) => nextAction({ reply: { text: t, blocks: cited ? [{ citations: [{ type: "web_search_result_location", url: "https://acukwik.com/x" }] }] : [] }, turn: { searches: [{ pass: 1, results: 10 }], widened: false }, policy: { mustSearch: true, kinds: ["handling and FBO"] }, webAvailable: true, done: new Set() })?.kind ?? null;
   ok(na("Handling is not mandatory. I did not widen the search to forums or blogs.") === "widen" && na("X.\n\n**What I could not establish**\n- crew reports") === "widen" && na("Nothing useful.", false) === "widen" && na("Handling is not mandatory.") === null, "pass one alone that cites nothing, or admits a part it could not establish, widens; a fully answered pass one does not (prompt 5)");
+  {
+    // an offer to search owes a search only when the question named something (2026-11-05, production: "what can you do"
+    // → "I can … search the web" was taken for an offer and spent a turn searching nothing)
+    const { subjectsOf: sOf } = await import("../agent/lib/follow-up.mjs");
+    const offer = (q, t) => nextAction({ reply: { text: t, blocks: [] }, turn: { searches: [], widened: false }, policy: { mustSearch: false, kinds: [], subjects: sOf(q) }, webAvailable: true, done: new Set() })?.kind ?? null;
+    ok(offer("what can you do", "I can look up flights, read AIPs and search the web if you want.") === null && offer("Is there fuel at DAAT?", "I can search the wider web if you want.") === "search", "a capability that mentions searching owes nothing when nothing was asked; an offer to search about a named place still searches");
+  }
   script = "must-search"; seen.length = 0;
   const ms = await chat(5191, "Rig check: does Bulgaria require a landing permit?");
   const mcalls = seen.filter((b) => b.stream);
@@ -292,6 +299,9 @@ try {
 
 // ── 4. the ceiling reached mid-turn ──
 script = "ceiling"; seen.length = 0;
+// from an empty day: the rig's real-model suites spend from the same ledger, and a day already past $2 would refuse the
+// first round instead of the second (2026-11-05). Today's row is restored as it was at the end.
+await fetch(`${SB}/rest/v1/agent_settings?id=eq.spend:${day}`, { method: "DELETE", headers: H });
 const C = await agent(5192, { AGENT_DAILY_CEILING_USD: "2" });
 try {
   const c = await chat(5192, "Rig check: a search-heavy question at the ceiling.");

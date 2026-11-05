@@ -49,7 +49,10 @@ export const citesWeb = (blocks) => blocks.some((b) => (b.citations ?? []).some(
 export function nextAction({ reply, turn, policy, webAvailable, done }) {
   if (!webAvailable) return null;
   const searched = turn.searches.length > 0;
-  if (!searched && !done.has("search") && (policy?.mustSearch || offersToSearch(reply.text))) {
+  // an offer to search owes a search only when the question named something to search for (2026-11-05: "what can you do"
+  // got "I can … search the web" back, and that capability was taken for an offer; a turn was spent searching nothing)
+  const offerOwed = offersToSearch(reply.text) && policy?.subjects?.any !== false;
+  if (!searched && !done.has("search") && (policy?.mustSearch || offerOwed)) {
     const why = policy?.mustSearch ? `This question is about ${policy.kinds.join(", ")}: it is always searched, whatever our own data says.` : "Your answer offers to search instead of searching.";
     return { kind: "search", label: "the web", tools: ["web_search"], prompt: `${why} Search now — the approved sources first — for what the question needs. Then write the FULL answer, from the start and complete on its own, citing what you found and saying what you could not establish. Never offer to search: search.` };
   }

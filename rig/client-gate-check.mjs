@@ -251,6 +251,19 @@ ok(staffWall === 200, "wall: staff still reach their endpoints", staffWall);
     await r.body?.cancel().catch(() => null); bare.push(r.status);
   }
   ok(bare.every((s) => s === 403), "a request without Cloudflare's address is refused, whatever x-forwarded-for it writes (none, one, two)", bare.join(" "));
+  // …and a refusal that piles up says so (2026-11-05): a gate that fails closed still has to say it has closed
+  const { noAddressRefused, resetNoAddressAlarm, NO_ADDRESS_ALARM_AT } = await import("../lib/caller-address.mjs");
+  resetNoAddressAlarm();
+  const sent = []; const send = async (t) => { sent.push(t); return true; };
+  const t0 = Date.parse("2026-11-05T00:00:00Z");
+  const steps = [];
+  for (let i = 0; i < NO_ADDRESS_ALARM_AT + 1; i += 1) { const r = noAddressRefused(i % 2 ? "/api/auth/password/forgot" : "/api/client-requests", { now: t0 + i * 60e3, send }); steps.push(r.alarm ? await r.alarm : null); }
+  const later = noAddressRefused("/api/client-requests", { now: t0 + 6.1 * 3600e3, send }); await later.alarm;
+  const late2 = [noAddressRefused("/api/client-requests", { now: t0 + 6.2 * 3600e3, send }), noAddressRefused("/api/client-requests", { now: t0 + 6.3 * 3600e3, send })];
+  ok(steps.slice(0, NO_ADDRESS_ALARM_AT - 1).every((x) => x === null) && steps[NO_ADDRESS_ALARM_AT - 1] === true && steps[NO_ADDRESS_ALARM_AT] === null && sent.length >= 1 && /without Cloudflare's address/.test(sent[0]) && /\/api\/client-requests/.test(sent[0]) && /password\/forgot/.test(sent[0]),
+    `the alarm: ${NO_ADDRESS_ALARM_AT} refusals in an hour tell the developers on Telegram (naming the forms), once, not again within six hours`, `${sent.length} alarm(s) · ${steps.map((x) => (x === null ? "-" : x)).join(" ")}`);
+  ok(late2[1].alarm !== null && sent.length === 2, "…and again after six hours if it is still happening", `${sent.length} alarm(s)`);
+  resetNoAddressAlarm();
 }
 
 // cleanup: the invented client row is append-only-logged only if a decision was written; none was

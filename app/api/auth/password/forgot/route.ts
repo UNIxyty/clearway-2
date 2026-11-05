@@ -3,7 +3,7 @@
 // so this page does not tell anyone which addresses exist; `sent: false` only when an email to a real account failed
 // (the signed-in profile pages use that to say so). One reset email per address a minute, a few per asker an hour.
 import { NextResponse } from "next/server";
-import { callerAddress, hourlyLimit, NO_ADDRESS } from "@/lib/caller-address.mjs";
+import { callerAddress, hourlyLimit, NO_ADDRESS, noAddressRefused } from "@/lib/caller-address.mjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { isValidEmail, normalizeEmail } from "@/lib/auth-email-flow-utils.mjs";
 import { failure, logFailure } from "@/lib/public-error";
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   }
   // counted before the body is read: a malformed request spends the allowance too
   const ip = callerAddress(request.headers);
-  if (!ip) return NextResponse.json({ error: NO_ADDRESS }, { status: 403 });
+  if (!ip) { noAddressRefused("/api/auth/password/forgot"); return NextResponse.json({ error: NO_ADDRESS }, { status: 403 }); }
   if (!asked.take(ip)) return NextResponse.json({ error: "Too many reset requests from here in the last hour. Try again later." }, { status: 429 });
   const body = (await request.json().catch(() => ({}))) as { email?: string };
   const email = normalizeEmail(body.email);

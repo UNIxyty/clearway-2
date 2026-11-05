@@ -53,13 +53,16 @@ run smoke-alarm $E rig/smoke-alarm-check.mjs   # the scheduled smoke calls' alar
 run configured-not-working $E rig/configured-not-working-check.mjs   # statuses from real calls, not settings (2026-11-03)
 run fallback-watch $E rig/fallback-watch-check.mjs   # every fallback recorded with why; the rate alarms (2026-11-03)
 run knowledge-fts $E rig/knowledge-fts-check.mjs   # knowledge search on Postgres full text (2026-11-03)
-run web-search $E rig/web-search-check.mjs   # two providers, two passes, citations and the mark, through the chat route (2026-11-03)
+run web-search $E rig/web-search-check.mjs   # the API's own search (Tavily removed 2026-11-05), two passes, citations and the mark, follow-ups, through the chat route
+run agent-disclosure $E rig/agent-disclosure-check.mjs   # disclosure only when it names something real: greetings, a full answer, a failed tool, a partial one (real model, the rig key; skips without it)
+run knowledge-roundtrip $E rig/knowledge-roundtrip-check.mjs   # upload indexes at once, never the uploader's approval, Remove takes it out and is recorded (real model for the answers)
 run settings-truth $E rig/settings-truth-check.mjs   # every figure and switch on Settings does something (2026-11-03)
 run status-truth node rig/status-truth-check.mjs   # the Leon feed verdict and the TV's NOTAM sign tied to today (2026-11-03)
 run scheduled-jobs $E rig/jobs-check.mjs   # the agent's scheduled jobs record their runs; failed or overdue fails a smoke check (2026-11-03)
 run portal-colours node scripts/check-portal-colours.mjs   # every portal colour a --cw-* token; prints its exceptions and why
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
+run intake/test-fill-shape node rig/intake/test-fill-shape.mjs   # one extraction shape every time (2026-11-03)
 run intake/test-fill-shape node rig/intake/test-fill-shape.mjs   # one extraction shape every time (2026-11-03)
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
 run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/intake/test-timezones.mjs
@@ -78,6 +81,7 @@ run manifest/browser $E rig/manifest/browser.mjs
 # ── intake end to end. Every e2e truncates the intake tables. The sign-in agent (:5176) would take the look-up
 # retries that e2e-scheduled and e2e-classify wait for, so it is stopped for this block.
 rig/signin-agent.sh stop >> $LOG 2>&1
+run intake/extraction-repeat $E rig/intake/extraction-repeat.mjs   # the same email, several runs, the same record (needs the model key)
 run intake/extraction-repeat $E rig/intake/extraction-repeat.mjs   # the same email, several runs, the same record (needs the model key)
 run intake/e2e $E rig/intake/e2e.mjs
 run intake/e2e-scheduled $E rig/intake/e2e-scheduled.mjs

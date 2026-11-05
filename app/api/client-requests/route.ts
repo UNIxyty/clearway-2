@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { callerAddress, hourlyLimit, NO_ADDRESS } from "@/lib/caller-address.mjs";
+import { callerAddress, hourlyLimit, NO_ADDRESS, noAddressRefused } from "@/lib/caller-address.mjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { NOT_READY, createRequest, onboardingReady } from "@/lib/clients/onboarding";
 import { appUrl } from "@/lib/mail/send";
@@ -16,7 +16,7 @@ const asks = hourlyLimit(8);   // per address of the asker: at most 8 requests a
 export async function POST(request: Request) {
   // counted before the body is read: a malformed request spends the allowance too
   const ip = callerAddress(request.headers);
-  if (!ip) return NextResponse.json({ ok: false, error: NO_ADDRESS }, { status: 403 });
+  if (!ip) { noAddressRefused("/api/client-requests"); return NextResponse.json({ ok: false, error: NO_ADDRESS }, { status: 403 }); }
   if (!asks.take(ip)) return NextResponse.json({ ok: false, error: "Too many requests from here in the last hour. Try again later." }, { status: 429 });
   try {
     const service = createSupabaseServiceRoleClient();

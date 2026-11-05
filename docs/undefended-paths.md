@@ -36,6 +36,8 @@ and nothing said so.
 
 **A check with no time limit can stop being a check (2026-11-04).** The extended client gate walk waited 35 minutes on one event stream that answered and never ended, and reported nothing the whole time. Every call in `rig/client-gate-check.mjs` now has a 20 s limit and drops the body once the status is in. A check that can wait forever is one more path that stops without saying so.
 
+**A gate that fails closed still has to say it has closed (2026-11-05).** The signed-out limiters refuse a request without Cloudflare's address (`cf-connecting-ip`), because anything else is forgeable. If the header ever stops arriving (a tunnel change, a route change, the origin exposed), every sign-up, password reset and access request answers 403. That looks exactly like nobody signing up. So the refusals are counted: three in an hour alert the developers on Telegram, naming the forms, and again every six hours while it lasts (`lib/caller-address.mjs` › `noAddressRefused`; the gate walk proves the count, the once, and the repeat).
+
 ## The fifth shape: a report with no reader is not a check (2026-11-03)
 
 A job that writes its result somewhere and trusts a person to come and find it reports nothing, however true the

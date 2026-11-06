@@ -103,13 +103,16 @@ export async function listKnownCountriesFromSupabase(): Promise<string[]> {
   const countries = new Set<string>();
   let offset = 0;
 
-  while (offset < MAX_ROWS) {
+  while (true) {
+    // a ceiling or an error says so (2026-11-07): both used to end the list quietly, as if complete
+    if (offset >= MAX_ROWS) { console.error(`[country-status] more than ${MAX_ROWS} airports: the country list is partial`); break; }
     const { data, error } = await service
       .from("airports")
       .select("country")
       .eq("visible", true)
       .range(offset, offset + PAGE_SIZE - 1);
-    if (error || !data || data.length === 0) break;
+    if (error) { console.error(`[country-status] the airports read failed at row ${offset}: ${error.message}; the country list is partial`); break; }
+    if (!data || data.length === 0) break;
     for (const row of data as Array<{ country?: string | null }>) {
       const country = normalizeCountry(String(row.country || ""));
       if (country) countries.add(country);

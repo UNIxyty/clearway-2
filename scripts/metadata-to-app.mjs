@@ -21,7 +21,15 @@ const dry = process.argv.includes("--dry-run");
 const H = { apikey: key, authorization: `Bearer ${key}`, "content-type": "application/json" };
 const get = async (path) => { const r = await fetch(`${url}${path}`, { headers: H }); if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`); return r.json(); };
 
-const prefs = new Map((await get("/rest/v1/user_preferences?select=user_id,is_admin,is_developer,is_approved")).map((p) => [p.user_id, p]));
+// every preferences row, a page at a time (2026-11-07: an unranged read stops at 1000, and the accounts past it were
+// then reported as disagreeing, or lost their temporary restriction)
+const prefRows = [];
+for (let from = 0; ; from += 1000) {
+  const r = await fetch(`${url}/rest/v1/user_preferences?select=user_id,is_admin,is_developer,is_approved&order=user_id.asc`, { headers: { ...H, "Range-Unit": "items", Range: `${from}-${from + 999}` } });
+  if (!r.ok && r.status !== 206) throw new Error(`user_preferences: HTTP ${r.status}`);
+  const page = await r.json(); prefRows.push(...page); if (page.length < 1000) break;
+}
+const prefs = new Map(prefRows.map((p) => [p.user_id, p]));
 const devEmails = String(process.env.DEVELOPER_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 let page = 1, seen = 0, copied = 0, temporary = 0, approved = 0; const suspect = [];
 for (;;) {

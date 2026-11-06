@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth-email-flow-utils.mjs";
 import { failure, logFailure } from "@/lib/public-error";
 import { TRY_AGAIN_SIGNED_OUT } from "@/lib/error-text";
+import { listAllUsers } from "@/lib/auth-users";
 
 // What a person sees on the confirmation page. The detail (a missing setting, a Supabase error) goes to the log.
 const NO_TOKEN = "This confirmation link is not complete. Open the link from your email again.";
@@ -74,20 +75,12 @@ async function findUserIdByEmail(email: string) {
   }
 
   const targetEmail = normalizeEmail(email);
-  const perPage = 200;
-  // Safety bound to avoid unbounded scans in very large user sets.
-  for (let page = 1; page <= 10; page += 1) {
-    const { data, error } = await service.auth.admin.listUsers({ page, perPage });
-    if (error) {
-      logFailure("AUTH-CONFIRM", "listUsers failed", error.message);
-      return { error: NOT_NOW, userId: null as string | null };
-    }
-
-    const users = data?.users ?? [];
-    const match = users.find((u) => normalizeEmail(u.email) === targetEmail);
-    if (match?.id) return { error: null, userId: match.id };
-    if (users.length < perPage) break;
-  }
+  // every account (2026-11-07): it stopped after 10 pages of 200 and then said the account did not exist
+  let users: Awaited<ReturnType<typeof listAllUsers>>;
+  try { users = await listAllUsers(service); }
+  catch (error) { logFailure("AUTH-CONFIRM", "listUsers failed", error instanceof Error ? error.message : String(error)); return { error: NOT_NOW, userId: null as string | null }; }
+  const match = users.find((u) => normalizeEmail(u.email) === targetEmail);
+  if (match?.id) return { error: null, userId: match.id };
   return { error: "We could not find the account for this link. Sign up again to get a new link.", userId: null as string | null };
 }
 

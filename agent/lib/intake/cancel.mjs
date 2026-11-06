@@ -17,7 +17,7 @@
 // Leon (no call); more than one of our requests has flights in Leon for the reference (stop and ask); a leg that has
 // departed (shown, flagged, never cancelled by the agent); a partial failure (red, legs named, successes not retried).
 import { createHash } from "node:crypto";
-import { rest } from "../knowledge/retrieval.mjs";
+import { rest, restAll } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
 import { leonGraphql } from "./leon-client.mjs";
 import { setStage } from "./pipeline.mjs";
@@ -238,7 +238,8 @@ async function finishCancel(requestId, outcome, { by }) {
 
 /** The ticker: a cancel question nobody answered by its deadline. Nothing is cancelled; the request keeps waiting, visibly. */
 export async function cancelDeadlines() {
-  const rows = (await rest("intake_requests?select=id,review,stages&request_type=eq.scheduled&status=eq.needs_you&limit=100").catch(() => [])) ?? [];
+  // every row, not the first 100 (2026-11-07): rows already noted keep this status and filled the page
+  const rows = (await restAll("intake_requests?select=id,review,stages&request_type=eq.scheduled&status=eq.needs_you&order=id.asc").catch(() => [])) ?? [];
   for (const r of rows) {
     const a = r.review?.cancellation?.approval; if (!a || a.answer || a.expiredNoted || Date.parse(a.deadlineAt) > Date.now()) continue;
     const stages = withStage(stagesOf(r)); a.expiredNoted = new Date().toISOString();

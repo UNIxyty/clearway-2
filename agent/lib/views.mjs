@@ -6,7 +6,7 @@ import { todaySpend } from "./spend.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
-import { rest as knowledgeRest } from "./knowledge/retrieval.mjs";
+import { rest as knowledgeRest, restAll as knowledgeRestAll, restCount } from "./knowledge/retrieval.mjs";
 import { listAccess, agentEnabled } from "./store.mjs";
 import { wallGet } from "./tools/http.mjs";
 import { loadModelConfig } from "./models.mjs";
@@ -234,8 +234,9 @@ export async function usageThisMonth() {
   const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
   const cfg = loadModelConfig();
   const pricing = cfg.pricing ?? {};
-  const rows = (await rest(`agent_audit_log?kind=eq.chat.response&created_at=gte.${encodeURIComponent(from)}&select=user_email,model_id,input_tokens,output_tokens,detail&limit=5000`).catch(() => [])) ?? [];
-  const toolRows = (await rest(`agent_audit_log?kind=eq.tool.call&created_at=gte.${encodeURIComponent(from)}&select=id&limit=1`, { headers: { Prefer: "count=exact" } }).catch(() => null));
+  // every reply of the month, and tool calls counted by the database (2026-11-07: limit=5000 was 1000 under the page
+  // limit, and the tool count was the length of a capped read)
+  const rows = (await knowledgeRestAll(`agent_audit_log?kind=eq.chat.response&created_at=gte.${encodeURIComponent(from)}&select=user_email,model_id,input_tokens,output_tokens,detail&order=created_at.asc,id.asc`).catch(() => [])) ?? [];
   const rate = (modelId) => { const k = Object.keys(pricing).find((p) => p !== "_comment" && p !== "webSearchPerRequest" && String(modelId ?? "").includes(p)); return pricing[k] ?? pricing.default ?? { input: 3, output: 15, cacheRead: 0.3 }; };
   let usd = 0; const perUser = {};
   for (const r of rows) {
@@ -245,7 +246,7 @@ export async function usageThisMonth() {
     usd += turnUsd; perUser[r.user_email ?? "—"] = (perUser[r.user_email ?? "—"] ?? 0) + turnUsd;
   }
   const heaviest = Object.entries(perUser).sort((a, b) => b[1] - a[1])[0] ?? null;
-  const toolCalls = await rest(`agent_audit_log?kind=eq.tool.call&created_at=gte.${encodeURIComponent(from)}&select=id`).then((r) => (r ?? []).length).catch(() => 0);
+  const toolCalls = await restCount(`agent_audit_log?kind=eq.tool.call&created_at=gte.${encodeURIComponent(from)}`).catch(() => null);
   return {
     month: now.toLocaleString("en-GB", { month: "long", timeZone: "UTC" }).toUpperCase(),
     // The month is information only; the daily ceiling is what stops calls (2026-11-03: the "monthly cap" shown here
@@ -260,13 +261,13 @@ export async function usageThisMonth() {
 
 // ── Knowledge base (§10) ──────────────────────────────────────────────────────
 export async function knowledgeStats() {
-  const docs = (await knowledgeRest("agent_documents?select=id,tier,status,proposed_tier,created_at").catch(() => [])) ?? [];
-  const clauses = (await knowledgeRest("agent_tier1_records?retired_at=is.null&select=id").catch(() => [])) ?? [];
+  const docs = (await knowledgeRestAll("agent_documents?select=id,tier,status,proposed_tier,created_at&order=created_at.asc,id.asc").catch(() => [])) ?? [];
+  const clauses = await restCount("agent_tier1_records?retired_at=is.null").catch(() => null);
   const waiting = docs.filter((d) => d.status === "awaiting_approval" || d.status === "classified" || d.status === "uploaded");
   const oldest = waiting.map((d) => Date.now() - new Date(d.created_at).getTime()).sort((a, b) => b - a)[0] ?? null;
   return {
     authoritative: docs.filter((d) => d.tier === "tier1" && (d.status === "approved" || d.status === "indexed")).length,
-    clauses: clauses.length,
+    clauses,
     reference: docs.filter((d) => d.tier === "tier2" && (d.status === "approved" || d.status === "indexed")).length,
     awaiting: waiting.length, oldestWaitingDays: oldest != null ? Math.floor(oldest / 86_400_000) : null,
     failed: docs.filter((d) => d.status === "failed").length,

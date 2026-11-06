@@ -16,7 +16,7 @@
 // versions append).
 import { createHash } from "node:crypto";
 import { simpleParser } from "mailparser";
-import { rest } from "../knowledge/retrieval.mjs";
+import { rest, restAll } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
 import { extractAttachment } from "../attachments.mjs";
 import { readKey, sniff, sha256, putContent } from "./blobstore.mjs";
@@ -81,7 +81,8 @@ async function drain() {
 export const queueDepth = () => queue.length + (running ? 1 : 0);
 /** On start: anything left waiting is processed again. */
 export async function resumeWaiting() {
-  const rows = (await rest("intake_messages?select=id&direction=eq.inbound&status=eq.waiting&fetch_status=eq.stored&order=received_at.asc&limit=200").catch(() => [])) ?? [];
+  // every waiting message, not the first 200 (2026-11-07): past 200 a restart left the rest unprocessed, silently
+  const rows = (await restAll("intake_messages?select=id&direction=eq.inbound&status=eq.waiting&fetch_status=eq.stored&order=received_at.asc,id.asc").catch(() => [])) ?? [];
   for (const r of rows) enqueue(r.id);
   return rows.length;
 }

@@ -89,8 +89,8 @@ try {
   }
   const row = (await db(`clients?select=id,user_id,status,company&email=eq.${encodeURIComponent(ME.email)}`))[0];
   ok(row?.status === "requested" && row.user_id === null, "the request is a clients row with no account", JSON.stringify(row));
-  const users = (await (await svc(`/auth/v1/admin/users?page=1&per_page=1000`)).json()).users ?? [];
-  ok(!users.some((u) => u.email === ME.email), "no auth account exists for the asker");
+  // asked of the database itself (2026-11-07): page 1 of the account list is not every account
+  ok(psql(`select count(*) from auth.users where lower(email) = lower('${ME.email.replace(/'/g, "")}');`) === "0", "no auth account exists for the asker");
   const opsMail = (await newSends(n, OPS[0], /Access request/))[0];
   ok(Boolean(opsMail) && OPS.every((o) => [].concat(opsMail.to).includes(o)), "ops: one email to everyone on the notify list", opsMail ? `${[].concat(opsMail.to).join(", ")} · ${opsMail.subject}` : "none");
   ok(/^Clearway </.test(String(opsMail?.from)), "ops: from the brand's sender name", opsMail?.from);

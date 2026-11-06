@@ -2,6 +2,7 @@
 // grant outlived its account on production, because no delete path touched agent_access. The trigger on auth.users
 // runs inside the delete itself, whatever deletes it (the Admin API here, as the Telegram bot and the dashboard do).
 //   node --env-file=.env.rig rig/account-delete-check.mjs
+import { execFileSync } from "node:child_process";
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d !== "" ? `  · ${String(d).slice(0, 200)}` : ""}`); if (!c) failures += 1; };
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, K = process.env.SUPABASE_SERVICE_ROLE_KEY, H = { apikey: K, authorization: `Bearer ${K}`, "content-type": "application/json" };
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
@@ -34,9 +35,9 @@ try {
   await fetch(`${SB}/auth/v1/admin/users/${c.id}`, { method: "DELETE", headers: H });
   await db(`agent_access?user_id=eq.${u.id}`, { method: "DELETE" });
   // nothing live outlives its account on the rig
-  const users = new Set(((await (await fetch(`${SB}/auth/v1/admin/users?page=1&per_page=1000`, { headers: H })).json()).users ?? []).map((x) => x.id));
-  const orphans = ((await db("agent_access?revoked_at=is.null&select=user_id")) ?? []).filter((g) => !users.has(g.user_id));
-  ok(orphans.length === 0, "no live agent grant on the rig belongs to an account that no longer exists", orphans.length);
+  // asked of the database itself (2026-11-07): a first page of accounts and an unranged read both stop at a limit
+  const orphans = Number(execFileSync("docker", ["exec", "-i", "supabase_db_rig", "psql", "-U", "postgres", "-tAq"], { input: "select count(*) from public.agent_access a where a.revoked_at is null and not exists (select 1 from auth.users u where u.id = a.user_id);" }).toString().trim());
+  ok(orphans === 0, "no live agent grant on the rig belongs to an account that no longer exists", orphans.length);
 } finally {
   if (notifyBefore) await db("app_settings?on_conflict=key", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify([{ key: "clients.notify_to", value: notifyBefore }]) });
 }

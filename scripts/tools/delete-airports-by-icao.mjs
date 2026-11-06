@@ -52,16 +52,13 @@ async function main() {
   }
 
   const supabase = await createSupabaseClient();
-  const { data: existing, error: readError } = await supabase
-    .from("airports")
-    .select("icao,country,name")
-    .in("icao", icaos)
-    .order("icao", { ascending: true });
-  if (readError) {
-    throw new Error(`Read failed: ${readError.message}`);
+  // 500 codes a read (2026-11-07): one .in() stopped at 1000 rows and the rest were reported "not found"
+  const found = [];
+  for (let i = 0; i < icaos.length; i += 500) {
+    const { data, error: readError } = await supabase.from("airports").select("icao,country,name").in("icao", icaos.slice(i, i + 500)).order("icao", { ascending: true });
+    if (readError) throw new Error(`Read failed: ${readError.message}`);
+    found.push(...(data || []));
   }
-
-  const found = existing || [];
   const foundSet = new Set(found.map((row) => row.icao));
   const missing = icaos.filter((icao) => !foundSet.has(icao));
 

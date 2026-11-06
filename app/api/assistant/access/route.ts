@@ -17,6 +17,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { auditAgent, grantAgentAccess, listAgentAccess, revokeAgentAccess } from "@/lib/agent/store";
 import { requirePermission } from "@/lib/permissions/server";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
+import { listAllUsers } from "@/lib/auth-users";
 
 const NOT_GRANTED = `Access was not given. ${TRY_AGAIN}`;
 
@@ -50,9 +51,8 @@ export async function POST(request: NextRequest) {
 
   try {
     if (!userId) {
-      const { data, error } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      if (error) throw new Error(error.message);
-      const match = data.users.find((u) => String(u.email || "").toLowerCase() === rawEmail);
+      // every account, not page 1 (2026-11-07): past the first 1000 it said "No account found"
+      const match = (await listAllUsers(service)).find((u) => String(u.email || "").toLowerCase() === rawEmail);
       if (!match) return NextResponse.json({ error: `No account found for ${rawEmail}.` }, { status: 404 });
       userId = match.id;
       userEmail = match.email ?? rawEmail;

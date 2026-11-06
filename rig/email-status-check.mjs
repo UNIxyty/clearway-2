@@ -51,9 +51,11 @@ st = await (await fetch(`${AGENT}/api/email/status?id=${r4.recordId}`)).json();
 ok(st.status === "failed" && st.final === true && !!st.error, "the status route: failed, final, with the error", st.error?.slice(0, 80));
 
 console.log("\n=== 5. No record asked for, no row; bad ids refused ===");
-const before = (await db("intake_messages?select=id&direction=eq.outbound")).length;
+// counted by the database (2026-11-07): the length of an unranged read stops at 1000, where both sides would match
+const countOutbound = async () => Number(String((await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/intake_messages?select=id&direction=eq.outbound`, { headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, Prefer: "count=exact", "Range-Unit": "items", Range: "0-0" } })).headers.get("content-range") ?? "").split("/")[1]);
+const before = await countOutbound();
 await sendEmail({ to: ["handler@example.invalid"], subject: "rig unrecorded", html: "<p>rig</p>" });
-ok((await db("intake_messages?select=id&direction=eq.outbound")).length === before, "a send without a record adds no row (the intake's own emails record themselves)");
+ok(Number.isFinite(before) && (await countOutbound()) === before, "a send without a record adds no row (the intake's own emails record themselves)");
 ok((await fetch(`${AGENT}/api/email/status?id=not-an-id`)).status === 400 && (await fetch(`${AGENT}/api/email/status?id=${randomUUID()}`)).status === 404, "a malformed id is 400, an unknown one 404");
 
 console.log(`\n${failures ? `${failures} FAILED` : "ALL PASSED"}`);

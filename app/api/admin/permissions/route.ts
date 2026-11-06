@@ -29,6 +29,11 @@ async function readState() {
     logFailure("PERMISSIONS", "permission_grants read failed", grants.error.message);
     return { ok: false as const, error: UNREADABLE };
   }
+  // at the database's 1000-row read limit the grid would be partial, with every missing cell shown as "off" (2026-11-07)
+  if ((grants.data ?? []).length >= 1000) {
+    logFailure("PERMISSIONS", "permission_grants reached the 1000-row read limit", "refusing to show a partial grid");
+    return { ok: false as const, error: UNREADABLE };
+  }
   return { ok: true as const, rows: (grants.data ?? []) as Row[], log: log.data ?? [] };
 }
 

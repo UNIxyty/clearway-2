@@ -9,7 +9,7 @@
 //   - clears `intake_extractions.personal` for those requests.
 // Message rows, request rows and non-personal extracted fields (airports, times, counts) stay: they are the
 // operational record, and they carry no identities.
-import { rest } from "../knowledge/retrieval.mjs";
+import { rest, restAll } from "../knowledge/retrieval.mjs";
 import { deleteKey } from "./blobstore.mjs";
 
 export const DEFAULT_RETENTION_DAYS = 90;
@@ -41,7 +41,9 @@ export function deleteAtFor(receivedAt, review, days) {
 export async function sweep({ now = Date.now(), dryRun = false } = {}) {
   const days = await retentionDays();
   const cutoff = new Date(now - days * 86_400_000).toISOString();
-  const expired = (await rest(`intake_messages?select=id,raw_key,received_at&purged_at=is.null&received_at=lt.${encodeURIComponent(cutoff)}&limit=500`)) ?? [];
+  // every expired message, oldest first (2026-11-07): this read was limit=500 and unordered, and the messages kept for a
+  // later flight stay unpurged, so once 500 of them existed the truly expired ones past them were never reached
+  const expired = await restAll(`intake_messages?select=id,raw_key,received_at&purged_at=is.null&received_at=lt.${encodeURIComponent(cutoff)}&order=received_at.asc,id.asc`);
   const out = { days, cutoff, messages: 0, keptForFlight: 0, rawDeleted: 0, filesDeleted: 0, filesKept: 0, personalCleared: 0, dryRun };
   for (const m of expired) {
     // A request whose last flight is later than its arrival keeps its data until `days` after that flight.

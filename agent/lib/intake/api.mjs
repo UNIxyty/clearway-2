@@ -7,7 +7,7 @@ import { lookupNow, lookupState, recordAnswer, peekAnswer, answerByToken } from 
 import { recordCancelAnswer } from "./cancel.mjs";
 import { nameSplit } from "./leon-pax.mjs";
 import { randomUUID } from "node:crypto";
-import { rest } from "../knowledge/retrieval.mjs";
+import { rest, restAll } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
 import { personalDataGate } from "../personal-data-gate.mjs";
 import { safeFetch } from "../net/safe-fetch.mjs";
@@ -96,12 +96,14 @@ function listRow(r, messages, writes) {
 }
 
 async function requestRows({ tab = "all", q = "", type = "" }) {
-  const rows = (await rest("intake_requests?select=id,message_id,request_type,status,status_reason,reference,reference_built,route,registration,first_std,legs_count,sender_name,updated_at,closed_reason,review&status=neq.not_recognised&order=updated_at.desc&limit=300")) ?? [];
+  // every request, not the 300 most recently updated (2026-11-07): the tab counts and the search are totals
+  const rows = (await restAll("intake_requests?select=id,message_id,request_type,status,status_reason,reference,reference_built,route,registration,first_std,legs_count,sender_name,updated_at,closed_reason,review&status=neq.not_recognised&order=updated_at.desc,id.desc")) ?? [];
   const msgIds = [...new Set(rows.map((r) => r.message_id))];
   const msgs = msgIds.length ? (await rest(`intake_messages?select=id,from_addr,received_at,search_text&id=in.(${msgIds.join(",")})`)) ?? [] : [];
   const messages = new Map(msgs.map((m) => [m.id, m]));
   const ids = rows.map((r) => r.id);
-  const wrows = ids.length ? (await rest(`intake_leon_writes?select=request_id,leg_index,state,created_at&action=eq.create&request_id=in.(${ids.join(",")})&order=created_at.asc`)) ?? [] : [];
+  const wrows = [];
+  for (let i = 0; i < ids.length; i += 200) wrows.push(...(await restAll(`intake_leon_writes?select=request_id,leg_index,state,created_at&action=eq.create&request_id=in.(${ids.slice(i, i + 200).join(",")})&order=created_at.asc,id.asc`)));
   const writes = new Map(); for (const w of wrows) { const m = writes.get(w.request_id) ?? {}; m[w.leg_index] = w; writes.set(w.request_id, m); }
   let out = rows.map((r) => ({ ...listRow(r, messages, writes), _search: `${r.reference ?? ""} ${r.route ?? ""} ${r.registration ?? ""} ${r.first_std ? fmtDate(r.first_std) : ""} ${r.first_std?.slice(0, 10) ?? ""} ${messages.get(r.message_id)?.search_text ?? ""}` }));
   const counts = { all: out.length, needs: out.filter((r) => r.needsAttention).length, progress: out.filter((r) => TABS.progress.includes(r.statusKey)).length, loaded: out.filter((r) => r.statusKey === "loaded").length, closed: out.filter((r) => TABS.closed.includes(r.statusKey)).length };
@@ -357,7 +359,8 @@ async function mailboxRows({ box = "received", view = "needs", q = "", days = 7,
   const reqIds = [...new Set(rows.map((r) => r.request_id).filter(Boolean))];
   const reqs = reqIds.length ? new Map(((await rest(`intake_requests?select=id,reference,status,status_reason,review,first_std,closed_reason,updated_at,sender_name,request_type,message_id,route,legs_count,registration&id=in.(${reqIds.join(",")})`)) ?? []).map((x) => [x.id, x])) : new Map();
   const attCounts = new Map();
-  if (rows.length) for (const a of (await rest(`intake_attachments?select=message_id&message_id=in.(${rows.slice(0, 200).map((r) => r.id).join(",")})`)) ?? []) attCounts.set(a.message_id, (attCounts.get(a.message_id) ?? 0) + 1);
+  // every row's attachments, 200 ids a query (2026-11-07: rows past the first 200 showed 0)
+  for (let i = 0; i < rows.length; i += 200) for (const a of await restAll(`intake_attachments?select=id,message_id&message_id=in.(${rows.slice(i, i + 200).map((r) => r.id).join(",")})&order=id.asc`)) attCounts.set(a.message_id, (attCounts.get(a.message_id) ?? 0) + 1);
   // A message that was not recognised keeps an internal request row (for "Process as handling request"), but
   // there is no request for ops to open: no reference, no link.
   const all = rows.map((r) => { const req0 = r.request_id ? reqs.get(r.request_id) : null; const req = req0 && req0.status !== "not_recognised" ? req0 : null; return { id: r.id, direction: r.direction, at: r.received_at, from: r.from_addr, to: r.to_addrs, subject: r.subject, status: r.status, label: r.direction === "inbound" && r.status === "ignored" && r.kind === "notforus" && !r.ignored_by ? "Not for us" : r.direction === "inbound" && r.status === "not_recognised" && r.classified ? "Needs a decision" : null, what: r.direction === "outbound" ? `${r.sent_kind ?? "Email"}` : r.status === "ignored" && r.ignored_by ? `Marked by ${r.ignored_by} · ${r.ignored_reason}` : r.status_reason ?? "", ref: req?.reference ?? null, requestId: r.request_id, requestState: req ? uiStatus(req).label : null, attachments: attCounts.get(r.id) ?? 0, delivery: r.delivery_status, matched: r.matched ?? null }; });
@@ -373,7 +376,7 @@ function matchReason(r, needle) {
 
 async function mailboxCounts(days = 7) {
   const since = new Date(Date.now() - days * 86400000).toISOString();
-  const rows = (await rest(`intake_messages?select=direction,status,delivery_status&received_at=gte.${encodeURIComponent(since)}&limit=5000`)) ?? [];
+  const rows = await restAll(`intake_messages?select=direction,status,delivery_status&received_at=gte.${encodeURIComponent(since)}&order=received_at.asc,id.asc`);   // every row (limit=5000 was 1000)
   const inb = rows.filter((r) => r.direction === "inbound"), out = rows.filter((r) => r.direction === "outbound");
   return { received: inb.length, sent: out.length, needs: inb.filter((r) => ["not_recognised", "failed", "waiting"].includes(r.status)).length, processed: inb.filter((r) => r.status === "processed").length, replies: inb.filter((r) => r.status === "reply").length, ignored: inb.filter((r) => r.status === "ignored").length, sentNeeds: out.filter((r) => ["delivery_delayed", "bounced", "complained", "failed"].includes(r.delivery_status)).length, waiting: inb.filter((r) => r.status === "waiting").length };
 }
@@ -398,7 +401,7 @@ async function addressHealth() {
   // send and its delivery status, and the delayed / failed sends of the last 24 hours.
   const day = encodeURIComponent(new Date(Date.now() - 86400_000).toISOString());
   const lastSend = (await rest("intake_messages?direction=eq.outbound&select=received_at,delivery_status&order=received_at.desc&limit=1").catch(() => null))?.[0] ?? null;
-  const recent = (await rest(`intake_messages?direction=eq.outbound&received_at=gte.${day}&select=delivery_status&limit=1000`).catch(() => null)) ?? null;
+  const recent = await restAll(`intake_messages?direction=eq.outbound&received_at=gte.${day}&select=delivery_status&order=received_at.asc,id.asc`).catch(() => null);
   return { addresses: out, resend: { ok: Array.isArray(resendDomains.value), apiAnswers: Array.isArray(resendDomains.value), lastSendAt: lastSend?.received_at ?? null, lastSendStatus: lastSend?.delivery_status ?? null,
     delayed: recent ? recent.filter((r) => r.delivery_status === "delivery_delayed").length : null, failed24h: recent ? recent.filter((r) => /^(failed|bounced|suppressed|complained)$/.test(String(r.delivery_status))).length : null } };
 }

@@ -57,6 +57,7 @@ sweep for that shape found:
 | Agent Settings: **"€X of €250 cap"** with a bar "spend against the cap", and "At the cap the agent stops replying and says so" | a spending limit | `AGENT_MONTHLY_CAP_EUR`, read only to draw the figure; nothing ever stopped | the card shows **today against the daily ceiling, which stops every model call** (`agent/lib/spend.mjs`). The month is labelled "information, no limit", and the sentence says what the ceiling does |
 | Agent Settings › Capabilities: **Auto-approve reference uploads** | a switch | nothing read it | removed |
 | `lib/permissions/route-gates.mjs` › UNGATED: sign-up confirmation **"rate-limited by the address"** | a limit | nothing: every POST sent an email to any address it named, with a name the caller wrote (found 2026-11-05). The two limits that did exist keyed on the first `x-forwarded-for`, which the caller writes | 10 an hour per caller on Cloudflare's address, one email a minute to any one address; the walk proves the eleventh is refused |
+| The Pick'em row count before the export (2026-11-07) | "about 2,800 rows in five tables" | reads that stopped at 1,000 rows a table, the database's default page, summed as if complete. **A count that silently truncates is a wrong count, not a partial one.** It was one step away from a short export and a permanent drop | 5,099 rows in 15 tables, by exact count (`Prefer: count=exact`), matched table by table against the export files before any drop; the other reads that report totals are listed and fixed (below the table) |
 | Agent Settings › Models: **embeddings** and **rerank** rows | model settings | nothing read them after Bedrock; the extraction tier, which runs, had no row | the five tiers that run. A save stores only what differs from `models.json`: saving the form used to freeze every tier on the models of that moment |
 
 New code for alerts uses `agent/lib/alert.mjs` (the agent) and `digital-wall/lib/agent-smoke-watch.mjs` (the wall).
@@ -72,6 +73,40 @@ item. Proof: `rig/settings-truth-check.mjs`, 6 checks.
 Not the shape, checked: the workers' `/health` routes say only that the process is up, and the status page labels
 them so, with separate freshness checks proving that the data arrives. Leon operators show "Connected" only after a
 successful sync.
+
+## Reads that stopped at a limit and reported a total (2026-11-07)
+
+The database answers at most 1000 rows a read (`max_rows`), even to `limit=5000`, and says nothing. The auth admin
+list answers one page per call. Twenty places counted or decided on such a read. The helpers that replace them say
+when they hit a ceiling, and never stop quietly:
+- `restAll` / `restCount` (agent/lib/knowledge/retrieval.mjs) for the agent;
+- `selectAll` (lib/supabase-all.ts) and `listAllUsers` (lib/auth-users.ts) for the portal;
+- `readAll` (rig/lib/read-all.mjs) for rig scans.
+
+`rig/read-limit-check.mjs` plants 1,100 rows and proves the control: a plain read stops at 1000.
+
+**Fixed:**
+- **The intake retention sweep:** passport data. It read 500 rows, unordered, and the messages kept for a later flight refilled that page every run.
+- **The intake tickers:** due look-ups, expired approvals and cancel deadlines. They read the first 50 or 100 rows, which the not-yet-due ones filled.
+- **The generated-files sweep.**
+- **The hourly fallback alarm:** its "N of M" and its 15% rule were judged on a capped read.
+- **The restart resume of waiting messages:** it read only the first 200.
+- **The Agent settings usage figures:** replies, spend and tool calls. The tool-call figure was the length of a capped read.
+- **The knowledge counts:** clauses and documents.
+- **The mailbox and request counts:** the Resend health counts, the tab counts, and the attachment counts past row 200.
+- **Admin › Users:** the counts and the waiting list came from page 1 of 500.
+- **Granting agent access by address:** it searched page 1 only.
+- **The sign-in link's account lookup:** it gave up after 2,000 accounts.
+- **The permission grid:** its reads now refuse at the limit (fail closed) rather than show missing cells as "off".
+- **The airport lists:** production has 6,400 visible airports. The list stopped at the first 1000 alphabetically.
+- **The debug runner:** the run-failures report, and the airport list that stopped at a ceiling.
+- **The country list:** it stopped quietly on an error or at its ceiling.
+- **The production cost report:** its 90-day volume was capped, and its check always passed.
+- **The one-off scripts:** the metadata migration's preferences read, the two airport tools' existence checks, and the report on rig rows found in production.
+- **The rig checks:** the email row count, the orphan count, the no-account check, and the two personal-data leak scans.
+
+**Lists, not totals (left as they are; whether each screen says it shows only the latest is not checked yet):** the Help inbox (latest 200), the agent-access lists (latest 500), the
+mailbox search (newest 500), and Admin › Hidden airports (latest 500).
 
 ## Every status in the four apps, traced (2026-11-03)
 

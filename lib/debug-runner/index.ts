@@ -6,6 +6,7 @@ import { isUsaAipIcao } from "@/lib/usa-aip";
 import { getScraperCountryByIcao } from "@/lib/scraper-country-config";
 import { getAsecnaAirportsSet } from "@/lib/asecna-airports";
 import { internalDebugAuthHeaders } from "@/lib/internal-debug-auth";
+import { selectAll } from "@/lib/supabase-all";
 import {
   eadCountryNameFromLabel,
   getEadCountryLabelForIcao,
@@ -218,7 +219,9 @@ async function listAirportCandidates(options: DebugRunOptions): Promise<AirportC
     const MAX_ROWS = 10_000;
     const allRows: Array<{ icao?: string; country?: string; name?: string; updated_at?: string | null }> = [];
     let offset = 0;
-    while (allRows.length < MAX_ROWS) {
+    while (true) {
+      // a ceiling that is reached says so (2026-11-07): it used to stop here and treat the part as every airport
+      if (allRows.length >= MAX_ROWS) throw new Error(`more than ${MAX_ROWS} airports: refusing to run on a partial list`);
       let query = service
         .from("airports")
         .select("icao,country,name,updated_at")
@@ -255,7 +258,9 @@ async function listAirportCandidates(options: DebugRunOptions): Promise<AirportC
   const allRows: Array<{ icao?: string; country?: string; name?: string; updated_at?: string | null }> = [];
   let offset = 0;
 
-  while (allRows.length < MAX_ROWS) {
+  while (true) {
+      // a ceiling that is reached says so (2026-11-07): it used to stop here and treat the part as every airport
+      if (allRows.length >= MAX_ROWS) throw new Error(`more than ${MAX_ROWS} airports: refusing to run on a partial list`);
     let query = service
       .from("airports")
       .select("icao,country,name,updated_at")
@@ -653,10 +658,14 @@ export async function loadPersistedRunFailures(runId: string): Promise<Array<{ i
   try {
     const service = createSupabaseServiceRoleClient();
     if (!service) return [];
-    const { data, error } = await service
+    // every failure of the run (2026-11-07: an unranged read stopped at 1000, and the report and its download with it)
+    const { data, error } = await selectAll((from, to) => service
       .from("debug_run_failures")
       .select("icao,country,name,step,state,detail")
-      .eq("run_id", runId);
+      .eq("run_id", runId)
+      .order("icao", { ascending: true })
+      .order("step", { ascending: true })
+      .range(from, to));
     if (error) return [];
     return (data ?? []) as Array<{ icao: string; country: string; name: string; step: string; state: string; detail: string | null }>;
   } catch {

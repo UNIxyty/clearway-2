@@ -14,8 +14,9 @@ const idIn = `in.(${RIG_IDS.join(",")})`, emailIn = `in.(${RIG_EMAILS.join(",")}
 const out = {};
 out.agent_audit_log = await count(`agent_audit_log?select=id&or=(user_id.${idIn},user_email.${emailIn})`);
 out.agent_conversations = await count(`agent_conversations?select=id&user_id=${idIn}`);
-const convs = await rows(`agent_conversations?select=id&user_id=${idIn}&limit=1000`);
-out.agent_messages = convs.length ? await count(`agent_messages?select=id&conversation_id=in.(${convs.map((c) => c.id).join(",")})`) : { count: 0 };
+// counted by the database through the conversation (2026-11-07: the conversations were read limit=1000, so the message
+// count covered only those)
+out.agent_messages = await count(`agent_messages?select=id,agent_conversations!inner(user_id)&agent_conversations.user_id=${idIn}`);
 out.agent_memories = await count(`agent_memories?select=id&user_id=${idIn}`);
 out.agent_actions = await count(`agent_actions?select=id&or=(user_id.${idIn},user_email.${emailIn})`);
 out.agent_generated_files = await count(`agent_generated_files?select=id&or=(user_id.${idIn},user_email.${emailIn})`);
@@ -24,7 +25,7 @@ out.agent_retrievals = await count(`agent_retrievals?select=id&user_id=${idIn}`)
 out.agent_settings = await count(`agent_settings?select=id&or=(id.like.pref:00000000-0000-4000-8000-000000000001:*,id.like.pref:00000000-7e57-4000-8000-000000000000:*,updated_by_email.${emailIn})`);
 out.agent_access = await count(`agent_access?select=user_id&user_id=${idIn}`);
 const docs = await rows(`agent_documents?select=id,title,status,tier,uploaded_by,uploaded_by_email,created_at&or=(uploaded_by.${idIn},uploaded_by_email.${emailIn})&limit=200`);
-out.agent_documents = { count: docs.length, byStatus: docs.reduce((m, d) => ((m[`${d.status}/${d.tier}`] = (m[`${d.status}/${d.tier}`] || 0) + 1), m), {}), titles: docs.map((d) => `${d.status} ${d.tier} · ${d.title}`) };
+out.agent_documents = { count: (await count(`agent_documents?select=id&or=(uploaded_by.${idIn},uploaded_by_email.${emailIn})`)).count, listed: docs.length, byStatus: docs.reduce((m, d) => ((m[`${d.status}/${d.tier}`] = (m[`${d.status}/${d.tier}`] || 0) + 1), m), {}), titles: docs.map((d) => `${d.status} ${d.tier} · ${d.title}`) };
 const docIds = docs.map((d) => d.id);
 out.agent_tier1_records = docIds.length ? await count(`agent_tier1_records?select=id&document_id=in.(${docIds.join(",")})`) : { count: 0 };
 out.agent_chunks = docIds.length ? await count(`agent_chunks?select=id&document_id=in.(${docIds.join(",")})`) : { count: 0 };

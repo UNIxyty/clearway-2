@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
 import { staffGate } from "@/lib/admin-auth";
+import { selectAll } from "@/lib/supabase-all";
 
 const NOT_LOADED = `The airport list could not be loaded. ${TRY_AGAIN}`;
 
@@ -47,25 +48,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: data ?? [] });
   }
 
-  let query = service
-    .from("airports")
-    .select("country,state,icao,name,lat,lon,visible")
-    .eq("visible", true)
-    .order("icao", { ascending: true });
-  if (country) query = query.eq("country", country);
-  if (state) query = query.eq("state", state);
-
-  const { data, error } = await query.limit(10000);
+  // every visible airport (2026-11-07: .limit(10000) was cut at 1000, alphabetically, without a word)
+  const build = () => {
+    let query = service
+      .from("airports")
+      .select("country,state,icao,name,lat,lon,visible")
+      .eq("visible", true)
+      .order("icao", { ascending: true });
+    if (country) query = query.eq("country", country);
+    if (state) query = query.eq("state", state);
+    return query;
+  };
+  const { data, error } = await selectAll((from, to) => build().range(from, to));
   if (error) return failure(500, NOT_LOADED, { tag: "AIRPORTS-LIST", what: "Database error", detail: error });
   const airports = (data ?? []) as Array<{ icao?: string } & Record<string, unknown>>;
   if (!user?.id) return NextResponse.json({ results: airports });
 
-  const { data: hiddenRows, error: hiddenError } = await service
+  const { data: hiddenRows, error: hiddenError } = await selectAll((from, to) => service
     .from("deleted_airports")
     .select("icao")
     .eq("deleted_by", user.id)
     .is("restored_at", null)
-    .limit(10000);
+    .order("icao", { ascending: true })
+    .range(from, to));
   if (hiddenError) return failure(500, NOT_LOADED, { tag: "AIRPORTS-LIST", what: "Database error (hiddenError)", detail: hiddenError });
 
   const hiddenIcaos = new Set((hiddenRows ?? []).map((row) => String((row as { icao?: string }).icao ?? "").toUpperCase()));

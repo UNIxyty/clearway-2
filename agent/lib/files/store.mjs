@@ -4,6 +4,7 @@ import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { generatedPath } from "./generate.mjs";
 import { MANIFEST_RETENTION_DAYS } from "../manifest/config.mjs";
+import { restAll } from "../knowledge/retrieval.mjs";   // the same settings; every row, a page at a time
 
 const REST_TIMEOUT_MS = 10_000;
 
@@ -112,8 +113,9 @@ export async function sweepGeneratedFiles({ now = Date.now() } = {}) {
   let rows;
   try {
     rows = [
-      ...(await rest(`agent_generated_files?created_at=lt.${encodeURIComponent(cutoff)}&expired_at=is.null&kind=neq.pax-manifest&select=id,storage_key&limit=500`) ?? []),
-      ...(await rest(`agent_generated_files?created_at=lt.${encodeURIComponent(manifestCutoff)}&expired_at=is.null&kind=eq.pax-manifest&select=id,storage_key&limit=500`) ?? []),
+      // every expired file, oldest first (2026-11-07: limit=500 unordered, with failing rows re-read first)
+      ...(await restAll(`agent_generated_files?created_at=lt.${encodeURIComponent(cutoff)}&expired_at=is.null&kind=neq.pax-manifest&select=id,storage_key&order=created_at.asc,id.asc`) ?? []),
+      ...(await restAll(`agent_generated_files?created_at=lt.${encodeURIComponent(manifestCutoff)}&expired_at=is.null&kind=eq.pax-manifest&select=id,storage_key&order=created_at.asc,id.asc`) ?? []),
     ];
   } catch (error) {
     process.stderr.write(`[agent-files] retention sweep could not list files: ${error.message}\n`);

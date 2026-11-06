@@ -36,6 +36,34 @@ export async function rest(pathAndQuery, init = {}) {
   return text ? JSON.parse(text) : null;
 }
 
+/**
+ * Every row a query matches, a page at a time (2026-11-07). A plain read stops at the database's page limit (1000
+ * rows, max_rows) with no error, and a total built from it is a wrong count, not a partial one (docs/success-too-early.md).
+ * `pathAndQuery` must carry a stable `order=` (paging without one can skip or repeat rows). Past `max` rows it throws:
+ * a ceiling that is reached says so, it never stops quietly.
+ */
+export async function restAll(pathAndQuery, { pageSize = 1000, max = 200_000 } = {}) {
+  if (!/[?&]order=/.test(pathAndQuery)) throw new Error(`restAll needs a stable order= (${pathAndQuery.split("?")[0]})`);
+  const out = [];
+  for (let from = 0; ; from += pageSize) {
+    const page = (await rest(pathAndQuery, { headers: { "Range-Unit": "items", Range: `${from}-${from + pageSize - 1}` } })) ?? [];
+    out.push(...page);
+    if (page.length < pageSize) return out;
+    if (out.length >= max) throw new Error(`restAll: more than ${max} rows in ${pathAndQuery.split("?")[0]}; refusing to report a partial set`);
+  }
+}
+
+/** The exact number of rows a filter matches, counted by the database (never the length of a capped read). */
+export async function restCount(tableAndFilter) {
+  const headers = { apikey: key(), Authorization: `Bearer ${key()}`, Prefer: "count=exact", "Range-Unit": "items", Range: "0-0" };
+  const sep = tableAndFilter.includes("?") ? "&" : "?";
+  const response = await fetch(`${url()}/rest/v1/${tableAndFilter}${sep}select=*`, { headers, signal: AbortSignal.timeout(REST_TIMEOUT_MS) });
+  if (!response.ok && response.status !== 206) throw new Error(`count ${tableAndFilter.split("?")[0]} -> ${response.status}`);
+  const total = Number(String(response.headers.get("content-range") ?? "").split("/")[1]);
+  if (!Number.isFinite(total)) throw new Error(`count ${tableAndFilter.split("?")[0]}: no exact count in the answer`);
+  return total;
+}
+
 function tier1Source(row) {
   return {
     source: row.source_document,

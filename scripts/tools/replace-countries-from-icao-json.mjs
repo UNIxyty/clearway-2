@@ -165,11 +165,14 @@ async function main() {
   const normalizedTarget = new Set(Array.from(targetCountryNames).map(normalizeCountry));
 
   // If an ICAO already exists in a non-target country, skip it to avoid accidental overwrite.
-  const { data: existingRows, error: existingErr } = await supabase
-    .from("airports")
-    .select("icao,country")
-    .in("icao", allIcaos);
-  if (existingErr) throw new Error(`Failed reading existing ICAOs: ${existingErr.message}`);
+  // 500 codes a read (2026-11-07): one .in() over every code stopped at the database's 1000-row limit, and a code past
+  // it looked new and could overwrite another country's airport
+  const existingRows = [];
+  for (let i = 0; i < allIcaos.length; i += 500) {
+    const { data, error: existingErr } = await supabase.from("airports").select("icao,country").in("icao", allIcaos.slice(i, i + 500));
+    if (existingErr) throw new Error(`Failed reading existing ICAOs: ${existingErr.message}`);
+    existingRows.push(...(data || []));
+  }
   const existingByIcao = new Map((existingRows || []).map((r) => [String(r.icao || "").toUpperCase(), String(r.country || "")]));
 
   const skipIcaos = new Set();

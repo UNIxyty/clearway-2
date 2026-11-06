@@ -15,6 +15,7 @@ import { listScraperMetaResolvers } from "@/lib/scraper-batch-meta";
 import { getScraperCountryByIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 import { filterBlockedIcaos } from "@/lib/blocked-airports";
 import { staffGate } from "@/lib/admin-auth";
+import { selectAll } from "@/lib/supabase-all";
 
 function getEadCountryIcaos(): Record<string, Array<{ icao: string; name: string }>> {
   const data = eadCountryIcaos as Record<string, unknown>;
@@ -509,7 +510,7 @@ async function hiddenIcaosFor(userId: string | null): Promise<Set<string>> {
   if (!userId) return new Set();
   const service = createSupabaseServiceRoleClient();
   if (!service) return new Set();
-  const { data, error } = await service.from("deleted_airports").select("icao").eq("deleted_by", userId).is("restored_at", null);
+  const { data, error } = await selectAll((from, to) => service.from("deleted_airports").select("icao").eq("deleted_by", userId).is("restored_at", null).order("icao", { ascending: true }).range(from, to));   // every row (2026-11-07)
   if (error) return new Set();
   return new Set((data ?? []).map((r) => String((r as { icao?: string }).icao ?? "").toUpperCase()).filter(Boolean));
 }

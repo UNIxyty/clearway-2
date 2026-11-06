@@ -12,7 +12,7 @@
 //                    sender's domain as not verified. The exemption clears itself: once the domain verifies, a sender
 //                    fallback alarms like anything else. Resend cannot be asked → no exemption.
 // Once a day per kind while it holds; "back to normal" when it clears. Not on a rig.
-import { rest } from "./knowledge/retrieval.mjs";
+import { rest, restAll } from "./knowledge/retrieval.mjs";
 import { alertDevelopers } from "./alert.mjs";
 import { logDetail } from "./public-errors.mjs";
 import { isRigRun, isLocalSupabase } from "../../lib/rig-guard.mjs";
@@ -54,9 +54,11 @@ async function resendDomains() {
 
 async function rows(now) {
   const since = encodeURIComponent(new Date(now - WINDOW_H * 3600_000).toISOString());
-  const chatRows = (await rest(`agent_audit_log?kind=eq.chat.response&created_at=gte.${since}&select=created_at,detail&limit=5000`)) ?? [];
-  const uploadRows = (await rest(`agent_audit_log?kind=eq.knowledge.uploaded&created_at=gte.${since}&select=created_at,detail&limit=1000`)) ?? [];
-  const senderRows = (await rest(`intake_messages?direction=eq.outbound&received_at=gte.${since}&delivery_detail->fallback=not.is.null&select=received_at,delivery_detail&limit=1000`)) ?? [];
+  // every row of the window (2026-11-07): limit=5000 was 1000 under the database's page limit, and "N of M turns fell
+  // back" and the 15% rule were judged on the part that came back
+  const chatRows = await restAll(`agent_audit_log?kind=eq.chat.response&created_at=gte.${since}&select=created_at,detail&order=created_at.asc,id.asc`);
+  const uploadRows = await restAll(`agent_audit_log?kind=eq.knowledge.uploaded&created_at=gte.${since}&select=created_at,detail&order=created_at.asc,id.asc`);
+  const senderRows = await restAll(`intake_messages?direction=eq.outbound&received_at=gte.${since}&delivery_detail->fallback=not.is.null&select=received_at,delivery_detail&order=received_at.asc,id.asc`);
   const domains = senderRows.length ? await resendDomains() : {};
   return { chatRows, uploadRows, senderRows, domains };
 }

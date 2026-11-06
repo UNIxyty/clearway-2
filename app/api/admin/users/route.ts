@@ -3,6 +3,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { currentPerson, holds, refused, requirePermission } from "@/lib/permissions/server";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
+import { listAllUsers } from "@/lib/auth-users";
 
 const NOT_LOADED = `Users could not be loaded. ${TRY_AGAIN}`;
 const NOT_SAVED = `The change was not saved. ${TRY_AGAIN}`;
@@ -15,10 +16,10 @@ export async function GET() {
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_LOADED, { tag: "ADMIN-USERS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
 
-    const { data: authData, error: listError } = await service.auth.admin.listUsers({ page: 1, perPage: 500 });
-    if (listError) return failure(500, NOT_LOADED, { tag: "ADMIN-USERS", what: "listUsers failed", detail: listError });
-
-    const users = authData?.users ?? [];
+    // every account, not the first 500 (2026-11-07): the tab counts and the waiting list are totals
+    let users: Awaited<ReturnType<typeof listAllUsers>>;
+    try { users = await listAllUsers(service); }
+    catch (listError) { return failure(500, NOT_LOADED, { tag: "ADMIN-USERS", what: "listUsers failed", detail: listError }); }
     const ids = users.map((u) => u.id);
 
     const { data: prefs, error: prefsError } = await service

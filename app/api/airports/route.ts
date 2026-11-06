@@ -15,6 +15,7 @@ import { USA_WEB_AIP_URL, getUsaStateByIcao, isUsaAipIcao } from "@/lib/usa-aip"
 import { getScraperMetaResolverByCountry } from "@/lib/scraper-batch-meta";
 import { getScraperWebAipUrlByCountryOrIcao, isScraperCountryName } from "@/lib/scraper-country-config";
 import { staffGate } from "@/lib/admin-auth";
+import { selectAll } from "@/lib/supabase-all";
 
 export const dynamic = "force-dynamic";
 
@@ -233,12 +234,14 @@ async function getHiddenAirportIcaosForUser(userId: string | null): Promise<Set<
   const service = createSupabaseServiceRoleClient();
   if (!service) return new Set<string>();
 
-  const { data, error } = await service
+  // every hidden airport, a page at a time (2026-11-07: .limit(10000) was 1000 under the database's read limit)
+  const { data, error } = await selectAll((from, to) => service
     .from("deleted_airports")
     .select("icao")
     .eq("deleted_by", userId)
     .is("restored_at", null)
-    .limit(10000);
+    .order("icao", { ascending: true })
+    .range(from, to));
   if (error) return new Set<string>();
 
   return new Set((data ?? []).map((row) => String((row as { icao?: string }).icao ?? "").toUpperCase()).filter(Boolean));
@@ -254,16 +257,19 @@ async function fetchVisibleAirportsFromDb(country?: string | null, state?: strin
   if (!service) return null;
 
   const countryCandidates = buildCountryCandidates(country);
-  let query = service
-    .from("airports")
-    .select("country,state,icao,name,lat,lon,web_aip_url")
-    .eq("visible", true)
-    .order("icao", { ascending: true });
-  if (countryCandidates.length === 1) query = query.eq("country", countryCandidates[0]);
-  if (countryCandidates.length > 1) query = query.in("country", countryCandidates);
-  if (state) query = query.eq("state", state);
-
-  const { data, error } = await query.limit(10000);
+  // every visible airport (2026-11-07: .limit(10000) was cut at 1000, alphabetically, without a word)
+  const build = () => {
+    let query = service
+      .from("airports")
+      .select("country,state,icao,name,lat,lon,web_aip_url")
+      .eq("visible", true)
+      .order("icao", { ascending: true });
+    if (countryCandidates.length === 1) query = query.eq("country", countryCandidates[0]);
+    if (countryCandidates.length > 1) query = query.in("country", countryCandidates);
+    if (state) query = query.eq("state", state);
+    return query;
+  };
+  const { data, error } = await selectAll((from, to) => build().range(from, to));
   if (error) {
     // Fallback to static dataset when DB table is unavailable or not migrated yet.
     return null;

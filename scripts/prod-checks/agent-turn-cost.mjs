@@ -101,7 +101,14 @@ export async function check({ accounts: [u], ok }) {
 
   // Real volume: chat turns in the audit log (counts and averages only)
   const since = new Date(Date.now() - 90 * 864e5).toISOString();
-  const rows = (await rest(`agent_audit_log?kind=eq.chat.response&created_at=gte.${encodeURIComponent(since)}&select=created_at,model_tier,model_id,input_tokens,output_tokens,detail->cacheReadTokens,detail->cacheWriteTokens&limit=100000`)) ?? [];
+  // every turn of the 90 days, a page at a time (2026-11-07: limit=100000 was 1000 under the database's read limit,
+  // and the volume, the averages and the monthly figure were built on that)
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const page = (await rest(`agent_audit_log?kind=eq.chat.response&created_at=gte.${encodeURIComponent(since)}&select=created_at,model_tier,model_id,input_tokens,output_tokens,detail->cacheReadTokens,detail->cacheWriteTokens&order=created_at.asc,id.asc`, { headers: { "Range-Unit": "items", Range: `${from}-${from + 999}` } })) ?? [];
+    rows.push(...page);
+    if (page.length < 1000) break;
+  }
   const byMonth = {}; const byTier = {};
   for (const r of rows) {
     const m = r.created_at.slice(0, 7); byMonth[m] = (byMonth[m] ?? 0) + 1;
@@ -125,5 +132,5 @@ export async function check({ accounts: [u], ok }) {
     const router = money(side === "before" ? "claude-haiku-4-5-20251001" : saved.router.id, 400, 4, 0, 0);   // ~400 in, ~4 out per classification
     console.log(`monthly at ${Math.round(perMonth)} turns/month, ${side}: $${(perMonth * (usd + router)).toFixed(2)} (per turn ${$(usd + router)})`);
   }
-  ok(rows.length >= 0, "volume read from the audit log", `${rows.length} turns`);
+  ok(Array.isArray(rows), "volume read from the audit log, every page (no read limit cuts it)", `${rows.length} turns`);
 }

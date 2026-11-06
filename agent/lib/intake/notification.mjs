@@ -17,7 +17,7 @@
 //
 // Confirm, Leon payload, send, checklist and the completion email are the type 2 path (send.mjs): one write path.
 import { createHash, randomBytes } from "node:crypto";
-import { rest } from "../knowledge/retrieval.mjs";
+import { rest, restAll } from "../knowledge/retrieval.mjs";
 import { audit } from "../store.mjs";
 import { freshStages, setStage, findDuplicates } from "./pipeline.mjs";
 import { notificationChanges } from "./classify.mjs";
@@ -396,9 +396,11 @@ export function startLookupTicker() {
   const tick = async () => {
     if (busy) return; busy = true;
     try {
-      const due = (await rest("intake_requests?select=id,review&request_type=eq.scheduled&status=eq.collecting&limit=50").catch(() => [])) ?? [];
+      // every row of the status, not the first 50 (2026-11-07): requests not yet due filled the page and the due ones
+      // past it were never collected or closed
+      const due = (await restAll("intake_requests?select=id,review&request_type=eq.scheduled&status=eq.collecting&order=id.asc").catch(() => [])) ?? [];
       for (const r of due) { const next = r.review?.lookup?.nextAt; if (next && Date.parse(next) <= Date.now()) await collect(r.id).catch(() => {}); }
-      const waiting = (await rest("intake_requests?select=id,review,stages,reference&request_type=eq.scheduled&status=eq.awaiting_approval&limit=50").catch(() => [])) ?? [];
+      const waiting = (await restAll("intake_requests?select=id,review,stages,reference&request_type=eq.scheduled&status=eq.awaiting_approval&order=id.asc").catch(() => [])) ?? [];
       for (const r of waiting) {
         const d = r.review?.approval?.deadlineAt; if (!d || Date.parse(d) > Date.now()) continue;
         const stages = stagesOf(r);

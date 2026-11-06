@@ -7,6 +7,7 @@ import { CLIENT_STATUSES, PASSENGER_LEVELS, REQUIRED_SWITCHES, normaliseScope, n
 import { sendDecisionMail } from "@/lib/clients/mail";
 import { sendSetPasswordLink } from "@/lib/clients/onboarding";
 import type { SendResult } from "@/lib/mail/send";
+import { selectAll } from "@/lib/supabase-all";
 
 export type ClientRow = {
   id: string; user_id: string | null; email: string; person_name: string; company: string; kind: string; note: string;
@@ -19,7 +20,8 @@ export type Actor = { id: string; email: string | null };
 const COLUMNS = "id,user_id,email,person_name,company,kind,note,status,scope,switches,passenger_level,consent,requested_at,decided_at,decided_by,decided_by_email,decision_note";
 
 export async function listClients(service: SupabaseClient) {
-  const { data, error } = await service.from("clients").select(COLUMNS).order("requested_at", { ascending: false });
+  // every client (2026-11-07: an unranged read stops at the database's 1000-row limit)
+  const { data, error } = await selectAll((from, to) => service.from("clients").select(COLUMNS).order("requested_at", { ascending: false }).order("id", { ascending: true }).range(from, to));
   if (error) throw error;
   return (data ?? []) as ClientRow[];
 }

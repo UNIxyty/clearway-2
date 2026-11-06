@@ -52,6 +52,7 @@ run anthropic-runtime node rig/anthropic-runtime-check.mjs   # the agent's model
 run smoke-alarm $E rig/smoke-alarm-check.mjs   # the scheduled smoke calls' alarm and the wall's watch over it (2026-11-03)
 run configured-not-working $E rig/configured-not-working-check.mjs   # statuses from real calls, not settings (2026-11-03)
 run fallback-watch $E rig/fallback-watch-check.mjs   # every fallback recorded with why; the rate alarms (2026-11-03)
+run read-limit $E rig/read-limit-check.mjs   # 1,100 planted rows: the paging helpers see all; a plain read stops at 1000 (the control)
 run knowledge-fts $E rig/knowledge-fts-check.mjs   # knowledge search on Postgres full text (2026-11-03)
 run web-search $E rig/web-search-check.mjs   # the API's own search (Tavily removed 2026-11-05), two passes, citations and the mark, follow-ups, through the chat route
 run agent-disclosure $E rig/agent-disclosure-check.mjs   # disclosure only when it names something real: greetings, a full answer, a failed tool, a partial one (real model, the rig key; skips without it)

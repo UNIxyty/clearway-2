@@ -8,6 +8,7 @@ import { execSync } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
 import { existsSync, renameSync } from "node:fs";
 import path from "node:path";
+import { readAll } from "../lib/read-all.mjs";
 if (!/127\.0\.0\.1|localhost/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "")) { console.error("rig only (local DB)"); process.exit(78); }
 const AGENT = process.env.RIG_AGENT_URL || "http://127.0.0.1:5175";
 const SCR = path.resolve("rig/.scratch");
@@ -81,7 +82,7 @@ console.log("\n=== 2. A read request whose stored copy later cannot be opened: R
   ok(re2.status === 200 && !/^Could not be read/.test(r3.status_reason ?? "") && reading(r3)?.state !== "fail", "with the copy back, Re-extract reads it again and the request moves on", `${r3.status} · ${r3.status_reason}`); }
 
 console.log("\n=== 3. Nothing personal in what was written ===");
-{ const rows = await db("intake_requests?select=status_reason,stages,sender_name");
+{ const rows = await readAll("intake_requests?select=status_reason,stages,sender_name");   // every row, or it fails (2026-11-07)
   const text = JSON.stringify(rows);
   ok(!/\b(19[5-9]\d)-\d\d-\d\d\b|passport/i.test(text), "no date of birth or passport word in the request rows written by this run", `${text.length} chars`); }
 

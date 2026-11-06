@@ -48,6 +48,11 @@ if (process.env.RIG_COPY_MODEL_KEYS === PHRASE && fs.existsSync(path.join(root, 
   for (const k of MODEL_KEYS) if (src[k]) lines.push(`${k}=${src[k]}`);
   lines.push("# model keys above copied from .env (service keys, not the database)");
 } else lines.push(`# no model keys: run with RIG_COPY_MODEL_KEYS="${PHRASE}" to copy the Bedrock keys from .env`);
+// the rig's own Anthropic key (2026-11-07): kept across a rewrite of .env.rig. It is the rig's, compared by hash with
+// production's and different; rewriting this file used to drop it silently.
+{ const prev = fs.existsSync(path.join(root, ".env.rig")) ? fs.readFileSync(path.join(root, ".env.rig"), "utf8") : "";
+  const keep = prev.split("\n").find((l) => /^ANTHROPIC_API_KEY=.+/.test(l));
+  if (keep) lines.push("# the rig's own Anthropic key, kept from the previous .env.rig", keep); }
 lines.push(...intakeLines(), ...leonLines());
 // Intake (Resend inbound, the mailbox, the Leon write path). Resend is a LOCAL MOCK (rig/intake/mock-resend.mjs):
 // the webhook secret is generated here, mail is captured instead of sent, and the addresses are .invalid.

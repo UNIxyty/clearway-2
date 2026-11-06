@@ -63,7 +63,6 @@ run portal-colours node scripts/check-portal-colours.mjs   # every portal colour
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-fill-shape node rig/intake/test-fill-shape.mjs   # one extraction shape every time (2026-11-03)
-run intake/test-fill-shape node rig/intake/test-fill-shape.mjs   # one extraction shape every time (2026-11-03)
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
 run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/intake/test-timezones.mjs
 run intake/test-no-calendar-response node rig/intake/test-no-calendar-response.mjs
@@ -81,7 +80,6 @@ run manifest/browser $E rig/manifest/browser.mjs
 # ── intake end to end. Every e2e truncates the intake tables. The sign-in agent (:5176) would take the look-up
 # retries that e2e-scheduled and e2e-classify wait for, so it is stopped for this block.
 rig/signin-agent.sh stop >> $LOG 2>&1
-run intake/extraction-repeat $E rig/intake/extraction-repeat.mjs   # the same email, several runs, the same record (needs the model key)
 run intake/extraction-repeat $E rig/intake/extraction-repeat.mjs   # the same email, several runs, the same record (needs the model key)
 run intake/e2e $E rig/intake/e2e.mjs
 run intake/e2e-scheduled $E rig/intake/e2e-scheduled.mjs

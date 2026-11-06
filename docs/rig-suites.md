@@ -105,7 +105,7 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | clients-page-check | 41 (red on the pre-fix page: padding ×6, past the edge at 1250, focus; `CLIENTS_CHECK_SELFTEST=overlap` turns the overlap assertion red) | 2026-11-02 |
 | client-onboarding-check | 57 | 2026-11-05 |
 | files-route-check | 9 (red on 1b3fbbf1: another person read a help draft through /files) | 2026-11-02 |
-| client-gate-check | 36 (red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client; red on fcf442fb: 93 pages rendered for an unknown role, and the docs search index answered one) | 2026-11-04 |
+| client-gate-check | 49 (red on b8ba5dd0 with the approval redirect off: 74 of 135 handlers answered an unapproved or temporary account; red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client; red on fcf442fb: 93 pages rendered for an unknown role, and the docs search index answered one) | 2026-11-04 |
 | web-search | 60 (the follow-up section red on 0053146f's rules: a check that was made still showed a partial answer first; the ceiling section red when the day's real-model runs had already spent past its $2, now it starts from an empty day) | 2026-11-05 |
 | agent-disclosure (real model, the rig key, a few cents) | 21 (red on the code before: "hey" → a partial banner and a NOTAM follow-up; "what can you do" 198 tokens) | 2026-11-05 |
 | knowledge-roundtrip (real model for its two answer checks) | 11 (red on the code before: an upload waited for approval; the uploader's own approval was refused only by the page; no Remove) | 2026-11-05 |

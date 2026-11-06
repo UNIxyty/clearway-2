@@ -112,6 +112,18 @@ Every service caches grants for 10 seconds, so a change in the grid reaches all 
    - Cloudflare sends `/digital-wall/*` and `/agent/api/*` straight to the wall and the agent, past the portal's
      middleware. Each of those services enforces clients on its own (`digital-wall/lib/client-scope.mjs`, the agent's
      client branch). The portal middleware protects only the portal.
+10. **Middleware is never the only place a restriction lives** (2026-11-07). Role, approval and temporary status are
+    all asked at the endpoint. The middleware is there to give people a decent page (the sign-in, the pending-approval
+    and access-blocked pages, the client's 404), not to be the lock. Three times a restriction was found in the
+    middleware alone, and each time something could step past it: the 26 temporary accounts (a missing flag read as
+    approved), the client restriction (the wall and the agent are reached past the portal), and approval itself (74
+    of 135 portal handlers answered an unapproved or temporary account once the middleware's redirect was off).
+    - The staff gates and the permission gate refuse an unapproved or temporary account with 404
+      (`lib/role-resolve.ts` › `accountBlocked`, the same rule as the wall's and the agent's).
+    - `rig/client-gate-check.mjs` proves it: its "middleware off" switch turns off the client and unknown-role blocks
+      and the approval and temporary redirects, so the walk sees what the endpoints do on their own. On the code before
+      the fix it fails, naming the 74.
+    - A new restriction goes into the gate first; a page or redirect for it comes second.
 
 ## Way out from the server
 

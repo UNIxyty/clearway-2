@@ -19,6 +19,19 @@ const KNOWN_META_ROLES = new Set(["", "user", "developer", "admin", "client", "t
 
 // APP metadata only. user_metadata is the person's own to edit (Supabase auth.updateUser), so a role written there is a
 // claim, not a grant — found 2026-10-20, when a plain user wrote role: "developer" into it and the portal believed it.
+/**
+ * A temporary account, or one not explicitly approved (2026-11-07): refused at every staff endpoint, as the wall and the
+ * agent already refuse it (agent/lib/auth.mjs and digital-wall/lib/auth.mjs › accountBlocked: the same rule). Until today
+ * only the middleware's redirect stopped one in the portal — a restriction in one place, which a route past the
+ * middleware steps over (docs/permissions.md › rule 10). APP metadata only; a missing flag is NOT approval.
+ */
+export function accountBlocked(user: { app_metadata?: unknown }): boolean {
+  const app = (user?.app_metadata && typeof user.app_metadata === "object" ? user.app_metadata : {}) as Record<string, unknown>;
+  const role = String(app.role ?? "").toLowerCase();
+  const roles = Array.isArray(app.roles) ? app.roles.map((r) => String(r).toLowerCase()) : [];
+  return role === "temporary" || roles.includes("temporary") || app.is_temporary === true || app.is_approved !== true;
+}
+
 export function roleFromSupabaseUser(user: { app_metadata?: unknown; user_metadata?: unknown }): Role { // metadata-ok: a type; only app_metadata is read below
   const appMeta = (user.app_metadata || {}) as Record<string, unknown>;
   const roleValue = String(appMeta.role || "").toLowerCase();

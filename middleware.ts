@@ -313,7 +313,8 @@ async function gate(request: NextRequest) {
   // confirmed to exist. The holding pages render under a bare route, so the shell, its navigation and its counts are
   // never in their page source.
   const appMetaForClient = (user.app_metadata ?? {}) as Record<string, unknown>;
-  // RIG ONLY (2026-11-02): RIG_CLIENT_MIDDLEWARE_OFF=1 skips this block and the write gate below, so
+  // RIG ONLY (2026-11-02): RIG_CLIENT_MIDDLEWARE_OFF=1 skips this block, the unknown-role block, the approval and
+  // temporary redirects (2026-11-07) and the write gate below, so
   // rig/client-gate-check.mjs can prove every endpoint refuses a client on its own. Two layers: it exists only in the
   // rig's build (CW_RIG_BUILD is a build-time literal, "0" everywhere else, so the minifier removes this line), and even
   // there it works only against the rig's local Supabase.
@@ -357,7 +358,8 @@ async function gate(request: NextRequest) {
   // flag was read as "an old account, let it through", and seven accounts at other companies were inside on that
   // default alone. Every real account carries is_approved: true since scripts/metadata-to-app.mjs ran.
   const isApprovedMeta = (user.app_metadata as Record<string, unknown> | null)?.is_approved;
-  if (isApprovedMeta !== true && !pathname.startsWith("/pending-approval")) {
+  // (RIG ONLY: the walk's switch turns this off too, so it sees whether the handlers refuse on their own — 2026-11-07)
+  if (!clientBlockOff && isApprovedMeta !== true && !pathname.startsWith("/pending-approval")) {
     const pendingUrl = request.nextUrl.clone();
     pendingUrl.pathname = "/pending-approval";
     // Keep the deep link: once approved, the page returns the user there.
@@ -366,7 +368,7 @@ async function gate(request: NextRequest) {
     return NextResponse.redirect(pendingUrl);
   }
 
-  if (isTemporaryUser(user) && !isTemporaryAllowedPath(pathname)) {
+  if (!clientBlockOff && isTemporaryUser(user) && !isTemporaryAllowedPath(pathname)) {
     if (pathname.startsWith("/api")) {
       return NextResponse.json({ error: "Forbidden for temporary user." }, { status: 403 });
     }

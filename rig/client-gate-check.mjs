@@ -72,7 +72,7 @@ const handlers = addresses.filter((a) => a.kind === "api"), pages = addresses.fi
 ok(handlers.length >= 135 && pages.length >= 100, `the portal: ${handlers.length} handlers in ${new Set(handlers.map((h) => h.file)).size} route files (${handlers.filter((h) => h.ungated).length} of them public by design, on UNGATED), and ${pages.length} pages`);
 // the walk posts to every public form too; its own sender address keeps it off the rate limits other suites rely on
 // (8 asks an hour per address on /api/client-requests: the onboarding suite got 429 after a few walks, 2026-11-04)
-const WALK_FROM = { "x-rig-visitor": "10.255.0.1" };   // the rig proxy makes it cf-connecting-ip, as Cloudflare would
+let WALK_FROM = { "x-rig-visitor": "10.255.0.1" };   // one sender per pass (set below): a pass must not spend another's rate limit   // the rig proxy makes it cf-connecting-ip, as Cloudflare would
 const call = (base, who, a) => fetch(`${base}${a.route}`, { method: a.method, redirect: "manual", headers: { ...(who ? { cookie: ck(who) } : {}), "content-type": "application/json", ...WALK_FROM }, body: ["GET", "HEAD"].includes(a.method) ? undefined : "{}", signal: AbortSignal.timeout(20000) })
   // the status is the answer; a stream that answered stays open forever, so the body is dropped, never read
   .then(async (r) => { await r.body?.cancel().catch(() => null); if (/event-stream/.test(r.headers.get("content-type") || "")) streams.push(`${a.method} ${a.route} ${r.status} (${who ? who.user?.app_metadata?.role ?? "no role" : "signed out"})`); return { st: r.status, to: (r.headers.get("location") || "").replace(/^https?:\/\/[^/]+/, "").replace(/\?.*$/, "") }; }, () => ({ st: 0, to: "" }));
@@ -94,6 +94,12 @@ const roles = [
   ["unknown role (contractor)", { role: "contractor", is_approved: true }, false],
   // not "no role written": an empty role is the User role by design (agent/lib/auth.mjs KNOWN_META_ROLES; the wall reads it as "user")
   ["unknown role (Client, another case)", { role: "Client ", is_approved: true, client_status: "approved" }, false],
+  // Pick'em-shaped (2026-11-07): the game shared this auth. A confirmed sign-up arrives with no approval flag (the
+  // auth's own sign-up and Google sign-in are open); the seven June accounts carry it set to false; the Pick'em guests
+  // are temporary. None may reach anything, whatever else it holds (each gets a live agent grant below).
+  ["unapproved sign-up (no flag)", {}, false],
+  ["unapproved sign-up (flag false)", { is_approved: false }, false],
+  ["temporary (a Pick'em guest)", { role: "temporary", is_approved: true, is_temporary: true }, false],
 ];
 const roleUsers = [];
 for (const [label, meta, isClient] of roles) {
@@ -101,6 +107,7 @@ for (const [label, meta, isClient] of roles) {
   if (!isClient) roleUsers.push(await account(email, meta));
   for (const [layer, name, base] of [["middleware client block off", "BARE", BARE], ["middleware on (production)", "PROXY", PROXY]]) {
     const who = await session(email);   // a fresh session per pass: the last call signs it out
+    WALK_FROM = { "x-rig-visitor": `10.255.${roles.findIndex((x) => x[0] === label) + 1}.${name === "BARE" ? 1 : 2}` };
     const leaks = []; let reached = 0, publicSame = 0;
     // layer one is the handlers' own gates; a page has none and needs none (2026-11-04, decided: the middleware is the
     // page's door, not gated 104 times), so pages are walked in layer two, through the middleware, as production runs
@@ -114,6 +121,8 @@ for (const [label, meta, isClient] of roles) {
       if (/^\/(login|signup|request-access)$/.test(a.route) && r.st >= 300 && r.st < 400 && r.to === "/") continue;
       // their own front door: the root and the holding pages send an approved client to /client
       if (isClient && (a.route === "/" || CLIENT_HOLDING_PAGES.includes(a.route)) && r.st >= 300 && r.st < 400 && r.to === "/client") continue;
+      // a blocked account's own holding page renders for it: that is the page it is meant to see, not a door
+      if (/^\/(pending-approval|access-blocked)$/.test(a.route) && r.st === 200 && (meta.is_approved !== true || meta.role === "temporary")) continue;
       // public by design (UNGATED, each with the check it makes itself, e.g. a signed token): with the middleware off a
       // signed-out visitor is still sent to sign-in, so there is nothing to compare with here; layer two holds them to it
       if (name === "BARE" && a.ungated) { publicSame += 1; continue; }
@@ -155,7 +164,8 @@ const services = INV.services;
 await svc(`/rest/v1/agent_access?user_id=eq.${clientUser.id}`, { method: "DELETE" });
 const granted = await svc("/rest/v1/agent_access", { method: "POST", headers: { prefer: "return=minimal" }, body: JSON.stringify([{ user_id: clientUser.id, user_email: "rig-gate-client@rig.invalid", granted_by_email: "rig-gate-check", note: "a client with a grant must still be refused" }]) });
 ok(granted.ok, "the client is given a live agent grant for the walk below", granted.status);
-const via = (who, method, p) => fetch(`${PROXY}${p}`, { method, redirect: "manual", headers: { cookie: ck(who), "content-type": "application/json" }, body: ["GET", "HEAD"].includes(method) ? undefined : "{}" }).then((r) => r.status, () => 0);
+for (const u of roleUsers) { await svc(`/rest/v1/agent_access?user_id=eq.${u.id}`, { method: "DELETE" }); await svc("/rest/v1/agent_access", { method: "POST", headers: { prefer: "return=minimal" }, body: JSON.stringify([{ user_id: u.id, granted_by_email: "rig-gate-check", note: "an identity with a grant must still be refused" }]) }); }
+const via = (who, method, p) => fetch(`${PROXY}${p}`, { method, redirect: "manual", headers: { ...(who ? { cookie: ck(who) } : {}), "content-type": "application/json" }, body: ["GET", "HEAD"].includes(method) ? undefined : "{}" }).then((r) => r.status, () => 0);
 for (const svc of services) {
   const { walk, unmade } = svc;
   ok(walk.length > 20, `${svc.name}: ${walk.length} endpoints to walk from the inventory${unmade.length ? `; ${unmade.length} with no path made: ${unmade.slice(0, 6).join(" | ")}` : ""}`);
@@ -164,13 +174,16 @@ for (const svc of services) {
     const scan = walk.find((e) => e.method === "GET" && /^\/api\/intake\/attachments\/[^/]+$/.test(e.path)), eml = walk.find((e) => e.method === "GET" && /^\/api\/mailbox\/messages\/[^/]+\/raw$/.test(e.path));
     ok(Boolean(scan && eml), "agent: the walk includes the passport-scan download and the raw-email download", `${scan?.path ?? "missing"} | ${eml?.path ?? "missing"}`);
   }
+  // what nobody gets: a service that treats an account as nobody (the wall, for a blocked account) answers the same
+  const nobody = new Map(); for (const e of walk) if (!e.public) nobody.set(`${e.method} ${e.path}`, await via(null, e.method, `${svc.prefix}${e.path}`));
   for (const [label, who] of [["client", C], ...UNKNOWN]) {
     const leaks = [];
     for (const e of walk) {
       if (e.public) continue;   // the health probe, and the wall's unpaired-screen pair (rig/lib/gate-inventory.mjs says why)
       if (label === "client" && e.clientMay) continue;   // the client's own allow-list (scoped by the service)
       const st = await via(who, e.method, `${svc.prefix}${e.path}`);
-      if (!(st === 404 || st === 401 || st === 403 || st === 405)) leaks.push(`${e.method} ${e.path} → ${st}`);
+      const asNobody = nobody.get(`${e.method} ${e.path}`);
+      if (!(st === 404 || st === 401 || st === 403 || st === 405) && !(st === asNobody && !(asNobody >= 200 && asNobody < 300))) leaks.push(`${e.method} ${e.path} → ${st}`);
     }
     lap(`${svc.name}, ${label}`);
     ok(leaks.length === 0, `${svc.name}, reached directly: every endpoint outside the ${label === "client" ? "client's allow-list" : "health probe"} refuses the ${label} (${walk.filter((e) => !e.public).length}${label === "client" ? " less the list" : ""})`, leaks.length ? `${leaks.length} answered: ${leaks.slice(0, 10).join(" | ")}` : "");
@@ -272,6 +285,7 @@ ok(staffWall === 200, "wall: staff still reach their endpoints", staffWall);
 }
 
 await svc(`/rest/v1/agent_access?user_id=eq.${clientUser.id}`, { method: "DELETE" });
+for (const u of roleUsers) await svc(`/rest/v1/agent_access?user_id=eq.${u.id}`, { method: "DELETE" });
 // cleanup: the invented client row is append-only-logged only if a decision was written; none was
 await svc(`/rest/v1/clients?id=eq.${row?.[0]?.id}`, { method: "DELETE" });
 for (const u of [clientUser, ...roleUsers]) await svc(`/auth/v1/admin/users/${u.id}`, { method: "DELETE" });

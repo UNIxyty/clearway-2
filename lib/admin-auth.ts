@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { resolveRole } from "@/lib/role-resolve";
+import { resolveRole, accountBlocked } from "@/lib/role-resolve";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 import { failure } from "@/lib/public-error";
 
@@ -62,6 +62,8 @@ export async function requireAuthenticatedUser(): Promise<AuthFailure | AuthSucc
   // These helpers mean "Clearway staff" (2026-11-02): a client or an unknown role is refused here, at the endpoint,
   // whether or not the middleware ran. 404: nothing behind it is confirmed to exist.
   if (!isStaffRole(role)) return { error: notForYou() };
+  // …and approval and temporary status, asked here too (2026-11-07): not left to the middleware's redirect
+  if (accountBlocked(user)) return { error: notForYou() };
   return { user, supabase, isDeveloper: role === "developer" };
 }
 
@@ -112,6 +114,7 @@ export async function requireAdmin(): Promise<AuthFailure | AuthSuccess> {
   if (role !== "admin" && role !== "developer") {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
+  if (accountBlocked(user)) return { error: notForYou() };
   return { user, supabase, isDeveloper: role === "developer" };
 }
 
@@ -131,5 +134,6 @@ export async function requireDeveloper(): Promise<AuthFailure | Omit<AuthSuccess
   if (role !== "developer") {
     return { error: NextResponse.json({ error: "Forbidden — Developer role required" }, { status: 403 }) };
   }
+  if (accountBlocked(user)) return { error: notForYou() };
   return { user, supabase };
 }

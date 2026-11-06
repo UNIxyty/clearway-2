@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import type { createServerClient } from "@supabase/ssr";
 import { accessCheckUnavailable, makeSupabaseFromCookies, notForYou } from "@/lib/admin-auth";
-import { resolveRole } from "@/lib/role-resolve";
+import { resolveRole, accountBlocked } from "@/lib/role-resolve";
 import { can, canAny, REFUSED, roleKey } from "@/lib/permissions/grants.mjs";
 
 type SupabaseServerClient = ReturnType<typeof createServerClient>;
@@ -26,6 +26,8 @@ export async function currentPerson(): Promise<PermissionFailure | PermissionSuc
   const role = roleKey(await resolveRole(supabase, user, user.id, user.email ?? null)) as PermissionSuccess["role"] | null;
   // no role (a client, an unknown marker) → refused at the endpoint, 404 (2026-11-02). It used to pass with role null.
   if (!role) return { error: notForYou() };
+  // approval and temporary status, asked at the endpoint (2026-11-07; lib/role-resolve.ts › accountBlocked)
+  if (accountBlocked(user)) return { error: notForYou() };
   return { user, supabase, role, isDeveloper: role === "developer" };
 }
 

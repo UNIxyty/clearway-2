@@ -150,6 +150,11 @@ const UNKNOWN = []; for (const [i, [label]] of roles.slice(1).entries()) UNKNOWN
 // misses (no method test, or second in an `a || b`). A route with a parameter gets a made-up value that is checked
 // against the route's own pattern; a route no path can be made for is named, never skipped silently.
 const services = INV.services;
+// the client holds a live agent grant during the walk (2026-11-06: agent access was given to every User account): the
+// agent must refuse a client by role, whatever the allow-list says
+await svc(`/rest/v1/agent_access?user_id=eq.${clientUser.id}`, { method: "DELETE" });
+const granted = await svc("/rest/v1/agent_access", { method: "POST", headers: { prefer: "return=minimal" }, body: JSON.stringify([{ user_id: clientUser.id, user_email: "rig-gate-client@rig.invalid", granted_by_email: "rig-gate-check", note: "a client with a grant must still be refused" }]) });
+ok(granted.ok, "the client is given a live agent grant for the walk below", granted.status);
 const via = (who, method, p) => fetch(`${PROXY}${p}`, { method, redirect: "manual", headers: { cookie: ck(who), "content-type": "application/json" }, body: ["GET", "HEAD"].includes(method) ? undefined : "{}" }).then((r) => r.status, () => 0);
 for (const svc of services) {
   const { walk, unmade } = svc;
@@ -266,6 +271,7 @@ ok(staffWall === 200, "wall: staff still reach their endpoints", staffWall);
   resetNoAddressAlarm();
 }
 
+await svc(`/rest/v1/agent_access?user_id=eq.${clientUser.id}`, { method: "DELETE" });
 // cleanup: the invented client row is append-only-logged only if a decision was written; none was
 await svc(`/rest/v1/clients?id=eq.${row?.[0]?.id}`, { method: "DELETE" });
 for (const u of [clientUser, ...roleUsers]) await svc(`/auth/v1/admin/users/${u.id}`, { method: "DELETE" });

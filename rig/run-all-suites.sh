@@ -97,6 +97,7 @@ run intake/browser-edits $E rig/intake/browser-edits.mjs "$CIMOG"
 
 # ── permissions, wall, portal, extension
 run permissions-check $E rig/permissions-check.mjs
+run account-delete $E rig/account-delete-check.mjs   # deleting an account revokes its grants and takes it off the notify list, in the same delete (0029)
 ( cd opsboard-react && npx vite build > ../rig/.scratch/vite-build.out 2>&1 ) || echo "vite build failed — see rig/.scratch/vite-build.out" >> $LOG   # the console check and the phone check read the built dist
 # the wall's pages as production serves them, at /digital-wall/timeline/ (rig/proxy.mjs serves this folder): the phone wall
 ( cd opsboard-react && VITE_BASE_PATH=/digital-wall/timeline/ VITE_API_BASE_URL=/digital-wall npx vite build --outDir ../rig/.scratch/display-dist --emptyOutDir > ../rig/.scratch/display-build.out 2>&1 ) || echo "display build failed — see rig/.scratch/display-build.out" >> $LOG

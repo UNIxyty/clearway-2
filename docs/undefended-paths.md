@@ -38,6 +38,8 @@ and nothing said so.
 
 **A gate that fails closed still has to say it has closed (2026-11-05).** The signed-out limiters refuse a request without Cloudflare's address (`cf-connecting-ip`), because anything else is forgeable. If the header ever stops arriving (a tunnel change, a route change, the origin exposed), every sign-up, password reset and access request answers 403. That looks exactly like nobody signing up. So the refusals are counted: three in an hour alert the developers on Telegram, naming the forms, and again every six hours while it lasts (`lib/caller-address.mjs` › `noAddressRefused`; the gate walk proves the count, the once, and the repeat).
 
+**A permission that outlives its holder is a door with no one behind it (2026-11-07).** A live agent grant on production belonged to an account deleted in September. `agent_access` had no link to the account, and no delete path (the Telegram bot, the invite clean-up, the check accounts, the dashboard by hand) touched it. The same shape as the 26 temporary accounts: something was created, something was removed, and the two were not the same thing. Now `migrations/0029_account_deleted.sql` puts a trigger on the account itself. Inside the delete's own transaction it revokes the account's live grants and takes its address off the ops notify list, and if any of it fails, the delete fails. The one orphan was revoked (1 → 0). `rig/account-delete-check.mjs` proves both halves, and that a delete that cannot finish changes nothing.
+
 ## The fifth shape: a report with no reader is not a check (2026-11-03)
 
 A job that writes its result somewhere and trusts a person to come and find it reports nothing, however true the

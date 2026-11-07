@@ -29,7 +29,10 @@ missing=""; for p in qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-cl
 [ -s "$INPUTS/anthropic.env" ] && grep -qE '^ANTHROPIC_API_KEY=.+' "$INPUTS/anthropic.env" || fail "no rig key in $INPUTS/anthropic.env (one line: ANTHROPIC_API_KEY=…, the rig's own key)"
 [ -s "$INPUTS/leon-snapshot.json" ] || fail "no $INPUTS/leon-snapshot.json (the intake's Leon stand-in data; see rig/intake/leon-snapshot.mjs)"
 [ -z "$SOURCE" ] || [ -s "$SOURCE" ] || fail "no bundle at $SOURCE"
-free=$(df --output=avail -BG / | tail -1 | tr -dc 0-9); [ "$free" -ge 30 ] || fail "only ${free} GB free on / (the box needs up to 25 GB; production keeps the rest)"
+# the old box's disk counts as free when --replace is about to delete it
+free=$(df --output=avail -BG / | tail -1 | tr -dc 0-9); old=0
+[ "$REPLACE" = 1 ] && [ -f "$D/rigbox.qcow2" ] && old=$(du -BG "$D/rigbox.qcow2" | cut -f1 | tr -dc 0-9)
+[ $((free + old)) -ge 30 ] || fail "only $((free + old)) GB free on / once the old box is gone (the box needs up to 25 GB; production keeps the rest)"
 
 if virsh dominfo rigbox >/dev/null 2>&1; then
   [ "$REPLACE" = 1 ] || fail "a rig box exists; --replace destroys it and builds a new one"

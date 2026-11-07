@@ -35,9 +35,8 @@ walls before seeding their Leon operators. The operators are seeded first now, i
 
 **Private inputs.** The repository is public, so two things stay out of it, on the server in
 `/var/lib/libvirt/images/rigbox/inputs` (root only): the rig's own Anthropic key, and the Leon snapshot (production
-operator data: aircraft, flights, the checklist configuration). `build.sh` refuses without either. The alternative for
-the snapshot, an invented Leon configuration in the repository, trades away testing the model's mapping against the
-operator's real checklist; that choice is open.
+operator data: aircraft, flights, the checklist configuration). `build.sh` refuses without either. Decided 2026-11-08: the real Leon
+data stays a private input on the server; nothing from it goes into the repository, and there is no invented checklist.
 
 **Build and run:** on the server as root, from a copy of `rig/box/`: `bash rig/box/build.sh --replace` (GitHub's
 main) or `--source <git bundle create f HEAD>` (commits not pushed yet, the same hashes). About ten minutes. Then

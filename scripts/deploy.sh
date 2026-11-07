@@ -49,6 +49,9 @@ HEAD_SHA="$(git rev-parse HEAD)"
 changed="$(git status --short | grep -v '^??' | grep -v ' digital-wall/data/' || true)"
 [ -z "$changed" ] || { say "note: tracked files differ from the commit:"; echo "$changed" | sed 's/^/    /'; }
 
+# 2b. The source checks (scripts/check-source.sh, 2026-11-07): static scans that once ran only inside a full rig run.
+bash scripts/check-source.sh || { say "SOURCE CHECK FAILED (above). Nothing was built; the running containers are unchanged."; exit 1; }
+
 # 3. Build. A failure stops here and restarts nothing.
 say "building ${SERVICES[*]} from $(git log --oneline -1 | cut -c1-70) ${NOCACHE:+(no cache)}"
 compose build $NOCACHE "${SERVICES[@]}" || { say "BUILD FAILED. Nothing was restarted; the running containers are unchanged."; exit 1; }

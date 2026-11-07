@@ -68,18 +68,20 @@ async function saveRow(id, reason, by) {
 }
 
 /** Saves the lists. Throws with a plain reason for anything invalid; saves nothing then. */
+// a refusal in our own words, for the settings page: only these sentences go back to it (2026-11-07)
+const invalid = (sentence) => Object.assign(new Error(sentence), { status: 400, publicMessage: sentence });
 export async function setWebSettings(patch, user) {
   const writes = [];
-  if (patch.provider !== undefined && String(patch.provider) !== PROVIDER) throw Object.assign(new Error("There is one web search provider (the Anthropic API's own search); nothing to switch."), { status: 400 });
+  if (patch.provider !== undefined && String(patch.provider) !== PROVIDER) throw invalid("There is one web search provider (the Anthropic API's own search); nothing to switch.");
   if (patch.official !== undefined || patch.industry !== undefined) {
     const now = await webSettings({ fresh: true });
     const official = patch.official !== undefined ? cleanList(patch.official) : now.official;
     const industry = patch.industry !== undefined ? cleanList(patch.industry) : now.industry;
     const bad = [...official, ...industry].filter((d) => !DOMAIN.test(d));
-    if (bad.length) throw Object.assign(new Error(`Not a domain: ${bad.join(", ")}. Write the domain alone, e.g. caa.co.uk.`), { status: 400 });
-    if (!official.length) throw Object.assign(new Error("Keep at least one official source: an empty list would make the first pass search the whole web."), { status: 400 });
+    if (bad.length) throw invalid(`Not a domain: ${bad.join(", ")}. Write the domain alone, e.g. caa.co.uk.`);
+    if (!official.length) throw invalid("Keep at least one official source: an empty list would make the first pass search the whole web.");
     const both = official.filter((d) => industry.includes(d));
-    if (both.length) throw Object.assign(new Error(`On both lists: ${both.join(", ")}. A source is official or industry, not both.`), { status: 400 });
+    if (both.length) throw invalid(`On both lists: ${both.join(", ")}. A source is official or industry, not both.`);
     writes.push([KEYS.sources, JSON.stringify({ official, industry })]);
   }
   for (const [id, reason] of writes) await saveRow(id, reason, user?.email ?? null);

@@ -23,7 +23,7 @@ import { converseOnce, streamConversationWithTools } from "./bedrock.mjs";
 import { loadModelConfig, systemPrompt, currentTimeLine } from "./models.mjs";
 import { routeTurn } from "./router.mjs";
 import { rest } from "./knowledge/retrieval.mjs";
-import { logDetail } from "./public-errors.mjs";
+import { logDetail, recordedReason } from "./public-errors.mjs";
 import { alertDevelopers } from "./alert.mjs";
 import { isRigRun, isLocalSupabase } from "../../lib/rig-guard.mjs";
 
@@ -39,8 +39,15 @@ const EMAIL = {
   attachments: [],
 };
 
-async function timed(fn) { const t = Date.now(); try { const detail = await fn(); return { ok: true, ms: Date.now() - t, detail: String(detail ?? "") }; } catch (e) { return { ok: false, ms: Date.now() - t, detail: String(e?.message ?? e).slice(0, 300) }; } }
-const must = (cond, why) => { if (!cond) throw new Error(why); };
+// A failed check's detail goes to the developers' alert: our own sentence when `must` failed, otherwise the kind of
+// failure, with the thrown text in the log (2026-11-07).
+class SmokeFailed extends Error {}
+const failedDetail = (e) => {
+  if (e instanceof SmokeFailed) return e.message.slice(0, 300);
+  return recordedReason("smoke", "a smoke call threw", e);
+};
+async function timed(fn) { const t = Date.now(); try { const detail = await fn(); return { ok: true, ms: Date.now() - t, detail: String(detail ?? "") }; } catch (e) { return { ok: false, ms: Date.now() - t, detail: failedDetail(e) }; } }
+const must = (cond, why) => { if (!cond) throw new SmokeFailed(why); };
 
 export const SMOKES = {
   router: async () => {

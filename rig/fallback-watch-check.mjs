@@ -15,7 +15,7 @@ Object.assign(process.env, { MODEL_PROVIDER: "anthropic", ANTHROPIC_BASE_URL: `h
 const models = await import("../agent/lib/models.mjs"); const cfg = models.loadModelConfig({ reload: true }); cfg.tiers.fast.fallbackId = "claude-haiku-5-5";
 const { converseOnce } = await import("../agent/lib/bedrock.mjs");
 const once = await converseOnce({ tier: "fast", messages: [{ role: "user", content: "x" }], maxTokens: 8 });
-ok(once.modelId === "claude-haiku-5-5" && once.fallback?.kind === "model" && once.fallback.from === "claude-rig-primary" && /not_found|claude-rig-primary/.test(once.fallback.reason), "a model fallback is returned with the call: from, to, and why", JSON.stringify(once.fallback));
+ok(once.modelId === "claude-haiku-5-5" && once.fallback?.kind === "model" && once.fallback.from === "claude-rig-primary" && /^model_unavailable; the detail is in the server log$/.test(once.fallback.reason), "a model fallback is returned with the call: from, to, and why (the kind of failure; the provider's own text only in the log, 2026-11-07)", JSON.stringify(once.fallback));
 api.close();
 
 // 2. the thresholds

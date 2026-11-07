@@ -14,7 +14,7 @@ const { rest } = await import("../agent/lib/knowledge/retrieval.mjs");
 const saved = { ...smoke.SMOKES }; for (const k of Object.keys(smoke.SMOKES)) delete smoke.SMOKES[k];
 let fail = false;
 smoke.SMOKES.alpha = async () => "fine";
-smoke.SMOKES.beta = async () => { if (fail) throw new Error("rig: refused by the API"); return "fine"; };
+smoke.SMOKES.beta = async () => { if (fail) throw Object.assign(new Error("rig: refused by the API"), { status: 403 }); return "fine"; };
 const T0 = Date.parse("2026-11-03T06:00:00Z"); const at = (h) => () => new Date(T0 + h * 3600_000);
 const before = await rest("agent_settings?id=eq.smoke%3Alast&select=reason").catch(() => null);
 await rest("agent_settings?id=eq.smoke%3Alast", { method: "DELETE" }).catch(() => {});
@@ -23,7 +23,7 @@ try {
   let r = await smoke.runSmokes({ now: at(0) });
   ok(sent.length === 0 && r.results.alpha.ok && r.results.beta.ok, "all working: no alert, the run recorded");
   fail = true; r = await smoke.runSmokes({ now: at(6) });
-  ok(sent.length === 1 && /✗ beta: rig: refused by the API/.test(sent[0]) && !/alpha/.test(sent[0]), "a path fails: alerted, naming it and the reason", sent[0]);
+  ok(sent.length === 1 && /✗ beta: refused \(403\); the detail is in the server log/.test(sent[0]) && !/rig: refused by the API/.test(sent[0]) && !/alpha/.test(sent[0]), "a path fails: alerted, naming it and the kind of failure; the provider's own text stays in the log (2026-11-07)", sent[0]);
   r = await smoke.runSmokes({ now: at(12) });
   ok(sent.length === 1, "still failing six hours later: not alerted again the same day");
   r = await smoke.runSmokes({ now: at(30.5) });

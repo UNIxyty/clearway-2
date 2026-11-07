@@ -8,7 +8,7 @@ import { classifyBedrockError, ModelUnavailable } from "./errors.mjs";
 import { executeTool, toolSpecsFor } from "./tools/index.mjs";
 import { anthropicRuntime } from "./anthropic-runtime.mjs";
 import { webSettings, anthropicWebTool, classifyUrl } from "./web-sources.mjs";
-import { logDetail } from "./public-errors.mjs";
+import { logDetail, recordedReason } from "./public-errors.mjs";
 import { deferredChecks, followUpPrompt, subjectsOf } from "./follow-up.mjs";
 import { nextAction } from "./turn-policy.mjs";
 import { auditClaims, repairPrompt } from "./claim-audit.mjs";
@@ -49,7 +49,8 @@ function inferenceConfig(tierConfig, overrides = {}) {
 }
 
 /** A fallback, said (2026-11-03): which model was meant, which answered, and why the first did not. */
-const fellBack = (candidates, modelId, lastUnavailable) => (lastUnavailable && modelId !== candidates[0] ? { kind: "model", from: candidates[0], to: modelId, reason: String(lastUnavailable.detail || lastUnavailable.message || "unavailable").slice(0, 200) } : null);
+// The reason is the kind of failure; the provider's own text goes to the log (2026-11-07: it reached the browser).
+const fellBack = (candidates, modelId, lastUnavailable) => (lastUnavailable && modelId !== candidates[0] ? { kind: "model", from: candidates[0], to: modelId, reason: recordedReason("model", `${candidates[0]} unavailable, answered on ${modelId}`, Object.assign(new Error(String(lastUnavailable.detail || lastUnavailable.message || "unavailable")), { code: lastUnavailable.code })) } : null);
 
 /** The tier's own request fields (thinking, effort: agent/config/models.json), as Converse carries model-specific fields. */
 function modelFields(tierConfig) {

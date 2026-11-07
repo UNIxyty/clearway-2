@@ -72,7 +72,7 @@ import { getConfirmation, publicView, cancelConfirmation } from "./lib/confirm.m
 import { listActivity, requestBehind, activityCsv, CAPABILITIES, capabilities, setCapability, permissionsMatrix, usageThisMonth, knowledgeStats, proposedClauses, searchConversations, suggestions, storeAttachment, loadAttachment, keybinds, setKeybinds, KEYBIND_ACTIONS, KEYBIND_DEFAULTS } from "./lib/views.mjs";
 import { rest as knowledgeRest2 } from "./lib/knowledge/retrieval.mjs";
 import { AgentError, BadRequest, Unauthorized } from "./lib/errors.mjs";
-import { REPLY_FAILED, REPLY_FAILED_DEFAULT, logDetail, stepFailedText, storedError } from "./lib/public-errors.mjs";
+import { REPLY_FAILED, REPLY_FAILED_DEFAULT, logDetail, recordedReason, stepFailedText, storedError } from "./lib/public-errors.mjs";
 import { ATTACHMENT_LIMITS, AttachmentRejected, assertAcceptable, attachmentBlocks, publicReadStatus, truncateWithMarker } from "./lib/attachments.mjs";
 import { requestContext, clientOf } from "./lib/request-context.mjs";
 import { listSites, listRequests, requestSite, decideRequest, revokeSite, addSite, admins as extensionAdmins, quickActions, resolveEntity, lookup as extensionLookup, insertLog, badge as extensionBadge, consoleOrigin, isPrivileged as isPrivilegedUser } from "./lib/extension.mjs";
@@ -543,7 +543,7 @@ async function handleRequest(req, res) {
         if (!canEdit) return sendJson(res, { ok: false, error: "forbidden", message: REFUSED }, 403);
         const body = await readJsonBody(req);
         try { w = await setWebSettings({ ...(body.provider !== undefined ? { provider: body.provider } : {}), ...(body.official !== undefined ? { official: body.official } : {}), ...(body.industry !== undefined ? { industry: body.industry } : {}) }, user); }
-        catch (e) { if (e?.status === 400) return sendJson(res, { ok: false, error: "invalid", message: e.message }, 400); throw settingNotSaved(e, "web search settings"); }
+        catch (e) { if (e?.publicMessage) return sendJson(res, { ok: false, error: "invalid", message: e.publicMessage }, 400); throw settingNotSaved(e, "web search settings"); }
         await audit({ kind: "settings.changed", userId: user.userId, userEmail: user.email, actorId: user.userId, actorEmail: user.email, success: true, confirmationStatus: "not_required", detail: { web: { provider: body.provider ?? null, official: Array.isArray(body.official) ? body.official.length : null, industry: Array.isArray(body.industry) ? body.industry.length : null } } });
       } else w = await webSettings({ fresh: true });
       return sendJson(res, { ok: true, canEdit, web: { provider: w.provider, official: w.official, industry: w.industry, source: w.source, updated: w.updated } });
@@ -1512,7 +1512,7 @@ async function handleChat(req, res, user) {
   // A code that does not match the place written next to it, or is no known code, gets a question back and nothing
   // is researched. Dates are resolved here and handed to the turn. A check that could not run is a recorded fallback.
   const qcheck = question && !pinTool
-    ? await checkQuestion(question, user).catch((e) => ({ ask: null, note: null, codes: [], fallback: { kind: "question-check", reason: String(e?.message ?? e).slice(0, 120) } }))
+    ? await checkQuestion(question, user).catch((e) => ({ ask: null, note: null, codes: [], fallback: { kind: "question-check", reason: recordedReason("question-check", "the question check could not run", e) } }))
     : { ask: null, note: null, codes: [], fallback: null };
   if (qcheck.ask) {
     res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform", connection: "keep-alive", "x-accel-buffering": "no" });
@@ -1898,7 +1898,7 @@ refreshCaps(); setInterval(refreshCaps, 30_000).unref();
 setCapabilityGate(() => capsNow);
 
 // Recorded, not swallowed (2026-11-03): a sweep that fails or stops is the scheduled-jobs smoke check's to report.
-const runFilesSweep = () => sweepGeneratedFiles().then((r) => recordJob("generated-files", { ok: !r.error, detail: r.error ?? r.skipped ?? null, counts: { swept: r.swept ?? 0 } })).catch((e) => recordJob("generated-files", { ok: false, detail: e?.message ?? String(e) }));
+const runFilesSweep = () => sweepGeneratedFiles().then((r) => recordJob("generated-files", { ok: !r.error, detail: r.error ?? r.skipped ?? null, counts: { swept: r.swept ?? 0 } })).catch((e) => recordJob("generated-files", { ok: false, detail: recordedReason("files", "the generated-files sweep failed", e) }));
 runFilesSweep();
 // Passenger manifest font (agent/lib/manifest/fonts.mjs): the pinned Liberation Sans files must be present and exact.
 // The image build already refuses without them (scripts/check-manifest-font.mjs); this says it out loud at start,
@@ -1922,8 +1922,11 @@ if (storeConfigured()) {
   resumeIntakeQueue().catch(() => {});
   startLookupTicker();   // type 1: reference look-ups that are due (the due time is stored, so a restart loses nothing)
   const runSweep = () => sweepIntakeRetention()
-    .then((r) => { if (r.messages) process.stderr.write(`[intake] retention: ${r.messages} message(s) past ${r.days} days purged\n`); return recordJob("intake-retention", { ok: !r.error, detail: r.error ?? null, counts: { messages: r.messages ?? 0, days: r.days ?? null } }); })
-    .catch((e) => { process.stderr.write(`[intake] retention sweep FAILED: ${e?.message ?? e}\n`); return recordJob("intake-retention", { ok: false, detail: e?.message ?? String(e) }); });
+    .then((r) => {
+      if (r.messages) console.error(`[intake] retention: ${r.messages} message(s) past ${r.days} days purged`);
+      return recordJob("intake-retention", { ok: !r.error, detail: r.error ?? null, counts: { messages: r.messages ?? 0, days: r.days ?? null } });
+    })
+    .catch((e) => recordJob("intake-retention", { ok: false, detail: recordedReason("intake", "retention sweep FAILED", e) }));
   setTimeout(runSweep, 60_000).unref(); setInterval(runSweep, 24 * 60 * 60 * 1000).unref();
 }
 setInterval(runFilesSweep, 24 * 60 * 60 * 1000).unref();

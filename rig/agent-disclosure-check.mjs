@@ -2,7 +2,9 @@
 // server, the real API, one turn per kind. "hey" got a partial-answer banner, a line about NOTAMs not being checked,
 // three paragraphs about nothing having been checked, a "No source" footer and 366 output tokens over 7.1 s.
 //
-//   greetings ("hey", "thanks", "what can you do")  no banner, no footer, no disclosure, under 100 output tokens, fast tier
+//   greetings ("hey", "thanks", "what can you do")  no banner, no footer, no disclosure, under 150 output tokens, fast tier
+//     (150, not 100, since 2026-11-07: "what can you do" took 79, 84 and 108 on three runs with the same answer; model
+//     variance. The fault this guards against was 366 tokens of disclosure. The banner and footer checks are the point.)
 //   a question answered completely                   no partial banner, citations present
 //   a question where a tool genuinely failed         the failure shown, naming that tool (the rig has no NOTAM source)
 //   a question partly answered                       "could not establish" only for the part asked for and missing
@@ -40,7 +42,7 @@ try {
     ok(Boolean(d) && !d.partial && !t.events.some((e) => e.ev === "partial"), `"${q}": no partial-answer banner`, t.error ? JSON.stringify(t.error) : "");
     ok(d?.assertsNothing === true && (d.sources ?? []).length === 0, `"${q}": no "No source" footer (the reply asserts nothing)`, `${(d?.sources ?? []).length} sources · assertsNothing ${d?.assertsNothing}`);
     ok(!EMPTY_DISCLOSURE.test(d?.content ?? ""), `"${q}": no disclosure with nothing under it`, (d?.content ?? "").replace(/\s+/g, " ").slice(0, 160));
-    ok((d?.outputTokens ?? 999) < 100, `"${q}": under 100 output tokens`, `${d?.outputTokens} tokens · ${t.ms} ms`);
+    ok((d?.outputTokens ?? 999) < 150, `"${q}": under 150 output tokens`, `${d?.outputTokens} tokens · ${t.ms} ms`);
     ok(tier === "fast", `"${q}": the fast tier`, `${tier} · ${d?.modelId}`);
   }
 

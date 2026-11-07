@@ -3,6 +3,7 @@
 // account (2026-11-03). If the pass fails, the search order stands and the result says so (method "search-order").
 
 import { converseOnce } from "../bedrock.mjs";
+import { recordedReason } from "../public-errors.mjs";
 
 const TIMEOUT_MS = 30_000;
 let lastRerankModelId = null;
@@ -62,7 +63,6 @@ export async function rerank(query, candidates, { topN = 8 } = {}) {
     return { results, model: lastRerankModelId, method: "llm-listwise" };
   } catch (error) {
     // a fallback, said (2026-11-03): the result carries it, so the tool's audit row has it
-    process.stderr.write(`[rerank] LLM rerank failed, using search order: ${error.message}\n`);
-    return { results: candidates.slice(0, topN), model: null, method: "search-order", fallback: { kind: "rerank", to: "search-order", reason: String(error?.message ?? error).slice(0, 200) } };
+    return { results: candidates.slice(0, topN), model: null, method: "search-order", fallback: { kind: "rerank", to: "search-order", reason: recordedReason("rerank", "LLM rerank failed, using search order", error) } };
   }
 }

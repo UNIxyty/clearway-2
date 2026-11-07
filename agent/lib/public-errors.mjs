@@ -12,6 +12,25 @@ export function logDetail(tag, what, detail) {
   console.error(`[${tag}] ${what}${d === undefined || d === null || d === "" ? "" : `: ${typeof d === "string" ? d : JSON.stringify(d)}`}`);
 }
 
+/**
+ * What kind of failure an error was, in our words (2026-11-07): for a fallback's or a job's recorded reason, which
+ * travels to the browser, the developers' alert or a settings row. Never the error's own text.
+ */
+export function failureKind(error) {
+  const status = Number(error?.status ?? error?.statusCode ?? error?.$metadata?.httpStatusCode);
+  if (error?.name === "TimeoutError" || error?.name === "AbortError" || error?.code === "model_timeout") return "timed out";
+  if (status === 429 || error?.code === "model_throttled") return "throttled (429)";
+  if (isCode(error?.code) && !/^\d+$/.test(error.code)) return error.code;
+  if (status >= 500) return `the service answered ${status}`;
+  if (status >= 400) return `refused (${status})`;
+  return "failed";
+}
+/** A fallback's or job's reason: the raw detail logged under `tag`, and the kind returned for the record. */
+export function recordedReason(tag, what, error) {
+  logDetail(tag, what, error);
+  return `${failureKind(error)}; ${IN_THE_LOG.toLowerCase().replace(/\.$/, "")}`;
+}
+
 /** The common ending when the reason is only in the log. */
 export const IN_THE_LOG = "The detail is in the server log.";
 export const STEP_FAILED = `The step failed. ${IN_THE_LOG}`;

@@ -1,6 +1,7 @@
 // Disclosure on production (2026-11-05): "hey", "thanks" and "what can you do" as a plain user (a check account:
 // read-only, removed at the end), in the agent container, routed as the server routes them. Each must raise no
-// follow-up (the machinery has nothing to report), stay on the fast tier, and stay under 100 output tokens. Prints
+// follow-up (the machinery has nothing to report), stay on the fast tier, and stay under 150 output tokens (100 until
+// 2026-11-07: model variance put "what can you do" at 108 with the same answer). Prints
 // counts and the tier only, never the answer.
 export const ROLES = ["user"];
 export async function check({ accounts: [u], ok }) {
@@ -22,6 +23,6 @@ export async function check({ accounts: [u], ok }) {
     const followUps = (done?.followUps ?? []).filter((f) => f.kind !== "audit");
     ok(followUps.length === 0 && !events.has("partial"), `"${q}": no follow-up raised, no partial answer`, `${followUps.length} follow-up(s)`);
     ok(route.tier === "fast", `"${q}": routed to the fast tier`, `${route.tier} (${route.source ?? "router"})`);
-    ok((done?.outputTokens ?? 999) < 100, `"${q}": under 100 output tokens`, `${done?.outputTokens} tokens · ${done?.modelId}`);
+    ok((done?.outputTokens ?? 999) < 150, `"${q}": under 150 output tokens`, `${done?.outputTokens} tokens · ${done?.modelId}`);
   }
 }

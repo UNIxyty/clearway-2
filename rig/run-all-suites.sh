@@ -160,8 +160,10 @@ docker exec supabase_db_rig psql -U postgres -q -c "insert into public.maintenan
 # The extension the suites load is built here, for the rig (2026-11-07): until now they loaded whatever extension/dist one
 # Mac's main checkout held (built 13 October). Removed first, so a failed build cannot leave an old one to test.
 rm -rf extension/dist; ( cd extension && npm run build:rig > ../rig/.scratch/ext-build.out 2>&1 ) || echo "extension build failed (rig/.scratch/ext-build.out): the extension suites will fail" >> $LOG
-run ext/t-console $E rig/ext/t-console.mjs
-run ext/t-issues $E rig/ext/t-issues.mjs
+# An MV3 extension needs a visible Chrome (headless: false); a machine with no display gives it one (2026-11-07: the rig box)
+headed() { if [ "$(uname)" = Linux ] && [ -z "${DISPLAY:-}" ]; then xvfb-run -a -s "-screen 0 1920x1200x24" "$@"; else "$@"; fi; }
+run ext/t-console headed $E rig/ext/t-console.mjs
+run ext/t-issues headed $E rig/ext/t-issues.mjs
 run group4 $E rig/group4-check.mjs
 run stage2-check $E rig/stage2-check.mjs
 run stage3-batch1 $E rig/stage3-batch1-check.mjs

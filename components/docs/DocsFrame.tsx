@@ -111,6 +111,14 @@ export default function DocsFrame({ brand, nav, toc, crumbs, prevNext, children,
 }) {
   const [drawer, setDrawer] = useState(false);
   const [sheet, setSheet] = useState(false);
+  // A link to a spot in a page lands on it (2026-11-07): the browser jumps to the #id while the page loads, and the page
+  // is drawn again as it hydrates, so the jump was lost (/docs/glossary#term-notam stayed at the top; rig/docs-browser.mjs).
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (!id) return;
+    const t = window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: "start" }), 0);
+    return () => window.clearTimeout(t);
+  }, []);
   const [searching, setSearching] = useState(false);
   const openSearch = useCallback(() => { setDrawer(false); setSheet(false); setSearching(true); }, []);
   useSearchKeys(openSearch);

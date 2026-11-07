@@ -1,9 +1,10 @@
 // Real Chrome with the unpacked extension. Exposes helpers for the test scripts.
-import { chromium } from "/Users/whae/Clearway2/clearway-2/node_modules/playwright/index.mjs";
+import { chromium } from "../../node_modules/playwright/index.mjs";
 import fs from "node:fs";
 import path from "node:path";
 export const S = process.env.RIG_SCRATCH || path.join(path.dirname(new URL(import.meta.url).pathname), ".scratch");
-export const DIST = "/Users/whae/Clearway2/clearway-2/extension/dist";
+// this checkout's build, not one Mac's main checkout (2026-11-07: the four extension files named /Users/whae/…)
+export const DIST = new URL("../../extension/dist", import.meta.url).pathname;
 export const SHOTS = path.join(S, "ext-shots");
 export const FIX = "http://127.0.0.1:3997";
 export async function launch({ profile = "ext-profile", fresh = false, audioFile = null } = {}) {

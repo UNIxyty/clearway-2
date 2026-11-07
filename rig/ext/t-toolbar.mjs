@@ -2,7 +2,7 @@
 // signed in / signed out (the rig proxy's rig-401 switch), plus the chrome://extensions row.
 import { chromium } from "../../node_modules/playwright/index.mjs";
 import fs from "node:fs"; import path from "node:path"; import { execSync } from "node:child_process";
-const DIST = "/Users/whae/Clearway2/clearway-2/extension/dist";
+const DIST = new URL("../../extension/dist", import.meta.url).pathname;
 const SCR = process.env.RIG_SCRATCH; const OUT = path.join(SCR, "ext-shots"); fs.mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function run({ scale, dark }) {

@@ -1,7 +1,7 @@
 // Opens Chrome's own DevTools for the side-panel page (via the remote-debugging port) and screenshots its Console.
 import { chromium } from "../../node_modules/playwright/index.mjs";
 import fs from "node:fs"; import path from "node:path";
-const DIST = "/Users/whae/Clearway2/clearway-2/extension/dist", S = process.env.RIG_SCRATCH;
+const DIST = new URL("../../extension/dist", import.meta.url).pathname, S = process.env.RIG_SCRATCH;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const dir = path.join(S, "devtools-profile"); fs.rmSync(dir, { recursive: true, force: true });
 const ctx = await chromium.launchPersistentContext(dir, { headless: false, args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`, "--remote-debugging-port=9333", "--remote-allow-origins=*", `--use-file-for-fake-audio-capture=${S}/voice-2plus2.wav`, "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });

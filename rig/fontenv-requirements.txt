@@ -1,0 +1,6 @@
+# The manifest generator's text checks (rig/manifest/test-generator.mjs) read PDFs with PyMuPDF. rig/fontenv.sh makes
+# rig/.scratch/fontenv from this list (2026-11-07: it existed on one Mac only). Pinned: the versions that Mac had.
+pymupdf==1.28.2
+fonttools==4.66.1
+pillow==12.3.0
+brotli==1.2.0

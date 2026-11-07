@@ -1,0 +1,6 @@
+version: 2
+ethernets:
+  wired:
+    match: {name: "en*"}
+    dhcp4: true
+    dhcp6: false

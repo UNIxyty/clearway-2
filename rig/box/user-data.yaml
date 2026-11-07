@@ -1,0 +1,22 @@
+#cloud-config
+# The rig box's first boot (rig/box/build.sh renders @PUBKEY@). Ubuntu 24.04 cloud image.
+hostname: rigbox
+# the rig's zone, as on the Mac rig: the dispatchers' (2026-11-07). Not UTC on purpose: code that reads the machine's
+# local time where it means UTC shows two hours off here; on production's UTC servers it would look right.
+timezone: Europe/Riga
+users:
+  - name: rig
+    groups: [sudo, docker]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: true
+    ssh_authorized_keys: ["@PUBKEY@"]
+ssh_pwauth: false
+package_update: true
+packages: [git, curl, ca-certificates, xz-utils, docker.io, docker-compose-v2, xvfb, python3-venv, lsof, fonts-dejavu-core, fonts-liberation, fonts-noto-core, jq]
+runcmd:
+  # Node, pinned and checked against nodejs.org's own sums (2026-11-07: the first box saved it under another name, so
+  # the check failed and Node was installed by hand)
+  - [sh, -c, "set -e; cd /tmp; F=node-v24.10.0-linux-x64.tar.xz; curl -fsSLO https://nodejs.org/dist/v24.10.0/SHASUMS256.txt; curl -fsSLO https://nodejs.org/dist/v24.10.0/$F; grep \" $F\\$\" SHASUMS256.txt | sha256sum -c -; tar -xJf $F -C /usr/local --strip-components=1; node --version > /var/log/rigbox-node.txt"]
+  - [systemctl, enable, --now, docker]
+  - [sh, -c, "usermod -aG docker rig && test -s /var/log/rigbox-node.txt && touch /var/log/rigbox-ready"]

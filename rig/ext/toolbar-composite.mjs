@@ -3,7 +3,7 @@
 // Used because the real browser toolbar cannot be screen-captured without macOS Screen Recording permission.
 import { chromium } from "../../node_modules/playwright/index.mjs";
 import fs from "node:fs";
-const I = "/Users/whae/Clearway2/clearway-2/extension/dist/icons", out = process.argv[2];
+const I = new URL("../../extension/dist/icons", import.meta.url).pathname, out = process.argv[2];
 const png = (f) => `data:image/png;base64,${fs.readFileSync(`${I}/${f}`).toString("base64")}`;
 const THEMES = [{ name: "Light theme", bar: "#ffffff", omni: "#f1f3f4", fg: "#5f6368" }, { name: "Dark theme", bar: "#35363a", omni: "#202124", fg: "#9aa0a6" }];
 const bar = (t, file, state) => `<div style="display:flex;align-items:center;gap:8px;background:${t.bar};padding:6px 10px;border-radius:0">

@@ -31,7 +31,10 @@ const PEOPLE_FIXED = /@clearway\.aero|ops@/gi;
 export function peopleFromHere() {
   const names = new Set();
   try { const { execSync } = require_("node:child_process"); for (const n of execSync("git log --format=%an%n%ae", { encoding: "utf8" }).split("\n")) for (const w of n.split(/[\s@.]+/)) if (w.length >= 4 && !/^(clearway|claude|anthropic|noreply|users|local|github|com|aero)$/i.test(w)) names.add(w.toLowerCase()); } catch { /* no git */ }
-  try { const os = require_("node:os"); const u = os.userInfo().username; if (u && u.length >= 3) names.add(u.toLowerCase()); } catch { /* none */ }
+  // a machine's user is a person's name on a laptop, not on a rig box or a CI runner (2026-11-07: the server's rig box
+  // runs as "rig", and every script holding the word "rig" was reported as naming a person)
+  const SERVICE_USERS = /^(rig|root|ubuntu|debian|runner|admin|user|node|ci|build|docker|jenkins|www-data)$/i;
+  try { const os = require_("node:os"); const u = os.userInfo().username; if (u && u.length >= 3 && !SERVICE_USERS.test(u)) names.add(u.toLowerCase()); } catch { /* none */ }
   return [...names];
 }
 const EMAIL = /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/g;

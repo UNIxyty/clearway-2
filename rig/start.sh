@@ -33,7 +33,7 @@ WALL_RIG="FLIGHT_INFO_CACHE_TTL_MS=5000 PERMISSIONS_TTL_MS=1000 LEON_REFRESH_TOK
 # Both rig walls (:5199 here, the sign-in-on :5198 started by hand, see rig/wall/access-check.mjs) run from scratch
 # folders: give them the wall's email templates and airport countries, and the portal its invented NOTAMs and AIP
 # stand-ins (rig/wall/seed-portal.mjs), so mail, CAA country matching and the NOTAM check work there.
-for d in wall wall-auth; do mkdir -p "$SCR/$d/data"; ln -sfn "$ROOT/digital-wall/templates" "$SCR/$d/templates"; [ -f "$SCR/$d/data/geo-airports.json" ] || cp "$ROOT/digital-wall/data/geo-airports.json" "$SCR/$d/data/"; done
+for d in wall wall-auth; do mkdir -p "$SCR/$d/data"; ln -sfn "$ROOT/digital-wall/templates" "$SCR/$d/templates"; [ -f "$SCR/$d/data/geo-airports.json" ] || cp "$RIG/fixtures/geo-airports.json" "$SCR/$d/data/"; done
 node "$RIG/wall/seed-portal.mjs" > /dev/null
 bash "$RIG/approve-rig-accounts.sh"
 ( cd "$RIG/wall" && env -i PATH="$PATH" HOME="$HOME" PORT=3985 node mock-leon.mjs > "$SCR/wall-mock-leon.out" 2>&1 & )

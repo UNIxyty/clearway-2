@@ -42,7 +42,7 @@ const rest = (path, init = {}) => fetch(`${SB}/rest/v1/${path}`, { headers: srv,
   await page.goto(`${BASE}/agent/settings`, { waitUntil: "load" });
   await page.waitForSelector('[role="tablist"][aria-label="Settings"] [role="tab"]', { timeout: 30000 }); await settled(page);
   const tabs = (await page.getByRole("tablist", { name: "Settings" }).getByRole("tab").allInnerTexts()).map(norm);
-  ok(JSON.stringify(tabs) === JSON.stringify(["Your preferences", "Model tiers ADMIN", "Capabilities ADMIN", "Access & sites ADMIN", "Flight intake ADMIN"]), "five tabs, split by who a setting affects; the organisation's marked ADMIN", tabs.join(" | "));
+  ok(JSON.stringify(tabs) === JSON.stringify(["Your preferences", "Model tiers ADMIN", "Capabilities ADMIN", "Web search ADMIN", "Access & sites ADMIN", "Flight intake ADMIN"]), "six tabs (Web search since 2026-11-03), split by who a setting affects; the organisation's marked ADMIN", tabs.join(" | "));
   ok(/of \$[\d.,]+ daily ceiling/.test(norm(await page.getByLabel("Usage this month").innerText())) && /information, no limit/.test(norm(await page.getByLabel("Usage this month").innerText())), "usage sits in the page header: today against the daily ceiling (which stops calls), the month as information", norm(await page.getByLabel("Usage this month").innerText()));
   const seg = page.getByRole("radiogroup", { name: "Default model" });
   const before = await seg.getByRole("radio", { checked: true }).innerText();

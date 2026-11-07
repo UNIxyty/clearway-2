@@ -10,9 +10,17 @@ Nothing defaults to it and nothing inherits it from `.env`.
 ## Once per machine
 
 ```
-colima start            # or Docker Desktop — the stack runs in Docker
-rig/db.sh start         # pulls images, applies docs/supabase-*.sql as migrations, writes .env.rig, creates the rig user
+colima start            # or Docker Desktop — the stack runs in Docker (the server's rig box has its own)
+bash rig/setup.sh       # from a fresh clone to a running rig; every step is safe to run again
 ```
+
+`rig/setup.sh` (2026-11-07) does what used to be remembered: `npm ci` in each package, Chromium, the manifest
+generator's Python (`rig/fontenv.sh`), the agent's time-zone data, the database with every schema file
+(`rig/db.sh start`; `rig/supabase/sources.json` says where each one comes from), then the whole rig (`rig/up.sh`).
+Two inputs cannot be in a public repository, and it says plainly when one is missing: the rig's own Anthropic key
+(the `ANTHROPIC_API_KEY` line of `.env.rig`) and the intake's Leon data (`rig/.scratch/leon-snapshot.json`, from
+`rig/intake/leon-snapshot.mjs`). The rig runs in Europe/Riga, and a full run starts between 05:30 and 22:00 UTC; the
+runner refuses otherwise and says why. On the server, `rig/box/build.sh` builds the whole rig box from nothing.
 
 `.env.rig` holds the local stack's URL and keys, the auth bypass, and the rig account. It has no production
 database credentials. Model keys (Bedrock, ElevenLabs) are copied from `.env` only when you say so:

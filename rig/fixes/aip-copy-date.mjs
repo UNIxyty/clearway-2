@@ -1,5 +1,5 @@
 // AIP copies are not refreshed automatically (2026-10-15), so everything that shows or sends one says when it is from.
-//   A. The airport page says "This copy is from DD Mon YYYY." — from the PDF's own record (its stored extraction is
+//   A. The airport page says "It was fetched DD Mon YYYY." (since e9972600, after the copy's revision) — from the PDF's own record (its stored extraction is
 //      dropped after a day, which used to leave the page with no date at all); older than a day it says it is not
 //      refreshed automatically and to press Re-sync; older than 28 days (one AIRAC cycle) it says so, in orange.
 //   B. The wall's Send AIP / GEN: the email row says "Cached copy from …", the file name carries the date, and a
@@ -31,7 +31,7 @@ try {
     const line = page.locator("[data-aip-copy-age]");
     const got = await line.getAttribute("data-aip-copy-age").catch(() => null);
     const said = await text(line);
-    ok(got === want && said.includes(`This copy is from ${day(t.getTime())}.`), `a copy ${ageDays} days old: the page says it is from ${day(t.getTime())} (${want})`, `${got} · ${said}`);
+    ok(got === want && said.includes(`It was fetched ${day(t.getTime())}.`), `a copy ${ageDays} days old: the page says it is from ${day(t.getTime())} (${want})`, `${got} · ${said}`);
     if (want === "old-cycle") ok(/more than one AIRAC cycle \(28 days\) ago/.test(said) && /not refreshed automatically/.test(said) && /Press Re-sync/.test(said), "…and says it is more than one AIRAC cycle old, not refreshed, press Re-sync", said);
     if (want === "stale") ok(/not refreshed automatically/.test(said) && !/AIRAC/.test(said), "…a few days old: not refreshed automatically, no AIRAC warning", said);
     if (want === "fresh") ok(!/not refreshed/.test(said), "…today's copy: just the date", said);

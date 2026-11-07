@@ -53,9 +53,12 @@ try {
     ok(Boolean(d) && !d.partial && (d.sources ?? []).length > 0 && (d.claims ?? []).length > 0, "a question answered completely: no partial banner, citations present", `${(d?.sources ?? []).length} sources · ${(d?.claims ?? []).length} cited claims${t.error ? ` · ${JSON.stringify(t.error)}` : ""}`);
   }
 
-  // ── a tool that genuinely failed: shown, naming the tool (the rig has no NOTAM source) ──
+  // ── a tool that genuinely failed: shown, naming the tool ──
+  // EKCH: the rig has no NOTAM source, and rig/wall/seed-portal.mjs seeds invented NOTAMs for eight airports, EVRA
+  // among them (2026-11-07: asked about EVRA, a freshly built rig answered from the seed and nothing failed; on the Mac,
+  // whose seed dated from 20 October, the same question failed, so the test passed there on the seed's age)
   {
-    const t = await chat("Are there any NOTAMs at EVRA today that affect a departure this afternoon?"); const d = t.done;
+    const t = await chat("Are there any NOTAMs at EKCH today that affect a departure this afternoon?"); const d = t.done;
     const failed = (d?.toolActivity ?? []).filter((a) => a.ok === false).map((a) => a.name);
     const named = failed.includes("get_notams") || /^The NOTAMs could not be checked/.test(d?.partial?.line ?? "");
     ok(named, "a tool that genuinely failed: the failure is shown, naming that tool (the console's card for a failed step, or the one-line missing check)", `failed steps: ${failed.join(", ") || "none"} · ${d?.partial?.line ?? "no partial line"}`);

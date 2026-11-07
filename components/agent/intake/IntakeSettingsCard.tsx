@@ -81,11 +81,15 @@ function ListEditor({ title, help, empty, values, source, updated, saving, statu
         <ul aria-labelledby={`${id}-t`} style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexWrap: "wrap", gap: 6 }}>
           {draft.length === 0 && <li style={{ fontSize: 12.5, color: cw.textMuted }}>{empty}</li>}
           {draft.map((a) => { const h = status?.(a); return (
-            <li key={a} style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 6, maxWidth: "100%", minWidth: 0, border: `1px solid ${cw.borderControl}`, borderRadius: 14, padding: "3px 4px 3px 10px", background: cw.bgSurface }}>
+            <li key={a} style={{ position: "relative", display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 6, maxWidth: "100%", minWidth: 0, border: `1px solid ${cw.borderControl}`, borderRadius: 14, padding: "3px 4px 3px 10px", background: cw.bgSurface }}>
               {/* green only when mail actually arrived in the last 7 days; set up but unproven is grey (2026-11-03) */}
-              {h && <span aria-hidden title={!h.ok ? (h.why ?? "Not connected") : h.proven ? "Mail arrived in the last 7 days" : "Receiving enabled; no mail in 7 days, so not proven"} style={{ width: 7, height: 7, borderRadius: "50%", background: !h.ok ? TONE.red.ic : h.proven ? TONE.green.ic : TONE.slate.ic }} />}
+              {/* the dot's meaning is in words, never only in a tooltip (2026-11-07: a title= here hid it from touch,
+                  keyboard and screen readers): failing says why, unproven says so, proven is said to screen readers */}
+              {h && <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: !h.ok ? TONE.red.ic : h.proven ? TONE.green.ic : TONE.slate.ic }} />}
               <span style={{ ...mono({ fontSize: 12.5, fontWeight: 600 }), overflowWrap: "anywhere", minWidth: 0 }}>{a}</span>
-              {h && !h.ok && h.why && <span style={{ fontSize: 11.5, color: cw.dangerText, overflowWrap: "anywhere", minWidth: 0 }}>{h.why}</span>}
+              {h && !h.ok && <span style={{ fontSize: 11.5, color: cw.dangerText, overflowWrap: "anywhere", minWidth: 0 }}>{h.why ?? "Not connected"}</span>}
+              {h && h.ok && !h.proven && <span style={{ fontSize: 11.5, color: cw.textMuted, minWidth: 0 }}>no mail in 7 days</span>}
+              {h && h.ok && h.proven && <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>mail arrived in the last 7 days</span>}
               <button type="button" className="ag-focus" aria-label={`Remove ${a}`} onClick={() => setDraft((d) => d.filter((x) => x !== a))} style={{ width: 22, height: 22, borderRadius: 999, border: "none", background: "transparent", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="x" size={13} color={cw.textMuted} /></button>
             </li>
           ); })}

@@ -34,11 +34,20 @@ for (const [icao, list] of Object.entries(SET)) {
 console.log(`wrote invented NOTAMs for ${Object.keys(SET).length} airports → ${path.relative(ROOT, DIR)}`);
 
 const { PDFDocument, StandardFonts } = createRequire(path.join(ROOT, "package.json"))("pdf-lib");
+const { buildRevisionMeta, airacForDate } = await import("../../lib/aip-revision-meta.mjs");
+// the AIRAC effective date in force today: the latest cycle date on or before it
+const cycleInForce = () => { for (let d = 0; d < 28; d += 1) { const day = new Date(Date.now() - d * 864e5).toISOString().slice(0, 10); if (airacForDate(day)) return day; } return null; };
 const AIP = path.join(ROOT, "rig/.scratch/storage/aip/ead-pdf");
 mkdirSync(AIP, { recursive: true });
 for (const icao of ["EVRA", "EYVI", "EETN", "LSGG"]) {
   const doc = await PDFDocument.create(); const font = await doc.embedFont(StandardFonts.Helvetica); const pg = doc.addPage([595, 842]);
   [`AD 2 ${icao} (INVENTED TEST DOCUMENT)`, "Made by rig/wall/seed-portal.mjs for the test system.", "This is not an AIP. Nothing in it is real."].forEach((line, i) => pg.drawText(line, { x: 50, y: 780 - i * 24, size: i ? 11 : 16, font }));
-  writeFileSync(path.join(AIP, `${icao}.pdf`), await doc.save());
+  const body = Buffer.from(await doc.save());
+  writeFileSync(path.join(AIP, `${icao}.pdf`), body);
+  // its revision record, as production's sync writes one beside every copy (lib/aip-revision-meta.mjs): the cycle in
+  // force, checked today, nothing newer. Without it every copy is "revision unknown" (amber since e9972600), and the
+  // fresh and stale cases of fixes/aip-copy-date cannot happen (2026-11-07).
+  const meta = buildRevisionMeta({ icao, source: "rig", body, sidecar: { effectiveDate: cycleInForce() } });
+  writeFileSync(path.join(AIP, `${icao}.meta.json`), JSON.stringify({ ...meta, lastCheck: { ok: true, at: new Date().toISOString(), newer: false } }, null, 1));
 }
 console.log(`wrote invented AIP stand-ins → ${path.relative(ROOT, AIP)}`);

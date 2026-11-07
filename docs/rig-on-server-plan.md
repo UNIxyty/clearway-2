@@ -1,7 +1,50 @@
 # The rig on clearway-2: plan (2026-11-06)
 
-Asked for on 2 November ("the tests are eating his day"). Plan only: nothing here has been started. Numbers marked
-**measured** were measured; the rest are estimates, and say what they rest on.
+Asked for on 2 November ("the tests are eating his day"). Numbers marked **measured** were measured; the rest are
+estimates, and say what they rest on.
+
+## Built (2026-11-07): steps 1–3, then reproducibility before the second lane
+
+The box exists: a KVM VM `rigbox` (6 GB, 8 threads, 25 GB thin disk, QEMU user-mode network, SSH on the host's
+loopback only). The first timing trial (one lane, 43 min 28 s, 66 green and 34 red) showed that **the rig could not be
+rebuilt from the repository**: the Mac rig passed every day because it held setup nobody had written down. So step 5
+(the breakages) came before step 4 (two lanes), with one goal: a rig built from the repository alone, on a clean
+machine, with no step anyone has to remember. Proven the only way that counts: the box destroyed and built again by
+`rig/box/build.sh --replace`, then a full run in it.
+
+What the Mac had that the repository did not, and where it lives now:
+
+| Found | Now |
+| --- | --- |
+| Migration 0028 and the email confirmations, applied to the Mac rig by hand | rig migrations; `rig/supabase/sources.json` names the rig source of every schema file; `rig/migrations-check.mjs` fails on a new one with none |
+| The wall's airport directory, a file copied from one Mac | `rig/fixtures/geo-airports.json` (public reference data) |
+| The manifest generator's Python environment | `rig/fontenv.sh` from `rig/fontenv-requirements.txt` |
+| The extension suites loaded one Mac's main-checkout build from 13 October, by absolute path | paths relative to the checkout; the runner builds the rig extension before its suites |
+| The intake's Leon data, a snapshot of production's Leon in one Mac's scratch folder | a private input (below) |
+| Node installed by hand (the first boot's checksum step looked for the wrong file name) | `rig/box/user-data.yaml`, checked against nodejs.org's sums |
+
+And what broke on Linux: `lsof` misses Next's server and Docker's root-owned listeners (so "stop the old agent" stopped
+nothing): `rig/port.sh` uses `ss` there. `date -v` is BSD-only. Background services held pipes and SSH sessions open.
+The bundle sweep took the box's user, `rig`, for a person's name. The database CLI is pinned everywhere (`2.119.0`).
+
+**Two decisions.** *The zone:* the rig runs in Europe/Riga on every machine (the box's first boot sets it; the runner
+refuses another). The dispatchers' zone, and the Mac's all along; and a zone that is not UTC shows code that reads
+the machine's local time where it means UTC two hours off, which production's UTC servers would hide. *The clock:* the
+wall's day is UTC, and the rig's flights sit hours either side of the moment its Leon starts, so a run that crosses
+UTC midnight finds an empty board (the first trial started at 23:47Z). A run starts between 05:30 and 22:00 UTC.
+
+**Private inputs.** The repository is public, so two things stay out of it, on the server in
+`/var/lib/libvirt/images/rigbox/inputs` (root only): the rig's own Anthropic key, and the Leon snapshot (production
+operator data: aircraft, flights, the checklist configuration). `build.sh` refuses without either. The alternative for
+the snapshot, an invented Leon configuration in the repository, trades away testing the model's mapping against the
+operator's real checklist; that choice is open.
+
+**Build and run:** on the server as root, from a copy of `rig/box/`: `bash rig/box/build.sh --replace` (GitHub's
+main) or `--source <git bundle create f HEAD>` (commits not pushed yet, the same hashes). About ten minutes. Then
+`bash rig/box/ssh.sh "cd ~/clearway-2 && bash rig/run-all-suites.sh"`.
+
+**Since then, every deploy** runs the static source checks first (`scripts/check-source.sh` in `scripts/deploy.sh`):
+`error-text` sat red for four days because its verdict only ran in a full run, and no full run happened.
 
 ## What the server has, and what production uses (measured 2026-11-06, 20:45Z)
 

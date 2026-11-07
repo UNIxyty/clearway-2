@@ -243,7 +243,8 @@ export function enforce(x) {
       if (!f || factValue == null) return;
       const bodyVal = f.state === "unknown" ? "TBA" : f.value;
       const same = f.state === "unknown" ? false : String(bodyVal) === String(factValue);
-      if (same || f.state === "conflict") return;
+      // a conflict the model marked with no pair to choose from gets this one (2026-11-07: skipped, it stayed unresolvable)
+      if (same || (f.state === "conflict" && f.conflict)) return;
       f.state = "conflict"; f.conflict = { body: f.said ?? String(bodyVal ?? ""), attachment: String(factValue), attachmentName: att.name };
       f.note = `The email says ${JSON.stringify(f.said ?? bodyVal)}; ${att.name} says ${factValue}. Choose one.`;
       conflicts.push({ field: `legs[${x.legs.indexOf(leg)}].${label}`, leg: x.legs.indexOf(leg), body: f.said ?? String(bodyVal ?? ""), attachment: String(factValue), attachmentName: att.name, byCode: true });
@@ -257,6 +258,13 @@ export function enforce(x) {
       if (f.value.utc.slice(11, 16) !== String(hh).padStart(5, "0") && f.state !== "conflict") { f.state = "conflict"; f.conflict = { body: f.said ?? f.value.utc.slice(11, 16), attachment: `${hh} UTC`, attachmentName: att.name }; f.note = `The email says ${f.value.utc.slice(11, 16)} UTC; ${att.name} says ${hh} UTC. Choose one.`; conflicts.push({ field: `legs[${x.legs.indexOf(leg)}].${key}`, leg: x.legs.indexOf(leg), body: f.value.utc.slice(11, 16), attachment: hh, attachmentName: att.name, byCode: true }); }
     }
   }
+  // A field marked "conflict" must carry the two values a person chooses between, or nobody can resolve it: the review
+  // said "Choose one" and the edit refused "That value has no conflict" (2026-11-07, found by the rig's first run on the
+  // Anthropic API). With no pair it becomes unknown, said so, and a person types the value.
+  const unpaired = (o) => { if (!o || typeof o !== "object") return; if (Array.isArray(o)) { o.forEach(unpaired); return; }
+    if ("state" in o && o.state === "conflict" && !o.conflict) { o.state = "unknown"; o.note = "Marked as differing between the email and an attachment, with no two values to choose from: check both and type the value."; return; }
+    for (const v of Object.values(o)) unpaired(v); };
+  for (const leg of x.legs ?? []) unpaired(leg);
   if (personalConflicts) x.notes.push({ text: `Crew or passenger details differ between the email body and ${[...personalAtt].join(", ") || "an attachment"} for ${personalConflicts} ${personalConflicts === 1 ? "entry" : "entries"} (not shown here; see Crew and passengers).`, source: "Agent" });
   x.conflicts = conflicts;
   const { personal, ...rest } = x;

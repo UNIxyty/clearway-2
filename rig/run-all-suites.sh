@@ -73,6 +73,7 @@ run portal-colours node scripts/check-portal-colours.mjs   # every portal colour
 run check-console-theme node scripts/check-console-theme.mjs
 run intake/test-classify node rig/intake/test-classify.mjs
 run intake/test-fill-shape node rig/intake/test-fill-shape.mjs   # one extraction shape every time (2026-11-03)
+run intake/test-conflict-pair node rig/intake/test-conflict-pair.mjs   # a conflict always carries the two values to choose from (2026-11-07)
 run intake/test-leon-payload node rig/intake/test-leon-payload.mjs
 run intake/test-timezones env ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" node rig/intake/test-timezones.mjs
 run intake/test-no-calendar-response node rig/intake/test-no-calendar-response.mjs

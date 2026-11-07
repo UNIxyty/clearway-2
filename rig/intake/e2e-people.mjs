@@ -71,7 +71,7 @@ const peopleOn = (d, leg) => { const l = d.people.legs?.[String(leg)] ?? { crew:
 // ── reset (rig DB intake tables, mock Leon) ──
 execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events, public.intake_leon_contacts cascade;"`);
 rmSync(path.join(SCR, "intake"), { recursive: true, force: true }); rmSync(MOCKLOG, { force: true }); faults({});
-execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${SCR}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
+execSync(`kill $(sh rig/port.sh 3995) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${SCR}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
 await sleep(1500);
 const fixture = (ref, call, days, seed) => { const f = path.join(SCR, `${ref.toLowerCase()}.eml`); execSync(`node rig/intake/make-people-fixture.mjs ${ref} ${call} ${days} ${f} ${seed}`); return f; };
 const contactsInLeon = async () => (await fetch(`${process.env.LEON_API_BASE}/_rig/contacts`)).json();
@@ -183,7 +183,7 @@ console.log("\n=== 6. The service restarts during a list write: unknown, a perso
   let mid = []; for (let i = 0; i < 60 && !mid.some((w) => w.kind === "pax" && w.state === "sending"); i += 1) { await sleep(500); mid = await db(`intake_leon_people_writes?select=kind,state&request_id=eq.${m6.request_id}`); }
   ok(mid.some((w) => w.kind === "pax" && w.state === "sending"), "the list write's attempt row exists before Leon answers", mid.map((w) => `${w.kind}:${w.state}`).join(","));
   const listsBefore = calls(/addPassengersToList/).length;
-  execSync(`kill $(lsof -tiTCP:5175 -sTCP:LISTEN)`); await sleep(1000);
+  execSync(`kill $(sh rig/port.sh 5175)`); await sleep(1000);
   execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCR}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
   for (let i = 0; i < 20; i += 1) { await sleep(1000); try { if ((await fetch(`${AGENT}/api/health`)).ok) break; } catch { /* starting */ } }
   await sleep(2000);

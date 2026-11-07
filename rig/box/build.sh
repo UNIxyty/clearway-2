@@ -74,5 +74,8 @@ say "rig at $("${SSH[@]}" "cd ~/clearway-2 && git log --oneline -1 | cut -c1-80"
 "${SCP[@]}" "$INPUTS/leon-snapshot.json" rig@127.0.0.1:/home/rig/clearway-2/rig/.scratch/leon-snapshot.json
 
 say "setup: dependencies, browsers, fonts, the database, the whole rig up (rig/setup.sh)"
-"${SSH[@]}" "cd ~/clearway-2 && bash rig/setup.sh" 2>&1 | sed 's/^/  /'
+# into a log in the box, not this session: the services it leaves running would otherwise hold the session open
+rc=0; "${SSH[@]}" "cd ~/clearway-2 && bash rig/setup.sh > ~/setup.log 2>&1 < /dev/null" < /dev/null || rc=$?
+"${SSH[@]}" "cat ~/setup.log" < /dev/null | sed 's/^/  /'
+[ "$rc" = 0 ] || fail "rig/setup.sh exited $rc in the box (above)"
 say "done. Run the suite:  ssh into the box (rig/box/ssh.sh), then  bash rig/run-all-suites.sh"

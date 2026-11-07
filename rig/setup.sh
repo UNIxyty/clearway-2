@@ -30,6 +30,7 @@ grep -qE '^ANTHROPIC_API_KEY=.+' .env.rig 2>/dev/null && echo "  the rig's Anthr
 [ -s rig/.scratch/leon-snapshot.json ] && echo "  the intake's Leon data: present" || { echo "  NO rig/.scratch/leon-snapshot.json: the intake's Leon stand-in cannot start (rig/intake/leon-snapshot.mjs makes it, from a shell with production's .env)"; exit 1; }
 
 step "the database (rig/db.sh start: the pinned CLI, the migrations, .env.rig)"; bash rig/db.sh start > rig/.scratch/db-start.out 2>&1 || { tail -5 rig/.scratch/db-start.out; exit 1; }; echo "  up"
-step "the whole rig (rig/up.sh)"; bash rig/up.sh | sed 's/^/  /'
+# up.sh's output to a file, not a pipe: the services it starts in the background would hold a pipe open for ever
+step "the whole rig (rig/up.sh → rig/.scratch/up.out)"; bash rig/up.sh > rig/.scratch/up.out 2>&1 < /dev/null || { tail -8 rig/.scratch/up.out; exit 1; }
 down=$(bash rig/up.sh status | grep -c '^DOWN' || true); [ "$down" = 0 ] || { echo "== $down service(s) DOWN: see rig/.scratch/*.out"; exit 1; }
 echo "== the rig is up. The suite:  bash rig/run-all-suites.sh"

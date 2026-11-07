@@ -8,9 +8,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; RIG="$ROOT/rig"; SCR="$RIG/.scratch"; ENV="$ROOT/.env.rig"
 cd "$ROOT"; mkdir -p "$SCR"
-status() { for p in 54321 3998 3999 5175 5199 3992 3989 5176 5198 3985 3986 3993 3994 3995 3996 3997; do lsof -tiTCP:$p -sTCP:LISTEN >/dev/null 2>&1 && echo "up   :$p" || echo "DOWN :$p"; done; }
+status() { for p in 54321 3998 3999 5175 5199 3992 3989 5176 5198 3985 3986 3993 3994 3995 3996 3997; do sh "$ROOT/rig/port.sh" $p >/dev/null 2>&1 && echo "up   :$p" || echo "DOWN :$p"; done; }
 [ "${1:-}" = status ] && { status; exit 0; }
-kill_port() { local pid; pid=$(lsof -tiTCP:$1 -sTCP:LISTEN 2>/dev/null || true); [ -n "$pid" ] && kill $pid || true; }
+kill_port() { local pid; pid=$(sh "$ROOT/rig/port.sh" $1 2>/dev/null || true); [ -n "$pid" ] && kill $pid || true; }
 
 # the database: started (pinned CLI, rig/db.sh), the accounts approved, the grants seeded
 curl -s -o /dev/null --max-time 3 http://127.0.0.1:54321/rest/v1/ || bash "$RIG/db.sh" start

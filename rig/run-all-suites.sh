@@ -38,12 +38,12 @@ run() { local name="$1";
 preview() { pkill -f "vite preview --port 4173"; sleep 1; ( cd opsboard-react && VITE_API_PROXY=http://127.0.0.1:$1 nohup npx vite preview --port 4173 --host 127.0.0.1 > ../rig/.scratch/vite-preview.out 2>&1 & ); sleep 4; }
 
 # The ElevenLabs stand-in (rig/start.sh starts it; started here too if a rig from before 2026-10-13 is running).
-lsof -tiTCP:3986 -sTCP:LISTEN >/dev/null || ( env -i PATH="$PATH" HOME="$HOME" nohup node rig/voice/mock-elevenlabs.mjs > rig/.scratch/mock-elevenlabs.out 2>&1 & )
+sh rig/port.sh 3986 >/dev/null || ( env -i PATH="$PATH" HOME="$HOME" nohup node rig/voice/mock-elevenlabs.mjs > rig/.scratch/mock-elevenlabs.out 2>&1 & )
 # The manifest's mock Leon dates its flights from its own start, so start it fresh (this also restarts :5175).
 rig/manifest/start.sh > $OUT/manifest-start.out 2>&1 < /dev/null
 # The wall's mock Leon (:3985) times its flights from its own start too, so a day later the board is empty: start it fresh
 # and make both rig walls read it again (the sign-in-on wall :5198 runs from the same mock).
-pid=$(lsof -tiTCP:3985 -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid && sleep 1
+pid=$(sh rig/port.sh 3985 || true); [ -n "$pid" ] && kill $pid && sleep 1
 ( cd rig/wall && env -i PATH="$PATH" HOME="$HOME" PORT=3985 nohup node mock-leon.mjs > "$SCR/wall-mock-leon.out" 2>&1 & ); sleep 3
 # (node, not date -v: BSD only, so on Linux both dates were empty, 2026-11-07)
 F=$(node -e 'process.stdout.write(new Date(Date.now()-864e5).toISOString().slice(0,10))'); T=$(node -e 'process.stdout.write(new Date(Date.now()+4*864e5).toISOString().slice(0,10))')
@@ -134,7 +134,7 @@ run client-gate-check $E rig/client-gate-check.mjs   # 115 portal handlers refus
 run personal-data-paths-check $E rig/personal-data-paths-check.mjs   # text, scan, list, .eml and forward: one permission, one bucket, one row each
 run mail-image-check $E rig/mail-image-check.mjs   # a stranger's image aimed at loopback: held back, then refused; nothing fetched
 run sender-check $E rig/sender-check.mjs   # account mail and wall alerts from clearway.verxyl.com; the fallback until it verifies
-pid=$(lsof -tiTCP:3981 -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid
+pid=$(sh rig/port.sh 3981 || true); [ -n "$pid" ] && kill $pid
 run maintenance-logos node rig/maintenance-logos-check.mjs
 run airac-dates-check node rig/airac-dates-check.mjs
 run aip-refresh-check $E rig/aip-refresh-check.mjs

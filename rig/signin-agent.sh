@@ -9,7 +9,7 @@
 # the passenger manifest works signed in too.
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; SCR="$ROOT/rig/.scratch"
-pid=$(lsof -tiTCP:5176 -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid || true
+pid=$(sh "$ROOT/rig/port.sh" 5176 || true); [ -n "$pid" ] && kill $pid || true
 [ "$1" = "stop" ] && { echo "stopped :5176"; exit 0; }
 sleep 1
 ( cd "$ROOT/agent" && env -i PATH="$PATH" HOME="$HOME" PORT=5176 PERMISSIONS_TTL_MS=1000 ICU_TIMEZONE_FILES_DIR="$SCR/icu-tz" TZDATA_LATEST_CHECK=off \
@@ -17,5 +17,5 @@ sleep 1
     LEON_OPERATOR_API_BASE="http://127.0.0.1:3993/{opr}" LEON_REFRESH_TOKEN_ENCRYPTION_KEY=rig-local-only-not-a-secret RESEND_BASE_URL=http://127.0.0.1:3996 \
     node --env-file="$ROOT/.env.rig" server.mjs > "$SCR/agent-auth.out" 2>&1 & )
 # Wait up to 30 s: under load (2026-10-14, load 14) the agent took longer than a fixed 3 s and every suite after it failed.
-for _ in $(seq 30); do lsof -tiTCP:5176 -sTCP:LISTEN >/dev/null && break; sleep 1; done
-lsof -tiTCP:5176 -sTCP:LISTEN >/dev/null && echo "up :5176" || echo "DOWN :5176 — see $SCR/agent-auth.out"
+for _ in $(seq 30); do sh "$ROOT/rig/port.sh" 5176 >/dev/null && break; sleep 1; done
+sh "$ROOT/rig/port.sh" 5176 >/dev/null && echo "up :5176" || echo "DOWN :5176 — see $SCR/agent-auth.out"

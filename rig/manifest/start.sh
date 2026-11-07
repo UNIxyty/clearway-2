@@ -5,7 +5,7 @@
 #   rig/manifest/start.sh        rig/manifest/start.sh stop
 set -e
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"; RIG="$ROOT/rig"; SCR="$RIG/.scratch"; ENV="$ROOT/.env.rig"
-for p in 5175 3993; do pid=$(lsof -tiTCP:$p -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid || true; done
+for p in 5175 3993; do pid=$(sh "$ROOT/rig/port.sh" $p || true); [ -n "$pid" ] && kill $pid || true; done
 [ "$1" = "stop" ] && exit 0
 sleep 1
 ( cd "$RIG/manifest" && env -i PATH="$PATH" HOME="$HOME" PORT=3993 node mock-leon.mjs > "$SCR/mock-leon-operators.out" 2>&1 & )
@@ -18,4 +18,4 @@ mkdir -p "$SCR/manifest-intake"
     INTAKE_ROOT="$SCR/manifest-intake" STORAGE_ROOT="$SCR/manifest-storage" \
     node --env-file="$ENV" server.mjs > "$SCR/agent.out" 2>&1 & )
 sleep 3
-for p in 5175 3993; do lsof -tiTCP:$p -sTCP:LISTEN >/dev/null && echo "up :$p" || echo "DOWN :$p — see $SCR/*.out"; done
+for p in 5175 3993; do sh "$ROOT/rig/port.sh" $p >/dev/null && echo "up :$p" || echo "DOWN :$p — see $SCR/*.out"; done

@@ -8,7 +8,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"; RIG="$ROOT/rig"; SCR="$RIG/.scratch"; 
 ENV="$ROOT/.env.rig"
 [ -f "$ENV" ] || { echo "no .env.rig — run rig/db.sh start first"; exit 2; }
 if grep -qE "supabase\.co|verxyl\.com" "$ENV"; then echo "REFUSING: .env.rig points outside the local stack"; exit 78; fi
-stop() { for p in 3998 3999 5175 5199 3997 3996 3995 3994 3986 3985; do pid=$(lsof -tiTCP:$p -sTCP:LISTEN || true); [ -n "$pid" ] && kill $pid && echo "stopped :$p"; done; }
+stop() { for p in 3998 3999 5175 5199 3997 3996 3995 3994 3986 3985; do pid=$(sh "$ROOT/rig/port.sh" $p || true); [ -n "$pid" ] && kill $pid && echo "stopped :$p"; done; }
 if [ "${1:-}" = "stop" ]; then stop; exit 0; fi
 stop >/dev/null 2>&1 || true
 cd "$ROOT"
@@ -49,5 +49,5 @@ rm -f "$SCR/cnair-mock-log.jsonl" "$SCR/cnair-mock-log.jsonl.break"
 ( cd "$RIG/intake" && env -i PATH="$PATH" HOME="$HOME" PORT=3994 RIG_SCRATCH="$SCR" node mock-cnair.mjs > "$SCR/mock-cnair.out" 2>&1 & )
 if grep -q "^LEON_API_BASE=http://127.0.0.1:3995" "$ENV"; then ( cd "$RIG/intake" && env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="$SCR" node mock-leon.mjs > "$SCR/mock-leon.out" 2>&1 & ); fi
 sleep 5
-for p in 3998 5175 5199 3999 3997 3996 3995 3994 3986; do lsof -tiTCP:$p -sTCP:LISTEN >/dev/null && echo "up :$p" || { echo "DOWN :$p — see $SCR/*.out"; }; done
+for p in 3998 5175 5199 3999 3997 3996 3995 3994 3986; do sh "$ROOT/rig/port.sh" $p >/dev/null && echo "up :$p" || { echo "DOWN :$p — see $SCR/*.out"; }; done
 curl -s -H "accept: application/json" -H "x-clearway-client: extension" http://127.0.0.1:3999/agent/api/extension/session | head -c 160; echo

@@ -21,7 +21,7 @@ async function deliver(file) {
 }
 execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events cascade;"`);
 rmSync(`${SCR}/leon-mock-log.jsonl`, { force: true }); faults({});
-execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${path.resolve(SCR)}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
+execSync(`kill $(sh rig/port.sh 3995) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${path.resolve(SCR)}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
 await new Promise((r) => setTimeout(r, 1500));
 const yu = await deliver("rig/fixtures/intake/yulsa-cimog1-plus364.eml");
 const amq = await deliver("rig/fixtures/intake/amq5v-lybe-plus364.eml");

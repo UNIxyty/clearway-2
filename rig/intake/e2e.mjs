@@ -67,7 +67,7 @@ async function sendAll(id, { twice = false } = {}) {
 // ── reset ──
 execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events cascade;"`);
 rmSync(path.join(SCR, "intake"), { recursive: true, force: true }); rmSync(MOCKLOG, { force: true }); faults({});
-execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${SCR}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
+execSync(`kill $(sh rig/port.sh 3995) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${SCR}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
 await sleep(1500);
 // Variants built from the redacted fixtures (test inputs, not templates): no timezone; another week + callsign.
 const amq = readFileSync("rig/fixtures/intake/amq5v-lybe-plus364.eml", "latin1");
@@ -205,7 +205,7 @@ else {
   const mid = await db(`intake_leon_writes?select=state&request_id=eq.${mr.request_id}`);
   ok(mid.length === 1 && mid[0].state === "sending", "the attempt row exists BEFORE Leon answers", mid.map((w) => w.state).join(","));
   const creates7 = creates().length;
-  execSync(`kill $(lsof -tiTCP:5175 -sTCP:LISTEN)`); await sleep(1000);
+  execSync(`kill $(sh rig/port.sh 5175)`); await sleep(1000);
   // Restarted with the same environment rig/start.sh gives it (tz data, the mock portal); otherwise the next run is a different agent.
   execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCR}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
   for (let i = 0; i < 20; i += 1) { await sleep(1000); try { if ((await fetch(`${AGENT}/api/health`)).ok) break; } catch { /* starting */ } }

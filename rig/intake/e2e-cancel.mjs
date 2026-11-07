@@ -70,7 +70,7 @@ const cnl = async (nids) => { const all = await leonFlights(); return nids.map((
 // ── reset ──
 execSync(`docker exec supabase_db_rig psql -U postgres -d postgres -qc "truncate public.intake_messages, public.intake_events cascade;"`, { stdio: "ignore" });
 rmSync(LEONLOG, { force: true }); faults({});
-execSync(`kill $(lsof -tiTCP:3995 -sTCP:LISTEN) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${path.resolve("rig/.scratch")}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
+execSync(`kill $(sh rig/port.sh 3995) || true; cd rig/intake && (env -i PATH="$PATH" HOME="$HOME" PORT=3995 RIG_SCRATCH="${path.resolve("rig/.scratch")}" nohup node mock-leon.mjs > ../.scratch/mock-leon.out 2>&1 &)`, { shell: "/bin/bash" });
 await sleep(1500);
 
 console.log("\n── 1. Approved: every leg cancelled in Leon; the attempt is written before the call ──");
@@ -182,7 +182,7 @@ console.log("\n── 11. The service restarts during a cancel: unknown, a perso
   const sending = await until(async () => { const rows = await cancelRows(C.r.id); return rows.some((w) => w.state === "sending") ? rows : null; }, 15000);
   ok(!!sending, "the cancel attempt is written ('sending') before Leon answers", sending?.map((w) => `${w.leg_index}:${w.state}`).join(","));
   const before = deletes().length;
-  execSync(`kill $(lsof -tiTCP:5175 -sTCP:LISTEN)`); await sleep(1000);
+  execSync(`kill $(sh rig/port.sh 5175)`); await sleep(1000);
   const SCRATCH = path.resolve("rig/.scratch");
   execSync(`cd agent && (env -i PATH="$PATH" HOME="$HOME" PORT=5175 AGENT_LOG_RANGES=true ICU_TIMEZONE_FILES_DIR="${SCRATCH}/icu-tz" TZDATA_LATEST_CHECK=off CNAIR_PORTAL_BASE=http://127.0.0.1:3994 CNAIR_USER=mock CNAIR_PASSWORD=mock INTAKE_LOOKUP_SCHEDULE_MIN="0,0.02,0.04" nohup node --env-file=../.env.rig server.mjs >> ../rig/.scratch/agent.out 2>&1 &)`, { shell: "/bin/bash" });
   for (let i = 0; i < 20; i += 1) { await sleep(1000); try { if ((await fetch(`${AGENT}/api/health`)).ok) break; } catch { /* starting */ } }

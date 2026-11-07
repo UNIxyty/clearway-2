@@ -38,7 +38,7 @@ try {
     const said = await text(line);
     ok(got === want && said.includes(`It was fetched ${day(t.getTime())}.`), `a copy ${ageDays} days old: the page says it is from ${day(t.getTime())} (${want})`, `${got} · ${said}`);
     if (want === "old-cycle") ok(/more than one AIRAC cycle \(28 days\) ago/.test(said) && /not refreshed automatically/.test(said) && /Press Re-sync/.test(said), "…and says it is more than one AIRAC cycle old, not refreshed, press Re-sync", said);
-    if (want === "stale") ok(/not refreshed automatically/.test(said) && !/AIRAC/.test(said), "…a few days old: not refreshed automatically, no AIRAC warning", said);
+    if (want === "stale") ok(/not refreshed automatically/.test(said) && !/more than one AIRAC cycle/.test(said), "…a few days old: not refreshed automatically, no AIRAC warning (the copy's own cycle, \"AIRAC 2611\", may be named)", said);
     if (want === "fresh") ok(!/not refreshed/.test(said), "…today's copy: just the date", said);
   }
   ok(!/refreshes on the next sync/.test(await text(page.locator("body"))), "nothing says a refresh is coming");

@@ -20,13 +20,18 @@ const day = (ms) => { const d = new Date(ms); return `${String(d.getUTCDate()).p
 
 const original = fs.statSync(PDF).mtime;
 const savedJson = fs.existsSync(JSON_COPY) ? fs.readFileSync(JSON_COPY) : null;
+// The copy's own revision record (rig/wall/seed-portal.mjs writes one, as production's sync does): its fetchedAt is the
+// date the page shows, so a copy is aged through it as well as through the file (2026-11-07)
+const META = PDF.replace(/\.pdf$/, ".meta.json");
+const savedMeta = fs.existsSync(META) ? fs.readFileSync(META) : null;
+const age = (t) => { fs.utimesSync(PDF, t, t); if (savedMeta) fs.writeFileSync(META, JSON.stringify({ ...JSON.parse(savedMeta), fetchedAt: t.toISOString() })); };
 const { browser, page } = await signedIn("user");
 try {
   // ── A. The airport page ──
   if (fs.existsSync(JSON_COPY)) fs.rmSync(JSON_COPY); // as in production after a day: only the PDF's own record is left
   for (const [ageDays, want] of [[40, "old-cycle"], [3, "stale"], [0, "fresh"]]) {
     const t = new Date(Date.now() - ageDays * DAY);
-    fs.utimesSync(PDF, t, t);
+    age(t);
     await page.goto(`${BASE}/aip/EVRA`, { waitUntil: "load" }); await sleep(5000);
     const line = page.locator("[data-aip-copy-age]");
     const got = await line.getAttribute("data-aip-copy-age").catch(() => null);
@@ -39,7 +44,7 @@ try {
   ok(!/refreshes on the next sync/.test(await text(page.locator("body"))), "nothing says a refresh is coming");
 
   // ── B. The wall's Send AIP / GEN ──
-  const t = new Date(Date.now() - 40 * DAY); fs.utimesSync(PDF, t, t);
+  const t = new Date(Date.now() - 40 * DAY); age(t);
   const sess = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, "content-type": "application/json" }, body: JSON.stringify({ email: "rig-access-user@rig.invalid", password: "rig-access-check-only" }) })).json();
   const cookie = `sb-rig-auth-token=${encodeURIComponent(JSON.stringify([sess.access_token]))}`;
   const w = (p, init = {}) => fetch(`${WALL}${p}`, { ...init, headers: { cookie, "content-type": "application/json", ...(init.headers || {}) } }).then((r) => r.json());
@@ -65,6 +70,7 @@ try {
 } finally {
   fs.utimesSync(PDF, original, original);
   if (savedJson) fs.writeFileSync(JSON_COPY, savedJson);
+  if (savedMeta) fs.writeFileSync(META, savedMeta);
   await browser.close();
 }
 done();

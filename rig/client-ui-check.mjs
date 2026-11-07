@@ -13,6 +13,7 @@ const B = (process.env.RIG_SIGNIN_BASE || "http://127.0.0.1:3989"), OUT = "rig/.
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 170)}` : ""}`); if (!c) failures += 1; };
 const H = { apikey: SVC, authorization: `Bearer ${SVC}`, "content-type": "application/json" };
 const svc = (path, init = {}) => fetch(`${SB}${path}`, { ...init, headers: { ...H, ...(init.headers ?? {}) } });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const PASSWORD = "rig-access-check-only";
 const grant = async (email) => (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email, password: PASSWORD }) })).json();
 const cookie = (s) => ({ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(s)).toString("base64")}`, url: B });
@@ -94,6 +95,32 @@ for (const theme of ["light", "dark"]) {
     await page.screenshot({ path: `${OUT}/client-wall-flight-${theme}-${width}.png`, fullPage: width === 390 });
     if (width === 390) { await page.locator(".clw-back").click(); await settled(page); ok(await page.locator("[data-board]").isVisible(), "client wall 390: ← All flights returns to the board"); }
     await ctx.close();
+  }
+}
+
+// the client's reference areas, switched on for this part (2026-11-07): /client/documents and /client/airports are
+// behind the client's own switches, so the dark audit (which walks pages as staff, who get 404 there) cannot see them
+{
+  const before = (await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=switches`)).json())[0]?.switches ?? [];
+  const on = [...new Set([...before, "documents", "airport_search"])];
+  await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ switches: on }) });
+  await sleep(1500);   // the portal's and the wall's permission caches (PERMISSIONS_TTL_MS=1000 on the rig)
+  try {
+    for (const theme of ["light", "dark"]) for (const width of [1440, 390]) for (const area of ["documents", "airports"]) {
+      const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, colorScheme: theme });
+      await ctx.addCookies([cookie(cs)]); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
+      const page = await ctx.newPage();
+      const res = await page.goto(`${B}/client/${area}`, { waitUntil: "load" }); await settled(page);
+      const bg = await page.evaluate(() => { const c = getComputedStyle(document.body).backgroundColor.match(/[\d.]+/g)?.map(Number) ?? [255, 255, 255]; return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255; });
+      ok(res?.status() === 200 && !/could not be found|404/i.test(await page.locator("h1").first().innerText().catch(() => "")), `client ${area} ${theme} ${width}: the page opens for the client`, res?.status());
+      ok(theme === "dark" ? bg < 0.25 : bg > 0.75, `client ${area} ${theme} ${width}: the page is in the ${theme} theme`, bg.toFixed(2));
+      ok(await page.locator("[data-cw-sidebar]").count() === 0, `client ${area} ${theme} ${width}: no portal shell`);
+      ok(await noOverflow(page), `client ${area} ${theme} ${width}: no horizontal page scroll`);
+      await page.screenshot({ path: `${OUT}/client-${area}-${theme}-${width}.png`, fullPage: width === 390 });
+      await ctx.close();
+    }
+  } finally {
+    await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ switches: before }) });
   }
 }
 

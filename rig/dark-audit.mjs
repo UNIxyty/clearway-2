@@ -25,6 +25,8 @@ const NOT_PORTAL = {
   "/admin/debug/raw": "raw debug output (text/plain)",
   // A client's world (Stage 5): staff get 404 there by design; rig/client-ui-check.mjs audits it as a client, in both themes.
   "/client": "the client wall — audited by client-ui-check", "/client/refused": "the same", "/client/removed": "the same",
+  // behind the client's own switches (2026-11-07): client-ui-check switches them on and audits both themes
+  "/client/documents": "a client's reference area — audited by client-ui-check", "/client/airports": "the same",
 };
 // Pages people see signed out: audited in a signed-out browser. Sign-in sits on a dark backdrop in both themes (the
 // night-* tokens); its card, fields and text follow the theme like any page.

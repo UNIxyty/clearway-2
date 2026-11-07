@@ -15,6 +15,7 @@ kill_port() { local pid; pid=$(sh "$ROOT/rig/port.sh" $1 2>/dev/null || true); [
 # the database: started (pinned CLI, rig/db.sh), the accounts approved, the grants seeded
 curl -s -o /dev/null --max-time 3 http://127.0.0.1:54321/rest/v1/ || bash "$RIG/db.sh" start
 bash "$RIG/approve-rig-accounts.sh" > /dev/null
+node --env-file="$ENV" "$RIG/manifest/operators.mjs" seed > /dev/null   # the walls' Leon operators (a fresh database has none)
 docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.sql > /dev/null 2>&1
 [ -d "$SCR/icu-tz" ] || bash "$RIG/tzdata.sh" > /dev/null
 [ -f .next/standalone/server.js ] || bash "$RIG/build-portal.sh" > "$SCR/build-portal.out" 2>&1

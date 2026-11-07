@@ -15,10 +15,6 @@ cd "$(dirname "$0")/.."
 # here, where production's UTC servers would hide it. The machine's own zone, not TZ: the services run under env -i.
 Z=$(env -u TZ node -e 'process.stdout.write(Intl.DateTimeFormat().resolvedOptions().timeZone)')
 [ "$Z" = Europe/Riga ] || { echo "VERDICT: NOT STARTED — this machine's zone is $Z; the rig runs in Europe/Riga (rig/box/user-data.yaml sets it on the rig box)"; exit 2; }
-# The wall's day is UTC, and the rig's flights sit hours either side of the moment its Leon starts, so a run that
-# crosses UTC midnight finds an empty board after it (the server's first full run, 6-7 Nov, started at 23:47Z and
-# lost the client, clients-page and mobile suites to it). A run starts between 05:30 and 22:00 UTC.
-H=$(date -u +%H%M); (( 10#$H >= 530 && 10#$H < 2200 )) || { echo "VERDICT: NOT STARTED — $(date -u +%H:%MZ) is too near UTC midnight: the wall's day turns over during the run (start between 05:30 and 22:00 UTC)"; exit 2; }
 OUT=rig/.scratch/suites; mkdir -p $OUT; LOG=$OUT/summary.log; : > $LOG
 # When the run started, by the power log's own clock format: a sleep after this makes the run INCOMPLETE (below).
 RUN_STARTED="$(date "+%Y-%m-%d %H:%M:%S")"
@@ -41,6 +37,9 @@ preview() { pkill -f "vite preview --port 4173"; sleep 1; ( cd opsboard-react &&
 sh rig/port.sh 3986 >/dev/null || ( env -i PATH="$PATH" HOME="$HOME" nohup node rig/voice/mock-elevenlabs.mjs > rig/.scratch/mock-elevenlabs.out 2>&1 & )
 # The manifest's mock Leon dates its flights from its own start, so start it fresh (this also restarts :5175).
 rig/manifest/start.sh > $OUT/manifest-start.out 2>&1 < /dev/null
+# The wall's Leon operators first: the refresh below reads them, and the rig walls do not poll by themselves (2026-11-07:
+# on a fresh database the seed ran after the refresh, and the board stayed empty all run; the Mac had them for weeks)
+$E rig/manifest/operators.mjs seed >> $LOG 2>&1
 # The wall's mock Leon (:3985) times its flights from its own start too, so a day later the board is empty: start it fresh
 # and make both rig walls read it again (the sign-in-on wall :5198 runs from the same mock).
 pid=$(sh rig/port.sh 3985 || true); [ -n "$pid" ] && kill $pid && sleep 1
@@ -48,7 +47,6 @@ pid=$(sh rig/port.sh 3985 || true); [ -n "$pid" ] && kill $pid && sleep 1
 # (node, not date -v: BSD only, so on Linux both dates were empty, 2026-11-07)
 F=$(node -e 'process.stdout.write(new Date(Date.now()-864e5).toISOString().slice(0,10))'); T=$(node -e 'process.stdout.write(new Date(Date.now()+4*864e5).toISOString().slice(0,10))')
 for p in 5199 5198; do curl -s -m 60 -o /dev/null "http://127.0.0.1:$p/api/timeline/flights?allOperators=true&refresh=true&from=$F&to=$T" || true; done
-$E rig/manifest/operators.mjs seed >> $LOG 2>&1
 
 # ── code-only and local tests
 run no-real-passenger-data node rig/check-no-real-passenger-data.mjs

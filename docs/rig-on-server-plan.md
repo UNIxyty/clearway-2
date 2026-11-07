@@ -27,11 +27,11 @@ And what broke on Linux: `lsof` misses Next's server and Docker's root-owned lis
 nothing): `rig/port.sh` uses `ss` there. `date -v` is BSD-only. Background services held pipes and SSH sessions open.
 The bundle sweep took the box's user, `rig`, for a person's name. The database CLI is pinned everywhere (`2.119.0`).
 
-**Two decisions.** *The zone:* the rig runs in Europe/Riga on every machine (the box's first boot sets it; the runner
-refuses another). The dispatchers' zone, and the Mac's all along; and a zone that is not UTC shows code that reads
-the machine's local time where it means UTC two hours off, which production's UTC servers would hide. *The clock:* the
-wall's day is UTC, and the rig's flights sit hours either side of the moment its Leon starts, so a run that crosses
-UTC midnight finds an empty board (the first trial started at 23:47Z). A run starts between 05:30 and 22:00 UTC.
+**The zone:** the rig runs in Europe/Riga on every machine (the box's first boot sets it; the runner refuses
+another). The dispatchers' zone, and the Mac's all along; and a zone that is not UTC shows code that reads the machine's
+local time where it means UTC two hours off, which production's UTC servers would hide. (The empty board in the first
+trial was not the clock, as first thought, but the order of the runner's setup: on a fresh database it refreshed the
+walls before seeding their Leon operators. The operators are seeded first now, in the runner and in rig/up.sh.)
 
 **Private inputs.** The repository is public, so two things stay out of it, on the server in
 `/var/lib/libvirt/images/rigbox/inputs` (root only): the rig's own Anthropic key, and the Leon snapshot (production

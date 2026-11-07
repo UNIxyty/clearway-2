@@ -19,8 +19,7 @@ generator's Python (`rig/fontenv.sh`), the agent's time-zone data, the database 
 (`rig/db.sh start`; `rig/supabase/sources.json` says where each one comes from), then the whole rig (`rig/up.sh`).
 Two inputs cannot be in a public repository, and it says plainly when one is missing: the rig's own Anthropic key
 (the `ANTHROPIC_API_KEY` line of `.env.rig`) and the intake's Leon data (`rig/.scratch/leon-snapshot.json`, from
-`rig/intake/leon-snapshot.mjs`). The rig runs in Europe/Riga, and a full run starts between 05:30 and 22:00 UTC; the
-runner refuses otherwise and says why. On the server, `rig/box/build.sh` builds the whole rig box from nothing.
+`rig/intake/leon-snapshot.mjs`). The rig runs in Europe/Riga; the runner refuses another zone and says why. On the server, `rig/box/build.sh` builds the whole rig box from nothing.
 
 `.env.rig` holds the local stack's URL and keys, the auth bypass, and the rig account. It has no production
 database credentials. Model keys (Bedrock, ElevenLabs) are copied from `.env` only when you say so:

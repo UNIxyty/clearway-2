@@ -19,7 +19,9 @@ bash "$RIG/approve-rig-accounts.sh" > /dev/null
 node --env-file="$ENV" "$RIG/manifest/operators.mjs" seed > /dev/null   # the walls' Leon operators (a fresh database has none)
 docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.sql > /dev/null 2>&1
 [ -d "$SCR/icu-tz" ] || bash "$RIG/tzdata.sh" > /dev/null
-[ -f .next/standalone/server.js ] || bash "$RIG/build-portal.sh" > "$SCR/build-portal.out" 2>&1
+# once more after 30 s if it fails: the build fetches the portal's Google fonts, and one fetch failing failed a whole box
+# build (2026-11-09, two boxes building at once; the other got them). A real build error fails both times.
+[ -f .next/standalone/server.js ] || bash "$RIG/build-portal.sh" > "$SCR/build-portal.out" 2>&1 || { echo "(portal build failed once; again in 30 s)" >> "$SCR/build-portal.out"; sleep 30; bash "$RIG/build-portal.sh" >> "$SCR/build-portal.out" 2>&1; }
 
 # the sign-in-off rig: portal :3998, agent :5175, wall :5199, proxy :3999, mocks
 bash "$RIG/start.sh" > "$SCR/start.out" 2>&1

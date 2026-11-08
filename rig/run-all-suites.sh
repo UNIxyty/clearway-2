@@ -131,9 +131,7 @@ run account-delete $E rig/account-delete-check.mjs   # deleting an account revok
 # the wall's pages as production serves them, at /digital-wall/timeline/ (rig/proxy.mjs serves this folder): the phone wall
 ( cd opsboard-react && VITE_BASE_PATH=/digital-wall/timeline/ VITE_API_BASE_URL=/digital-wall npx vite build --outDir ../rig/.scratch/display-dist --emptyOutDir > ../rig/.scratch/display-build.out 2>&1 ) || echo "display build failed — see rig/.scratch/display-build.out" >> $LOG
 preview 5198   # the console against the sign-in-on wall
-docker exec supabase_db_rig psql -U postgres -q -c "alter table permission_changes disable trigger permission_changes_append_only; delete from permission_grants; alter table permission_changes enable trigger permission_changes_append_only;"
-docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.sql > /dev/null
-bash rig/approve-rig-accounts.sh >> $LOG 2>&1
+bash rig/permissions-reset.sh >> $LOG 2>&1   # every grant back to the defaults (permissions-browser does this itself too)
 run permissions-browser $E rig/permissions-browser.mjs
 run dialogs $E rig/dialogs-check.mjs   # our own dialogs by keyboard: Help discard, Admin › Clients refuse, console delete operator; inside the console preview against the sign-in wall (2026-11-09)
 run self-promotion-check $E rig/self-promotion-check.mjs

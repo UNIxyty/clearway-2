@@ -23,6 +23,9 @@ async function page(email, base) {
   return ctx.newPage();
 }
 
+// From the defaults, made here (2026-11-09): a shuffled run put temporary-access-check before this, and its grants were
+// still there. The rig's own reset, the same one the runner does before the permission suites.
+{ const { execFileSync } = await import("node:child_process"); execFileSync("bash", ["rig/permissions-reset.sh"], { stdio: "ignore", timeout: 120000 }); }
 const admin = await page("rig-access-admin@rig.invalid", PORTAL);
 await admin.goto(`${PORTAL}/admin/permissions`, { waitUntil: "load" });
 await admin.waitForSelector('table[aria-label^="Permissions"]', { timeout: 30000 });

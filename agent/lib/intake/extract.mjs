@@ -101,7 +101,24 @@ export async function runModel({ message, bodyText, attachments }) {
   const known = new Set(defs.map((d) => d.nid));
   for (const leg of raw.legs) for (const s of leg.services) if (s.checklistNid != null && !known.has(s.checklistNid)) { s.checklistNid = null; s.confidence = Math.min(s.confidence ?? 1, 0.5); }
   sideChecklistItems(raw, defs);
+  requesterCompany(raw);
   return { raw, modelId: res.modelId, tier: res.effectiveTier, usage, defs };
+}
+
+/**
+ * The requester's company is the organisation, not its desk (2026-11-09). An email that says "Operator: Example Test
+ * Air" and signs "Example Test Air Ops" gave "Example Test Air" on one run and "Example Test Air Ops" on the next
+ * (rig/intake/extraction-repeat.mjs, a shuffled run). A department word at the end ("Ops", "Operations", "Dispatch",
+ * "OCC", "Flight Ops", "Ops Team"…) is dropped when what is left still names a company: two words or more, or the
+ * operator the email names. "Jet Ops" alone stays as it is. Code, not the model: the same email gives the same company.
+ */
+const DESK = /\s+(?:flight\s+)?(?:ops|operations|operations\s+control|dispatch|occ|ops\s+control|ops\s+team|operations\s+team|team|desk|handling\s+desk)\.?\s*$/i;
+export function requesterCompany(raw) {
+  const c = raw?.requester?.company;
+  if (!c || typeof c.value !== "string" || !DESK.test(c.value)) return;
+  const rest = c.value.replace(DESK, "").trim();
+  const operator = String(raw.operator?.value ?? "").trim().toLowerCase();
+  if (rest && (rest.split(/\s+/).length >= 2 || rest.toLowerCase() === operator)) c.value = rest;
 }
 
 /**

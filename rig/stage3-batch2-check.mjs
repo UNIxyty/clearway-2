@@ -159,7 +159,10 @@ process.on("exit", () => { if (searchEventsOff) { try { searchEvents(true); } ca
   let cleared;
   for (let i = 0; i < 32; i += 1) { cleared = await layoutOf(adminId); if (cleared === null) break; await sleep(250); }
   ok((await order(page)).length === 6 && cleared === null, "Use the default layout puts the six back and clears the saved layout", `${(await order(page)).length} blocks, saved ${JSON.stringify(cleared)}`);
-  // Full changelog
+  // Full changelog. Its own entries first (2026-11-09): the list is drawn from what other suites did (grants, maintenance,
+  // mail), and a shuffled run with this suite in the other box found 3. Eight invented grants, in the append-only log.
+  const made = await fetch(`${SB}/rest/v1/agent_audit_log`, { method: "POST", headers: srv, body: JSON.stringify(Array.from({ length: 8 }, (_, i) => ({ kind: "access.granted", user_email: `rig-changelog-${i + 1}@rig.invalid`, actor_email: "rig-access-admin@rig.invalid", success: true, detail: { rig: "stage3-batch2: the full changelog's own entries" } }))) });
+  ok(made.ok, "setup: eight invented access grants for the full changelog to list", made.status);
   await page.locator('[data-block="changelog"]').getByRole("link", { name: "Full changelog" }).click();
   await page.waitForURL(/\/dashboard\/changelog$/); await page.waitForSelector("section li", { timeout: 20000 });
   const n = await page.locator("section li").count();

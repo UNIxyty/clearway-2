@@ -24,7 +24,9 @@ const ok = (cond, what) => { results.push(`${cond ? "PASS" : "FAIL"}  ${what}`);
 // Every fake passenger value the fixtures can produce — none may appear in the chat or the conversation record.
 const PII = /TEST\d{5}|Testville|Sampleton|Exampleburg|Mockford|Demotown|Fakesby|\bEXAMPLE\b|\bSPECIMEN\b|PLACEHOLDER|Example|Specimen|Alice|Bruno|Carla|Dmitri|Elena|Felix|Greta/;
 
-const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--disable-audio-output", `--use-file-for-fake-audio-capture=${new URL("../.scratch/voice-pax-manifest.wav", import.meta.url).pathname}`] });
+// the fake microphone's recording, made in code (rig/voice/fake-speech.mjs), not one Mac's hand-made file (2026-11-08)
+const SPEECH = (await import("../voice/fake-speech.mjs")).fakeSpeechWav(new URL("../.scratch/voice-generated.wav", import.meta.url).pathname);
+const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--disable-audio-output", `--use-file-for-fake-audio-capture=${SPEECH}`] });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ["microphone"] });
 const page = await ctx.newPage();
 const consoleErrors = [];

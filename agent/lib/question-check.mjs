@@ -20,8 +20,14 @@ const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7,
 const DAY = 86_400_000;
 
 /** ICAO-shaped codes: four capitals standing alone (a route LTBS-LBBG-EDDS gives three). Words that are not codes are skipped. */
+// Aircraft registrations are set aside first: a one- or two-character nationality mark, a dash, the rest (D-IMOI, G-ABCD,
+// 9H-ABC, HB-JFA). 2026-11-08: "D-IMOI" gave "IMOI", the check asked about an airport that does not exist, and the
+// flight picker's "Make the passenger manifest for DLV240 · D-IMOI · …" got a question instead of a manifest. A route's
+// parts are four letters on both sides of the dash, so a route is never taken for a registration.
+const REGISTRATION = /(?<![A-Za-z0-9-])[A-Z0-9]{1,2}-[A-Z0-9]{2,5}(?![A-Za-z0-9-])/g;
 export function candidateCodes(q) {
-  return [...new Set((String(q).match(/(?<![A-Za-z0-9])[A-Z]{4}(?![A-Za-z0-9])/g) ?? []).filter((c) => !NOT_CODES.has(c)))].slice(0, 12);
+  const text = String(q).replace(REGISTRATION, " ");
+  return [...new Set((text.match(/(?<![A-Za-z0-9])[A-Z]{4}(?![A-Za-z0-9])/g) ?? []).filter((c) => !NOT_CODES.has(c)))].slice(0, 12);
 }
 
 /** Dates written in the question, resolved in code: 08Oct2026, 8 Oct 2026, 8 October 2026, 2026-10-08, 08.10.2026, 08/10/2026. */

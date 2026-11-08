@@ -293,6 +293,8 @@ try {
   ok(seen.filter((b) => b.stream).length === 0 && q1.done?.routing?.source === "question-check", "…and nothing was searched: no turn, no web search (the router was not even asked)", `${seen.filter((b) => b.stream).length} turn call(s)`);
   const { candidateCodes, datesIn } = await import("../agent/lib/question-check.mjs");
   ok(JSON.stringify(candidateCodes("Direct flight possible? LTBS-LCLK, UDYZ-UBBB. B735 with 64PAX, FBO or GAT, ASAP")) === JSON.stringify(["LTBS", "LCLK", "UDYZ", "UBBB"]), "codes: four capitals standing alone, routes split, aircraft types, PAX and plain words left out");
+  // registrations are not airport codes (2026-11-08: "D-IMOI" gave "IMOI", and the picker's manifest request got a question)
+  ok(JSON.stringify(candidateCodes("Make the passenger manifest for DLV240 · D-IMOI · EVRA → EETN · Sun 08 Nov")) === JSON.stringify(["EVRA", "EETN"]) && JSON.stringify(candidateCodes("G-ABCD and 9H-VFA, then EGLL-LFPB")) === JSON.stringify(["EGLL", "LFPB"]), "codes: an aircraft registration (D-IMOI, G-ABCD, 9H-VFA) is not taken for an airport code; a route still splits", JSON.stringify([candidateCodes("Make the passenger manifest for DLV240 · D-IMOI · EVRA → EETN"), candidateCodes("G-ABCD and 9H-VFA, then EGLL-LFPB")]));
   const d10 = datesIn("Any restrictions for Marsell FIR LFMM for 08Oct2026?", now)[0];
   ok(d10?.iso === "2026-10-08" && d10.past === true && d10.days === -26, "08Oct2026 on 3 Nov resolves to 8 October 2026, 26 days ago (past)", JSON.stringify(d10));
 } finally { A.child.kill(); }

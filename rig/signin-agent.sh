@@ -17,5 +17,7 @@ sleep 1
     LEON_OPERATOR_API_BASE="http://127.0.0.1:3993/{opr}" LEON_REFRESH_TOKEN_ENCRYPTION_KEY=rig-local-only-not-a-secret RESEND_BASE_URL=http://127.0.0.1:3996 \
     node --env-file="$ROOT/.env.rig" server.mjs > "$SCR/agent-auth.out" 2>&1 & )
 # Wait up to 30 s: under load (2026-10-14, load 14) the agent took longer than a fixed 3 s and every suite after it failed.
-for _ in $(seq 30); do sh "$ROOT/rig/port.sh" 5176 >/dev/null && break; sleep 1; done
-sh "$ROOT/rig/port.sh" 5176 >/dev/null && echo "up :5176" || echo "DOWN :5176 — see $SCR/agent-auth.out"
+# "Up" is the health route answering, not the port being open (2026-11-08: a suite started the moment the port opened).
+ready() { [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1:5176/api/health)" = 200 ]; }
+for _ in $(seq 60); do ready && break; sleep 1; done
+ready && echo "up :5176" || echo "DOWN :5176 — see $SCR/agent-auth.out"

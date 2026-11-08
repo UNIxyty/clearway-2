@@ -112,3 +112,11 @@
 .clw-signout { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--cw-border-control); background: transparent; color: var(--cw-text-body); border-radius: 8px; height: 32px; padding: 0 10px; }
 .clw-signout { white-space: nowrap; flex: none; }
 @media (max-width: 699px) { .clw-head .clw-avatar { display: none; } .clw-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+
+/* a page title in a tab is not the header row's stretching title (2026-11-09: it pushed Airports and Documents to the
+   bottom of the screen); an empty results box is not drawn; quick picks on Airports */
+.clw-tab > .clw-h { flex: none; }
+.clw-results:empty { display: none; }
+.clw-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.clw-pick { min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--cw-border-control); background: var(--cw-bg-surface); color: var(--cw-text); font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.clw-pick:hover { border-color: var(--cw-text-muted); }

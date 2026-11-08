@@ -18,6 +18,9 @@ type Info = { ok: boolean; flight?: Flight; notams?: { dep?: { ok?: boolean; not
 const hhmm = (iso?: string | null) => (iso ? new Date(iso).toISOString().slice(11, 16) : "—");
 const dayKey = (iso?: string) => (iso ? iso.slice(0, 10) : "");
 const STATUS: Record<string, string> = { scheduled: "Scheduled", delayed: "Delayed", ctot: "CTOT", flying: "Flying", airborne: "Flying", arrived: "Arrived", landed: "Arrived", aog: "AOG", cancelled: "Cancelled" };
+// the ICAO flight-type letter, in words: a client reads "Non-scheduled", not "N" (2026-11-09)
+const FLIGHT_TYPE: Record<string, string> = { S: "Scheduled", N: "Non-scheduled", G: "General aviation", M: "Military", X: "Other" };
+
 function stateOf(f: Flight): keyof typeof STATUS {
   if (f.isCnl) return "cancelled";
   if (f.hasArrived || f.movementState === "arrived" || f.movementState === "landed") return "arrived";
@@ -99,7 +102,7 @@ export default function ClientWall() {
             </div>
           </aside>
           <main className="clw-detail" data-detail>
-            {selected ? <FlightDetail rec={selected} on={on} level={me?.passengerLevel ?? "off"} viewerName={viewerName} onBack={() => setView("board")} /> : recs !== null ? <div className="clw-empty">Pick a flight.</div> : null}
+            {selected ? <FlightDetail rec={selected} on={on} level={me?.passengerLevel ?? "off"} viewerName={viewerName} onBack={() => setView("board")} /> : recs !== null ? <div className="clw-empty">{recs.length ? "Pick a flight on the left." : "No flights on your account in the next seven days. When Clearway has one, it appears here with its times, weather and NOTAMs."}</div> : null}
           </main>
         </div>
     </div>
@@ -126,7 +129,7 @@ function FlightDetail({ rec, on, level, viewerName, onBack }: { rec: Rec; on: (k
     <div className="clw-detail-in">
       <button type="button" className="clw-back" onClick={onBack}><MaskIcon name="arrow-left" size={16} />All flights</button>
       <section className="clw-card clw-hero">
-        <div className="clw-row wrap"><span className="clw-callsign">{f.flightNo}</span><span className={`clw-st big st-${st}`}><span className="dot" />{STATUS[st]}</span>{(f.delayMin ?? 0) > 0 ? <span className="clw-delay">+{f.delayMin} min</span> : null}<span className="clw-grow" /><span className="clw-muted mono">{rec.registration}{f.icaoType ? ` · ${f.icaoType}` : ""}</span></div>
+        <div className="clw-row wrap"><span className="clw-callsign">{f.flightNo}</span><span className={`clw-st big st-${st}`}><span className="dot" />{STATUS[st]}</span>{(f.delayMin ?? 0) > 0 ? <span className="clw-delay">+{f.delayMin} min</span> : null}<span className="clw-grow" /><span className="clw-muted mono">{rec.registration}{f.icaoType ? ` · ${FLIGHT_TYPE[f.icaoType] ?? f.icaoType}` : ""}</span></div>
         <div className="clw-route-big"><span><b>{f.adep?.icao}</b><small>{f.adep?.name ?? ""}</small></span><MaskIcon name="arrow-right" size={20} /><span className="right"><b>{f.ades?.icao}</b><small>{f.ades?.name ?? ""}</small></span></div>
         <div className="clw-times">
           <div className="clw-timebox"><span className="clw-muted">Departure · {f.adep?.icao}</span>{row("STD", `${hhmm(f.startTimeUTC)}Z`)}{row(f.ctotUTC ? "CTOT" : "ETD", `${hhmm(f.ctotUTC || f.etd || f.startTimeUTC)}Z`)}{row("ATD", f.atd ? `${hhmm(f.atd)}Z` : "—")}</div>
@@ -146,15 +149,49 @@ function FlightDetail({ rec, on, level, viewerName, onBack }: { rec: Rec; on: (k
 
 /** /client/airports (switch airport_search): the wall's airport search; the AIP link only with documents on. */
 export function AirportsTab({ documents }: { documents: boolean }) {
-  const [q, setQ] = useState(""); const [rows, setRows] = useState<Array<{ icao: string; name?: string; country?: string }>>([]);
-  useEffect(() => { if (q.trim().length < 2) { setRows([]); return; } const t = setTimeout(() => { fetch(`/digital-wall/api/airports/search?q=${encodeURIComponent(q.trim())}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => setRows(((d?.results ?? d?.airports ?? d ?? []) as Array<{ icao: string; name?: string; country?: string }>).slice(0, 20))).catch(() => setRows([])); }, 250); return () => clearTimeout(t); }, [q]);
+  type Ap = { icao: string; name?: string; country?: string };
+  const [q, setQ] = useState(""); const [rows, setRows] = useState<Ap[]>([]); const [searched, setSearched] = useState("");
+  const mine = useMyAirports();
+  const term = q.trim();
+  useEffect(() => {
+    if (term.length < 2) { setRows([]); setSearched(""); return; }
+    const t = setTimeout(() => {
+      fetch(`/digital-wall/api/airports/search?q=${encodeURIComponent(term)}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { setRows(((d?.results ?? d?.airports ?? d ?? []) as Ap[]).slice(0, 20)); setSearched(term); })
+        .catch(() => { setRows([]); setSearched(term); });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [term]);
+  // a small portal reads as finished (2026-11-09): words before a search, the client's own airports one tap away, and a
+  // no-match line only once a search has come back — never an empty box
   return (
     <main className="clw-tab" data-tab="airports">
       <h2 className="clw-h">Airports</h2>
+      <p className="clw-muted">Find any airport by its ICAO code or its name{documents ? ", and open its AIP pages" : ""}.</p>
       <input className="clw-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ICAO or name, e.g. EVRA" aria-label="Search airports" />
-      <div className="clw-results">{rows.map((a) => <div key={a.icao} className="clw-doc"><b className="mono">{a.icao}</b><span className="clw-grow">{a.name ?? ""}{a.country ? ` · ${a.country}` : ""}</span>{documents && <a href={`/digital-wall/api/aip-pdf?icao=${a.icao}`} target="_blank" rel="noreferrer" aria-label={`AIP for ${a.icao}`}><MaskIcon name="download" size={15} /></a>}</div>)}{q.trim().length >= 2 && !rows.length && <span className="clw-muted">No airport matches.</span>}</div>
+      {term.length < 2 && mine && mine.length > 0 && (
+        <div className="clw-picks" data-my-airports="">
+          <span className="clw-muted">On your flights:</span>
+          {mine.map((i) => <button type="button" key={i} className="clw-pick mono" onClick={() => setQ(i)}>{i}</button>)}
+        </div>
+      )}
+      {rows.length > 0 && <div className="clw-results">{rows.map((a) => <div key={a.icao} className="clw-doc"><b className="mono">{a.icao}</b><span className="clw-grow">{a.name ?? ""}{a.country ? ` · ${a.country}` : ""}</span>{documents && <a href={`/digital-wall/api/aip-pdf?icao=${a.icao}`} target="_blank" rel="noreferrer" aria-label={`AIP for ${a.icao}`}><MaskIcon name="download" size={15} /></a>}</div>)}</div>}
+      {term.length >= 2 && searched === term && !rows.length && <p className="clw-empty" data-no-match="">No airport matches “{term}”. Try its four-letter ICAO code.</p>}
     </main>
   );
+}
+
+/** The airports on the client's flights, next seven days (the wall's scoped feed): quick picks on Airports. */
+function useMyAirports() {
+  const [icaos, setIcaos] = useState<string[] | null>(null);
+  useEffect(() => {
+    fetch(`/digital-wall/api/flights/normalized?window=all-cached&limit=500&from=${encodeURIComponent(new Date(Date.now() - 2 * 3600e3).toISOString())}&to=${encodeURIComponent(new Date(Date.now() + 7 * 86400e3).toISOString())}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { const recs = ((d?.flights ?? []) as Rec[]).filter((x) => !x.flight?.isCnl); setIcaos([...new Set(recs.flatMap((r) => [r.flight.adep?.icao, r.flight.ades?.icao]).filter(Boolean))] as string[]); })
+      .catch(() => setIcaos([]));
+  }, []);
+  return icaos;
 }
 
 /** /client/documents (switch documents): the AIP pages for the airports on their flights — read from the wall, scoped. */

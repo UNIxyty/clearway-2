@@ -116,6 +116,17 @@ for (const theme of ["light", "dark"]) {
       ok(theme === "dark" ? bg < 0.25 : bg > 0.75, `client ${area} ${theme} ${width}: the page is in the ${theme} theme`, bg.toFixed(2));
       ok(await page.locator("[data-cw-sidebar]").count() === 0, `client ${area} ${theme} ${width}: no portal shell`);
       ok(await noOverflow(page), `client ${area} ${theme} ${width}: no horizontal page scroll`);
+      // a finished small product, not an empty big one (2026-11-09): the page starts at the top, says what it is for,
+      // and draws no empty box (the title once stretched and pushed everything to the bottom of the screen)
+      const top = await page.locator(`[data-tab="${area}"] .clw-h`).boundingBox();
+      ok(top && top.y < 160, `client ${area} ${theme} ${width}: the page starts at the top`, top ? Math.round(top.y) : "no title");
+      ok(await page.locator(".clw-results:visible").evaluateAll((els) => els.every((e) => e.children.length > 0)), `client ${area} ${theme} ${width}: no empty box drawn`);
+      if (area === "airports") {
+        ok(await page.locator("[data-my-airports] .clw-pick").count() >= 1, `client airports ${theme} ${width}: the airports on their flights are one tap away`);
+        await page.locator('[aria-label="Search airports"]').fill("QQQQZZZZ"); await page.locator("[data-no-match]").waitFor({ timeout: 8000 }).catch(() => {});
+        ok(/No airport matches/.test(await page.locator("[data-no-match]").innerText().catch(() => "")), `client airports ${theme} ${width}: a search with no match says so in words`);
+        await page.locator('[aria-label="Search airports"]').fill("");
+      }
       await page.screenshot({ path: `${OUT}/client-${area}-${theme}-${width}.png`, fullPage: width === 390 });
       await ctx.close();
     }

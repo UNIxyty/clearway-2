@@ -100,7 +100,31 @@ export async function runModel({ message, bodyText, attachments }) {
   // A checklist nid the model named must exist in Leon's live list; otherwise it is dropped (never trusted).
   const known = new Set(defs.map((d) => d.nid));
   for (const leg of raw.legs) for (const s of leg.services) if (s.checklistNid != null && !known.has(s.checklistNid)) { s.checklistNid = null; s.confidence = Math.min(s.confidence ?? 1, 0.5); }
+  sideChecklistItems(raw, defs);
   return { raw, modelId: res.modelId, tier: res.effectiveTier, usage, defs };
+}
+
+/**
+ * One checklist item every time (2026-11-08). Leon's checklist has items both plain ("Catering") and per airport
+ * ("Catering (ADEP)", "Catering (ADES)"), and the model picked between "Catering" and "Catering (ADES)" from run to
+ * run for the same email (rig/intake/extraction-repeat.mjs). On a leg whose other services the model put on one airport,
+ * a plain pick that has a variant for that airport takes it; on a leg with no such pick, or with picks on both, plain
+ * stays. Code, not the model: the same email gives the same items.
+ */
+export function sideChecklistItems(raw, defs) {
+  const SIDE = /\s*\((ADEP|ADES)\)\s*$/i;
+  const byLabel = new Map(); for (const d of defs) { const m = SIDE.exec(d.label); byLabel.set(`${d.section}|${d.label.replace(SIDE, "").toLowerCase()}|${m ? m[1].toUpperCase() : ""}`, d.nid); }
+  const def = new Map(defs.map((d) => [d.nid, d]));
+  for (const leg of raw.legs ?? []) {
+    const sides = new Set((leg.services ?? []).map((s) => SIDE.exec(def.get(s.checklistNid)?.label ?? "")?.[1]?.toUpperCase()).filter(Boolean));
+    if (sides.size !== 1) continue;
+    const side = [...sides][0];
+    for (const s of leg.services ?? []) {
+      const d = def.get(s.checklistNid); if (!d || SIDE.test(d.label)) continue;
+      const sided = byLabel.get(`${d.section}|${d.label.toLowerCase()}|${side}`); if (sided != null) s.checklistNid = sided;
+    }
+  }
+  return raw;
 }
 
 // ── Code-side normalisation ─────────────────────────────────────────────────────────────────────────────

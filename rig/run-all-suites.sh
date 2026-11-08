@@ -3,7 +3,8 @@
 #   rig/run-all-suites.sh        → rig/.scratch/suites/<suite>.out, summary in rig/.scratch/suites/summary.log
 # Needs the rig up: rig/start.sh, the sign-in-on services (portal :3992, proxy :3989, wall :5198, rig/signin-agent.sh)
 # and the built console (opsboard-react/dist). Local mocks only; nothing reaches Leon, CNAIR or production.
-cd "$(dirname "$0")/.."
+# (the checkout's top, not dirname/..: a shuffled run runs an ordered copy of this file from rig/.scratch)
+cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" || exit 2
 # Keep the Mac awake for the whole run: idle sleep mid-run stalls the agent and the browsers (2026-10-12: suites that
 # pass alone failed after 49-80 minute stalls, and Chrome logged ERR_NETWORK_IO_SUSPENDED). Keep the DISPLAY awake too
 # (-u wakes it, -d holds it): with the display asleep, a visible Chrome window stops painting, so the extension suites'
@@ -15,7 +16,16 @@ cd "$(dirname "$0")/.."
 # here, where production's UTC servers would hide it. The machine's own zone, not TZ: the services run under env -i.
 Z=$(env -u TZ node -e 'process.stdout.write(Intl.DateTimeFormat().resolvedOptions().timeZone)')
 [ "$Z" = Europe/Riga ] || { echo "VERDICT: NOT STARTED — this machine's zone is $Z; the rig runs in Europe/Riga (rig/box/user-data.yaml sets it on the rig box)"; exit 2; }
+# The order (2026-11-09, rig/order.mjs). A suite that passes only in one order is not a passing suite: it leans on
+# something another suite left behind. RIG_SHUFFLE=<seed> shuffles each group of suites between two setup lines;
+# RIG_SPLIT=alternate|random:<seed> deals the suites to the lanes differently (cut, from LANE_B_FROM, is the default).
+# This runs the ordered copy rig/order.mjs writes, once; the same seeds give the same run again.
+if [ -z "${RIG_ORDERED:-}" ] && { [ -n "${RIG_SHUFFLE:-}" ] || [ -n "${RIG_SPLIT:-}" ]; }; then
+  note="$(node rig/order.mjs "$0" "${RIG_SHUFFLE:-}" "${RIG_SPLIT:-cut}" rig/.scratch/order)" || { echo "VERDICT: NOT STARTED — rig/order.mjs could not order the run"; exit 2; }
+  exec env RIG_ORDERED=1 RIG_ORDER_NOTE="$note" RIG_LANE_B_FILE="$PWD/rig/.scratch/order/lane-b.txt" bash rig/.scratch/order/run-all-suites.sh "$@"
+fi
 OUT=rig/.scratch/suites; mkdir -p $OUT; LOG=$OUT/summary.log; : > $LOG
+ORDER_NOTE="${RIG_ORDER_NOTE:-order: as written · lanes: cut}$([ -n "${RIG_LANE:-}" ] && echo " · this is lane $RIG_LANE" || echo " · one lane: every suite")"; echo "$ORDER_NOTE" >> $LOG
 # When the run started, by the power log's own clock format: a sleep after this makes the run INCOMPLETE (below).
 RUN_STARTED="$(date "+%Y-%m-%d %H:%M:%S")"
 SCR="$PWD/rig/.scratch"; E="node --env-file=.env.rig"
@@ -30,7 +40,7 @@ process.stdout.write(out.join("\n"));' 2>/dev/null)"
 # Two lanes (2026-11-09, rig/box/two-lanes.sh): RIG_LANE=a runs the suites before LANE_B_FROM, b that one and every
 # suite after it; each lane runs all the setup between, so a suite finds what it needs. Unset: every suite, as before.
 LANE_B_FROM=client-allow-check   # measured 2026-11-09: about 29 + 29 min here (at permissions-check 23 + 33, after the client block 32 + 27)
-LANE_B="$(awk -v f="$LANE_B_FROM" '$1=="run" && $2==f {b=1} b && $1=="run" {print $2}' "$0")"
+LANE_B="$( if [ -n "${RIG_LANE_B_FILE:-}" ]; then cat "$RIG_LANE_B_FILE"; else awk -v f="$LANE_B_FROM" '$1=="run" && $2==f {b=1} b && $1=="run" {print $2}' "$0"; fi )"
 in_lane() { [ -z "${RIG_LANE:-}" ] && return 0; local inb=1; printf '%s\n' "$LANE_B" | grep -qxF "$1" || inb=0; { [ "$RIG_LANE" = b ] && [ $inb = 1 ]; } || { [ "$RIG_LANE" = a ] && [ $inb = 0 ]; }; }
 case "${RIG_LANE:-}" in ""|a|b) ;; *) echo "VERDICT: NOT STARTED — RIG_LANE is a or b"; exit 2;; esac
 run() { local name="$1";
@@ -221,5 +231,6 @@ if [ "$RAN" != "$EXPECTED" ]; then echo "VERDICT: INCOMPLETE — $RAN of $EXPECT
 # Every red suite is LISTED (a recorded cause, rig/known-failures.json) or UNLISTED, and the unlisted are named (2026-11-02).
 # Any red is RED; there is no "green except".
 node rig/verdict.mjs "$LOG" "$EXPECTED" | tee -a $LOG; rc=${PIPESTATUS[0]}
+echo "$ORDER_NOTE" | tee -a $LOG
 echo DONE >> $LOG
 exit $rc

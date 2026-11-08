@@ -29,6 +29,7 @@ say() { echo "[$BOX $(date -u +%H:%M:%SZ)] $*"; }
 fail() { echo "[rigbox] REFUSED: $*" >&2; exit 3; }
 
 [ "$(id -u)" = 0 ] || fail "run as root on the server"
+. "$HERE/host-lock.sh"; run_gate "build of $BOX" || fail "not started: see the line above"
 missing=""; for p in qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients cloud-image-utils; do dpkg -s "$p" >/dev/null 2>&1 || missing="$missing $p"; done
 [ -z "$missing" ] || fail "host packages missing:$missing (apt-get install --no-install-recommends$missing)"
 [ -e /dev/kvm ] || fail "no /dev/kvm on this host"
@@ -66,7 +67,8 @@ virsh define "$BOX.xml" >/dev/null; virsh start "$BOX" >/dev/null; say "started 
 rm -f "$KNOWN"
 SSH=(ssh -q -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$KNOWN" -o ConnectTimeout=5 -i "$KEY" -p "$PORT" rig@127.0.0.1)
 SCP=(scp -q -o BatchMode=yes -o UserKnownHostsFile="$KNOWN" -i "$KEY" -P "$PORT")
-for _ in $(seq 1 90); do "${SSH[@]}" "test -f /var/log/rigbox-ready" 2>/dev/null && break; sleep 10; done
+# 15 minutes of the box running: time a deploy kept it paused (rig/box/host-lock.sh) does not count
+n=0; while [ $n -lt 90 ]; do "${SSH[@]}" "test -f /var/log/rigbox-ready" 2>/dev/null && break; sleep 10; [ "$(virsh domstate "$BOX" 2>/dev/null)" = paused ] || n=$((n + 1)); done
 "${SSH[@]}" "test -f /var/log/rigbox-ready" || fail "first boot did not finish in 15 minutes (see $D/serial.log, and /var/log/cloud-init-output.log in the box)"
 say "first boot done: node $("${SSH[@]}" "node --version"), $("${SSH[@]}" "docker --version | cut -d, -f1")"
 

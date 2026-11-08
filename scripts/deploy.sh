@@ -30,6 +30,10 @@ if [ "$STATUS" = 1 ]; then
 fi
 [ "${#SERVICES[@]}" -gt 0 ] || { echo "usage: scripts/deploy.sh [--no-cache] [--no-pull] <service>...   |   scripts/deploy.sh --status"; exit 2; }
 
+# 0. Deploys come first (rig/box/host-lock.sh, 2026-11-09): the lock, waiting only for another deploy; a rig run that is
+# going is paused until this ends, and one about to start waits.
+. "$ROOT/rig/box/host-lock.sh"; deploy_lock "deploy.sh ${SERVICES[*]}"
+
 # 1. On main, or nothing happens.
 sh scripts/branch-guard.sh .git/HEAD || exit 1
 

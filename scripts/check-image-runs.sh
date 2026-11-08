@@ -13,6 +13,8 @@ cd "$(dirname "$0")/.." || exit 2
 [ "$#" -gt 0 ] || { echo "usage: scripts/check-image-runs.sh <service>..."; exit 2; }
 [ -f .env ] || { echo "CANNOT TELL: no .env here"; exit 2; }
 command -v docker >/dev/null || { echo "CANNOT TELL: no docker"; exit 2; }
+# the builds below come first over a rig run (rig/box/host-lock.sh): the lock, and any running rig box paused until done
+[ "${1:-}" = "--selftest" ] || { . rig/box/host-lock.sh; deploy_lock "check-image-runs.sh $*"; }
 say() { echo "[image-runs $(date -u +%H:%M:%SZ)] $*"; }
 # service → image name as compose tags it, the port the process listens on, the health path
 spec() {

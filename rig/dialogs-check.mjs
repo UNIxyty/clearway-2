@@ -45,7 +45,7 @@ try {
   const row = Array.isArray(made) ? made[0] : null;
   ok(Boolean(row?.id), "an invented request is filed", row?.id ? "" : JSON.stringify(made).slice(0, 160));
   await page.goto(`${B}/admin/clients`, { waitUntil: "load" }); await settled(page);
-  const line = page.locator("tr, li, [data-client-request], div").filter({ hasText: company }).last();
+  const line = page.locator(`[data-client-request="${row?.id}"]`);
   const refuse = line.getByRole("button", { name: "Refuse", exact: true }).first();
   await refuse.click(); await sleep(300);
   const d2 = page.getByRole("dialog", { name: `Refuse the request from ${company}?` });

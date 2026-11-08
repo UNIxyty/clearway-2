@@ -1,16 +1,16 @@
 <domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
-  <name>rigbox</name>
+  <name>@NAME@</name>
   <description>The rig: Clearway test suites, isolated from production (rig/box/build.sh, docs/rig-on-server-plan.md)</description>
-  <memory unit="MiB">6144</memory>
-  <currentMemory unit="MiB">6144</currentMemory>
-  <vcpu placement="static">8</vcpu>
+  <memory unit="MiB">@MEM@</memory>
+  <currentMemory unit="MiB">@MEM@</currentMemory>
+  <vcpu placement="static">@VCPUS@</vcpu>
   <!-- a quarter of a normal guest's CPU weight: production's containers win any contest for the processor -->
   <cputune><shares>256</shares></cputune>
   <os><type arch="x86_64" machine="q35">hvm</type><boot dev="hd"/></os>
   <features><acpi/><apic/></features>
   <cpu mode="host-passthrough"/>
   <devices>
-    <disk type="file" device="disk"><driver name="qemu" type="qcow2" discard="unmap"/><source file="@DIR@/rigbox.qcow2"/><target dev="vda" bus="virtio"/></disk>
+    <disk type="file" device="disk"><driver name="qemu" type="qcow2" discard="unmap"/><source file="@DIR@/@NAME@.qcow2"/><target dev="vda" bus="virtio"/></disk>
     <disk type="file" device="cdrom"><driver name="qemu" type="raw"/><source file="@DIR@/seed.iso"/><target dev="sda" bus="sata"/><readonly/></disk>
     <!-- network: QEMU user mode (SLIRP), outbound only; SSH on the host loopback 127.0.0.1:2222 (qemu:commandline
          below). passt was blocked by the host's AppArmor profile (Ubuntu 24.04), and this needs no host change. -->
@@ -19,8 +19,8 @@
     <memballoon model="virtio"/>
   </devices>
   <qemu:commandline>
-    <qemu:arg value="-netdev"/><qemu:arg value="user,id=rignet,hostfwd=tcp:127.0.0.1:2222-:22"/>
+    <qemu:arg value="-netdev"/><qemu:arg value="user,id=rignet,hostfwd=tcp:127.0.0.1:@PORT@-:22"/>
     <!-- a fixed free slot: without one the device took the slot libvirt plans for its own root port -->
-    <qemu:arg value="-device"/><qemu:arg value="virtio-net-pci,netdev=rignet,mac=52:54:00:c1:ea:01,bus=pcie.0,addr=0x10"/>
+    <qemu:arg value="-device"/><qemu:arg value="virtio-net-pci,netdev=rignet,mac=@MAC@,bus=pcie.0,addr=0x10"/>
   </qemu:commandline>
 </domain>

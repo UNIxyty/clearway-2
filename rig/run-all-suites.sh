@@ -27,7 +27,14 @@ for (const [key, v] of Object.entries(k)) { if (key.startsWith("$") || !v.probe)
   let holds = true; try { execSync(v.probe, { stdio: "ignore", timeout: 30000 }); } catch (e) { holds = e.status !== 1; }
   if (holds) for (const s of v.suites) out.push(s + "\t" + key); }
 process.stdout.write(out.join("\n"));' 2>/dev/null)"
+# Two lanes (2026-11-09, rig/box/two-lanes.sh): RIG_LANE=a runs the suites before LANE_B_FROM, b that one and every
+# suite after it; each lane runs all the setup between, so a suite finds what it needs. Unset: every suite, as before.
+LANE_B_FROM=permissions-check
+LANE_B="$(awk -v f="$LANE_B_FROM" '$1=="run" && $2==f {b=1} b && $1=="run" {print $2}' "$0")"
+in_lane() { [ -z "${RIG_LANE:-}" ] && return 0; local inb=1; printf '%s\n' "$LANE_B" | grep -qxF "$1" || inb=0; { [ "$RIG_LANE" = b ] && [ $inb = 1 ]; } || { [ "$RIG_LANE" = a ] && [ $inb = 0 ]; }; }
+case "${RIG_LANE:-}" in ""|a|b) ;; *) echo "VERDICT: NOT STARTED — RIG_LANE is a or b"; exit 2;; esac
 run() { local name="$1";
+  in_lane "$name" || return 0
   local known; known="$(printf '%s\n' "$SKIP_LIST" | awk -F'\t' -v n="$name" '$1==n {print $2}')"
   if [ -n "$known" ]; then echo "$name rc=skip 0s 0 pass 0 fail :: skipped — known failure \"$known\" still holds (rig/known-failures.json)" >> $LOG; return; fi
   shift; local out="$OUT/$(echo "$name" | tr '/ ' '__').out"; local t0=$(date +%s); "$@" > "$out" 2>&1 < /dev/null; local rc=$?; echo "$name rc=$rc $(( $(date +%s) - t0 ))s $(grep -cE '^(PASS|ok)' "$out") pass $(grep -cE '^(FAIL|not ok)' "$out") fail :: $(tail -1 "$out" | cut -c1-140)" >> $LOG; }
@@ -200,7 +207,7 @@ if grep -lq "ERR_NETWORK_IO_SUSPENDED" $OUT/*.out 2>/dev/null; then
 fi
 # The verdict, in the log and in the exit code (2026-10-21: a chain that counted "rc=0" lines in this log pushed on an
 # empty log). Every suite this script names must have run — a missing one is INCOMPLETE, not green — and any red is red.
-EXPECTED=$(grep -cE '^run ' "$0"); RAN=$(grep -cE ' rc=' $LOG); RED=$(grep -E ' rc=' $LOG | grep -vcE ' rc=0 ' || true)
+EXPECTED=$(grep -E '^run ' "$0" | awk '{print $2}' | while read -r n; do in_lane "$n" && echo "$n"; done | wc -l | tr -d ' '); RAN=$(grep -cE ' rc=' $LOG); RED=$(grep -E ' rc=' $LOG | grep -vcE ' rc=0 ' || true)
 # A suite that took longer than two hours ran across a sleep the browser did not report (2026-10-22: the passenger check
 # "took" 42 hours and its ten-minute window test failed on stale reveals). That run is INCOMPLETE too, whatever its rcs.
 SLEPT=$(grep -E ' rc=' $LOG | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+s$/) { sub(/s$/, "", $i); if ($i + 0 > 7200) print $1 } }' | head -3 | tr '\n' ' ')

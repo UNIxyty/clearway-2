@@ -18,5 +18,7 @@ runcmd:
   # Node, pinned and checked against nodejs.org's own sums (2026-11-07: the first box saved it under another name, so
   # the check failed and Node was installed by hand)
   - [sh, -c, "set -e; cd /tmp; F=node-v24.10.0-linux-x64.tar.xz; curl -fsSLO https://nodejs.org/dist/v24.10.0/SHASUMS256.txt; curl -fsSLO https://nodejs.org/dist/v24.10.0/$F; grep \" $F\\$\" SHASUMS256.txt | sha256sum -c -; tar -xJf $F -C /usr/local --strip-components=1; node --version > /var/log/rigbox-node.txt"]
+  # 2 GB of swap: a cushion for a box sized for one lane (3.5 GB), so a peak is slow rather than killed (2026-11-09)
+  - [sh, -c, "fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab"]
   - [systemctl, enable, --now, docker]
   - [sh, -c, "usermod -aG docker rig && test -s /var/log/rigbox-node.txt && touch /var/log/rigbox-ready"]

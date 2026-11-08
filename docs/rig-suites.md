@@ -48,7 +48,13 @@ No wildcards: "intake/browser-*" used to stand for five suites, and a sixth woul
   request RIGPAX19, which only the model-driven intake suites make. Without it the id was empty and the URL was
   malformed, so the gate refused all three before any reveal logic ran. The admin check was one of the three, not a
   fourth. The check now seeds its own invented request and all three pass. permissions-check passes in full.
-- **Last full run: 2026-11-03 overnight, on power, at 6d8e51d3: 71 passed, 9 skipped (no-model-key still holds), 3
+- **Last full run: 2026-11-09, on the server's rig box built from the repository alone (rig/box/build.sh --replace, no
+  hand step), at d0937eb4: GREEN, all 103 suites, 54 min 43 s, known-failures record empty.** The first full run since
+  3 November. On the way: 34 red on the box's first trial, then 19, 5, 1 — setup only the Mac had (schema, fixtures, the
+  Python env, the sign-in accounts, the walls' operators, a 13 October extension build, a hand-made voice recording),
+  Linux differences (lsof, date -v, no display, pdftotext), suites behind the code, and five product bugs (raw error
+  text, an unresolvable intake conflict, a varying checklist item, D-IMOI read as an airport code, glossary links).
+- **Run before that: 2026-11-03 overnight, on power, at 6d8e51d3: 71 passed, 9 skipped (no-model-key still holds), 3
   unlisted red, each fixed and rerun alone.**
   - `error-text`: the mailer's new fallback tests Resend's text internally; marked `public-error-ok`.
   - `intake/e2e-scheduled`: the check read the emails before the ops alert was sent (it goes just after the attempt is

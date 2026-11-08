@@ -2,11 +2,12 @@
 // draft (the portal's kit), refusing a client's request (the portal's kit, with a note), deleting a wall operator (the
 // wall console's own; opened and cancelled only, nothing is deleted). Each: a real dialog (role, name), focus lands
 // inside (on Cancel when it destroys), Esc closes, focus returns to what opened it, and Enter does the safe thing.
-// rig/check-no-browser-dialogs.mjs keeps the browser's out; this proves ours work. Sign-in-off rig, invented data.
+// rig/check-no-browser-dialogs.mjs keeps the browser's out; this proves ours work. The sign-in-on rig, signed in as
+// the rig's admin account (rig/access-accounts.mjs): Admin › Clients needs a real session. Invented data.
 //   node --env-file=.env.rig rig/dialogs-check.mjs
 import { chromium } from "playwright";
 import { settled } from "./lib/settle.mjs";
-const B = "http://127.0.0.1:3999";
+const B = process.env.RIG_SIGNIN_BASE || "http://127.0.0.1:3989";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, K = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
 const H = { apikey: K, authorization: `Bearer ${K}`, "content-type": "application/json" };
@@ -15,8 +16,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const focusInside = (page) => page.evaluate(() => { const d = document.querySelector('[role="dialog"]'); const a = document.activeElement; return { inside: Boolean(d && a && d.contains(a)), text: (a?.textContent || a?.getAttribute("aria-label") || a?.tagName || "").trim().slice(0, 40), tag: a?.tagName }; });
 const focusText = (page) => page.evaluate(() => { const a = document.activeElement; return (a?.textContent || a?.getAttribute("title") || a?.getAttribute("aria-label") || "").trim().slice(0, 40); });
 
+const s = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, "content-type": "application/json" }, body: JSON.stringify({ email: "rig-access-admin@rig.invalid", password: "rig-access-check-only" }) })).json();
+if (!s.access_token) { console.error("the rig's admin account cannot sign in (rig/access-accounts.mjs)"); process.exit(2); }
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(s)).toString("base64")}`, url: B }]);
 const page = await ctx.newPage();
 const pageErrors = []; page.on("pageerror", (e) => pageErrors.push(String(e.message || e)));
 let browserDialogs = 0; page.on("dialog", async (d) => { browserDialogs += 1; await d.dismiss(); });

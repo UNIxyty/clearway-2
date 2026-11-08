@@ -31,8 +31,9 @@ export default function ClientShell({ menu, company, initials, children }: { men
         <button type="button" className="clw-signout" onClick={async () => { await createSupabaseBrowserClient().auth.signOut(); window.location.href = "/login"; }}>Sign out</button>
       </header>
       {children}
-      {menu.length > 1 && <nav className="clw-bottomnav" aria-label="Areas">{menu.map((m) => <Link key={m.path} href={m.path} className={active(m.path) ? "on" : ""} aria-current={active(m.path) ? "page" : undefined}><MaskIcon name={m.icon} size={22} />{m.label}</Link>)}</nav>}
+      {/* the note above the phone's tab bar: a tab bar is the last thing on the screen (2026-11-09) */}
       <footer className="clw-foot"><span>Times in UTC. Data from Clearway handling, updated live.</span></footer>
+      {menu.length > 1 && <nav className="clw-bottomnav" aria-label="Areas">{menu.map((m) => <Link key={m.path} href={m.path} className={active(m.path) ? "on" : ""} aria-current={active(m.path) ? "page" : undefined}><MaskIcon name={m.icon} size={22} />{m.label}</Link>)}</nav>}
     </div>
   );
 }

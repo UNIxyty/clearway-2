@@ -106,6 +106,19 @@ for (const theme of ["light", "dark"]) {
   await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ switches: on }) });
   await sleep(1500);   // the portal's and the wall's permission caches (PERMISSIONS_TTL_MS=1000 on the rig)
   try {
+    // Flights with all three areas on: the menu a small portal has, on the desk and on the phone (2026-11-09)
+    for (const theme of ["light", "dark"]) for (const width of [1440, 390]) {
+      const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, colorScheme: theme });
+      await ctx.addCookies([cookie(cs)]); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
+      const page = await ctx.newPage(); await page.goto(`${B}/client`, { waitUntil: "load" }); await page.waitForSelector("[data-client-wall]", { timeout: 20000 }); await settled(page);
+      const nav = width === 390 ? ".clw-bottomnav" : ".clw-topnav";
+      const items = await page.locator(`${nav} a`).allInnerTexts();
+      ok(JSON.stringify(items.map((x) => x.trim())) === JSON.stringify(["Flights", "Airports", "Documents"]), `client flights ${theme} ${width}: the menu is Flights, Airports, Documents`, items.join(" | "));
+      if (width === 390) ok(await page.evaluate(() => { const n = document.querySelector(".clw-bottomnav"); return !!n && !n.nextElementSibling; }), `client flights ${theme} 390: the tab bar is the last thing on the screen`);
+      ok(await noOverflow(page), `client flights ${theme} ${width}: no horizontal page scroll`);
+      await page.screenshot({ path: `${OUT}/client-flights-3areas-${theme}-${width}.png`, fullPage: width === 390 });
+      await ctx.close();
+    }
     for (const theme of ["light", "dark"]) for (const width of [1440, 390]) for (const area of ["documents", "airports"]) {
       const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, colorScheme: theme });
       await ctx.addCookies([cookie(cs)]); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);

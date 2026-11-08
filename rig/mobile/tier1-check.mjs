@@ -291,7 +291,7 @@ const wallFrame = async (page, path) => {
 
 // ── intake from the phone: "Looks right" on a flagged field sends the desktop's op and the agent accepts it ──
 {
-  const flagged = (intake.rows ?? []).find((r) => r.statusKey === "needs_review") ?? req;
+  const flagged = rows.find((r) => r.statusKey === "needs_review") ?? req;
   const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
   await page.goto(`${BASE}/m/intake/${flagged.id}/leg/1`, { waitUntil: "load" }); await settled(page);
   const btn = page.getByRole("button", { name: /^Looks right$/ }).first();

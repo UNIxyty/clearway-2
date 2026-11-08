@@ -29,7 +29,7 @@ for (const [key, v] of Object.entries(k)) { if (key.startsWith("$") || !v.probe)
 process.stdout.write(out.join("\n"));' 2>/dev/null)"
 # Two lanes (2026-11-09, rig/box/two-lanes.sh): RIG_LANE=a runs the suites before LANE_B_FROM, b that one and every
 # suite after it; each lane runs all the setup between, so a suite finds what it needs. Unset: every suite, as before.
-LANE_B_FROM=personal-data-paths-check   # after the client block: 23 + 33 min split at permissions-check, about 28 + 28 here (2026-11-09)
+LANE_B_FROM=client-allow-check   # measured 2026-11-09: about 29 + 29 min here (at permissions-check 23 + 33, after the client block 32 + 27)
 LANE_B="$(awk -v f="$LANE_B_FROM" '$1=="run" && $2==f {b=1} b && $1=="run" {print $2}' "$0")"
 in_lane() { [ -z "${RIG_LANE:-}" ] && return 0; local inb=1; printf '%s\n' "$LANE_B" | grep -qxF "$1" || inb=0; { [ "$RIG_LANE" = b ] && [ $inb = 1 ]; } || { [ "$RIG_LANE" = a ] && [ $inb = 0 ]; }; }
 case "${RIG_LANE:-}" in ""|a|b) ;; *) echo "VERDICT: NOT STARTED — RIG_LANE is a or b"; exit 2;; esac

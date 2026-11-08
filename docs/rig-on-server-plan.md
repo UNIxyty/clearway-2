@@ -111,8 +111,14 @@ so their Mac numbers are not usable). **About 2.5 GB a lane.**
    `.env.rig` refuses supabase.co and verxyl.com; every suite refuses a non-local Supabase.
 5. **Its own checkout.** The VM clones main itself. Production deploys never see rig work, and the rig never reads
    production's checkout.
-6. **Deploys come first.** The deploy chain takes a lock; a rig run waits for it, and a deploy pauses the VM's CPU
-   share (`virsh schedinfo`) for the build. A disk guard refuses to start a run below 15 GB free on the host.
+6. **Deploys come first.** Built 2026-11-09 (until then only this line): `rig/box/host-lock.sh`.
+   `scripts/deploy-chain.sh`, `scripts/deploy.sh` and `scripts/check-image-runs.sh` take a lock
+   (`/run/lock/clearway-deploy.lock`). They wait only for another deploy, never for a run, and they pause every running
+   rig box (`virsh suspend`: no CPU at all, not a smaller share). A helper waiting on the same lock resumes the boxes
+   and sets their clocks the moment the deploy ends, whether it finished, failed or was killed. `rig/box/two-lanes.sh`
+   and `rig/box/build.sh` wait while a deploy holds the lock, and refuse to start below 15 GB free on the host. The
+   monthly agent rebuild (`/etc/cron.d/clearway-agent-rebuild`, 03:30 on the 1st) goes through `deploy.sh`, so it
+   takes the lock too. Every step is a line in `/var/log/clearway-deploy-lock.log`.
 7. **A run is reported, not just written.** The verdict line goes to the developers' Telegram, so a red night is seen.
 
 ## How many suites at once, and how long a full run takes

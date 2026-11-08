@@ -82,6 +82,11 @@ Issues) must both be clean. Any message is a finding.
 or its failure is written there as a known bug with a date and a reason. Update it whenever a suite is touched.
 The sign-in-on agent (:5176) is started and stopped with `rig/signin-agent.sh`.
 
+A suite that only passes in one order is not a passing suite. `RIG_SHUFFLE=<seed> rig/run-all-suites.sh` runs each
+group of suites (the ones between two setup lines) in a random order; with lanes, `RIG_SPLIT=alternate` or
+`RIG_SPLIT=random:<seed>` changes which suites run together. The same seed gives the same order. See
+`docs/rig-suites.md` for the routine.
+
 ## Passenger manifest
 
 `rig/manifest/start.sh` (after `rig/start.sh`) restarts the agent against a per-operator mock Leon (:3993, fake

@@ -122,8 +122,7 @@ run intake/e2e-people $E rig/intake/e2e-people.mjs
 rig/signin-agent.sh >> $LOG 2>&1
 run intake/browser-people $E rig/intake/browser-people.mjs
 run intake/browser-check $E rig/intake/browser-check.mjs
-CIMOG=$(docker exec supabase_db_rig psql -U postgres -At -c "select id from intake_requests where reference='CIMOG1' order by created_at desc limit 1")
-run intake/browser-edits $E rig/intake/browser-edits.mjs "$CIMOG"
+run intake/browser-edits $E rig/intake/browser-edits.mjs   # its own CIMOG1 request: the newest, or one it delivers (2026-11-09)
 
 # ── permissions, wall, portal, extension
 run permissions-check $E rig/permissions-check.mjs
@@ -188,10 +187,9 @@ run ext/t-issues headed $E rig/ext/t-issues.mjs
 run group4 $E rig/group4-check.mjs
 run stage2-check $E rig/stage2-check.mjs
 run stage3-batch1 $E rig/stage3-batch1-check.mjs
-docker exec supabase_db_rig psql -U postgres -q -c "update user_preferences set dashboard_layout = null where dashboard_layout is not null"
 run stage3-batch2 $E rig/stage3-batch2-check.mjs
 run stage3-batch3 $E rig/stage3-batch3-check.mjs
-docker exec supabase_db_rig psql -U postgres -q -c "update user_preferences set dashboard_layout = null where dashboard_layout is not null"
+# (no layout reset between the stage suites any more, 2026-11-09: stage3-batch2 and stage4 each set the layout they need)
 run stage4 $E rig/stage4-check.mjs
 run overlay-check $E rig/overlay-check.mjs
 run dark-audit $E rig/dark-audit.mjs

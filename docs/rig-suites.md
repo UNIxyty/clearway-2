@@ -6,6 +6,16 @@ What the rig cannot test at all — no Cloudflare, mail, real Leon, sync service
 **Rule (2026-10-11):** no suite stays red. A suite passes, or its failure is written here as a known bug with a date and
 a reason. "Same failures as before" is not a result. Update this list whenever a suite is touched or run.
 
+**A suite that only passes in one order is not a passing suite (2026-11-09).** tier1-check passed for weeks on intake
+requests another suite had left behind: it never tested what it claimed, and the fixed order hid that. A suite makes
+what it needs, or finds it and makes it when it is missing; the runner's setup lines (a wall preview, the sign-in agent
+stopped, a build) are the only things it may count on. To find the rest on purpose, the runner reorders itself
+(`rig/order.mjs`): `RIG_SHUFFLE=<seed>` shuffles each group of suites between two setup lines, and
+`RIG_SPLIT=alternate` or `random:<seed>` deals the suites to the two lanes differently, so a suite whose maker lands in
+the other box fails. `rig/box/two-lanes.sh` shuffles, with a random split, every fourth run and any run a week or more
+after the last shuffled one, and prints the seed: `two-lanes.sh --shuffle <seed> --split <split>` runs that order again.
+A red in a shuffled run is a red run.
+
 **A check that consumes a shared allowance changes the next check's result (2026-11-04).** The gate walk posted to the
 public forms and used up the 8-an-hour ask-for-access limit, and the onboarding suite then failed with 429; give the walk
 its own sender and onboarding passed 53 of 53 on the same portal. A suite that spends a limit, a quota or a seeded row

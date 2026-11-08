@@ -53,6 +53,7 @@ import {
   Button,
   Card,
   ChipInput,
+  ConfirmDialog,
   ViewOnly,
   ViewOnlyNote,
   useCan,
@@ -1680,6 +1681,7 @@ function DevicesCard() {
   const [error, setError] = useState('');
   const [names, setNames] = useState({}); // deviceId -> draft name
   const [busyId, setBusyId] = useState('');
+  const [revoking, setRevoking] = useState(null);   // asked in our own dialog, never the browser's (2026-11-09)
   const flash = useToast();
 
   const load = () =>
@@ -1699,9 +1701,31 @@ function DevicesCard() {
   const pending = devices.filter((d) => d.status === 'pending');
   const approved = devices.filter((d) => d.status === 'approved');
   const revoked = devices.filter((d) => d.status === 'revoked');
+  const revokeNow = async (d) => {
+    setBusyId(d.deviceId);
+    try {
+      await revokeAuthDevice(d.deviceId);
+      flash('Device revoked — its screen has been disconnected');
+      load();
+    } catch (err) {
+      setError(errorText(err));
+    }
+    setBusyId('');
+    setRevoking(null);
+  };
 
   return (
     <Card style={{ marginBottom: 22 }}>
+      <ConfirmDialog
+        open={Boolean(revoking)}
+        danger
+        busy={Boolean(revoking) && busyId === revoking?.deviceId}
+        title={revoking ? `Revoke ${revoking.name || revoking.deviceId}?` : ''}
+        body="Its screen stops showing wall data at once. To show the wall again, the screen has to be approved again here."
+        confirmLabel="Revoke device"
+        onCancel={() => setRevoking(null)}
+        onConfirm={() => revoking && revokeNow(revoking)}
+      />
       <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Devices</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 14px' }}>
         Screens approved here stay signed in on their own long-lived key — no user session to
@@ -1786,18 +1810,7 @@ function DevicesCard() {
             action="wall.devices.revoke"
             variant="soft"
             disabled={busyId === d.deviceId}
-            onClick={async () => {
-              if (!window.confirm(`Revoke "${d.name || d.deviceId}"? The screen stops showing wall data immediately and has to be re-approved.`)) return;
-              setBusyId(d.deviceId);
-              try {
-                await revokeAuthDevice(d.deviceId);
-                flash('Device revoked — its screen has been disconnected');
-                load();
-              } catch (err) {
-                setError(errorText(err));
-              }
-              setBusyId('');
-            }}
+            onClick={() => setRevoking(d)}
           >
             Revoke
           </Button>

@@ -225,15 +225,16 @@ export function Modal({ open, onClose, title, icon, tone = "primary", children, 
   );
 }
 
-/** Confirm (replaces confirm()): Cancel and one named action. */
+/** Confirm (replaces confirm()): Cancel and one named action. Focus starts on the action, so Enter confirms — except
+ *  for a destructive one, which starts on Cancel: Enter must never destroy by default (2026-11-09). */
 export function ConfirmDialog({ open, title, body, confirmLabel, busyLabel, danger = false, busy = false, icon, onConfirm, onCancel }: {
   open: boolean; title: ReactNode; body?: ReactNode; confirmLabel: string; busyLabel?: string; danger?: boolean; busy?: boolean; icon?: string; onConfirm: () => void; onCancel: () => void;
 }) {
   return (
     <Modal open={open} onClose={onCancel} title={title} icon={icon ?? (danger ? "triangle-alert" : "info")} tone={danger ? "danger" : "primary"} busy={busy}
       actions={<>
-        <Button onClick={onCancel} disabled={busy}>Cancel</Button>
-        <Button variant={danger ? "danger" : "primary"} loading={busy} loadingLabel={busyLabel} onClick={onConfirm} data-autofocus>{confirmLabel}</Button>
+        <Button onClick={onCancel} disabled={busy} {...(danger ? { "data-autofocus": true } : {})}>Cancel</Button>
+        <Button variant={danger ? "danger" : "primary"} loading={busy} loadingLabel={busyLabel} onClick={onConfirm} {...(danger ? {} : { "data-autofocus": true })}>{confirmLabel}</Button>
       </>}>
       {body}
     </Modal>

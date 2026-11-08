@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PortalShell from "@/components/portal/Shell";
+import { ConfirmDialog } from "@/components/kit";
 import BlockEditor, {
   AttachmentsPanel,
   ShortcutStrip,
@@ -212,9 +213,15 @@ export default function HelpComposer() {
     }
   }
 
+  // asked in our own dialog, never the browser's (2026-11-09)
+  const [askDiscard, setAskDiscard] = useState(false);
   function discard() {
     const hasContent = title.trim() || serializeLines(lines).length > 0 || atts.attachedIds.length > 0;
-    if (hasContent && !window.confirm("Discard this draft? It is saved on the server and will be deleted.")) return;
+    if (hasContent) { setAskDiscard(true); return; }
+    discardNow();
+  }
+  function discardNow() {
+    setAskDiscard(false);
     dirty.current = false;
     try { localStorage.removeItem(draftKey(type)); } catch { /* fine */ }
     fetch(`/api/help/drafts?route=${type}`, { method: "DELETE" }).catch(() => {});
@@ -226,6 +233,9 @@ export default function HelpComposer() {
 
   return (
     <PortalShell crumb="Help" title="" wide>
+      <ConfirmDialog open={askDiscard} danger title="Discard this draft?" confirmLabel="Discard draft"
+        body={<>The title, the text{atts.attachedIds.length ? `, and ${atts.attachedIds.length} attached file${atts.attachedIds.length === 1 ? "" : "s"}` : ""} are deleted from this device and from the server, and you go back to Help. This cannot be undone.</>}
+        onConfirm={discardNow} onCancel={() => setAskDiscard(false)} />
       <div className="mx-auto max-w-[900px] px-[30px] pb-14 pt-2">
         <div
           className="flex items-center gap-3 rounded-t-[16px] border border-cw-border bg-cw-bg-surface px-6 py-4"

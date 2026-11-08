@@ -169,6 +169,7 @@
     }
     .hidden { display: none; }
   </style>
+  <script src="/cw-dialog.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -432,7 +433,7 @@
           save();
           render();
         } catch (err) {
-          alert(`Import failed: ${err.message}`);
+          cwDialog({ title: "That file could not be imported", body: "It is not a tracker export: nothing on the page changed. Choose a file made by Export on this page.", ok: "OK", cancel: null });
         }
       };
       reader.readAsText(file);
@@ -447,8 +448,8 @@
       if (file) importJson(file);
       e.target.value = "";
     });
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      if (!confirm("Reset all statuses and notes for this tracker?")) return;
+    document.getElementById("resetBtn").addEventListener("click", async () => {
+      if (!(await cwDialog({ title: "Reset this tracker?", body: "Every country's status and note on this page goes back to empty, in this browser. Export first if you want to keep them. This cannot be undone.", ok: "Reset tracker", cancel: "Keep them", danger: true }))) return;
       model = COUNTRIES.map(defaultRow);
       save();
       render();

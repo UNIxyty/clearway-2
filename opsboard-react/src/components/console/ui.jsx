@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import Icon from './icons';
 import portalTokensCss from '../../../../shared/portal-tokens.css?raw';
 import clientTokensCss from '../../../../shared/client-tokens.css?raw';
@@ -1033,13 +1033,40 @@ const ToastContext = createContext(() => {});
  * actions look and behave like the rest of the console.
  */
 export function ConfirmDialog({ open, title, body, confirmLabel = 'Delete', danger = true, busy = false, onConfirm, onCancel }) {
+  // The keyboard (2026-11-09): focus moves in — onto Cancel for a destructive one, so Enter never destroys by default,
+  // onto the action otherwise, so Enter confirms — stays inside, Esc closes, and focus returns to what opened it.
+  const box = useRef(null);
+  const titleId = useId();
+  const cancelRef = useRef(onCancel); cancelRef.current = onCancel;
+  const busyRef = useRef(busy); busyRef.current = busy;
+  useEffect(() => {
+    if (!open) return undefined;
+    const opener = document.activeElement;
+    const buttons = box.current ? [...box.current.querySelectorAll('button')] : [];
+    (danger ? buttons[0] : buttons[buttons.length - 1])?.focus();
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !busyRef.current) { e.stopPropagation(); cancelRef.current?.(); }
+      if (e.key === 'Tab' && box.current) {
+        const f = [...box.current.querySelectorAll('button:not([disabled])')];
+        if (!f.length) return;
+        if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+        else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => { document.removeEventListener('keydown', onKey, true); opener?.focus?.(); };
+  }, [open, danger]);
   if (!open) return null;
   return (
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 220, background: t.scrim, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={onCancel}
+      onClick={() => { if (!busy) onCancel(); }}
     >
       <div
+        ref={box}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="cw-fade"
         onClick={(e) => e.stopPropagation()}
         style={{ background: t.raised, borderRadius: 16, boxShadow: t.shadowPop, border: `1px solid ${t.border}`, maxWidth: 470, width: '100%', padding: '22px 24px' }}
@@ -1049,12 +1076,12 @@ export function ConfirmDialog({ open, title, body, confirmLabel = 'Delete', dang
             <Icon name="alert-triangle" size={19} color={danger ? t.red : t.blueDeep} />
           </span>
           <div style={{ minWidth: 0 }}>
-            <h3 style={{ fontSize: 16.5, fontWeight: 800, margin: '3px 0 6px' }}>{title}</h3>
+            <h3 id={titleId} style={{ fontSize: 16.5, fontWeight: 800, margin: '3px 0 6px' }}>{title}</h3>
             {body && <div style={{ fontSize: 13.5, color: t.muted, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{body}</div>}
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <Button variant="ghost" viewOnlyOk onClick={onCancel}>Cancel</Button>
+          <Button variant="ghost" viewOnlyOk disabled={busy} onClick={onCancel}>Cancel</Button>
           <Button variant={danger ? 'danger' : 'primary'} spin={busy} disabled={busy} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
       </div>

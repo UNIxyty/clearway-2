@@ -246,15 +246,18 @@ export default function AdminClientsPage() {
     } catch (e) { toast.show({ tone: "danger", title: "Not saved", body: e instanceof Error ? e.message : OFFLINE }); } // public-error-ok: the Error carries our own route's sentence (the clients API answers with its problems list), or OFFLINE
     finally { setBusy(false); }
   };
-  const refuse = async (c: ClientRow) => {
-    const note = window.prompt(`A note ${c.person_name || c.email} will see on their page (why, and what would help):`, "");
-    if (note === null) return;
+  // the note is asked for in our own dialog, never the browser's prompt (2026-11-09)
+  const [refusing, setRefusing] = useState<ClientRow | null>(null);
+  const [refuseNote, setRefuseNote] = useState("");
+  const refuse = async (c: ClientRow) => { setRefusing(c); setRefuseNote(""); };
+  const refuseNow = async (c: ClientRow, note: string) => {
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/clients/${c.id}/refuse`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ note }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error((typeof data?.error === "string" && data.error) || `HTTP ${res.status}`);
       const mail = data.email as { ok?: boolean } | null | undefined;
+      setRefusing(null);
       toast.show({ tone: mail?.ok ? "info" : "warning", title: `Request from ${c.company} refused`, body: mail?.ok ? `The email telling them was accepted by the mail service.` : "The email telling them was not sent; Mailbox › Sent has it as failed." }); close(); await load();
     } catch (e) { toast.show({ tone: "danger", title: "Not saved", body: e instanceof Error ? e.message : OFFLINE }); } // public-error-ok: the Error carries our own route's sentence (the clients API answers with its problems list), or OFFLINE
     finally { setBusy(false); }
@@ -384,6 +387,17 @@ export default function AdminClientsPage() {
           </>
         )}
       </PageContent>
+      <Modal open={Boolean(refusing)} onClose={() => { if (!busy) setRefusing(null); }} tone="danger" icon="user-x" title={refusing ? `Refuse the request from ${refusing.company}?` : ""} width={520} busy={busy}
+        actions={<><Button variant="secondary" onClick={() => setRefusing(null)} disabled={busy} data-autofocus>Keep the request</Button><Button variant="danger" icon="user-x" loading={busy} loadingLabel="Refusing…" onClick={() => refusing && void refuseNow(refusing, refuseNote)}>Refuse request</Button></>}>
+        {refusing && (
+          <div className="flex flex-col gap-3">
+            <span>{refusing.person_name || refusing.email} gets an email saying the request was refused, with the note below. No account is made, and the request stays in the decision log.</span>
+            <label className="flex flex-col gap-1.5"><span className="text-[13.5px] font-semibold">A note they will see (why, and what would help)</span>
+              <textarea value={refuseNote} onChange={(e) => setRefuseNote(e.target.value)} rows={4} className="w-full resize-y rounded-[8px] border border-cw-border-control bg-cw-bg-surface px-3 py-2 font-sans text-[14px] text-cw-text outline-none focus:border-cw-border-focus" />
+            </label>
+          </div>
+        )}
+      </Modal>
       <Modal open={Boolean(removing)} onClose={() => { if (!busy) { setRemoving(null); setConfirmText(""); } }} tone="danger" icon="octagon-alert" title="This cannot be undone" width={520} busy={busy}
         actions={<><Button variant="secondary" onClick={() => { setRemoving(null); setConfirmText(""); }} disabled={busy}>Keep access</Button><Button variant="danger" icon="user-x" disabled={!removing || confirmText.trim().toLowerCase() !== removing.company.trim().toLowerCase() || busy} loading={busy} onClick={() => void remove()} data-remove-confirm>Remove access</Button></>}>
         {removing && (

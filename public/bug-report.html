@@ -210,6 +210,7 @@
       color: #f0c8c8;
     }
   </style>
+  <script src="/cw-dialog.js"></script>
 </head>
 <body>
   <h1>BUG REPORT</h1>
@@ -566,8 +567,8 @@
       render();
     });
 
-    document.getElementById("btn-reset").addEventListener("click", () => {
-      if (!confirm("Reset statuses and clear all remarks? Plain Ok → solved; others → awaiting.")) return;
+    document.getElementById("btn-reset").addEventListener("click", async () => {
+      if (!(await cwDialog({ title: "Reset every status and remark?", body: "All remarks on this page are cleared from this browser. Statuses go back to their starting values: plain Ok becomes solved, everything else awaiting. This cannot be undone.", ok: "Reset statuses", cancel: "Keep them", danger: true }))) return;
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(REMARKS_KEY);
       render();

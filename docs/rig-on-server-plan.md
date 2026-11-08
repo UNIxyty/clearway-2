@@ -3,6 +3,15 @@
 Asked for on 2 November ("the tests are eating his day"). Numbers marked **measured** were measured; the rest are
 estimates, and say what they rest on.
 
+## Why it was worth doing
+
+**The result of this move is a green run on a box built from nothing.** On 2026-11-02 the rig that gates every deploy
+existed on one laptop and could not be rebuilt: the first box built from the repository went 34 red where the Mac
+passed, because the Mac held setup nobody had written down. On 2026-11-09 a box destroyed and built again by
+`rig/box/build.sh --replace`, with no hand step, ran all 103 suites green (d0937eb4, and again at 6c35e854). If the
+laptop dies, the rig does not die with it. Speed came second: one lane on the server is about as fast as an awake Mac,
+and the gain is the Mac being free.
+
 ## Built (2026-11-07): steps 1–3, then reproducibility before the second lane
 
 The box exists: a KVM VM `rigbox` (6 GB, 8 threads, 25 GB thin disk, QEMU user-mode network, SSH on the host's

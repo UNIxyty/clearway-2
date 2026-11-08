@@ -53,6 +53,7 @@ run no-real-passenger-data node rig/check-no-real-passenger-data.mjs
 run docs-check node --no-warnings rig/docs-check.mjs
 run utc-times node rig/check-utc-times.mjs
 run error-text node rig/check-error-text.mjs
+run no-browser-dialogs node rig/check-no-browser-dialogs.mjs   # no alert/confirm/prompt anywhere: our own overlays only (2026-11-09)
 run migrations-check node rig/migrations-check.mjs   # every schema file reaches the rig from the repository, none by hand (2026-11-07)
 run style-text node rig/check-style-text.mjs
 run own-mail node rig/check-own-mail.mjs
@@ -172,6 +173,7 @@ run stage3-batch1 $E rig/stage3-batch1-check.mjs
 docker exec supabase_db_rig psql -U postgres -q -c "update user_preferences set dashboard_layout = null where dashboard_layout is not null"
 run stage3-batch2 $E rig/stage3-batch2-check.mjs
 run stage3-batch3 $E rig/stage3-batch3-check.mjs
+run dialogs $E rig/dialogs-check.mjs   # our own dialogs by keyboard: Help discard, Admin › Clients refuse, console delete operator (2026-11-09)
 docker exec supabase_db_rig psql -U postgres -q -c "update user_preferences set dashboard_layout = null where dashboard_layout is not null"
 run stage4 $E rig/stage4-check.mjs
 run overlay-check $E rig/overlay-check.mjs

@@ -10,7 +10,7 @@ command -v node >/dev/null || { echo "check-source: REFUSED: no node on this mac
 fails=0
 # (rig/check-no-real-passenger-data.mjs is not here: it reads mail through the agent's own parser, which needs
 # node_modules; it stays in the full run)
-for c in rig/check-error-text.mjs rig/check-utc-times.mjs rig/check-style-text.mjs rig/check-own-mail.mjs rig/migrations-check.mjs; do
+for c in rig/check-error-text.mjs rig/check-no-browser-dialogs.mjs rig/check-utc-times.mjs rig/check-style-text.mjs rig/check-own-mail.mjs rig/migrations-check.mjs; do
   out="$(node "$c" 2>&1)"; rc=$?
   if [ $rc = 0 ]; then echo "check-source: ok    $c"; else fails=$((fails + 1)); echo "check-source: FAIL  $c (exit $rc)"; printf '%s\n' "$out" | grep -E '^(FAIL|Error|.*Error:)' | head -12 | sed 's/^/    /'; fi
 done

@@ -68,7 +68,10 @@ try {
   // ── 3. The wall console: delete an operator (opened and cancelled, nothing deleted) ──
   const count = async () => (await (await fetch(`${SB}/rest/v1/leon_operators?select=opr_id`, { headers: H })).json()).length;
   const before = await count();
-  await page.goto(`${B}/digital-wall/console/operators`, { waitUntil: "load" }); await settled(page);
+  // the console as the runner serves it to suites: vite preview on :4173 against the sign-in-on wall (preview 5198)
+  const CONSOLE = process.env.RIG_CONSOLE || "http://127.0.0.1:4173";
+  await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(s)).toString("base64")}`, url: CONSOLE }, { name: "sb-rig-auth-token", value: encodeURIComponent(JSON.stringify([s.access_token])), url: CONSOLE }]);
+  await page.goto(`${CONSOLE}/console/operators`, { waitUntil: "load" }); await settled(page);
   const del = page.getByTitle("Delete operator").first();
   await del.waitFor({ timeout: 15000 }).catch(() => {});
   await del.click(); await sleep(300);

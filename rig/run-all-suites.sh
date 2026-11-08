@@ -119,6 +119,7 @@ docker exec supabase_db_rig psql -U postgres -q -c "alter table permission_chang
 docker exec -i supabase_db_rig psql -U postgres -q < docs/supabase-permissions.sql > /dev/null
 bash rig/approve-rig-accounts.sh >> $LOG 2>&1
 run permissions-browser $E rig/permissions-browser.mjs
+run dialogs $E rig/dialogs-check.mjs   # our own dialogs by keyboard: Help discard, Admin › Clients refuse, console delete operator; inside the console preview against the sign-in wall (2026-11-09)
 run self-promotion-check $E rig/self-promotion-check.mjs
 run temporary-access-check $E rig/temporary-access-check.mjs
 run client-scope-check $E rig/client-scope-check.mjs
@@ -173,7 +174,6 @@ run stage3-batch1 $E rig/stage3-batch1-check.mjs
 docker exec supabase_db_rig psql -U postgres -q -c "update user_preferences set dashboard_layout = null where dashboard_layout is not null"
 run stage3-batch2 $E rig/stage3-batch2-check.mjs
 run stage3-batch3 $E rig/stage3-batch3-check.mjs
-run dialogs $E rig/dialogs-check.mjs   # our own dialogs by keyboard: Help discard, Admin › Clients refuse, console delete operator (2026-11-09)
 docker exec supabase_db_rig psql -U postgres -q -c "update user_preferences set dashboard_layout = null where dashboard_layout is not null"
 run stage4 $E rig/stage4-check.mjs
 run overlay-check $E rig/overlay-check.mjs

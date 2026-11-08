@@ -89,7 +89,8 @@ export async function sweepAssets(assets, { permissionNames = [], operators = []
     const j = jwtRoles(text); put("jwtAnon", j.anon); put("jwtPrivileged", j.privileged);
     put("comments", (text.match(COMMENT) ?? []).length);
     put("featureFlags", uniq(text.match(FLAGS) ?? []).length);
-    put("buildMeta", uniq(text.match(BUILD_META) ?? []).length);
+    // a run-time lookup (`env?.npm_package_name`, the Supabase library's) reads nothing in a browser and carries no value
+    put("buildMeta", uniq(text.replace(/\benv\??\.[A-Za-z_]+/g, "").match(BUILD_META) ?? []).length);
     rows.push({ url, kind, counts });
   }
   const total = {};

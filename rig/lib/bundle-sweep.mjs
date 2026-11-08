@@ -26,6 +26,9 @@ const REG = /\b(?:[A-Z]{1,2}-[A-Z]{3,4}|N\d{1,5}[A-Z]{0,2})\b/g;
 const REG_NOT = new Set(["UTF-8", "ISO-8859", "SHA-256", "SHA-1", "AES-256", "X-UA", "IE-EDGE", "A-Z", "ES-ES", "EN-US", "EN-GB", "UTC-12", "X-CW", "N1", "N2"]);
 const ICAO = /\b[A-Z]{4}\b/g;
 const HASH = /\b[0-9a-f]{40}\b/g;
+// the product's own name is on every page by design; it is also an operator in Leon (2026-11-09: "operators 9" on
+// production's sign-in page was this one name). Every other operator still counts.
+const BRAND = new Set((() => { try { return [JSON.parse(fs.readFileSync(new URL("../../content/docs/site.json", import.meta.url), "utf8")).product]; } catch { return []; } })().filter(Boolean).map((x) => String(x).toLowerCase()));
 const FLAGS = /\b(?:NEXT_PUBLIC_[A-Z0-9_]+|FEATURE_[A-Z0-9_]+|(?:ENABLE|DISABLE)_[A-Z0-9_]{3,}|RIG_[A-Z0-9_]+)\b/g;
 const BUILD_META = /\b(?:GIT_(?:COMMIT|SHA|BRANCH|TAG)|COMMIT_SHA|SOURCE_VERSION|VERCEL_GIT_[A-Z_]+|npm_package_[a-z_]+|BUILD_(?:ID|TIME|DATE|NUMBER)|buildTime|commitHash|gitCommit)\b/g;
 const PATHS = /(?:\/Users\/[\w.-]+|\/home\/[\w.-]+|\/root\/[\w.-]+)/g;
@@ -79,7 +82,7 @@ export async function sweepAssets(assets, { permissionNames = [], operators = []
     put("internalHosts", uniq(text.match(INTERNAL) ?? []).filter((h) => !LIBRARY_HOSTS.has(h) && !publicHosts.some((p) => p.startsWith(h))).length);
     put("permissionNames", permissionNames.filter((p) => text.includes(`"${p}"`) || text.includes(`'${p}'`)).length);
     put("serverEnvNames", uniq(text.match(SERVER_ENV) ?? []).length);
-    put("operators", operators.filter((o) => o.length >= 4 && new RegExp(`["'\`>\\s]${o.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'\`<\\s]`, "i").test(text)).length);
+    put("operators", operators.filter((o) => o.length >= 4 && !BRAND.has(String(o).toLowerCase()) && new RegExp(`["'\`>\\s]${o.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'\`<\\s]`, "i").test(text)).length);
     put("registrations", uniq((text.match(REG) ?? []).filter((r) => !REG_NOT.has(r))).length);
     const icaos = uniq(text.match(ICAO) ?? []); if (icaos.length > 200) counts.airportLists = icaos.length;
     put("hashes", uniq(text.match(HASH) ?? []).length);

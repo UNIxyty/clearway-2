@@ -9,6 +9,8 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 BUILD=0; SOURCE=""
 while [ $# -gt 0 ]; do case "$1" in --build) BUILD=1;; --source) SOURCE="$2"; shift;; *) echo "unknown option $1"; exit 2;; esac; shift; done
+# the boxes must be on the same commit, or the two halves are of different runs
+same=$( { env RIGBOX=rigbox RIGBOX_SSH_PORT=2222 bash "$HERE/ssh.sh" "cd ~/clearway-2 && git rev-parse HEAD" < /dev/null; env RIGBOX=rigbox2 RIGBOX_SSH_PORT=2223 bash "$HERE/ssh.sh" "cd ~/clearway-2 && git rev-parse HEAD" < /dev/null; } 2>/dev/null | sort -u | wc -l)
 say() { echo "[two-lanes $(date -u +%H:%M:%SZ)] $*"; }
 A=(env RIGBOX=rigbox RIGBOX_SSH_PORT=2222 bash "$HERE/ssh.sh"); Bx=(env RIGBOX=rigbox2 RIGBOX_SSH_PORT=2223 bash "$HERE/ssh.sh")
 
@@ -22,8 +24,12 @@ if [ "$BUILD" = 1 ]; then
 fi
 
 lane() { # $1 a|b — runs the lane in its box, sampling used memory and swap (MB) every 10 s
-  "${@:2}" "cd ~/clearway-2 && rm -f ~/mem.log && ( while sleep 10; do free -m | awk '/^Mem:/{m=\$3} /^Swap:/{s=\$3} END{print m, s}' >> ~/mem.log; done ) & S=\$!; date +%s > ~/run-start; RIG_LANE=$1 bash rig/run-all-suites.sh > ~/run.out 2>&1; echo \$? > ~/run-rc; date +%s > ~/run-end; kill \$S" < /dev/null
+  # (cd on its own line: "cd … && ( loop ) &" backgrounds the cd too, and the runner then started outside the checkout)
+  "${@:2}" "cd ~/clearway-2 || exit 1; rm -f ~/mem.log ~/run-rc ~/run-end
+    while sleep 10; do free -m | awk '/^Mem:/{m=\$3} /^Swap:/{s=\$3} END{print m, s}' >> ~/mem.log; done < /dev/null > /dev/null 2>&1 & S=\$!
+    date +%s > ~/run-start; RIG_LANE=$1 bash rig/run-all-suites.sh > ~/run.out 2>&1 < /dev/null; echo \$? > ~/run-rc; date +%s > ~/run-end; kill \$S" < /dev/null
 }
+if [ "$BUILD" = 0 ] && [ "$same" != 1 ]; then say "REFUSED: the two boxes are not on the same commit (build them with --build)"; exit 3; fi
 say "lane a in rigbox and lane b in rigbox2, at once"
 t0=$(date +%s)
 lane a "${A[@]}" & la=$!

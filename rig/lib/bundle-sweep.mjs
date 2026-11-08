@@ -12,6 +12,8 @@
 //   localPaths        /Users/, /home/, /root/ paths          people           developer or staff names and addresses
 //   emails            any email address (not *.invalid)      jwtAnon          a JWT with role anon (public by design)
 //   jwtPrivileged     a JWT with any other role — a key      comments         block comments left in the code
+//   featureFlags      flag and public-setting names           buildMeta        commit, branch, build and version metadata
+//   (the last two since 2026-11-09: a flag name describes what is switched on or off behind the door)
 import fs from "node:fs";
 import { createRequire } from "node:module";
 const require_ = createRequire(import.meta.url);
@@ -24,6 +26,8 @@ const REG = /\b(?:[A-Z]{1,2}-[A-Z]{3,4}|N\d{1,5}[A-Z]{0,2})\b/g;
 const REG_NOT = new Set(["UTF-8", "ISO-8859", "SHA-256", "SHA-1", "AES-256", "X-UA", "IE-EDGE", "A-Z", "ES-ES", "EN-US", "EN-GB", "UTC-12", "X-CW", "N1", "N2"]);
 const ICAO = /\b[A-Z]{4}\b/g;
 const HASH = /\b[0-9a-f]{40}\b/g;
+const FLAGS = /\b(?:NEXT_PUBLIC_[A-Z0-9_]+|FEATURE_[A-Z0-9_]+|(?:ENABLE|DISABLE)_[A-Z0-9_]{3,}|RIG_[A-Z0-9_]+)\b/g;
+const BUILD_META = /\b(?:GIT_(?:COMMIT|SHA|BRANCH|TAG)|COMMIT_SHA|SOURCE_VERSION|VERCEL_GIT_[A-Z_]+|npm_package_[a-z_]+|BUILD_(?:ID|TIME|DATE|NUMBER)|buildTime|commitHash|gitCommit)\b/g;
 const PATHS = /(?:\/Users\/[\w.-]+|\/home\/[\w.-]+|\/root\/[\w.-]+)/g;
 // people: no name is written here (the rule: no real name in code). The names looked for are read at run time from the
 // repository's commit authors and this machine's user (peopleFromHere), plus any address on the company's own domain.
@@ -84,6 +88,8 @@ export async function sweepAssets(assets, { permissionNames = [], operators = []
     put("emails", uniq((text.match(EMAIL) ?? []).filter((e) => !/\.invalid$|@example\.|@sentry|@[0-9]/.test(e) && !PLACEHOLDER_EMAIL.test(e))).length);
     const j = jwtRoles(text); put("jwtAnon", j.anon); put("jwtPrivileged", j.privileged);
     put("comments", (text.match(COMMENT) ?? []).length);
+    put("featureFlags", uniq(text.match(FLAGS) ?? []).length);
+    put("buildMeta", uniq(text.match(BUILD_META) ?? []).length);
     rows.push({ url, kind, counts });
   }
   const total = {};

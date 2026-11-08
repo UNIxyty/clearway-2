@@ -83,7 +83,13 @@ await open("RIGPAX20", "unknown", async (page, text) => {
     await ctx.addCookies([{ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(sess)).toString("base64")}`, url: SIGNED }]);
     const page = await ctx.newPage();
     await page.goto(`${SIGNED}/agent/intake?r=${id}`, { waitUntil: "load" });
-    await page.waitForSelector('section[aria-label^="Passengers, leg"]', { timeout: 30000 }); await page.waitForTimeout(1500);
+    // a page that does not show the passengers says what it shows instead, rather than a bare timeout (2026-11-08)
+    if (!(await page.waitForSelector('section[aria-label^="Passengers, leg"]', { timeout: 30000 }).then(() => true, () => false))) {
+      await page.screenshot({ path: `rig/.scratch/shots/people-no-passengers-${who}.png`, fullPage: true });
+      ok(false, `${who}: the request's passenger sections appear`, `${page.url().replace(SIGNED, "")} · ${(await page.locator("main").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 300)}`);
+      await ctx.close(); continue;
+    }
+    await page.waitForTimeout(1500);
     const pencils = page.getByRole("button", { name: /Correct the surname/ });
     const titles = await page.locator('section[aria-label^="Passengers, leg"] [title]').count();
     const text = await page.locator('section[aria-label^="Passengers, leg"]').first().innerText();

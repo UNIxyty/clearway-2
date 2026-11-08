@@ -1,20 +1,3 @@
 {
-  "$comment": "The known-failures record (docs/rig-suites.md). Each entry is ONE cause, the date it was recorded, every suite under it BY NAME (no wildcards), and a `probe`: a command that exits 0 while the cause still holds. The runner runs each probe once at the start; the suites of a cause that still holds are SKIPPED and printed with the cause, and the suites of a cleared cause run again by themselves. rig/verdict.mjs names every red suite that is not listed. Nothing here makes a run green.",
-  "no-model-key": {
-    "since": "2026-11-01",
-    "cause": "No model key on the rig. Since 2026-11-02 the agent calls the Anthropic API (the AWS account behind Bedrock is gone); the rig has no ANTHROPIC_API_KEY in .env.rig. Clears when the rig's own key is there and the API accepts it.",
-    "suites": [
-      "manifest/browser",
-      "intake/e2e",
-      "intake/e2e-classify",
-      "intake/e2e-unread",
-      "intake/e2e-people",
-      "intake/browser-flows",
-      "intake/browser-people",
-      "intake/browser-check",
-      "intake/browser-edits",
-      "intake/extraction-repeat"
-    ],
-    "probe": "node --env-file=.env.rig rig/probes/no-model-key.mjs"
-  }
+ "$comment": "The known-failures record (docs/rig-suites.md). Each entry is ONE cause, the date it was recorded, every suite under it BY NAME (no wildcards), and a `probe`: a command that exits 0 while the cause still holds. The runner runs each probe once at the start; the suites of a cause that still holds are SKIPPED and printed with the cause, and the suites of a cleared cause run again by themselves. rig/verdict.mjs names every red suite that is not listed. Nothing here makes a run green."
 }

@@ -11,6 +11,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"; mkdir -p rig/.scratch
 step() { echo "== $*"; }
 node -e 'const [maj]=process.versions.node.split("."); if (Number(maj) < 24) { console.error(`Node ${process.versions.node}: the rig needs 24 or newer`); process.exit(1); }'
 
+step "system tools the suites call"
+# (2026-11-07: the rig box had no pdftotext; fixes/aip-copy-date read that as "the line is missing")
+need="docker git curl pdftotext python3"; [ "$(uname)" = Linux ] && need="$need xvfb-run ss"
+miss=""; for t in $need; do command -v "$t" >/dev/null || miss="$miss $t"; done
+[ -z "$miss" ] && echo "  all present ($need)" || { echo "  MISSING:$miss (on a Mac: brew install poppler for pdftotext; on the box: rig/box/user-data.yaml)"; exit 1; }
+
 step "dependencies (npm ci in each package with a lockfile)"
 for d in . agent digital-wall extension opsboard-react; do
   stamp="$d/node_modules/.rig-lock-sha"; sum=$(shasum -a 256 "$d/package-lock.json" | cut -d" " -f1)

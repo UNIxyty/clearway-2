@@ -13,7 +13,7 @@ users:
     ssh_authorized_keys: ["@PUBKEY@"]
 ssh_pwauth: false
 package_update: true
-packages: [git, curl, ca-certificates, xz-utils, docker.io, docker-compose-v2, xvfb, python3-venv, lsof, fonts-dejavu-core, fonts-liberation, fonts-noto-core, jq]
+packages: [git, curl, ca-certificates, xz-utils, docker.io, docker-compose-v2, xvfb, python3-venv, lsof, poppler-utils, fonts-dejavu-core, fonts-liberation, fonts-noto-core, jq]
 runcmd:
   # Node, pinned and checked against nodejs.org's own sums (2026-11-07: the first box saved it under another name, so
   # the check failed and Node was installed by hand)

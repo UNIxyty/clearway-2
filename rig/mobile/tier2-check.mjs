@@ -114,8 +114,10 @@ for (const theme of ["light", "dark"]) {
       await page.screenshot({ path: `rig/.scratch/shots/m-${s.name}-empty.png` }); await page.close(); }
     { const page = await ctx.newPage(); await pre(page);
       await page.route(s.route, (route) => route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ ok: false, error: "The rig failed this on purpose." }) }));
-      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.locator("[role=alert]").first().waitFor({ timeout: 10_000 }).catch(() => {});
-      const alerts = await page.locator("[role=alert]").allInnerTexts();
+      // wait for the alert that says it, not the first role=alert: an empty one (Next's route announcer, 1 px) is there at
+      // load, so "the first alert" returned before the page had drawn its own (2026-11-08: 28-45 failures, by timing)
+      await page.goto(`${BASE}${s.path}`, { waitUntil: "load" }); await page.getByRole("alert").filter({ hasText: s.error }).first().waitFor({ timeout: 10_000 }).catch(() => {});
+      const alerts = (await page.locator("[role=alert]").allInnerTexts()).filter((x) => x.trim());
       const text = (alerts.join(" ") + " " + (await page.locator("[data-phone-shell]").innerText())).replace(/\s+/g, " ");
       ok(alerts.length > 0 && s.error.test(text), `${s.name} · error: an alert in the page's own words`, text.slice(0, 200));
       ok((await page.getByRole("button", { name: /Try again/ }).count()) > 0, `${s.name} · error: offers Try again`);

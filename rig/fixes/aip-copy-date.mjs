@@ -64,9 +64,10 @@ try {
   ok(new RegExp(`Cached copy from ${day(t.getTime())}`).test(full.html ?? "") && /more than one AIRAC cycle old/.test(full.html ?? ""), "the email says when the copy is from, and that it is more than one AIRAC cycle old", (full.html ?? "").match(/Cached copy[^<]{0,120}/)?.[0]);
   const tmp = path.join(os.tmpdir(), `aip-stamp-${process.pid}.pdf`);
   fs.writeFileSync(tmp, Buffer.from(full.attachments?.[0]?.content ?? "", "base64"));
-  const pdfText = (() => { try { return execFileSync("pdftotext", [tmp, "-"]).toString(); } catch { return ""; } })();
+  // a missing pdftotext says so, not "the line is missing" (2026-11-07: the rig box had none)
+  const pdfText = (() => { try { return execFileSync("pdftotext", [tmp, "-"]).toString(); } catch (e) { return e.code === "ENOENT" ? "(pdftotext is not installed on this machine: rig/setup.sh checks for it)" : ""; } })();
   fs.rmSync(tmp, { force: true });
-  ok(pdfText.includes(`Clearway cached copy, fetched ${day(t.getTime())}`) && /Not refreshed automatically/.test(pdfText), "the PDF itself carries the line: cached copy, fetched …", pdfText.split("\n").find((l) => /Clearway cached copy/.test(l)));
+  ok(pdfText.includes(`Clearway cached copy, fetched ${day(t.getTime())}`) && /Not refreshed automatically/.test(pdfText), "the PDF itself carries the line: cached copy, fetched …", pdfText.split("\n").find((l) => /Clearway cached copy|pdftotext is not installed/.test(l)) ?? "no such line in the PDF");
 } finally {
   fs.utimesSync(PDF, original, original);
   if (savedJson) fs.writeFileSync(JSON_COPY, savedJson);

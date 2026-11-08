@@ -48,7 +48,9 @@ No wildcards: "intake/browser-*" used to stand for five suites, and a sixth woul
   request RIGPAX19, which only the model-driven intake suites make. Without it the id was empty and the URL was
   malformed, so the gate refused all three before any reveal logic ran. The admin check was one of the three, not a
   fourth. The check now seeds its own invented request and all three pass. permissions-check passes in full.
-- **Last full run: 2026-11-09, on the server's rig box built from the repository alone (rig/box/build.sh --replace, no
+- **Last full run: 2026-11-09, two lanes on two rig boxes built from nothing (rig/box/two-lanes.sh --build), at
+  af9b89d4: GREEN, all 105 suites, 29 min 12 s wall clock (lane a 60 suites, lane b 45).**
+- **Run before that: 2026-11-09, on the server's rig box built from the repository alone (rig/box/build.sh --replace, no
   hand step), at d0937eb4: GREEN, all 103 suites, 54 min 43 s, known-failures record empty.** The first full run since
   3 November. On the way: 34 red on the box's first trial, then 19, 5, 1 — setup only the Mac had (schema, fixtures, the
   Python env, the sign-in accounts, the walls' operators, a 13 October extension build, a hand-made voice recording),

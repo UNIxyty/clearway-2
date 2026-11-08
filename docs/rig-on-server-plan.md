@@ -12,6 +12,21 @@ passed, because the Mac held setup nobody had written down. On 2026-11-09 a box 
 laptop dies, the rig does not die with it. Speed came second: one lane on the server is about as fast as an awake Mac,
 and the gain is the Mac being free.
 
+## Two lanes, measured (2026-11-09, step 4)
+
+**All 105 suites green in 29 min 12 s of wall clock**, on two boxes built from nothing at the same commit (af9b89d4):
+rigbox runs lane a (60 suites, 29 min 12 s, peak 1.9 GB used, 5 MB of swap), rigbox2 lane b (45 suites, 27 min 17 s,
+peak 2.4 GB, 131 MB of swap). Building both at once took 6.5 minutes. One lane was 55 min, so two lanes take a full run
+from about an hour to about half an hour. Each box has 3.5 GB and 6 threads (7 GB for the rig: one over the plan's
+6 GB cap, as agreed on 2026-11-08, so a run must not overlap a production deploy) and 2 GB of swap as a cushion.
+- `RIG_LANE=a|b` splits rig/run-all-suites.sh at `LANE_B_FROM` (client-allow-check). Each lane runs all of the
+  runner's setup and expects only its own suites; `rig/box/two-lanes.sh` merges the two logs and gives one verdict, which
+  refuses a suite that ran twice or not at all. Split at permissions-check it was 23 + 33 min, after the client block
+  32 + 27; client-allow-check gives 29 + 27.
+- What two lanes found: a suite that leaned on another lane's leftovers (mobile/tier1-check read the intake suites'
+  requests). It now files its own. A suite makes what it needs.
+- Run it: on the server as root, from a copy of rig/box/: `bash rig/box/two-lanes.sh --build [--source <bundle>]`.
+
 ## Built (2026-11-07): steps 1–3, then reproducibility before the second lane
 
 The box exists: a KVM VM `rigbox` (6 GB, 8 threads, 25 GB thin disk, QEMU user-mode network, SSH on the host's

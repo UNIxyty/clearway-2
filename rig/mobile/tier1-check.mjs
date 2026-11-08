@@ -31,8 +31,15 @@ const pick = onBoard.find((f) => openChecksOf(f.flight).includes("wx")) ?? onBoa
 if (!pick) { console.error("The rig's board is empty right now (every seeded flight is outside the wall's window): restart the wall's mock Leon (rig/start.sh) and run again."); process.exit(2); }
 if (!pick) { console.error("no flights on the rig wall"); process.exit(2); }
 const flightId = `${pick.oprId}:${pick.flightNid}`;
-const intake = await (await fetch(`${BASE}/agent/api/intake/requests?tab=all`)).json();
-const req = (intake.rows ?? []).find((r) => r.statusKey === "needs_you") ?? (intake.rows ?? []).find((r) => r.statusKey === "needs_review") ?? (intake.rows ?? [])[0];
+// an intake request to look at: the rig's own, or one this suite files (2026-11-09: it read whatever the intake suites
+// had left, so in a lane without them it found none — a suite makes what it needs)
+const intakeRows = async () => ((await (await fetch(`${BASE}/agent/api/intake/requests?tab=all`)).json()).rows ?? []);
+let rows = await intakeRows();
+if (!rows.length) {
+  (await import("node:child_process")).execFileSync("node", ["--env-file=.env.rig", "rig/intake/deliver.mjs", "rig/fixtures/intake/yulsa-cimog1-plus364.eml"], { stdio: "ignore" });
+  for (let i = 0; i < 90 && !rows.length; i += 1) { await new Promise((r) => setTimeout(r, 2000)); rows = await intakeRows(); }
+}
+const req = rows.find((r) => r.statusKey === "needs_you") ?? rows.find((r) => r.statusKey === "needs_review") ?? rows[0];
 if (!req) { console.error("no intake requests on the rig"); process.exit(2); }
 const ICAO = pick.flight.adep?.icao || "EVRA";
 const notams = await (await fetch(`${BASE}/api/notams?icao=${ICAO}`)).json();

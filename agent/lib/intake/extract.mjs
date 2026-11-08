@@ -102,7 +102,25 @@ export async function runModel({ message, bodyText, attachments }) {
   for (const leg of raw.legs) for (const s of leg.services) if (s.checklistNid != null && !known.has(s.checklistNid)) { s.checklistNid = null; s.confidence = Math.min(s.confidence ?? 1, 0.5); }
   sideChecklistItems(raw, defs);
   requesterCompany(raw);
+  senderReference(raw);
   return { raw, modelId: res.modelId, tier: res.effectiveTier, usage, defs };
+}
+
+/**
+ * The sender's reference is a short token with a digit in it (CIMOG1, BJD-2610-044), never a sentence, a registration,
+ * a callsign, an airport or a date (2026-11-09: for an email whose subject is "Handling request YL-TST EVRA 05NOV" and that gives no
+ * reference, one run in three filled one in from the subject; the next run did not). referenceFor already refuses such
+ * a value for the thread's reference; here it is refused in the record too, so the same email gives the same record.
+ */
+const REFERENCE_TOKEN = /^[A-Z0-9][A-Z0-9\-\/.]{2,23}$/;
+const DATE_TOKEN = /^\d{1,2}(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2}|\d{4})?$/;
+export function senderReference(raw) {
+  const r = raw?.reference;
+  if (!r || r.value == null || r.value === "") return;
+  const v = String(r.value).trim().toUpperCase();
+  const flight = new Set((raw.legs ?? []).flatMap((l) => [l.flightNumber?.value, l.registration?.value]).filter(Boolean).map((x) => String(x).toUpperCase().replace(/[\s-]/g, "")));
+  if (REFERENCE_TOKEN.test(v) && /\d/.test(v) && !DATE_TOKEN.test(v) && !flight.has(v.replace(/[\s-]/g, ""))) return;
+  raw.reference = { value: null, said: null, source: null, confidence: null, state: "not_given" };
 }
 
 /**

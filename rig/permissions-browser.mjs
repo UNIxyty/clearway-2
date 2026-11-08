@@ -31,7 +31,17 @@ await admin.goto(`${PORTAL}/admin/permissions`, { waitUntil: "load" });
 await admin.waitForSelector('table[aria-label^="Permissions"]', { timeout: 30000 });
 // Groups start folded (§3.1): open the three this test works in.
 for (const g of ["Permissions", "Operators", "Aircraft"]) await admin.locator(`tbody[aria-label='${g}']`).getByRole("button", { expanded: false }).first().click();
-ok(await admin.getByText("Exactly the defaults").count() === 1, "the screen opens on exactly the defaults");
+{ // when it does not, what differs: the screen's own count, and every grant row in the database not from the seed
+  const exact = (await admin.getByText("Exactly the defaults").count()) === 1;
+  let why = "";
+  if (!exact) {
+    const K = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const rows = await (await fetch(`${SB}/rest/v1/permission_grants?select=role,action,allowed,updated_by_email`, { headers: { apikey: K, authorization: `Bearer ${K}` } })).json();
+    const odd = rows.filter((r) => r.updated_by_email !== "default (seed)").map((r) => `${r.role}/${r.action}=${r.allowed} by ${r.updated_by_email}`);
+    why = `${await admin.getByText(/changed from the defaults/).first().innerText({ timeout: 2000 }).catch(() => "no count shown")} · ${rows.length} grant rows · not from the seed: ${odd.join("; ") || "none"}`;
+  }
+  ok(exact, "the screen opens on exactly the defaults", why);
+}
 ok(await admin.locator('[role="checkbox"][aria-label="Manage permissions (this screen) — Developer"]').isDisabled(), "Developer's Manage permissions is locked on");
 ok(await admin.locator('[role="checkbox"][aria-label="Manage permissions (this screen) — Admin"]').isDisabled(), "…and so is your own role's (you cannot take it from yourself)");
 const hardRow = admin.locator("tr", { hasText: "Delete an operator" }).first();

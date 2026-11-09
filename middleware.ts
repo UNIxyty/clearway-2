@@ -339,7 +339,13 @@ async function gate(request: NextRequest) {
     // closed). Not on the list, or its switch off: 404. Their flights come from the wall's API, which keeps its own list.
     const clientScope = await scopeFor(user);
     const clientSwitches = clientScope && !clientScope.nobody ? clientScope.switches : new Set<string>();
-    if (clientMayReach(pathname, request.method, clientSwitches).ok) return response;
+    if (clientMayReach(pathname, request.method, clientSwitches).ok) {
+      // A production check account reads and nothing else (scripts/check-accounts.mjs), a check client included. The
+      // gate for that is further down, past this block, and until 2026-11-09 no write was on a client's list; the
+      // password route is, and the production walk found it answering a check client (400 for its empty form).
+      if (isWriteMethod(request.method) && appMetaForClient.check_account === true) return NextResponse.json({ error: "A check account is read-only. Nothing was changed." }, { status: 403 });
+      return response;
+    }
     return notOnAccount();
   }
   // A role nobody planned for (docs/permissions.md › Unknown roles) gets nothing, pages included (2026-11-04). Until then

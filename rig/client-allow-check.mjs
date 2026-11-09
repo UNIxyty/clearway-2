@@ -77,6 +77,19 @@ try {
   const pwEmpty = await get("/api/client/account/password", { method: "POST", headers: { "content-type": "application/json", "x-rig-visitor": "10.254.0.7" }, body: "{}" });
   ok(pwEmpty.status === 400 && /current password/.test(pwEmpty.text), "the password route answers a client (400 for an empty form: nothing changed)", pwEmpty.status);
   ok((await get("/api/client/account/password")).status === 404 && (await get("/api/client/account")).status === 404 && (await get("/client/account/x")).status === 404, "…and only that: GET on it, its parent and a page under Account are 404");
+  // a production check account is read-only, a check client too (2026-11-09: the production walk found the password
+  // route answering one, because the client's list is decided before the read-only gate): marked as one, the same
+  // client's write is refused 403 before the route, right password or not, and the password stays
+  {
+    const mark = (on) => svc(`/auth/v1/admin/users/${uid}`, { method: "PUT", body: JSON.stringify({ app_metadata: { role: "client", is_approved: true, client_status: "approved", check_account: on } }) });
+    await mark(true);
+    const sc = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: EMAIL, password: PASSWORD }) })).json();
+    const tried = await fetch(`${B}/api/client/account/password`, { method: "POST", redirect: "manual", headers: { cookie: cookieOf(sc), "content-type": "application/json", "x-rig-visitor": "10.254.0.8" }, body: JSON.stringify({ current: PASSWORD, next: `${PASSWORD}-never-set` }) });
+    const still = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: EMAIL, password: PASSWORD }) })).json();
+    ok(tried.status === 403 && /read-only/.test(await tried.text()) && Boolean(still.access_token), "a check account that is a client cannot change its password: 403, read-only, and the password stays", tried.status);
+    ok((await fetch(`${B}/client/account`, { headers: { cookie: cookieOf(sc) }, redirect: "manual" })).status === 200, "…and it still reads its pages");
+    await mark(false);
+  }
   const closed = ["/client/airports", "/client/documents", "/dashboard", "/aip", "/admin/users", "/admin/clients", "/agent", "/developer/inbox", "/account/profile", "/docs"];
   const closedRes = await Promise.all(closed.map(async (p) => [p, (await get(p)).status]));
   ok(closedRes.every(([, st]) => st === 404), "Airports and Documents with their switches off, and the staff pages: all 404", closedRes.map(([p, st]) => `${p} ${st}`).join(" · "));

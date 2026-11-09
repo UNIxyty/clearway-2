@@ -18,6 +18,14 @@ const PASSWORD = "rig-access-check-only";
 const grant = async (email) => (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email, password: PASSWORD }) })).json();
 const cookie = (s) => ({ name: `sb-${new URL(SB).hostname.split(".")[0]}-auth-token`, value: `base64-${Buffer.from(JSON.stringify(s)).toString("base64")}`, url: B });
 const noOverflow = (page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+// A phone screenshot is the screen as the phone shows it, tab bar at the bottom, and a second one scrolled to the end
+// (2026-11-09: a full-page capture drew the sticky tab bar across the middle of the page). A desk one is the window.
+const shot = async (page, file, width, { whole = false } = {}) => {
+  if (width !== 390) { await page.screenshot({ path: file, fullPage: whole }); return; }
+  await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: file });
+  const more = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight + 40);
+  if (more) { await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await page.waitForTimeout(150); await page.screenshot({ path: file.replace(/\.png$/, "-end.png") }); await page.evaluate(() => window.scrollTo(0, 0)); }
+};
 const COMPANY = "Rig Air Services"; // invented
 const EMAIL = "rig-client-ui@rig.invalid";
 
@@ -88,13 +96,13 @@ for (const theme of ["light", "dark"]) {
     ok(await page.locator("[data-cw-sidebar]").count() === 0 && !(await page.content()).includes("Flight intake"), `client wall ${theme} ${width}: no portal shell in the page`);
     ok(await noOverflow(page), `client wall ${theme} ${width}: no horizontal page scroll`);
     if (width === 390) ok(await page.locator("[data-detail]").isHidden(), "client wall 390: the board comes first, the flight is not shown yet");
-    await page.screenshot({ path: `${OUT}/client-wall-board-${theme}-${width}.png`, fullPage: width === 390 });
+    await shot(page, `${OUT}/client-wall-board-${theme}-${width}.png`, width);
     await page.locator("[data-flight]").first().click(); await settled(page);
     ok(await page.locator("[data-detail]").isVisible(), `client wall ${theme} ${width}: a flight opens`);
     ok(await page.locator('[data-card="weather"]').count() === 1 && await page.locator('[data-card="notams"]').count() === 1 && await page.locator('[data-card="passengers"]').count() === 1, `client wall ${theme} ${width}: weather, NOTAMs and passengers (names) cards — their switches`);
     ok(await page.locator('[data-card="documents"]').count() === 0 && await page.locator(".clw-topnav").count() === 0 && JSON.stringify((await page.locator(".clw-bottomnav a").allInnerTexts()).map((x) => x.trim())) === JSON.stringify(["Flights", "Account"]), `client wall ${theme} ${width}: no documents card, no area tabs but Flights and Account — switches off add nothing`);
     ok(await noOverflow(page), `client wall ${theme} ${width}: no horizontal scroll with a flight open`);
-    await page.screenshot({ path: `${OUT}/client-wall-flight-${theme}-${width}.png`, fullPage: width === 390 });
+    await shot(page, `${OUT}/client-wall-flight-${theme}-${width}.png`, width);
     if (width === 390) { await page.locator(".clw-back").click(); await settled(page); ok(await page.locator("[data-board]").isVisible(), "client wall 390: ← All flights returns to the board"); }
     await ctx.close();
   }
@@ -118,7 +126,7 @@ for (const theme of ["light", "dark"]) {
       ok(JSON.stringify(items.map((x) => x.trim())) === JSON.stringify(width === 390 ? ["Flights", "Airports", "Documents", "Account"] : ["Flights", "Airports", "Documents"]), `client flights ${theme} ${width}: the menu is Flights, Airports, Documents${width === 390 ? ", and Account as the last tab" : ""}`, items.join(" | "));
       if (width === 390) ok(await page.evaluate(() => { const n = document.querySelector(".clw-bottomnav"); return !!n && !n.nextElementSibling; }), `client flights ${theme} 390: the tab bar is the last thing on the screen`);
       ok(await noOverflow(page), `client flights ${theme} ${width}: no horizontal page scroll`);
-      await page.screenshot({ path: `${OUT}/client-flights-3areas-${theme}-${width}.png`, fullPage: width === 390 });
+      await shot(page, `${OUT}/client-flights-3areas-${theme}-${width}.png`, width);
       await ctx.close();
     }
     for (const theme of ["light", "dark"]) for (const width of [1440, 390]) for (const area of ["documents", "airports"]) {
@@ -142,7 +150,7 @@ for (const theme of ["light", "dark"]) {
         ok(/No airport matches/.test(await page.locator("[data-no-match]").innerText().catch(() => "")), `client airports ${theme} ${width}: a search with no match says so in words`);
         await page.locator('[aria-label="Search airports"]').fill("");
       }
-      await page.screenshot({ path: `${OUT}/client-${area}-${theme}-${width}.png`, fullPage: width === 390 });
+      await shot(page, `${OUT}/client-${area}-${theme}-${width}.png`, width);
       await ctx.close();
     }
   } finally {
@@ -181,7 +189,7 @@ for (const theme of ["light", "dark"]) {
       ok(await page.locator(".clw-head .clw-signout").isHidden() && await page.locator("[data-signout]").isVisible(), `${tag}: Sign out is on this page (the header keeps the room for the company's name)`);
       ok(await page.evaluate(() => { const n = document.querySelector(".clw-bottomnav"); return !!n && !n.nextElementSibling; }), `${tag}: the tab bar is the last thing on the screen`);
     } else ok(await page.locator(".clw-head .clw-signout").isVisible(), `${tag}: Sign out is in the header too`);
-    await page.screenshot({ path: `${OUT}/client-account-${theme}-${width}.png`, fullPage: width === 390 });
+    await shot(page, `${OUT}/client-account-${theme}-${width}.png`, width);
     await ctx.close();
   }
   // the password change, on the phone: refused in words, changed only with the current password, said only once done
@@ -220,6 +228,12 @@ for (const theme of ["light", "dark"]) {
   ok(new URL(page.url()).pathname === "/login", "client account: Sign out goes to the sign-in page", page.url());
   const after = await page.goto(`${B}/client/account`, { waitUntil: "load" });
   ok(new URL(page.url()).pathname === "/login" && after?.status() === 200, "…and the account page then asks for a sign-in");
+  // the sign-in page itself, typed as a person does, with the new password: Flights is where a client lands
+  await page.goto(`${B}/login`, { waitUntil: "load" }); await settled(page);
+  await page.locator('input[type="email"]').first().fill(EMAIL); await page.locator('input[type="password"]').first().fill(NEW); await page.keyboard.press("Enter");
+  await page.waitForURL((u) => new URL(u).pathname.startsWith("/client"), { timeout: 20000 }).catch(() => {});
+  await page.waitForSelector("[data-client-wall]", { timeout: 20000 }).catch(() => {});
+  ok(new URL(page.url()).pathname === "/client" && await page.locator("[data-client-wall]").count() === 1, "client sign-in: the sign-in page, with the new password, lands on Flights", page.url());
   ok(dialogs === 0, "client account: no browser dialog at any point", dialogs);
   } catch (e) { ok(false, "client account: the password walk ran to its end", String(e?.message ?? e).split("\n")[0]); }
   finally { await ctx.close().catch(() => {}); await svc(`/auth/v1/admin/users/${uid}`, { method: "PUT", body: JSON.stringify({ password: PASSWORD }) }); }   // the rig password back, whatever happened

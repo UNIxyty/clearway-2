@@ -22,6 +22,14 @@ const grant = async (email, password) => (await fetch(`${SB}/auth/v1/token?grant
 const cookieOf = (s) => `sb-${new URL(SB).hostname.split(".")[0]}-auth-token=base64-${Buffer.from(JSON.stringify(s)).toString("base64")}`;
 const wall = async (s, p, init = {}) => { const r = await fetch(`${B}/digital-wall${p}`, { ...init, headers: { cookie: cookieOf(s), authorization: `Bearer ${s.access_token}`, "content-type": "application/json", ...(init.headers ?? {}) } }); const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch { /* not JSON */ } return { status: r.status, json, text }; };
 const noOverflow = (page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+// A phone screenshot is the screen as the phone shows it, tab bar at the bottom, and a second one scrolled to the end
+// (2026-11-09: a full-page capture drew the sticky tab bar across the middle of the page). A desk one is the window.
+const shot = async (page, file, width, { whole = false } = {}) => {
+  if (width !== 390) { await page.screenshot({ path: file, fullPage: whole }); return; }
+  await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: file });
+  const more = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight + 40);
+  if (more) { await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await page.waitForTimeout(150); await page.screenshot({ path: file.replace(/\.png$/, "-end.png") }); await page.evaluate(() => window.scrollTo(0, 0)); }
+};
 
 const EMAIL = "rig-client-feed@rig.invalid", PASSWORD = "rig-access-check-only-client-feed";
 const TAG = `rig-feed-${Date.now().toString(36)}`;   // in every invented note's title, so this run finds and removes its own
@@ -141,7 +149,7 @@ try {
     ok(await noOverflow(page), `${tag}: no horizontal page scroll`);
     const wide = await page.locator("[data-detail] *").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().right > window.innerWidth + 1).length);
     ok(wide === 0, `${tag}: nothing runs past the edge of the screen`, wide);
-    await page.screenshot({ path: `${OUT}/client-notes-${theme}-${width}.png`, fullPage: true });
+    await shot(page, `${OUT}/client-notes-${theme}-${width}.png`, width, { whole: true });
     if (theme === "light") {
       // a flight the notes do not match: the cards are there (the switches are on) and say "none" in words
       const other = recs.find((r) => r.key !== target.key && r.flight.adep?.icao !== icao && r.flight.ades?.icao !== icao && !r.flight.isCnl && (r.flight.limitations ?? []).length === 0);

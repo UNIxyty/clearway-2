@@ -149,3 +149,6 @@ a.clw-avatar { text-decoration: none; cursor: pointer; } a.clw-avatar:hover, a.c
 .clw-note b { font-size: 14px; font-weight: 650; color: var(--cw-text); } .clw-note p { margin: 0; white-space: pre-line; }
 .clw-kvs.one { grid-template-columns: 1fr; } .clw-kvs.one .clw-kv b { overflow-wrap: anywhere; }
 .clw-card-text.clw-muted { color: var(--cw-text-muted); font-size: 13.5px; }
+/* the Account page's second buttons are buttons (an older rule above strips every .cl-btn of its border) */
+.clw-tab .cl-btn:not(.primary) { border: 1px solid var(--cw-border-control); background: var(--cw-bg-surface); color: var(--cw-text); }
+.clw-tab .cl-btn:not(.primary):hover { border-color: var(--cw-text-muted); }

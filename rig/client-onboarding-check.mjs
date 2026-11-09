@@ -71,6 +71,14 @@ ok(r.status === 400, "the notify list refuses something that is not an address",
 r = await api("/api/admin/clients/settings", admin, { method: "PUT", body: JSON.stringify({ emails: OPS }) });
 j = await r.json();
 ok(r.ok && JSON.stringify(j.emails) === JSON.stringify(OPS), "the notify list saves two addresses", JSON.stringify(j));
+// the address clients write to (2026-11-09): the same settings, saved on its own; shown on a client's Account and holding pages
+r = await api("/api/admin/clients/settings", admin, { method: "PUT", body: JSON.stringify({ supportEmail: "not an address" }) });
+ok(r.status === 400, "the address clients write to refuses something that is not an address", r.status);
+r = await api("/api/admin/clients/settings", admin, { method: "PUT", body: JSON.stringify({ supportEmail: " Rig-Client-Help@rig.invalid " }) });
+j = await r.json();
+ok(r.ok && j.supportEmail === "rig-client-help@rig.invalid" && JSON.stringify(j.emails) === JSON.stringify(OPS), "the address clients write to saves on its own, and the notify list stays as it was", JSON.stringify(j).slice(0, 160));
+j = await (await api("/api/admin/clients/settings", admin)).json();
+ok(j.supportEmail === "rig-client-help@rig.invalid", "…and reads back with the notify list");
 
 const browser = await chromium.launch();
 try {

@@ -16,6 +16,20 @@ the other box fails. `rig/box/two-lanes.sh` shuffles, with a random split, every
 after the last shuffled one, and prints the seed: `two-lanes.sh --shuffle <seed> --split <split>` runs that order again.
 A red in a shuffled run is a red run.
 
+What the first shuffled runs found (2026-11-08/09), each fixed so the suite makes what it needs:
+
+| Suite | What it leaned on | Found by |
+|---|---|---|
+| mobile/tier1-check | intake requests another suite left | two lanes, by accident |
+| intake/browser-edits | the CIMOG1 request the runner looked up after the e2e suites | shuffle |
+| intake/browser-cancel | the scheduled requests whichever suite left last, and a folder only e2e-cancel made | shuffle |
+| stage3-batch2 | changelog entries made by other suites | random split |
+| permissions-browser | a change by permissions-check: its loose text match also hit the empty change log's sentence | random split |
+
+Not order: in the same runs extraction-repeat found the model reading one email two ways, twice (the requester's company
+with and without "Ops"; a reference taken from the subject). Both are now fixed in code (agent/lib/intake/extract.mjs).
+The runner's two dashboard-layout resets went too: the suites set their own.
+
 **A check that consumes a shared allowance changes the next check's result (2026-11-04).** The gate walk posted to the
 public forms and used up the 8-an-hour ask-for-access limit, and the onboarding suite then failed with 429; give the walk
 its own sender and onboarding passed 53 of 53 on the same portal. A suite that spends a limit, a quota or a seeded row

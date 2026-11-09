@@ -37,7 +37,9 @@ run_gate() { # $1: what is starting (for the log). Returns non-zero when the run
   if [ -n "$free" ] && [ "$free" -lt 15 ]; then cw_lock_say "REFUSED ${1:-rig run}: ${free} GB free on the host, under 15 GB"; return 1; fi
   command -v flock > /dev/null || return 0
   local fd; exec {fd}> "$CW_LOCK"
-  if ! flock -n "$fd"; then cw_lock_say "${1:-rig run} waits: a deploy holds the lock"; flock "$fd"; cw_lock_say "${1:-rig run} starts: the deploy is over"; fi
+  # shared: two runs or builds starting together never wait for each other, only for a deploy (2026-11-09: exclusive
+  # here, two box builds starting at once logged "waits: a deploy holds the lock" with no deploy anywhere)
+  if ! flock -s -n "$fd"; then cw_lock_say "${1:-rig run} waits: a deploy holds the lock"; flock -s "$fd"; cw_lock_say "${1:-rig run} starts: the deploy is over"; fi
   exec {fd}>&-
   # a box still paused with no deploy holding the lock (the helper never ran: a reboot mid-deploy) is resumed here
   [ -s "$CW_PAUSED" ] && cw_resume "left paused by a deploy that is over"

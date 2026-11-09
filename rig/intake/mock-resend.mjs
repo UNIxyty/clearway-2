@@ -16,6 +16,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 const PORT = Number(process.env.PORT || 3996);
 const reg = new Map();
+// An id is never given twice, as with the real service (2026-11-09): ids used to restart at rig-sent-1 with every start
+// of this mock, the portal's record of a send is unique on the id, and after a restart on the same database the record
+// was refused (409) and Mailbox › Sent had no row for emails that had gone.
+const STARTED = Date.now().toString(36);
 const sent = [];
 const bodies = new Map();
 let failSends = false;   // POST /_rig/fail-sends
@@ -41,12 +45,12 @@ http.createServer(async (req, res) => {
   if (req.method === "POST" && u.pathname === "/emails" && unverified.length) {
     let b = ""; for await (const c of req) b += c; const e = JSON.parse(b || "{}"); const dom = String(e.from ?? "").match(/@([^>\s]+)/)?.[1] ?? "";
     if (unverified.includes(dom)) return send(res, 403, { statusCode: 403, name: "validation_error", message: `The ${dom} domain is not verified. Please, add and verify your domain on https://resend.com/domains` });
-    const id = `rig-sent-${sent.length + 1}`; sent.push({ id, at: new Date().toISOString(), from: e.from, to: e.to, subject: e.subject, attachments: [] }); bodies.set(id, { html: e.html ?? null, attachments: [] }); return send(res, 200, { id });
+    const id = `rig-sent-${STARTED}-${sent.length + 1}`; sent.push({ id, at: new Date().toISOString(), from: e.from, to: e.to, subject: e.subject, attachments: [] }); bodies.set(id, { html: e.html ?? null, attachments: [] }); return send(res, 200, { id });
   }
   if (req.method === "POST" && u.pathname === "/emails" && failSends) { for await (const _c of req) { /* drain */ } return send(res, 503, { name: "rig_refused", message: "The rig's mock Resend refuses sends right now (/_rig/fail-sends)." }); }
   if (req.method === "POST" && u.pathname === "/emails") {
     let b = ""; for await (const c of req) b += c; const e = JSON.parse(b || "{}");
-    const id = `rig-sent-${sent.length + 1}`;
+    const id = `rig-sent-${STARTED}-${sent.length + 1}`;
     sent.push({ id, at: new Date().toISOString(), from: e.from, to: e.to, subject: e.subject, attachments: (e.attachments ?? []).map((a) => ({ filename: a.filename, bytes: a.content ? Buffer.from(a.content, "base64").length : 0 })) });
     bodies.set(id, { html: e.html ?? null, attachments: (e.attachments ?? []).map((x) => ({ filename: x.filename, content: x.content ?? null })) });
     for (const k of [...bodies.keys()].slice(0, Math.max(0, bodies.size - 10))) bodies.delete(k);

@@ -154,7 +154,7 @@ try {
     pg.on("request", (rq) => { const u = new URL(rq.url()); if (u.origin === B) asked.add(`${rq.method()} ${u.pathname}`); });
     for (const p of ["/client", "/client/airports", "/client/documents", "/client/account"]) { await pg.goto(`${B}${p}`, { waitUntil: "load" }); await pg.waitForTimeout(1500); if (p === "/client") { const f = pg.locator("[data-flight]").first(); if (await f.count()) { await f.click(); await pg.waitForTimeout(2000); } } }
     await br.close();
-    const ALLOWED = /^(GET|HEAD) \/(client(\/(airports|documents|account))?$|_next\/|api\/client\/me$|digital-wall\/api\/(flights\/normalized|notam-check\/today|flight-info|airports\/search|aip-pdf|stream|weather)\b|agent\/api\/flights\/[^/]+\/passengers\b|favicon|PFP\.png$|icons\/)/;
+    const ALLOWED = /^(GET|HEAD) \/(client(\/(airports|documents|account))?$|_next\/|api\/client\/me$|digital-wall\/api\/(flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|airports\/search|aip-pdf|stream|weather)\b|agent\/api\/flights\/[^/]+\/passengers\b|favicon|PFP\.png$|icons\/)/;
     const other = [...asked].filter((a) => !ALLOWED.test(a) && !/^(GET|HEAD) \/[^/]+\.(png|svg|ico|woff2?)$/.test(a));
     ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, their standing, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
     // passport scans and raw email: unreachable to a client, through the same path Cloudflare sends them (straight to the agent)

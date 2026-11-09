@@ -25,6 +25,32 @@ service key and cached ten seconds. `flightInScope(scope, flight)`: the flight's
 is named. **Outside scope the answer is 404 — never 403**, which would confirm the flight exists. The sentence is the
 same everywhere: "That is not on your account."
 
+## What a flight is, for a client (2026-11-09): a list of fields
+Which flights a client gets is the scope. What each flight carries is a second question, and until 2026-11-09 nobody
+had asked it: the wall's feeds sent a client each flight as the ops wall keeps it, 55 fields. That included ops' notes
+matched to the flight (Limitations, Important entries with their attachment names, CAA contacts, unreviewed NOTAM and
+weather markers), ops' check marks with the name of who ticked each one, the checklist colours, the trip's internal
+status, and the weather pills, whatever the client's switches said. The page drew none of it. The browser was given all
+of it.
+
+Now `digital-wall/lib/client-scope.mjs` › `clientFlight` builds what a client is sent:
+- **A flight** is `CLIENT_FLIGHT_FIELDS` (identity, route, times, delay, state, passenger count) and nothing else. A
+  new field on the wall's record does not reach a client until someone adds it to the list.
+- **Ops' notes** come back only with their switch, cut to what they say: Limitations (title and text), Important
+  notices (title and text, no attachments), CAA details (the authority and how to reach it). Ops' review markers (NTM,
+  WX) and check marks never leave.
+- **An aircraft or a row** is what names it: operator, registration, type.
+- **The NOTAM check state** on a flight comes only with NOTAM check status, as "in today's check, checked or not" per
+  airport, with no name on it.
+- `/api/limitations`, `/api/important` and `/api/caa` answer a client with content only: no match rules (which name
+  other operators and registrations) and no names from the audit trail. `/api/flight-checks` is not a client's at all.
+- **Service status** answers whether the flight data is live and when it was last brought up to date.
+
+Every switch now draws something on the client's pages: the four that drew nothing (Limitations, Important notices,
+CAA details, Service status) are cards on a flight and a line above the board. A switch that is off still adds
+nothing, to the page or to what the browser is sent. `rig/client-feed-check.mjs` reads every feed as a client with the
+switches off and on, against invented notes it makes itself.
+
 ## The client allow-list (2026-11-04): a list, not a filter
 `lib/clients/allow.mjs` names every address in the portal a client may reach, and the switch that opens each one.
 `middleware.ts` enforces it on every request, reading the client's switches with `scopeFor` (cached ten seconds; any

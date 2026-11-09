@@ -64,7 +64,7 @@ try {
   // ── 2. invented notes on the airport of the client's first flight, made through the wall as the admin ──
   const target = recs.find((r) => !r.flight.isCnl && r.flight.adep?.icao) ?? recs[0];
   const icao = target.flight.adep.icao;
-  const lim = await wall(admin, "/api/timeline/limitations", { method: "POST", body: JSON.stringify({ title: `${TAG} limitation (invented)`, description: "Invented for the rig: slots required after 2200 local.", isPermanent: true, match: { airportIcaos: [icao] } }) });
+  const lim = await wall(admin, "/api/timeline/limitations", { method: "POST", body: JSON.stringify({ title: `${TAG} limitation (invented)`, description: "Invented for the rig: slots required after 2200 local.", isPermanent: false, startDate: new Date(Date.now() - 86400e3).toISOString().slice(0, 10), endDate: new Date(Date.now() + 8 * 86400e3).toISOString().slice(0, 10), match: { airportIcaos: [icao] } }) });   // dated, not permanent: a permanent limitation cannot be deleted, and this check removes what it makes
   const imp = await wall(admin, "/api/important", { method: "POST", body: JSON.stringify({ title: `${TAG} notice (invented)`, body: "Invented for the rig: fuel by prior arrangement only.", reviewed: true, match: { airportIcaos: [icao] } }) });
   const caa = await wall(admin, "/api/caa", { method: "POST", body: JSON.stringify({ country: "Rigland (invented)", authorityName: `${TAG} authority (invented)`, functionText: "Landing permits", validity: "Permanent", phones: "+000 000 0000", mail: "permits@rig.invalid", reviewed: true, match: { airportIcaos: [icao] } }) });
   made.lim = lim.json?.limitation?.id ?? null; made.imp = imp.json?.entry?.id ?? null; made.caa = caa.json?.entry?.id ?? null;
@@ -104,13 +104,17 @@ try {
   ok(byType("IMP").every((n) => Object.keys(n).every((k) => ["id", "type", "title", "description"].includes(k))) && byType("CAA").every((n) => Object.keys(n.caa ?? {}).every((k) => CAA.has(k)) && !("description" in n)), "a notice is its title and text (no attachments); a CAA entry is its contact fields (no match rules)");
   x = extra(recs);
   ok(x.row.length === 0 && x.fl.length === 0 && recs.every((r) => !r.notamCheck || Object.keys(r.notamCheck).every((k) => ["day", "dep", "arr"].includes(k))), "with every switch on a flight is still the listed fields; the NOTAM check state has no name on it", `${x.row.join(" ")} ${x.fl.join(" ")}`);
-  const lists = { "/api/limitations": ["limitations", ["id", "title", "description", "isPermanent", "startDate", "endDate"]], "/api/important": ["entries", ["id", "title", "body"]], "/api/caa": ["entries", ["id", ...CAA]] };
+  const lists = { "/api/timeline/limitations": ["limitations", ["id", "title", "description", "isPermanent", "startDate", "endDate"]], "/api/important": ["entries", ["id", "title", "body"]], "/api/caa": ["entries", ["id", ...CAA]] };
   for (const [p, [key, fields]] of Object.entries(lists)) {
     const r = await wall(c, p); const items = r.json?.[key] ?? [];
     const bad = [...new Set(items.flatMap((e) => Object.keys(e)).filter((k) => !fields.includes(k)))];
     ok(r.status === 200 && items.some((e) => JSON.stringify(e).includes(TAG)) && bad.length === 0, `${p}: the client's own, as content only (no match rules, no names from the audit trail)`, `${r.status} · ${items.length} items · ${bad.join(" ")}`);
   }
-  const everything = (await Promise.all([FEED, "/api/limitations", "/api/important", "/api/caa", `/api/flight-info?flightNid=${target.flight.flightNid}&oprId=${encodeURIComponent(target.oprId)}`].map((p) => wall(c, p)))).map((r) => r.text).join("\n");
+  { // the older list address answers the same cut (it holds Leon's own limitations, none on the rig)
+    const r = await wall(c, "/api/limitations");
+    ok(r.status === 200 && Object.keys(r.json ?? {}).join() === "limitations" && (r.json.limitations ?? []).every((e) => Object.keys(e).every((k) => ["id", "title", "description", "isPermanent", "startDate", "endDate"].includes(k))), "/api/limitations: the same cut, content only", `${r.status} · ${(r.json?.limitations ?? []).length} items`);
+  }
+  const everything = (await Promise.all([FEED, "/api/limitations", "/api/timeline/limitations", "/api/important", "/api/caa", `/api/flight-info?flightNid=${target.flight.flightNid}&oprId=${encodeURIComponent(target.oprId)}`].map((p) => wall(c, p)))).map((r) => r.text).join("\n");
   ok(!/rig-access-admin|confirmedBy|addedBy|updatedBy|"match"/.test(everything), "nothing the client is sent names who in ops wrote or confirmed a note, or what it is matched on");
   const st = await wall(c, "/api/timeline/sync-status");
   ok(st.status === 200 && Object.keys(st.json ?? {}).every((k) => ["ok", "lastSyncTimestamp", "healthy", "live", "updatedAt"].includes(k)) && typeof st.json?.live === "boolean", "Service status on: live or not, and when last updated; nothing about operators, errors or the cache", Object.keys(st.json ?? {}).join(" "));
@@ -162,7 +166,11 @@ try {
   if (made.lim) { await wall(admin, `/api/timeline/limitations/${made.lim}`, { method: "DELETE" }); await wall(admin, `/api/timeline/limitations/${made.lim}/purge`, { method: "DELETE" }); }
   if (made.imp) { await wall(admin, `/api/important/${made.imp}`, { method: "DELETE" }); await wall(admin, `/api/important/${made.imp}/purge`, { method: "DELETE" }); }
   if (made.caa) await wall(admin, `/api/caa/${made.caa}`, { method: "DELETE" });
-  const left = (await wall(admin, "/api/flights/normalized?window=all-cached&limit=500")).text.includes(TAG);
+  // an earlier run's leftovers too (one stopped half-way): every note of this check's making, by its title
+  for (const l of (await wall(admin, "/api/timeline/limitations?includeInactive=true")).json?.limitations ?? []) if (/^rig-feed-\w+ limitation \(invented\)$/.test(String(l.title))) { if (l.isPermanent) await wall(admin, "/api/timeline/limitations", { method: "POST", body: JSON.stringify({ ...l, isPermanent: false }) }); await wall(admin, `/api/timeline/limitations/${l.id}`, { method: "DELETE" }); await wall(admin, `/api/timeline/limitations/${l.id}/purge`, { method: "DELETE" }); }
+  for (const e of (await wall(admin, "/api/important")).json?.entries ?? []) if (/^rig-feed-\w+ notice \(invented\)$/.test(String(e.title))) { await wall(admin, `/api/important/${e.id}`, { method: "DELETE" }); await wall(admin, `/api/important/${e.id}/purge`, { method: "DELETE" }); }
+  for (const e of (await wall(admin, "/api/caa")).json?.entries ?? []) if (/^rig-feed-\w+ authority \(invented\)$/.test(String(e.authorityName))) await wall(admin, `/api/caa/${e.id}`, { method: "DELETE" });
+  const left = /rig-feed-\w+ (limitation|notice|authority) \(invented\)/.test((await wall(admin, "/api/flights/normalized?window=all-cached&limit=500")).text);
   ok(!left, "the invented notes are gone from the wall");
   if (uid) { await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "DELETE" }); await svc(`/auth/v1/admin/users/${uid}`, { method: "DELETE" }); }
 }

@@ -74,6 +74,16 @@ export default function ClientWall() {
     return [...m.entries()].map(([k, rows]) => ({ label: `${k === todayKey ? "TODAY" : k === tomorrowKey ? "TOMORROW" : k} · ${new Date(k).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).toUpperCase()}`, trip: null, rows }));
   }, [shown, tripScoped, todayKey, tomorrowKey]);
   const selected = useMemo(() => (recs ?? []).find((r) => r.key === sel) ?? shown[0] ?? null, [recs, sel, shown]);
+  // The first look opens on the nearest day that has a flight (2026-11-09): a client with three flights this week, none
+  // of them today, landed on "No flights today" and an empty page. Once, when the flights first arrive; the tabs are
+  // theirs after that.
+  const [opened, setOpened] = useState(false);
+  useEffect(() => {
+    if (opened || recs === null) return;
+    setOpened(true);
+    const has = (k: string) => recs.some((r) => dayKey(r.flight.startTimeUTC) === k);
+    if (!has(todayKey) && recs.length) setDay(has(tomorrowKey) ? "tomorrow" : "week");
+  }, [opened, recs, todayKey, tomorrowKey]);
 
 
   if (err && !recs) return <main className="clw-hold"><h1>Your flights</h1><p>{err}</p><button type="button" className="cl-btn" onClick={() => void load()}>Try again</button></main>;

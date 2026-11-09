@@ -25,7 +25,9 @@ const EMAIL = "rig-client-ui@rig.invalid";
 let r = await svc("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email: EMAIL, password: PASSWORD, email_confirm: true, user_metadata: { full_name: "Rig Client Person" }, app_metadata: { role: "client", is_approved: false, client_status: "requested" } }) });
 let u = await r.json(); if (!r.ok) { const list = await (await svc("/auth/v1/admin/users?page=1&per_page=200")).json(); u = (list.users ?? []).find((x) => x.email === EMAIL); }
 const uid = u.id;
-await svc(`/auth/v1/admin/users/${uid}`, { method: "PUT", body: JSON.stringify({ app_metadata: { role: "client", is_approved: false, client_status: "requested" } }) });
+// (the password too: this check changes it on the Account page and puts it back, and a run stopped in between left the
+// next run unable to sign in, 2026-11-09)
+await svc(`/auth/v1/admin/users/${uid}`, { method: "PUT", body: JSON.stringify({ password: PASSWORD, app_metadata: { role: "client", is_approved: false, client_status: "requested" } }) });
 // A previous run's row cannot be deleted (its decisions reference it — rows are never deleted, on the rig as in production):
 // put it back to "requested", emptied, or make it when there is none.
 const fresh = { user_id: uid, email: EMAIL, person_name: "Rig Client Person", company: COMPANY, kind: "broker", note: "Two legs for a client of ours next week.", status: "requested", scope: [], switches: [], passenger_level: "off", consent: false, decided_at: null, decided_by: null, decided_by_email: null, decision_note: "" };
@@ -188,6 +190,7 @@ for (const theme of ["light", "dark"]) {
   const other = await grant(EMAIL);   // a second device, signed in before the change
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true }); await ctx.addCookies([cookie(cs)]);
   const page = await ctx.newPage(); let dialogs = 0; page.on("dialog", async (d) => { dialogs += 1; await d.dismiss(); });
+  try {
   await page.goto(`${B}/client/account`, { waitUntil: "load" }); await page.waitForSelector('[data-tab="account"]', { timeout: 15000 }); await settled(page);
   const cur = page.locator('input[name="current"]'), nxt = page.locator('input[name="next"]'), go = page.locator("[data-change-password]");
   await go.click();
@@ -218,8 +221,8 @@ for (const theme of ["light", "dark"]) {
   const after = await page.goto(`${B}/client/account`, { waitUntil: "load" });
   ok(new URL(page.url()).pathname === "/login" && after?.status() === 200, "…and the account page then asks for a sign-in");
   ok(dialogs === 0, "client account: no browser dialog at any point", dialogs);
-  await ctx.close();
-  await svc(`/auth/v1/admin/users/${uid}`, { method: "PUT", body: JSON.stringify({ password: PASSWORD }) });
+  } catch (e) { ok(false, "client account: the password walk ran to its end", String(e?.message ?? e).split("\n")[0]); }
+  finally { await ctx.close().catch(() => {}); await svc(`/auth/v1/admin/users/${uid}`, { method: "PUT", body: JSON.stringify({ password: PASSWORD }) }); }   // the rig password back, whatever happened
   cs = await grant(EMAIL);
   ok(Boolean(cs.access_token), "(the rig password is back for the rest of this check)");
 }

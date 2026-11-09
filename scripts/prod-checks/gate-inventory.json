@@ -810,6 +810,14 @@
   },
   {
    "kind": "api",
+   "method": "POST",
+   "route": "/api/client/account/password",
+   "file": "app/api/client/account/password/route.ts",
+   "ungated": false,
+   "onList": true
+  },
+  {
+   "kind": "api",
    "method": "GET",
    "route": "/api/client/me",
    "file": "app/api/client/me/route.ts",
@@ -1271,6 +1279,14 @@
    "file": "app/auth/reset/page.tsx",
    "ungated": false,
    "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/client/account",
+   "file": "app/client/account/page.tsx",
+   "ungated": false,
+   "onList": true
   },
   {
    "kind": "page",

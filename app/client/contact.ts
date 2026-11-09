@@ -1,9 +1,14 @@
-// The one way out of a client's holding pages (waiting, refused, removed): an address to write to, from the brand
-// settings (content/docs/site.json › supportEmail). Empty until someone fills it in, and then nothing is shown — never
-// the portal's Help & support page, which a client cannot open. Server only: the page passes the string down.
-import site from "@/content/docs/site.json";
+// The address a client writes to (2026-11-09): the setting app_settings 'clients.support_email', edited on Admin ›
+// Clients (lib/clients/onboarding.ts › supportEmail). Shown on their Account page and as the one way out of the holding
+// pages (refused, removed). A setting, not a line of code, and not the docs' support address (content/docs/site.json):
+// the docs point staff to Help & support, which a client cannot open. Empty, or unreadable, means nothing is shown.
+// Server only: the page passes the string down.
+import { supportEmail } from "@/lib/clients/onboarding";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
-export function clientContactEmail(): string {
-  const v = String((site as { supportEmail?: string }).supportEmail ?? "").trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : "";
+export async function clientContactEmail(): Promise<string> {
+  try {
+    const service = createSupabaseServiceRoleClient();
+    return service ? await supportEmail(service) : "";
+  } catch { return ""; }
 }

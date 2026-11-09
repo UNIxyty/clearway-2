@@ -90,7 +90,7 @@ for (const theme of ["light", "dark"]) {
     await page.locator("[data-flight]").first().click(); await settled(page);
     ok(await page.locator("[data-detail]").isVisible(), `client wall ${theme} ${width}: a flight opens`);
     ok(await page.locator('[data-card="weather"]').count() === 1 && await page.locator('[data-card="notams"]').count() === 1 && await page.locator('[data-card="passengers"]').count() === 1, `client wall ${theme} ${width}: weather, NOTAMs and passengers (names) cards — their switches`);
-    ok(await page.locator('[data-card="documents"]').count() === 0 && await page.locator(".clw-bottomnav").count() === 0 && await page.locator(".clw-topnav").count() === 0, `client wall ${theme} ${width}: no documents card, no area tabs — switches off add nothing`);
+    ok(await page.locator('[data-card="documents"]').count() === 0 && await page.locator(".clw-topnav").count() === 0 && JSON.stringify((await page.locator(".clw-bottomnav a").allInnerTexts()).map((x) => x.trim())) === JSON.stringify(["Flights", "Account"]), `client wall ${theme} ${width}: no documents card, no area tabs but Flights and Account — switches off add nothing`);
     ok(await noOverflow(page), `client wall ${theme} ${width}: no horizontal scroll with a flight open`);
     await page.screenshot({ path: `${OUT}/client-wall-flight-${theme}-${width}.png`, fullPage: width === 390 });
     if (width === 390) { await page.locator(".clw-back").click(); await settled(page); ok(await page.locator("[data-board]").isVisible(), "client wall 390: ← All flights returns to the board"); }
@@ -113,7 +113,7 @@ for (const theme of ["light", "dark"]) {
       const page = await ctx.newPage(); await page.goto(`${B}/client`, { waitUntil: "load" }); await page.waitForSelector("[data-client-wall]", { timeout: 20000 }); await settled(page);
       const nav = width === 390 ? ".clw-bottomnav" : ".clw-topnav";
       const items = await page.locator(`${nav} a`).allInnerTexts();
-      ok(JSON.stringify(items.map((x) => x.trim())) === JSON.stringify(["Flights", "Airports", "Documents"]), `client flights ${theme} ${width}: the menu is Flights, Airports, Documents`, items.join(" | "));
+      ok(JSON.stringify(items.map((x) => x.trim())) === JSON.stringify(width === 390 ? ["Flights", "Airports", "Documents", "Account"] : ["Flights", "Airports", "Documents"]), `client flights ${theme} ${width}: the menu is Flights, Airports, Documents${width === 390 ? ", and Account as the last tab" : ""}`, items.join(" | "));
       if (width === 390) ok(await page.evaluate(() => { const n = document.querySelector(".clw-bottomnav"); return !!n && !n.nextElementSibling; }), `client flights ${theme} 390: the tab bar is the last thing on the screen`);
       ok(await noOverflow(page), `client flights ${theme} ${width}: no horizontal page scroll`);
       await page.screenshot({ path: `${OUT}/client-flights-3areas-${theme}-${width}.png`, fullPage: width === 390 });
@@ -146,6 +146,82 @@ for (const theme of ["light", "dark"]) {
   } finally {
     await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ switches: before }) });
   }
+}
+
+// the client's Account page (2026-11-09): who they are, a password change, the address to write to, signing out. On a
+// phone it is the last tab, used with one thumb: every control 44px or more, nothing wider than the screen.
+{
+  const MOCK = "http://127.0.0.1:3996";   // the rig's mock mail service (as rig/client-onboarding-check.mjs)
+  // the address clients write to is a setting (app_settings, Admin › Clients): this check sets its own, an invented one
+  const contact = "rig-client-help@rig.invalid";
+  await svc("/rest/v1/app_settings?on_conflict=key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ key: "clients.support_email", value: { email: contact }, updated_by_email: "rig/client-ui-check" }) });
+  for (const theme of ["light", "dark"]) for (const width of [1440, 390]) {
+    const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, colorScheme: theme, hasTouch: width === 390 });
+    await ctx.addCookies([cookie(cs)]); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
+    const page = await ctx.newPage();
+    // reached the way a person does: the avatar on a desk, the last tab on a phone
+    await page.goto(`${B}/client`, { waitUntil: "load" }); await page.waitForSelector("[data-client-wall]", { timeout: 20000 }); await settled(page);
+    if (width === 390) await page.locator(".clw-bottomnav a").last().click(); else await page.locator("[data-account-link]").click();
+    await page.waitForSelector('[data-tab="account"]', { timeout: 15000 }); await settled(page);
+    const tag = `client account ${theme} ${width}`;
+    ok(new URL(page.url()).pathname === "/client/account", `${tag}: ${width === 390 ? "the last tab" : "the avatar"} opens it`, page.url());
+    const bg = await page.evaluate(() => { const c = getComputedStyle(document.body).backgroundColor.match(/[\d.]+/g)?.map(Number) ?? [255, 255, 255]; return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255; });
+    ok(theme === "dark" ? bg < 0.25 : bg > 0.75, `${tag}: the page is in the ${theme} theme`, bg.toFixed(2));
+    ok(await page.locator("[data-cw-sidebar]").count() === 0 && await noOverflow(page), `${tag}: no portal shell, no horizontal page scroll`);
+    ok((await page.locator("[data-account-email]").innerText()).trim() === EMAIL && (await page.locator('[data-card="you"]').innerText()).includes(COMPANY), `${tag}: says who is signed in, and for which company`);
+    ok(contact ? (await page.locator("[data-client-contact] a").getAttribute("href")) === `mailto:${contact}` : await page.locator("[data-client-contact]").count() === 0, `${tag}: the address to write to is the client contact setting`, contact || "(empty)");
+    const small = await page.locator('[data-tab="account"] button, [data-tab="account"] input').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().height < 43.5).map((e) => `${e.tagName.toLowerCase()} ${Math.round(e.getBoundingClientRect().height)}px`));
+    ok(small.length === 0, `${tag}: every button and field is at least 44px tall`, small.join(", "));
+    const wide = await page.locator('[data-tab="account"] *').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1).length);
+    ok(wide === 0, `${tag}: nothing runs past the edge of the screen`, wide);
+    if (width === 390) {
+      ok(await page.locator(".clw-bottomnav a.on").innerText().then((t) => t.trim() === "Account", () => false), `${tag}: the Account tab is marked as the current one`);
+      ok(await page.locator(".clw-head .clw-signout").isHidden() && await page.locator("[data-signout]").isVisible(), `${tag}: Sign out is on this page (the header keeps the room for the company's name)`);
+      ok(await page.evaluate(() => { const n = document.querySelector(".clw-bottomnav"); return !!n && !n.nextElementSibling; }), `${tag}: the tab bar is the last thing on the screen`);
+    } else ok(await page.locator(".clw-head .clw-signout").isVisible(), `${tag}: Sign out is in the header too`);
+    await page.screenshot({ path: `${OUT}/client-account-${theme}-${width}.png`, fullPage: width === 390 });
+    await ctx.close();
+  }
+  // the password change, on the phone: refused in words, changed only with the current password, said only once done
+  const NEW = "rig-access-check-only-changed-1";
+  const sentBefore = MOCK ? (await (await fetch(`${MOCK}/_rig/sent`)).json()).length : 0;
+  const other = await grant(EMAIL);   // a second device, signed in before the change
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true }); await ctx.addCookies([cookie(cs)]);
+  const page = await ctx.newPage(); let dialogs = 0; page.on("dialog", async (d) => { dialogs += 1; await d.dismiss(); });
+  await page.goto(`${B}/client/account`, { waitUntil: "load" }); await page.waitForSelector('[data-tab="account"]', { timeout: 15000 }); await settled(page);
+  const cur = page.locator('input[name="current"]'), nxt = page.locator('input[name="next"]'), go = page.locator("[data-change-password]");
+  await go.click();
+  ok(/Enter your current password/.test(await page.locator("[data-password-error]").innerText().catch(() => "")), "client account: an empty form is refused in words");
+  await cur.fill(PASSWORD); await nxt.fill("short"); await go.click();
+  ok(/at least 10 characters/.test(await page.locator("[data-password-error]").innerText().catch(() => "")), "client account: a short new password is refused");
+  await cur.fill("rig-access-check-only-wrong"); await nxt.fill(NEW); await go.click(); await page.locator("[data-password-error]").waitFor({ timeout: 15000 }).catch(() => {});
+  ok(/isn't your current password/.test(await page.locator("[data-password-error]").innerText().catch(() => "")) && await page.locator("[data-password-changed]").count() === 0, "client account: a wrong current password is refused by the server, and nothing says changed");
+  ok((await grant(EMAIL)).access_token, "…and the password is still the old one");
+  await cur.fill(PASSWORD); await nxt.fill(NEW); await go.click(); await page.locator("[data-password-changed]").waitFor({ timeout: 20000 }).catch(() => {});
+  const said = await page.locator("[data-password-changed]").innerText().catch(() => "");
+  ok(/Password changed\./.test(said) && /other devices are signed out/.test(said), "client account: the right current password changes it, and the page says so once the server has", said.slice(0, 120));
+  ok(await cur.inputValue() === "" && await nxt.inputValue() === "", "…the fields are emptied");
+  const withOld = await grant(EMAIL);
+  const withNew = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: EMAIL, password: NEW }) })).json();
+  ok(!withOld.access_token && Boolean(withNew.access_token), "…the old password no longer signs in; the new one does");
+  const refreshed = await (await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ refresh_token: other.refresh_token }) })).json();
+  ok(!refreshed.access_token, "…the second device's session is ended (it cannot refresh)", refreshed.error_code ?? refreshed.msg ?? "");
+  await page.reload({ waitUntil: "load" }); await page.waitForSelector('[data-tab="account"]', { timeout: 15000 }).catch(() => {});
+  ok(new URL(page.url()).pathname === "/client/account", "…and this device stays signed in", page.url());
+  if (MOCK) {
+    let note = null; for (let i = 0; i < 40 && !note; i += 1) { note = (await (await fetch(`${MOCK}/_rig/sent`)).json()).slice(sentBefore).find((e) => [].concat(e.to).includes(EMAIL) && /password was changed/i.test(e.subject)); if (!note) await sleep(250); }
+    ok(Boolean(note) && /^Clearway </.test(String(note?.from)) && /A note went to/.test(said), "…the client is told by email, from the brand's sender", note ? `${note.from} · ${note.subject}` : "none");
+  }
+  // signing out from the page, then the old password back for the rest of this check
+  await page.locator("[data-signout]").click(); await page.waitForURL(/\/login/, { timeout: 15000 }).catch(() => {});
+  ok(new URL(page.url()).pathname === "/login", "client account: Sign out goes to the sign-in page", page.url());
+  const after = await page.goto(`${B}/client/account`, { waitUntil: "load" });
+  ok(new URL(page.url()).pathname === "/login" && after?.status() === 200, "…and the account page then asks for a sign-in");
+  ok(dialogs === 0, "client account: no browser dialog at any point", dialogs);
+  await ctx.close();
+  await svc(`/auth/v1/admin/users/${uid}`, { method: "PUT", body: JSON.stringify({ password: PASSWORD }) });
+  cs = await grant(EMAIL);
+  ok(Boolean(cs.access_token), "(the rig password is back for the rest of this check)");
 }
 
 // ask for access: the public page renders at both sizes

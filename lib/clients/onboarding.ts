@@ -55,6 +55,23 @@ export async function setNotifyList(service: SupabaseClient, emails: string[], b
   return { emails: clean };
 }
 
+// ── the address clients write to ────────────────────────────────────────────────────────────────────────────────────
+// app_settings 'clients.support_email' (2026-11-09), edited on Admin › Clients beside the notify list. Shown on a
+// client's Account page and holding pages (app/client/contact.ts). A setting, not a line of code: the address is the
+// company's own and stays out of the repository. Empty: nothing is shown.
+export async function supportEmail(service: SupabaseClient): Promise<string> {
+  const { data } = await service.from("app_settings").select("value").eq("key", "clients.support_email").maybeSingle();
+  const email = String((data?.value as { email?: unknown } | null)?.email ?? "").trim().toLowerCase();
+  return isEmail(email) ? email : "";
+}
+export async function setSupportEmail(service: SupabaseClient, email: string, by: string | null) {
+  const clean = String(email ?? "").trim().toLowerCase();
+  if (clean && !isEmail(clean)) return { problems: [`Not an email address: ${clean.slice(0, 120)}`] };
+  const { error } = await service.from("app_settings").upsert({ key: "clients.support_email", value: { email: clean }, updated_at: new Date().toISOString(), updated_by_email: by }, { onConflict: "key" });
+  if (error) throw error;
+  return { email: clean };
+}
+
 // ── 1 + 2. the request, and ops told ────────────────────────────────────────────────────────────────────────────────
 export type RequestInput = { name: string; company: string; email: string; kind: string; note: string };
 /** The most access-request emails the ops notify list gets in any 24 hours (a human inbox; a normal week has a few). */

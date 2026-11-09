@@ -14,7 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type ClientMenuItem = { path: string; label: string; icon: string };
 
-export default function ClientShell({ menu, company, initials, children }: { menu: ClientMenuItem[]; company: string; initials: string; children: ReactNode }) {
+export default function ClientShell({ menu, account, company, initials, children }: { menu: ClientMenuItem[]; account: ClientMenuItem; company: string; initials: string; children: ReactNode }) {
   const pathname = usePathname() ?? "/client";
   const [utc, setUtc] = useState("");
   useEffect(() => { const tick = () => setUtc(new Date().toISOString().slice(11, 16)); tick(); const t = setInterval(tick, 1000); return () => clearInterval(t); }, []);
@@ -27,13 +27,14 @@ export default function ClientShell({ menu, company, initials, children }: { men
         {menu.length > 1 && <nav className="clw-topnav" aria-label="Areas">{menu.map((m) => <Link key={m.path} href={m.path} className={active(m.path) ? "on" : ""} aria-current={active(m.path) ? "page" : undefined}><MaskIcon name={m.icon} size={15} />{m.label}</Link>)}</nav>}
         <span className="clw-grow" />
         <span className="clw-clock"><span className="clw-utc" suppressHydrationWarning>{utc}<small>UTC</small></span></span>
-        <span className="clw-avatar" aria-hidden>{initials || "·"}</span>
+        {/* the account page, apart from the areas (2026-11-09): the avatar on a desk, the last tab on a phone */}
+        <Link href={account.path} className={`clw-avatar ${active(account.path) ? "on" : ""}`} aria-label={account.label} title={account.label} aria-current={active(account.path) ? "page" : undefined} data-account-link="">{initials || "·"}</Link>
         <button type="button" className="clw-signout" onClick={async () => { await createSupabaseBrowserClient().auth.signOut(); window.location.href = "/login"; }}>Sign out</button>
       </header>
       {children}
       {/* the note above the phone's tab bar: a tab bar is the last thing on the screen (2026-11-09) */}
       <footer className="clw-foot"><span>Times in UTC. Data from Clearway handling, updated live.</span></footer>
-      {menu.length > 1 && <nav className="clw-bottomnav" aria-label="Areas">{menu.map((m) => <Link key={m.path} href={m.path} className={active(m.path) ? "on" : ""} aria-current={active(m.path) ? "page" : undefined}><MaskIcon name={m.icon} size={22} />{m.label}</Link>)}</nav>}
+      <nav className="clw-bottomnav" aria-label="Areas and account">{[...menu, account].map((m) => <Link key={m.path} href={m.path} className={active(m.path) ? "on" : ""} aria-current={active(m.path) ? "page" : undefined}><MaskIcon name={m.icon} size={22} />{m.label}</Link>)}</nav>
     </div>
   );
 }

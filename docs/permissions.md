@@ -104,7 +104,7 @@ Every service caches grants for 10 seconds, so a change in the grid reaches all 
    the reason it needs no check (sign-in flows, signed links, webhooks, the health probe). A handler on neither side
    fails the build (`lib/permissions/check.mjs`).
    - The staff helpers refuse a client or an unknown role with 404, whether or not the middleware ran.
-   - A client passes only `requireClient`; today that is `GET /api/client/me`. That set is the client allow-list.
+   - A client passes only `requireClient`; today that is `GET /api/client/me` and `POST /api/client/account/password` (their own password, 2026-11-09). That set is the client allow-list.
    - Clients get an allow-list, not filtering, because only 19 portal endpoints hold rows that cannot be traced to an
      operator, an aircraft or a trip. Those must be refused, not filtered. The flight and passenger rows are already
      scoped by the wall and the agent. Do not build per-row filtering into portal endpoints for clients: put the

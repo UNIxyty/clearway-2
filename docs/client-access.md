@@ -36,7 +36,9 @@ adds it later.
 | `/client` (Flights) | every approved client |
 | `/client/airports` | Airport & AIP search |
 | `/client/documents` | Documents |
+| `/client/account` (Account, 2026-11-09) | every approved client |
 | `GET /api/client/me` (their own standing) | every approved client |
+| `POST /api/client/account/password` (their own password) | every approved client |
 
 Matching is exact: `/api/client/me/x` is not `/api/client/me`. Two kinds of address are not on the list, and neither
 belongs to a client:
@@ -58,6 +60,12 @@ day someone adds one and forgets. A list is right by default for every endpoint 
 - Flights, Airports and Documents, each only with its switch.
 - A single page is no menu at all.
 - A client who can reach nothing gets an empty menu, which is correct and honest.
+- **Account (2026-11-09)** is apart from the menu and there for every approved client: the avatar in the header on a
+  desk, the last tab on a phone. `/client/account` says who is signed in and for which company, changes the password,
+  shows the address to write to, and signs out. The password change asks for the current password, and the server
+  checks it (`app/api/client/account/password`): at least ten characters, eight tries an hour. After a change every
+  other session of the account is signed out, and the client gets an email from us saying it happened. On a phone the
+  header's Sign out button is not drawn (it is on Account), so the company's name keeps the room.
 - The holding pages render with no shell and no menu.
 
 **The page source stays clean.** The client shell imports nothing of the staff shell or `components/portal/nav.ts`. The
@@ -127,9 +135,11 @@ cannot prove.
   elsewhere, overwriting any copy a visitor sends) and `app/not-found.tsx` draws the docs version only for 1; everywhere
   else it is the portal's page as a client component with no props (`components/portal/PortalNotFound.tsx`), so the
   payload holds a module reference and none of its words. The docs segment is `force-static`, so the docs stay
-  prebuilt and their unknown addresses keep a routing-level 404. The one way out is a contact address from the brand
-  settings, `content/docs/site.json` › `supportEmail` (`app/client/contact.ts`): shown on the three holding pages as
-  "Questions: write to …" once someone fills it in, and nothing at all while it is empty.
+  prebuilt and their unknown addresses keep a routing-level 404. The one way out is the address clients write to: the setting
+  `clients.support_email` in `app_settings`, edited on Admin › Clients beside the notify list (`app/client/contact.ts`;
+  since 2026-11-09 a setting of its own, not the docs' support address and not a line of code, so the address is in
+  neither the docs nor the repository). It is on the holding pages as "Questions: write to …", on the client's Account
+  page under Help, and nothing at all is shown while it is empty.
 - **Admin › Clients, fixed 2026-11-02**: typing put one letter in a field and then lost focus. The editor was a component
   declared inside the page, so every render made a new component type and React remounted it. It is now at module scope.
   The page uses the portal's padding (`components/portal/PageContent.tsx`, `--cw-page-pad`), and the approved table

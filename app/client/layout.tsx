@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import "@/app/client/client.css";
 import ClientShell from "@/components/client/ClientShell";
 import { currentClient } from "@/lib/clients/server-scope";
-import { clientMenu } from "@/lib/clients/allow.mjs";
+import { CLIENT_ACCOUNT_PAGE, clientMenu } from "@/lib/clients/allow.mjs";
 
 // Nothing of the portal in the client's <head>: the title is theirs, and no description of what the portal does.
 export const metadata: Metadata = { title: "Your flights", description: "Sign in to see your flights." };
@@ -24,7 +24,7 @@ export default async function ClientLayout({ children }: { children: ReactNode }
       company = String(scope.company ?? "");
       const name = String((user?.user_metadata as Record<string, unknown> | undefined)?.full_name || company); // metadata-ok: the display name only, for the initials
       initials = name.split(/\s+/).map((s) => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-      return <div className="cl-root" data-client-root=""><ClientShell menu={menu} company={company} initials={initials}>{children}</ClientShell></div>;
+      return <div className="cl-root" data-client-root=""><ClientShell menu={menu} account={CLIENT_ACCOUNT_PAGE} company={company} initials={initials}>{children}</ClientShell></div>;
     }
   } catch { /* no shell on any failure: the page alone, which shows nothing it was not given */ }
   return <div className="cl-root" data-client-root="">{children}</div>;

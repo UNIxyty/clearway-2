@@ -71,6 +71,12 @@ try {
   const home = await get("/client");
   ok(home.status === 200 && /data-client-shell/.test(home.text) && /data-menu="\/client"/.test(home.text), "Flights: open, inside the client shell, with a menu of one (so none is drawn)", home.status);
   ok((await get("/api/client/me")).status === 200, "their own standing: 200");
+  // the account page (2026-11-09): every approved client has it, apart from the menu; its password route is theirs too
+  const acct = await get("/client/account");
+  ok(acct.status === 200 && /data-tab="account"/.test(acct.text) && /data-account-link/.test(home.text), "Account: open to a client with only the required switches, linked from the shell, not a menu item", acct.status);
+  const pwEmpty = await get("/api/client/account/password", { method: "POST", headers: { "content-type": "application/json", "x-rig-visitor": "10.254.0.7" }, body: "{}" });
+  ok(pwEmpty.status === 400 && /current password/.test(pwEmpty.text), "the password route answers a client (400 for an empty form: nothing changed)", pwEmpty.status);
+  ok((await get("/api/client/account/password")).status === 404 && (await get("/api/client/account")).status === 404 && (await get("/client/account/x")).status === 404, "…and only that: GET on it, its parent and a page under Account are 404");
   const closed = ["/client/airports", "/client/documents", "/dashboard", "/aip", "/admin/users", "/admin/clients", "/agent", "/developer/inbox", "/account/profile", "/docs"];
   const closedRes = await Promise.all(closed.map(async (p) => [p, (await get(p)).status]));
   ok(closedRes.every(([, st]) => st === 404), "Airports and Documents with their switches off, and the staff pages: all 404", closedRes.map(([p, st]) => `${p} ${st}`).join(" · "));
@@ -120,7 +126,7 @@ try {
     const fetchMap = async (u) => { try { return (await fetch(u)).status; } catch { return 0; } };
     const common = { permissionNames, operators, fetchMap, ourRoutes, publicHosts };
     const bad = (t) => Object.entries(t).filter(([k]) => k !== "jwtAnon").map(([k, n]) => `${k} ${n}`);
-    const cl = await sweepAssets(await downloadedAssets({ base: B, pages: ["/client"], cookie: cookieOf(s) }), { ...common, allowedRoutes: /^\/(client(\/|$)|api\/client\/me$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/ });
+    const cl = await sweepAssets(await downloadedAssets({ base: B, pages: ["/client", "/client/account"], cookie: cookieOf(s) }), { ...common, allowedRoutes: /^\/(client(\/|$)|api\/client\/(me|account\/password)$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/ });
     ok(bad(cl.total).length === 0, `a client's bundle (${cl.rows.length} assets): nothing but the public anon key`, bad(cl.total).join(", ") || `jwtAnon ${cl.total.jwtAnon ?? 0}`);
     const so = await sweepAssets(await downloadedAssets({ base: B, pages: ["/login", "/request-access", "/welcome"] }), { ...common, allowedRoutes: /^\/(api\/(auth|client-requests|client-invite)\b)/ });
     ok(bad(so.total).length === 0, `a signed-out visitor's bundle (${so.rows.length} assets): nothing but the public anon key`, bad(so.total).join(", ") || `jwtAnon ${so.total.jwtAnon ?? 0}`);
@@ -146,9 +152,9 @@ try {
     await ctx.addCookies([{ name: cookieOf(s).split("=")[0], value: cookieOf(s).slice(cookieOf(s).indexOf("=") + 1), url: B }]);
     const pg = await ctx.newPage(); const asked = new Set();
     pg.on("request", (rq) => { const u = new URL(rq.url()); if (u.origin === B) asked.add(`${rq.method()} ${u.pathname}`); });
-    for (const p of ["/client", "/client/airports", "/client/documents"]) { await pg.goto(`${B}${p}`, { waitUntil: "load" }); await pg.waitForTimeout(1500); if (p === "/client") { const f = pg.locator("[data-flight]").first(); if (await f.count()) { await f.click(); await pg.waitForTimeout(2000); } } }
+    for (const p of ["/client", "/client/airports", "/client/documents", "/client/account"]) { await pg.goto(`${B}${p}`, { waitUntil: "load" }); await pg.waitForTimeout(1500); if (p === "/client") { const f = pg.locator("[data-flight]").first(); if (await f.count()) { await f.click(); await pg.waitForTimeout(2000); } } }
     await br.close();
-    const ALLOWED = /^(GET|HEAD) \/(client(\/(airports|documents))?$|_next\/|api\/client\/me$|digital-wall\/api\/(flights\/normalized|notam-check\/today|flight-info|airports\/search|aip-pdf|stream|weather)\b|agent\/api\/flights\/[^/]+\/passengers\b|favicon|PFP\.png$|icons\/)/;
+    const ALLOWED = /^(GET|HEAD) \/(client(\/(airports|documents|account))?$|_next\/|api\/client\/me$|digital-wall\/api\/(flights\/normalized|notam-check\/today|flight-info|airports\/search|aip-pdf|stream|weather)\b|agent\/api\/flights\/[^/]+\/passengers\b|favicon|PFP\.png$|icons\/)/;
     const other = [...asked].filter((a) => !ALLOWED.test(a) && !/^(GET|HEAD) \/[^/]+\.(png|svg|ico|woff2?)$/.test(a));
     ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, their standing, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
     // passport scans and raw email: unreachable to a client, through the same path Cloudflare sends them (straight to the agent)

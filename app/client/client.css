@@ -120,3 +120,21 @@
 .clw-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .clw-pick { min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--cw-border-control); background: var(--cw-bg-surface); color: var(--cw-text); font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .clw-pick:hover { border-color: var(--cw-text-muted); }
+
+/* the account page (2026-11-09): the avatar is its link on a desk, the last tab on a phone; the header's Sign out is a
+   desk button (on a phone it is on the account page, one tab away, and the company's name keeps the room) */
+a.clw-avatar { text-decoration: none; cursor: pointer; } a.clw-avatar:hover, a.clw-avatar.on { background: var(--cw-bg-selected); color: var(--cw-text); box-shadow: 0 0 0 2px var(--cw-focus-halo); }
+@media (max-width: 699px) { .clw-head .clw-signout { display: none; } }
+.clw-facts { margin: 0; padding: 6px 14px 10px; display: flex; flex-direction: column; } @media (min-width: 700px) { .clw-facts { padding: 6px 18px 10px; } }
+.clw-facts > div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--cw-divider); font-size: 14px; } .clw-facts > div:last-child { border-bottom: none; }
+.clw-facts dt { color: var(--cw-text-muted); flex: none; } .clw-facts dd { margin: 0; font-weight: 600; color: var(--cw-text); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.clw-form { padding: 14px; display: flex; flex-direction: column; gap: 14px; } @media (min-width: 700px) { .clw-form { padding: 16px 18px 18px; } }
+.clw-field { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--cw-text-body); max-width: 420px; }
+.clw-field .clw-input { width: 100%; font-weight: 400; } .clw-field small { font-weight: 400; }
+.clw-input[aria-invalid="true"] { border-color: var(--cw-danger); }
+.clw-form-row { display: flex; flex-wrap: wrap; gap: 10px; } .clw-form-row .cl-btn { gap: 8px; font-weight: 600; font-size: 14px; } .clw-form-row .cl-btn:disabled { opacity: .6; cursor: default; }
+.clw-form-status:empty { display: none; } .clw-form-status p { margin: 0; font-size: 13.5px; line-height: 1.5; }
+.clw-form-error { color: var(--cw-danger-text); font-weight: 600; }
+.clw-form-ok { color: var(--cw-success-text); font-weight: 600; display: flex; align-items: flex-start; gap: 6px; }
+.clw-card-text { margin: 0; padding: 14px; font-size: 14px; line-height: 1.55; color: var(--cw-text-body); } @media (min-width: 700px) { .clw-card-text { padding: 14px 18px 16px; } }
+.clw-card-text a { color: var(--cw-text-link); font-weight: 600; overflow-wrap: anywhere; }

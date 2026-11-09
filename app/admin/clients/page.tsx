@@ -163,6 +163,9 @@ export default function AdminClientsPage() {
   const [notify, setNotify] = useState<string[] | null>(null);
   const [notifyDraft, setNotifyDraft] = useState("");
   const [notifyBusy, setNotifyBusy] = useState(false);
+  const [support, setSupport] = useState<string | null>(null);   // the address clients write to (their Account and holding pages)
+  const [supportDraft, setSupportDraft] = useState("");
+  const [supportBusy, setSupportBusy] = useState(false);
   const [linkBusy, setLinkBusy] = useState<string | null>(null);
   // migration 0028 applied? Until then the parts of onboarding that need it say they are waiting (lib/clients/onboarding.ts)
   const [ready, setReady] = useState<boolean | null>(null);
@@ -182,7 +185,7 @@ export default function AdminClientsPage() {
   // The wall's own answers, as this admin: operator names for the suggestion row, and the next 7 days of flights for the
   // live "matches N flights" count. Informational — the wall backend enforces scope on every request regardless.
   useEffect(() => {
-    fetch("/api/admin/clients/settings", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.ok) { setNotify(d.emails as string[]); setNotifyDraft((d.emails as string[]).join(", ")); } }).catch(() => {});
+    fetch("/api/admin/clients/settings", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.ok) { setNotify(d.emails as string[]); setNotifyDraft((d.emails as string[]).join(", ")); setSupport(String(d.supportEmail ?? "")); setSupportDraft(String(d.supportEmail ?? "")); } }).catch(() => {});
     fetch("/api/admin/clients/catalogue", { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).then((d) => { setCat(d as Catalogue); setCatState("ready"); }).catch(() => setCatState("error"));
     fetch("/digital-wall/api/operators", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { const list = (d?.operators ?? d ?? []) as Array<{ oprId?: string; id?: string; name?: string }>; setOperators(list.map((o) => ({ oprId: String(o.oprId ?? o.id ?? ""), name: String(o.name ?? o.oprId ?? "") })).filter((o) => o.oprId)); }).catch(() => {});
     const to = new Date(Date.now() + 7 * 86400e3).toISOString();
@@ -284,6 +287,17 @@ export default function AdminClientsPage() {
     } catch (e) { toast.show({ tone: "danger", title: "Not saved", body: e instanceof Error ? e.message : OFFLINE }); } // public-error-ok: the Error carries our own route's sentence, or OFFLINE
     finally { setNotifyBusy(false); }
   };
+  const saveSupport = async () => {
+    setSupportBusy(true);
+    try {
+      const res = await fetch("/api/admin/clients/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ supportEmail: supportDraft.trim() }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error((typeof data?.error === "string" && data.error) || `HTTP ${res.status}`);
+      setSupport(String(data.supportEmail ?? "")); setSupportDraft(String(data.supportEmail ?? ""));
+      toast.show({ tone: "success", title: "Saved", body: data.supportEmail ? `Clients are shown ${data.supportEmail} as the address to write to.` : "Clients are shown no address to write to now." });
+    } catch (e) { toast.show({ tone: "danger", title: "Not saved", body: e instanceof Error ? e.message : OFFLINE }); } // public-error-ok: the Error carries our own route's sentence, or OFFLINE
+    finally { setSupportBusy(false); }
+  };
   const remove = async () => {
     if (!removing) return;
     setBusy(true);
@@ -381,6 +395,17 @@ export default function AdminClientsPage() {
                 <div className="flex flex-wrap items-start gap-2">
                   <div className="min-w-[260px] flex-1"><TextInput value={notifyDraft} onChange={(e) => setNotifyDraft(e.target.value)} placeholder="ops-desk@your-company.com, duty@your-company.com" mono aria-label="Addresses told about new requests" /></div>
                   <Button variant="secondary" disabled={notifyBusy || notify === null || notifyDraft.split(/[\s,;]+/).filter(Boolean).join(",") === (notify ?? []).join(",")} loading={notifyBusy} onClick={() => void saveNotify()} data-save-notify>Save</Button>
+                </div>
+              </div>
+            </TableCard>}
+
+            {ready === true && <TableCard>
+              {header("The address clients write to", <span className="text-[13px] text-cw-text-muted">{support === null ? "" : support ? "set" : "none"}</span>)}
+              <div className="flex flex-col gap-3 p-5" data-support-email>
+                <span className="text-[13.5px] leading-normal text-cw-text-body">Shown to every client on their Account page, and to a refused or removed client as the one way to reach you. Leave it empty and they are shown no address.</span>
+                <div className="flex flex-wrap items-start gap-2">
+                  <div className="min-w-[260px] flex-1"><TextInput value={supportDraft} onChange={(e) => setSupportDraft(e.target.value)} placeholder="ops-desk@your-company.com" mono aria-label="The address clients write to" /></div>
+                  <Button variant="secondary" disabled={supportBusy || support === null || supportDraft.trim() === support} loading={supportBusy} onClick={() => void saveSupport()} data-save-support>Save</Button>
                 </div>
               </div>
             </TableCard>}

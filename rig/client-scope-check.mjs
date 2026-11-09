@@ -65,8 +65,15 @@ let sA = await grant(A.email);
   ok(behind.length === 0, "holding page source: nothing of what is behind the door (no docs, dashboard, help or glossary)", behind.join(" "));
   const forged = await ask(sA, "/client/removed", { headers: { "x-cw-docs": "1" } });
   ok(forged.status === 200 && !["glossary", "supportLabel", "/dashboard"].some((w) => forged.text.includes(w)), "holding page: a visitor's own x-cw-docs header is overwritten (the docs block stays out)");
-  const contact = (await import("../content/docs/site.json", { with: { type: "json" } })).default.supportEmail;
-  ok(contact ? waiting.text.includes(`mailto:${contact}`) : !waiting.text.includes("data-client-contact"), contact ? "holding page: the brand settings' contact address is the one way out" : "holding page: no contact line while the brand settings' address is empty", contact || "(empty)");
+  // the address clients write to is a setting (app_settings, Admin › Clients): this check sets its own, an invented one
+  const contact = "rig-client-help@rig.invalid";
+  await svc("/rest/v1/app_settings?on_conflict=key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ key: "clients.support_email", value: { email: contact }, updated_by_email: "rig/client-scope-check" }) });
+  const waitingNow = await ask(sA, "/client/removed");
+  ok(waitingNow.text.includes(`mailto:${contact}`), "holding page: the address clients write to (the Admin › Clients setting) is the one way out", contact);
+  await svc("/rest/v1/app_settings?key=eq.clients.support_email", { method: "PATCH", body: JSON.stringify({ value: { email: "" } }) });
+  const waitingNone = await ask(sA, "/client/removed");
+  ok(!waitingNone.text.includes("data-client-contact"), "holding page: no contact line while the setting is empty");
+  await svc("/rest/v1/app_settings?on_conflict=key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ key: "clients.support_email", value: { email: contact }, updated_by_email: "rig/client-scope-check" }) });
   ok(waiting.status === 200 && !/data-cw-sidebar|Dashboard|\bAdmin\b|Flight intake|Ops Agent|Permissions|Developer/.test(waiting.text) && !/\b\d+ (flights|requests|notices)\b/.test(waiting.text), "holding page's source: no navigation, no counts, no page titles of the portal", `${waiting.status} ${waiting.text.length}B`);
 }
 

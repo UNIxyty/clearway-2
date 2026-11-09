@@ -7,9 +7,9 @@ import { spawn } from "node:child_process";
 import { sweepAssets, downloadedAssets, permissionNamesFrom, ourRoutesFrom, printSweep, readCatalogue } from "./lib/bundle-sweep.mjs";
 
 const SIGNED_OUT = ["/login", "/request-access", "/welcome", "/forgot-password", "/reset-password"];
-const CLIENT = ["/client", "/client/airports", "/client/documents"];
+const CLIENT = ["/client", "/client/airports", "/client/documents", "/client/account"];
 // what a client's own pages legitimately name: their pages, their standing, the wall's scoped reads, the passengers route
-const CLIENT_OWN = /^\/(client(\/|$)|api\/client\/me$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/;
+const CLIENT_OWN = /^\/(client(\/|$)|api\/client\/(me|account\/password)$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/;
 const ourRoutes = ourRoutesFrom("app");
 const publicHosts = [String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "")].filter(Boolean);
 const permissionNames = permissionNamesFrom(readCatalogue());

@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic";
 // A client changes their own password (2026-11-09, the client Account page). On the client allow-list
 // (lib/clients/allow.mjs). The current password is checked HERE, on the server, against the session's own address —
 // a session left open on someone's screen cannot set a new password without it. Ten characters, as when the account
-// was made (lib/clients/onboarding.ts). After the change every other session of the account is signed out, and the
-// client gets an email from us saying it happened (recorded in Mailbox › Sent): if it was not them, they know.
+// was made (lib/clients/onboarding.ts). The change signs out every session of the account; the page signs this device
+// back in with the new password. The client gets an email from us saying it happened (recorded in Mailbox › Sent): if
+// it was not them, they know.
 // Eight tries an hour per account, right or wrong.
 const NOT_CHANGED = "The password was not changed. Try again in a few minutes.";
 const tries = hourlyLimit(8);
@@ -48,14 +49,9 @@ export async function POST(request: Request) {
   const { error } = await service.auth.admin.updateUserById(auth.user.id, { password: next });
   if (error) return failure(500, NOT_CHANGED, { tag: "CLIENT-PASSWORD", what: "updateUserById failed", detail: error });
 
-  // every other session of the account ends; this one stays
-  let othersSignedOut = false;
-  try {
-    const { data } = await auth.supabase.auth.getSession();
-    const jwt = data.session?.access_token;
-    if (jwt) { const out = await service.auth.admin.signOut(jwt, "others"); othersSignedOut = !out.error; if (out.error) logFailure("CLIENT-PASSWORD", "other sessions not signed out", out.error.message); }
-  } catch (e) { logFailure("CLIENT-PASSWORD", "other sessions not signed out", e); }
-
+  // Changing a password this way ends EVERY session of the account, this one included (the auth service's rule for a
+  // change made with the service key). The page signs this device in again with the new password; every other device
+  // has to sign in with it too, which is the point.
   const product = productName();
   const mail = layoutEmail({
     title: "Your password was changed",
@@ -63,5 +59,5 @@ export async function POST(request: Request) {
     footnote: "You get this email every time the password of your account changes.",
   });
   const sent = await sendPortalEmail({ to: email, subject: `Your ${product} password was changed`, html: mail.html, text: mail.text, kind: "client-password-changed", by: email, ref: null }).catch(() => ({ ok: false }));
-  return NextResponse.json({ ok: true, othersSignedOut, noticeSent: Boolean(sent.ok) });
+  return NextResponse.json({ ok: true, noticeSent: Boolean(sent.ok) });
 }

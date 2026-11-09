@@ -63,8 +63,9 @@ day someone adds one and forgets. A list is right by default for every endpoint 
 - **Account (2026-11-09)** is apart from the menu and there for every approved client: the avatar in the header on a
   desk, the last tab on a phone. `/client/account` says who is signed in and for which company, changes the password,
   shows the address to write to, and signs out. The password change asks for the current password, and the server
-  checks it (`app/api/client/account/password`): at least ten characters, eight tries an hour. After a change every
-  other session of the account is signed out, and the client gets an email from us saying it happened. On a phone the
+  checks it (`app/api/client/account/password`): at least ten characters, eight tries an hour. A change signs out every
+  session of the account (the page signs this device back in with the new password), and the client gets an email from
+  us saying it happened. On a phone the
   header's Sign out button is not drawn (it is on Account), so the company's name keeps the room.
 - The holding pages render with no shell and no menu.
 

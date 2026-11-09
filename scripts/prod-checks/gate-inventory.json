@@ -2075,7 +2075,7 @@
     {
      "method": "GET",
      "path": "/api/flight-checks",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {

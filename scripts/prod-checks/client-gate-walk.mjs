@@ -47,7 +47,9 @@ export async function check({ base, accounts: [client, unknown, user], ok }) {
     const leaks = []; let reached = 0, same = 0;
     for (const a of INV.portal) {
       const r = await call(a.route, a.method, who);
-      if (who === client && a.onList) { if (r.st === 200) reached += 1; else leaks.push(`${a.method} ${a.route} on the list → ${r.st}`); continue; }
+      // on the list: a read answers 200. A write on the list (the password route) is refused 403 here, because a check
+      // account can write nothing; 400 would be the handler's own answer to the empty form
+      if (who === client && a.onList) { if (r.st === 200 || (a.method !== "GET" && (r.st === 403 || r.st === 400))) reached += 1; else leaks.push(`${a.method} ${a.route} on the list → ${r.st}`); continue; }
       if (REFUSED.has(r.st) || (r.st >= 300 && r.st < 400 && REFUSED_TO.test(r.to))) continue;
       if (/^\/(login|signup|request-access)$/.test(a.route) && r.st >= 300 && r.st < 400 && r.to === "/") continue;   // signed in → the root, walked itself
       if (who === client && (a.route === "/" || /^\/client\/(refused|removed)$/.test(a.route)) && r.st >= 300 && r.st < 400 && r.to === "/client") continue;

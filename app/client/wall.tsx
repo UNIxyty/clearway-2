@@ -11,7 +11,9 @@ import PassengerViewer from "@/shared/passenger-viewer.jsx";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Me = { ok: boolean; status: string; company: string; personName: string; switches: string[]; passengerLevel: "off" | "names" | "documents"; scopeKinds: string[] };
-type Flight = { flightNid: number; flightNo: string; status?: string; movementState?: string; isCnl?: boolean; startTimeUTC?: string; endTimeUTC?: string; etd?: string; eta?: string; atd?: string; ata?: string; ctot?: string; ctotUTC?: string; delayMin?: number | null; tripNo?: string | null; aircraftRegistration?: string | null; icaoType?: string | null; adep?: { icao?: string; name?: string }; ades?: { icao?: string; name?: string }; passengerCount?: number | null; isAirborne?: boolean; hasArrived?: boolean };
+// a note ops matched to the flight, sent only with its switch (digital-wall/lib/client-scope.mjs › clientFlight)
+type Note = { id: string; type: "LIM" | "IMP" | "CAA"; title?: string | null; description?: string | null; caa?: Record<string, unknown> };
+type Flight = { limitations?: Note[]; flightNid: number; flightNo: string; status?: string; movementState?: string; isCnl?: boolean; startTimeUTC?: string; endTimeUTC?: string; etd?: string; eta?: string; atd?: string; ata?: string; ctot?: string; ctotUTC?: string; delayMin?: number | null; tripNo?: string | null; aircraftRegistration?: string | null; icaoType?: string | null; adep?: { icao?: string; name?: string }; ades?: { icao?: string; name?: string }; passengerCount?: number | null; isAirborne?: boolean; hasArrived?: boolean };
 type Rec = { key: string; oprId: string; operatorName?: string; registration: string; flight: Flight; notamCheck?: { checked?: boolean } | null };
 type Info = { ok: boolean; flight?: Flight; notams?: { dep?: { ok?: boolean; notams?: Array<{ id?: string; text?: string; category?: string }>; count?: number } | null; arr?: unknown }; weather?: { dep?: Record<string, unknown> | null; arr?: Record<string, unknown> | null }; aip?: { dep?: { available?: boolean; url?: string } | null; arr?: { available?: boolean; url?: string } | null } };
 
@@ -40,6 +42,7 @@ export default function ClientWall() {
   const [now, setNow] = useState(() => Date.now());
   const [check, setCheck] = useState<{ sign?: string; ranAt?: string } | null>(null);
   const [viewerName, setViewerName] = useState("");
+  const [feed, setFeed] = useState<{ live?: boolean; updatedAt?: string | null } | null>(null);
 
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { createSupabaseBrowserClient().auth.getUser().then(({ data }) => setViewerName(String((data.user?.user_metadata as Record<string, unknown> | undefined)?.full_name || data.user?.email || "You"))); }, []); // metadata-ok: the display name only, for the viewer's watermark
@@ -56,6 +59,7 @@ export default function ClientWall() {
       const d = await r.json();
       setRecs(((d.flights ?? []) as Rec[]).filter((x) => !x.flight?.isCnl).sort((a, b) => String(a.flight.startTimeUTC).localeCompare(String(b.flight.startTimeUTC))));
       if ((m as Me).switches?.includes("notam_check_status")) fetch("/digital-wall/api/notam-check/today", { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).then((x) => x && setCheck(x)).catch(() => {});
+      if ((m as Me).switches?.includes("service_status")) fetch("/digital-wall/api/timeline/sync-status", { cache: "no-store" }).then((x) => (x.ok ? x.json() : null)).then((x) => x && setFeed(x)).catch(() => {});
       setErr(null);
     } catch { setErr("Your flights could not be loaded. Try again in a few minutes."); }
   }, []);
@@ -77,7 +81,11 @@ export default function ClientWall() {
   return (
     // the shell (components/client/ClientShell.tsx) carries the header and the menu; this is the Flights page itself
     <div className="clw-wall" data-client-wall data-view={view}>
-        {on("notam_check_status") && check?.sign === "CHECKED" && <div className="clw-wallbar"><span className="clw-chip" data-notam-checked><MaskIcon name="shield-check" size={14} />NOTAMs reviewed by Clearway{check.ranAt ? ` · ${hhmm(check.ranAt)} UTC` : ""}</span></div>}
+        {((on("notam_check_status") && check?.sign === "CHECKED") || (on("service_status") && feed)) && <div className="clw-wallbar">
+          {/* Service status: is the flight data live, and when it was last brought up to date. Said in words, both ways. */}
+          {on("service_status") && feed && <span className={`clw-chip ${feed.live ? "" : "warn"}`} data-service-status={feed.live ? "live" : "behind"}><MaskIcon name={feed.live ? "activity" : "circle-alert"} size={14} />{feed.live ? "Flight data is live" : "Flight data may be behind"}{feed.updatedAt ? ` · updated ${hhmm(feed.updatedAt)} UTC` : ""}</span>}
+          {on("notam_check_status") && check?.sign === "CHECKED" && <span className="clw-chip" data-notam-checked><MaskIcon name="shield-check" size={14} />NOTAMs reviewed by Clearway{check.ranAt ? ` · ${hhmm(check.ranAt)} UTC` : ""}</span>}
+        </div>}
         <div className="clw-body">
           <aside className="clw-board" data-board>
             <div className="clw-board-head">
@@ -121,6 +129,12 @@ function FlightDetail({ rec, on, level, viewerName, onBack }: { rec: Rec; on: (k
   const wx = info?.weather ?? {}; const nt = info?.notams ?? {}; const aip = info?.aip ?? {};
   const notamList = (side: unknown) => { const s = side as { notams?: Array<{ id?: string; text?: string; category?: string }>; items?: Array<{ id?: string; text?: string }> } | null; return (s?.notams ?? s?.items ?? []) as Array<{ id?: string; text?: string; category?: string }>; };
   const row = (k: string, v: unknown) => (v === undefined || v === null || v === "" ? null : <span key={k} className="clw-kv">{k}<b>{String(v)}</b></span>);
+  // ops' notes for this flight, by kind; each kind is sent only with its switch, so an empty list is "none", in words
+  const notes = (type: Note["type"]) => (f.limitations ?? []).filter((n) => n.type === type);
+  const many = (v: unknown) => (Array.isArray(v) ? v.filter(Boolean).join(", ") : v);
+  const noteCard = (card: string, type: "LIM" | "IMP", title: string, iconName: string, none: string) => { const list = notes(type); return (
+    <section className="clw-card" data-card={card}><div className="clw-card-head"><MaskIcon name={iconName} size={16} /><span>{title}</span><small>{list.length ? `${list.length} for this flight` : ""}</small></div>
+      {list.length ? list.map((n) => <div key={n.id} className="clw-note"><b>{n.title}</b>{n.description ? <p>{n.description}</p> : null}</div>) : <p className="clw-card-text clw-muted">{none}</p>}</section>); };
   const weatherCard = (side: "dep" | "arr", icao?: string) => { const w = (wx as Record<string, Record<string, unknown> | null>)[side]; return (
     <div className="clw-wx" key={side}><span className="clw-wx-head"><b>{icao}</b><span className="clw-muted">{side === "dep" ? "Departure" : "Arrival"}</span>{w?.observedAt ? <small>obs {hhmm(String(w.observedAt))}</small> : null}</span>
       {w ? <div className="clw-kvs">{row("Wind", w.wind)}{row("Visibility", w.visibility)}{row("Ceiling", w.ceiling ?? w.clouds)}{row("Temp / dew", w.temperature ?? w.temp)}{row("QNH", w.qnh)}{row("Category", w.category ?? w.flightCategory)}</div> : <span className="clw-muted">No current observation.</span>}
@@ -140,6 +154,11 @@ function FlightDetail({ rec, on, level, viewerName, onBack }: { rec: Rec; on: (k
         {on("weather") && <section className="clw-card span" data-card="weather"><div className="clw-card-head"><MaskIcon name="cloud-sun" size={16} /><span>Weather</span><small>METAR · TAF</small></div><div className="clw-wx2">{weatherCard("dep", f.adep?.icao)}{weatherCard("arr", f.ades?.icao)}</div></section>}
         {on("notams") && <section className="clw-card" data-card="notams"><div className="clw-card-head"><MaskIcon name="radio-tower" size={16} /><span>NOTAMs</span><small>{notamList(nt.dep).length + notamList(nt.arr).length} active</small></div>{(["dep", "arr"] as const).map((side) => { const list = notamList((nt as Record<string, unknown>)[side]); return <div key={side} className="clw-notams"><b>{side === "dep" ? f.adep?.icao : f.ades?.icao}</b>{list.length ? list.slice(0, 4).map((n, i) => <span key={n.id ?? i} className="clw-notam"><small>{n.id ?? ""}</small>{n.text ?? ""}</span>) : <span className="clw-muted">None on file.</span>}</div>; })}</section>}
         {on("radar") && <section className="clw-card" data-card="radar"><div className="clw-card-head"><MaskIcon name="radar" size={16} /><span>Flight radar</span></div><div className="clw-prog"><span>{f.adep?.icao}</span><span className="clw-line"><span className="clw-line-fill" style={{ width: st === "arrived" ? "100%" : st === "flying" ? "50%" : "0%" }} /></span><span>{f.ades?.icao}</span></div><span className="clw-muted">{st === "arrived" ? `Landed at ${f.ades?.icao}${f.ata ? ` at ${hhmm(f.ata)}Z` : ""}.` : st === "flying" ? "Airborne. Position is tracked by Clearway ops." : `Not airborne yet. Tracking starts at take-off from ${f.adep?.icao}.`}</span></section>}
+        {on("limitations") && noteCard("limitations", "LIM", "Limitations", "triangle-alert", "No limitations apply to this flight.")}
+        {on("important") && noteCard("important", "IMP", "Important notices", "megaphone", "No notices for this flight.")}
+        {on("caa") && <section className="clw-card" data-card="caa"><div className="clw-card-head"><MaskIcon name="landmark" size={16} /><span>CAA details</span><small>{notes("CAA").length ? `${notes("CAA").length} for this flight` : ""}</small></div>
+          {notes("CAA").length ? notes("CAA").map((n) => { const c = n.caa ?? {}; return <div key={n.id} className="clw-note"><b>{String(c.authorityName || n.title || c.country || "")}</b>{c.country && c.authorityName ? <span className="clw-muted">{String(c.country)}</span> : null}
+            <div className="clw-kvs one">{row("For", c.functionText)}{row("Valid", c.validity)}{row("Contact", c.contact)}{row("Phone", many(c.phones))}{row("Email", many(c.mail))}{row("SITA", c.sita)}{row("AFTN", c.aftn)}</div>{c.info ? <p>{String(c.info)}</p> : null}</div>; }) : <p className="clw-card-text clw-muted">No authority details on file for this flight.</p>}</section>}
         {level !== "off" && <section className="clw-card" data-card="passengers"><div className="clw-card-head"><MaskIcon name="users" size={16} /><span>Passengers</span></div><PassengerViewer api={api} viewer={{ name: viewerName || "You" }} icon={icon} /><div className="clw-card-foot">{level === "documents" ? "Documents open one passenger at a time and close after 30 seconds. Each view is logged with your name." : "Names and seats as entered in Leon."}</div></section>}
         {on("documents") && <section className="clw-card" data-card="documents"><div className="clw-card-head"><MaskIcon name="file-text" size={16} /><span>Documents</span></div>{(["dep", "arr"] as const).map((side) => { const a = (aip as Record<string, { available?: boolean; url?: string } | null>)[side]; const icao = side === "dep" ? f.adep?.icao : f.ades?.icao; return <div key={side} className="clw-doc"><MaskIcon name="file" size={15} /><span className="clw-grow"><b>AIP AD 2 {icao}</b></span>{a?.available ? <a href={`/digital-wall/api/aip-pdf?icao=${icao}`} target="_blank" rel="noreferrer"><MaskIcon name="download" size={15} /></a> : <small className="clw-muted">not on file</small>}</div>; })}</section>}
       </div>

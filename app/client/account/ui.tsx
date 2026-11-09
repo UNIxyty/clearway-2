@@ -6,7 +6,7 @@ import { useState, type FormEvent } from "react";
 import MaskIcon from "@/components/portal/Icon";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type Done = { othersSignedOut: boolean; noticeSent: boolean };
+type Done = { noticeSent: boolean };
 
 export default function ClientAccount({ email, name, company, contact }: { email: string; name: string; company: string; contact: string }) {
   const [current, setCurrent] = useState(""); const [next, setNext] = useState(""); const [show, setShow] = useState(false);
@@ -22,9 +22,13 @@ export default function ClientAccount({ email, name, company, contact }: { email
     setBusy(true);
     try {
       const r = await fetch("/api/client/account/password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ current, next }) });
-      const d = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; field?: string; othersSignedOut?: boolean; noticeSent?: boolean };
+      const d = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; field?: string; noticeSent?: boolean };
       if (!r.ok || !d.ok) { setError({ text: d.error || "The password was not changed. Try again in a few minutes.", field: d.field }); return; }
-      setCurrent(""); setNext(""); setShow(false); setDone({ othersSignedOut: Boolean(d.othersSignedOut), noticeSent: Boolean(d.noticeSent) });
+      // the change ended every session of the account, this one too: sign this device in again with the new password.
+      // If that does not work, the password is still changed: the sign-in page is the honest place to be.
+      const again = await createSupabaseBrowserClient().auth.signInWithPassword({ email, password: next });
+      if (again.error) { window.location.href = "/login"; return; }
+      setCurrent(""); setNext(""); setShow(false); setDone({ noticeSent: Boolean(d.noticeSent) });
     } catch { setError({ text: "The password was not changed: no connection. Check the network and try again." }); }
     finally { setBusy(false); }
   }
@@ -57,7 +61,7 @@ export default function ClientAccount({ email, name, company, contact }: { email
           </div>
           <div role="status" aria-live="polite" className="clw-form-status">
             {error && <p className="clw-form-error" data-password-error="">{error.text}</p>}
-            {done && <p className="clw-form-ok" data-password-changed=""><MaskIcon name="check" size={15} />Password changed.{done.othersSignedOut ? " Your other devices are signed out." : ""}{done.noticeSent ? ` A note went to ${email}.` : ""}</p>}
+            {done && <p className="clw-form-ok" data-password-changed=""><MaskIcon name="check" size={15} />Password changed. Your other devices are signed out.{done.noticeSent ? ` A note went to ${email}.` : ""}</p>}
           </div>
         </form>
       </section>

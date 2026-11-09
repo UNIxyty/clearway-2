@@ -115,7 +115,9 @@ for (const [label, meta, isClient] of roles) {
     for (const a of here) {
       const r = await call(base, who, a);
       const listed = isClient && a.onList;
-      if (listed) { if (r.st === 200) reached += 1; else leaks.push(`${a.method} ${a.route} on the list → ${r.st}`); continue; }
+      // on the list: a read answers 200; a write is called with an empty form, and its handler's own 400 is the answer
+      // of a handler that was reached (the password route, 2026-11-09)
+      if (listed) { if (r.st === 200 || (a.method !== "GET" && r.st === 400)) reached += 1; else leaks.push(`${a.method} ${a.route} on the list → ${r.st}`); continue; }
       if (REFUSED.has(r.st) || (r.st >= 300 && r.st < 400 && REFUSED_TO.test(r.to))) continue;
       // the sign-in pages send anyone signed in to the root; the root is walked itself (a client → /client, others refused)
       if (/^\/(login|signup|request-access)$/.test(a.route) && r.st >= 300 && r.st < 400 && r.to === "/") continue;

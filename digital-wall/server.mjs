@@ -13,7 +13,7 @@ import {
 } from "./lib/voice-readout.mjs";
 import { authenticateRequest, authEnabled, authMisconfigured, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import { scopeFor } from "../lib/clients/scope.mjs";
-import { clientReadRefusal, scopePayload, flightInfoForClient, clientStreamFilter, NOT_ON_ACCOUNT } from "./lib/client-scope.mjs";
+import { clientReadRefusal, scopePayload, flightInfoForClient, clientStreamFilter, clientFlight, clientRow, NOT_ON_ACCOUNT } from "./lib/client-scope.mjs";
 import { assertRigSafe } from "./lib/rig-guard.mjs";
 import { resolveRoleKey } from "./lib/roles.mjs";
 import { endpointFor, isWriteMethod } from "../lib/permissions/catalogue.mjs";
@@ -939,6 +939,11 @@ const server = http.createServer(async (req, res) => {
             if (!p.aip) drop(["aip", "depAip", "arrAip"]);
             if (!p.radar) drop(["radar", "position", "track"]);
             drop(["checks", "limitations", "important"]);
+            // the flight itself as a client's (2026-11-09): a list of fields, its notes by switch, no ops marks; and of
+            // the aircraft, what names it
+            if (out.flight) out.flight = clientFlight(out.flight, clientScope);
+            if (out.aircraft && typeof out.aircraft === "object") out.aircraft = clientRow(out.aircraft);
+            delete out.portalConfigured;
           }
           return rawSendJson(res, out, status);
         });

@@ -138,3 +138,14 @@ a.clw-avatar { text-decoration: none; cursor: pointer; } a.clw-avatar:hover, a.c
 .clw-form-ok { color: var(--cw-success-text); font-weight: 600; display: flex; align-items: flex-start; gap: 6px; }
 .clw-card-text { margin: 0; padding: 14px; font-size: 14px; line-height: 1.55; color: var(--cw-text-body); } @media (min-width: 700px) { .clw-card-text { padding: 14px 18px 16px; } }
 .clw-card-text a { color: var(--cw-text-link); font-weight: 600; overflow-wrap: anywhere; }
+
+/* the wall bar's chips at every width (2026-11-09: they were drawn from 1200px only, so a phone never saw them), and
+   ops' notes on a flight: Limitations, Important notices, CAA details */
+.clw-wallbar { flex-wrap: wrap; gap: 8px; justify-content: flex-start; } @media (min-width: 700px) { .clw-wallbar { justify-content: flex-end; padding: 8px 20px 0; } }
+.clw-wallbar .clw-chip { display: inline-flex; white-space: normal; height: auto; min-height: 30px; padding: 4px 10px; }
+.clw-chip.warn { background: var(--cw-warning-tint); border-color: var(--cw-warning-border); color: var(--cw-warning-text); }
+.clw-note { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--cw-divider); font-size: 13.5px; line-height: 1.5; color: var(--cw-text-body); overflow-wrap: anywhere; } .clw-note:last-child { border-bottom: none; }
+@media (min-width: 700px) { .clw-note { padding: 12px 18px 14px; } }
+.clw-note b { font-size: 14px; font-weight: 650; color: var(--cw-text); } .clw-note p { margin: 0; white-space: pre-line; }
+.clw-kvs.one { grid-template-columns: 1fr; } .clw-kvs.one .clw-kv b { overflow-wrap: anywhere; }
+.clw-card-text.clw-muted { color: var(--cw-text-muted); font-size: 13.5px; }

@@ -16,7 +16,8 @@ export const CLIENT_READS = {
   "/api/timeline/aircraft": "flight_board",
   "/api/aircraft/schedule": "flight_board",
   "/api/flight-info": "flight_board",
-  "/api/flight-checks": "flight_board",
+  // (/api/flight-checks was here until 2026-11-09: ops' own "checked" marks, with the name of who ticked each one, and
+  // no client page ever asked for it)
   "/api/notam-check/today": "notam_check_status",
   "/api/timeline/limitations": "limitations",
   "/api/limitations": "limitations",
@@ -60,8 +61,46 @@ export function scopedAirports(timelineService, scope) {
   return set;
 }
 
+/**
+ * What of ONE flight is a client's (2026-11-09): a list of fields, not the wall's own record with pieces taken out.
+ * Until now a client's feed carried each flight as the ops wall keeps it, verbatim: with `limitations` (the ops notes
+ * matched to the flight — Limitations, Important entries and their attachment names, CAA contacts, unreviewed NOTAM and
+ * weather markers) and `checks` (who in ops ticked what, by name), whatever the client's switches said. The page drew
+ * none of it; the browser was given all of it. Now a flight is these fields and nothing else, and the notes come back
+ * only by switch: Limitations (LIM), Important notices (IMP, title and text, no attachments), CAA details (CAA).
+ * Ops' review marks (NTM, WX), `checks`, the checklist colour and the trip's internal status never leave.
+ */
+export const CLIENT_FLIGHT_FIELDS = [
+  "flightNid", "flightNo", "tripNo", "status", "movementState", "isCnl", "oprId", "operatorName", "aircraftRegistration", "icaoType", "flightType",
+  "startTimeUTC", "endTimeUTC", "etd", "eta", "atd", "ata", "ctot", "ctotUTC", "takeOffUTC", "landingUTC", "blockOff", "takeOff", "landing", "blockOn",
+  "delayMin", "departureDelayMin", "arrivalDelayMin", "delayedDepartureUTC", "delayedArrivalUTC", "eetMin", "isAirborne", "hasArrived",
+  "isCommercial", "isFerry", "adep", "ades", "passengerCount",
+];
+const CAA_FIELDS = ["country", "authorityName", "validity", "functionText", "info", "contact", "phones", "mail", "sita", "aftn"];
+const NOTE_SWITCH = { LIM: "limitations", IMP: "important", CAA: "caa" };
+export function clientFlight(flight, scope) {
+  if (!flight || typeof flight !== "object") return flight;
+  const out = {};
+  for (const k of CLIENT_FLIGHT_FIELDS) if (k in flight) out[k] = flight[k];
+  const notes = [];
+  for (const l of Array.isArray(flight.limitations) ? flight.limitations : []) {
+    const sw = NOTE_SWITCH[l?.type];
+    if (!sw || !hasSwitch(scope, sw)) continue;
+    const note = { id: l.id, type: l.type, title: l.title ?? null };
+    if (l.type === "CAA") { note.caa = {}; for (const k of CAA_FIELDS) if (l.caa?.[k] != null && l.caa[k] !== "") note.caa[k] = l.caa[k]; }
+    else note.description = l.description ?? null;
+    notes.push(note);
+  }
+  out.limitations = notes;
+  return out;
+}
+
+/** What names an aircraft or a row of flights, for a client: who flies it, its registration and type. Nothing else. */
+const ROW_FIELDS = ["key", "oprId", "operatorName", "registration", "acftTypeIcao", "acftTypeShortName", "flightNid"];
+export function clientRow(row) { const out = {}; for (const k of ROW_FIELDS) if (row && k in row) out[k] = row[k]; return out; }
+
 const groupFilter = (groups, scope) => (Array.isArray(groups) ? groups : [])
-  .map((g) => ({ ...g, flights: (g.flights ?? []).filter((f) => flightInScope(scope, f, { oprId: g.oprId ?? f.oprId, registration: g.registration ?? f.aircraftRegistration })) }))
+  .map((g) => ({ ...clientRow(g), flights: (g.flights ?? []).filter((f) => flightInScope(scope, f, { oprId: g.oprId ?? f.oprId, registration: g.registration ?? f.aircraftRegistration })).map((f) => clientFlight(f, scope)) }))
   .filter((g) => g.flights.length > 0);
 
 /**
@@ -78,11 +117,15 @@ export function scopePayload({ pathname, payload, scope, timelineService, import
       return { ...payload, aircraft, totalAircraft: aircraft.length, totalFlights: aircraft.reduce((n, g) => n + g.flights.length, 0), operators: [...new Set(aircraft.map((g) => g.oprId).filter(Boolean))], windowCheck: undefined };
     }
     case "/api/flights/normalized": {
-      const flights = (payload.flights ?? []).filter((r) => flightInScope(scope, r.flight ?? r, { oprId: r.oprId, registration: r.registration }));
+      // each record's flight as a client's (clientFlight); the NOTAM check state only with its switch, and then only
+      // whether each airport is in today's check and checked, never the name on a tick
+      const side = (x) => (x ? { icao: x.icao ?? null, inTodaysCheck: x.inTodaysCheck ?? null, checked: x.checked ?? null } : null);
+      const flights = (payload.flights ?? []).filter((r) => flightInScope(scope, r.flight ?? r, { oprId: r.oprId, registration: r.registration }))
+        .map((r) => { const { notamCheck } = r; return { ...clientRow(r), ...(r.flight ? { flight: clientFlight(r.flight, scope) } : {}), ...(notamCheck && hasSwitch(scope, "notam_check_status") ? { notamCheck: { day: notamCheck.day ?? null, dep: side(notamCheck.dep), arr: side(notamCheck.arr) } } : {}) }; });
       return { ...payload, flights, total: flights.length, truncated: false };
     }
     case "/api/flights/data": {
-      const rows = (Array.isArray(payload) ? payload : []).map((row) => ({ ...row, flights: (row.flights ?? []).filter((f) => flightInScope(scope, f, { oprId: row.oprId, registration: row.registration })) })).filter((row) => row.flights.length > 0);
+      const rows = (Array.isArray(payload) ? payload : []).map((row) => ({ ...clientRow(row), flights: (row.flights ?? []).filter((f) => flightInScope(scope, f, { oprId: row.oprId, registration: row.registration })).map((f) => clientFlight(f, scope)) })).filter((row) => row.flights.length > 0);
       return rows;
     }
     case "/api/timeline/aircraft":
@@ -90,7 +133,7 @@ export function scopePayload({ pathname, payload, scope, timelineService, import
       // An aircraft exists for them when it is in their registrations, or it flew one of their flights.
       const theirs = new Set(scopedFlights(timelineService, scope).map(({ aircraft, flight }) => `${String(aircraft.oprId ?? flight.oprId ?? "").toLowerCase()}:${String(aircraft.registration ?? flight.aircraftRegistration ?? "").toUpperCase()}`));
       const aircraft = (payload.aircraft ?? []).filter((a) => theirs.has(`${String(a.oprId ?? "").toLowerCase()}:${String(a.registration ?? "").toUpperCase()}`))
-        .map((a) => (Array.isArray(a.flights) ? { ...a, flights: a.flights.filter((f) => flightInScope(scope, f, { oprId: a.oprId, registration: a.registration })) } : a));
+        .map((a) => (Array.isArray(a.flights) ? { ...clientRow(a), flights: a.flights.filter((f) => flightInScope(scope, f, { oprId: a.oprId, registration: a.registration })).map((f) => clientFlight(f, scope)) } : clientRow(a)));
       return { ...payload, aircraft, totalAircraft: aircraft.length };
     }
     case "/api/notam-check/today": {
@@ -104,28 +147,25 @@ export function scopePayload({ pathname, payload, scope, timelineService, import
     case "/api/limitations": {
       const ids = new Set();
       for (const { flight } of scopedFlights(timelineService, scope)) for (const id of timelineService.getMatchedLimitationIds?.(flight) ?? []) ids.add(String(id));
-      const list = (payload.limitations ?? []).filter((l) => ids.has(String(l.id)));
-      return { ...payload, limitations: list, matchCounts: undefined };
+      // what a limitation says, not what it is matched on (other operators' registrations) or who wrote it (2026-11-09)
+      const list = (payload.limitations ?? []).filter((l) => ids.has(String(l.id))).map((l) => ({ id: l.id, title: l.title ?? null, description: l.description ?? null, isPermanent: l.isPermanent ?? null, startDate: l.startDate ?? null, endDate: l.endDate ?? null }));
+      return { limitations: list };
     }
     case "/api/important": {
       const ids = new Set();
       if (importantStore?.loaded) for (const { flight, aircraft } of scopedFlights(timelineService, scope)) for (const e of importantStore.matchFlight(timelineService.buildFlightMatchContext(flight, { oprId: aircraft.oprId, registration: aircraft.registration }))) ids.add(String(e.id));
-      return { ...payload, entries: (payload.entries ?? []).filter((e) => ids.has(String(e.id))) };
+      // the notice's title and text: no match criteria (other operators), no attachments, no names from the audit trail
+      return { ok: payload.ok ?? true, entries: (payload.entries ?? []).filter((e) => ids.has(String(e.id))).map((e) => ({ id: e.id, title: e.title ?? null, body: e.body ?? null })) };
     }
     case "/api/caa": {
       const ids = new Set();
       if (caaStore) for (const { flight, aircraft } of scopedFlights(timelineService, scope)) for (const e of caaStore.matchFlight(timelineService.buildFlightMatchContext(flight, { oprId: aircraft.oprId, registration: aircraft.registration }))) ids.add(String(e.id));
-      return { ...payload, entries: (payload.entries ?? []).filter((e) => ids.has(String(e.id))) };
-    }
-    case "/api/flight-checks": {
-      // Keyed "oprId:nid" → only keys of their flights.
-      const theirs = new Set(scopedFlights(timelineService, scope).map(({ nid, flight, aircraft }) => `${String(aircraft.oprId ?? flight.oprId ?? "")}:${nid}`));
-      const out = {};
-      for (const [k, v] of Object.entries(payload.checks ?? payload.statuses ?? {})) if (theirs.has(k)) out[k] = v;
-      return { ...payload, ...(payload.checks ? { checks: out } : {}), ...(payload.statuses ? { statuses: out } : {}) };
+      return { ok: payload.ok ?? true, entries: (payload.entries ?? []).filter((e) => ids.has(String(e.id))).map((e) => { const o = { id: e.id }; for (const k of CAA_FIELDS) if (e[k] != null && e[k] !== "") o[k] = e[k]; return o; }) };
     }
     case "/api/timeline/sync-status":
-      return { ok: payload.ok ?? true, lastSyncTimestamp: payload.lastSyncTimestamp ?? null, healthy: payload.healthy ?? null };
+      // is the flight data live, and when was it last brought up to date: the two things a client's page says
+      // (2026-11-09); nothing about operators, errors, storage or the cache
+      return { ok: payload.ok ?? true, lastSyncTimestamp: payload.lastSyncTimestamp ?? null, healthy: payload.healthy ?? null, live: payload.verdict === "working" || payload.verdict === "partial", updatedAt: payload.lastSuccessAt ?? null };
     default:
       return payload;
   }
@@ -149,9 +189,13 @@ export function flightInfoForClient(found, scope) {
 export function clientStreamFilter(scope, timelineService) {
   return (event) => {
     if (!event || event.type !== "flight.changed") return null;
+    // a sync says how many flights changed, not which (2026-11-09: the counts were read as lists, the filter threw, and
+    // the hub dropped the client's stream at the first sync): a client with flights is told to look again, no numbers
+    if (!Array.isArray(event.updated) && !Array.isArray(event.deleted)) return scopedFlights(timelineService, scope).length ? { type: "flight.changed", via: event.via ?? "sync" } : null;
     const theirs = new Set(scopedFlights(timelineService, scope).map(({ nid, flight, aircraft }) => `${String(aircraft.oprId ?? flight.oprId ?? "")}:${nid}`));
-    const updated = (event.updated ?? []).filter((k) => theirs.has(String(k?.key ?? k)));
-    const deleted = (event.deleted ?? []).filter((k) => theirs.has(String(k?.key ?? k)));
+    const list = (v) => (Array.isArray(v) ? v : []);
+    const updated = list(event.updated).filter((k) => theirs.has(String(k?.key ?? k)));
+    const deleted = list(event.deleted).filter((k) => theirs.has(String(k?.key ?? k)));
     if (!updated.length && !deleted.length) return null;
     return { type: "flight.changed", via: event.via ?? "sync", updated, deleted };
   };

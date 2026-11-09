@@ -31,8 +31,10 @@ await admin.goto(`${PORTAL}/admin/permissions`, { waitUntil: "load" });
 await admin.waitForSelector('table[aria-label^="Permissions"]', { timeout: 30000 });
 // Groups start folded (§3.1): open the three this test works in.
 for (const g of ["Permissions", "Operators", "Aircraft"]) await admin.locator(`tbody[aria-label='${g}']`).getByRole("button", { expanded: false }).first().click();
-{ // when it does not, what differs: the screen's own count, and every grant row in the database not from the seed
-  const exact = (await admin.getByText("Exactly the defaults").count()) === 1;
+{ // The legend's own words, exactly (2026-11-09): a loose match also found the change log's empty state ("Every role has
+  // exactly the defaults it started with"), so this passed only when another suite (permissions-check) had already made
+  // a change; a shuffled run with that suite in the other box found it. When it fails, it says what differs.
+  const exact = (await admin.getByText("Exactly the defaults", { exact: true }).count()) === 1;
   let why = "";
   if (!exact) {
     const K = process.env.SUPABASE_SERVICE_ROLE_KEY;

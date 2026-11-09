@@ -126,7 +126,10 @@ for (const theme of ["light", "dark"]) {
   const before = (await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=switches`)).json())[0]?.switches ?? [];
   const on = [...new Set([...before, "documents", "airport_search"])];
   await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ switches: on }) });
-  await sleep(1500);   // the portal's and the wall's permission caches (PERMISSIONS_TTL_MS=1000 on the rig)
+  // until the portal itself serves the new menu: a client's scope is cached ten seconds, and a fixed short wait passed
+  // only while the steps before it happened to take long enough (2026-11-09, the full run: the menu was still the old one)
+  for (let i = 0; i < 40; i += 1) { const t = await (await fetch(`${B}/client`, { headers: { cookie: `${cookie(cs).name}=${cookie(cs).value}` } })).text(); if (/data-menu="[^"]*\/client\/airports[^"]*"/.test(t) && /data-menu="[^"]*\/client\/documents/.test(t)) break; await sleep(500); }
+  await sleep(1500);   // and the wall's own permission cache (PERMISSIONS_TTL_MS=1000 on the rig)
   try {
     // Flights with all three areas on: the menu a small portal has, on the desk and on the phone (2026-11-09)
     for (const theme of ["light", "dark"]) for (const width of [1440, 390]) {

@@ -119,6 +119,11 @@ so their Mac numbers are not usable). **About 2.5 GB a lane.**
    and `rig/box/build.sh` wait while a deploy holds the lock, and refuse to start below 15 GB free on the host. The
    monthly agent rebuild (`/etc/cron.d/clearway-agent-rebuild`, 03:30 on the 1st) goes through `deploy.sh`, so it
    takes the lock too. Every step is a line in `/var/log/clearway-deploy-lock.log`.
+   Shown on 2026-11-09, during a full two-lane run (seed 20261108a): a real deploy of digital-wall-frontend took the
+   lock at 01:01:06Z and paused both boxes, with the lanes at 41 and 17 suites done. A second run asking to start at
+   01:01:11Z waited. The deploy finished at 01:02:10Z. In the same second both boxes resumed with their clocks set,
+   and only then did the second run's gate open. The lanes carried on from 41 and 17. A test with the deploy killed by
+   SIGKILL resumed the boxes too.
 7. **A run is reported, not just written.** The verdict line goes to the developers' Telegram, so a red night is seen.
 
 ## How many suites at once, and how long a full run takes

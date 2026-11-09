@@ -73,7 +73,7 @@ No wildcards: "intake/browser-*" used to stand for five suites, and a sixth woul
   malformed, so the gate refused all three before any reveal logic ran. The admin check was one of the three, not a
   fourth. The check now seeds its own invented request and all three pass. permissions-check passes in full.
 - **Last full run: 2026-11-09, two lanes on two rig boxes built from nothing (rig/box/two-lanes.sh --build), at
-  af9b89d4: GREEN, all 105 suites, 29 min 12 s wall clock (lane a 60 suites, lane b 45).**
+  a22cb7a9: GREEN, all 106 suites, 30 min 1 s wall clock (lane a 60 suites, lane b 46).**
 - **Run before that: 2026-11-09, on the server's rig box built from the repository alone (rig/box/build.sh --replace, no
   hand step), at d0937eb4: GREEN, all 103 suites, 54 min 43 s, known-failures record empty.** The first full run since
   3 November. On the way: 34 red on the box's first trial, then 19, 5, 1 — setup only the Mac had (schema, fixtures, the
@@ -132,10 +132,11 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | mobile/pax-check | 47 | 2026-10-28 |
 | self-promotion-check | 12 | 2026-10-20 |
 | temporary-access-check | 24 | 2026-10-21 |
-| client-scope-check | 60 | 2026-10-28 |
-| client-ui-check | 60 | 2026-10-28 |
+| client-scope-check | 64 | 2026-11-09 |
+| client-ui-check | 183 (Account at 1440 and 390 in both themes, a real password change, the phone's back gesture and Flights tab) | 2026-11-09 |
+| client-feed-check | 58 (what a client's browser is given of a flight: the listed fields, ops' notes only by switch; invented notes it makes and removes) | 2026-11-09 |
 | clients-page-check | 41 (red on the pre-fix page: padding ×6, past the edge at 1250, focus; `CLIENTS_CHECK_SELFTEST=overlap` turns the overlap assertion red) | 2026-11-02 |
-| client-onboarding-check | 57 | 2026-11-05 |
+| client-onboarding-check | 60 | 2026-11-09 |
 | files-route-check | 9 (red on 1b3fbbf1: another person read a help draft through /files) | 2026-11-02 |
 | client-gate-check | 49 (red on b8ba5dd0 with the approval redirect off: 74 of 135 handlers answered an unapproved or temporary account; red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client; red on fcf442fb: 93 pages rendered for an unknown role, and the docs search index answered one) | 2026-11-04 |
 | web-search | 60 (the follow-up section red on 0053146f's rules: a check that was made still showed a partial answer first; the ceiling section red when the day's real-model runs had already spent past its $2, now it starts from an empty day) | 2026-11-05 |

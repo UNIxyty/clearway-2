@@ -34,7 +34,8 @@ export default function ClientShell({ menu, account, company, initials, children
       {children}
       {/* the note above the phone's tab bar: a tab bar is the last thing on the screen (2026-11-09) */}
       <footer className="clw-foot"><span>Times in UTC. Data from Clearway handling, updated live.</span></footer>
-      <nav className="clw-bottomnav" aria-label="Areas and account">{[...menu, account].map((m) => <Link key={m.path} href={m.path} className={active(m.path) ? "on" : ""} aria-current={active(m.path) ? "page" : undefined}><MaskIcon name={m.icon} size={22} />{m.label}</Link>)}</nav>
+      {/* the current tab, tapped again, goes back to its top: from an open flight to the board (app/client/wall.tsx marks that step "#flight") */}
+      <nav className="clw-bottomnav" aria-label="Areas and account">{[...menu, account].map((m) => <Link key={m.path} href={m.path} className={active(m.path) ? "on" : ""} aria-current={active(m.path) ? "page" : undefined} onClick={(e) => { if (active(m.path) && window.location.hash === "#flight") { e.preventDefault(); window.history.back(); } }}><MaskIcon name={m.icon} size={22} />{m.label}</Link>)}</nav>
     </div>
   );
 }

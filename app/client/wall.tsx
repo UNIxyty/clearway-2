@@ -65,6 +65,22 @@ export default function ClientWall() {
   }, []);
   useEffect(() => { void load(); const t = setInterval(() => void load(), 60_000); return () => clearInterval(t); }, [load]);
 
+  // On a phone a flight opens over the board, so it is a step in the browser's history (2026-11-09): the back gesture and
+  // the Flights tab return to the board instead of leaving the page. "#flight" marks the step; a desk shows both at once
+  // and gets none.
+  const openFlight = (key: string) => {
+    setSel(key); setView("flight");
+    if (window.matchMedia("(max-width: 699px)").matches && window.location.hash !== "#flight") window.history.pushState(null, "", "#flight");
+  };
+  const toBoard = () => { if (window.location.hash === "#flight") window.history.back(); else setView("board"); };
+  useEffect(() => {
+    // a reload on a flight leaves the mark in the address with the board showing: drop it
+    if (window.location.hash === "#flight") window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    const sync = () => { if (window.location.hash !== "#flight") setView("board"); };
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+
   const tripScoped = Boolean(me?.scopeKinds?.length && me.scopeKinds.every((k) => k === "trip"));
   const todayKey = new Date(now).toISOString().slice(0, 10), tomorrowKey = new Date(now + 86400e3).toISOString().slice(0, 10);
   const shown = useMemo(() => (recs ?? []).filter((r) => tripScoped || day === "week" || dayKey(r.flight.startTimeUTC) === (day === "today" ? todayKey : tomorrowKey)), [recs, day, tripScoped, todayKey, tomorrowKey]);
@@ -110,7 +126,7 @@ export default function ClientWall() {
                 <div key={g.label} className="clw-group">
                   {g.trip ? <div className="clw-trip"><MaskIcon name="hash" size={14} /><span className="clw-tripno">Trip {g.trip}</span><span className="clw-muted">{g.rows.length} flight{g.rows.length === 1 ? "" : "s"}</span></div> : <span className="clw-day">{g.label}</span>}
                   {g.rows.map((r) => { const f = r.flight; const st = stateOf(f); const t1 = st === "arrived" ? (f.ata || f.endTimeUTC) : st === "flying" ? (f.eta || f.endTimeUTC) : (f.etd || f.startTimeUTC); return (
-                    <button type="button" key={r.key} className={`clw-flight ${selected?.key === r.key && view !== "board" ? "sel" : ""} ${selected?.key === r.key ? "cur" : ""}`} data-flight={r.key} onClick={() => { setSel(r.key); setView("flight"); }}>
+                    <button type="button" key={r.key} className={`clw-flight ${selected?.key === r.key && view !== "board" ? "sel" : ""} ${selected?.key === r.key ? "cur" : ""}`} data-flight={r.key} onClick={() => openFlight(r.key)}>
                       <span className="clw-t"><span className={`clw-t1 ${st === "delayed" ? "delayed" : ""}`}>{hhmm(t1)}</span><span className="clw-t0">{st === "arrived" ? "landed" : st === "flying" ? "ETA" : st === "ctot" ? `CTOT ${hhmm(f.ctotUTC)}` : f.etd && f.etd !== f.startTimeUTC ? `was ${hhmm(f.startTimeUTC)}` : "STD"}</span></span>
                       <span className="clw-mid"><span className="clw-cs">{f.flightNo}<small>{r.registration}</small></span><span className="clw-route">{f.adep?.icao} → {f.ades?.icao}</span></span>
                       <span className={`clw-st st-${st}`}><span className="dot" />{STATUS[st]}</span>
@@ -120,7 +136,7 @@ export default function ClientWall() {
             </div>
           </aside>
           <main className="clw-detail" data-detail>
-            {selected ? <FlightDetail rec={selected} on={on} level={me?.passengerLevel ?? "off"} viewerName={viewerName} onBack={() => setView("board")} /> : recs !== null ? <div className="clw-empty">{recs.length ? "Pick a flight on the left." : "No flights on your account in the next seven days. When Clearway has one, it appears here with its times, weather and NOTAMs."}</div> : null}
+            {selected ? <FlightDetail rec={selected} on={on} level={me?.passengerLevel ?? "off"} viewerName={viewerName} onBack={toBoard} /> : recs !== null ? <div className="clw-empty">{recs.length ? "Pick a flight on the left." : "No flights on your account in the next seven days. When Clearway has one, it appears here with its times, weather and NOTAMs."}</div> : null}
           </main>
         </div>
     </div>

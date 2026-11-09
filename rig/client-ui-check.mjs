@@ -103,7 +103,19 @@ for (const theme of ["light", "dark"]) {
     ok(await page.locator('[data-card="documents"]').count() === 0 && await page.locator(".clw-topnav").count() === 0 && JSON.stringify((await page.locator(".clw-bottomnav a").allInnerTexts()).map((x) => x.trim())) === JSON.stringify(["Flights", "Account"]), `client wall ${theme} ${width}: no documents card, no area tabs but Flights and Account — switches off add nothing`);
     ok(await noOverflow(page), `client wall ${theme} ${width}: no horizontal scroll with a flight open`);
     await shot(page, `${OUT}/client-wall-flight-${theme}-${width}.png`, width);
-    if (width === 390) { await page.locator(".clw-back").click(); await settled(page); ok(await page.locator("[data-board]").isVisible(), "client wall 390: ← All flights returns to the board"); }
+    if (width === 390) {
+      await page.locator(".clw-back").click(); await settled(page); ok(await page.locator("[data-board]").isVisible(), "client wall 390: ← All flights returns to the board");
+      // one thumb (2026-11-09): the phone's back gesture and the Flights tab return to the board too; neither leaves the page
+      await page.locator("[data-flight]").first().click(); await settled(page);
+      await page.goBack(); await settled(page);
+      ok(await page.locator("[data-board]").isVisible() && await page.locator("[data-detail]").isHidden() && new URL(page.url()).pathname === "/client", `client wall ${theme} 390: the back gesture returns from a flight to the board, on the same page`, page.url());
+      await page.locator("[data-flight]").first().click(); await settled(page);
+      await page.locator(".clw-bottomnav a").first().click(); await settled(page);
+      ok(await page.locator("[data-board]").isVisible() && await page.locator("[data-detail]").isHidden(), `client wall ${theme} 390: the Flights tab, tapped on an open flight, returns to the board`);
+      await page.locator("[data-flight]").first().click(); await settled(page);
+      await page.reload({ waitUntil: "load" }); await page.waitForSelector("[data-client-wall]", { timeout: 20000 }); await settled(page);
+      ok(await page.locator("[data-board]").isVisible() && !page.url().includes("#flight"), `client wall ${theme} 390: a reload on a flight shows the board, with no stale mark in the address`, page.url());
+    }
     await ctx.close();
   }
 }

@@ -45,7 +45,11 @@ export async function check({ base, accounts: [client], ok }) {
   const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, K = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const set = await fetch(`${SB}/rest/v1/app_settings?select=value&key=eq.clients.support_email`, { headers: { apikey: K, authorization: `Bearer ${K}` } }).then((r) => r.json(), () => []);
   const address = String(set?.[0]?.value?.email ?? "");
-  ok(address ? acct.text.includes(`mailto:${address}`) : !acct.text.includes("data-client-contact"), address ? "client: Account shows the address clients write to (the Admin › Clients setting)" : "client: no address to write to is set, and Account shows none", address ? "set" : "empty");
+  // Cloudflare's email obfuscation rewrites every mailto: in the HTML and decodes it in the browser (found 2026-11-09): the
+  // address is read back out of that form here, so the page is held to the setting either way
+  const cfDecode = (hex) => { const key = parseInt(hex.slice(0, 2), 16); let out = ""; for (let i = 2; i < hex.length; i += 2) out += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16) ^ key); return out; };
+  const shown = [...acct.text.matchAll(/data-cfemail="([0-9a-f]+)"/g)].map((m) => cfDecode(m[1]));
+  ok(address ? (acct.text.includes(`mailto:${address}`) || shown.includes(address)) : !acct.text.includes("data-client-contact"), address ? "client: Account shows the address clients write to (the Admin › Clients setting)" : "client: no address to write to is set, and Account shows none", address ? `set${shown.length ? " · through Cloudflare's obfuscation" : ""}` : "empty");
   const pw = await ask("/api/client/account/password", { who: client, method: "POST", body: "{}" });
   ok(pw.st === 403, "client: the password route is there, and a check account's write is refused (read-only)", pw.st);
   ok((await ask("/api/client/account/password", { who: client })).st === 404, "client: GET on the password route is 404");

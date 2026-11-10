@@ -9,7 +9,7 @@ import path from "node:path";
 import { UNGATED } from "../../lib/permissions/route-gates.mjs";
 import { CLIENT_PAGES, CLIENT_APIS } from "../../lib/clients/allow.mjs";
 import { codeRouteBlocks } from "../../lib/permissions/check.mjs";
-import { CLIENT_READS } from "../../digital-wall/lib/client-scope.mjs";
+import { CLIENT_READS, CLIENT_WRITES } from "../../digital-wall/lib/client-scope.mjs";
 import { SWITCH_KEYS } from "../../lib/clients/switches.mjs";
 
 export const COPY = "scripts/prod-checks/gate-inventory.json";
@@ -60,7 +60,7 @@ export function serviceEndpoints(root = ".") {
   // ops-room screen has no session; it may announce itself and poll its own approval, nothing more
   const WALL_PUBLIC = new Set(["/api/device/announce", "/api/device/state", "/api/health"]);
   const defs = [
-    { name: "wall", prefix: "/digital-wall", routes: [...routesOf(["digital-wall/server.mjs"]), ...WALL_EXTRA], clientMay: (m, p) => m === "GET" && p in CLIENT_READS, isPublic: (p) => WALL_PUBLIC.has(p) },
+    { name: "wall", prefix: "/digital-wall", routes: [...routesOf(["digital-wall/server.mjs"]), ...WALL_EXTRA], clientMay: (m, p) => (m === "GET" && p in CLIENT_READS) || Boolean(CLIENT_WRITES[p]?.includes(m)), isPublic: (p) => WALL_PUBLIC.has(p) },
     { name: "agent", prefix: "/agent", routes: routesOf(["agent/server.mjs", "agent/lib/intake/api.mjs", "agent/lib/passengers/api.mjs"]), clientMay: (m, p) => /^\/api\/flights\/[^/]+\/passengers/.test(p), isPublic: (p) => p === "/api/health" },
   ];
   return defs.map((d) => {

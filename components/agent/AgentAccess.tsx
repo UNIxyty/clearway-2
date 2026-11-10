@@ -22,6 +22,7 @@ import {
 } from "@/components/console-kit";
 import type { AgentAccessRow, AgentKillSwitch } from "@/lib/agent/shared";
 import { dayTimeZ } from "@/lib/time";
+import StatusScreen from "@/components/portal/StatusScreen";
 import { KILL_SWITCH_UNREADABLE, KILL_SWITCH_UNREADABLE_TEXT, personText } from "./ui/errorText";
 
 const GRANT_FAILED = "Access was not granted. Try again. If it keeps failing, the detail is in the server log.";
@@ -104,8 +105,8 @@ export default function AgentAccess() {
       subtitle="Who can use the dispatcher agent. Developer-managed — the agent is a build in progress."
     >
       <ConsoleStyles />
+      {forbidden ? <StatusScreen kind="for-admins" eyebrow="For developers" title="Agent access is for developers" line="Your role can't see or change who may use the agent. A developer can, under Developer → Agent access." embedded action={{ label: "Go to the dashboard", href: "/dashboard" }} /> : (
       <div className="cw-kit" style={{ margin: "0 auto", maxWidth: 880, padding: "24px 32px", display: "flex", flexDirection: "column", gap: 14 }}>
-        {forbidden && <ErrorBanner>Developer role required.</ErrorBanner>}
 
         {/* The kill switch comes first: it overrides every grant below it. */}
         {killSwitch && (
@@ -216,6 +217,7 @@ export default function AgentAccess() {
           </InfoBanner>
         )}
       </div>
+      )}
 
       <ConfirmDialog
         open={Boolean(revoking)}

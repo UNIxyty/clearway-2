@@ -20,6 +20,7 @@ import { logError, logInfo } from "../lib/utils/logger.mjs";
 import { runRefresh as runAipRefresh, tick as aipRefreshTick, readState as readAipRefreshState, cycleInForce } from "./aip-refresh.mjs";
 import { statfs } from "fs/promises";
 import { STORAGE_ROOT } from "../lib/storage.mjs";
+import { ENR_ENABLED, ENR_PAUSED_TEXT } from "../lib/aip-enr.mjs";
 import { runLibraryCheck, libraryCheckDue, libraryTable } from "./aip-library.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1181,7 +1182,7 @@ async function enrRefreshTick() {
     }
   } finally { enrRefreshRunning = false; }
 }
-if (process.env.AIP_REFRESH_SCHEDULE !== "off") { setTimeout(() => void enrRefreshTick(), 7 * 60_000); setInterval(() => void enrRefreshTick(), 30 * 60_000); }
+if (ENR_ENABLED && process.env.AIP_REFRESH_SCHEDULE !== "off") { setTimeout(() => void enrRefreshTick(), 7 * 60_000); setInterval(() => void enrRefreshTick(), 30 * 60_000); }   // paused: no ENR refresh runs (lib/aip-enr.mjs)
 
 /** The text of a PDF's first pages (pdf-parse; empty when it cannot be read, so a caller never refuses on a read failure). */
 async function pdfTextOf(buf, maxPages = 2) {
@@ -1361,6 +1362,7 @@ const server = createServer(async (req, res) => {
     if (!/^[A-Z]{2}$/.test(prefix)) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Valid icao or prefix required (e.g. icao=EVRA or prefix=EV)" })); return; }
     if (!requireAuth(req)) { res.writeHead(401, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
     res.setHeader("Content-Type", "application/json");
+    if (!ENR_ENABLED) { res.writeHead(503); res.end(JSON.stringify({ ok: false, error: ENR_PAUSED_TEXT, code: "enr-paused" })); return; }
     try {
       const have = await enrMetaOf(prefix);
       if (have && enrCopyCurrent(have) && url.searchParams.get("force") !== "1") { res.writeHead(200); res.end(JSON.stringify({ ok: true, prefix, key: `${ENR_DIR_KEY}/${prefix}-ENR-1.1.pdf`, source: have.source ?? null, bytes: have.bytes ?? null, cached: true, fetchedAt: have.fetchedAt, airac: cycleInForce()?.airac ?? null })); return; }

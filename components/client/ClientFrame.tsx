@@ -6,7 +6,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-const pageOf = (pathname: string) => (pathname.startsWith("/client/flights") ? "flights" : "timeline");
+const pageOf = (pathname: string) => (pathname.startsWith("/client/flights") ? "flights" : pathname.startsWith("/client/settings") ? "settings" : "timeline");
 
 export default function ClientFrame() {
   const pathname = usePathname() ?? "/client";
@@ -17,7 +17,7 @@ export default function ClientFrame() {
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || e.data?.source !== "cw-client-frame") return;
-      if (e.data.type === "page") { const to = e.data.page === "flights" ? "/client/flights" : "/client"; if (to !== pathname) router.replace(to); }
+      if (e.data.type === "page") { const to = e.data.page === "flights" ? "/client/flights" : e.data.page === "settings" ? "/client/settings" : "/client"; if (to !== pathname) router.replace(to); }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);

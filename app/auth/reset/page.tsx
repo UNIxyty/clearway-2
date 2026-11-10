@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import StatusScreen from "@/components/portal/StatusScreen";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, Check, Lock, ShieldCheck } from "lucide-react";
 import AuthBackdrop from "@/app/auth/ui/AuthBackdrop";
@@ -31,6 +32,7 @@ export default function ResetPasswordPage() {
   const [readyForPassword, setReadyForPassword] = useState(false);
   const [updated, setUpdated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkDead, setLinkDead] = useState(false);   // the link is not valid: the shared status screen (2026-11-11)
   const [info, setInfo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,6 +83,7 @@ export default function ResetPasswordPage() {
       } catch {
         if (!mounted) return;
         setError("Reset link is invalid or expired. Request a new one.");
+        setLinkDead(true);
       } finally {
         if (mounted) setCheckingLink(false);
       }
@@ -137,6 +140,9 @@ export default function ResetPasswordPage() {
   const match = confirmPassword.length > 0 && password === confirmPassword;
   const mismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
+  if (linkDead && !updated) {
+    return <StatusScreen kind="reset-link-invalid" eyebrow="Your link" title="This reset link is not valid any more" line="Reset links work once and for a short time. On the sign-in page, type your email and press Forgot password? for a new one." action={{ label: "Go to sign in", href: "/login" }} />;
+  }
   return (
     <AuthBackdrop>
       <div className="cw-fadeup" style={{ width: 452, maxWidth: "100%", display: "flex", flexDirection: "column", gap: 24 }}>

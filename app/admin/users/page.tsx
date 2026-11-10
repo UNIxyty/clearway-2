@@ -11,6 +11,7 @@ import {
   Button, ConfirmDialog, DataTable, EmptyState, FilterBar, FilteredStrip, RoleBadge, TableCard, errorDetail, filterReasons, useToast, type Column, type MenuItem,
 } from "@/components/kit";
 import { OFFLINE } from "@/lib/error-text";
+import StatusScreen from "@/components/portal/StatusScreen";
 
 type UserRow = { id: string; email: string | null; displayName: string | null; isAdmin: boolean; isDeveloper: boolean; isApproved: boolean; createdAt: string | null; lastSignInAt: string | null };
 type Can = { approve: boolean; setAdmin: boolean; setDeveloper: boolean; passwordReset: boolean };
@@ -160,7 +161,7 @@ export default function AdminUsersPage() {
         </div>
       ) : undefined}>
       <div className="pb-10" style={{ padding: "0 var(--cw-page-pad) 40px" }}>
-        {forbidden ? <TableCard><EmptyState icon="lock" title="Users is for Admins">Your role can't approve accounts or change roles. An admin can, under Admin → Users.</EmptyState></TableCard> : (
+        {forbidden ? <StatusScreen kind="for-admins" eyebrow="For admins" title="Users is for Admins" line="Your role can't approve accounts or change roles. An admin can, under Admin → Users." embedded action={{ label: "Go to the dashboard", href: "/dashboard" }} /> : (
         <TableCard>
           <DataTable
             label="Users"

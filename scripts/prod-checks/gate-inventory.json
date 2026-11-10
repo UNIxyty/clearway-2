@@ -2030,6 +2030,24 @@
     },
     {
      "method": "GET",
+     "path": "/api/client/view",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "PUT",
+     "path": "/api/client/view",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "DELETE",
+     "path": "/api/client/view",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
      "path": "/api/stream",
      "clientMay": true,
      "public": false

@@ -313,6 +313,13 @@ async function readDisplayProfiles() {
 // resolve from the shared default even when an account profile carries a
 // stale copy from the pre-report-4 full-object saves.
 const GLOBAL_SETTING_KEYS = ["upcomingHorizonHours", "postLandingHours"];
+// What a client may set about their own timeline's look (2026-11-11): the ops wall's sizing, spacing, chips, colours and
+// font knobs. Left out on purpose: the visibility window (global, data), the movement-overdue flash and the unconfirmed
+// ring (ops alerts), the Upcoming Flight Table and the overlay/sidebar/header scales (ops-room parts the client view
+// does not draw), and the wall's physical text floors.
+const CLIENT_VIEW_KEYS = ["scale", "timeZoom", "rowZoom", "pillHeight", "markerScale", "labelScale", "autoFitRows", "acColScale",
+  "callsignScale", "routeScale", "chipSpacing", "minPillMinutes", "pillPadding", "laneGap", "autoFitHorizontal",
+  "chipImp", "chipCaa", "chipNtm", "chipWx", "colors", "font", "zeroStyle"];
 
 function resolveDisplaySettings(shape, account) {
   const globalBase = { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default };
@@ -934,6 +941,40 @@ const server = http.createServer(async (req, res) => {
       if (requestUser && !requestUser.device && requestUser.permRole === "client") {
         clientScope = await scopeFor(requestUser);
         if (clientScope.nobody) { sendJson(res, { ok: false, error: "Unauthorized. Sign in through the Clearway portal first." }, 401); return; }
+        // A client's view settings (2026-11-11): the look of THEIR timeline — the same knobs the ops wall's display
+        // settings hold (CLIENT_VIEW_KEYS: sizing, spacing, chips, colours, font), on their own account's profile in
+        // the same file, read and written here only. Never the big screen, never another profile, never the window.
+        if (pathname === "/api/client/view") {
+          const own = String(requestUser?.email || "").toLowerCase();
+          if (!own) { sendJson(res, NOT_ON_ACCOUNT, 404); return; }
+          const shape = await readDisplayProfiles();
+          const pick = (settings) => Object.fromEntries(CLIENT_VIEW_KEYS.map((k) => [k, settings[k]]));
+          if (req.method === "GET") { const r = resolveDisplaySettings(shape, own); sendJson(res, { ok: true, settings: pick(r.settings), source: r.source, account: own, defaults: pick({ ...DEFAULT_DISPLAY_SETTINGS, ...shape.default }) }); return; }
+          if (req.method === "PUT") {
+            const body = await readJsonBody(req);
+            const patch = body.settings ?? body;
+            const base = { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default, ...(shape.accounts[own] ?? {}) };
+            let settings;
+            try {
+              const allowed = Object.fromEntries(Object.entries(patch ?? {}).filter(([k]) => CLIENT_VIEW_KEYS.includes(k)));
+              settings = sanitizeDisplaySettings({ ...base, ...allowed, colors: { ...(base.colors ?? {}), ...(allowed.colors ?? {}) } });
+            } catch (error) { sendFailure(res, 400, "Couldn't save the view settings. Try again in a few minutes. If it keeps failing, write to the ops team.", "display", error); return; }
+            for (const k of GLOBAL_SETTING_KEYS) delete settings[k];
+            shape.accounts[own] = settings;
+            await displaySettingsStore.write({ ...shape, updatedAt: new Date().toISOString() });
+            sseHub.broadcast({ type: "config.changed", section: "settings", account: own });
+            sendJson(res, { ok: true, settings: pick(resolveDisplaySettings(shape, own).settings), account: own });
+            return;
+          }
+          if (req.method === "DELETE") {
+            delete shape.accounts[own];
+            await displaySettingsStore.write({ ...shape, updatedAt: new Date().toISOString() });
+            sseHub.broadcast({ type: "config.changed", section: "settings", account: own });
+            sendJson(res, { ok: true, settings: pick(resolveDisplaySettings(shape, own).settings), account: own, source: "default" });
+            return;
+          }
+          sendJson(res, NOT_ON_ACCOUNT, 404); return;
+        }
         if (clientReadRefusal(clientScope, req.method, pathname)) { sendJson(res, NOT_ON_ACCOUNT, 404); return; }
         if (pathname === "/api/flight-info") {
           const found = timelineService.getFlightByNid(url.searchParams.get("flightNid"), url.searchParams.get("oprId") || "");

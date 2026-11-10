@@ -87,6 +87,9 @@ export default function ClientAccount({ email, name, company, contact, start: st
         <div className="clw-pref"><span><b>Appearance</b><small>Light, dark or the same as this device.</small></span>
           <div className="clw-seg2" role="radiogroup" aria-label="Appearance">{([["light", "Light", "sun"], ["dark", "Dark", "moon"], ["system", "This device", "monitor"]] as [ThemeChoice, string, string][]).map(([k, t, i]) => <button type="button" key={k} role="radio" aria-checked={choice === k} className={choice === k ? "on" : ""} onClick={() => { setTheme(k); setChoice(k); }} data-theme-option={k}><MaskIcon name={i} size={14} />{t}</button>)}</div>
         </div>
+        <div className="clw-pref"><span><b>Display settings</b><small>Size, spacing, colours and the font of your timeline. Saved on your account, so your phone follows.</small></span>
+          <a href="/client/settings" className="cl-btn" data-display-settings=""><MaskIcon name="sliders-horizontal" size={16} />Open display settings</a>
+        </div>
       </section>
 
       <section className="clw-card" data-card="password">

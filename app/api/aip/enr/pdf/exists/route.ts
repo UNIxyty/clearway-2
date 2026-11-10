@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ENR_ENABLED, ENR_PAUSED_TEXT } from "@/lib/aip-enr.mjs";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
 import { storageObjectExists } from "@/lib/aip-storage";
 import { readAipRevision } from "@/lib/aip-revision";
@@ -9,6 +10,7 @@ import { staffGate } from "@/lib/admin-auth";
 // Is there a cached ENR 1.1 copy for this prefix, and from which cycle (the same answer shape as GEN's exists route).
 export async function GET(request: NextRequest) {
   const notStaff = await staffGate(request); if (notStaff) return notStaff;
+  if (!ENR_ENABLED) return NextResponse.json({ ok: false, exists: false, error: ENR_PAUSED_TEXT, code: "enr-paused" }, { status: 503 });   // ENR is paused (lib/aip-enr.mjs)
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const prefix = resolveGenPrefix(icao, request.nextUrl.searchParams.get("prefix")?.trim().toUpperCase() ?? "");
   if (!/^[A-Z]{2}$/.test(prefix)) return NextResponse.json({ error: "Valid 2-letter prefix required" }, { status: 400 });

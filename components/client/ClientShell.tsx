@@ -12,6 +12,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import MaskIcon from "@/components/portal/Icon";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { readChoice, setChoice, useTheme } from "@/components/portal/theme";
+import { ClearwayLogo } from "@/components/portal/ClearwayLogo";
 
 export type ClientMenuItem = { path: string; label: string; icon: string };
 
@@ -22,12 +23,12 @@ export default function ClientShell({ menu, company, person, initials, contact, 
   useEffect(() => setMounted(true), []);
   const active = (p: string) => (p === "/client" ? pathname === "/client" : pathname === p || pathname.startsWith(`${p}/`));
   const current = menu.find((m) => active(m.path));
-  const watch = pathname === "/client" || pathname.startsWith("/client/flights");
+  const watch = pathname === "/client" || pathname.startsWith("/client/flights") || pathname.startsWith("/client/settings");
   const cycleTheme = () => { const c = readChoice(); setChoice(c === "dark" ? "light" : c === "light" ? "system" : "dark"); };
   return (
     <div className={`clw${watch ? " is-watch" : ""}`} data-client-shell="" data-menu={menu.map((m) => m.path).join(" ")}>
       <aside className="clw-side" aria-label="Client navigation">
-        <div className="clw-side-brand"><span className="clw-brand">Clearway</span></div>
+        <div className="clw-side-brand"><span className="clw-brand" data-client-logo=""><ClearwayLogo height={22} title="Clearway" /></span></div>
         <nav className="clw-side-nav" aria-label="Areas">
           {menu.map((m) => <Link key={m.path} href={m.path} className={active(m.path) ? "on" : ""} aria-current={active(m.path) ? "page" : undefined}><MaskIcon name={m.icon} size={17} />{m.label}</Link>)}
         </nav>
@@ -36,7 +37,7 @@ export default function ClientShell({ menu, company, person, initials, contact, 
       </aside>
       <div className="clw-main">
         <header className="clw-head">
-          <span className="clw-crumb"><span>{company}</span><MaskIcon name="chevron-right" size={13} /><b>{current?.label ?? "Account"}</b></span>
+          <span className="clw-crumb"><span>{company}</span><MaskIcon name="chevron-right" size={13} /><b>{current?.label ?? (pathname.startsWith("/client/settings") ? "Display settings" : "Account")}</b></span>
           <span className="clw-grow" />
           <button type="button" className="clw-theme" onClick={cycleTheme} aria-label="Theme" title="Theme" data-theme-button="">{mounted ? <MaskIcon name={theme === "dark" ? "moon" : "sun"} size={17} /> : null}</button>
           <button type="button" className="clw-signout" onClick={async () => { await createSupabaseBrowserClient().auth.signOut(); window.location.href = "/login"; }}>Sign out</button>

@@ -9,6 +9,7 @@ import { usePhonePage } from "@/components/m/chrome";
 import { MError } from "@/components/m/ui";
 import { T2Chips, T2Detail, T2Groups, T2Page, type Tone } from "@/components/m/tier2";
 import { dayTime, getJson, useAction, useResource } from "@/lib/m/t2";
+import StatusScreen from "@/components/portal/StatusScreen";
 
 type User = { id: string; email: string; displayName?: string | null; isAdmin: boolean; isDeveloper: boolean; isApproved: boolean; createdAt?: string; lastSignInAt?: string | null };
 type Data = { users?: User[]; callerIsDeveloper?: boolean; callerId?: string; can?: { approve?: boolean; setAdmin?: boolean; setDeveloper?: boolean; passwordReset?: boolean } };
@@ -30,7 +31,7 @@ export default function UsersPhonePage() {
   const mayAct = (u: User) => u.id !== me && (callerDev || !u.isDeveloper);
   const post = (key: string, body: Record<string, unknown>, done: string) => act.run(key, async () => { await getJson("/api/admin/users", { json: body }); setSaid(done); await r.reload(); });
   const reset = (u: User) => act.run("reset", async () => { await getJson("/api/admin/users/password-reset", { json: { userId: u.id } }); setSaid(`A reset link is on its way to ${u.email}.`); });
-  if (r.status === 401 || r.status === 403) return <MError title="Users is for admins" icon="users">Ask an admin if someone is waiting for access.</MError>;
+  if (r.status === 401 || r.status === 403) return <StatusScreen kind="for-admins" eyebrow="For admins" title="Users is for admins" line="Ask an admin if someone is waiting for access." embedded action={{ label: "Go to the dashboard", href: "/m/dashboard" }} />;
 
   if (picked) { const role = roleOf(picked); const ok = mayAct(picked); return (
     <div className="flex flex-col gap-3 px-4 pb-6 pt-4">

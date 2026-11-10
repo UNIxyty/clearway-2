@@ -68,7 +68,7 @@ function FlightPanel({ p, me, names, onClose }) {
   );
 }
 
-export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload }) {
+export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload, look }) {
   const view0 = readView();
   const [zoom, setZoom] = useState(() => (Number.isInteger(view0.zoom) ? Math.max(0, Math.min(2, view0.zoom)) : 1));
   const [day, setDay] = useState(() => (Number.isInteger(view0.day) ? view0.day : 0));
@@ -120,6 +120,7 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraf
       <div className="cwd-titlerow">
         <div className="cwd-title"><h1>{page === 'flights' ? 'Flights' : 'Timeline'}</h1><span className="cwd-muted" data-page-sub="">{sub}</span></div>
         {nHidden > 0 && <span className="cwd-hidden" data-hidden-chip="">{nHidden} aircraft hidden<button type="button" onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></span>}
+        {page === 'timeline' && <button type="button" className="cwd-btn" onClick={() => goPage('settings')} data-display-settings="">Display settings</button>}
         <button type="button" className={`cwd-btn${panel ? ' is-on' : ''}`} onClick={() => setPanel((v) => !v)} data-operators-button="" aria-expanded={panel}>Operators &amp; aircraft<span className="cwd-mono cwd-muted">{visible.length} of {aircraft.length}</span></button>
       </div>
       {serviceOn && live === false && <div className="cwd-offline" data-service-status="behind"><b>Not live right now.</b> Last updated at <span className="cwd-mono">{feed?.updatedAt ? hmZ(Date.parse(feed.updatedAt)) : '—'}Z</span>. The page reconnects on its own.</div>}
@@ -143,7 +144,7 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraf
               <div className="cwd-empty" data-empty="all-hidden"><b>You’ve hidden every aircraft</b><span>Every operator is switched off in Operators &amp; aircraft. The flights are still there, just not on your screen.</span><button type="button" className="cwd-btn is-primary" onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></div>
             ) : (
               <div className="cwd-board" style={{ height: boardH }} data-board="">
-                <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={1} timeZoom={1} rowZoom={1} hideSidebar rowHeightPx={laneH} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onViewRange={onRange} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={false} touchHitMinPx={44} maxMarkers={2} />
+                <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={look.scale} timeZoom={look.timeZoom} rowZoom={look.rowZoom} pillHeight={look.pillHeight} markerScale={look.markerScale} labelScale={look.labelScale} autoFitRows={look.autoFitRows} hideSidebar rowHeightPx={Math.round(laneH * look.rowZoom)} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onViewRange={onRange} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={false} touchHitMinPx={44} maxMarkers={2} />
                 {!loadedOnce && <div className="cwd-empty is-over"><span>Loading your flights…</span></div>}
                 {empty && <div className="cwd-empty is-over" data-empty="no-flights"><b>No flights in the next 7 days</b><span>Nothing is scheduled for your aircraft. New flights appear here as soon as Clearway ops has them.</span></div>}
                 {noFleet && <div className="cwd-empty is-over" data-empty="no-fleet"><b>No aircraft on your account yet</b><span>Clearway ops grants operators and aircraft. Until then this page stays empty.</span></div>}

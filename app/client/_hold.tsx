@@ -1,24 +1,20 @@
 "use client";
-// The refused and removed pages share this: a quiet tile, the person's own email, Sign out. No navigation,
-// no counts, no product name in the copy (the design's brand rule), nothing about anyone else's flights.
+// The refused and removed pages share this (the shared status screen since 2026-11-11): the headline, one line, the
+// one button (back to sign-in, which also signs this account out), and under it the person's own email and the ops
+// address from the brand settings. No navigation, no counts, no product name in the copy, nothing about anyone else.
 import { useEffect, useState } from "react";
+import StatusScreen from "@/components/portal/StatusScreen";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export function Hold({ icon, title, contact = "", children }: { icon: string; title: string; contact?: string; children: React.ReactNode }) {
+export function Hold({ kind, title, line, contact = "" }: { kind: string; title: string; line: string; contact?: string }) {
   const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
   useEffect(() => { createSupabaseBrowserClient().auth.getUser().then(({ data }) => setEmail(data.user?.email || "")); }, []);
-  const signOut = async () => { await createSupabaseBrowserClient().auth.signOut(); window.location.href = "/login"; };
+  const signOut = async () => { setBusy(true); try { await createSupabaseBrowserClient().auth.signOut(); } finally { window.location.href = "/login"; } };
   return (
-    <main className="cl-hold" data-client-hold="">
-      <header>
-        <span className="cl-tile" aria-hidden>{icon}</span>
-        <span className="cl-meta">{email}</span>
-        <button type="button" className="cl-btn" onClick={signOut}>Sign out</button>
-      </header>
-      <h1>{title}</h1>
-      {children}
-      {/* the one route out: an address from the brand settings, shown only once someone has filled it in */}
-      {contact && <p className="cl-contact" data-client-contact="">Questions: write to <a href={`mailto:${contact}`}>{contact}</a></p>}
+    <main data-client-hold="">
+      <StatusScreen kind={kind} eyebrow="Your access" title={title} line={line} action={{ label: "Back to sign in", onClick: () => void signOut(), busy }}
+        note={<>{email && <span data-client-email="">Signed in as {email}. </span>}{contact && <span data-client-contact="">Questions: write to <a href={`mailto:${contact}`} className="underline underline-offset-2">{contact}</a></span>}</>} />
     </main>
   );
 }

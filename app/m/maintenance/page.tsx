@@ -9,6 +9,7 @@ import { InputSheet } from "@/components/m/pick";
 import { MButton, MError } from "@/components/m/ui";
 import { T2Form, T2Page } from "@/components/m/tier2";
 import { dayTime, getJson, useAction, useResource } from "@/lib/m/t2";
+import StatusScreen from "@/components/portal/StatusScreen";
 
 type State = { enabled: boolean; message?: string | null; eta_text?: string | null; updated_at?: string | null; since?: string | null; by?: string | null; lastEnded?: { at?: string; by?: string } | null; can?: { enable?: boolean; disable?: boolean; clearCache?: boolean } };
 
@@ -20,7 +21,7 @@ export default function MaintenancePhonePage() {
   const s = r.data;
   const switchOff = (typed: string) => { if (typed.trim().toUpperCase() !== "OFF") { return; } void act.run("off", async () => { await getJson("/api/admin/maintenance", { json: { enabled: true, message: null, eta_text: null } }); setConfirming(false); await r.reload(); }); };
   const switchOn = () => act.run("on", async () => { await getJson("/api/admin/maintenance", { json: { enabled: false, message: null, eta_text: null } }); await r.reload(); });
-  if (r.status === 401 || r.status === 403) return <MError title="Maintenance is for admins" icon="power">Ask an admin if the portal needs switching off.</MError>;
+  if (r.status === 401 || r.status === 403) return <StatusScreen kind="for-admins" eyebrow="For admins" title="Maintenance is for admins" line="Ask an admin if the portal needs switching off." embedded action={{ label: "Go to the dashboard", href: "/m/dashboard" }} />;
   return (
     <T2Page loading={r.loading && !s} error={r.error && !s ? r.error : null} empty={false} emptyCopy={["", ""]} errorCopy={["Couldn’t read the portal’s state", "Don’t switch anything until this loads."]} onRetry={r.reload}>
       {r.error && s && <MError stale title="Not updating." onRetry={r.reload}>Showing the state from the last read.</MError>}

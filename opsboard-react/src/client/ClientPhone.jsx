@@ -66,7 +66,7 @@ function FlightPage({ p, me, names, onBack }) {
   );
 }
 
-export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload }) {
+export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload, look }) {
   const view0 = readView();
   const [zoom, setZoom] = useState(() => (Number.isInteger(view0.zoom) ? Math.max(0, Math.min(2, view0.zoom)) : 1));
   const [day, setDay] = useState(() => (Number.isInteger(view0.day) ? view0.day : 0));
@@ -119,7 +119,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
           <div className="cwp-lanes" ref={lanesRef} data-board="">
             {allHidden ? <div className="cwd-empty" data-empty="all-hidden"><b>You’ve hidden every aircraft</b><span>The flights are still there, just not on your screen.</span><button type="button" className="cwd-btn is-primary" onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></div>
               : <div style={{ height: 30 + Math.max(1, visible.length) * 78 }}>
-                <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={1} timeZoom={1} rowZoom={1} hideSidebar rowHeightPx={78} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={false} touchHitMinPx={44} maxMarkers={1} forceMarkerMode="dots" markersInside bodyContent="callsign" bodyRight="times" belowText="none" acColScale={0.8} />
+                <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={look.scale} timeZoom={look.timeZoom} rowZoom={look.rowZoom} pillHeight={look.pillHeight} markerScale={look.markerScale} labelScale={look.labelScale} autoFitRows={look.autoFitRows} hideSidebar rowHeightPx={Math.round(78 * look.rowZoom)} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={false} touchHitMinPx={44} maxMarkers={1} forceMarkerMode="dots" markersInside bodyContent="callsign" bodyRight="times" belowText="none" acColScale={0.8} />
               </div>}
             {!loadedOnce && <p className="cwd-muted" style={{ padding: 16 }}>Loading your flights…</p>}
             {loadedOnce && aircraft.length > 0 && all.length === 0 && !allHidden && <div className="cwd-empty" data-empty="no-flights"><b>No flights in the next 7 days</b><span>New flights appear here as soon as Clearway ops has them.</span></div>}
@@ -165,6 +165,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
                   {o.regs.map((r) => { const v = on(r); return <button key={r.reg} type="button" role="switch" aria-checked={v} data-reg-switch={r.reg} className="cwd-row is-reg" onClick={() => { let registrations = v ? [...hRegs, r.reg] : [...hRegs].filter((x) => x !== r.reg); let operators = [...hOps]; if (!v && hOps.has(o.oprId)) { operators = operators.filter((x) => x !== o.oprId); registrations = [...new Set([...registrations, ...o.regs.filter((x) => x.reg !== r.reg).map((x) => x.reg)])]; } setHidden({ operators, registrations }); }}><span className={`cwd-mono${v ? '' : ' is-off'}`}>{r.reg}</span><small>{r.type}</small><span className={`cwd-toggle is-small${v ? ' is-on' : ''}`} /></button>; })}
                 </div>); })}
             </div>
+            <div className="cwd-panel-foot is-settings"><button type="button" className="cwd-btn" onClick={() => { setFilter(false); goPage('settings'); }} data-display-settings="">Display settings</button></div>
             <div className="cwd-panel-foot"><span className="cwd-muted">Remembered for next time</span><button type="button" className="cwd-btn" disabled={!nHidden} onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></div>
           </div>
         </>

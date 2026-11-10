@@ -17,7 +17,7 @@
 .clw { min-height: 100dvh; display: flex; }
 .clw a { color: inherit; text-decoration: none; }
 .clw button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
-.clw-brand { font-weight: 800; letter-spacing: -.01em; font-size: 17px; }
+.clw-brand { display: inline-flex; align-items: center; color: var(--cw-text); }   /* the logo in currentColor: dark on light, white on dark (2026-11-11) */
 .clw-grow { flex: 1; }
 .clw-muted { font-size: 13px; color: var(--cw-text-muted); line-height: 1.5; }
 .clw-link { font-size: 14px; font-weight: 600; color: var(--cw-text-link); min-height: 36px; padding: 0 4px; }

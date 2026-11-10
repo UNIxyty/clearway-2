@@ -14,6 +14,7 @@
 // CLI (inside the worker image or a checkout with network):
 //   node scripts/aip-library.mjs check [--country Latvia] [--limit N]     resolve + check and save
 //   node scripts/aip-library.mjs show                                      print the table
+import { ENR_ENABLED, ENR_PAUSED_TEXT } from "../lib/aip-enr.mjs";
 import { readFile as readStored, saveFile } from "../lib/storage.mjs";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -61,8 +62,11 @@ export async function libraryTable() {
     const row = byIso.get(s.iso);
     return row ? { ...s, ...row, name: s.name, prefixes: s.prefixes, region: s.region, provider: s.provider } : { ...s, links: emptyLinks(s), checkedAt: null, airac: null, lastResult: null };
   });
-  return { airac: airacNow(), checkedAt: stored?.checkedAt ?? null, running: Boolean(stored?.running), countries };
+  if (!ENR_ENABLED) for (const c of countries) c.links = { ...c.links, enr: pausedEnr() };   // paused: one state for every country, whatever the last check found
+  return { airac: airacNow(), checkedAt: stored?.checkedAt ?? null, running: Boolean(stored?.running), enrEnabled: ENR_ENABLED, countries };
 }
+/** ENR while it is paused (lib/aip-enr.mjs): not checked, not counted, the same words everywhere. */
+function pausedEnr() { return { url: null, state: "paused", why: ENR_PAUSED_TEXT, source: null }; }
 
 function emptyLinks(s) {
   const official = s.official ? { url: s.official, state: "unchecked", why: "Not checked yet", source: s.officialSource } : { url: null, state: "none", why: "No official page on file", source: null };
@@ -110,6 +114,7 @@ export async function resolveCountry(country, { log = () => {} } = {}) {
   const out = { iso: country.iso, checkedAt: now, airac: airacNow().cycle, links: { official: null, gen: null, enr: null }, lastResult: "" };
   if (!country.official) {
     out.links = emptyLinks(country).links ?? emptyLinks(country);
+    if (!ENR_ENABLED) out.links.enr = pausedEnr();
     out.lastResult = "No official page on file";
     return out;
   }
@@ -117,7 +122,7 @@ export async function resolveCountry(country, { log = () => {} } = {}) {
     const r = await get(country.official, { head: true });
     out.links.official = { url: country.official, state: r.ok ? "ok" : "failed", why: r.ok ? "EAD Basic (login)" : `${r.error || `HTTP ${r.status}`}`, source: country.officialSource };
     out.links.gen = { url: null, state: "login", why: "GEN is behind the EAD login", source: "ead" };
-    out.links.enr = { url: null, state: "login", why: "ENR is behind the EAD login", source: "ead" };
+    out.links.enr = ENR_ENABLED ? { url: null, state: "login", why: "ENR is behind the EAD login", source: "ead" } : pausedEnr();
     out.lastResult = r.ok ? "EAD login page answers; parts need a login" : `Official page failed: ${out.links.official.why}`;
     return out;
   }
@@ -132,7 +137,7 @@ export async function resolveCountry(country, { log = () => {} } = {}) {
   }
   if (!first.ok) {
     out.links.gen = { url: null, state: "failed", why: `Official page failed: ${out.links.official.why}`, source: null };
-    out.links.enr = { ...out.links.gen };
+    out.links.enr = ENR_ENABLED ? { ...out.links.gen } : pausedEnr();
     out.lastResult = `Official page failed: ${out.links.official.why}`;
     return out;
   }
@@ -156,17 +161,19 @@ export async function resolveCountry(country, { log = () => {} } = {}) {
     seen.add(next); fetched += 1;
     const r = await get(next);
     if (r.ok && r.text) links = [...new Set([...links, ...linksOf(r.text, r.url)])];
-    if (pickPart(links, "gen") && pickPart(links, "enr")) break;
+    if (pickPart(links, "gen") && (!ENR_ENABLED || pickPart(links, "enr"))) break;
   }
-  for (const part of ["gen", "enr"]) {
+  for (const part of ENR_ENABLED ? ["gen", "enr"] : ["gen"]) {
     const url = pickPart(links, part);
     if (!url) { out.links[part] = { url: null, state: "nodeep", why: `The site offers no direct link to ${part.toUpperCase()} that we can read`, source: "resolved" }; continue; }
     const r = await get(url, { head: true });
     const r2 = r.ok ? r : await get(url); // some servers refuse HEAD
     out.links[part] = r2.ok ? { url, state: "ok", why: "Opens the part", source: "resolved" } : { url, state: "failed", why: r2.error || `HTTP ${r2.status}`, source: "resolved" };
   }
-  const bad = ["gen", "enr"].filter((k) => out.links[k].state === "failed");
-  out.lastResult = bad.length ? `${bad.map((k) => k.toUpperCase()).join(" and ")} link failed` : ["gen", "enr"].every((k) => out.links[k].state === "ok") ? "All three links open" : "Official page opens; a part has no direct link";
+  const parts = ENR_ENABLED ? ["gen", "enr"] : ["gen"];
+  if (!ENR_ENABLED) out.links.enr = pausedEnr();
+  const bad = parts.filter((k) => out.links[k].state === "failed");
+  out.lastResult = bad.length ? `${bad.map((k) => k.toUpperCase()).join(" and ")} link failed` : parts.every((k) => out.links[k].state === "ok") ? (ENR_ENABLED ? "All three links open" : "Official page and GEN open") : "Official page opens; a part has no direct link";
   log(`${country.name}: ${out.lastResult}`);
   return out;
 }

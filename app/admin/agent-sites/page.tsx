@@ -12,6 +12,7 @@ import { Badge, Button, Card, Checkbox, ConfirmDialog, CountBadge, DataTable, Em
 import { dayTimeZ } from "@/lib/time";
 import { personText } from "@/components/agent/ui/errorText";
 import { ShownError, TRY_AGAIN, shownText } from "@/lib/error-text";
+import StatusScreen from "@/components/portal/StatusScreen";
 
 const AGENT_BASE = process.env.NEXT_PUBLIC_AGENT_BASE_URL || "/agent";
 
@@ -113,7 +114,7 @@ export default function AdminAgentSitesPage() {
   return (
     <PortalShell title="Agent sites" subtitle="Sites the Ops Agent Chrome extension may read when someone sends a selection or a page. Nothing is read on a site that isn't listed; capture still works everywhere. Every decision is logged.">
       <div className="flex flex-col gap-5" style={{ padding: "0 var(--cw-page-pad) 40px" }}>
-        {forbidden ? <Card><EmptyState icon="lock" title="Agent sites is for admins">{forbidden}</EmptyState></Card> : state === "error" ? (
+        {forbidden ? <StatusScreen kind="for-admins" eyebrow="For admins" title="Agent sites is for admins" line={forbidden} embedded action={{ label: "Go to the dashboard", href: "/dashboard" }} /> : state === "error" ? (
           <Card padded={false}><ErrorState title="Couldn't load sites" detail={<>The extension keeps using the last list it fetched. <span className="font-mono">{loadError}</span></>} onRetry={() => { setState("loading"); void load(); }} /></Card>
         ) : (
           <>

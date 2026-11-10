@@ -220,3 +220,16 @@
 @media (max-width: 699px) {
   .cwd-flight { width: 100vw; }
 }
+
+/* ── Display settings (2026-11-11): the ops console's look cards on the client surface ── */
+.cws { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 40px; max-width: 1080px; margin: 0 auto; }
+.cws-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
+.cws-head .cwd-title { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.cws-head p { margin: 4px 0 0; font-size: 14px; max-width: 60ch; }
+.cws-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cws-preview .cwd-card-head { height: auto; min-height: 48px; padding: 10px 20px; flex-wrap: wrap; }
+.cws-cards { display: flex; flex-direction: column; }
+.cws-cards > * { margin-bottom: 16px; }
+[data-client-surface="phone"] .cws { padding: 16px 16px 40px; gap: 12px; }
+[data-client-surface="phone"] .cws .cwd-btn { min-height: 44px; }
+[data-client-surface="phone"] .cws-head .cwd-title { font-size: 22px; }

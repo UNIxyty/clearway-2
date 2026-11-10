@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchDisplaySettings, saveDisplaySettings } from '../../services/timelineApi';
+import { useContext } from 'react';
+import { fetchDisplaySettings as fetchOpsDisplaySettings, saveDisplaySettings as saveOpsDisplaySettings } from '../../services/timelineApi';
+import { DeviceCtx } from './deviceCtx';
 import {
   WALL_COLOR_GROUPS,
   WALL_COLOR_DEFAULTS,
@@ -153,6 +155,9 @@ function ContrastChip({ hex, against }) {
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 export default function ColoursCard({ deviceId }) {
+  // the client surface passes its own read/write pair through the context (LookCards.jsx); ops use the ops routes
+  const ctxApi = useContext(DeviceCtx).api;
+  const fetchDisplaySettings = ctxApi?.fetch ?? fetchOpsDisplaySettings; const saveDisplaySettings = ctxApi?.save ?? saveOpsDisplaySettings;
   const [overrides, setOverrides] = useState({});
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');

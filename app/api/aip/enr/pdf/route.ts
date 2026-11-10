@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ENR_ENABLED, ENR_PAUSED_TEXT } from "@/lib/aip-enr.mjs";
 import { upstreamFailure } from "@/lib/public-error";
 import { buildPdfDownloadFilename } from "@/lib/pdf-download-filename";
 import { resolveGenPrefix } from "@/lib/ead-gen-prefix";
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
     const auth = await requirePermission("portal.aip.fetch");
     if ("error" in auth) return auth.error;
   }
+  if (!ENR_ENABLED) return NextResponse.json({ ok: false, error: ENR_PAUSED_TEXT, code: "enr-paused" }, { status: 503 });   // ENR is paused (lib/aip-enr.mjs)
   const icao = request.nextUrl.searchParams.get("icao")?.trim().toUpperCase() ?? "";
   const prefix = resolveGenPrefix(icao, request.nextUrl.searchParams.get("prefix")?.trim().toUpperCase() ?? "");
   if (!/^[A-Z]{2}$/.test(prefix)) return NextResponse.json({ error: "Valid ICAO or 2-letter prefix required (e.g. icao=EVRA or prefix=EV)" }, { status: 400 });

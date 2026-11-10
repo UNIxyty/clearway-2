@@ -9,6 +9,7 @@ import { usePhonePage } from "@/components/m/chrome";
 import { MError } from "@/components/m/ui";
 import { T2Detail, T2Groups, T2Page } from "@/components/m/tier2";
 import { agentUrl, dayTime, getJson, useAction, useResource } from "@/lib/m/t2";
+import StatusScreen from "@/components/portal/StatusScreen";
 
 type Approved = { host: string; includeSubdomains?: boolean; approvedBy?: string | null; approvedAt?: string | null; note?: string | null };
 type Request = { id: string; host: string; includeSubdomains?: boolean; reason?: string | null; status: "pending" | "approved" | "declined"; requestedBy?: string | null; requestedByName?: string | null; requestedAt?: string | null; decidedBy?: string | null; decidedAt?: string | null; note?: string | null };
@@ -25,7 +26,7 @@ export default function AgentSitesPhonePage() {
   usePhonePage({ title: req ? req.host : site ? site.host : "Agent sites", subtitle: req ? "Asked to read" : site ? "Approved" : pending.length ? `${pending.length} waiting` : null, mono: Boolean(req || site), back: req || site ? () => router.replace("/m/agent-sites") : null, tab: "more", tabs: !req && !site });
   const decide = (q: Request, decision: "approve" | "decline") => act.run(decision, async () => { await getJson(agentUrl("/extension/sites/decide"), { json: { id: q.id, decision, includeSubdomains: Boolean(q.includeSubdomains) } }); await r.reload(); router.replace("/m/agent-sites"); });
   const revoke = (host: string) => act.run("revoke", async () => { await getJson(agentUrl("/extension/sites/revoke"), { json: { host } }); await r.reload(); router.replace("/m/agent-sites"); });
-  if (r.status === 401 || r.status === 403) return <MError title="Agent sites is for admins" icon="globe">The agent asks an admin before it opens a new site.</MError>;
+  if (r.status === 401 || r.status === 403) return <StatusScreen kind="for-admins" eyebrow="For admins" title="Agent sites is for admins" line="The agent asks an admin before it opens a new site." embedded action={{ label: "Go to the dashboard", href: "/m/dashboard" }} />;
 
   if (req) return (
     <div className="flex flex-col gap-3 px-4 pb-6 pt-4">

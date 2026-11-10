@@ -6,7 +6,7 @@
 // filter saved on their account through the portal (clientApi.js), never a change to what the server sends.
 //
 // Below PHONE_MAX the phone views draw (ClientPhone); above, the desk (ClientDesk). Both read the same state here.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchDisplayClocks, fetchTimelineAircraft } from '../services/timelineApi';
 import { subscribeWallStream } from '../services/wallStream';
 import { WallColorsProvider } from '../theme/WallColorsContext';
@@ -14,10 +14,13 @@ import { WallDisplayProvider } from '../theme/WallDisplayContext';
 import { applyPortalTheme, readChoice, THEME_KEY } from '../theme/portalTheme';
 import { FALLBACK_CLOCKS } from '../components/Header';
 import { errorText } from '../services/errorText';
-import { PHONE_MAX, applyHidden, fetchMe, fetchPrefs, fetchSyncStatus, normalisePrefs, onShellMessage, savePrefs, tellShell } from './clientApi';
+import { PHONE_MAX, applyHidden, fetchMe, fetchPrefs, fetchSyncStatus, fetchView, normalisePrefs, onShellMessage, savePrefs, tellShell } from './clientApi';
+import { applyWallFont } from '../theme/wallFont';
 import { clientWallColors } from './clientColors';
 import ClientDesk from './ClientDesk';
 import ClientPhone from './ClientPhone';
+// the settings page carries the ops console's look cards: loaded only when opened
+const ClientSettings = lazy(() => import('./ClientSettings'));
 import '../../../shared/portal-tokens.css';
 import '../../../shared/client-tokens.css';
 import '../../../shared/timeline-tokens.css';
@@ -45,7 +48,7 @@ function useClientTheme() {
 
 function pageFromLocation() {
   const p = new URLSearchParams(window.location.search).get('page');
-  return p === 'flights' ? 'flights' : 'timeline';
+  return p === 'flights' ? 'flights' : p === 'settings' ? 'settings' : 'timeline';
 }
 
 export default function ClientApp() {
@@ -66,7 +69,13 @@ export default function ClientApp() {
   const loadingRef = useRef(false);
 
   // the shell's sidebar changes the page; a change made inside tells the shell
-  useEffect(() => onShellMessage((m) => { if (m.type === 'page' && (m.page === 'timeline' || m.page === 'flights')) setPage(m.page); }), []);
+  useEffect(() => onShellMessage((m) => { if (m.type === 'page' && (m.page === 'timeline' || m.page === 'flights' || m.page === 'settings')) setPage(m.page); }), []);
+
+  // the look of their timeline (2026-11-11): their own profile at the wall, re-read when a save broadcasts; the font
+  // goes on <html> as the display does it, the rest reaches the Board as props and the chips through WallDisplayProvider
+  const [view, setView] = useState(null);
+  const loadView = useCallback(() => fetchView().then((v) => { setView(v); applyWallFont(v?.settings?.font, v?.settings?.zeroStyle); }).catch(() => {}), []);
+  useEffect(() => { loadView(); return subscribeWallStream('config.changed', (event) => { if (!event.section || event.section === 'settings') loadView(); }); }, [loadView]);
   const goPage = useCallback((next) => { setPage(next); tellShell({ type: 'page', page: next }); }, []);
 
   useEffect(() => {
@@ -124,18 +133,25 @@ export default function ClientApp() {
   }, [prefs]);
 
   const visible = useMemo(() => applyHidden(aircraft, prefs.hidden), [aircraft, prefs.hidden]);
-  const colors = useMemo(() => clientWallColors(theme), [theme]);
+  // the theme's palette, then the person's own colour overrides on top (the wall's colour keys)
+  const colors = useMemo(() => ({ ...clientWallColors(theme), ...(view?.settings?.colors ?? {}) }), [theme, view]);
+  const look = useMemo(() => { const s = view?.settings ?? {}; const n = (k, d) => (Number.isFinite(s[k]) ? s[k] : d); return { scale: n('scale', 1.3), timeZoom: n('timeZoom', 1), rowZoom: n('rowZoom', 1), pillHeight: n('pillHeight', 1), markerScale: n('markerScale', 1), labelScale: n('labelScale', 1), acColScale: n('acColScale', 1), autoFitRows: s.autoFitRows === true }; }, [view]);
   const shared = {
     page, goPage, me, prefs, prefsLoaded, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error,
-    dataUpdatedAt, feed, serviceOn, onReload: loadTimeline, theme,
+    dataUpdatedAt, feed, serviceOn, onReload: loadTimeline, theme, look, view, onViewChanged: (v) => { if (v?.settings) { setView((cur) => ({ ...(cur ?? {}), ...v })); applyWallFont(v.settings.font, v.settings.zeroStyle); } },
   };
+  const settings = page === 'settings' ? (
+    <Suspense fallback={<p className="cwd-muted" style={{ padding: 24 }}>Loading the settings…</p>}>
+      <ClientSettings visible={visible} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} view={view} onViewChanged={shared.onViewChanged} phone={width <= PHONE_MAX} goPage={goPage} />
+    </Suspense>
+  ) : null;
 
   return (
     <WallColorsProvider colors={colors}>
-      <WallDisplayProvider settings={{}}>
+      <WallDisplayProvider settings={view?.settings ?? {}}>
         {/* the portal's tokens come with this chunk's stylesheet, so the client surface follows the portal's theme */}
         <div data-client-surface={width <= PHONE_MAX ? 'phone' : 'desk'} data-theme={theme} className="cw-client">
-          {width <= PHONE_MAX ? <ClientPhone {...shared} /> : <ClientDesk {...shared} />}
+          {settings ?? (width <= PHONE_MAX ? <ClientPhone {...shared} /> : <ClientDesk {...shared} />)}
         </div>
       </WallDisplayProvider>
     </WallColorsProvider>

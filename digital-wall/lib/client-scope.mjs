@@ -31,7 +31,10 @@ export const CLIENT_READS = {
   "/api/geo/coords": "radar",     // lat/lon of the asked airports, for the flight map (data/airport-coords.json)
   "/api/flight-passengers": "passengers", // the names of one of THEIR flights' passengers; "passengers" is the level, not a switch (see clientReadRefusal)
   "/api/timeline/sync-status": "service_status",
+  "/api/client/view": null,       // the look of their own timeline (sizing, colours, font): read here, written by CLIENT_WRITES
 };
+/** The writes a client may make at the wall: their own view settings, nothing else (server.mjs handles them in the client block). */
+export const CLIENT_WRITES = { "/api/client/view": ["PUT", "DELETE"] };
 
 /** The 404 a client gets for anything that is not theirs. One sentence, the same for a flight and for a page. */
 export const NOT_ON_ACCOUNT = { ok: false, error: "That is not on your account." };

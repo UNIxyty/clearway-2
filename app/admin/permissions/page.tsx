@@ -13,6 +13,7 @@ import {
   Badge, Button, Callout, Card, Checkbox, ConfirmDialog, DataTable, EmptyState, ErrorState, NoMatchState, SearchInput, Segmented, SkeletonRows, TableCard, errorDetail, type Column,
 } from "@/components/kit";
 import { OFFLINE, apiErrorText } from "@/lib/error-text";
+import StatusScreen from "@/components/portal/StatusScreen";
 
 type Action = { key: string; label: string; default?: string[]; hard?: string; requires?: string; auto?: boolean; read?: boolean };
 type Group = { key: string; label: string; service: string; actions: Action[] };
@@ -129,7 +130,7 @@ export default function PermissionsPage() {
       <div className="flex flex-col gap-5 pb-10" style={{ padding: "0 var(--cw-page-pad) 40px" }}>
         {saveError && <Callout tone="danger" title="Not saved" action={<Button size="sm" variant="quiet" onClick={() => setSaveError(null)}>Dismiss</Button>}>{saveError}</Callout>}
 
-        {forbidden ? <TableCard><EmptyState icon="lock" title="Permissions is for whoever manages them">Your role can't see or change what each role may do. Someone with “Manage permissions (this screen)” can.</EmptyState></TableCard> : <>
+        {forbidden ? <StatusScreen kind="for-admins" eyebrow="Not on your role" title="Permissions is for whoever manages them" line="Your role can't see or change what each role may do. Someone with “Manage permissions (this screen)” can." embedded action={{ label: "Go to the dashboard", href: "/dashboard" }} /> : <>
         <TableCard>
           {/* Toolbar: find, show all / only what differs, fold. */}
           <div className="flex flex-wrap items-center gap-2 border-b border-cw-divider px-4 py-3">

@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { KeyRound, Lock } from "lucide-react";
 import AuthBackdrop from "@/app/auth/ui/AuthBackdrop";
 import { AuthAlert, AuthButton, AuthCard, AuthField, AuthHeading, PasswordStrength } from "@/app/auth/ui/auth-kit";
+import StatusScreen from "@/components/portal/StatusScreen";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type State = "loading" | "valid" | "used" | "expired" | "replaced" | "closed" | "unknown" | "error";
@@ -72,22 +73,32 @@ function Welcome() {
       <AuthButton type="submit" loading={busy} loadingLabel="Making your account…" onClick={() => void submit()}>Set password and sign in</AuthButton>
     </form>
   );
-  else if (state === "used") body = <><AuthHeading title="This link was used already" sub="Your account is made. Sign in with your email and password; if you have forgotten the password, the sign-in page can send a reset link." />{signIn}</>;
-  else if (state === "expired" || state === "replaced") body = (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }} data-welcome-expired>
-      <AuthHeading title={state === "expired" ? "This link has expired" : "A newer link was sent"} sub={state === "expired" ? "Links to set a password work for 72 hours. Ask for a new one: it goes to the address on your request." : "Only the latest link works. Use the newest email, or ask for another link here: it goes to the address on your request."} />
-      {again === "sent" && <AuthAlert tone="info">A new link is on its way to {againTo}. It was accepted by the mail service; if it hasn’t arrived in a few minutes, check spam.</AuthAlert>}
-      {again === "too-soon" && <AuthAlert tone="info">A link was sent to {againTo} a moment ago. Check that inbox first; you can ask again in two minutes.</AuthAlert>}
-      {again === "not-sent" && <AuthAlert>The new link could not be sent just now. Try again in a minute.</AuthAlert>}
-      {again === "used" && <AuthAlert tone="info">Your account is made already. Sign in with your email and password.</AuthAlert>}
-      {again === "closed" && <AuthAlert>This access is no longer open, so no new link can be sent. Write to the ops team about it.</AuthAlert>}
-      {again !== "sent" && again !== "used" && again !== "closed" && <AuthButton loading={again === "sending"} loadingLabel="Sending…" onClick={() => void askAgain()} data-new-link>Send me a new link</AuthButton>}
-      {(again === "used") && signIn}
-    </div>
-  );
-  else if (state === "closed") body = <><AuthHeading title="This invitation is no longer open" sub="Access for this request was refused or has ended, so the link does nothing. If you think that is a mistake, write to the ops team, or ask for access again from the sign-in page." />{signIn}</>;
-  else if (state === "unknown") body = <><AuthHeading title="This is not a link we know" sub="It may be incomplete — open it from the email again, the whole address. To ask for access, use the sign-in page." />{signIn}</>;
-  else body = <><AuthHeading title="The link could not be checked" sub="Something went wrong on our side. Open the link again in a minute." /></>;
+  else {
+    // The link states that end here (used, expired, replaced, closed, unknown, error) are the shared status screen
+    // (2026-11-11): the headline, one line, one button — a new link while one can be sent, otherwise sign-in.
+    const toSignIn = { label: "Go to sign in", href: "/login" };
+    let screen: React.ReactNode;
+    if (state === "used") screen = <StatusScreen kind="link-used" eyebrow="Your link" title="This link was used already" line="Your account is made. Sign in with your email and password; if you have forgotten the password, the sign-in page can send a reset link." action={toSignIn} />;
+    else if (state === "expired" || state === "replaced") {
+      const line = again === "sent" ? `A new link is on its way to ${againTo}. It was accepted by the mail service; if it hasn’t arrived in a few minutes, check spam.`
+        : again === "too-soon" ? `A link was sent to ${againTo} a moment ago. Check that inbox first; you can ask again in two minutes.`
+        : again === "not-sent" ? "The new link could not be sent just now. Try again in a minute."
+        : again === "used" ? "Your account is made already. Sign in with your email and password."
+        : again === "closed" ? "This access is no longer open, so no new link can be sent. Write to the ops team about it."
+        : state === "expired" ? "Links to set a password work for 72 hours. Ask for a new one: it goes to the address on your request." : "Only the latest link works. Use the newest email, or ask for another link here: it goes to the address on your request.";
+      const canAsk = again !== "sent" && again !== "used" && again !== "closed";
+      screen = (
+        <div data-welcome-expired>
+          <StatusScreen kind={`link-${state}`} eyebrow="Your link" title={state === "expired" ? "This link has expired" : "A newer link was sent"} line={line}
+            action={canAsk ? { label: "Send me a new link", onClick: () => void askAgain(), busy: again === "sending", attr: "data-new-link" } : toSignIn} />
+        </div>
+      );
+    }
+    else if (state === "closed") screen = <StatusScreen kind="link-closed" eyebrow="Your link" title="This invitation is no longer open" line="Access for this request was refused or has ended, so the link does nothing. If you think that is a mistake, write to the ops team, or ask for access again from the sign-in page." action={toSignIn} />;
+    else if (state === "unknown") screen = <StatusScreen kind="link-unknown" eyebrow="Your link" title="This is not a link we know" line="It may be incomplete — open it from the email again, the whole address. To ask for access, use the sign-in page." action={toSignIn} />;
+    else screen = <StatusScreen kind="link-error" tone="danger" eyebrow="Your link" title="The link could not be checked" line="Something went wrong on our side. Open the link again in a minute." action={{ label: "Try again", onClick: () => window.location.reload() }} />;
+    return <div data-welcome={state}>{screen}</div>;
+  }
   return (
     <AuthBackdrop>
       <div style={{ width: "100%", maxWidth: 480 }} data-welcome={made ? "made" : state}><AuthCard>{body}</AuthCard></div>

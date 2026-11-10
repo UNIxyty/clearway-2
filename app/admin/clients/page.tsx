@@ -14,6 +14,7 @@ import { OFFLINE } from "@/lib/error-text";
 import "./clients.css";
 import SmartSearch, { type SuggestItem } from "./SmartSearch";
 import { ACTIVE_SWITCHES as SWITCHES, STARTING_SWITCHES, normaliseScope, normaliseSwitches } from "@/lib/clients/switches.mjs";
+import StatusScreen from "@/components/portal/StatusScreen";
 
 type ScopeEntry = { kind: "operator" | "registration" | "trip"; value: string };
 type Level = "off" | "names" | "documents";
@@ -317,7 +318,7 @@ export default function AdminClientsPage() {
   return (
     <PortalShell title="Clients" subtitle="Operators and brokers who sign in to see their own flights. Scope decides which flights exist for a client. Access decides what they see of those flights. Every decision is logged.">
       <PageContent className="flex flex-col gap-5" data-admin-clients>
-        {forbidden ? <TableCard><EmptyState icon="lock" title="Clients is for Admins">Your role can’t approve or change client access. An admin can, under Admin → Clients.</EmptyState></TableCard> : (
+        {forbidden ? <StatusScreen kind="for-admins" eyebrow="For admins" title="Clients is for Admins" line="Your role can’t approve or change client access. An admin can, under Admin → Clients." embedded action={{ label: "Go to the dashboard", href: "/dashboard" }} /> : (
           <>
             {ready === false && (
               <Callout tone="warning" icon="clock" title="Client onboarding is waiting for a database change" data-onboarding-waiting>

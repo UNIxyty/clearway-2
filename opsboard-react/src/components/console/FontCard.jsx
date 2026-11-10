@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchDisplaySettings, saveDisplaySettings, fetchTimelineAircraft } from '../../services/timelineApi';
+import { useContext } from 'react';
+import { fetchDisplaySettings as fetchOpsDisplaySettings, saveDisplaySettings as saveOpsDisplaySettings, fetchTimelineAircraft } from '../../services/timelineApi';
+import { DeviceCtx } from './deviceCtx';
 import { WALL_FONTS, DEFAULT_WALL_FONT_ID, DEFAULT_ZERO_STYLE, ZERO_STYLES, PLAIN_ZERO_WARNING, resolveWallFont, wallFontProbe, tabularDigits } from '../../theme/wallFont';
 import { useWallColors } from '../../theme/WallColorsContext';
 import { Button, Card, ErrorBanner, LoadingState, Segmented, t, useToast } from './ui';
@@ -18,6 +20,8 @@ import FontPreview from '../wall-preview/FontPreview';
 const PREVIEW_FALLBACK = { callsign: 'CWY101', route: 'EVRA → EGGW', reg: 'YL-CWY', time: '14:35Z', eta: '16:50Z', operator: 'Clearway Handling & Operations' };
 
 export default function FontCard({ deviceId }) {
+  const ctxApi = useContext(DeviceCtx).api;
+  const fetchDisplaySettings = ctxApi?.fetch ?? fetchOpsDisplaySettings; const saveDisplaySettings = ctxApi?.save ?? saveOpsDisplaySettings;
   const [fontId, setFontId] = useState(DEFAULT_WALL_FONT_ID);
   const [zeroStyle, setZeroStyle] = useState(DEFAULT_ZERO_STYLE);
   const [loaded, setLoaded] = useState(false);

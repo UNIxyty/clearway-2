@@ -11,6 +11,7 @@ import MaskIcon from "@/components/portal/Icon";
 import { dayTimeZ } from "@/lib/time";
 import { Button, Callout, ConfirmDialog, EmptyState, ErrorState, Field, Modal, Skeleton, TextArea, TextInput, errorDetail, useToast } from "@/components/kit";
 import { OFFLINE } from "@/lib/error-text";
+import StatusScreen from "@/components/portal/StatusScreen";
 
 type State = {
   enabled: boolean; message: string | null; eta_text: string | null; updated_at: string | null;
@@ -87,7 +88,7 @@ export default function MaintenancePage() {
     <PortalShell title="Maintenance control" subtitle="Turns the whole portal off for everyone except Admins and Developers.">
       <div className="flex max-w-[1100px] flex-col gap-5 pb-10" style={{ padding: "0 var(--cw-page-pad) 40px" }}>
         {forbidden ? (
-          <div className="rounded-[14px] border border-cw-border bg-cw-bg-surface shadow-cw-1"><EmptyState icon="lock" title="Maintenance is for Admins and Developers">Your role can't turn the portal off or on.</EmptyState></div>
+          <StatusScreen kind="for-admins" eyebrow="For admins" title="Maintenance is for Admins and Developers" line="Your role can't turn the portal off or on." embedded action={{ label: "Go to the dashboard", href: "/dashboard" }} />
         ) : loadError ? (
           <div className="flex flex-wrap items-center gap-4 rounded-[14px] border border-cw-danger-border bg-cw-bg-surface p-6 shadow-cw-1">
             <ErrorState compact title="Can't tell whether the portal is on or off" detail={<>The switch is locked until the state loads.<br />{loadError}</>} onRetry={() => void load()} />

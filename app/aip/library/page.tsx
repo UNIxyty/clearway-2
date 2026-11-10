@@ -10,9 +10,9 @@ import PortalShell from "@/components/portal/Shell";
 import MaskIcon from "@/components/portal/Icon";
 import { Button, Callout, Skeleton } from "@/components/kit";
 
-type Link = { url: string | null; state: "ok" | "failed" | "login" | "nodeep" | "none" | "unchecked"; why: string; source: string | null };
+type Link = { url: string | null; state: "ok" | "failed" | "login" | "nodeep" | "none" | "unchecked" | "paused"; why: string; source: string | null };
 type Country = { name: string; iso: string; prefixes: string[]; region: string; provider: string; links: { official: Link; gen: Link; enr: Link }; checkedAt: string | null; airac: string | null; lastResult: string | null };
-type Table = { ok: boolean; running?: boolean; airac: { cycle: string; effectiveFrom: string; nextCycle: string; nextEffectiveFrom: string }; checkedAt: string | null; countries: Country[] };
+type Table = { ok: boolean; running?: boolean; enrEnabled?: boolean; airac: { cycle: string; effectiveFrom: string; nextCycle: string; nextEffectiveFrom: string }; checkedAt: string | null; countries: Country[] };
 
 const REGIONS = ["Europe", "CIS", "Middle East", "Asia-Pacific", "Africa", "Americas"];
 const RECENT_KEY = "cw-aip-library-recent";
@@ -41,6 +41,11 @@ function search(all: Country[], q: string) {
 
 function Action({ k, link, name, onOpen, phone }: { k: "official" | "gen" | "enr"; link: Link; name: string; onOpen: () => void; phone: boolean }) {
   const label = k === "official" ? "Official AIP" : k.toUpperCase();
+  if (link.state === "paused") {
+    // ENR is paused (lib/aip-enr.mjs, 2026-11-11): a real disabled button — not clickable, not a tab stop as an action —
+    // whose words are visible text, the same for every country.
+    return <button type="button" disabled aria-disabled="true" className={`inline-flex items-center gap-2 rounded-[8px] border border-cw-border-control bg-cw-bg-sunken px-3 text-[13px] font-semibold text-cw-text-muted ${phone ? "h-12 w-full justify-start" : "h-9"} cursor-not-allowed`} data-aip-link={k} data-state="paused"><span>{label}</span><span className="font-medium">· {link.why}</span></button>;
+  }
   const off = link.state === "login" || link.state === "nodeep" || link.state === "none" || !link.url;
   const failed = link.state === "failed";
   const cls = `inline-flex items-center gap-2 rounded-[8px] border px-3 text-[13px] font-semibold no-underline ${phone ? "h-12 w-full" : "h-9"} ${failed ? "border-cw-danger-border bg-cw-danger-tint text-cw-danger-text" : "border-cw-border-control bg-cw-bg-surface text-cw-text"}`;
@@ -82,9 +87,9 @@ export default function AipLibraryPage() {
   const checkAll = async () => { setChecking("all"); try { await fetch("/api/aip/library/check", { method: "POST" }); } finally { setChecking(""); } };
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") setQ("");
-    if (e.key === "Enter" && top) { e.preventDefault(); const k = e.shiftKey ? "gen" : e.altKey ? "enr" : "official"; const l = top.links[k]; if (l?.url && l.state !== "login" && l.state !== "nodeep") { touch(top); window.open(l.url, "_blank", "noopener"); } }
+    if (e.key === "Enter" && top) { e.preventDefault(); const k = e.shiftKey ? "gen" : e.altKey ? "enr" : "official"; const l = top.links[k]; if (l?.url && l.state !== "login" && l.state !== "nodeep" && l.state !== "paused") { touch(top); window.open(l.url, "_blank", "noopener"); } }
   };
-  const counts = useMemo(() => { const n = { ok: 0, failed: 0, off: 0 }; for (const c of all) for (const k of ["official", "gen", "enr"] as const) { const s = c.links[k].state; if (s === "ok") n.ok += 1; else if (s === "failed") n.failed += 1; else n.off += 1; } return n; }, [all]);
+  const counts = useMemo(() => { const n = { ok: 0, failed: 0, off: 0 }; for (const c of all) for (const k of ["official", "gen", "enr"] as const) { const s = c.links[k].state; if (s === "paused") continue; if (s === "ok") n.ok += 1; else if (s === "failed") n.failed += 1; else n.off += 1; } return n; }, [all]);
 
   const row = (c: Country, match: string, first: boolean) => {
     const fail = (["official", "gen", "enr"] as const).find((k) => c.links[k].state === "failed");
@@ -117,7 +122,7 @@ export default function AipLibraryPage() {
   };
 
   return (
-    <PortalShell title="AIP library" crumb="/aip/library" subtitle="Every country's AIP: the official page, GEN and ENR straight to the part. Links are checked every day and on each AIRAC cycle; a link that fails is marked, never hidden.">
+    <PortalShell title="AIP library" crumb="/aip/library" subtitle={table && !table.enrEnabled ? "Every country's AIP: the official page and GEN straight to the part. ENR is not supported now; we are working on it. Links are checked every day and on each AIRAC cycle; a link that fails is marked, never hidden." : "Every country's AIP: the official page, GEN and ENR straight to the part. Links are checked every day and on each AIRAC cycle; a link that fails is marked, never hidden."}>
       <div className="flex flex-col gap-4" style={{ padding: "0 var(--cw-page-pad) 40px" }} data-aip-library="">
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex h-11 min-w-[280px] flex-1 items-center gap-2 rounded-[10px] border border-cw-border-control bg-cw-bg-surface px-3 focus-within:border-cw-focus focus-within:shadow-[0_0_0_3px_var(--cw-focus-halo)]">
@@ -128,7 +133,7 @@ export default function AipLibraryPage() {
           {table && <span className="font-mono text-[12.5px] text-cw-text-muted">AIRAC {table.airac.cycle} since {dayWord(table.airac.effectiveFrom)} · next {table.airac.nextCycle} on {dayWord(table.airac.nextEffectiveFrom)}</span>}
           <Button variant="secondary" size="sm" onClick={() => void checkAll()} disabled={Boolean(checking) || Boolean(table?.running)} icon="rotate-cw">{table?.running || checking === "all" ? "Checking every link…" : "Check every link now"}</Button>
         </div>
-        {hasQ && top && !phone && <span className="text-[12.5px] text-cw-text-muted">↵ opens the official AIP of {top.name} · ⇧↵ GEN · ⌥↵ ENR</span>}
+        {hasQ && top && !phone && <span className="text-[12.5px] text-cw-text-muted">↵ opens the official AIP of {top.name} · ⇧↵ GEN{table?.enrEnabled ? " · ⌥↵ ENR" : ""}</span>}
         {!hasQ && (
           <div className="flex flex-wrap gap-2">
             {["All", ...REGIONS].map((t) => <button key={t} type="button" onClick={() => setRegion(t)} className={`h-9 rounded-[9px] border px-3 text-[13px] font-semibold ${region === t ? "border-cw-ink bg-cw-ink text-cw-on-ink" : "border-cw-border-control bg-cw-bg-surface text-cw-text-body"}`} data-region={t}>{t}<span className="ml-1.5 font-mono text-[12px] opacity-70">{t === "All" ? all.length : all.filter((c) => c.region === t).length}</span></button>)}

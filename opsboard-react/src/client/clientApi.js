@@ -31,6 +31,14 @@ export function normalisePrefs(p) {
 }
 
 /** The wall's own answers a client's pages read. Every path is in CLIENT_READS; the server cuts each to the client. */
+/** The look of their own timeline (the wall's /api/client/view, 2026-11-11): { settings, defaults, source }. */
+export const VIEW_PATH = '/api/client/view';
+export const fetchView = () => json(buildApiUrl(VIEW_PATH));
+export const saveView = (settings) => json(buildApiUrl(VIEW_PATH), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ settings }) });
+export const resetView = () => json(buildApiUrl(VIEW_PATH), { method: 'DELETE' });
+/** The read/write pair the look cards use on the client surface (components/console/LookCards.jsx › DeviceCtx.api). */
+export const viewApi = { fetch: () => fetchView(), save: (settings) => saveView(settings) };
+
 export const fetchSyncStatus = () => json(buildApiUrl('/api/timeline/sync-status')).catch(() => null);
 export const fetchPassengers = (flightNid, oprId) => json(buildApiUrl(`/api/flight-passengers?flightNid=${encodeURIComponent(flightNid)}${oprId ? `&oprId=${encodeURIComponent(oprId)}` : ''}`));
 

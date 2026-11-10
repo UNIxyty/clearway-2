@@ -186,8 +186,9 @@ async function main() {
 
     const rows = page.locator('#mainForm\\:searchResults_data tr');
     const rowCount = await rows.count();
-    const enr11Re = /ENR\s*1\.1/i;
+    const enr11Re = /ENR\s*1\.1(?![.\d])/i;   // 1.1 only: not 1.10, 1.11… (2026-11-10 Estonia came back as ENR 1.10)
     const enRe = /_en\.pdf$/i;
+    const enr11NameRe = /ENR[_\-. ]?1[_\-. ]?1(?![_\-.]?\d)/i;   // the filename too: EE_ENR_1_1_en.pdf, not EE_ENR_1_10_en.pdf
     const docHeadingCol = 4;
     let pdfLink = null;
     for (let i = 0; i < rowCount; i++) {
@@ -198,7 +199,7 @@ async function main() {
       const link = rows.nth(i).locator('a.wrap-data').first();
       if ((await link.count()) === 0) continue;
       const linkText = (await link.textContent().catch(() => '')) || '';
-      if (!enRe.test(linkText)) continue;
+      if (!enRe.test(linkText) || !enr11NameRe.test(linkText)) continue;
       pdfLink = link;
       break;
     }
@@ -216,7 +217,7 @@ async function main() {
         if (!enr11Re.test(docHeading)) continue;
         const link = rows2.nth(i).locator('a.wrap-data').first();
         const linkText = (await link.textContent().catch(() => '')) || '';
-        if (!enRe.test(linkText)) continue;
+        if (!enRe.test(linkText) || !enr11NameRe.test(linkText)) continue;
         pdfLink = link;
         break;
       }

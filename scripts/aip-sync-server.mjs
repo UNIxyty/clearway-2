@@ -1150,6 +1150,19 @@ function findDownloadedGenPdf(icao, prefix, preferScraper = false) {
  * else EAD Basic (the same terms and access as GEN: a logged-in read of one document, no bulk). A source that cannot
  * give ENR throws with code "no-source" and the reason; nothing else is fetched in its place.
  */
+/** The text of a PDF's first pages (pdf-parse; empty when it cannot be read, so a caller never refuses on a read failure). */
+async function pdfTextOf(buf, maxPages = 2) {
+  try {
+    for (const [k, v] of Object.entries({ DOMMatrix: class { constructor() { this.a = 1; this.b = 0; this.c = 0; this.d = 1; this.e = 0; this.f = 0; } transformPoint(p) { return p || { x: 0, y: 0 }; } }, Path2D: class {}, ImageData: class { constructor(w, h) { this.width = w || 1; this.height = h || 1; this.data = new Uint8ClampedArray(this.width * this.height * 4); } } })) {
+      if (typeof globalThis[k] === "undefined") globalThis[k] = v;
+    }
+    const m = await import("pdf-parse");
+    if (m.PDFParse) { const p = new m.PDFParse({ data: buf }); const r = await p.getText({ last: maxPages }); await p.destroy?.(); return typeof r?.text === "string" ? r.text : ""; }   // pdf-parse 2
+    const r = await m.default(buf, { max: maxPages });   // pdf-parse 1
+    return typeof r?.text === "string" ? r.text : "";
+  } catch { return ""; }
+}
+
 async function runEnrDownload(prefix) {
   const spec = SCRAPER_COUNTRY_SPECS.find((x) => x.prefixes.includes(prefix) && x.enrDir);
   let pdfPath = null; let source = null;
@@ -1170,6 +1183,10 @@ async function runEnrDownload(prefix) {
   }
   const body = readFileSync(pdfPath);
   if (body.length < 32 || !body.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error(`Invalid ENR PDF artifact for ${prefix}: ${pdfPath}`);
+  // The saved document must say ENR 1.1 in its own text (2026-11-10: EAD's search gave Estonia's ENR 1.10 for "ENR 1.1").
+  // A PDF whose text cannot be read is kept (scanned documents exist); one that names another section is refused.
+  const text = await pdfTextOf(body);
+  if (text && !/ENR\s*1\.1(?![.\d])/i.test(text)) throw Object.assign(new Error(`${prefix}: the saved document is not ENR 1.1 (its text names ${(text.match(/ENR\s*\d+\.\d+/i) || ["no ENR section"])[0]})`), { code: "wrong-section" });
   const key = `aip/enr-pdf/${prefix}-ENR-1.1.pdf`;
   await saveFile(key, body);
   await saveRevisionMeta({ key, icao: prefix, source, body, pdfPath });

@@ -166,9 +166,17 @@ try {
     const PASS = `rig-onboard-${Math.random().toString(36).slice(2, 10)}`;
     await page.locator("#w-pw").fill(PASS); await page.locator("#w-pw2").fill(PASS);
     await page.getByRole("button", { name: "Set password and sign in" }).click();
-    await page.waitForURL(/\/client/, { timeout: 20000 }).catch(() => {});
+    // since 2026-11-10 the password step goes on to the start page (Timeline or Flights list), then to their flights
+    await page.waitForURL((u) => new URL(u).pathname === "/client/start", { timeout: 20000 }).catch(() => {});
+    await page.waitForSelector("[data-client-start]", { timeout: 15000 }).catch(() => {});
+    ok(new URL(page.url()).pathname === "/client/start" && await page.locator("[data-client-start]").count() === 1 && await page.locator('[data-start-choice="timeline"]').count() === 1 && await page.locator('[data-start-choice="flights"]').count() === 1, "setting the password signs them in and asks how they want to watch their flights (the start page)", page.url());
+    await page.locator('[data-start-choice="timeline"]').click();
+    await page.waitForURL((u) => new URL(u).pathname === "/client", { timeout: 20000 }).catch(() => {});
+    await page.waitForSelector("[data-client-shell]", { timeout: 20000 }).catch(() => {});
     await settled(page);
-    ok(new URL(page.url()).pathname.startsWith("/client"), "setting the password signs them in to the client wall", page.url());
+    ok(new URL(page.url()).pathname === "/client" && await page.locator("[data-client-shell]").count() === 1 && await page.locator("iframe[data-client-frame]").count() === 1, "choosing Timeline goes on to their flights, in the client shell with the frame", page.url());
+    const prefs = await page.request.get(`${B}/api/client/prefs`).then((r) => r.json()).catch(() => null);
+    ok(prefs?.ok === true && prefs?.prefs?.start === "timeline", "…and the choice is saved on the new account", JSON.stringify(prefs?.prefs ?? null));
     const made = (await db(`clients?select=user_id,status&id=eq.${row.id}`))[0];
     const u = made?.user_id ? await (await svc(`/auth/v1/admin/users/${made.user_id}`)).json() : null;
     ok(Boolean(made?.user_id) && u?.app_metadata?.role === "client" && u?.app_metadata?.client_status === "approved" && Boolean(u?.email_confirmed_at), "the account exists now: a confirmed, approved client, linked to the row", JSON.stringify(u?.app_metadata ?? {}));

@@ -33,7 +33,8 @@ const NOT_PORTAL = {
 const SIGNED_OUT = new Set(["/login", "/signup", "/auth/confirm", "/auth/reset", "/intake/answer"]);
 
 const pages = [];
-const walk = (d) => { for (const f of readdirSync(d)) { const p = path.join(d, f); if (statSync(p).isDirectory()) walk(p); else if (f === "page.tsx") pages.push("/" + path.relative("app", d).split(path.sep).join("/")); } };
+// a route group — app/client/(watch)/flights — is not part of the address (the first one in the repo, 2026-11-10)
+const walk = (d) => { for (const f of readdirSync(d)) { const p = path.join(d, f); if (statSync(p).isDirectory()) walk(p); else if (f === "page.tsx") pages.push("/" + path.relative("app", d).split(path.sep).filter((seg) => !/^\(.+\)$/.test(seg)).join("/")); } };
 walk("app");
 const srv = { apikey: KEY, authorization: `Bearer ${KEY}` };
 const first = async (q) => (await (await fetch(`${SB}/rest/v1/${q}`, { headers: srv })).json())[0];

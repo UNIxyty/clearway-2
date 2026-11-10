@@ -241,7 +241,7 @@ for (const theme of ["light", "dark"]) {
     await page.locator('[data-card="grants"] [data-grant], [data-card="grants"] [data-grants-empty]').first().waitFor({ timeout: 15000 }).catch(() => {});
     const grantsText = (await page.locator('[data-card="grants"]').innerText().catch(() => "")).replace(/\s+/g, " ");
     ok(await page.locator('[data-card="grants"] [data-grant]').count() >= 1 && /LY-TST/.test(grantsText) && await page.locator("[data-grants-empty]").count() === 0, `${at}: the grants card lists their operator and LY-TST`, grantsText.slice(0, 100));
-    ok((await page.locator('[data-card="help"][data-client-contact] a').getAttribute("href")) === `mailto:${contact}`, `${at}: the help card carries the address to write to`);
+    ok((await page.locator('[data-card="help"] [data-client-contact] a').getAttribute("href")) === `mailto:${contact}`, `${at}: the help card carries the address to write to`);
     const small = await page.locator('[data-tab="account"] button, [data-tab="account"] input').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().height < 43.5).map((e) => `${e.tagName.toLowerCase()} ${Math.round(e.getBoundingClientRect().height)}px`));
     ok(small.length === 0, `${at}: every button and field is at least 44px tall`, small.join(", "));
     const wide = await page.locator('[data-tab="account"] *').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1).length);

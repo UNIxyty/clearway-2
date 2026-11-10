@@ -169,7 +169,7 @@ try {
   for (const theme of ["light", "dark"]) for (const width of [1440, 390]) {
     const { ctx, page, fr } = await open(theme, width); const tag = `client notes ${theme} ${width}`;
     // the status line: on a desk, live or behind, in words; a phone draws it only when behind
-    const chip = fr.locator("[data-service-status]"); const chipN = await chip.count(); const chipState = chipN ? await chip.first().getAttribute("data-service-status") : null;
+    const chip = fr.locator("[data-service-status]"); if (width >= 700) await chip.waitFor({ timeout: 10000 }).catch(() => {}); const chipN = await chip.count(); const chipState = chipN ? await chip.first().getAttribute("data-service-status") : null;
     if (width >= 700) ok(chipN === 1 && ["live", "behind"].includes(chipState) && /Flight data is live|Not live right now/.test(await chip.first().innerText()), `${tag}: the service status is said in words`, `${chipState} · ${(await chip.first().innerText().catch(() => "")).trim()}`);
     else ok(chipN === 0 || (chipState === "behind" && /Not live right now/.test(await chip.first().innerText())), `${tag}: the phone says the status only when the data is behind`, chipState ?? "live (nothing drawn)");
     ok(await fr.locator(`[data-flight-row="${fno}"]`).count() >= 1, `${tag}: the flight with the notes is on Flights`, fno);

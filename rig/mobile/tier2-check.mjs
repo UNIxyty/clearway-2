@@ -139,7 +139,7 @@ for (const theme of ["light", "dark"]) {
   const stray = links.filter((l) => !l.href.startsWith("/m/") && !/^\/(digital-wall|account\/guide|login|developer|admin\/debug)/.test(l.href));
   ok(stray.length === 0, "every other entry is a desk page that has no phone version yet", stray.map((l) => l.href).join(" "));
   if (isAdmin || isDev) ok(links.some((l) => l.href === "/m/desk/permissions" && /Desk/.test(l.text)), "Permissions carries the Desk tag");
-  else ok(!links.some((l) => /\/admin|\/m\/users|\/m\/desk/.test(l.href)), "a user sees no Admin pages in More (the Desk tag is checked with an admin account)");
+  else ok(!links.some((l) => /\/admin|\/m\/users|\/m\/desk\/permissions/.test(l.href)), "a user sees no Admin pages in More (the Desk tag is checked with an admin account; the AIP library's desk screen is everyone's)");
   await page.screenshot({ path: "rig/.scratch/shots/m-more-tier2.png" }); await ctx.close();
 }
 

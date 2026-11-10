@@ -265,7 +265,7 @@ const pagesShown = (page) => page.locator('[role="toolbar"][aria-label="Document
     const out = [getComputedStyle(d).color, getComputedStyle(probe).backgroundColor]; probe.remove(); return out;
   });
   ok(dot === danger, "a closure is drawn in the portal's danger colour", `${dot} vs ${danger}`);
-  ok(/10 Oct 22:00Z → 14 Oct 04:00Z/.test(await list.first().innerText()), "validity reads as on the wall (UTC)");
+  ok(/10 Oct 2026 22:00Z → 14 Oct 2026 04:00Z/.test(await list.first().innerText()), "validity reads as on the wall (UTC, with the year since 2026-11-10)");
   await page.getByRole("button", { name: "All 8 NOTAMs" }).click();
   ok(await list.count() === 8, "All 8 NOTAMs shows the rest");
   const wx = norm(await page.locator('section[aria-label="Weather"]').innerText());

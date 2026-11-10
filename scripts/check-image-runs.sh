@@ -24,6 +24,7 @@ spec() {
     portal)                echo "clearway-selfhosted:latest 3000 /api/health";;
     digital-wall-frontend) echo "clearway-2-digital-wall-frontend 80 /";;   # nginx serving the built wall pages
     aip-sync)              echo "clearway-selfhosted-worker $(grep -E '^AIP_SYNC_PORT=' .env | cut -d= -f2 | tr -d '"'"'"'' || true) /health";;
+    notam-sync)            echo "clearway-selfhosted-worker 3001 /health";;   # the same worker image, the NOTAM scraper's server (2026-11-10)
     *) return 1;;
   esac
 }
@@ -64,6 +65,7 @@ for s in "$@"; do
   extra=()
   case "$s" in
     aip-sync) extra=(-e STORAGE_ROOT=/tmp/imgcheck-storage -e CACHE_ROOT=/tmp/imgcheck-cache -e AIP_REFRESH_SCHEDULE=off --entrypoint node);;
+    notam-sync) extra=(-e STORAGE_ROOT=/tmp/imgcheck-storage -e CACHE_ROOT=/tmp/imgcheck-cache -e NOTAM_SYNC_PORT=3001 --entrypoint node);;
     digital-wall-backend) extra=(-e PORT=5174);;
     agent-service) extra=(-e PORT=5175);;
     portal) extra=(-e PORT=3000 -e HOSTNAME=127.0.0.1);;   # the standalone server resolves HOSTNAME; the container's own name has no answer without a network
@@ -72,6 +74,7 @@ for s in "$@"; do
   cmd=()
   case "$s" in
     aip-sync) cmd=(scripts/aip-sync-server.mjs);;
+    notam-sync) cmd=(scripts/notam-sync-server.mjs);;
     digital-wall-backend) cmd=(node server.mjs);;
     portal) cmd=(node server.js);;
     agent-service) cmd=(node server.mjs);;

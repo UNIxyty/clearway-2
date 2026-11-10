@@ -50,6 +50,8 @@ export const NAV_TOPICS: NavTopic[] = [
     icon: "file-text",
     roles: ["admin", "user"],
     items: [
+      // first (bug report 8 item 3, 2026-11-10): every country's AIP, GEN and ENR links
+      { id: "aip-library", label: "AIP library", icon: "library-big", href: "/aip/library" },
       { id: "aip-search", label: "Airport search", icon: "search", href: "/aip" },
       { id: "aip-status", label: "Service status", icon: "activity", href: "/aip/service-status" },
       // Everyone can hide an airport from their own search; this is where they get it back (it used to sit under Admin).

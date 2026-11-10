@@ -18,6 +18,7 @@ import { buildRevisionMeta, metaKeyFor } from "../lib/aip-revision-meta.mjs";
 import { basename } from "path";
 import { logError, logInfo } from "../lib/utils/logger.mjs";
 import { runRefresh as runAipRefresh, tick as aipRefreshTick, readState as readAipRefreshState } from "./aip-refresh.mjs";
+import { runLibraryCheck, libraryCheckDue, libraryTable } from "./aip-library.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "..");
@@ -1197,6 +1198,19 @@ async function refreshTick() {
 }
 if (process.env.AIP_REFRESH_SCHEDULE !== "off") { setTimeout(() => void refreshTick(), 2 * 60_000); setInterval(() => void refreshTick(), 30 * 60_000); }
 
+// The AIP library's link check (bug report 8 item 3, 2026-11-10): every country's official, GEN and ENR link, once a
+// day after 03:00Z and on each AIRAC effective date (scripts/aip-library.mjs decides); never two at once.
+let libraryRunning = false;
+async function libraryTick(force = false) {
+  if (libraryRunning) return;
+  if (!force && !(await libraryCheckDue())) return;
+  libraryRunning = true;
+  try { await runLibraryCheck({ log: (m) => logInfo("AIP-LIBRARY", m) }); }
+  catch (e) { logError("AIP-LIBRARY", "check failed", e); }
+  finally { libraryRunning = false; }
+}
+if (process.env.AIP_REFRESH_SCHEDULE !== "off") { setTimeout(() => void libraryTick(), 5 * 60_000); setInterval(() => void libraryTick(), 20 * 60_000); }
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const icao = url.searchParams.get("icao")?.trim().toUpperCase() || "";
@@ -1223,6 +1237,26 @@ const server = createServer(async (req, res) => {
       const summary = await refreshNow({ mode, scope, limit, reason: "manual" });
       res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, summary }));
     } catch (e) { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "The refresh run failed; see the worker log." })); }
+    return;
+  }
+  // The AIP library (2026-11-10): the table, and a check on demand (the whole table, or one country).
+  if (url.pathname === "/library" || url.pathname === "/library/") {
+    if (!requireAuth(req)) { res.writeHead(401, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, running: libraryRunning, ...(await libraryTable()) }));
+    return;
+  }
+  if (url.pathname === "/library/check" || url.pathname === "/library/check/") {
+    if (!requireAuth(req)) { res.writeHead(401, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    if (req.method !== "POST") { res.writeHead(405, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "POST" })); return; }
+    const only = url.searchParams.get("country");
+    if (only) {
+      try { const out = await runLibraryCheck({ only, log: (m) => logInfo("AIP-LIBRARY", m) }); res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, ...out })); }
+      catch { res.writeHead(500, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "The check failed; see the worker log." })); }
+      return;
+    }
+    if (libraryRunning) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, started: false, running: true })); return; }
+    void libraryTick(true);
+    res.writeHead(202, { "Content-Type": "application/json" }); res.end(JSON.stringify({ ok: true, started: true }));
     return;
   }
   if (url.pathname === "/health" || url.pathname === "/health/") {

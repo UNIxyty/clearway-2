@@ -23,10 +23,10 @@ const NOT_PORTAL = {
   "/telegram/support": "the Telegram mini app takes Telegram's theme",
   "/greece-hitl-auto-test/viewer": "a test harness for a scraper, not a product page", "/lithuania-hitl-auto-test/viewer": "the same", "/netherlands-hitl-auto-test/viewer": "the same",
   "/admin/debug/raw": "raw debug output (text/plain)",
-  // A client's world (Stage 5): staff get 404 there by design; rig/client-ui-check.mjs audits it as a client, in both themes.
-  "/client": "the client wall — audited by client-ui-check", "/client/refused": "the same", "/client/removed": "the same",
-  // behind the client's own switches (2026-11-07): client-ui-check switches them on and audits both themes
-  "/client/documents": "a client's reference area — audited by client-ui-check", "/client/airports": "the same", "/client/account": "a client's own page — audited by client-ui-check, in both themes",
+  // A client's world (Stage 5; Client View v2, 2026-11-10): staff get 404 there by design; rig/client-ui-check.mjs
+  // audits it as a client, in both themes — Timeline and Flights (drawn in the wall app's frame), Account and the start page
+  "/client": "the client's Timeline — audited by client-ui-check", "/client/flights": "the client's Flights — the same", "/client/account": "a client's own page — audited by client-ui-check, in both themes", "/client/start": "the client's start page — the same",
+  "/client/refused": "a client's holding page — the same", "/client/removed": "the same",
 };
 // Pages people see signed out: audited in a signed-out browser. Sign-in sits on a dark backdrop in both themes (the
 // night-* tokens); its card, fields and text follow the theme like any page.

@@ -37,7 +37,7 @@ export async function PUT(request: Request) {
   const next: Prefs = { ...current };
   if ("start" in body) next.start = body.start === "flights" ? "flights" : body.start === "timeline" ? "timeline" : null;
   if ("hidden" in body) next.hidden = normalisePrefs({ hidden: body.hidden }).hidden;
-  const { error } = await service.auth.admin.updateUserById(auth.user.id, { user_metadata: { ...meta, client_prefs: next } });
+  const { error } = await service.auth.admin.updateUserById(auth.user.id, { user_metadata: { ...meta, client_prefs: next } }); // metadata-ok: writes the person's own view preferences; nothing reads them for authorization
   if (error) return failure(503, "The choice could not be saved. Try again.", { tag: "client-prefs", what: "could not save a client's view preferences", detail: error }, { ok: false });
   return NextResponse.json({ ok: true, prefs: next });
 }

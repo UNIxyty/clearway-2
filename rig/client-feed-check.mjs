@@ -4,8 +4,9 @@
 // pills — whatever the client's switches said. The page drew none of it; the browser had all of it.
 // Now a flight is a list of fields (digital-wall/lib/client-scope.mjs › CLIENT_FLIGHT_FIELDS) and the notes come only
 // with their switches. This makes its own client and its own invented notes (through the wall's API, as the rig admin),
-// reads every feed as the client with the switches off and then on, looks at the Flights page at 1440 and 390, and
-// removes what it made.   node --env-file=.env.rig rig/client-feed-check.mjs
+// reads every feed as the client with the switches off and then on, looks at a flight on Flights at 1440 and 390 (the
+// frame, since 2026-11-10: iframe[data-client-frame] holds the wall app's client surface), and removes what it made.
+//   node --env-file=.env.rig rig/client-feed-check.mjs
 import { chromium } from "playwright";
 import fs from "node:fs";
 import { settled } from "./lib/settle.mjs";
@@ -25,7 +26,7 @@ const noOverflow = (page) => page.evaluate(() => document.documentElement.scroll
 // A phone screenshot is the screen as the phone shows it, tab bar at the bottom, and a second one scrolled to the end
 // (2026-11-09: a full-page capture drew the sticky tab bar across the middle of the page). A desk one is the window.
 const shot = async (page, file, width, { whole = false } = {}) => {
-  if (width !== 390) { await page.screenshot({ path: file, fullPage: whole }); return; }
+  if (width >= 700) { await page.screenshot({ path: file, fullPage: whole }); return; }
   await page.evaluate(() => window.scrollTo(0, 0)); await page.screenshot({ path: file });
   const more = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight + 40);
   if (more) { await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await page.waitForTimeout(150); await page.screenshot({ path: file.replace(/\.png$/, "-end.png") }); await page.evaluate(() => window.scrollTo(0, 0)); }
@@ -47,7 +48,7 @@ try {
   const u = await (await svc("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email: EMAIL, password: PASSWORD, email_confirm: true, user_metadata: { full_name: "Rig Feed Person" }, app_metadata: { role: "client", is_approved: true, client_status: "approved" } }) })).json();
   uid = u.id;
   const ops = (await (await svc("/rest/v1/leon_operators?select=opr_id")).json()).map((o) => o.opr_id);
-  await svc("/rest/v1/clients", { method: "POST", body: JSON.stringify({ user_id: uid, email: EMAIL, person_name: "Rig Feed Person", company: "Rig Feed Charter (invented)", kind: "operator", status: "approved", scope: ops.map((value) => ({ kind: "operator", value })), switches: ["flight_board"], passenger_level: "off" }) });
+  await svc("/rest/v1/clients", { method: "POST", body: JSON.stringify({ user_id: uid, email: EMAIL, person_name: "Rig Feed Person", company: "Rig Feed Charter (invented)", kind: "operator", status: "approved", scope: ops.map((value) => ({ kind: "operator", value })), switches: ["flight_board"], passenger_level: "names" }) });   // names: the passengers read is a level, not a switch (step 3)
   const setSwitches = async (switches) => { await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", body: JSON.stringify({ switches }) }); await sleep(11_000); };   // the scope is cached ten seconds
   const c = await grant(EMAIL, PASSWORD);
   ok(Boolean(c.access_token) && ops.length > 0, "a client on every operator the rig wall has signs in", `${ops.length} operators`);
@@ -70,7 +71,9 @@ try {
   ok(staff.length >= recs.length && ["checks", "limitations", "checklistColor", "tripStatus"].every((k) => staffKeys.has(k)), "control: staff get the wall's own record (checks, limitations, checklist colour, trip status)", `${staffKeys.size} fields`);
 
   // ── 2. invented notes on the airport of the client's first flight, made through the wall as the admin ──
-  const target = recs.find((r) => !r.flight.isCnl && r.flight.adep?.icao) ?? recs[0];
+  // (one the timeline's own window holds too, so the page part below finds its row on Flights)
+  const boardNids = new Set(((await wall(c, "/api/timeline/flights?allOperators=true")).json?.aircraft ?? []).flatMap((g) => (g.flights ?? []).map((f) => String(f.flightNid))));
+  const target = recs.find((r) => !r.flight.isCnl && r.flight.adep?.icao && boardNids.has(String(r.flight.flightNid))) ?? recs.find((r) => !r.flight.isCnl && r.flight.adep?.icao) ?? recs[0];
   const icao = target.flight.adep.icao;
   const lim = await wall(admin, "/api/timeline/limitations", { method: "POST", body: JSON.stringify({ title: `${TAG} limitation (invented)`, description: "Invented for the rig: slots required after 2200 local.", isPermanent: false, startDate: new Date(Date.now() - 86400e3).toISOString().slice(0, 10), endDate: new Date(Date.now() + 8 * 86400e3).toISOString().slice(0, 10), match: { airportIcaos: [icao] } }) });   // dated, not permanent: a permanent limitation cannot be deleted, and this check removes what it makes
   const imp = await wall(admin, "/api/important", { method: "POST", body: JSON.stringify({ title: `${TAG} notice (invented)`, body: "Invented for the rig: fuel by prior arrangement only.", reviewed: true, match: { airportIcaos: [icao] } }) });
@@ -97,6 +100,16 @@ try {
   }
   for (const p of ["/api/limitations", "/api/important", "/api/caa", "/api/timeline/sync-status", "/api/notam-check/today"]) ok((await wall(c, p)).status === 404, `${p}: 404 with its switch off`);
   ok((await wall(c, `/api/flight-checks?keys=${encodeURIComponent(target.key)}`)).status === 404, "ops' check marks (/api/flight-checks) are not a client's at any setting: 404");
+  // the reference reads a client had until 2026-11-10 (Airports, AIP pages, airport search, Documents): gone for good
+  const removed = ["/api/aip-pdf?icao=EVRA", "/api/airports/search?q=EVRA", "/api/geo/airports", "/api/geo/countries", "/api/countries"];
+  const removedRes = await Promise.all(removed.map(async (p) => [p, (await wall(c, p)).status]));
+  ok(removedRes.every(([, st]) => st === 404), "the five retired reference reads (AIP PDF, airport search, geo airports and countries, countries): 404 at any setting", removedRes.map(([p, st]) => `${p.replace(/\?.*/, "")} ${st}`).join(" · "));
+  ok((await wall(c, "/api/geo/coords?icao=EVRA")).status === 404, "/api/geo/coords: 404 with the radar switch off");
+  // passengers: a level (names), not a switch — the names of one of THEIR flights; a flight that is not theirs does not exist
+  const pax = await wall(c, `/api/flight-passengers?flightNid=${target.flight.flightNid}&oprId=${encodeURIComponent(target.oprId)}`);
+  ok(pax.status === 200 && Array.isArray(pax.json?.passengers) && (pax.json.passengers ?? []).every((p) => Object.keys(p).every((k) => ["id", "name"].includes(k))), "/api/flight-passengers for one of their flights: 200, names only (level names)", `${pax.status} · ${(pax.json?.passengers ?? []).length} names`);
+  const notTheirs = await wall(c, "/api/flight-passengers?flightNid=999999999&oprId=cwy-cwy");
+  ok(notTheirs.status === 404 && /not on your account/i.test(notTheirs.text), "/api/flight-passengers for a flight that is not theirs: 404, not on your account", `${notTheirs.status} ${notTheirs.text.slice(0, 60)}`);
 
   // ── 4. one switch on: that kind of note, and only that kind ──
   await setSwitches(["flight_board", "limitations"]);
@@ -104,7 +117,8 @@ try {
   ok(notes.some((n) => n.type === "LIM" && n.title.includes(TAG) && /slots required/.test(n.description)) && notes.every((n) => n.type === "LIM" && Object.keys(n).every((k) => ["id", "type", "title", "description"].includes(k))), "Limitations on: the limitation, as its title and text, and nothing of another kind", notes.map((n) => n.type).join(" "));
 
   // ── 5. every note switch on ──
-  await setSwitches(["flight_board", "weather", "notams", "limitations", "important", "caa", "service_status", "notam_check_status"]);
+  await setSwitches(["flight_board", "weather", "notams", "radar", "limitations", "important", "caa", "service_status", "notam_check_status"]);
+  { const co = await wall(c, "/api/geo/coords?icao=EVRA"); ok(co.status === 200 && co.json?.ok === true && Number.isFinite(co.json?.coords?.EVRA?.lat), "/api/geo/coords?icao=EVRA: 200 with the radar switch on, the airport's position for the map", `${co.status} ${JSON.stringify(co.json?.coords?.EVRA ?? null)}`); }
   recs = await feedOf(c); notes = recs.find((r) => r.key === target.key)?.flight.limitations ?? [];
   const byType = (t) => notes.filter((n) => n.type === t);
   ok(byType("LIM").length >= 1 && byType("IMP").some((n) => n.title.includes(TAG) && /fuel by prior arrangement/.test(n.description)) && byType("CAA").some((n) => String(n.caa?.authorityName).includes(TAG)), "all three on: the limitation, the notice and the CAA entry are on the flight", notes.map((n) => n.type).join(" "));
@@ -127,45 +141,64 @@ try {
   const st = await wall(c, "/api/timeline/sync-status");
   ok(st.status === 200 && Object.keys(st.json ?? {}).every((k) => ["ok", "lastSyncTimestamp", "healthy", "live", "updatedAt"].includes(k)) && typeof st.json?.live === "boolean", "Service status on: live or not, and when last updated; nothing about operators, errors or the cache", Object.keys(st.json ?? {}).join(" "));
 
-  // ── 6. the page: the cards for the notes, the status chip; nothing drawn empty ──
+  // ── 6. the page: the cards for the notes, the status chip; nothing drawn empty. Flights and the flight are drawn
+  //    inside the frame (iframe[data-client-frame]); the flight is a side panel on a desk, a page on a phone ──
   const browser = await chromium.launch();
+  const FRAME = "iframe[data-client-frame]";
   const open = async (theme, width) => {
-    const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, colorScheme: theme, hasTouch: width === 390 });
+    const ctx = await browser.newContext({ viewport: { width, height: width < 700 ? 844 : 900 }, colorScheme: theme, hasTouch: width < 700 });
     const ck = cookieOf(c); await ctx.addCookies([{ name: ck.split("=")[0], value: ck.slice(ck.indexOf("=") + 1), url: B }]);
     await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch { /* no storage */ } }, theme);
-    const page = await ctx.newPage(); await page.goto(`${B}/client`, { waitUntil: "load" }); await page.waitForSelector("[data-client-wall]", { timeout: 20000 }); await settled(page);
-    await page.getByRole("tab", { name: "7 days" }).click(); await settled(page);
-    return { ctx, page };
+    const page = await ctx.newPage(); await page.goto(`${B}/client/flights`, { waitUntil: "load" }); await page.waitForSelector("[data-client-shell]", { timeout: 20000 });
+    const fr = page.frameLocator(FRAME);
+    await fr.locator(`[data-client-surface="${width < 700 ? "phone" : "desk"}"]`).waitFor({ timeout: 30000 });
+    await fr.locator("[data-flight-row]").first().waitFor({ timeout: 30000 }).catch(() => {});
+    await settled(page);
+    return { ctx, page, fr };
   };
+  const openFlight = async (fr, fno, width) => {
+    await fr.locator(`[data-flight-row="${fno}"]`).first().click();
+    const panel = width < 700 ? fr.locator(`[data-flight-page="${fno}"]`) : fr.locator(`[data-flight-panel="${fno}"]`);
+    await panel.waitFor({ timeout: 15000 }).catch(() => {});
+    // the notes come with /api/flight-info: the Limitations section is drawn once it has answered
+    await panel.locator('[data-card="limitations"] .cwc-note, [data-card="limitations"] .cwc-muted').first().waitFor({ timeout: 20000 }).catch(() => {});
+    return panel;
+  };
+  const closeFlight = async (fr, width) => { await fr.locator(width < 700 ? "[data-back]" : "[data-close-flight]").click(); await fr.locator("[data-flight-row]").first().waitFor({ timeout: 10000 }).catch(() => {}); };
+  const fno = String(target.flight.flightNo);
   for (const theme of ["light", "dark"]) for (const width of [1440, 390]) {
-    const { ctx, page } = await open(theme, width); const tag = `client notes ${theme} ${width}`;
-    const chip = page.locator("[data-service-status]");
-    ok(await chip.isVisible() && /Flight data (is live|may be behind)/.test(await chip.innerText()), `${tag}: the service status is said in words`, (await chip.innerText().catch(() => "")).trim());
-    await page.locator(`[data-flight="${target.key}"]`).click(); await settled(page);
-    const text = async (card) => (await page.locator(`[data-card="${card}"]`).innerText().catch(() => "")).replace(/\s+/g, " ");
-    ok((await text("limitations")).includes(`${TAG} limitation`) && /slots required/.test(await text("limitations")), `${tag}: Limitations shows the limitation, title and text`);
-    ok((await text("important")).includes(`${TAG} notice`) && /fuel by prior arrangement/.test(await text("important")), `${tag}: Important notices shows the notice`);
-    ok((await text("caa")).includes(`${TAG} authority`) && /Landing permits/.test(await text("caa")) && /permits@rig\.invalid/.test(await text("caa")), `${tag}: CAA details shows the authority and how to reach it`);
-    ok(await noOverflow(page), `${tag}: no horizontal page scroll`);
-    const wide = await page.locator("[data-detail] *").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().right > window.innerWidth + 1).length);
-    ok(wide === 0, `${tag}: nothing runs past the edge of the screen`, wide);
-    await shot(page, `${OUT}/client-notes-${theme}-${width}.png`, width, { whole: true });
+    const { ctx, page, fr } = await open(theme, width); const tag = `client notes ${theme} ${width}`;
+    // the status line: on a desk, live or behind, in words; a phone draws it only when behind
+    const chip = fr.locator("[data-service-status]"); const chipN = await chip.count(); const chipState = chipN ? await chip.first().getAttribute("data-service-status") : null;
+    if (width >= 700) ok(chipN === 1 && ["live", "behind"].includes(chipState) && /Flight data is live|Not live right now/.test(await chip.first().innerText()), `${tag}: the service status is said in words`, `${chipState} · ${(await chip.first().innerText().catch(() => "")).trim()}`);
+    else ok(chipN === 0 || (chipState === "behind" && /Not live right now/.test(await chip.first().innerText())), `${tag}: the phone says the status only when the data is behind`, chipState ?? "live (nothing drawn)");
+    ok(await fr.locator(`[data-flight-row="${fno}"]`).count() >= 1, `${tag}: the flight with the notes is on Flights`, fno);
+    const panel = await openFlight(fr, fno, width);
+    const text = async (sel) => (await panel.locator(sel).innerText().catch(() => "")).replace(/\s+/g, " ");
+    ok((await text('[data-card="limitations"]')).includes(`${TAG} limitation`) && /slots required/.test(await text('[data-card="limitations"]')), `${tag}: Limitations shows the limitation, title and text`);
+    ok((await text('[data-card="important"]')).includes(`${TAG} notice`) && /fuel by prior arrangement/.test(await text('[data-card="important"]')), `${tag}: the notice from Clearway shows the notice`);
+    ok((await text('[data-section="caa"]')).includes(`${TAG} authority`) && /Landing permits/.test(await text('[data-section="caa"]')) && /permits@rig\.invalid/.test(await text('[data-section="caa"]')), `${tag}: Authority contacts shows the authority and how to reach it`);
+    ok(await noOverflow(page) && await (page.frames().find((f) => f.url().includes("/digital-wall/timeline/"))?.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1) ?? false), `${tag}: no horizontal scroll, on the page or in the frame`);
+    const wide = await panel.locator("*").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().right > window.innerWidth + 1).length);
+    ok(wide === 0, `${tag}: nothing in the flight runs past the edge of the screen`, wide);
+    await shot(page, `${OUT}/client-notes-${theme}-${width}.png`, width);
     if (theme === "light") {
-      // a flight the notes do not match: the cards are there (the switches are on) and say "none" in words
-      const other = recs.find((r) => r.key !== target.key && r.flight.adep?.icao !== icao && r.flight.ades?.icao !== icao && !r.flight.isCnl && (r.flight.limitations ?? []).length === 0);
+      // a flight the notes do not match: Limitations and the notice say "none" in words; Authority contacts is not drawn
+      const other = recs.find((r) => r.key !== target.key && r.flight.adep?.icao !== icao && r.flight.ades?.icao !== icao && !r.flight.isCnl && (r.flight.limitations ?? []).length === 0 && boardNids.has(String(r.flight.flightNid)));
       if (other) {
-        if (width === 390) { await page.locator(".clw-back").click(); await settled(page); }
-        await page.locator(`[data-flight="${other.key}"]`).click(); await settled(page);
-        ok(/No limitations apply/.test(await text("limitations")) && /No notices/.test(await text("important")) && /No authority details/.test(await text("caa")), `${tag}: a flight with no notes says so in words, three times`);
+        await closeFlight(fr, width);
+        const p2 = await openFlight(fr, String(other.flight.flightNo), width);
+        const t2 = async (sel) => (await p2.locator(sel).innerText().catch(() => "")).replace(/\s+/g, " ");
+        ok(/No limitations apply/.test(await t2('[data-card="limitations"]')) && /No notices/.test(await t2('[data-card="important"]')) && await p2.locator('[data-section="caa"]').count() === 0, `${tag}: a flight with no notes says so in words twice, and draws no authority section`);
       }
     }
     await ctx.close();
   }
   await setSwitches(["flight_board"]);
   {
-    const { ctx, page } = await open("light", 1440);
-    await page.locator(`[data-flight="${target.key}"]`).click(); await settled(page);
-    ok(await page.locator('[data-card="limitations"], [data-card="important"], [data-card="caa"], [data-service-status]').count() === 0, "switches off again: no notes cards and no status chip are drawn — a switch that is off adds nothing");
+    const { ctx, fr } = await open("light", 1440);
+    const panel = await openFlight(fr, fno, 1440);
+    ok(await panel.count() === 1 && await fr.locator('[data-card="limitations"], [data-card="important"], [data-section="caa"], [data-service-status]').count() === 0, "switches off again: no notes sections and no status line are drawn — a switch that is off adds nothing");
     await ctx.close();
   }
   await browser.close();

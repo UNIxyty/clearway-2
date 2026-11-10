@@ -1,0 +1,1222 @@
+[
+ {
+  "name": "Albania",
+  "iso": "al",
+  "prefixes": [
+   "LA"
+  ],
+  "region": "Europe",
+  "provider": "Albcontrol",
+  "official": "https://www.albcontrol.al/aip/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Austria",
+  "iso": "at",
+  "prefixes": [
+   "LO"
+  ],
+  "region": "Europe",
+  "provider": "Austro Control",
+  "official": "https://eaip.austrocontrol.at/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Belgium",
+  "iso": "be",
+  "prefixes": [
+   "EB"
+  ],
+  "region": "Europe",
+  "provider": "skeyes",
+  "official": "https://ops.skeyes.be/htmlAIP/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Bosnia and Herzegovina",
+  "iso": "ba",
+  "prefixes": [
+   "LQ"
+  ],
+  "region": "Europe",
+  "provider": "BHANSA",
+  "official": "https://eaip.bhansa.gov.ba/",
+  "officialSource": "links"
+ },
+ {
+  "name": "Bulgaria",
+  "iso": "bg",
+  "prefixes": [
+   "LB"
+  ],
+  "region": "Europe",
+  "provider": "BULATSA",
+  "official": "https://www.bulatsa.com/en/services/aeronautical-information-services/",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Croatia",
+  "iso": "hr",
+  "prefixes": [
+   "LD"
+  ],
+  "region": "Europe",
+  "provider": "Croatia Control",
+  "official": "https://www.crocontrol.hr/en/services/aeronautical-information-management/",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Cyprus",
+  "iso": "cy",
+  "prefixes": [
+   "LC"
+  ],
+  "region": "Europe",
+  "provider": "Department of Civil Aviation",
+  "official": "http://www.mcw.gov.cy/mcw/DCA/AIS/ais.nsf/index%5Fen/index%5Fen",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Czechia",
+  "iso": "cz",
+  "prefixes": [
+   "LK"
+  ],
+  "region": "Europe",
+  "provider": "ANS CR",
+  "official": "https://aim.rlp.cz/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Denmark",
+  "iso": "dk",
+  "prefixes": [
+   "EK"
+  ],
+  "region": "Europe",
+  "provider": "Naviair",
+  "official": "https://aim.naviair.dk/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Estonia",
+  "iso": "ee",
+  "prefixes": [
+   "EE"
+  ],
+  "region": "Europe",
+  "provider": "EANS",
+  "official": "https://aim.eans.ee/et/eaip",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Finland",
+  "iso": "fi",
+  "prefixes": [
+   "EF"
+  ],
+  "region": "Europe",
+  "provider": "Fintraffic ANS",
+  "official": "https://ais.fi/eaip/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "France",
+  "iso": "fr",
+  "prefixes": [
+   "LF"
+  ],
+  "region": "Europe",
+  "provider": "SIA",
+  "official": "https://www.sia.aviation-civile.gouv.fr/media/dvd/eAIP_16_APR_2026/FRANCE/home.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Germany",
+  "iso": "de",
+  "prefixes": [
+   "ED",
+   "ET"
+  ],
+  "region": "Europe",
+  "provider": "DFS",
+  "official": "https://aip.dfs.de/BasicIFR/2026APR20/chapter/279afdc243b210751d2f9f2401e5e4db.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Greece",
+  "iso": "gr",
+  "prefixes": [
+   "LG"
+  ],
+  "region": "Europe",
+  "provider": "HCAA",
+  "official": "https://aisgr.hasp.gov.gr/main.php?rand=0.7276487307378027#publications",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Hungary",
+  "iso": "hu",
+  "prefixes": [
+   "LH"
+  ],
+  "region": "Europe",
+  "provider": "HungaroControl",
+  "official": "https://ais-en.hungarocontrol.hu/aip/aip-archive/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Iceland",
+  "iso": "is",
+  "prefixes": [
+   "BI"
+  ],
+  "region": "Europe",
+  "provider": "Isavia",
+  "official": "https://eaip.isavia.is/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Ireland",
+  "iso": "ie",
+  "prefixes": [
+   "EI"
+  ],
+  "region": "Europe",
+  "provider": "AirNav Ireland",
+  "official": "https://www.airnav.ie/air-traffic-management/aeronautical-information-management/aip-package",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Italy",
+  "iso": "it",
+  "prefixes": [
+   "LI"
+  ],
+  "region": "Europe",
+  "provider": "ENAV",
+  "official": "https://www.enav.it/sites/public/en/Servizi/areonautical-information.html",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Kosovo",
+  "iso": "xk",
+  "prefixes": [
+   "BK"
+  ],
+  "region": "Europe",
+  "provider": "ASNA",
+  "official": "https://www.ashna-ks.org/eAIP/default.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Latvia",
+  "iso": "lv",
+  "prefixes": [
+   "EV"
+  ],
+  "region": "Europe",
+  "provider": "eAIP by LGS",
+  "official": "https://ais.lgs.lv/aiseaip",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Lithuania",
+  "iso": "lt",
+  "prefixes": [
+   "EY"
+  ],
+  "region": "Europe",
+  "provider": "Oro navigacija",
+  "official": "https://www.ans.lt/a1/aip/02_16Apr2026/EY-history-en-US.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Luxembourg",
+  "iso": "lu",
+  "prefixes": [
+   "EL"
+  ],
+  "region": "Europe",
+  "provider": "ANA Luxembourg",
+  "official": "https://ops.skeyes.be/",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Malta",
+  "iso": "mt",
+  "prefixes": [
+   "LM"
+  ],
+  "region": "Europe",
+  "provider": "MATS",
+  "official": "https://www.maltats.com/aim/",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Montenegro",
+  "iso": "me",
+  "prefixes": [
+   "LY"
+  ],
+  "region": "Europe",
+  "provider": "SMATSA",
+  "official": "https://smatsa.rs/upload/aip/published/start%5Fpage.html",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Netherlands",
+  "iso": "nl",
+  "prefixes": [
+   "EH"
+  ],
+  "region": "Europe",
+  "provider": "LVNL",
+  "official": "https://eaip.lvnl.nl/web/eaip/default.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "North Macedonia",
+  "iso": "mk",
+  "prefixes": [
+   "LW"
+  ],
+  "region": "Europe",
+  "provider": "M-NAV",
+  "official": "http://ais.m-nav.info/eAIP/current/en/index.htm",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Norway",
+  "iso": "no",
+  "prefixes": [
+   "EN"
+  ],
+  "region": "Europe",
+  "provider": "Avinor",
+  "official": "https://aim-prod.avinor.no/no/AIP/View/Index/152/history-no-NO.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Poland",
+  "iso": "pl",
+  "prefixes": [
+   "EP"
+  ],
+  "region": "Europe",
+  "provider": "PANSA",
+  "official": "https://www.ais.pansa.pl/en/publications/aip-poland/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Portugal",
+  "iso": "pt",
+  "prefixes": [
+   "LP"
+  ],
+  "region": "Europe",
+  "provider": "NAV Portugal",
+  "official": "https://aim.nav.pt/Html/IndexAeronauticalInformation",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Romania",
+  "iso": "ro",
+  "prefixes": [
+   "LR"
+  ],
+  "region": "Europe",
+  "provider": "ROMATSA",
+  "official": "https://www.aisro.ro/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Serbia",
+  "iso": "rs",
+  "prefixes": [
+   "LY"
+  ],
+  "region": "Europe",
+  "provider": "SMATSA",
+  "official": "https://smatsa.rs/upload/aip/published/start%5Fpage.html",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Slovakia",
+  "iso": "sk",
+  "prefixes": [
+   "LZ"
+  ],
+  "region": "Europe",
+  "provider": "LPS SR",
+  "official": "https://aim.lps.sk/web/index.php?fn=200&lng=en",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Slovenia",
+  "iso": "si",
+  "prefixes": [
+   "LJ"
+  ],
+  "region": "Europe",
+  "provider": "Slovenia Control",
+  "official": "https://aim.sloveniacontrol.si/aim/products/aip/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Spain",
+  "iso": "es",
+  "prefixes": [
+   "LE",
+   "GC"
+  ],
+  "region": "Europe",
+  "provider": "ENAIRE",
+  "official": "https://aip.enaire.es/AIP/AIP-en.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Sweden",
+  "iso": "se",
+  "prefixes": [
+   "ES"
+  ],
+  "region": "Europe",
+  "provider": "LFV",
+  "official": "https://aro.lfv.se/content/eaip/default_offline.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Switzerland",
+  "iso": "ch",
+  "prefixes": [
+   "LS"
+  ],
+  "region": "Europe",
+  "provider": "skyguide",
+  "official": "https://www.skyguide.ch/en/services/aeronautical-information-management/",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Türkiye",
+  "iso": "tr",
+  "prefixes": [
+   "LT"
+  ],
+  "region": "Europe",
+  "provider": "DHMI",
+  "official": "https://www.dhmi.gov.tr/Sayfalar/aipturkey.aspx",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "United Kingdom",
+  "iso": "gb",
+  "prefixes": [
+   "EG"
+  ],
+  "region": "Europe",
+  "provider": "NATS",
+  "official": "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/",
+  "officialSource": "links"
+ },
+ {
+  "name": "Armenia",
+  "iso": "am",
+  "prefixes": [
+   "UD"
+  ],
+  "region": "CIS",
+  "provider": "ARMATS",
+  "official": "https://armats.am/activities/ais/eaip",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Azerbaijan",
+  "iso": "az",
+  "prefixes": [
+   "UB"
+  ],
+  "region": "CIS",
+  "provider": "AZANS",
+  "official": "https://www.ead.eurocontrol.int/cms-eadbasic/opencms/en/login/ead-basic/",
+  "officialSource": "ead-login"
+ },
+ {
+  "name": "Belarus",
+  "iso": "by",
+  "prefixes": [
+   "UM"
+  ],
+  "region": "CIS",
+  "provider": "Belaeronavigatsia",
+  "official": "https://www.ban.by/ru/sbornik-aip/amdt",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Georgia",
+  "iso": "ge",
+  "prefixes": [
+   "UG"
+  ],
+  "region": "CIS",
+  "provider": "Sakaeronavigatsia",
+  "official": "https://airnav.ge/eaip/history-en-GB.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Kazakhstan",
+  "iso": "kz",
+  "prefixes": [
+   "UA"
+  ],
+  "region": "CIS",
+  "provider": "Kazaeronavigatsia",
+  "official": "https://www.ans.kz/en/ais/eaip",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Kyrgyzstan",
+  "iso": "kg",
+  "prefixes": [
+   "UC"
+  ],
+  "region": "CIS",
+  "provider": "Kyrgyzaeronavigatsia",
+  "official": "https://ansp.kg/aeronautical-information-service",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Moldova",
+  "iso": "md",
+  "prefixes": [
+   "LU"
+  ],
+  "region": "CIS",
+  "provider": "MoldATSA",
+  "official": "https://aim.moldatsa.md/",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Russia",
+  "iso": "ru",
+  "prefixes": [
+   "UU",
+   "UL",
+   "UW",
+   "UN",
+   "UH",
+   "UI",
+   "UR",
+   "US",
+   "UE",
+   "UO"
+  ],
+  "region": "CIS",
+  "provider": "CAIGA",
+  "official": "http://www.caica.ru/",
+  "officialSource": "russia-py"
+ },
+ {
+  "name": "Tajikistan",
+  "iso": "tj",
+  "prefixes": [
+   "UT"
+  ],
+  "region": "CIS",
+  "provider": "Tajikaeronavigatsia",
+  "official": "http://www.caica.ru/aiptjk/?lang=en",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Turkmenistan",
+  "iso": "tm",
+  "prefixes": [
+   "UT"
+  ],
+  "region": "CIS",
+  "provider": "",
+  "official": "http://www.caica.ru/aiptkm/?lang=en",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Ukraine",
+  "iso": "ua",
+  "prefixes": [
+   "UK"
+  ],
+  "region": "CIS",
+  "provider": "UkSATSE",
+  "official": "http://www.aisukraine.net/titul%5Fen.php",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Uzbekistan",
+  "iso": "uz",
+  "prefixes": [
+   "UT"
+  ],
+  "region": "CIS",
+  "provider": "Uzaeronavigatsia",
+  "official": "https://uzaeronavigation.com/ais/#",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Bahrain",
+  "iso": "bh",
+  "prefixes": [
+   "OB"
+  ],
+  "region": "Middle East",
+  "provider": "Bahrain CAA",
+  "official": "https://aim.mtt.gov.bh/eAIP/history-en-BH.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Iran",
+  "iso": "ir",
+  "prefixes": [
+   "OI"
+  ],
+  "region": "Middle East",
+  "provider": "IAC",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Iraq",
+  "iso": "iq",
+  "prefixes": [
+   "OR"
+  ],
+  "region": "Middle East",
+  "provider": "ICAA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Israel",
+  "iso": "il",
+  "prefixes": [
+   "LL"
+  ],
+  "region": "Middle East",
+  "provider": "CAAI",
+  "official": "https://e-aip.azurefd.net",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Jordan",
+  "iso": "jo",
+  "prefixes": [
+   "OJ"
+  ],
+  "region": "Middle East",
+  "provider": "CARC",
+  "official": "https://carc.gov.jo/en/directory-flight-information",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Kuwait",
+  "iso": "kw",
+  "prefixes": [
+   "OK"
+  ],
+  "region": "Middle East",
+  "provider": "DGCA Kuwait",
+  "official": "https://dgca.gov.kw/AIP",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Lebanon",
+  "iso": "lb",
+  "prefixes": [
+   "OL"
+  ],
+  "region": "Middle East",
+  "provider": "DGCA Lebanon",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Oman",
+  "iso": "om",
+  "prefixes": [
+   "OO"
+  ],
+  "region": "Middle East",
+  "provider": "CAA Oman",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Qatar",
+  "iso": "qa",
+  "prefixes": [
+   "OT"
+  ],
+  "region": "Middle East",
+  "provider": "QCAA",
+  "official": "https://www.caa.gov.qa/en/aeronautical-information-management",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Saudi Arabia",
+  "iso": "sa",
+  "prefixes": [
+   "OE"
+  ],
+  "region": "Middle East",
+  "provider": "SANS",
+  "official": "https://aimss.sans.com.sa/assets/FileManagerFiles/e65727c9-8414-49dc-9c6a-0b30c956ed33.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Syria",
+  "iso": "sy",
+  "prefixes": [
+   "OS"
+  ],
+  "region": "Middle East",
+  "provider": "",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "United Arab Emirates",
+  "iso": "ae",
+  "prefixes": [
+   "OM"
+  ],
+  "region": "Middle East",
+  "provider": "GCAA",
+  "official": "https://www.gcaa.gov.ae/en/ais/AIPHtmlFiles/AIP/Current/AIP.aspx",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Yemen",
+  "iso": "ye",
+  "prefixes": [
+   "OY"
+  ],
+  "region": "Middle East",
+  "provider": "",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Afghanistan",
+  "iso": "af",
+  "prefixes": [
+   "OA"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Australia",
+  "iso": "au",
+  "prefixes": [
+   "Y"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "Airservices Australia",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "China",
+  "iso": "cn",
+  "prefixes": [
+   "ZB",
+   "ZG",
+   "ZH",
+   "ZJ",
+   "ZL",
+   "ZP",
+   "ZS",
+   "ZU",
+   "ZW",
+   "ZY"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "CAAC",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Hong Kong",
+  "iso": "hk",
+  "prefixes": [
+   "VH"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "CAD Hong Kong",
+  "official": "https://www.ais.gov.hk/eaip_20260319/VH-history-en-US.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "India",
+  "iso": "in",
+  "prefixes": [
+   "VA",
+   "VE",
+   "VI",
+   "VO"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "AAI",
+  "official": "https://aim-india.aai.aero/aip-supplements?page=1",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Indonesia",
+  "iso": "id",
+  "prefixes": [
+   "WA",
+   "WI",
+   "WR"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "AirNav Indonesia",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Japan",
+  "iso": "jp",
+  "prefixes": [
+   "RJ",
+   "RO"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "JCAB",
+  "official": "https://nagodede.github.io/aip/japan/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Malaysia",
+  "iso": "my",
+  "prefixes": [
+   "WM",
+   "WB"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "CAAM",
+  "official": "https://aip.caam.gov.my/aip/eAIP/history-en-MS.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Maldives",
+  "iso": "mv",
+  "prefixes": [
+   "VR"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "MACL",
+  "official": "https://www.macl.aero/corporate/services/operational/ans/aip",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Mongolia",
+  "iso": "mn",
+  "prefixes": [
+   "ZM"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "MCAA",
+  "official": "https://ais.mn/files/aip/eAIP/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Nepal",
+  "iso": "np",
+  "prefixes": [
+   "VN"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "CAAN",
+  "official": "https://e-aip.caanepal.gov.np/welcome/listall/1",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "New Zealand",
+  "iso": "nz",
+  "prefixes": [
+   "NZ"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "Airways NZ",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "North Korea",
+  "iso": "kp",
+  "prefixes": [
+   "ZK"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Pakistan",
+  "iso": "pk",
+  "prefixes": [
+   "OP"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "PAA",
+  "official": "https://paa.gov.pk/aeronautical-information/electronic-aeronautical-information-publication",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Philippines",
+  "iso": "ph",
+  "prefixes": [
+   "RP"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "CAAP",
+  "official": "https://ais.caap.gov.ph/home",
+  "officialSource": "ead-map"
+ },
+ {
+  "name": "Singapore",
+  "iso": "sg",
+  "prefixes": [
+   "WS"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "CAAS",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "South Korea",
+  "iso": "kr",
+  "prefixes": [
+   "RK"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "MOLIT",
+  "official": "https://aim.koca.go.kr/eaipPub/Package/history-en-GB.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Sri Lanka",
+  "iso": "lk",
+  "prefixes": [
+   "VC"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "AASL",
+  "official": "https://www.aimibsrilanka.lk/eaip/current/index.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Thailand",
+  "iso": "th",
+  "prefixes": [
+   "VT"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "AEROTHAI",
+  "official": "https://aip.caat.or.th/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Vietnam",
+  "iso": "vn",
+  "prefixes": [
+   "VV"
+  ],
+  "region": "Asia-Pacific",
+  "provider": "VATM",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Algeria",
+  "iso": "dz",
+  "prefixes": [
+   "DA"
+  ],
+  "region": "Africa",
+  "provider": "ENNA",
+  "official": "https://www.sia-enna.dz/aeronautical-information-publication.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Egypt",
+  "iso": "eg",
+  "prefixes": [
+   "HE"
+  ],
+  "region": "Africa",
+  "provider": "NANSC",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Ethiopia",
+  "iso": "et",
+  "prefixes": [
+   "HA"
+  ],
+  "region": "Africa",
+  "provider": "ECAA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Ghana",
+  "iso": "gh",
+  "prefixes": [
+   "DG"
+  ],
+  "region": "Africa",
+  "provider": "GCAA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Kenya",
+  "iso": "ke",
+  "prefixes": [
+   "HK"
+  ],
+  "region": "Africa",
+  "provider": "KCAA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Libya",
+  "iso": "ly",
+  "prefixes": [
+   "HL"
+  ],
+  "region": "Africa",
+  "provider": "LYCAA",
+  "official": "https://caa.gov.ly/ais/ad/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Morocco",
+  "iso": "ma",
+  "prefixes": [
+   "GM"
+  ],
+  "region": "Africa",
+  "provider": "ONDA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Nigeria",
+  "iso": "ng",
+  "prefixes": [
+   "DN"
+  ],
+  "region": "Africa",
+  "provider": "NAMA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Senegal",
+  "iso": "sn",
+  "prefixes": [
+   "GO"
+  ],
+  "region": "Africa",
+  "provider": "ASECNA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Somalia",
+  "iso": "so",
+  "prefixes": [
+   "HC"
+  ],
+  "region": "Africa",
+  "provider": "",
+  "official": "https://aip.scaa.gov.so/history-en-GB.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "South Africa",
+  "iso": "za",
+  "prefixes": [
+   "FA"
+  ],
+  "region": "Africa",
+  "provider": "ATNS",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Tanzania",
+  "iso": "tz",
+  "prefixes": [
+   "HT"
+  ],
+  "region": "Africa",
+  "provider": "TCAA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Tunisia",
+  "iso": "tn",
+  "prefixes": [
+   "DT"
+  ],
+  "region": "Africa",
+  "provider": "OACA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Argentina",
+  "iso": "ar",
+  "prefixes": [
+   "SA"
+  ],
+  "region": "Americas",
+  "provider": "ANAC",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Bahamas",
+  "iso": "bs",
+  "prefixes": [
+   "MY"
+  ],
+  "region": "Americas",
+  "provider": "BCAA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Brazil",
+  "iso": "br",
+  "prefixes": [
+   "SB",
+   "SD",
+   "SN",
+   "SS",
+   "SW"
+  ],
+  "region": "Americas",
+  "provider": "DECEA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Canada",
+  "iso": "ca",
+  "prefixes": [
+   "C"
+  ],
+  "region": "Americas",
+  "provider": "NAV CANADA",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Chile",
+  "iso": "cl",
+  "prefixes": [
+   "SC"
+  ],
+  "region": "Americas",
+  "provider": "DGAC",
+  "official": "https://aipchile.dgac.gob.cl/aip/vol1",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Colombia",
+  "iso": "co",
+  "prefixes": [
+   "SK"
+  ],
+  "region": "Americas",
+  "provider": "Aerocivil",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Cuba",
+  "iso": "cu",
+  "prefixes": [
+   "MU"
+  ],
+  "region": "Americas",
+  "provider": "IACC",
+  "official": "https://aismet.avianet.cu/html/aip.html",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Mexico",
+  "iso": "mx",
+  "prefixes": [
+   "MM"
+  ],
+  "region": "Americas",
+  "provider": "SENEAM",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "Panama",
+  "iso": "pa",
+  "prefixes": [
+   "MP"
+  ],
+  "region": "Americas",
+  "provider": "AAC",
+  "official": "https://www.aeronautica.gob.pa/ais-aip/",
+  "officialSource": "scraper"
+ },
+ {
+  "name": "Peru",
+  "iso": "pe",
+  "prefixes": [
+   "SP"
+  ],
+  "region": "Americas",
+  "provider": "CORPAC",
+  "official": null,
+  "officialSource": null
+ },
+ {
+  "name": "United States",
+  "iso": "us",
+  "prefixes": [
+   "K",
+   "P"
+  ],
+  "region": "Americas",
+  "provider": "FAA",
+  "official": "https://www.faa.gov/air_traffic/publications/atpubs/aip_html/",
+  "officialSource": "faa"
+ },
+ {
+  "name": "Venezuela",
+  "iso": "ve",
+  "prefixes": [
+   "SV"
+  ],
+  "region": "Americas",
+  "provider": "INAC",
+  "official": "https://www.inac.gob.ve/eaip/history-en-GB.html",
+  "officialSource": "scraper"
+ }
+]

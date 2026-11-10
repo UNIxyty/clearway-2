@@ -2,9 +2,10 @@
 //   1. lib/clients/allow.mjs on its own: what an approved client reaches, by switch; everything else is not on the list
 //   2. every page and API of the portal is enumerated from app/: the list names only addresses that exist, and every
 //      other address is outside it (the count is printed — the walk of all of them as a client is step 5)
-//   3. a client with only the required switches: the Flights page and their own standing, nothing else — staff pages
-//      and APIs 404, Airports and Documents 404, no menu at all (one page is not a menu)
-//   4. the same client with Airports and Documents on: those two open, and the menu holds exactly the three
+//   3. a client with only the required switches: Timeline, Flights, Account, the start page, their own standing and
+//      their preferences, nothing else — staff pages and APIs 404, the retired Airports and Documents 404
+//   4. the retired switches (documents, airport_search; 2026-11-10): marked retired, not among the active ones, and
+//      granting nothing when written on a row
 //   5. the page source and EVERY script the client's page loads carry none of the staff menu's labels
 // Starts its own portal (:3982, this checkout's rig build, sign-in ON) and proxy (:3979, to the sign-in rig's agent
 // :5176 and wall :5198). The rig's own services are not touched. Needs rig/build-portal.sh first.
@@ -22,11 +23,16 @@ const svc = (p, init = {}) => fetch(`${SB}${p}`, { ...init, headers: { ...H, ...
 
 // ── 1. the list itself ──
 const { clientMayReach, clientMenu, CLIENT_PAGES, CLIENT_APIS } = await import("../lib/clients/allow.mjs");
-const few = new Set(["flight_board", "weather"]), all = new Set(["flight_board", "weather", "airport_search", "documents"]);
-ok(clientMayReach("/client", "GET", few).ok && clientMayReach("/api/client/me", "GET", few).ok && !clientMayReach("/api/auth/password/reset", "POST", few).ok, "the front door and their own standing: every approved client (the public auth routes are not a client's)");
-ok(!clientMayReach("/client/airports", "GET", few).ok && clientMayReach("/client/airports", "GET", all).ok && !clientMayReach("/client/documents", "GET", few).ok && clientMayReach("/client/documents", "GET", all).ok, "Airports and Documents: only with their switches");
-ok(["/dashboard", "/aip", "/admin/users", "/api/search", "/api/admin/clients", "/api/client/me/../../admin", "/api/client/me/x", "/client/airports/x", "/clientx", "/client-requests", "/api/client/other", "/developer/inbox", "/files/x"].every((p) => !clientMayReach(p, "GET", all).ok) && !clientMayReach("/api/client/me", "POST", all).ok, "everything else is not on the list — staff pages, their APIs, look-alike addresses, other methods");
-ok(JSON.stringify(clientMenu(few)) === JSON.stringify([{ path: "/client", label: "Flights", icon: "plane" }]) && clientMenu(all).length === 3 && clientMenu(new Set()).length === 1, "the menu: what the list allows them, nothing else");
+const { SWITCHES, ACTIVE_SWITCHES, RETIRED_SWITCH_KEYS, normaliseSwitches } = await import("../lib/clients/switches.mjs");
+const few = new Set(["flight_board", "weather"]), all = new Set(ACTIVE_SWITCHES.map((w) => w.key)), old = new Set([...few, "airport_search", "documents"]);
+ok(["/client", "/client/flights", "/client/account", "/client/start"].every((p) => clientMayReach(p, "GET", few).ok) && clientMayReach("/api/client/me", "GET", few).ok && clientMayReach("/api/client/prefs", "GET", few).ok && clientMayReach("/api/client/prefs", "PUT", few).ok && clientMayReach("/api/client/account/password", "POST", few).ok && !clientMayReach("/api/auth/password/reset", "POST", few).ok, "Timeline, Flights, Account, the start page, their standing, their preferences and their password: every approved client (the public auth routes are not a client's)");
+ok(["/client/airports", "/client/documents"].every((p) => !clientMayReach(p, "GET", few).ok && !clientMayReach(p, "GET", all).ok && !clientMayReach(p, "GET", old).ok), "Airports and Documents: on no list any more, with the old switches or every switch");
+ok(["/dashboard", "/aip", "/admin/users", "/api/search", "/api/admin/clients", "/api/client/me/../../admin", "/api/client/me/x", "/client/airports/x", "/client/start/x", "/clientx", "/client-requests", "/api/client/other", "/api/client/prefs/x", "/developer/inbox", "/files/x"].every((p) => !clientMayReach(p, "GET", all).ok) && !clientMayReach("/api/client/me", "POST", all).ok && !clientMayReach("/api/client/prefs", "POST", all).ok && !clientMayReach("/api/client/prefs", "DELETE", all).ok, "everything else is not on the list — staff pages, their APIs, look-alike addresses, other methods");
+const MENU = [{ path: "/client", label: "Timeline", icon: "chart-gantt" }, { path: "/client/flights", label: "Flights", icon: "list" }, { path: "/client/account", label: "Account", icon: "circle-user" }];
+ok(JSON.stringify(clientMenu(few)) === JSON.stringify(MENU) && JSON.stringify(clientMenu(all)) === JSON.stringify(MENU) && JSON.stringify(clientMenu(new Set())) === JSON.stringify(MENU), "the menu: Timeline, Flights, Account for every client, whatever the switches; the start page is not an item");
+// the retired switches (2026-11-10)
+ok(JSON.stringify(RETIRED_SWITCH_KEYS.slice().sort()) === JSON.stringify(["airport_search", "documents"]) && SWITCHES.filter((w) => w.retired === true).length === 2 && ACTIVE_SWITCHES.every((w) => !w.retired && !RETIRED_SWITCH_KEYS.includes(w.key)) && ACTIVE_SWITCHES.length === 9, "the switches: documents and airport_search are marked retired; the nine active ones do not include them", `${ACTIVE_SWITCHES.map((w) => w.key).join(",")}`);
+ok(JSON.stringify(normaliseSwitches(["flight_board", "documents", "airport_search", "weather"])) === JSON.stringify(["flight_board", "weather"]), "normaliseSwitches drops a retired switch from an old row", normaliseSwitches(["flight_board", "documents", "airport_search", "weather"]).join(","));
 
 // ── 2. the portal's addresses, from app/ ──
 const routes = [];
@@ -69,11 +75,22 @@ try {
 
   // ── 3. only the required switches ──
   const home = await get("/client");
-  ok(home.status === 200 && /data-client-shell/.test(home.text) && /data-menu="\/client"/.test(home.text), "Flights: open, inside the client shell, with a menu of one (so none is drawn)", home.status);
+  ok(home.status === 200 && /data-client-shell/.test(home.text) && /data-menu="\/client \/client\/flights \/client\/account"/.test(home.text) && /data-client-frame/.test(home.text), "Timeline: open, inside the client shell, with the three-item menu and the frame", home.status);
+  const fl = await get("/client/flights");
+  ok(fl.status === 200 && /data-client-shell/.test(fl.text) && /data-client-frame/.test(fl.text), "Flights: open, the same shell and frame", fl.status);
   ok((await get("/api/client/me")).status === 200, "their own standing: 200");
-  // the account page (2026-11-09): every approved client has it, apart from the menu; its password route is theirs too
+  // their view preferences (2026-11-10): read and written by every approved client; an empty write changes nothing
+  const pg = await get("/api/client/prefs"); let pj = null; try { pj = JSON.parse(pg.text); } catch { /* not JSON */ }
+  ok(pg.status === 200 && pj?.ok === true && "start" in (pj.prefs ?? {}) && Array.isArray(pj.prefs?.hidden?.operators) && Array.isArray(pj.prefs?.hidden?.registrations), "their preferences: GET 200 with start and hidden lists", pg.text.slice(0, 120));
+  const pp = await get("/api/client/prefs", { method: "PUT", headers: { "content-type": "application/json" }, body: "{}" });
+  ok(pp.status === 200 && /"ok":true/.test(pp.text), "their preferences: PUT {} answers 200 (nothing to change)", pp.status);
+  ok((await get("/api/client/prefs", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).status === 404 && (await get("/api/client/prefs/x")).status === 404, "…and only GET and PUT, at that exact address: POST and a child are 404");
+  // the start page (2026-11-10): reachable, not a menu item
+  const st = await get("/client/start");
+  ok(st.status === 200 && /data-client-start/.test(st.text) && !/data-menu="[^"]*\/client\/start/.test(st.text), "the start page: open, and not in the menu", st.status);
+  // the account page (2026-11-09): every approved client has it, in the menu since 2026-11-10; its password route is theirs too
   const acct = await get("/client/account");
-  ok(acct.status === 200 && /data-tab="account"/.test(acct.text) && /data-account-link/.test(home.text), "Account: open to a client with only the required switches, linked from the shell, not a menu item", acct.status);
+  ok(acct.status === 200 && /data-tab="account"/.test(acct.text) && /data-card="start-page"/.test(acct.text), "Account: open to a client with only the required switches, with the start page choice on it", acct.status);
   const pwEmpty = await get("/api/client/account/password", { method: "POST", headers: { "content-type": "application/json", "x-rig-visitor": "10.254.0.7" }, body: "{}" });
   ok(pwEmpty.status === 400 && /current password/.test(pwEmpty.text), "the password route answers a client (400 for an empty form: nothing changed)", pwEmpty.status);
   ok((await get("/api/client/account/password")).status === 404 && (await get("/api/client/account")).status === 404 && (await get("/client/account/x")).status === 404, "…and only that: GET on it, its parent and a page under Account are 404");
@@ -87,13 +104,16 @@ try {
     const tried = await fetch(`${B}/api/client/account/password`, { method: "POST", redirect: "manual", headers: { cookie: cookieOf(sc), "content-type": "application/json", "x-rig-visitor": "10.254.0.8" }, body: JSON.stringify({ current: PASSWORD, next: `${PASSWORD}-never-set` }) });
     const still = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: EMAIL, password: PASSWORD }) })).json();
     ok(tried.status === 403 && /read-only/.test(await tried.text()) && Boolean(still.access_token), "a check account that is a client cannot change its password: 403, read-only, and the password stays", tried.status);
-    ok((await fetch(`${B}/client/account`, { headers: { cookie: cookieOf(sc) }, redirect: "manual" })).status === 200, "…and it still reads its pages");
+    const triedPrefs = await fetch(`${B}/api/client/prefs`, { method: "PUT", redirect: "manual", headers: { cookie: cookieOf(sc), "content-type": "application/json", "x-rig-visitor": "10.254.0.8" }, body: JSON.stringify({ start: "flights" }) });
+    const prefsNow = await (await fetch(`${B}/api/client/prefs`, { headers: { cookie: cookieOf(sc) }, redirect: "manual" })).json().catch(() => ({}));
+    ok(triedPrefs.status === 403 && /read-only/.test(await triedPrefs.text()) && prefsNow?.prefs?.start !== "flights", "…nor write its preferences: PUT /api/client/prefs is 403 and the start page stays", triedPrefs.status);
+    ok((await fetch(`${B}/client/account`, { headers: { cookie: cookieOf(sc) }, redirect: "manual" })).status === 200 && (await fetch(`${B}/api/client/prefs`, { headers: { cookie: cookieOf(sc) }, redirect: "manual" })).status === 200, "…and it still reads its pages and its preferences");
     await mark(false);
   }
   const closed = ["/client/airports", "/client/documents", "/dashboard", "/aip", "/admin/users", "/admin/clients", "/agent", "/developer/inbox", "/account/profile", "/docs"];
   const closedRes = await Promise.all(closed.map(async (p) => [p, (await get(p)).status]));
-  ok(closedRes.every(([, st]) => st === 404), "Airports and Documents with their switches off, and the staff pages: all 404", closedRes.map(([p, st]) => `${p} ${st}`).join(" · "));
-  const apis = ["/api/search?q=EVRA", "/api/admin/clients", "/api/admin/users", "/api/help/inbox", "/api/aip/resolve?icao=EVRA", "/api/notams?icao=EVRA", "/api/dashboard"];
+  ok(closedRes.every(([, st]) => st === 404), "the retired Airports and Documents pages, and the staff pages: all 404", closedRes.map(([p, st]) => `${p} ${st}`).join(" · "));
+  const apis = ["/api/search?q=EVRA", "/api/admin/clients", "/api/admin/users", "/api/help/inbox", "/api/aip/resolve?icao=EVRA", "/api/notams?icao=EVRA", "/api/dashboard", "/api/airports/search?q=EVRA"];
   const apiRes = await Promise.all(apis.map(async (p) => [p, (await get(p)).status]));
   ok(apiRes.every(([, st]) => st === 404), "staff and reference APIs: all 404 to a client", apiRes.map(([p, st]) => `${p} ${st}`).join(" · "));
 
@@ -139,7 +159,7 @@ try {
     const fetchMap = async (u) => { try { return (await fetch(u)).status; } catch { return 0; } };
     const common = { permissionNames, operators, fetchMap, ourRoutes, publicHosts };
     const bad = (t) => Object.entries(t).filter(([k]) => k !== "jwtAnon").map(([k, n]) => `${k} ${n}`);
-    const cl = await sweepAssets(await downloadedAssets({ base: B, pages: ["/client", "/client/account"], cookie: cookieOf(s) }), { ...common, allowedRoutes: /^\/(client(\/|$)|api\/client\/(me|account\/password)$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/ });
+    const cl = await sweepAssets(await downloadedAssets({ base: B, pages: ["/client", "/client/flights", "/client/account"], cookie: cookieOf(s) }), { ...common, allowedRoutes: /^\/(client(\/|$)|api\/client\/(me|account\/password|prefs)$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/ });
     ok(bad(cl.total).length === 0, `a client's bundle (${cl.rows.length} assets): nothing but the public anon key`, bad(cl.total).join(", ") || `jwtAnon ${cl.total.jwtAnon ?? 0}`);
     const so = await sweepAssets(await downloadedAssets({ base: B, pages: ["/login", "/request-access", "/welcome"] }), { ...common, allowedRoutes: /^\/(api\/(auth|client-requests|client-invite)\b)/ });
     ok(bad(so.total).length === 0, `a signed-out visitor's bundle (${so.rows.length} assets): nothing but the public anon key`, bad(so.total).join(", ") || `jwtAnon ${so.total.jwtAnon ?? 0}`);
@@ -154,36 +174,43 @@ try {
     ok((sf.total.staffRoutes ?? 0) > 20, "control: the same sweep finds our routes in a staff member's bundle", `staffRoutes ${sf.total.staffRoutes ?? 0}`);
   }
 
-  // ── 7. step 3, the Flights page (the client wall, inside the client shell): what it may ask for ──
+  // ── 7. step 3, Timeline, Flights and Account (the frame inside the client shell): what they may ask for ──
   {
-    const { STARTING_SWITCHES, SWITCHES } = await import("../lib/clients/switches.mjs");
-    ok(!STARTING_SWITCHES.includes("documents"), "Documents is off by default (not among the switches a new client starts with)", STARTING_SWITCHES.join(","));
+    const { STARTING_SWITCHES } = await import("../lib/clients/switches.mjs");
+    ok(!STARTING_SWITCHES.some((k) => RETIRED_SWITCH_KEYS.includes(k)), "no retired switch is among the switches a new client starts with", STARTING_SWITCHES.join(","));
     ok(!SWITCHES.some((w) => /passport|scan|raw|e-?mail|\.eml|attachment/i.test(`${w.key} ${w.label}`)), "no switch exists for passport scans or raw email downloads — they are not a client's at any setting");
-    // every request the client's pages make, a flight opened: the wall's scoped reads, their passengers, their standing
+    // every request the client's pages make, a flight opened in the frame: the frame itself and its chunks, the wall's
+    // scoped reads, their standing and preferences, their passengers (the wall's names read, since 2026-11-10)
     const { chromium } = await import("playwright");
     const br = await chromium.launch(); const ctx = await br.newContext({ viewport: { width: 1440, height: 900 } });
     await ctx.addCookies([{ name: cookieOf(s).split("=")[0], value: cookieOf(s).slice(cookieOf(s).indexOf("=") + 1), url: B }]);
     const pg = await ctx.newPage(); const asked = new Set();
     pg.on("request", (rq) => { const u = new URL(rq.url()); if (u.origin === B) asked.add(`${rq.method()} ${u.pathname}`); });
-    for (const p of ["/client", "/client/airports", "/client/documents", "/client/account"]) { await pg.goto(`${B}${p}`, { waitUntil: "load" }); await pg.waitForTimeout(1500); if (p === "/client") { const f = pg.locator("[data-flight]").first(); if (await f.count()) { await f.click(); await pg.waitForTimeout(2000); } } }
+    for (const p of ["/client", "/client/flights", "/client/account"]) {
+      await pg.goto(`${B}${p}`, { waitUntil: "load" }); await pg.waitForTimeout(1500);
+      if (p === "/client/flights") { const fr = pg.frameLocator("iframe[data-client-frame]"); const f = fr.locator("[data-flight-row]:not(.is-cnl)").first(); await f.waitFor({ timeout: 20000 }).catch(() => {}); if (await f.count()) { await f.click(); await pg.waitForTimeout(3000); } }
+    }
     await br.close();
-    const ALLOWED = /^(GET|HEAD) \/(client(\/(airports|documents|account))?$|_next\/|api\/client\/me$|digital-wall\/api\/(flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|airports\/search|aip-pdf|stream|weather)\b|agent\/api\/flights\/[^/]+\/passengers\b|favicon|PFP\.png$|icons\/)/;
+    const ALLOWED = /^(GET|HEAD) \/(client(\/(flights|account))?$|_next\/|api\/client\/(me|prefs)$|digital-wall\/timeline(\/|$)|digital-wall\/api\/(user|users\/me|display\/clocks|timeline\/flights|timeline\/aircraft|flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|flight-passengers|geo\/coords|stream|weather)\b|favicon|PFP\.png$|icons\/)/;
     const other = [...asked].filter((a) => !ALLOWED.test(a) && !/^(GET|HEAD) \/[^/]+\.(png|svg|ico|woff2?)$/.test(a));
-    ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, their standing, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
+    ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, the frame, their standing and preferences, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
+    ok([...asked].some((a) => /^GET \/digital-wall\/timeline\//.test(a)) && [...asked].some((a) => /^GET \/digital-wall\/api\/timeline\/flights$/.test(a)), "…the frame was loaded and read the wall's flights (so the list above means something)");
     // passport scans and raw email: unreachable to a client, through the same path Cloudflare sends them (straight to the agent)
     const id = "00000000-0000-4000-8000-000000000001";
     const scan = await get(`/agent/api/intake/attachments/${id}`), raw = await get(`/agent/api/mailbox/messages/${id}/raw`);
     ok(scan.status === 404 && raw.status === 404, "a passport scan (intake attachment) and a raw email (.eml) answer 404 to a client at the agent", `${scan.status} ${raw.status}`);
   }
 
-  // ── 4. with Airports and Documents on ──
+  // ── 4. the retired switches written on the row (an old row may still hold them): they grant nothing ──
   await svc(`/rest/v1/clients?id=eq.${rowId}`, { method: "PATCH", body: JSON.stringify({ switches: ["flight_board", "weather", "airport_search", "documents"] }) });
   await new Promise((r2) => setTimeout(r2, 11_000));   // the scope is cached ten seconds
   const home2 = await get("/client");
-  ok(/data-menu="\/client \/client\/airports \/client\/documents"/.test(home2.text) && />Airports</.test(home2.text) && />Documents</.test(home2.text), "the menu now holds exactly Flights, Airports and Documents", /data-menu="([^"]*)"/.exec(home2.text)?.[1]);
+  ok(home2.status === 200 && /data-menu="\/client \/client\/flights \/client\/account"/.test(home2.text) && !/>Airports</.test(home2.text) && !/>Documents</.test(home2.text), "the menu is still Timeline, Flights, Account", /data-menu="([^"]*)"/.exec(home2.text)?.[1]);
   const a = await get("/client/airports"), d = await get("/client/documents");
-  ok(a.status === 200 && /data-tab="airports"/.test(a.text) && d.status === 200, "Airports and Documents open with their switches on", `${a.status} ${d.status}`);
-  ok((await get("/dashboard")).status === 404 && (await get("/api/search?q=EVRA")).status === 404, "…and nothing else opened with them");
+  ok(a.status === 404 && d.status === 404, "Airports and Documents stay 404 with the retired switches on the row", `${a.status} ${d.status}`);
+  const me2 = JSON.parse((await get("/api/client/me")).text);
+  ok(Array.isArray(me2.switches) && !me2.switches.some((k) => RETIRED_SWITCH_KEYS.includes(k)) && me2.switches.includes("weather"), "their own standing drops the retired switches and keeps the live ones", me2.switches.join(","));
+  ok((await get("/dashboard")).status === 404 && (await get("/api/search?q=EVRA")).status === 404 && (await get("/api/airports/search?q=EVRA")).status === 404, "…and nothing else opened with them");
 } finally {
   if (rowId) await svc(`/rest/v1/clients?id=eq.${rowId}`, { method: "PATCH", body: JSON.stringify({ status: "removed", scope: [], switches: [], passenger_level: "off" }) }).catch(() => {});
   if (uid) await svc(`/auth/v1/admin/users/${uid}`, { method: "PUT", body: JSON.stringify({ app_metadata: { role: "client", is_approved: false, client_status: "removed" } }) }).catch(() => {});

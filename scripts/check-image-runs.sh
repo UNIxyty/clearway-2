@@ -38,6 +38,7 @@ if [ "${1:-}" = "--selftest" ]; then
   say "selftest ok: a dying process is caught (state $state)"; exit 0
 fi
 failed=0
+kept_tags=""   # the :pre- tags this run made (a shared image is kept once)
 for s in "$@"; do
   line=$(spec "$s") || { say "CANNOT TELL: $s is not a service this check knows"; exit 2; }
   read -r image port path <<<"$line"
@@ -48,8 +49,16 @@ for s in "$@"; do
   running=$(docker compose ps -q "$s" 2>/dev/null | head -1)
   if [ -n "$running" ]; then
     keep="${image%%:*}:pre-$(git rev-parse --short=8 HEAD)"
-    docker tag "$(docker inspect -f '{{.Image}}' "$running")" "$keep" 2>/dev/null || { say "CANNOT TELL: could not keep the running $s image as $keep (no revert target), not building"; exit 2; }
-    say "kept the running $s image as $keep"
+    if docker tag "$(docker inspect -f '{{.Image}}' "$running")" "$keep" 2>/dev/null; then
+      say "kept the running $s image as $keep"; kept_tags="$kept_tags $keep"
+    elif [ -n "$(docker images -q "$keep" 2>/dev/null)" ] && [[ " $kept_tags " == *" $keep "* ]]; then
+      # Two services run the same image (aip-sync and notam-sync, the worker). When the one checked later runs an image the
+      # store can no longer name (2026-11-10: notam-sync on a 7-week-old worker image, untagged when the tag moved), the image
+      # kept for the earlier one IS the revert target for both: the same image name, and proven running in production.
+      say "the running $s image cannot be named any more; $keep (kept above for the same image) is its revert target"
+    else
+      say "CANNOT TELL: could not keep the running $s image as $keep (no revert target), not building"; exit 2
+    fi
   fi
   say "building $s"
   docker compose build "$s" > "/tmp/image-runs-$s.build" 2>&1 || { say "FAIL $s: the image did not build (/tmp/image-runs-$s.build)"; failed=1; continue; }

@@ -130,7 +130,7 @@
 .cls-pv-tl { position: relative; border: 1px solid var(--cw-border); border-radius: 8px; background: var(--cw-bg-surface); display: flex; flex-direction: column; overflow: hidden; }
 .cls-pv-lane { position: relative; height: 40px; border-bottom: 1px solid var(--cw-divider); }
 .cls-pv-reg { position: absolute; left: 10px; top: 15px; width: 36px; height: 10px; border-radius: 4px; background: var(--cw-border-strong); }
-.cls-pv-pill { position: absolute; top: 12px; height: 16px; border-radius: 8px; border: 1px solid var(--tl-pill-edge, rgba(0,0,0,.15)); }
+.cls-pv-pill { position: absolute; top: 12px; height: 16px; border-radius: 8px; border: 1px solid var(--cw-border); }
 .cls-pv-now { position: absolute; left: 48%; top: 0; bottom: 0; width: 2px; background: var(--tl-now, var(--cw-primary)); }
 .cls-pv-list { border: 1px solid var(--cw-border); border-radius: 8px; background: var(--cw-bg-surface); display: flex; flex-direction: column; overflow: hidden; }
 .cls-pv-row { display: grid; grid-template-columns: 36px 1fr 48px 20px; gap: 10px; align-items: center; height: 30px; padding: 0 10px; border-bottom: 1px solid var(--cw-divider); }

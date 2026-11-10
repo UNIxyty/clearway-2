@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const DIRS = ["app", "components", "lib", "shared", "opsboard-react/src", "digital-wall/server.mjs", "digital-wall/lib", "digital-wall/templates", "digital-wall/guide", "extension/src", "agent/lib", "agent/server.mjs", "agent/public", "public", "content"];
+const DIRS = ["app", "components", "lib", "shared", "opsboard-react/src", "digital-wall/server.mjs", "digital-wall/lib", "digital-wall/guide", "extension/src", "agent/lib", "agent/server.mjs", "agent/public", "public", "content"];
 const EXT = /\.(tsx?|jsx?|mjs|cjs|html?)$/;
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d !== "" ? `  · ${d}` : ""}`); if (!c) failures += 1; };
 

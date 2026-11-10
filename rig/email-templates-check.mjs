@@ -23,15 +23,16 @@ const n0 = (await sentList()).length;
 for (const id of TEMPLATE_IDS) {
   const vars = { ...sampleVars(id, "https://portal.example.invalid"), name: "Sample <b>Person</b>", company: "Sample Air <script>x</script> (invented)" };
   const mail = buildEmail(id, vars);
-  ok(mail.text.length > 40 && !/<[a-z]/i.test(mail.text), `${id}: a plain-text twin`, `${mail.text.length} chars`);
+  ok(mail.text.length > 40 && !/<(table|td|tr|div|span|a )/i.test(mail.text), `${id}: a plain-text twin (no markup; a planted tag in a value is just text there)`, `${mail.text.length} chars`);
   ok(mail.html.includes('width="600"') && mail.html.includes("<!--[if mso]>") && /v:roundrect|cw-btn/.test(mail.html) === /link|Link/.test(JSON.stringify(vars)), `${id}: 600px tables and the Outlook button when there is a link`);
-  ok(mail.html.includes("&lt;b&gt;Person&lt;/b&gt;") || !/\bname\b/.test(JSON.stringify(sampleVars(id))) , `${id}: a planted tag in a value stays text`);
+  ok(!mail.html.includes("<b>Person</b>") && !mail.html.includes("<script>x</script>"), `${id}: a planted tag in a value stays text (never markup)`);
   ok(!mail.html.includes("<script>") && !/\{\{/.test(mail.html) && !/\{\{/.test(mail.text), `${id}: no raw script and no unfilled variable`);
   ok(!/agent-service|digital-wall-backend|127\.0\.0\.1|localhost|supabase_db/i.test(mail.html.replace(/https:\/\/[a-z0-9.-]+\.supabase\.co\/[^\s"']+/g, "")), `${id}: no internal hostname`);
   const times = mail.html.match(/\b\d{1,2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}Z\b/g) || [];
   ok(!/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(mail.html), `${id}: every time is written like 12 Nov 2026 19:14Z`, times.slice(0, 2).join(", "));
   ok(mail.html.includes(vars.supportEmail), `${id}: the support address is in the footer`);
-  ok(mail.html.includes('style="display:none;font-size:1px') && (mail.preheader ? mail.html.includes(mail.preheader.slice(0, 20).replace(/&/g, "&amp;")) : true), `${id}: a preheader`);
+  const escd = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  ok(mail.html.includes('style="display:none;font-size:1px') && (mail.preheader ? mail.html.includes(escd(mail.preheader.slice(0, 20))) : true), `${id}: a preheader`);
   const sent = await sendEmail({ to: ["rig-mail-check@rig.invalid"], subject: mail.subject, html: mail.html, text: mail.text, from: "Clearway <no-reply@rig.invalid>", record: null });
   ok(sent.ok === true, `${id}: sent once through the one mailer to the rig's mail mock`, sent.error || "");
   for (const theme of ["light", "dark"]) for (const width of [660, 375]) {

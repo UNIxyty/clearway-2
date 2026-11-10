@@ -35,13 +35,13 @@ export const B = {
   paragraph(parts) {
     const list = Array.isArray(parts) ? parts : [{ t: parts }];
     const html = list.map((p) => { const t = p.link ? `<a href="${esc(p.link)}" class="cw-lnk" style="color:#1d4ed8;">${esc(p.t)}</a>` : esc(p.t); return p.strong ? `<strong>${t}</strong>` : p.mono ? `<span style="font-family:${MONO};">${t}</span>` : t; }).join("");
-    return { html: `<tr><td class="cw-pad cw-tx2" style="padding:0 40px 0 40px;font-family:${SANS};font-size:15px;line-height:24px;mso-line-height-rule:exactly;color:#3a3d44;">${html}</td></tr>${SPACER(12)}`, text: [list.map((p) => p.t).join(""), ""] };
+    return { html: `<tr><td class="cw-pad cw-tx2" style="padding:0 40px 0 40px;font-family:${SANS};font-size:15px;line-height:24px;mso-line-height-rule:exactly;color:#3a3d44;word-break:break-word;overflow-wrap:anywhere;">${html}</td></tr>${SPACER(12)}`, text: [list.map((p) => p.t).join(""), ""] };
   },
   /** Key / value rows in a box. rows: [[key, value, { mono }]]; empty values are left out. */
   details(rows) {
     const kept = rows.filter((r) => r && r[1] !== undefined && r[1] !== null && String(r[1]).trim() !== "");
     if (!kept.length) return { html: "", text: [] };
-    const tr = kept.map(([k, v, o = {}], i) => `<tr><td class="cw-k cw-mut${i ? " cw-bd" : ""}" width="140" valign="top" style="width:140px;padding:10px 0 10px 16px;${i ? "border-top:1px solid #e6e7ea;" : ""}font-family:${SANS};font-size:13px;line-height:20px;mso-line-height-rule:exactly;color:#5f646d;">${esc(k)}</td><td class="cw-tx${i ? " cw-bd" : ""}" valign="top" style="padding:10px 16px 10px 8px;${i ? "border-top:1px solid #e6e7ea;" : ""}font-family:${o.mono ? MONO : SANS};font-size:14px;line-height:20px;mso-line-height-rule:exactly;color:#17181c;font-weight:600;${o.pre ? "white-space:pre-wrap;" : ""}">${o.pre ? nl2br(v) : esc(v)}</td></tr>`).join("");
+    const tr = kept.map(([k, v, o = {}], i) => `<tr><td class="cw-k cw-mut${i ? " cw-bd" : ""}" width="140" valign="top" style="width:140px;padding:10px 0 10px 16px;${i ? "border-top:1px solid #e6e7ea;" : ""}font-family:${SANS};font-size:13px;line-height:20px;mso-line-height-rule:exactly;color:#5f646d;">${esc(k)}</td><td class="cw-tx${i ? " cw-bd" : ""}" valign="top" style="padding:10px 16px 10px 8px;${i ? "border-top:1px solid #e6e7ea;" : ""}font-family:${o.mono ? MONO : SANS};font-size:14px;line-height:20px;mso-line-height-rule:exactly;color:#17181c;font-weight:600;word-break:break-word;overflow-wrap:anywhere;${o.pre ? "white-space:pre-wrap;" : ""}">${o.pre ? nl2br(v) : esc(v)}</td></tr>`).join("");
     return { html: `<tr><td class="cw-pad" style="padding:4px 40px 16px 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="cw-box" style="width:100%;border:1px solid #e6e7ea;border-radius:10px;background-color:#f8f9fa;border-collapse:separate;">${tr}</table></td></tr>`, text: [...kept.map(([k, v]) => `${k}: ${v}`), ""] };
   },
   /** A quiet note in a box. */

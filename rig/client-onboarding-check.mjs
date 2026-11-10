@@ -228,13 +228,11 @@ try {
     r = await api(`/api/admin/clients/${ref?.id}/refuse`, admin, { method: "POST", body: JSON.stringify({ note: "" }) });
     j = await r.json();
 let refusal = [];
-        ok(refusedReq.ok && r.ok && j.email?.ok === true && (refusal = (await newSends(n, "rig-onboard-refused@rig.invalid", /About your request|access request/i))).length === 1, "refusing a request: they are told by email, and no account was ever made", `${r.status} ${j.error ?? ""}`);
-    // the refusal notice's link, opened in a fresh browser with no session: the sign-in page itself
-    const refusalLink = refusal[0] ? linkIn((await sentBody(refusal[0].id)).html, /https?:\/\/[^"\s<]+\/login/) : null;
-    const rctx = await browser.newContext(); const rpage = await rctx.newPage();
-    const rres = refusalLink ? await rpage.goto(onRig(refusalLink), { waitUntil: "load" }) : null;
-    ok(rres?.ok() && new URL(rpage.url()).pathname === "/login" && (await rpage.locator("input[type=email]").count()) === 1, "the refusal notice's link, opened signed out: the sign-in page", refusalLink ? new URL(rpage.url()).pathname : "no link in the email");
-    await rctx.close();
+        ok(refusedReq.ok && r.ok && j.email?.ok === true && (refusal = (await newSends(n, "rig-onboard-refused@rig.invalid", /not approved|About your request/i))).length === 1, "refusing a request: they are told by email, and no account was ever made", `${r.status} ${j.error ?? ""}`);
+    // the refusal notice (design 09, 2026-11-10) has no button: it says where to write; the portal link under the logo is
+    // the only address in it
+    const refusalHtml = refusal[0] ? (await sentBody(refusal[0].id)).html : "";
+    ok(/write to/.test(refusalHtml) && !/\/welcome\?token=/.test(refusalHtml), "the refusal notice says where to write and carries no set-password link", refusalHtml ? "" : "no email");
   }
 
   // ── 4b. a ceiling on the ops emails themselves (2026-11-05): the notify list is a human inbox. Seeded sends bring the
@@ -307,8 +305,8 @@ let refusal = [];
       n = (await sentList()).length;
       r = await api("/api/account/email-change", who, { method: "POST", body: JSON.stringify({ email: fresh }) });
       j = await r.json();
-      const toOld = (await newSends(n, old, /sign-in email/))[0];
-      const toNew = (await newSends(n, fresh, /sign-in email/))[0];
+      const toOld = (await newSends(n, old, /new email address|sign-in email/))[0];
+      const toNew = (await newSends(n, fresh, /new email address|sign-in email/))[0];
       if (which === "new") ok(r.ok && toOld && toNew && /^Clearway </.test(String(toNew.from)), "change of email: one email to each address, sent by us", `${r.status} ${j.error ?? ""}`);
       const mail = which === "new" ? toNew : toOld;
       const link = mail ? linkIn((await sentBody(mail.id)).html, /https?:\/\/[^"\s<]+\/auth\/callback\?[^"\s<]+/) : null;

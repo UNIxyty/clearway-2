@@ -94,6 +94,14 @@ http.createServer((req, res) => {
       const f = mine ? FLIGHTS.find((x) => x.flightNid === Number(variables?.n)) : null;
       return json({ data: { flight: f ? { checklist: { allItems: (f.checklist?.allItems ?? []).map((it, k) => ({ cdNid: it.cdNid, csId: it.csId, comment: k === 0 ? `Invented handler for the rig · ARR ${String(f.endTimeUTC).slice(11, 16).replace(":", "")}Z\n261027 / 261027\nhttps://example.invalid/slot` : null })) } } : null } });
     }
+    // The wall's passenger NAMES read (digital-wall/leon-sync.mjs getFlightPassengerNames, 2026-11-10): invented people.
+    if (/flight\(flightNid:\s*\$n\)/.test(query) && /passengerContactList/.test(query)) {
+      const f = mine ? FLIGHTS.find((x) => x.flightNid === Number(variables?.n)) : null;
+      const n = f?.passengerList?.count ?? 0;
+      const NAMES = [["Rig", "Passenger One"], ["Rig", "Passenger Two"], ["Rig", "Passenger Three"], ["Rig", "Passenger Four"], ["Rig", "Passenger Five"], ["Rig", "Passenger Six"]];
+      const list = Array.from({ length: n }, (_, k) => ({ passengerContactNid: 9000 + k, contact: /unmaskedData/.test(query) ? { unmaskedData: { name: NAMES[k % NAMES.length][0], surname: NAMES[k % NAMES.length][1], middleName: null } } : { name: NAMES[k % NAMES.length][0], surname: NAMES[k % NAMES.length][1], middleName: null, maskingStatus: { isProfileDataMasked: false } } }));
+      return json({ data: { flight: f ? { passengerList: { count: n, realCount: n, passengerContactList: list } } : null } });
+    }
     if (/aircraftList/.test(query)) return json({ data: { aircraftList: mine ? AIRCRAFT : [] } });
     if (/getModifiedFlightList/.test(query)) return json({ data: { getModifiedFlightList: [] } });
     if (/operator\s*{\s*oprNid/.test(query)) return json({ data: { operator: { oprNid: 1 } } });

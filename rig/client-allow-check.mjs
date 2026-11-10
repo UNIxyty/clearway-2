@@ -156,7 +156,9 @@ try {
     const permissionNames = permissionNamesFrom(readCatalogue()), ourRoutes = ourRoutesFrom("app");
     const publicHosts = [String(SB).replace(/\/+$/, "")];
     const operators = (await (await svc("/rest/v1/leon_operators?select=opr_id,name")).json()).flatMap((o) => [o.opr_id, o.name]).filter(Boolean);
-    const fetchMap = async (u) => { try { return (await fetch(u)).status; } catch { return 0; } };
+    // a .map that answers 200 counts only when it IS a source map (JSON): the wall's single-page app answers its index page
+    // for any missing file, as production's gateway does (try_files … /index.html), and that is not a leaked source
+    const fetchMap = async (u) => { try { const r = await fetch(u); if (r.status !== 200) return r.status; const head = (await r.text()).trimStart().slice(0, 1); return head === "{" ? 200 : 404; } catch { return 0; } };
     const common = { permissionNames, operators, fetchMap, ourRoutes, publicHosts };
     const bad = (t) => Object.entries(t).filter(([k]) => k !== "jwtAnon").map(([k, n]) => `${k} ${n}`);
     const cl = await sweepAssets(await downloadedAssets({ base: B, pages: ["/client", "/client/flights", "/client/account"], cookie: cookieOf(s) }), { ...common, allowedRoutes: /^\/(client(\/|$)|api\/client\/(me|account\/password|prefs)$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/ });
@@ -191,7 +193,7 @@ try {
       if (p === "/client/flights") { const fr = pg.frameLocator("iframe[data-client-frame]"); const f = fr.locator("[data-flight-row]:not(.is-cnl)").first(); await f.waitFor({ timeout: 20000 }).catch(() => {}); if (await f.count()) { await f.click(); await pg.waitForTimeout(3000); } }
     }
     await br.close();
-    const ALLOWED = /^(GET|HEAD) \/(client(\/(flights|account))?$|_next\/|api\/client\/(me|prefs)$|digital-wall\/timeline(\/|$)|digital-wall\/api\/(user|users\/me|display\/clocks|timeline\/flights|timeline\/aircraft|flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|flight-passengers|geo\/coords|stream|weather)\b|favicon|PFP\.png$|icons\/)/;
+    const ALLOWED = /^(GET|HEAD) \/(client(\/(flights|account))?$|_next\/|api\/client\/(me|prefs)$|digital-wall\/timeline(\/|$)|digital-wall\/api\/(user|users\/me|display\/clocks|timeline\/flights|timeline\/aircraft|timeline\/limitations|flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|flight-passengers|geo\/coords|stream|weather)\b|favicon|PFP\.png$|icons\/)/;
     const other = [...asked].filter((a) => !ALLOWED.test(a) && !/^(GET|HEAD) \/[^/]+\.(png|svg|ico|woff2?)$/.test(a));
     ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, the frame, their standing and preferences, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
     ok([...asked].some((a) => /^GET \/digital-wall\/timeline\//.test(a)) && [...asked].some((a) => /^GET \/digital-wall\/api\/timeline\/flights$/.test(a)), "…the frame was loaded and read the wall's flights (so the list above means something)");

@@ -11,7 +11,7 @@ import { fetchDisplayClocks, fetchTimelineAircraft } from '../services/timelineA
 import { subscribeWallStream } from '../services/wallStream';
 import { WallColorsProvider } from '../theme/WallColorsContext';
 import { WallDisplayProvider } from '../theme/WallDisplayContext';
-import { applyPortalTheme, usePortalTheme } from '../theme/portalTheme';
+import { applyPortalTheme, readChoice, THEME_KEY } from '../theme/portalTheme';
 import { FALLBACK_CLOCKS } from '../components/Header';
 import { errorText } from '../services/errorText';
 import { PHONE_MAX, applyHidden, fetchMe, fetchPrefs, fetchSyncStatus, normalisePrefs, onShellMessage, savePrefs, tellShell } from './clientApi';
@@ -25,14 +25,31 @@ import './client.css';
 
 const POLL_MS = 60_000;
 
+/**
+ * The client's theme: the portal's choice on this device (localStorage cw-theme, shared with the shell on the same
+ * origin) or the system's. Never the staff hook (usePortalTheme), which asks /api/user/preferences — a staff route a
+ * client may not reach (the request walk found it, 2026-11-10).
+ */
+function useClientTheme() {
+  const [theme, setTheme] = useState(() => applyPortalTheme(readChoice()));
+  useEffect(() => {
+    const sync = () => setTheme(applyPortalTheme(readChoice()));
+    const onStorage = (e) => { if (e.key === THEME_KEY) sync(); };
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    window.addEventListener('storage', onStorage); window.addEventListener('cw-theme-change', sync); mq?.addEventListener?.('change', sync);
+    const id = setInterval(sync, 2000); // the shell's theme button writes localStorage in the parent: storage events do not fire in the writer's own frame, so look every two seconds
+    return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('cw-theme-change', sync); mq?.removeEventListener?.('change', sync); clearInterval(id); };
+  }, []);
+  return theme;
+}
+
 function pageFromLocation() {
   const p = new URLSearchParams(window.location.search).get('page');
   return p === 'flights' ? 'flights' : 'timeline';
 }
 
 export default function ClientApp() {
-  const theme = usePortalTheme();
-  useEffect(() => { applyPortalTheme(); }, []);
+  const theme = useClientTheme();
   const [page, setPage] = useState(pageFromLocation);
   const [me, setMe] = useState(null);
   const [prefs, setPrefs] = useState(() => normalisePrefs(null));

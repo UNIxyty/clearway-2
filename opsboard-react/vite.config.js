@@ -9,6 +9,10 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
+  // No comments in the shipped chunks (2026-11-10): rig/client-allow-check.mjs sweeps what a client's browser downloads
+  // and counts block comments as a leak signal; the libraries' license banners are the only ones a production build
+  // keeps, and they are not ours to ship.
+  esbuild: { legalComments: 'none' },
   // shared/passenger-viewer.jsx (one implementation, two places) sits outside this app and would resolve the
   // repo root's React (18) while this bundle carries its own (19) — two Reacts, and hooks read a null dispatcher.
   // Pin every 'react' import to this app's copy.

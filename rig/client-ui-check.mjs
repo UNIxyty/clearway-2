@@ -36,7 +36,7 @@ const viewportOf = (width) => ({ width, height: width === 390 ? 844 : width === 
 // the frame: its locators (frameLocator) and its Frame (for evaluate)
 const FRAME = "iframe[data-client-frame]";
 const frameOf = (page) => page.frameLocator(FRAME);
-const frameDoc = (page) => page.frames().find((f) => f.url().includes("/digital-wall/timeline/")) ?? null;
+const frameDoc = (page) => page.frames().find((f) => /\/digital-wall\/timeline(\/|\?|$)/.test(f.url())) ?? null;
 const openClient = async (page, path, width) => {
   await page.goto(`${B}${path}`, { waitUntil: "load" });
   await page.waitForSelector("[data-client-shell]", { timeout: 20000 });

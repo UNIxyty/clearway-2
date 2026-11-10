@@ -2,6 +2,7 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { LeonTimelineService } from "./leon-sync.mjs";
 import { OperatorsStore } from "./operators-store.mjs";
 import { SseHub } from "./lib/sse.mjs";
@@ -233,7 +234,8 @@ const STATION_TIME_ZONE = String(process.env.WALL_STATION_TIME_ZONE || "Europe/R
 let airportCoordsCache = null;
 async function airportCoords() {
   if (airportCoordsCache) return airportCoordsCache;
-  for (const file of [path.resolve(process.cwd(), "shared-data", "airport-coords.json"), path.resolve(process.cwd(), "..", "data", "airport-coords.json")]) {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  for (const file of [path.resolve(here, "shared-data", "airport-coords.json"), path.resolve(here, "..", "data", "airport-coords.json"), path.resolve(process.cwd(), "shared-data", "airport-coords.json")]) {
     try { airportCoordsCache = JSON.parse(await fs.readFile(file, "utf8")); return airportCoordsCache; } catch { /* next */ }
   }
   airportCoordsCache = {};

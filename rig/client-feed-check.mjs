@@ -178,7 +178,7 @@ try {
     ok((await text('[data-card="limitations"]')).includes(`${TAG} limitation`) && /slots required/.test(await text('[data-card="limitations"]')), `${tag}: Limitations shows the limitation, title and text`);
     ok((await text('[data-card="important"]')).includes(`${TAG} notice`) && /fuel by prior arrangement/.test(await text('[data-card="important"]')), `${tag}: the notice from Clearway shows the notice`);
     ok((await text('[data-section="caa"]')).includes(`${TAG} authority`) && /Landing permits/.test(await text('[data-section="caa"]')) && /permits@rig\.invalid/.test(await text('[data-section="caa"]')), `${tag}: Authority contacts shows the authority and how to reach it`);
-    ok(await noOverflow(page) && await (page.frames().find((f) => f.url().includes("/digital-wall/timeline/"))?.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1) ?? false), `${tag}: no horizontal scroll, on the page or in the frame`);
+    ok(await noOverflow(page) && await (page.frames().find((f) => /\/digital-wall\/timeline(\/|\?|$)/.test(f.url()))?.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1) ?? false), `${tag}: no horizontal scroll, on the page or in the frame`);
     const wide = await panel.locator("*").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().right > window.innerWidth + 1).length);
     ok(wide === 0, `${tag}: nothing in the flight runs past the edge of the screen`, wide);
     await shot(page, `${OUT}/client-notes-${theme}-${width}.png`, width);

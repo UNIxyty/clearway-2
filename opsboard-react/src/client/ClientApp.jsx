@@ -33,7 +33,7 @@ const POLL_MS = 60_000;
  * origin) or the system's. Never the staff hook (usePortalTheme), which asks /api/user/preferences — a staff route a
  * client may not reach (the request walk found it, 2026-11-10).
  */
-function useClientTheme() {
+export function useClientTheme() {
   const [theme, setTheme] = useState(() => applyPortalTheme(readChoice()));
   useEffect(() => {
     const sync = () => setTheme(applyPortalTheme(readChoice()));

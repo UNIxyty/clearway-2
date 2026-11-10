@@ -9,6 +9,7 @@ import { flattenFlights, hmZ } from '../components/mobile/mobileUtil';
 import { dayIndex, dayLabel, dayName, dayShort, dayStartMs, groupOperators, matchesQuery, readView, writeView, fetchPassengers } from './clientApi';
 import ClientFlightBody, { StatusChip, useFlightInfo } from './ClientFlight';
 import MapView, { mapStateOf, useCoords } from './MapView';
+import StaffChecks, { openCheckChips } from './StaffChecks';
 
 const ZOOM = [{ label: '0.7×', hours: 3 }, { label: '1×', hours: 2 }, { label: '1.4×', hours: 1.5 }];
 const H = 3600_000;
@@ -34,7 +35,7 @@ function PaxSheet({ p, onClose }) {
   );
 }
 
-function FlightPage({ p, me, names, onBack }) {
+function FlightPage({ p, me, names, onBack, role = 'client', onChanged }) {
   const info = useFlightInfo(p);
   const [sub, setSub] = useState(null); // null | 'map' | 'pax'
   const [full, setFull] = useState(false);
@@ -54,7 +55,7 @@ function FlightPage({ p, me, names, onBack }) {
     <div className="cwp-page" data-flight-page={p.fn}>
       <div className="cwp-bar"><button type="button" className="cwp-back" onClick={onBack} aria-label="Back" data-back="">‹</button><span className="cwp-bar-title"><b className="cwd-mono">{p.fn}</b><small>{p.dep} → {p.arr} · {dayLabel(dayIndex(p.delayedStartUtcMs))}</small></span></div>
       <div className="cwp-scroll">
-        <ClientFlightBody p={p} me={me} names={names} info={info} extraTop={
+        <ClientFlightBody p={p} me={me} names={names} info={info} afterTop={role === 'staff' && p.status !== 'cancelled' ? <StaffChecks p={p} onChanged={onChanged} /> : null} extraTop={
           <div className="cwp-btns" style={{ gridTemplateColumns: paxOn ? '1fr 1.25fr' : '1fr' }}>
             {radarOn && <button type="button" className="cwp-big" onClick={() => setSub('map')} data-open-map="">Map{p.status === 'airborne' && <span className="cwp-live">AIRBORNE</span>}</button>}
             {paxOn && <button type="button" className="cwp-big" onClick={() => setSub('pax')} data-open-pax="">Passengers{Number.isFinite(p.passengerCount) ? ` · ${p.passengerCount}` : ''}</button>}
@@ -66,7 +67,8 @@ function FlightPage({ p, me, names, onBack }) {
   );
 }
 
-export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload, look }) {
+export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload, look, role = 'client' }) {
+  const staff = role === 'staff';
   const view0 = readView();
   const [zoom, setZoom] = useState(() => (Number.isInteger(view0.zoom) ? Math.max(0, Math.min(2, view0.zoom)) : 1));
   const [day, setDay] = useState(() => (Number.isInteger(view0.day) ? view0.day : 0));
@@ -94,13 +96,13 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
   const ops = useMemo(() => groupOperators(aircraft), [aircraft]);
   const failed = loadedOnce && Boolean(error) && aircraft.length === 0;
 
-  if (openF) return <FlightPage p={openF} me={me} names={names} onBack={() => setOpenId(null)} />;
+  if (openF) return <FlightPage p={openF} me={me} names={names} onBack={() => setOpenId(null)} role={role} onChanged={onReload} />;
   if (openId && loadedOnce && !openF) { /* the flight left the board while it was open */ setOpenId(null); }
 
   return (
     <div className="cwp" data-client-page={page}>
       <div className="cwp-bar">
-        <span className="cwp-bar-title"><b>{page === 'flights' ? 'Flights' : 'Timeline'}</b><small>{dayShort(day, nowMs)} · {visible.length} aircraft{nHidden ? ` · ${nHidden} hidden` : ''}</small></span>
+        <span className="cwp-bar-title"><b>{page === 'flights' ? (staff ? 'List' : 'Flights') : 'Timeline'}</b><small>{dayShort(day, nowMs)} · {visible.length} aircraft{nHidden ? ` · ${nHidden} hidden` : ''}</small></span>
         <div className="cwp-toggle" role="tablist"><button type="button" role="tab" aria-selected={page === 'timeline'} className={page === 'timeline' ? 'is-on' : ''} onClick={() => goPage('timeline')} aria-label="Timeline" data-view-timeline="">▤</button><button type="button" role="tab" aria-selected={page === 'flights'} className={page === 'flights' ? 'is-on' : ''} onClick={() => goPage('flights')} aria-label="List" data-view-list="">☰</button></div>
         <button type="button" className={`cwd-icon-btn${nHidden ? ' is-on' : ''}`} onClick={() => setFilter(true)} aria-label="Aircraft shown" data-operators-button="">⚙</button>
       </div>
@@ -119,7 +121,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
           <div className="cwp-lanes" ref={lanesRef} data-board="">
             {allHidden ? <div className="cwd-empty" data-empty="all-hidden"><b>You’ve hidden every aircraft</b><span>The flights are still there, just not on your screen.</span><button type="button" className="cwd-btn is-primary" onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></div>
               : <div style={{ height: 30 + Math.max(1, visible.length) * 78 }}>
-                <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={look.scale} timeZoom={look.timeZoom} rowZoom={look.rowZoom} pillHeight={look.pillHeight} markerScale={look.markerScale} labelScale={look.labelScale} autoFitRows={look.autoFitRows} hideSidebar rowHeightPx={Math.round(78 * look.rowZoom)} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={false} touchHitMinPx={44} maxMarkers={1} forceMarkerMode="dots" markersInside bodyContent="callsign" bodyRight="times" belowText="none" acColScale={0.8} />
+                <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={look.scale} timeZoom={look.timeZoom} rowZoom={look.rowZoom} pillHeight={look.pillHeight} markerScale={look.markerScale} labelScale={look.labelScale} autoFitRows={look.autoFitRows} hideSidebar rowHeightPx={Math.round(78 * look.rowZoom)} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={staff} touchHitMinPx={44} maxMarkers={staff ? 2 : 1} forceMarkerMode="dots" markersInside bodyContent="callsign" bodyRight="times" belowText="none" acColScale={0.8} />
               </div>}
             {!loadedOnce && <p className="cwd-muted" style={{ padding: 16 }}>Loading your flights…</p>}
             {loadedOnce && aircraft.length > 0 && all.length === 0 && !allHidden && <div className="cwd-empty" data-empty="no-flights"><b>No flights in the next 7 days</b><span>New flights appear here as soon as Clearway ops has them.</span></div>}
@@ -138,7 +140,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
               {g.rows.map((f) => (
                 <button type="button" key={f.id} className={`cwp-row${f.status === 'airborne' ? ' is-air' : ''}${f.status === 'cancelled' ? ' is-cnl' : ''}`} onClick={() => setOpenId(f.id)} data-flight-row={f.fn}>
                   <span className="cwp-row-time"><b className="cwd-mono">{f.depHm}</b><small className="cwd-mono">→ {f.arrHm}</small></span>
-                  <span className="cwp-row-main"><span><b className="cwd-mono">{f.fn}</b><small className="cwd-mono">{f.__reg}</small></span><small className="cwd-mono">{f.dep} → {f.arr}</small></span>
+                  <span className="cwp-row-main"><span><b className="cwd-mono">{f.fn}</b><small className="cwd-mono">{f.__reg}</small></span><small className="cwd-mono">{f.dep} → {f.arr}</small>{staff && openCheckChips(f).length > 0 && <span className="cwp-row-chips" data-open-checks={openCheckChips(f).join(' ')}>{openCheckChips(f).map((k) => <span key={k}>{k}</span>)}</span>}</span>
                   <StatusChip status={f.status} />
                 </button>
               ))}

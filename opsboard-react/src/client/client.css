@@ -233,3 +233,14 @@
 [data-client-surface="phone"] .cws { padding: 16px 16px 40px; gap: 12px; }
 [data-client-surface="phone"] .cws .cwd-btn { min-height: 44px; }
 [data-client-surface="phone"] .cws-head .cwd-title { font-size: 22px; }
+
+/* ── Staff phone (2026-11-11): the client phone surface with the wall's checks ── */
+.cwc-checkgrid { display: flex; flex-direction: column; gap: 8px; }
+.cwc-check { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--cw-border); border-radius: 12px; background: var(--cw-bg-surface); }
+.cwc-check.is-done { border-color: var(--cw-success-border); background: var(--cw-success-tint); }
+.cwc-check.is-none { opacity: .6; }
+.cwc-check-k { font: 800 11px 'IBM Plex Mono', monospace; letter-spacing: .06em; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--cw-bg-sunken); color: var(--cw-text-body); }
+.cwc-check.is-open .cwc-check-k { background: var(--cw-warning-tint); color: var(--cw-warning-text); }
+.cwc-check-l { display: flex; flex-direction: column; gap: 1px; min-width: 0; } .cwc-check-l b { font-size: 14.5px; } .cwc-check-l small { font-size: 12.5px; color: var(--cw-text-muted); }
+.cwc-check .cwd-btn { min-height: 44px; }
+.cwp-row-chips { display: flex; gap: 4px; flex-wrap: wrap; } .cwp-row-chips span { font: 800 10px 'IBM Plex Mono', monospace; letter-spacing: .05em; padding: 2px 5px; border-radius: 5px; background: var(--cw-warning-tint); color: var(--cw-warning-text); border: 1px solid var(--cw-warning-border); }

@@ -95,7 +95,7 @@ function Passengers({ p }) {
 }
 
 /** The body: the same sections on a desk panel and a phone page. `p` is the pill's flight record (timelineApi.mapFlight). */
-export default function ClientFlightBody({ p, me, names = {}, info, extraTop = null }) {
+export default function ClientFlightBody({ p, me, names = {}, info, extraTop = null, afterTop = null }) {
   const sw = me?.switches || [];
   const on = (k) => sw.includes(k);
   const f = info.data?.flight;
@@ -113,6 +113,7 @@ export default function ClientFlightBody({ p, me, names = {}, info, extraTop = n
         <span className="cwc-muted">Operated by {p.__operator || p.oprId}</span>
       </div>
       {extraTop}
+      {afterTop}
       {canc && <div className="cwc-note" data-card="cancelled">This flight was cancelled. It stays here for 7 days so you can see what was planned.</div>}
       <div className="cwc-route" data-card="route">
         <span><b>{p.dep}</b><small>{names[p.dep] || ''}</small></span>

@@ -1,0 +1,23 @@
+/* The flight map (opsboard-react/src/client/MapView.jsx), on --cwm-* variables only: the client surface maps them to the
+   portal's tokens (client.css), the staff phone wall to the room's own tokens (OpenFlight.jsx). No --cw-* here: the
+   wall display must read no portal token (scripts/check-console-theme.mjs, rig/stage1-check.mjs). */
+.cwm { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--cwm-bg); touch-action: none; cursor: grab; }
+.cwm-skel { position: absolute; inset: 0; background: var(--cwm-skeleton); }
+.cwm-apt { position: absolute; height: 24px; padding: 0 7px; border-radius: 6px; background: var(--cwm-surface); border: 1px solid var(--cwm-border); box-shadow: var(--cwm-shadow); font: 700 12px var(--cwm-mono); display: flex; align-items: center; gap: 5px; pointer-events: none; white-space: nowrap; }
+.cwm-apt small { font: 500 11px var(--cwm-sans); color: var(--cwm-muted); }
+.cwm-strip { position: absolute; left: 12px; right: 12px; display: flex; gap: 8px; align-items: flex-start; }
+.cwm-card { flex: 1; min-width: 0; background: var(--cwm-surface); border: 1px solid var(--cwm-border); border-radius: 14px; box-shadow: var(--cwm-shadow); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.cwm-row { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.cwm-row b { font-size: 16px; font-weight: 700; }
+.cwm-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cwm-stats span { display: flex; flex-direction: column; gap: 1px; }
+.cwm-stats small { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--cwm-muted); }
+.cwm-stats b { font: 700 15px var(--cwm-mono); white-space: nowrap; }
+.cwm-stats b.is-now { color: var(--cwm-now-text); }
+.cwm-msg { font-size: 14px; font-weight: 600; }
+.cwm-sub { font-size: 13px; }
+.cwm-round { width: 48px; height: 48px; border-radius: 12px; background: var(--cwm-surface); border: 1px solid var(--cwm-border); box-shadow: var(--cwm-shadow); display: flex; align-items: center; justify-content: center; flex: none; font-size: 22px; color: var(--cwm-link); }
+.cwm-recenter { position: absolute; right: 14px; bottom: 46px; height: 48px; padding: 0 16px; border-radius: 24px; background: var(--cwm-surface); border: 1px solid var(--cwm-border); box-shadow: var(--cwm-shadow); font-size: 14.5px; font-weight: 650; }
+.cwm-attr { position: absolute; left: 10px; bottom: 14px; font-size: 10px; color: var(--cwm-muted); background: var(--cwm-surface); padding: 1px 5px; border-radius: 4px; opacity: .85; pointer-events: none; }
+.cwm-mono { font-family: var(--cwm-mono); }
+.cwm-muted { color: var(--cwm-muted); }

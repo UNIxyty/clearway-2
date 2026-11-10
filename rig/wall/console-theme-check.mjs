@@ -33,7 +33,8 @@ async function context({ theme = "light", scheme = "light", width = 1440 } = {})
   return ctx;
 }
 const errorsOf = (page) => { const errs = []; page.on("pageerror", (e) => errs.push(String(e).slice(0, 160))); return errs; };
-const shellBg = (page) => page.evaluate(() => getComputedStyle(document.querySelector(".cw-console")).backgroundColor);
+// the console is its own chunk since 2026-11-10 (a client's browser never downloads it): its shell paints a moment after load
+const shellBg = async (page) => { await page.locator(".cw-console").first().waitFor({ timeout: 15_000 }).catch(() => {}); return page.evaluate(() => getComputedStyle(document.querySelector(".cw-console")).backgroundColor); };
 const htmlTheme = (page) => page.evaluate(() => document.documentElement.getAttribute("data-theme"));
 
 // ── A. the theme, on every page ──

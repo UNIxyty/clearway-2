@@ -215,25 +215,8 @@
 .cwp-pax-row .cwd-mono { width: 20px; font-size: 12.5px; font-weight: 500; }
 .cwp-foot { padding: 14px 20px; font-size: 12.5px; line-height: 1.5; }
 .cwp .cwd-row, .cwp-sheet .cwd-row { min-height: 56px; }
-/* map */
-.cwm { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--cw-bg-sunken); touch-action: none; cursor: grab; }
-.cwm-skel { position: absolute; inset: 0; background: var(--cw-skeleton, var(--cw-bg-sunken)); }
-.cwm-apt { position: absolute; height: 24px; padding: 0 7px; border-radius: 6px; background: var(--cw-bg-surface); border: 1px solid var(--cw-border); box-shadow: var(--cw-shadow-1); font: 700 12px 'IBM Plex Mono', monospace; display: flex; align-items: center; gap: 5px; pointer-events: none; white-space: nowrap; }
-.cwm-apt small { font: 500 11px 'Public Sans', system-ui, sans-serif; color: var(--cw-text-muted); }
-.cwm-strip { position: absolute; left: 12px; right: 12px; display: flex; gap: 8px; align-items: flex-start; }
-.cwm-card { flex: 1; min-width: 0; background: var(--cw-bg-surface); border: 1px solid var(--cw-border); border-radius: 14px; box-shadow: var(--cw-shadow-2); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-.cwm-row { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
-.cwm-row b { font-size: 16px; font-weight: 700; }
-.cwm-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.cwm-stats span { display: flex; flex-direction: column; gap: 1px; }
-.cwm-stats small { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--cw-text-muted); }
-.cwm-stats b { font: 700 15px 'IBM Plex Mono', monospace; white-space: nowrap; }
-.cwm-stats b.is-now { color: var(--tl-now-tag-fg); }
-.cwm-msg { font-size: 14px; font-weight: 600; }
-.cwm-sub { font-size: 13px; }
-.cwm-round { width: 48px; height: 48px; border-radius: 12px; background: var(--cw-bg-surface); border: 1px solid var(--cw-border); box-shadow: var(--cw-shadow-2); display: flex; align-items: center; justify-content: center; flex: none; font-size: 22px; color: var(--cw-text-link); }
-.cwm-recenter { position: absolute; right: 14px; bottom: 46px; height: 48px; padding: 0 16px; border-radius: 24px; background: var(--cw-bg-surface); border: 1px solid var(--cw-border); box-shadow: var(--cw-shadow-2); font-size: 14.5px; font-weight: 650; }
-.cwm-attr { position: absolute; left: 10px; bottom: 14px; font-size: 10px; color: var(--cw-text-muted); background: var(--cw-bg-surface); padding: 1px 5px; border-radius: 4px; opacity: .85; pointer-events: none; }
+/* the map's rules live in map.css (--cwm-* variables); the client surface maps them to the portal's tokens here */
+.cw-client { --cwm-bg: var(--cw-bg-sunken); --cwm-surface: var(--cw-bg-surface); --cwm-border: var(--cw-border); --cwm-text: var(--cw-text); --cwm-muted: var(--cw-text-muted); --cwm-body: var(--cw-text-body); --cwm-link: var(--cw-text-link); --cwm-now: var(--tl-now); --cwm-now-glow: var(--tl-now-glow); --cwm-now-text: var(--tl-now-tag-fg); --cwm-shadow: var(--cw-shadow-2); --cwm-skeleton: var(--cw-skeleton, var(--cw-bg-sunken)); --cwm-mono: 'IBM Plex Mono', monospace; --cwm-sans: 'Public Sans', system-ui, sans-serif; }
 @media (max-width: 699px) {
   .cwd-flight { width: 100vw; }
 }

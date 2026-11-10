@@ -13,7 +13,6 @@ import { v } from './tokens';
 import { lookOf } from './model';
 import { Btn, CheckChip, CloseButton, Icon, Label, Msg, Scroll, Segmented, Sheet, SheetFoot } from './ui';
 import MapView, { mapStateOf, useCoords } from '../../../client/MapView';
-import '../../../client/client.css';
 
 const KEYS = ['IMP', 'NTM', 'WX', 'CAA', 'LIM'];
 const NAME = { IMP: 'Important', NTM: 'NOTAMs', WX: 'Weather', CAA: 'CAA', LIM: 'Limitations' };
@@ -341,7 +340,9 @@ export default function OpenFlight({ flight: p, limitations = [], notamState, no
 function StaffMap({ p }) {
   const coords = useCoords([p.adep, p.ades]);
   const f = { ...p.raw, fn: p.cs, dep: p.adep, arr: p.ades, __reg: p.reg, depHm: p.depT, arrHm: p.arrT, atdHm: p.raw?.atdHm, ataHm: p.raw?.ataHm, etd: p.raw?.etd, depKind: p.depKind, endUtcMs: p.arrMs, delayedStartUtcMs: p.depMs, status: p.status };
-  return <MapView p={f} coords={coords} position={null} state={mapStateOf(f, null, true)} theme="dark" />;
+  // the map draws on --cwm-* variables: here they are the room's own phone tokens, never a portal token
+  const vars = { '--cwm-bg': v('bg-1'), '--cwm-surface': v('surface-2'), '--cwm-border': v('line-2'), '--cwm-text': v('text-1'), '--cwm-muted': v('text-3'), '--cwm-body': v('text-2'), '--cwm-link': v('accent-text'), '--cwm-now': v('st-airborne'), '--cwm-now-glow': v('accent-soft'), '--cwm-now-text': v('accent-text'), '--cwm-shadow': `0 8px 24px ${v('scrim')}`, '--cwm-skeleton': v('surface-3'), '--cwm-mono': 'inherit', '--cwm-sans': 'inherit' };
+  return <div style={{ ...vars, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}><MapView p={f} coords={coords} position={null} state={mapStateOf(f, null, true)} theme="dark" /></div>;
 }
 
 function Frame({ children, onClose }) {

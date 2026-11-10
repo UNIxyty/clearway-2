@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildApiUrl } from '../services/timelineApi';
 import { hmZ, spanText } from '../components/mobile/mobileUtil';
+import './map.css';
 
 const TILE = 256;
 const proj = (lat, lon, z) => { const n = TILE * 2 ** z; const r = (lat * Math.PI) / 180; return [((lon + 180) / 360) * n, ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n]; };
@@ -110,10 +111,10 @@ export default function MapView({ p, coords, position = null, state, theme = 'li
         <>
           {geo.tiles.map((t) => <img key={t.key} src={t.src} alt="" draggable={false} style={{ position: 'absolute', left: t.x, top: t.y, width: TILE, height: TILE, pointerEvents: 'none', userSelect: 'none' }} />)}
           <svg width={size.w} height={size.h} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none', overflow: 'visible' }}>
-            {geo.rest && <path d={geo.rest} fill="none" stroke="var(--cw-text-body)" strokeWidth="2.5" strokeDasharray="6 6" strokeLinecap="round" />}
-            {geo.flown && <path d={geo.flown} fill="none" stroke="var(--tl-now)" strokeWidth="3.5" strokeLinecap="round" />}
-            {[geo.A, geo.B].map((q, i) => <circle key={i} cx={q[0]} cy={q[1]} r="6" fill="var(--cw-bg-surface)" stroke="var(--cw-text)" strokeWidth="2.5" />)}
-            {geo.ac && <g transform={`translate(${geo.ac.x} ${geo.ac.y}) rotate(${geo.ac.hdg})`}><circle r="22" fill="var(--tl-now-glow)" /><path d="M0 -14 L2.2 -4 L13 2 L13 5 L2.2 1.6 L1.6 9 L5 11.5 L5 13.5 L0 12 L-5 13.5 L-5 11.5 L-1.6 9 L-2.2 1.6 L-13 5 L-13 2 L-2.2 -4 Z" fill="var(--tl-now)" stroke="var(--cw-bg-surface)" strokeWidth="1.5" strokeLinejoin="round" /></g>}
+            {geo.rest && <path d={geo.rest} fill="none" stroke="var(--cwm-body)" strokeWidth="2.5" strokeDasharray="6 6" strokeLinecap="round" />}
+            {geo.flown && <path d={geo.flown} fill="none" stroke="var(--cwm-now)" strokeWidth="3.5" strokeLinecap="round" />}
+            {[geo.A, geo.B].map((q, i) => <circle key={i} cx={q[0]} cy={q[1]} r="6" fill="var(--cwm-surface)" stroke="var(--cwm-text)" strokeWidth="2.5" />)}
+            {geo.ac && <g transform={`translate(${geo.ac.x} ${geo.ac.y}) rotate(${geo.ac.hdg})`}><circle r="22" fill="var(--cwm-now-glow)" /><path d="M0 -14 L2.2 -4 L13 2 L13 5 L2.2 1.6 L1.6 9 L5 11.5 L5 13.5 L0 12 L-5 13.5 L-5 11.5 L-1.6 9 L-2.2 1.6 L-13 5 L-13 2 L-2.2 -4 Z" fill="var(--cwm-now)" stroke="var(--cwm-surface)" strokeWidth="1.5" strokeLinejoin="round" /></g>}
           </svg>
           {[[p.dep, 'Dep', geo.A], [p.arr, 'Arr', geo.B]].map(([icao, role, q]) => <span key={icao} className="cwm-apt" style={{ left: q[0] + 10, top: q[1] - 30 }}>{icao}<small>{role}</small></span>)}
         </>
@@ -122,9 +123,9 @@ export default function MapView({ p, coords, position = null, state, theme = 'li
       <div className="cwm-strip" style={{ top: full ? 8 : 12 }}>
         {full && <button type="button" className="cwm-round" onClick={onBack} aria-label="Back">‹</button>}
         <div className="cwm-card">
-          <span className="cwm-row"><b className="cwd-mono">{p.fn}</b><span className="cwd-mono cwd-muted">{p.__reg}</span><span style={{ flex: 1 }} /><span className="cwd-mono cwd-muted">{p.dep} → {p.arr}</span></span>
+          <span className="cwm-row"><b className="cwm-mono">{p.fn}</b><span className="cwm-mono cwm-muted">{p.__reg}</span><span style={{ flex: 1 }} /><span className="cwm-mono cwm-muted">{p.dep} → {p.arr}</span></span>
           {position && state === 'live' && <div className="cwm-stats"><span><small>ALTITUDE</small><b>{Number.isFinite(position.altitudeFt) ? `FL${Math.round(position.altitudeFt / 100)}` : '—'}</b></span><span><small>GROUND SPEED</small><b>{Number.isFinite(position.groundSpeedKt) ? `${Math.round(position.groundSpeedKt)} kt` : '—'}</b></span><span><small>LANDS IN</small><b className="is-now">{end > nowMs ? spanText(end - nowMs) : '—'}</b></span></div>}
-          {msg && <><span className="cwm-msg">{msg[0]}</span>{msg[1] && <span className="cwd-muted cwm-sub">{msg[1]}</span>}</>}
+          {msg && <><span className="cwm-msg">{msg[0]}</span>{msg[1] && <span className="cwm-muted cwm-sub">{msg[1]}</span>}</>}
         </div>
         {full && <button type="button" className="cwm-round" onClick={onToggleFull} aria-label="Exit full screen">⤡</button>}
       </div>

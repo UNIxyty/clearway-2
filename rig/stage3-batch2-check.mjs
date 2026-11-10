@@ -256,12 +256,13 @@ const pagesShown = (page) => page.locator('[role="toolbar"][aria-label="Document
   const chips = await page.locator('ul[aria-label="Categories"] li').allInnerTexts();
   const got = chips.map((c) => Number((norm(c).match(/(\d+)$/) ?? [])[1]));
   ok(JSON.stringify(got) === JSON.stringify(expectCounts) && /Closure/.test(chips[0]) && /Info/.test(chips[4]), "NOTAMs are counted by the wall's five categories, by the wall's own rules", `${chips.map(norm).join(" | ")} · expected ${expectCounts.join(",")}`);
-  const list = page.locator('ul[aria-label="NOTAMs for EVRA"] li');
+  // the one NOTAM card (2026-11-10, shared/notam-card.mjs): an article per NOTAM, the category as a chip in its colour
+  const list = page.locator('[aria-label="NOTAMs for EVRA"] article.cw-nc');
   ok(await list.count() === 6 && /A2291\/26/.test(await list.first().innerText()) && /Closure/.test(await list.first().innerText()), "closures first; the first 6 shown");
   const [dot, danger] = await page.evaluate(() => {
-    const d = document.querySelector('ul[aria-label="NOTAMs for EVRA"] li span[aria-hidden]');
+    const d = document.querySelector('[aria-label="NOTAMs for EVRA"] article.cw-nc .cw-nc-chip');
     const probe = document.createElement("span"); probe.style.background = "var(--cw-danger)"; document.body.appendChild(probe);
-    const out = [getComputedStyle(d).backgroundColor, getComputedStyle(probe).backgroundColor]; probe.remove(); return out;
+    const out = [getComputedStyle(d).color, getComputedStyle(probe).backgroundColor]; probe.remove(); return out;
   });
   ok(dot === danger, "a closure is drawn in the portal's danger colour", `${dot} vs ${danger}`);
   ok(/10 Oct 22:00Z → 14 Oct 04:00Z/.test(await list.first().innerText()), "validity reads as on the wall (UTC)");

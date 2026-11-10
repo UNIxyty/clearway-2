@@ -28,10 +28,11 @@ const M_ROUTES: Record<string, string> = {
   "adm-users": "/m/users", "adm-maint": "/m/maintenance", "adm-agent-sites": "/m/agent-sites", "dev-inbox": "/m/inbox", "acc-profile": "/m/profile", settings: "/m/settings",
   // Tier 3: the honest screen
   "adm-perms": "/m/desk/permissions",
+  "aip-library": "/m/desk/aip-library",
 };
 // Tier 3 (mobile-portal-spec.md › tiers): a grid or a runner that needs a wide screen — marked Desk here and given one
 // honest screen (/m/desk/[id]). The debug runner and the component sheet are not in the nav at all.
-const DESK = new Set(["adm-perms"]);
+const DESK = new Set(["adm-perms", "aip-library"]);   // the AIP library (2026-11-10) has no phone page yet: the desk page, marked Desk
 
 function TabBar({ tab, hasAgent, intakeNeeds, onMore }: { tab?: PhoneTab; hasAgent: boolean; intakeNeeds: number; onMore: () => void }) {
   const tabs: Array<{ k: PhoneTab; t: string; icon: string; href?: string; badge?: number }> = [

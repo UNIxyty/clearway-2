@@ -61,7 +61,7 @@ try {
   const name = last?.attachments?.[0]?.filename ?? "";
   ok(new RegExp(`^EVRA-AD2_fetched-${t.toISOString().slice(0, 10)}\\.pdf$`).test(name), "the file name carries the fetch date", name);
   const full = last ? await (await fetch(`${RESEND}/_rig/sent/${last.id}`)).json() : {};
-  ok(new RegExp(`Cached copy from ${day(t.getTime())}`).test(full.html ?? "") && /more than one AIRAC cycle old/.test(full.html ?? ""), "the email says when the copy is from, and that it is more than one AIRAC cycle old", (full.html ?? "").match(/Cached copy[^<]{0,120}/)?.[0]);
+  ok(new RegExp(`Cached copy from ${day(t.getTime())}`).test(full.html ?? "") && /more than one AIRAC cycle old/i.test(full.html ?? ""), "the email says when the copy is from, and that it is more than one AIRAC cycle old", (full.html ?? "").match(/Cached copy[^<]{0,120}/)?.[0]);
   const tmp = path.join(os.tmpdir(), `aip-stamp-${process.pid}.pdf`);
   fs.writeFileSync(tmp, Buffer.from(full.attachments?.[0]?.content ?? "", "base64"));
   // a missing pdftotext says so, not "the line is missing" (2026-11-07: the rig box had none)

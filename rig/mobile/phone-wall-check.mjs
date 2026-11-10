@@ -116,11 +116,11 @@ for (const width of [360, 390, 430]) {
   const { page, frame, inner, errors } = await door(ctx);
   const cs = await inner.evaluate(() => document.querySelector("[data-pill]")?.getAttribute("data-pill"));
   await frame.locator("[data-pill]").first().click(); await settled(page);
-  const fl = await inner.evaluate(() => ({ title: document.querySelector("[role=dialog][aria-label=Flight] h2")?.textContent, grid: document.querySelectorAll("[data-check]").length, airports: [...document.querySelectorAll("[data-airport]")].map((x) => x.getAttribute("data-airport")), fr24: document.querySelector("[data-fr24]")?.textContent ?? "", pax: !!document.querySelector("button[aria-label=Passengers]"), next: [...document.querySelectorAll("button")].map((b) => b.textContent).find((t) => /^Next: /.test(t)) ?? null, done: document.querySelector("[role=dialog][aria-label=Flight]")?.textContent.match(/\d of 5 checked|All 5 checked/)?.[0] ?? null }));
+  const fl = await inner.evaluate(() => ({ title: document.querySelector("[role=dialog][aria-label=Flight] h2")?.textContent, grid: document.querySelectorAll("[data-check]").length, airports: [...document.querySelectorAll("[data-airport]")].map((x) => x.getAttribute("data-airport")), fr24: document.querySelector("[data-open-map]")?.textContent ?? "", pax: !!document.querySelector("button[aria-label=Passengers]"), next: [...document.querySelectorAll("button")].map((b) => b.textContent).find((t) => /^Next: /.test(t)) ?? null, done: document.querySelector("[role=dialog][aria-label=Flight]")?.textContent.match(/\d of 5 checked|All 5 checked/)?.[0] ?? null }));
   ok(fl.title === cs, "a pill opens its flight", `${cs} → ${fl.title}`);
   ok(fl.grid === 5 && /of 5 checked|All 5 checked/.test(fl.done ?? ""), "the five checks as a grid, with progress at the bottom (Option B)", JSON.stringify({ grid: fl.grid, done: fl.done, next: fl.next }));
   ok(fl.airports.length === 2, "both airports are buttons", fl.airports.join(" → "));
-  ok(/Live tracking isn’t connected yet/.test(fl.fr24) && !/no signal/i.test(fl.fr24), "the FR24 slot says plainly it isn't connected — no empty map, no 'no signal'", fl.fr24.slice(0, 80));
+  ok(/^Map/.test(fl.fr24) && !/no signal/i.test(fl.fr24), "the flight page has the Map button (our own map; the FR24 slot went on 2026-11-10)", fl.fr24.slice(0, 80));
   ok(fl.pax, "PAX is in the header");
   await page.screenshot({ path: `${OUT}/phone-wall-flight.png` });
   await frame.locator("[data-airport]").first().click(); await settled(page);

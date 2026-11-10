@@ -80,11 +80,54 @@ to no operator, aircraft or trip: users, permissions, metrics, debug runs, the h
 2026-11-02). There is nothing to filter them by. A filter must be right in every endpoint, forever, and fails open the
 day someone adds one and forgets. A list is right by default for every endpoint nobody thought about.
 
+## The client view v2 (2026-11-10): the ops portal with things taken away
+
+The design ("Client View v2", "Phone Views"): a client gets the same shell, type, themes and **the same Digital Wall
+timeline component ops use**, limited to their own aircraft. Flight watch only; nothing that asks for work.
+
+- **Three items and nothing else:** Timeline (`/client`), Flights (`/client/flights`), Account (`/client/account`).
+  The sidebar on a desk, a tab bar on a phone. Airports, AIP pages, airport search and Documents are gone for clients,
+  with their two switches **retired** (`lib/clients/switches.mjs`: `documents`, `airport_search` carry `retired: true`;
+  `normaliseSwitches` drops them, Admin › Clients does not show them, no page or wall read is behind them). The Ops Agent
+  and every `/agent/api/*` address were never on a client's list; the one client use of the agent (passenger names)
+  moved to the wall backend (`GET /api/flight-passengers`, names only, the wall's own Leon read).
+- **Timeline and Flights are the wall app's client surface**, framed: `/digital-wall/timeline/?in=client&page=…`
+  (`opsboard-react/src/client/`). It draws with the ops `Board` (same lanes, pills, now-line, clocks; day switching and
+  zoom through two Board props added for it; no auto-return to "now") and reads only the wall's client-scoped
+  endpoints, so what the client is sent is still decided by `digital-wall/lib/client-scope.mjs`. The frame and the shell
+  agree on the page by postMessage (`components/client/ClientFrame.tsx`). Below 700px the frame draws the phone views
+  (timeline with two hours across, one tap to the list, a flight page with **Map** and **Passengers** buttons — one
+  normal tap each, no press-and-hold anywhere).
+- **Operators & aircraft** is a view filter: every operator granted, each with its aircraft, each with a switch. Saved
+  on the account (`user_metadata.client_prefs.hidden`, through `GET/PUT /api/client/prefs`, written with the service
+  key) so it follows them to the phone. It never changes what the server sends. Hidden things are said: "N aircraft
+  hidden · Show all"; everything hidden says so with a Show all.
+- **The start page** is chosen once after the password (`/client/start`: Timeline or Flights list; "Decide later" is
+  Timeline) and stored as `client_prefs.start`; it decides where `/` sends them (middleware). Changeable in Account.
+  A client who never chose gets Timeline.
+- **A flight for a client**: status in plain words, route, times (scheduled / estimated / actual), weather at both
+  ends, the NOTAMs for the flight (read-only, the one NOTAM card), Limitations, the notice from Clearway and CAA
+  contacts by their switches, passenger names only when the passenger level is on. No checklist, no notes, no names
+  of who checked what, nothing to edit.
+- **The map** (phone): our own map — OpenStreetMap data styled by CARTO, both airports, the great-circle route — for
+  one flight only, never other traffic. The wall has no live position feed (docs/agent-flight-tracking-decision.md),
+  so an airborne flight shows "No live position" honestly, with the schedule; landed and not-airborne states draw the
+  route. Coordinates: `GET /api/geo/coords` (data/airport-coords.json), behind the radar switch.
+- **The zoom bug** (the phone kept zooming in by itself): text fields at 16px or more (iOS zooms on focus below that),
+  `touch-action: manipulation` on controls, `text-size-adjust: 100%`, `viewport-fit=cover`, and no `user-scalable=no`.
+  The timeline's hours change only from the two buttons; zoom, day and the lanes' scroll survive a refresh and a trip
+  into a flight (sessionStorage). `rig/client-ui-check.mjs` loads, opens a flight, focuses the search field and comes
+  back, reading `visualViewport.scale` at each step.
+- **The bundle rule**: everything a client's browser downloads — the portal's scripts and the frame's chunks — carries
+  no agent code and no AIP code. The wall app is split into three chunks (display, console, client); the console gate,
+  the account-theme calls and the AIP API functions live in console-only modules. `rig/bundle-sweep.mjs` reads every
+  downloaded script for the words.
+
 ## The client's shell and menu (2026-11-04)
 `app/client/layout.tsx` reads the client's switches on the server and gives an approved client
 `components/client/ClientShell.tsx`. Its menu is `clientMenu(switches)` from the same allow-list:
-- Flights, Airports and Documents, each only with its switch.
-- A single page is no menu at all.
+- (Until 2026-11-10: Flights, Airports and Documents, each only with its switch. Since: Timeline, Flights and Account,
+  for every approved client — see "The client view v2" above.)
 - A client who can reach nothing gets an empty menu, which is correct and honest.
 - **Account (2026-11-09)** is apart from the menu and there for every approved client: the avatar in the header on a
   desk, the last tab on a phone. `/client/account` says who is signed in and for which company, changes the password,

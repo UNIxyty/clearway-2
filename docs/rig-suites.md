@@ -133,8 +133,9 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | self-promotion-check | 12 | 2026-10-20 |
 | temporary-access-check | 24 | 2026-10-21 |
 | client-scope-check | 64 | 2026-11-09 |
-| client-ui-check | 183 (Account at 1440 and 390 in both themes, a real password change, the phone's back gesture and Flights tab) | 2026-11-09 |
-| client-feed-check | 58 (what a client's browser is given of a flight: the listed fields, ops' notes only by switch; invented notes it makes and removes) | 2026-11-09 |
+| client-ui-check | 324 (the client view v2: Admin › Clients approval with the nine switches; the shell, the frame and the Board at 1440/390/360 light and dark; Flights with search; a flight as panel and page; the map and the passengers sheet; Operators & aircraft saved on the account; the start page; Account with start page, appearance, grants and a real password change; the zoom check; the retired pages 404) | 2026-11-10 |
+| client-feed-check | 67 (what a client's browser is given of a flight: the listed fields, ops' notes only by switch; the retired wall reads 404; coords and passenger names; invented notes it makes and removes) | 2026-11-10 |
+| email-templates | 20 templates × 11 (every email template built with sample values, sent once to the mail mock, rendered at 660/375 light and dark; escaping, preheader, Outlook button, UTC times, no raw variable, no internal hostname) | 2026-11-10 |
 | clients-page-check | 41 (red on the pre-fix page: padding ×6, past the edge at 1250, focus; `CLIENTS_CHECK_SELFTEST=overlap` turns the overlap assertion red) | 2026-11-02 |
 | client-onboarding-check | 60 | 2026-11-09 |
 | files-route-check | 9 (red on 1b3fbbf1: another person read a help draft through /files) | 2026-11-02 |

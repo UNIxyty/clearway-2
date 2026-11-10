@@ -9,7 +9,7 @@ import { errorText } from '../services/errorText';
 import { STATUS_WORD, statusSentence, fetchPassengers } from './clientApi';
 import { prepareNotams } from '../../../shared/notam-parse.mjs';
 import { notamCardHtml } from '../../../shared/notam-card.mjs';
-import notamCardCss from '../../../shared/notam-card.css?raw';
+import '../../../shared/notam-card.css';
 
 const SW = { scheduled: 'var(--tl-scheduled)', delayed: 'var(--tl-delayed)', ctot: 'var(--tl-ctot)', airborne: 'var(--tl-flying)', arrived: 'var(--tl-arrived)', cancelled: 'transparent' };
 
@@ -107,7 +107,6 @@ export default function ClientFlightBody({ p, me, names = {}, info, extraTop = n
   const paxOn = (me?.passengerLevel && me.passengerLevel !== 'off') && !canc;
   return (
     <div className="cwc-body">
-      <style>{notamCardCss}</style>
       <div className="cwc-top">
         <StatusChip status={p.status} />
         <p className="cwc-sentence">{statusSentence(p, names)}</p>

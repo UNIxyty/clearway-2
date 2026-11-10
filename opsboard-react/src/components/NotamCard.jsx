@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import { notamCardHtml } from '../../../shared/notam-card.mjs';
 import { parseNotam } from '../../../shared/notam-parse.mjs';
-import notamCardCss from '../../../shared/notam-card.css?raw';
+import '../../../shared/notam-card.css';
 import { buildHighlightGroups } from './NotamText';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -25,7 +25,7 @@ export function highlightHtml(text, compiled) {
 }
 
 /** Loaded once per page: the card's stylesheet. */
-export function NotamCardStyles() { return <style>{notamCardCss}</style>; }
+export function NotamCardStyles() { return null; } // the stylesheet comes with this module's import
 
 /**
  * @param notam    an annotated NOTAM (wall: fields, matches, status, inWindow) or a stored item (fields are parsed here)

@@ -46,18 +46,21 @@ export function setChoice(choice, { save = true } = {}) {
   try { localStorage.setItem(THEME_KEY, choice); } catch { /* private mode: still applies for this page */ }
   applyPortalTheme(choice);
   window.dispatchEvent(new CustomEvent(EVENT, { detail: choice }));
-  if (save) {
-    fetch('/api/user/preferences', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ theme: choice }) }).catch(() => {});
-  }
+  if (save) saveHook?.(choice);
 }
+
+// The account-side calls (the portal's /api/user/preferences) are the console's business: components/console/
+// accountTheme.js installs them. The client surface never loads them, so this shared chunk carries no staff address
+// (rig/client-allow-check.mjs sweeps what a client's browser downloads, 2026-11-10).
+let saveHook = null;
+let adoptHook = null;
+export function installAccountTheme({ save, adopt }) { saveHook = save; adoptHook = adopt; }
 
 /** The account's saved choice wins over this device's (it is the one the person last made, anywhere). */
 export async function adoptAccountChoice() {
   try {
-    const r = await fetch('/api/user/preferences', { headers: { accept: 'application/json' } });
-    if (!r.ok) return;
-    const prefs = (await r.json())?.preferences ?? {};
-    if (isChoice(prefs.theme) && prefs.theme !== readChoice()) setChoice(prefs.theme, { save: false });
+    const prefs = adoptHook ? await adoptHook() : null;
+    if (prefs && isChoice(prefs.theme) && prefs.theme !== readChoice()) setChoice(prefs.theme, { save: false });
     if (isMotion(prefs.motion) && prefs.motion !== readMotion()) {
       try { localStorage.setItem(MOTION_KEY, prefs.motion); } catch { /* private mode */ }
       applyPortalMotion(prefs.motion);

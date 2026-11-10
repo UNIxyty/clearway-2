@@ -188,6 +188,7 @@ for (const theme of ["light", "dark"]) {
     await opened.waitFor({ timeout: 15000 }).catch(() => {});
     ok(await opened.count() === 1, `${tag} flight ${fn}: opens as a ${PHONE(width) ? "page" : "side panel"}`);
     await opened.locator('[data-section="weather"] [data-card="weather"], [data-section="weather"] .cwc-muted').first().waitFor({ timeout: 20000 }).catch(() => {});
+    await opened.locator('[data-section="notams"], [data-section="passengers"]').first().waitFor({ timeout: 20000 }).catch(() => {}); // drawn once /api/flight-info has answered
     ok(await opened.locator('[data-card="times"]').count() === 1 && await opened.locator('[data-section="weather"]').count() === 1 && await opened.locator('[data-section="notams"]').count() === 1 && await opened.locator('[data-section="limitations"][data-card="limitations"]').count() === 1 && await opened.locator('[data-section="passengers"]').count() === 1, `${tag} flight ${fn}: times, weather, NOTAMs, limitations and passengers — their switches and level`);
     ok(await opened.locator('[data-section="important"]').count() === 0 && await opened.locator('[data-section="caa"]').count() === 0, `${tag} flight ${fn}: no notices and no authority sections — switches off add nothing`);
     await readPax(page, '[data-section="passengers"]');
@@ -242,8 +243,11 @@ for (const theme of ["light", "dark"]) {
     const grantsText = (await page.locator('[data-card="grants"]').innerText().catch(() => "")).replace(/\s+/g, " ");
     ok(await page.locator('[data-card="grants"] [data-grant]').count() >= 1 && /LY-TST/.test(grantsText) && await page.locator("[data-grants-empty]").count() === 0, `${at}: the grants card lists their operator and LY-TST`, grantsText.slice(0, 100));
     ok((await page.locator('[data-card="help"] [data-client-contact] a').getAttribute("href")) === `mailto:${contact}`, `${at}: the help card carries the address to write to`);
-    const small = await page.locator('[data-tab="account"] button, [data-tab="account"] input').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().height < 43.5).map((e) => `${e.tagName.toLowerCase()} ${Math.round(e.getBoundingClientRect().height)}px`));
-    ok(small.length === 0, `${at}: every button and field is at least 44px tall`, small.join(", "));
+    // 44 px targets are the phone's rule (design "Phone Views"); on a desk the design's own controls are 32–40 px
+    if (PHONE(width)) {
+      const small = await page.locator('[data-tab="account"] button, [data-tab="account"] input').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().height < 43.5).map((e) => `${e.tagName.toLowerCase()} ${Math.round(e.getBoundingClientRect().height)}px`));
+      ok(small.length === 0, `${at}: every button and field is at least 44px tall`, small.join(", "));
+    }
     const wide = await page.locator('[data-tab="account"] *').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1).length);
     ok(wide === 0, `${at}: nothing runs past the edge of the screen`, wide);
     if (PHONE(width)) {

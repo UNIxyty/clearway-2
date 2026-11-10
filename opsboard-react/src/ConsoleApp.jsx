@@ -1,3 +1,4 @@
+import './components/console/accountTheme';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth, useCanAction } from './AuthGate';
 import Icon from './components/console/icons';

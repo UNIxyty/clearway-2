@@ -18,9 +18,9 @@ import { PHONE_MAX, applyHidden, fetchMe, fetchPrefs, fetchSyncStatus, normalise
 import { clientWallColors } from './clientColors';
 import ClientDesk from './ClientDesk';
 import ClientPhone from './ClientPhone';
-import portalTokensCss from '../../../shared/portal-tokens.css?raw';
-import clientTokensCss from '../../../shared/client-tokens.css?raw';
-import timelineTokensCss from '../../../shared/timeline-tokens.css?raw';
+import '../../../shared/portal-tokens.css';
+import '../../../shared/client-tokens.css';
+import '../../../shared/timeline-tokens.css';
 import './client.css';
 
 const POLL_MS = 60_000;
@@ -133,8 +133,7 @@ export default function ClientApp() {
   return (
     <WallColorsProvider colors={colors}>
       <WallDisplayProvider settings={{}}>
-        {/* the portal's tokens, so the client surface follows the portal's theme (the console does the same) */}
-        <style>{portalTokensCss}{clientTokensCss}{timelineTokensCss}</style>
+        {/* the portal's tokens come with this chunk's stylesheet, so the client surface follows the portal's theme */}
         <div data-client-surface={width <= PHONE_MAX ? 'phone' : 'desk'} data-theme={theme} className="cw-client">
           {width <= PHONE_MAX ? <ClientPhone {...shared} /> : <ClientDesk {...shared} />}
         </div>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Suspense, createContext, lazy, useContext, useEffect, useRef, useState } from 'react';
 import { fetchCurrentUser } from './services/timelineApi';
 import {
   announceThisDevice,
@@ -11,7 +11,9 @@ import {
 import { getDeviceId } from './services/device';
 import { resetWallStream, subscribeWallStream } from './services/wallStream';
 import { errorText } from './services/errorText';
-import ConsoleGate from './components/console/ConsoleGate';
+// the console's sign-in gate is the console's own chunk (2026-11-10): the console kit's token CSS strings must not ride
+// in the chunk every surface loads (a client's browser downloads that one)
+const ConsoleGate = lazy(() => import('./components/console/ConsoleGate'));
 
 // `booting`: the console surface renders its shell while the session is still being checked (wall console Stage 1:
 // the top bar, nav and page title paint on the first frame; role-dependent slots hold their space as skeletons).
@@ -257,7 +259,7 @@ export default function AuthGate({ surface = 'display', children }) {
         </div>
       );
     }
-    if (!isDisplay) return <ConsoleGate loginHref={loginHref()} />;
+    if (!isDisplay) return <Suspense fallback={null}><ConsoleGate loginHref={loginHref()} /></Suspense>;
     return (
       <div style={s.center}>
         <div style={s.card}>

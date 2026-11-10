@@ -2,7 +2,7 @@
 // check, exit 1 on any finding:
 //
 //   1. CONSOLE files (opsboard-react/src/components/console/*, ConsoleApp.jsx, hooks/useAgentDock.jsx,
-//      theme/portalTheme.js) carry no
+//      theme/portalTheme.js, and since 2026-11-10 the client surface src/client/* and components/NotamCard.jsx) carry no
 //      hard-coded colour: no hex, no rgb()/rgba()/hsl() with literal numbers, no named colour as a value. Every colour
 //      is a --cw-* / --ca-* / --mx-* token (the kit's `t`). A line that must hold a literal (a colour picker's own
 //      gradients, a cursor ring that reads on any colour, identity colours) says why and ends in `// colour-data`;
@@ -22,7 +22,9 @@ const files = [];
 const walk = (d) => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) walk(p); else if (/\.(jsx?|css)$/.test(f.name)) files.push(p); } };
 walk(SRC);
 const rel = (p) => path.relative(ROOT, p);
-const isConsole = (p) => /opsboard-react\/src\/(components\/console\/|ConsoleApp\.jsx|hooks\/useAgentDock\.jsx|theme\/portalTheme\.js)/.test(p);
+// The client surface (opsboard-react/src/client/*, components/NotamCard.jsx; 2026-11-10) is themed by the portal like the
+// console, so it follows the console's rule: tokens only, literals marked colour-data (its wall palette for the Board is one).
+const isConsole = (p) => /opsboard-react\/src\/(components\/console\/|ConsoleApp\.jsx|hooks\/useAgentDock\.jsx|theme\/portalTheme\.js|client\/|components\/NotamCard\.jsx)/.test(p);
 
 const NAMED = "white|black|red|green|blue|gray|grey|silver|orange|yellow|purple|navy|teal|maroon|olive|lime|aqua|fuchsia|pink|gold";
 const RULES = [

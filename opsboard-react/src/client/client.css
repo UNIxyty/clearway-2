@@ -97,7 +97,7 @@
 .cwd-row-main b { font-size: 14px; font-weight: 650; }
 .cwd-row-main small { font-size: 12.5px; color: var(--cw-text-muted); }
 .cwd-toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--cw-border-strong); position: relative; flex: none; }
-.cwd-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--cw-knob, #fff); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: left 150ms; }
+.cwd-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--cw-knob, var(--cw-bg-surface)); box-shadow: var(--cw-shadow-1); transition: left 150ms; }
 .cwd-toggle.is-on { background: var(--cw-primary); }
 .cwd-toggle.is-on::after { left: 18px; }
 .cwd-toggle.is-small { width: 32px; height: 18px; }

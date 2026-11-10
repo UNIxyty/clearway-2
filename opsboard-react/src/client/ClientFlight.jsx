@@ -80,7 +80,7 @@ function Passengers({ p }) {
   const [st, setSt] = useState({ state: 'loading', rows: [], error: '' });
   useEffect(() => {
     let stop = false;
-    fetchPassengers(p.flightNid, p.oprId).then((d) => { if (!stop) setSt({ state: 'ok', rows: d.passengers || [], error: '' }); }).catch((e) => { if (!stop) setSt({ state: 'failed', rows: [], error: e.message }); });
+    fetchPassengers(p.flightNid, p.oprId).then((d) => { if (!stop) setSt({ state: 'ok', rows: d.passengers || [], error: '' }); }).catch((e) => { console.error('[passengers]', e); if (!stop) setSt({ state: 'failed', rows: [], error: 'The passenger list could not be read right now.' }); });
     return () => { stop = true; };
   }, [p.flightNid, p.oprId]);
   if (st.state === 'loading') return <p className="cwc-muted">Reading the passenger list…</p>;

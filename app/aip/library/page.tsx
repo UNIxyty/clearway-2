@@ -61,7 +61,7 @@ export default function AipLibraryPage() {
   const input = useRef<HTMLInputElement>(null);
   const load = async () => {
     try { const r = await fetch("/api/aip/library", { cache: "no-store" }); const d = await r.json(); if (!r.ok || !d.ok) throw new Error(d.error || `The library answered ${r.status}.`); setTable(d); setError(""); }
-    catch (e) { setError(e instanceof Error && e.message ? e.message : "The AIP library could not be read."); }
+    catch (e) { console.error("[aip-library]", e); setError("The AIP library could not be read. Try again in a minute."); }
   };
   useEffect(() => { void load(); setRecent(readRecent()); const on = () => setPhone(window.innerWidth < 700); on(); window.addEventListener("resize", on); return () => window.removeEventListener("resize", on); }, []);
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "/" && document.activeElement !== input.current && !/input|textarea/i.test((document.activeElement as HTMLElement)?.tagName || "")) { e.preventDefault(); input.current?.focus(); } }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, []);

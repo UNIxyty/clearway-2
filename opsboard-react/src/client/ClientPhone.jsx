@@ -15,7 +15,7 @@ const H = 3600_000;
 
 function PaxSheet({ p, onClose }) {
   const [st, setSt] = useState({ state: 'loading', rows: [] });
-  useEffect(() => { let stop = false; fetchPassengers(p.flightNid, p.oprId).then((d) => { if (!stop) setSt({ state: 'ok', rows: d.passengers || [] }); }).catch((e) => { if (!stop) setSt({ state: 'failed', rows: [], error: e.message }); }); return () => { stop = true; }; }, [p.flightNid, p.oprId]);
+  useEffect(() => { let stop = false; fetchPassengers(p.flightNid, p.oprId).then((d) => { if (!stop) setSt({ state: 'ok', rows: d.passengers || [] }); }).catch((e) => { console.error('[passengers]', e); if (!stop) setSt({ state: 'failed', rows: [], error: 'The passenger list could not be read right now.' }); }); return () => { stop = true; }; }, [p.flightNid, p.oprId]);
   return (
     <>
       <div className="cwp-scrim" onClick={onClose} />

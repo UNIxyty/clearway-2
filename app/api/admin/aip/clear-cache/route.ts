@@ -16,6 +16,7 @@ const CACHE_DIRS = [
   "aip/gen-pdf",
   "aip/scraper-gen-pdf",
   "aip/non-ead-gen-pdf",
+  "aip/enr-pdf",
   // Extracted JSON data (per-airport, auto-re-synced)
   "aip/ead",
   "aip/scraper",

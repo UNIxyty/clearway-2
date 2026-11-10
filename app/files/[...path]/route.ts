@@ -27,6 +27,8 @@ const SERVED: Array<{ re: RegExp; why: string }> = [
   { re: /^aip\/(ead|asecna|scraper|usa)-pdf\/[A-Za-z0-9._-]+\.pdf$/, why: "published AIP aerodrome chapters; no owner" },
   // AIP GEN copies: published, the same for every reader (the document viewer opens them by this path)
   { re: /^aip\/(gen|usa-gen|scraper-gen)-pdf\/[A-Za-z0-9._ -]+\.pdf$/, why: "published AIP GEN sections; no owner" },
+  // AIP ENR copies (2026-11-10): the same, for ENR 1.1
+  { re: /^aip\/enr-pdf\/[A-Za-z0-9._ -]+\.pdf$/, why: "published AIP ENR sections; no owner" },
 ];
 const served = (key: string) => SERVED.some((x) => x.re.test(key));
 

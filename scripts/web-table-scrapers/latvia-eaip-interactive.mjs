@@ -27,6 +27,9 @@ const downloadAd2Icao = (() => {
   return i >= 0 ? String(process.argv[i + 1] || "").trim().toUpperCase() : "";
 })();
 const downloadGen12 = process.argv.includes("--download-gen12");
+// ENR 1.1 the way GEN 1.2 goes (bug report 8 item 2.5, 2026-11-10): the same issue, the same PDF folder on the site.
+const downloadEnr11 = process.argv.includes("--download-enr11");
+const OUT_ENR = join(PROJECT_ROOT, "downloads", "latvia-eaip", "ENR");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -99,6 +102,9 @@ function parseAd2Entries(menuHtml, menuUrl) {
 function gen12PdfUrl(issueIndexUrl) {
   return new URL("../pdf/EV_GEN_1_2_en.pdf", issueIndexUrl).href;
 }
+function enr11PdfUrl(issueIndexUrl) {
+  return new URL("../pdf/EV_ENR_1_1_en.pdf", issueIndexUrl).href;
+}
 
 function ad2PdfUrl(issueIndexUrl, icao) {
   return new URL(`../pdf/EV_AD_2_${icao}_en.pdf`, issueIndexUrl).href;
@@ -137,6 +143,11 @@ async function main() {
   if (downloadGen12) {
     mkdirSync(OUT_GEN, { recursive: true });
     await downloadPdf(gen12PdfUrl(ctx.issueIndexUrl), join(OUT_GEN, `${dateTag}_GEN-1.2.pdf`), ctx.menuUrl);
+    return;
+  }
+  if (downloadEnr11) {
+    mkdirSync(OUT_ENR, { recursive: true });
+    await downloadPdf(enr11PdfUrl(ctx.issueIndexUrl), join(OUT_ENR, `${dateTag}_ENR-1.1.pdf`), ctx.menuUrl);
     return;
   }
 

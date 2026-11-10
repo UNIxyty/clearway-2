@@ -32,6 +32,10 @@ const RUN_TIMEOUT_MS = 600_000; // 10 min per step (large AD2 PDFs can be slow o
 const DOWNLOAD_SCRIPT = "scripts/ead-download-aip-pdf.mjs";
 const RUS_DOWNLOAD_SCRIPT = join(PROJECT_ROOT, "scripts", "rus_aip_download_by_icao.py");
 const GEN_SCRIPT = "scripts/ead-download-gen-pdf.mjs";
+// ENR (bug report 8 item 2.5, 2026-11-10): ENR 1.1 the way GEN is GEN 1.2 — the EAD script that existed unwired, and a
+// scraper that declares enrDir (Latvia first). Stored as aip/enr-pdf/<PREFIX>-ENR-1.1.pdf with the same revision record.
+const ENR_SCRIPT = "scripts/ead-download-enr-pdf.mjs";
+const EAD_ENR_DIR = join(PROJECT_ROOT, "data", "ead-enr");
 const RUSSIA_ICAO_PREFIXES = new Set(["UE", "UH", "UI", "UL", "UN", "UR", "US", "UU", "UW"]);
 const RWANDA_ICAO_PREFIX = "HR";
 const EAD_COUNTRY_ICAOS_PATH = join(PROJECT_ROOT, "data", "ead-country-icaos.json");
@@ -393,6 +397,7 @@ const SCRAPER_COUNTRY_SPECS = [
     script: "scripts/web-table-scrapers/latvia-eaip-interactive.mjs",
     ad2Dir: join(PROJECT_ROOT, "downloads", "latvia-eaip", "AD2"),
     genDir: join(PROJECT_ROOT, "downloads", "latvia-eaip", "GEN"),
+    enrDir: join(PROJECT_ROOT, "downloads", "latvia-eaip", "ENR"),   // --download-enr11 (2026-11-10)
   },
   {
     country: "Lithuania",
@@ -1140,6 +1145,39 @@ function findDownloadedGenPdf(icao, prefix, preferScraper = false) {
   return existsSync(eadGenPdf) ? eadGenPdf : null;
 }
 
+/**
+ * ENR 1.1 for one prefix (2026-11-10): the country's own source first (a scraper spec with enrDir and --download-enr11),
+ * else EAD Basic (the same terms and access as GEN: a logged-in read of one document, no bulk). A source that cannot
+ * give ENR throws with code "no-source" and the reason; nothing else is fetched in its place.
+ */
+async function runEnrDownload(prefix) {
+  const spec = SCRAPER_COUNTRY_SPECS.find((x) => x.prefixes.includes(prefix) && x.enrDir);
+  let pdfPath = null; let source = null;
+  if (spec) {
+    await run("node", [spec.script, "--download-enr11"], process.env);
+    const files = existsSync(spec.enrDir) ? readdirSync(spec.enrDir).filter((f) => /ENR[-_. ]?1[._-]?1/i.test(f) && f.endsWith(".pdf")).map((f) => join(spec.enrDir, f)).sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs) : [];
+    if (!files.length) throw Object.assign(new Error(`${spec.country}: the scraper ran but saved no ENR 1.1 PDF`), { code: "no-file" });
+    pdfPath = files[0]; source = "scraper-enr";
+  } else if (EAD_ENR_PREFIXES.has(prefix)) {
+    mkdirSync(EAD_ENR_DIR, { recursive: true });
+    if (useXvfb()) await run("xvfb-run", ["-a", "-s", "-screen 0 1920x1200x24", "node", ENR_SCRIPT, prefix]);
+    else await run("node", [ENR_SCRIPT, prefix], process.env);
+    pdfPath = join(EAD_ENR_DIR, `${prefix}-ENR-1.1.pdf`);
+    if (!existsSync(pdfPath)) throw Object.assign(new Error(`EAD: no ENR 1.1 document was saved for ${prefix}`), { code: "no-file" });
+    source = "ead-enr";
+  } else {
+    throw Object.assign(new Error(`No ENR source for ${prefix}: its national scraper has no ENR step yet and EAD does not list it`), { code: "no-source" });
+  }
+  const body = readFileSync(pdfPath);
+  if (body.length < 32 || !body.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error(`Invalid ENR PDF artifact for ${prefix}: ${pdfPath}`);
+  const key = `aip/enr-pdf/${prefix}-ENR-1.1.pdf`;
+  await saveFile(key, body);
+  await saveRevisionMeta({ key, icao: prefix, source, body, pdfPath });
+  return { key, source, bytes: body.length };
+}
+// The prefixes the EAD ENR script knows (scripts/ead-download-enr-pdf.mjs PREFIX_TO_COUNTRY).
+const EAD_ENR_PREFIXES = new Set(["LA", "LO", "EB", "LB", "LK", "EK", "EE", "EF", "LF", "ED", "LG", "LH", "EI", "LI", "EV", "EY", "EL", "LM", "EH", "EP", "LP", "LR", "LZ", "LJ", "LE", "ES", "GC"]);
+
 async function uploadGenPdfToS3(icao, prefix, namespace = "gen-pdf") {
   const pdfPath = findDownloadedGenPdf(icao, prefix, namespace === "scraper-gen-pdf");
   if (!pdfPath) {
@@ -1265,6 +1303,24 @@ const server = createServer(async (req, res) => {
     return;
   }
   // —— /sync/gen: GEN-only sync (separate from AIP) ——
+  // —— /sync/enr: ENR 1.1 for a prefix (or the ICAO's prefix), through the country's own source when it has one, else EAD ——
+  if (url.pathname === "/sync/enr" || url.pathname === "/sync/enr/") {
+    const prefix = icao.length >= 2 ? icao.slice(0, 2).toUpperCase() : (url.searchParams.get("prefix")?.trim().toUpperCase() || "");
+    if (!/^[A-Z]{2}$/.test(prefix)) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Valid icao or prefix required (e.g. icao=EVRA or prefix=EV)" })); return; }
+    if (!requireAuth(req)) { res.writeHead(401, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
+    res.setHeader("Content-Type", "application/json");
+    try {
+      const out = await runEnrDownload(prefix);
+      res.writeHead(200); res.end(JSON.stringify({ ok: true, prefix, ...out }));
+    } catch (enrErr) {
+      console.error("ENR sync failed for", prefix, enrErr.message);
+      const fail = syncFailurePayload(enrErr);
+      res.writeHead(fail.code === 402 ? 402 : enrErr.code === "no-source" ? 404 : 502);
+      res.end(JSON.stringify({ error: "ENR sync failed", detail: enrErr.message, ...(enrErr.code ? { code: enrErr.code } : {}) }));
+    }
+    return;
+  }
+
   if (url.pathname === "/sync/gen" || url.pathname === "/sync/gen/") {
     const prefix = icao.length >= 2 ? icao.slice(0, 2).toUpperCase() : (url.searchParams.get("prefix")?.trim().toUpperCase() || "");
     const effectivePrefix = SPAIN_LE_GEN_ALIAS_ICAOS.has(icao) ? "LE" : prefix;

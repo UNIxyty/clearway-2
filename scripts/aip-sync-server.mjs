@@ -17,7 +17,9 @@ import { deleteFile, readFile as readStorageFile, saveFile } from "../lib/storag
 import { buildRevisionMeta, metaKeyFor } from "../lib/aip-revision-meta.mjs";
 import { basename } from "path";
 import { logError, logInfo } from "../lib/utils/logger.mjs";
-import { runRefresh as runAipRefresh, tick as aipRefreshTick, readState as readAipRefreshState } from "./aip-refresh.mjs";
+import { runRefresh as runAipRefresh, tick as aipRefreshTick, readState as readAipRefreshState, cycleInForce } from "./aip-refresh.mjs";
+import { statfs } from "fs/promises";
+import { STORAGE_ROOT } from "../lib/storage.mjs";
 import { runLibraryCheck, libraryCheckDue, libraryTable } from "./aip-library.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1150,6 +1152,37 @@ function findDownloadedGenPdf(icao, prefix, preferScraper = false) {
  * else EAD Basic (the same terms and access as GEN: a logged-in read of one document, no bulk). A source that cannot
  * give ENR throws with code "no-source" and the reason; nothing else is fetched in its place.
  */
+// ENR copies (2026-11-10): one per prefix, kept per AIRAC cycle. A copy fetched in the cycle in force is served as it is
+// (cache); a new cycle fetches it again — on the first read of the cycle, and once per cycle by the half-hour tick below
+// for every copy on file. No download below the disk floor: the storage disk keeps 15 GB free, whatever is asked.
+const ENR_DIR_KEY = "aip/enr-pdf";
+const DISK_FLOOR_BYTES = Number(process.env.AIP_DISK_FLOOR_GB || 15) * 1024 ** 3;
+async function storageFreeBytes() { try { const s = await statfs(STORAGE_ROOT); return s.bavail * s.bsize; } catch { return null; } }
+async function enrMetaOf(prefix) { try { const raw = await readStorageFile(metaKeyFor(`${ENR_DIR_KEY}/${prefix}-ENR-1.1.pdf`)); return JSON.parse(raw.toString("utf8")); } catch { return null; } }
+/** Is the stored ENR copy from the cycle in force? (fetched on or after the cycle's effective date) */
+function enrCopyCurrent(meta, now = new Date()) {
+  const cycle = cycleInForce(now); if (!cycle || !meta?.fetchedAt) return false;
+  return Date.parse(meta.fetchedAt) >= Date.parse(`${cycle.effective}T00:00:00Z`);
+}
+function enrCopiesOnFile() {
+  try { return readdirSync(join(STORAGE_ROOT, ENR_DIR_KEY)).filter((f) => /^[A-Z]{2}-ENR-1\.1\.pdf$/.test(f)).map((f) => f.slice(0, 2)); } catch { return []; }
+}
+let enrRefreshRunning = false;
+const enrRefreshFailedAt = new Map();   // prefix -> ms; a failed refresh waits 6 h before the next try (no EAD login every half hour)
+async function enrRefreshTick() {
+  if (enrRefreshRunning) return; enrRefreshRunning = true;
+  try {
+    for (const prefix of enrCopiesOnFile()) {
+      if (enrCopyCurrent(await enrMetaOf(prefix))) continue;
+      if (Date.now() - (enrRefreshFailedAt.get(prefix) ?? 0) < 6 * 3600_000) continue;
+      try { const out = await runEnrDownload(prefix); enrRefreshFailedAt.delete(prefix); logInfo("AIP-ENR", `refreshed ${prefix} for the cycle in force (${out.bytes} bytes via ${out.source})`); }
+      catch (e) { enrRefreshFailedAt.set(prefix, Date.now()); logError("AIP-ENR", `refresh of ${prefix} failed (${e.code ?? "error"})`, e); }
+      await new Promise((r) => setTimeout(r, Number(process.env.AIP_REFRESH_PAUSE_MS || 20000)));
+    }
+  } finally { enrRefreshRunning = false; }
+}
+if (process.env.AIP_REFRESH_SCHEDULE !== "off") { setTimeout(() => void enrRefreshTick(), 7 * 60_000); setInterval(() => void enrRefreshTick(), 30 * 60_000); }
+
 /** The text of a PDF's first pages (pdf-parse; empty when it cannot be read, so a caller never refuses on a read failure). */
 async function pdfTextOf(buf, maxPages = 2) {
   try {
@@ -1164,6 +1197,8 @@ async function pdfTextOf(buf, maxPages = 2) {
 }
 
 async function runEnrDownload(prefix) {
+  const free = await storageFreeBytes();
+  if (free != null && free < DISK_FLOOR_BYTES) throw Object.assign(new Error(`No download: the storage disk has ${(free / 1024 ** 3).toFixed(1)} GB free, under the ${DISK_FLOOR_BYTES / 1024 ** 3} GB floor`), { code: "disk-floor" });
   const spec = SCRAPER_COUNTRY_SPECS.find((x) => x.prefixes.includes(prefix) && x.enrDir);
   let pdfPath = null; let source = null;
   if (spec) {
@@ -1327,12 +1362,14 @@ const server = createServer(async (req, res) => {
     if (!requireAuth(req)) { res.writeHead(401, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Unauthorized" })); return; }
     res.setHeader("Content-Type", "application/json");
     try {
+      const have = await enrMetaOf(prefix);
+      if (have && enrCopyCurrent(have) && url.searchParams.get("force") !== "1") { res.writeHead(200); res.end(JSON.stringify({ ok: true, prefix, key: `${ENR_DIR_KEY}/${prefix}-ENR-1.1.pdf`, source: have.source ?? null, bytes: have.bytes ?? null, cached: true, fetchedAt: have.fetchedAt, airac: cycleInForce()?.airac ?? null })); return; }
       const out = await runEnrDownload(prefix);
-      res.writeHead(200); res.end(JSON.stringify({ ok: true, prefix, ...out }));
+      res.writeHead(200); res.end(JSON.stringify({ ok: true, prefix, ...out, cached: false, airac: cycleInForce()?.airac ?? null }));
     } catch (enrErr) {
       console.error("ENR sync failed for", prefix, enrErr.message);
       const fail = syncFailurePayload(enrErr);
-      res.writeHead(fail.code === 402 ? 402 : enrErr.code === "no-source" ? 404 : 502);
+      res.writeHead(fail.code === 402 ? 402 : enrErr.code === "no-source" ? 404 : enrErr.code === "disk-floor" ? 507 : 502);
       res.end(JSON.stringify({ error: "ENR sync failed", detail: enrErr.message, ...(enrErr.code ? { code: enrErr.code } : {}) }));
     }
     return;

@@ -121,8 +121,15 @@ export async function resolveCountry(country, { log = () => {} } = {}) {
     out.lastResult = r.ok ? "EAD login page answers; parts need a login" : `Official page failed: ${out.links.official.why}`;
     return out;
   }
-  const first = await get(country.official);
+  let first = await get(country.official);
   out.links.official = { url: country.official, state: first.ok ? "ok" : "failed", why: first.ok ? "Opens" : first.error || `HTTP ${first.status}`, source: country.officialSource };
+  if (!first.ok && first.status === 404) {
+    // A link with a cycle date in its path goes stale when the publisher moves to the next edition (2026-11-10: France,
+    // Germany, Lithuania, Hong Kong…). The publisher's home page then still opens: offer it, and say the deep link moved.
+    const home = new URL(country.official).origin + "/";
+    const r2 = home !== country.official ? await get(home) : { ok: false };
+    if (r2.ok) { out.links.official = { url: home, state: "ok", why: "The dated link moved; the publisher's home page opens", source: country.officialSource }; first = r2; }
+  }
   if (!first.ok) {
     out.links.gen = { url: null, state: "failed", why: `Official page failed: ${out.links.official.why}`, source: null };
     out.links.enr = { ...out.links.gen };

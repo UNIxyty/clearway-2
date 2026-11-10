@@ -19,7 +19,9 @@ import path from "node:path";
 import { JsonFileStore } from "./json-store.mjs";
 import { getNotams, portalConfigured } from "./portal-client.mjs";
 import { flightVisibleInWindow } from "../leon-sync.mjs";
-import { mailerConfigured, renderTemplateFile, sendEmail } from "./mailer.mjs";
+import { mailerConfigured, sendEmail } from "./mailer.mjs";
+import { buildEmail } from "../../shared/email/templates.mjs";
+import { fmtZ } from "../../shared/email/layout.mjs";
 import { errorDetail, PublicError, REASONS, shownMessage, shownReason } from "./public-error.mjs";
 import {
   compileNotamGroups,
@@ -571,27 +573,19 @@ export class NotamCheckService {
     const subject = reminder
       ? `Reminder: ${remaining} of ${total} airport${total === 1 ? "" : "s"} still need a NOTAM check`
       : `Action needed: check today's NOTAMs (${s.day})`;
-    const template = reminder ? "notam-reminder.html" : "notam-notify.html";
-
-    let html;
+    // the generic notice of the one master layout (shared/email/templates.mjs, 2026-11-10): no design of its own
+    let html, text;
     try {
-      html = await renderTemplateFile(path.resolve(process.cwd(), "templates", template), {
-        subject,
-        dateLine: this.dateLine(),
-        day: s.day,
-        airportCount: String(total),
-        flightCount: String(s.flightCount ?? 0),
-        done: String(done),
-        remaining: String(remaining),
-        link,
-        assetBase,
-        generatedAt: s.ranAt,
-      });
+      const mail = buildEmail("19-notice", { portalUrl: assetBase, supportEmail: "", subject, preheader: reminder ? `${remaining} of ${total} airports still need a NOTAM check.` : `${total} airports for today's flights need a NOTAM check.`, eyebrow: "NOTAM check", headline: reminder ? `${remaining} of ${total} airport${total === 1 ? "" : "s"} still need a NOTAM check` : "Check today's NOTAMs",
+        body: reminder ? `${done} of ${total} airports are marked checked. The rest wait on the NOTAM check page.` : `Today's flights touch ${total} airport${total === 1 ? "" : "s"}. Read the flagged NOTAMs and mark each airport checked.`,
+        details: [["Day", s.day], ["Airports", String(total)], ["Flights", String(s.flightCount ?? 0)], ["Checked", `${done} of ${total}`], ["Run", fmtZ(s.ranAt), { mono: true }]],
+        buttonLabel: "Open the NOTAM check", link, reason: "you are on the NOTAM check list of the Digital Wall (Console › Settings)" });
+      html = mail.html; text = mail.text;
     } catch (error) {
-      return fail(REASONS.notamEmailFailed(), `template ${template} failed to render: ${errorDetail(error)}`);
+      return fail(REASONS.notamEmailFailed(), `the email could not be built: ${errorDetail(error)}`);
     }
 
-    const result = await sendEmail({ to, subject, html, record: { kind: "notam-digest" } });
+    const result = await sendEmail({ to, subject, html, text, record: { kind: "notam-digest" } });
     if (!result.ok) return fail(REASONS.notamEmailFailed(), `send failed (see the [mailer] line above)`);
 
     s.emailError = null;

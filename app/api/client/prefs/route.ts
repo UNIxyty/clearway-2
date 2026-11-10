@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 type Prefs = { start: "timeline" | "flights" | null; hidden: { operators: string[]; registrations: string[] } };
 
 const list = (v: unknown, upper: boolean) => (Array.isArray(v) ? [...new Set(v.map((x) => String(x).trim()).filter((x) => x && x.length <= 16).map((x) => (upper ? x.toUpperCase() : x.toLowerCase())))].slice(0, 200) : []);
-export function normalisePrefs(p: unknown): Prefs {
+function normalisePrefs(p: unknown): Prefs {
   const o = (p && typeof p === "object" ? p : {}) as Record<string, unknown>;
   const hidden = (o.hidden && typeof o.hidden === "object" ? o.hidden : {}) as Record<string, unknown>;
   return { start: o.start === "flights" ? "flights" : o.start === "timeline" ? "timeline" : null, hidden: { operators: list(hidden.operators, false), registrations: list(hidden.registrations, true) } };

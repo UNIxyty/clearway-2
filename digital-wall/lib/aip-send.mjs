@@ -8,7 +8,9 @@
 
 import crypto from "node:crypto";
 import { fetchAipPdfBuffer, fetchGenPdfBuffer } from "./portal-client.mjs";
-import { escapeHtml, renderTemplateFile, sendEmail, mailerConfigured } from "./mailer.mjs";
+import { escapeHtml, sendEmail, mailerConfigured } from "./mailer.mjs";
+import { buildEmail } from "../../shared/email/templates.mjs";
+import { fmtZ } from "../../shared/email/layout.mjs";
 import path from "node:path";
 import { errorDetail, PublicError, REASONS, shownReason } from "./public-error.mjs";
 import { dayLong, datedFilename, olderThanCycle, stampCachedCopy } from "./aip-stamp.mjs";
@@ -121,56 +123,32 @@ export class AipSendService {
 
     // Stage 3: build + send the email.
     this.update(job, { stage: "emailing" });
-    // Branded template (Email Templates.dc.html "B · Documents"): one row per
-    // requested document — green check + PDF meta when attached, red cross +
-    // reason when not. Rows are pre-escaped here and injected raw.
-    const docRows = job.docs
-      .map((d, index) => {
-        const ready = d.status === "ready";
-        const day = dayLong(d.fetchedAt);
-        const old = olderThanCycle(d.fetchedAt);
-        // Anything we email goes to someone who will act on it: each document says when its copy was fetched.
-        const sub = ready
-          ? `${day ? `Cached copy from ${escapeHtml(day)}` : "Cached copy, fetch date unknown"}${old ? " — more than one AIRAC cycle old. Check the current AIP before use." : ". Not refreshed automatically."}${d.source ? ` · source: ${escapeHtml(d.source)}` : ""}` + (d.lastCheck && d.lastCheck.ok === false ? ` The refresh on ${escapeHtml(dayLong(d.lastCheck.at) || "its last run")} failed; this is the last copy fetched.` : "")
-          : escapeHtml(d.error || "This document is not available right now. Try again in a few minutes.");
-        return `
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:${index === 0 ? "0" : "12px 0 0 0"};"><tr>
-                <td width="26" style="vertical-align:top;padding-top:1px;">
-                  <span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:${ready ? "#e7f6ec" : "#fdecec"};color:${ready ? "#15803d" : "#e5484d"};font-size:12px;line-height:20px;text-align:center;font-weight:700;">${ready ? "&#10003;" : "&#10005;"}</span>
-                </td>
-                <td style="vertical-align:top;">
-                  <div style="font-size:14px;font-weight:600;color:${ready ? "#17181c" : "#8a8f98"};line-height:1.35;">${escapeHtml(d.label)}</div>
-                  <div style="font-size:12.5px;color:${ready ? (olderThanCycle(d.fetchedAt) ? "#9a3412" : "#6c7079") : "#b3383c"};${ready && olderThanCycle(d.fetchedAt) ? "font-weight:600;" : ""}margin-top:2px;line-height:1.4;">${sub}</div>
-                </td>
-                <td align="right" style="vertical-align:top;font-family:Consolas,Menlo,monospace;font-size:11.5px;font-weight:600;color:${ready ? "#15803d" : "#e5484d"};white-space:nowrap;padding-left:10px;">${ready ? "PDF" : "FAILED"}</td>
-              </tr></table>`;
-      })
-      .join("");
-    const requestedLine = `REQUESTED ${new Date()
-      .toISOString()
-      .slice(0, 16)
-      .replace("T", " ")}Z`;
+    // The generic notice of the one master layout (shared/email/templates.mjs, 2026-11-10): one line per document — a
+    // cached copy with its fetch date (and a warning when older than a cycle), or the reason it is not attached.
+    const lines = job.docs.map((d) => {
+      const ready = d.status === "ready";
+      const day = dayLong(d.fetchedAt);
+      const old = olderThanCycle(d.fetchedAt);
+      return ready ? `${d.label} — attached. ${day ? `Cached copy from ${day}` : "Cached copy, fetch date unknown"}${old ? ". More than one AIRAC cycle old: check the current AIP before use" : ""}.` : `${d.label} — not attached: ${d.error || "not available right now"}.`;
+    });
     const subjectLine = `[DOCS] ${job.flightNo} ${job.route} — ${attachments.map((a) => a.filename).join(", ")}`;
-    let html;
+    let html, text;
     try {
-      html = await renderTemplateFile(path.resolve(process.cwd(), "templates", "aip-documents.html"), {
-        subject: subjectLine,
-        flightNo: job.flightNo,
-        route: job.route,
-        requestedLine,
-        docCount: String(job.docs.length),
-        docRows,
-      });
+      const mail = buildEmail("19-notice", { portalUrl: String(process.env.PORTAL_BASE_URL || "https://clearway.verxyl.com").replace(/\/+$/, ""), supportEmail: "", subject: subjectLine, preheader: `${attachments.length} document${attachments.length === 1 ? "" : "s"} for ${job.flightNo} ${job.route}.`, eyebrow: "Flight documents", headline: `${job.flightNo} · ${job.route}`,
+        body: `The AIP documents you asked for from the Digital Wall are attached. Each one says when its cached copy was fetched; check the current AIP before use.`, list: { title: `${job.docs.length} document${job.docs.length === 1 ? "" : "s"}`, lines }, details: [["Requested", fmtZ(Date.now()), { mono: true }]], reason: "you asked for these documents from the Digital Wall" });
+      html = mail.html; text = mail.text;
     } catch (error) {
-      // Template missing/broken must never block document delivery.
-      console.error("aip-documents template failed, falling back to plain HTML:", error?.message || error);
+      // The email must never block document delivery.
+      console.error("documents email could not be built, falling back to plain HTML:", error?.message || error);
       html = `<div style="font-family:system-ui,sans-serif;">Flight documents — ${escapeHtml(job.flightNo)} (${escapeHtml(job.route)}). See attachments.</div>`;
+      text = `Flight documents — ${job.flightNo} (${job.route}). See attachments.`;
     }
 
     const result = await sendEmail({
       to: job.to,
       subject: subjectLine,
       html,
+      text,
       attachments,
       record: { kind: "aip-send", by: job.to?.[0] ?? null, ref: job.flightNo ?? null }, // the live status row (mailbox › Sent)
     });

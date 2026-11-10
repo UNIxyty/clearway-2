@@ -40,7 +40,9 @@ import { LeonWebhookService, WEBHOOK_EVENTS } from "./lib/leon-webhooks.mjs";
 import { CHECK_TYPES, FlightChecksStore } from "./lib/flight-checks.mjs";
 import { FLIGHT_RECORD_VERSION, dayBounds, filterFlightRecords, flightRecordsFromTimeline, notamCheckState, sortFlightRecords } from "./lib/flight-record.mjs";
 import { ReportsStore, REPORT_STATUS_LABELS } from "./lib/reports-store.mjs";
-import { escapeHtml, mailerConfigured, renderTemplateFile, sendEmail } from "./lib/mailer.mjs";
+import { mailerConfigured, sendEmail } from "./lib/mailer.mjs";
+import { buildEmail } from "../shared/email/templates.mjs";
+import { fmtZ } from "../shared/email/layout.mjs";
 import {
   deleteAttachmentBytes,
   MAX_ATTACHMENT_BYTES,
@@ -1191,16 +1193,11 @@ const server = http.createServer(async (req, res) => {
         .trim()
         .replace(/\/+$/, "");
       const subject = `[REPORT · ${report.category}] ${report.title}`;
-      const html = await renderTemplateFile(path.resolve(cwd, "templates", "report.html"), {
-        subject,
-        category: report.category,
-        title: report.title,
-        statusLabel: REPORT_STATUS_LABELS[report.status] ?? report.status,
-        raisedLine: `RAISED BY ${(report.createdBy || "console").toUpperCase()} · ${String(report.createdAt).slice(0, 16).replace("T", " ")}Z`,
-        bodyHtml: escapeHtml(report.body || "(no description)").replaceAll("\n", "<br/>"),
-        link: `${base}/console/reports?report=${encodeURIComponent(report.id)}`,
-      });
-      const result = await sendEmail({ to, subject, html, record: { kind: "wall-report", ref: id } });
+      // the generic notice of the one master layout (shared/email/templates.mjs, 2026-11-10)
+      const mail = buildEmail("19-notice", { portalUrl: base.replace(/\/digital-wall$/, ""), supportEmail: "", subject, preheader: `${report.category}: ${report.title}`, eyebrow: `Report · ${report.category}`, headline: report.title,
+        body: report.body || "(no description)", details: [["Status", REPORT_STATUS_LABELS[report.status] ?? report.status], ["Raised by", report.createdBy || "console"], ["Raised", fmtZ(report.createdAt), { mono: true }]], buttonLabel: "Open the report", link: `${base}/console/reports?report=${encodeURIComponent(report.id)}`, reason: "a report was sent to you from the Digital Wall console" });
+      const html = mail.html;
+      const result = await sendEmail({ to, subject, html, text: mail.text, record: { kind: "wall-report", ref: id } });
       if (!result.ok) {
         console.error(`[reports] send FAILED for ${id} -> ${to.join(", ")}: ${result.error}`);
         sendJson(res, { ok: false, error: "Couldn't send the email. Try again in a few minutes. If it keeps failing, report it from Help & support.", code: "email_not_sent" }, 500); // a failed email is not a gateway, and Cloudflare swaps 502 bodies

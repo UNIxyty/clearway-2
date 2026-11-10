@@ -11,7 +11,7 @@
 // Every email goes through lib/mail/send.ts: our sender, recorded in Mailbox › Sent with its delivery status.
 import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { layoutEmail, productName, sendPortalEmail, type SendResult } from "@/lib/mail/send";
+import { sendPortalEmail, templateEmail, type SendResult } from "@/lib/mail/send";
 
 /** 72 hours: a request approved on a Friday afternoon still works on Monday morning; a link that makes an account should
  *  not work for weeks after it was forwarded or left in an inbox. */
@@ -108,15 +108,12 @@ export async function createRequest(service: SupabaseClient, input: RequestInput
   if (countError || sentToday === null) { console.error("[clients] a request arrived; the ops emails sent today could not be counted, so none was sent (it is in Admin › Clients)"); return { ok: true, opsNotified: false, opsNotice: "not-sent" }; }
   if (sentToday >= OPS_EMAILS_PER_DAY) { console.error(`[clients] a request arrived; ${sentToday} ops emails in 24 hours is the ceiling, so it was recorded without one (Admin › Clients)`); return { ok: true, opsNotified: false, opsNotice: "ceiling" }; }
   const lastToday = sentToday === OPS_EMAILS_PER_DAY - 1;
-  const product = productName();
-  const mail = layoutEmail({
-    title: `${company} is asking for access`,
-    paragraphs: [`${name} (${email}) is waiting for approval, for ${company}, as ${kind === "broker" ? "a broker" : "an operator"}.`, ...(note ? [`They wrote: “${note}”`] : []), `Nothing has been created yet: no account exists until you approve them and they set a password. Review the request, set what they can see, and approve or refuse it in Admin › Clients.`,
-      ...(lastToday ? [`This is the ${OPS_EMAILS_PER_DAY}th access request email in 24 hours, the most this list is sent in a day. Any more requests in the next 24 hours are recorded in Admin › Clients without an email.`] : [])],
-    button: appUrl ? { label: "Open Admin › Clients", url: `${appUrl}/admin/clients` } : undefined,
-    footnote: `You get this because you are on the list of people ${product} tells about new client requests (Admin › Clients).`,
-  });
-  const sent = await sendPortalEmail({ to, subject: `Access request: ${company} (${name})`, html: mail.html, text: mail.text, kind: "client-request-ops", ref: clientId });
+  // the designed email to ops (13); the ceiling note rides along as a note block when this is the last one of the day
+  const ops = await templateEmail("13-ops-client-waiting", { name, company, clientType: kind === "broker" ? "Broker" : "Operator", email, requestedAt: new Date(), note: (note || "") + (lastToday ? `\n\n(This is the ${OPS_EMAILS_PER_DAY}th access request email in 24 hours, the most this list is sent in a day. Any more requests in the next 24 hours are recorded in Admin › Clients without an email.)` : ""), adminLink: appUrl ? `${appUrl}/admin/clients` : "" });
+  const sent = await sendPortalEmail({ to, subject: ops.subject, html: ops.html, text: ops.text, kind: "client-request-ops", ref: clientId });
+  // and the person who asked gets the designed acknowledgement (07; new on 2026-11-10): what they sent, and that ops
+  // will write, usually within one working day. A failure here is logged in Mailbox › Sent and changes nothing else.
+  try { const ack = await templateEmail("07-client-request-received", { name, company, email, requestedAt: new Date() }); await sendPortalEmail({ to: email, subject: ack.subject, html: ack.html, text: ack.text, kind: "client-request-received", ref: clientId }); } catch { /* recorded by the mailer */ }
   return { ok: true, opsNotified: sent.ok, opsNotice: sent.ok ? null : "not-sent" };
 }
 
@@ -129,15 +126,13 @@ export async function sendSetPasswordLink(service: SupabaseClient, client: Clien
   await service.from("client_invites").update({ replaced_at: now }).eq("client_id", client.id).is("used_at", null).is("replaced_at", null);
   const { error } = await service.from("client_invites").insert({ client_id: client.id, token_hash: hash(token), sent_to: client.email, expires_at: expiresAt, created_by_email: by });
   if (error) throw error;
-  const product = productName();
   const url = `${appUrl}/welcome?token=${encodeURIComponent(token)}`;
-  const mail = layoutEmail({
-    title: `Your access to ${product} is approved`,
-    paragraphs: [`Hello ${client.person_name || ""}`.trim() + ",", `${product} ops approved access for ${client.company}. Choose a password to finish: your account is made when you do, and you sign in with ${client.email} and that password from then on.`, `The link works once, for ${INVITE_TTL_HOURS} hours. If it has expired, the page it opens sends a new one to this address.`],
-    button: { label: "Set your password", url },
-    footnote: "If you did not ask for access, you can ignore this email: nothing happens unless the link is used.",
-  });
-  const sent = await sendPortalEmail({ to: client.email, subject: `Set your password for ${product}`, html: mail.html, text: mail.text, kind: "client-invite", by, ref: client.id });
+  // the designed emails: 08 the first time, 11 when an earlier link is being replaced (shared/email/templates.mjs)
+  const { count: earlier } = await service.from("client_invites").select("id", { count: "exact", head: true }).eq("client_id", client.id).not("replaced_at", "is", null);
+  const mail = (earlier ?? 0) > 0
+    ? await templateEmail("11-client-new-set-password-link", { link: url, expiresAt })
+    : await templateEmail("08-client-approved-set-password", { company: client.company, link: url, expiresAt, approvedAt: new Date(), accessSummary: `Flights of ${client.company}, as set by Clearway ops` });
+  const sent = await sendPortalEmail({ to: client.email, subject: mail.subject, html: mail.html, text: mail.text, kind: "client-invite", by, ref: client.id });
   await service.from("client_decisions").insert({ client_id: client.id, kind: "link-sent", actor_id: null, actor_email: by, detail: { to: maskEmail(client.email), expiresAt, accepted: sent.ok } });
   return { ...sent, expiresAt };
 }

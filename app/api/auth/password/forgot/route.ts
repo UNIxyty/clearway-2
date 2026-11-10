@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   const wait = resetWait(email);
   if (wait > 0) return NextResponse.json({ error: `A reset email went to this address a moment ago. Check that inbox; you can ask again in ${wait} seconds.`, code: "too_soon" }, { status: 429 });
 
-  const out = await sendResetEmail(service, email, appUrl(request));
+  const out = await sendResetEmail(service, email, appUrl(request), { device: request.headers.get("user-agent")?.slice(0, 80) || "" });
   if (out.noAccount) return NextResponse.json({ ok: true, sent: true, message: GENERIC }); // same answer as a real send
   if (!out.ok) {
     logFailure("AUTH-FORGOT", "reset email not sent", out.error);

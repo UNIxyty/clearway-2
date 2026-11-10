@@ -20,6 +20,8 @@ COPY --from=repo lib/permissions /lib/permissions
 COPY --from=repo lib/clients /lib/clients
 # The one NOTAM parser (2026-11-10): lib/notam-check.mjs imports ../../shared/notam-parse.mjs. Missing → crash loop.
 COPY --from=repo shared/notam-parse.mjs /shared/notam-parse.mjs
+# The one email layout (2026-11-10): server.mjs, lib/notam-check.mjs and lib/aip-send.mjs import ../shared/email/*.mjs.
+COPY --from=repo shared/email /shared/email
 # No secret in the image, or no image: the wall's .env and data/ (device keys) stay out (.dockerignore, compose mounts
 # data/ at run time). docs/security-image-secrets.md.
 COPY --from=repo scripts/check-image-secrets.mjs /tmp/check-image-secrets.mjs

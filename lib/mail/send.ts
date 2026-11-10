@@ -41,24 +41,44 @@ export async function sendPortalEmail({ to, subject, html, text, kind, by = null
   return { ok: Boolean(out.ok), id: out.id ?? null, recordId: out.recordId ?? null, ...(out.ok ? {} : { error: out.error }) };
 }
 
-const esc = (s: string) => String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+import { buildEmail, TEMPLATES } from "@/shared/email/templates.mjs";
+import { B } from "@/shared/email/layout.mjs";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 
-/** A plain branded email: a title, paragraphs, an optional button, a footnote. Returns html and text. */
-export function layoutEmail({ title, paragraphs, button, footnote }: { title: string; paragraphs: string[]; button?: { label: string; url: string }; footnote?: string }) {
-  const product = productName();
-  const html = `<!doctype html><html><body style="margin:0;background:#f4f6f9;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#17181c">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;border:1px solid #e3e6eb">
-<tr><td style="padding:24px 28px 0;font-size:15px;font-weight:800;letter-spacing:-.01em">${esc(product)}</td></tr>
-<tr><td style="padding:16px 28px 0;font-size:20px;font-weight:700;line-height:1.3">${esc(title)}</td></tr>
-${paragraphs.map((p) => `<tr><td style="padding:12px 28px 0;font-size:15px;line-height:1.6;color:#33363d">${esc(p)}</td></tr>`).join("\n")}
-${button ? `<tr><td style="padding:20px 28px 0"><a href="${esc(button.url)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 20px;border-radius:9px">${esc(button.label)}</a></td></tr>
-<tr><td style="padding:12px 28px 0;font-size:12.5px;line-height:1.5;color:#6b7280;word-break:break-all">If the button does not work, open this address: ${esc(button.url)}</td></tr>` : ""}
-${footnote ? `<tr><td style="padding:16px 28px 0;font-size:12.5px;line-height:1.5;color:#6b7280">${esc(footnote)}</td></tr>` : ""}
-<tr><td style="padding:24px 28px 24px;font-size:12px;color:#9ca3af">${esc(product)}</td></tr>
-</table></td></tr></table></body></html>`;
-  const text = [product, "", title, "", ...paragraphs.flatMap((p) => [p, ""]), ...(button ? [`${button.label}: ${button.url}`, ""] : []), ...(footnote ? [footnote, ""] : [])].join("\n");
-  return { html, text };
+let supportCache: { at: number; value: string } | null = null;
+/** The address every email's footer carries (Admin › Clients › "The address clients write to"); cached a minute; "" when unset. */
+export async function supportAddress(): Promise<string> {
+  if (supportCache && Date.now() - supportCache.at < 60_000) return supportCache.value;
+  let value = "";
+  // the same setting lib/clients/onboarding.ts › supportEmail reads (app_settings › clients.support_email); read here
+  // directly so this module does not import onboarding (which imports this one)
+  try {
+    const service = createSupabaseServiceRoleClient();
+    if (service) { const { data } = await service.from("app_settings").select("value").eq("key", "clients.support_email").maybeSingle(); const e = String((data?.value as { email?: unknown } | null)?.email ?? "").trim().toLowerCase(); value = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : ""; }
+  } catch { value = ""; }
+  supportCache = { at: Date.now(), value };
+  return value;
+}
+
+/** The two values every template takes besides its own: where the portal is, and whom to write to. */
+export async function mailOptions(request?: Request): Promise<{ portalUrl: string; supportEmail: string }> {
+  return { portalUrl: appUrl(request), supportEmail: await supportAddress() };
+}
+
+export type TemplateId = keyof typeof TEMPLATES;
+/** One of the designed emails (shared/email/templates.mjs), with the portal's options filled in. */
+export async function templateEmail(id: TemplateId, vars: Record<string, unknown>, request?: Request): Promise<{ subject: string; html: string; text: string }> {
+  const out = buildEmail(id, { ...(await mailOptions(request)), ...vars }) as { subject: string; html: string; text: string };
+  return out;
+}
+
+/**
+ * A plain branded email: a title, paragraphs, an optional button, a footnote. Returns html and text. Since 2026-11-10 it
+ * is the generic notice template (19-notice) of the one master layout, for every email that has no design of its own.
+ */
+export function layoutEmail({ title, paragraphs, button, footnote, supportEmail: support = "", reason }: { title: string; paragraphs: string[]; button?: { label: string; url: string }; footnote?: string; supportEmail?: string; reason?: string }) {
+  const out = buildEmail("19-notice", { portalUrl: appUrl(), supportEmail: support || (supportCache?.value ?? ""), subject: title, headline: title, preheader: paragraphs[0] ?? "", body: paragraphs, buttonLabel: button?.label, link: button?.url, blocks: footnote ? [B.note(footnote)] : [], reason }) as { html: string; text: string };
+  return { html: out.html, text: out.text };
 }
 
 /** The portal's own address, for links in emails. */

@@ -4,7 +4,7 @@ import { requireClient } from "@/lib/admin-auth";
 import { hourlyLimit } from "@/lib/caller-address.mjs";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { failure, logFailure } from "@/lib/public-error";
-import { layoutEmail, productName, sendPortalEmail } from "@/lib/mail/send";
+import { appUrl, sendPortalEmail, templateEmail } from "@/lib/mail/send";
 
 export const dynamic = "force-dynamic";
 
@@ -52,12 +52,7 @@ export async function POST(request: Request) {
   // Changing a password this way ends EVERY session of the account, this one included (the auth service's rule for a
   // change made with the service key). The page signs this device in again with the new password; every other device
   // has to sign in with it too, which is the point.
-  const product = productName();
-  const mail = layoutEmail({
-    title: "Your password was changed",
-    paragraphs: ["Hello,", `The password for your ${product} account (${email}) was changed just now, from the Account page.`, "If that was you, there is nothing to do. If it was not, use “Forgot password” on the sign-in page to set a new one, and tell ops."],
-    footnote: "You get this email every time the password of your account changes.",
-  });
-  const sent = await sendPortalEmail({ to: email, subject: `Your ${product} password was changed`, html: mail.html, text: mail.text, kind: "client-password-changed", by: email, ref: null }).catch(() => ({ ok: false }));
+  const mail = await templateEmail("12-client-password-changed", { email, changedAt: new Date(), device: request.headers.get("user-agent")?.slice(0, 80) || "", resetLink: `${appUrl(request)}/login?forgot=1` }, request);
+  const sent = await sendPortalEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, kind: "client-password-changed", by: email, ref: null }).catch(() => ({ ok: false }));
   return NextResponse.json({ ok: true, noticeSent: Boolean(sent.ok) });
 }

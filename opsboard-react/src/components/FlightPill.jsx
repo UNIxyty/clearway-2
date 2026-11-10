@@ -910,8 +910,12 @@ export default function FlightPill({
           Distinct from the MVT ring by being steady; when MVT is flashing it
           takes precedence (one ring at a time — blink communicates urgency,
           the italics still say unconfirmed). Cancelled flights are excluded. */}
-      {showUnconfirmedRing && flight.isConfirmed === false && !mvtFlashing && !flight.isCnl && status !== 'cancelled' && !stale && (
+      {/* The unconfirmed ring (bug report 8 item 2.1, 2026-11-10): steady, and no longer hidden by the MVT flash — an
+          unconfirmed flight that is also overdue keeps its ring (the blinking MVT ring sits outside it, 3 px further
+          out) so the signal never disappears exactly when a dispatcher looks. data-unconfirmed lets a check read it. */}
+      {showUnconfirmedRing && flight.isConfirmed === false && !flight.isCnl && status !== 'cancelled' && !stale && (
         <div
+          data-unconfirmed-ring=""
           style={{
             position: 'absolute',
             left: -2,
@@ -927,12 +931,13 @@ export default function FlightPill({
       )}
       {mvtFlashing && (
         <div
+          data-mvt-ring=""
           style={{
             position: 'absolute',
-            left: -2,
-            right: -2,
-            top: Math.max(0, Math.round((F.band - F.body) / 2)) - 2,
-            height: F.body + 4,
+            left: flight.isConfirmed === false ? -5 : -2,
+            right: flight.isConfirmed === false ? -5 : -2,
+            top: Math.max(0, Math.round((F.band - F.body) / 2)) - (flight.isConfirmed === false ? 5 : 2),
+            height: F.body + (flight.isConfirmed === false ? 10 : 4),
             borderRadius: 99,
             border: `2px solid ${c.mvtRing}`,
             pointerEvents: 'none',

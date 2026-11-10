@@ -498,12 +498,17 @@ export function mapLeonFlight(rawFlight, checklistDefs = null) {
     // CONFIRMED | OPTION | OPPORTUNITY) is not CONFIRMED, Flight.isConfirmed is false, or the trip's free-text
     // tripStatus is present and is not "confirmed". On 11,083 flights (2026-06 … 2027-06) the three always agreed;
     // the OR keeps a state Leon adds later, or one signal moving without the others, from going unringed.
+    // Unconfirmed on ANY signal Leon carries (bug report 8 item 2.1, 2026-11-10): Flight.status other than CONFIRMED
+    // (OPTION, OPPORTUNITY), isConfirmed false, the trip's status not "confirmed", or times still to be confirmed.
+    // A record with no status at all (a tenant whose schema hides it) counts as confirmed — nothing to go on.
     isConfirmed: tripStatus == null
-      ? true
+      ? rawFlight.isConfirmed !== false && rawFlight.isTimesToBeConfirmed !== true
       : String(tripStatus).toUpperCase() === "CONFIRMED"
         && rawFlight.isConfirmed !== false
+        && rawFlight.isTimesToBeConfirmed !== true
         && (rawFlight.trip?.tripStatus == null || String(rawFlight.trip.tripStatus).trim().toLowerCase() === "confirmed"),
     tripStatusText: rawFlight.trip?.tripStatus ?? null,
+    timesToBeConfirmed: rawFlight.isTimesToBeConfirmed === true,
     checklistColor: aggregateChecklistColor(rawFlight.checklist, checklistDefs),
     ...(() => {
       const c = aggregateAirportChecklistColors(rawFlight.checklist, checklistDefs);
@@ -1332,6 +1337,12 @@ export class LeonTimelineService {
       if (cycleStats.skipped > 0) {
         console.log(`[leon-sync] sync cycle: filtered ${cycleStats.skipped} flight(s) without a trip status`);
       }
+      // Bug report 8 item 2.1 (2026-11-10): the log says how many flights the wall holds as unconfirmed, and which, so a
+      // report of a missing red ring can be checked against what the sync saw (flight numbers only).
+      {
+        const unconfirmed = [...this.flightsByNid.values()].filter((f) => f?.isConfirmed === false).map((f) => `${f.flightNo}${f.timesToBeConfirmed ? "(TBC)" : ""}`);
+        console.log(`[leon-sync] sync cycle: ${unconfirmed.length} unconfirmed flight(s) of ${this.flightsByNid.size}${unconfirmed.length ? `: ${unconfirmed.slice(0, 20).join(", ")}` : ""}`);
+      }
       const excludedParts = Object.entries(cycleStats.excluded).map(([kind, count]) => `${count} ${kind}`);
       if (excludedParts.length > 0) {
         console.log(`[leon-sync] sync cycle: excluded ${excludedParts.join(", ")} flight(s) (Item 7)`);
@@ -1485,6 +1496,8 @@ export class LeonTimelineService {
         confirmationFields: [
           ...(flightFields.has("isConfirmed") ? ["isConfirmed"] : []),
           ...(flightFields.has("trip") ? ["trip { tripStatus }"] : []),
+          // Bug report 8 item 2.1 (2026-11-10): "times to be confirmed" is Leon's fourth unconfirmed signal (the TBC mark)
+          ...(flightFields.has("isTimesToBeConfirmed") ? ["isTimesToBeConfirmed"] : []),
         ],
       });
     } catch {

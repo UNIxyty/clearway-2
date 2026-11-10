@@ -52,6 +52,11 @@ function ViewportDebug() {
 }
 
 // (The NotamSign component that drew the daily NOTAM-check sign on the wall lived here until 2026-11-10; part 1F.)
+const POLL_MS = 60_000;
+
+// Captured at module evaluation — the router normalizes the URL (dropping
+// the query) before components mount, so read it before that happens.
+const DEBUG_VIEWPORT = /[?&#]debug/.test(window.location.href);
 
 export default function DisplayApp() {
   const [aircraft, setAircraft] = useState([]);

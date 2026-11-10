@@ -5,6 +5,11 @@
 @import './fonts.css';
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* the zoom bug (2026-11-10): no automatic text size change on rotation, no double-tap zoom on controls, and every text
+   field at 16px or more so iOS does not zoom the page when one is focused (the page still pinch-zooms) */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button, a, [role="button"], input, select, textarea { touch-action: manipulation; }
+input, select, textarea { font-size: max(16px, 1em); }
 
 :root {
   --bg:        #161b26;

@@ -18,7 +18,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { pathToFileURL } from "node:url";
 import { loadEnvFromProjectRoot } from "./tools/_load-env.mjs";
-import { saveFile } from "../lib/storage.mjs";
+import { readFile, saveFile } from "../lib/storage.mjs";
 
 const LOGIN_URL = "https://www.crewbriefing.com/loginssl.aspx";
 export const CREWBRIEFING_SEARCH_INPUT_SELECTOR = 'input[type="text"]:visible, textarea:visible';
@@ -372,6 +372,15 @@ async function runScraper(options) {
 
     if (options.mode === "notam" || options.mode === "both") {
       const key = `notam/${options.icao}.json`;
+      // firstSeenAt (2026-11-10): CrewBriefing carries no issue time, so each NOTAM keeps the moment this scraper
+      // first saw it — read from the previous file, kept across refreshes. Shown as "First seen", never as "Issued".
+      let seen = new Map();
+      try {
+        const prev = await readFile(key);
+        const old = prev ? JSON.parse(prev.toString("utf8")) : null;
+        for (const n of old?.notams ?? []) if (n?.number && n.firstSeenAt) seen.set(n.number, n.firstSeenAt);
+      } catch { /* no previous file: every NOTAM is first seen now */ }
+      result.notams = result.notams.map((n) => ({ ...n, firstSeenAt: seen.get(n.number) || result.updatedAt }));
       progress(`Writing ${key}`, "notam");
       await saveFile(
         key,

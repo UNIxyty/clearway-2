@@ -12,6 +12,9 @@ import { useEffect, useMemo, useState } from "react";
 import MaskIcon from "@/components/portal/Icon";
 import { Button, IconButton, Skeleton, Spinner } from "@/components/kit";
 import { DEFAULT_NOTAM_GROUPS, compileNotamGroups, formatNotamTime, matchNotamText, parseNotamTime } from "@/digital-wall/lib/notam-rules.mjs";
+import { notamCardHtml } from "@/shared/notam-card.mjs";
+import { parseNotam } from "@/shared/notam-parse.mjs";
+import "@/shared/notam-card.css";
 
 export type Notam = { location: string; number: string; class: string; startDateUtc: string; endDateUtc: string; condition: string };
 type Group = { group: string; color: string; terms: string[]; patterns: string[] };
@@ -38,7 +41,6 @@ function useWallGroups(): Group[] {
   return groups;
 }
 
-const cleanText = (c: string) => c.split("\n").filter((l) => !/^\|#\d+\|[-\s]+/.test(l) && !/^[A-Z]\d+\/\d+\s+NOTAM[A-Z]?\s/.test(l)).join("\n").trim();
 const when = (raw: string) => { const p = parseNotamTime(raw); return p == null ? (raw || "—") : formatNotamTime(p); };
 const clock = (iso?: string | null) => { if (!iso) return null; const d = new Date(iso); return Number.isNaN(d.getTime()) ? null : `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}Z`; };
 
@@ -115,24 +117,13 @@ export function NotamsCard({ icao, notams, loading, steps, error, updatedAt, onR
                 </li>
               ))}
             </ul>
-            <ul aria-label={`NOTAMs for ${icao}`} className="m-0 list-none p-0">
-              {shown.map(({ n, i, cat }) => {
-                const look = lookAt(cat); const name = SHORT[groups[cat]?.group] ?? groups[cat]?.group ?? "Info";
-                return (
-                  <li key={`${n.number}-${i}`} className="grid grid-cols-[8px_minmax(0,1fr)] gap-3 border-b border-cw-divider px-[18px] py-3">
-                    <span aria-hidden className="mt-[5px] h-2 w-2 rounded-[2px]" style={{ background: look.dot }} />
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-[12.5px] font-semibold text-cw-text">{n.number}</span>
-                        <span className="inline-flex h-[18px] items-center rounded-[4px] px-1.5 text-[11px] font-semibold" style={{ background: look.bg, color: look.fg }}>{name}</span>
-                        {(n.startDateUtc || n.endDateUtc) && <span className="ml-auto font-mono text-[11.5px] text-cw-text-muted">{when(n.startDateUtc)} → {when(n.endDateUtc)}</span>}
-                      </div>
-                      <p className="m-0 whitespace-pre-wrap break-words font-mono text-[12.5px] leading-normal text-cw-text-body">{cleanText(n.condition)}</p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            {/* the one NOTAM card (design "NOTAM Cards", 2026-11-10): shared/notam-card.mjs, the same markup the wall draws.
+                Fields come parsed from /api/notams; expired NOTAMs were dropped there. */}
+            <div aria-label={`NOTAMs for ${icao}`} className="cw-nc-list px-[14px] py-3" dangerouslySetInnerHTML={{ __html: shown.map(({ n, cat }) => {
+              const look = lookAt(cat); const name = SHORT[groups[cat]?.group] ?? groups[cat]?.group ?? "Info";
+              const fields = (n as Notam & { fields?: ReturnType<typeof parseNotam> }).fields ?? parseNotam(n);
+              return notamCardHtml(fields, { groups: [{ group: name, color: look.dot }], flagged: false });
+            }).join("") }} />
             <div className="flex min-h-11 items-center px-[18px] text-[13px]">
               {sorted.length > FIRST && <button type="button" onClick={() => setAll((a) => !a)} className="cursor-pointer rounded-[4px] border-none bg-transparent p-0 font-sans text-[13px] font-semibold text-cw-text-link outline-none hover:text-cw-primary-hover focus-visible:shadow-[0_0_0_2px_var(--cw-focus)]">{all ? "Show the first 6" : `All ${sorted.length} NOTAMs`}</button>}
               {clock(updatedAt) && <span className="ml-auto text-[12px] text-cw-text-muted">updated <span className="font-mono">{clock(updatedAt)}</span></span>}

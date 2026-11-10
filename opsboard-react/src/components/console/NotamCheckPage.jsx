@@ -7,12 +7,12 @@ import {
   runNotamCheck,
 } from '../../services/timelineApi';
 import { subscribeWallStream } from '../../services/wallStream';
-import NotamText, { buildHighlightGroups } from '../NotamText';
+import { buildHighlightGroups } from '../NotamText';
+import NotamCard, { NotamCardStyles } from '../NotamCard';
 import useViewport from '../../hooks/useViewport';
 import { MOBILE } from './mobile';
 import Icon from './icons';
 import { Button, ErrorBanner, HelpBanner, PageHeader, Spinner, SkeletonCards, t, useLoadPhase, useToast, useCan, VIEW_ONLY_TITLE } from './ui';
-import WallSign from '../wall-preview/WallSign';
 import { errorText } from '../../services/errorText';
 
 // NOTAM Check — visual treatment from Claude Design "NOTAM Check.dc.html"
@@ -34,63 +34,10 @@ function tint(hex, alpha = '22') {
 
 const mono = { fontFamily: t.mono };
 
+// The one NOTAM card (2026-11-10): shared/notam-card.mjs through components/NotamCard.jsx. The raw block with its
+// |#14|----- ruler and header line is gone; the fields come parsed from the server (digital-wall/lib/notam-check.mjs).
 function NotamRecord({ notam, groups, muted = false }) {
-  const top = notam.matches?.[0] || null;
-  const color = top?.color || t.faint;
-  // Item 5: start + expiry + release date, each explicit; a genuinely absent
-  // field renders a muted em-dash instead of a guess.
-  const DateBit = ({ label, value }) => (
-    <span style={{ whiteSpace: 'nowrap' }}>
-      <span style={{ color: t.ghost }}>{label} </span>
-      <span style={{ color: value ? t.muted : t.ghost, fontWeight: value ? 600 : 400 }}>{value || '—'}</span>
-    </span>
-  );
-  return (
-    <div
-      style={{
-        border: `1px solid ${t.borderInner}`,
-        borderLeft: `3px solid ${muted ? t.border : color}`,
-        borderRadius: 10,
-        background: t.card,
-        overflow: 'hidden',
-        opacity: muted ? 0.72 : 1,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderBottom: `1px solid ${t.borderInner}`, flexWrap: 'wrap' }}>
-        <span style={{ ...mono, fontSize: 13.5, fontWeight: 600, color: t.ink }}>{notam.number || '(no number)'}</span>
-        <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', color: t.muted, background: t.neutralTint, padding: '3px 8px', borderRadius: 6 }}>
-          {notam.class || '—'}
-        </span>
-        {top && (
-          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em', color, background: tint(color), padding: '3px 9px', borderRadius: 6 }}>
-            {String(top.group || '').toUpperCase()}
-          </span>
-        )}
-        {notam.status === 'expired' && (
-          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em', color: t.redDeep, background: t.redTint, padding: '3px 9px', borderRadius: 6 }}>
-            EXPIRED
-          </span>
-        )}
-        {notam.status === 'future' && !notam.inWindow && (
-          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em', color: t.muted, background: t.segment, padding: '3px 9px', borderRadius: 6 }}>
-            STARTS {notam.validFrom}
-          </span>
-        )}
-        {notam.status !== 'expired' && notam.status !== 'future' && !notam.inWindow && (
-          <span style={{ fontSize: 11, color: t.faint }}>outside today +24h</span>
-        )}
-        <div style={{ flex: 1 }} />
-        <span style={{ ...mono, fontSize: 12, display: 'inline-flex', gap: 10, flexWrap: 'wrap' }}>
-          <DateBit label="Start" value={notam.validFrom !== '—' ? notam.validFrom : null} />
-          <DateBit label="Expiry" value={notam.validTill !== '—' ? notam.validTill : null} />
-          <DateBit label="Issued" value={notam.issued} />
-        </span>
-      </div>
-      <div style={{ ...mono, fontSize: 13, lineHeight: 1.65, color: t.body, padding: '11px 13px' }}>
-        <NotamText text={notam.condition} groups={groups} />
-      </div>
-    </div>
-  );
+  return <NotamCard notam={notam} groups={groups} muted={muted} />;
 }
 
 function SignBanner({ sign, done, total, ranAt, running, onRun }) {
@@ -110,10 +57,10 @@ function SignBanner({ sign, done, total, ranAt, running, onRun }) {
         <Icon name={v.icon} size={22} color={v.iconColor} />
       </div>
       <div style={{ flex: 1, minWidth: 220 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', color: t.faint, marginBottom: 7 }}>TODAY'S WALL SIGN</div>
-        {/* The sign itself, exactly as the wall draws it (components/wall-preview/WallSign.jsx): its own colours. */}
-        <WallSign sign={checked ? 'CHECKED' : 'CHECK'} scale={1.15} />
-        <div style={{ fontSize: 13, color: v.sub, marginTop: 9 }}>{v.detail}</div>
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', color: t.faint, marginBottom: 7 }}>TODAY'S CHECK</div>
+        {/* The wall no longer shows a NOTAM sign (2026-11-10, bug report 8 part 1F); the state lives on this page. */}
+        <div style={{ fontSize: 18, fontWeight: 800, color: v.iconColor }}>{checked ? 'NOTAMs checked' : 'NOTAMs to check'}</div>
+        <div style={{ fontSize: 13, color: v.sub, marginTop: 6 }}>{v.detail}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 'none' }}>
         <div style={{ textAlign: 'right' }}>
@@ -208,7 +155,7 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
             <Button variant="soft" size="sm" spin={ackBusy} action="wall.notam.ack" onClick={onAck}>Undo</Button>
           </div>
         ) : (
-          <Button variant="primary" size="sm" icon="check" spin={ackBusy} style={{ fontWeight: 700 }} action="wall.notam.ack" onClick={onAck}>
+          <Button variant="primary" size="sm" icon="check" spin={ackBusy} disabled={Boolean(airport.error) || (ageH !== null && ageH > 6)} title={ageH !== null && ageH > 6 ? 'Fetch the NOTAMs again first: these are more than six hours old.' : undefined} style={{ fontWeight: 700 }} action="wall.notam.ack" onClick={onAck}>
             Mark checked
           </Button>
         )}
@@ -226,6 +173,14 @@ function AirportCard({ airport, groups, expanded, onToggleAll, onAck, ackBusy, o
             </Button>
           </div>
         )}
+        {!airport.error && ageH !== null && ageH > 6 && (
+          <div data-old-data="" style={{ display: 'flex', alignItems: 'center', gap: 12, background: t.amberTint, border: `1px solid ${t.amberBorder}`, borderRadius: 10, padding: '10px 13px' }}>
+            <Icon name="clock" size={16} color={t.amber} style={{ flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 13, color: t.amber, lineHeight: 1.45 }}>These NOTAMs were fetched {fetchedWhen}. Fetch them again before marking the airport checked.</span>
+            <Button size="sm" icon="rotate-cw" spin={resyncBusy} disabled={resyncBusy} action="wall.notam.resync" onClick={onResync} data-fetch-again="">{resyncBusy ? 'Fetching…' : 'Fetch again'}</Button>
+          </div>
+        )}
+        {airport.counts?.expired > 0 && <div style={{ fontSize: 12, color: t.faint }}>{airport.counts.expired} expired NOTAM{airport.counts.expired === 1 ? '' : 's'} not shown.{airport.counts.unparsed ? ` ${airport.counts.unparsed} shown as received.` : ''}</div>}
         {!expanded && noneFlagged && !airport.error && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: clearFresh ? t.greenDeep : t.amber, background: clearFresh ? t.greenTint : t.amberTint, border: `1px solid ${clearFresh ? t.greenBorder : t.amberBorder}`, borderRadius: 10, padding: '11px 14px' }}>
             <Icon name={clearFresh ? 'shield-check' : 'clock'} size={16} />No keyword-flagged NOTAMs for today{fetchedWhen ? ` in the NOTAMs fetched ${fetchedWhen}` : ' (when these NOTAMs were fetched is not known)'}{clearFresh ? '' : ' — fetch them again before relying on this'}. Full list available below.
@@ -333,35 +288,7 @@ function airportSub(airport) {
 }
 
 function PhoneNotamRecord({ notam, groups, muted = false }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: t.mono, fontSize: 12, fontWeight: 700, color: muted ? t.muted : t.ink }}>
-          {notam.number || '(no number)'}
-        </span>
-        {notam.matches?.[0] && (
-          <span
-            style={{
-              fontFamily: t.mono,
-              fontSize: 10,
-              fontWeight: 700,
-              color: notam.matches[0].color || t.muted,
-              background: tint(notam.matches[0].color),
-              borderRadius: 4,
-              padding: '1px 5px',
-              letterSpacing: '0.03em',
-            }}
-          >
-            {String(notam.matches[0].group || '').toUpperCase()}
-          </span>
-        )}
-      </div>
-      {/* mono floor: nothing read character by character below 11.5px */}
-      <div style={{ fontFamily: t.mono, fontSize: 11.5, lineHeight: 1.55, color: muted ? t.muted : t.body }}>
-        <NotamText text={notam.condition} groups={groups} />
-      </div>
-    </div>
-  );
+  return <NotamCard notam={notam} groups={groups} muted={muted} />;
 }
 
 function PhoneAirportCard({ airport, groups, expanded, onExpand, onCollapse, onAck, ackBusy, onResync, resyncBusy, onReport }) {
@@ -666,6 +593,7 @@ export default function NotamCheckPage({ navigate }) {
 
   return (
     <div>
+      <NotamCardStyles />
       {!isPhone && (
       <PageHeader
         title="NOTAM Check"

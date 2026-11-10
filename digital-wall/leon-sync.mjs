@@ -280,6 +280,28 @@ export function movementStateOf({ hasArrived, isAirborne, ctot, departureDelayMi
  * item at a red status is visually identical to it, which is why the colour
  * source needed proving, not just eyeballing.)
  */
+/**
+ * How bad a checklist status colour is (bug report 8 item 2.2, 2026-11-10): the wall shows the same colour as Leon's
+ * own OPS checklist dot, and the worst item wins — any red means red, then orange/yellow, then green. "Not Applicable"
+ * (Leon's grey, #BBBBBC) does not count. Decided by the status's COLOUR, as Leon configures it per status (QSM/UNT/REJ
+ * red, RQS/CNX orange, CNF green, NAP grey), never by the status's position in its list: that position put REJ (red,
+ * late in its list) behind RQS (orange) and let N/A's place decide the flight (UPAV001, FLIGHT BRIEF SENT = No was red
+ * in Leon and orange on the wall).
+ */
+export function colorSeverity(hex) {
+  const h = normalizeHexColor(hex);
+  if (!h) return null;
+  const r = parseInt(h.slice(1, 3), 16), g = parseInt(h.slice(3, 5), 16), b = parseInt(h.slice(5, 7), 16);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const sat = max === 0 ? 0 : (max - min) / max;
+  if (sat < 0.18) return null; // grey: Not Applicable, does not count
+  const hue = max === min ? 0 : max === r ? ((g - b) / (max - min) + (g < b ? 6 : 0)) * 60 : max === g ? ((b - r) / (max - min) + 2) * 60 : ((r - g) / (max - min) + 4) * 60;
+  if (hue < 20 || hue >= 330) return 3; // red
+  if (hue < 70) return 2;              // orange / yellow
+  if (hue < 170) return 1;             // green
+  return 2;                            // any other hue (blue, violet): treated as "in progress", between green and red
+}
+
 function aggregateChecklistColor(rawChecklist, defs) {
   const items = rawChecklist?.allItems;
   if (!Array.isArray(items) || items.length === 0 || !defs) return null;
@@ -289,25 +311,14 @@ function aggregateChecklistColor(rawChecklist, defs) {
     if (itemGroup && String(itemGroup).toUpperCase() !== "OPS") continue;
     const def = defs.get(item?.cdNid);
     if (!def) continue;
-    const index = def.order.indexOf(item.csId);
-    if (index < 0) continue;
-    const progress = def.order.length > 1 ? index / (def.order.length - 1) : 1;
-    if (!worst || progress < worst.progress) {
-      worst = { progress, color: def.colorByStatus[item.csId] ?? null };
-    }
+    const color = def.colorByStatus[item.csId] ?? null;
+    const severity = colorSeverity(color);
+    if (severity == null) continue; // unknown status, or Not Applicable
+    if (!worst || severity > worst.severity) worst = { severity, color };
   }
   return normalizeHexColor(worst?.color);
 }
 
-/**
- * Upcoming Flight Table (bug report 3 item 10): per-AIRPORT service colours.
- * Only SLOT & HANDLING services count — OPS definitions whose label matches
- * /slot|handling/i (live tenant: "Slot (ADEP/ADES)", "Handling (ADEP/ADES)",
- * "Passenger/Cargo Handling …"). Each definition declares which airport it
- * affects (AffectedAirport: adep / ades / both — introspected live
- * 2026-08-23); the least-complete matching item per side wins, same
- * worst-progress rule as the flight-level colour.
- */
 function aggregateAirportChecklistColors(rawChecklist, defs) {
   const items = rawChecklist?.allItems;
   if (!Array.isArray(items) || items.length === 0 || !defs) return { adep: null, ades: null };
@@ -1515,10 +1526,39 @@ export class LeonTimelineService {
     return value;
   }
 
+  /**
+   * The passenger NAMES of one flight (2026-11-10): for the client surface, which may no longer reach the agent
+   * service (every /agent/api/* address is off a client's list). Names only — no document, no date of birth, no
+   * place of birth — read with the operator's own Leon token, the way the agent's passenger viewer reads them
+   * (agent/lib/passengers/api.mjs, LIST_QUERY + NAMES_QUERY). Leon may mask names on an operator account; then one
+   * more read asks for the unmasked names only. Cached a minute. Nothing of a passenger reaches a log row.
+   */
+  async getFlightPassengerNames(flightNid, oprId = this.operatorId) {
+    const key = `${oprId}:${flightNid}`;
+    this.paxCache = this.paxCache || new Map();
+    const hit = this.paxCache.get(key);
+    if (hit && Date.now() - hit.at < 60_000) return hit.value;
+    const f = await this.graphqlRequest(`query($n:FlightNid!){ flight(flightNid:$n){ passengerList{ count realCount passengerContactList{ passengerContactNid contact{ name surname middleName maskingStatus{ isProfileDataMasked } } } } } }`, { n: Number(flightNid) }, oprId);
+    const list = f?.flight?.passengerList;
+    const rows = list?.passengerContactList ?? [];
+    let names = rows.map((r) => ({ id: String(r.passengerContactNid ?? ""), name: [r.contact?.name, r.contact?.middleName, r.contact?.surname].filter(Boolean).join(" ").trim(), masked: r.contact?.maskingStatus?.isProfileDataMasked === true }));
+    if (names.some((n) => n.masked || !n.name)) {
+      const u = await this.graphqlRequest(`query($n:FlightNid!){ flight(flightNid:$n){ passengerList{ passengerContactList{ passengerContactNid contact{ unmaskedData{ name surname middleName } } } } } }`, { n: Number(flightNid) }, oprId).catch(() => null);
+      const byId = new Map((u?.flight?.passengerList?.passengerContactList ?? []).map((r) => [String(r.passengerContactNid ?? ""), r.contact?.unmaskedData]));
+      names = names.map((n) => { const d = byId.get(n.id); const full = d ? [d.name, d.middleName, d.surname].filter(Boolean).join(" ").trim() : ""; return { id: n.id, name: full || n.name || "Passenger" }; });
+    } else names = names.map((n) => ({ id: n.id, name: n.name }));
+    const value = { count: Number.isFinite(Number(list?.realCount ?? list?.count)) ? Number(list?.realCount ?? list?.count) : names.length, passengers: names };
+    this.paxCache.set(key, { at: Date.now(), value });
+    return value;
+  }
+
   /** Checklist status definitions (id -> ordered statuses + colors), cached. */
   async ensureChecklistDefs(oprId) {
     if (this.checklistDefsByOperator.has(oprId)) {
-      return this.checklistDefsByOperator.get(oprId);
+      const hit = this.checklistDefsByOperator.get(oprId);
+      // a failed fetch (null) is tried again after ten minutes (2026-11-10): until then every flight number stayed
+      // white until a restart
+      if (hit !== null || Date.now() - (this.checklistDefsFailedAt?.get(oprId) ?? 0) < 10 * 60_000) return hit;
     }
     let defs = null;
     try {
@@ -1543,9 +1583,11 @@ export class LeonTimelineService {
         ])
       );
       if (defs.size === 0) defs = null;
-    } catch {
-      defs = null; // tenant without OPS checklist definitions — IDs use default color
+    } catch (error) {
+      defs = null; // tenant without OPS checklist definitions, or a failed read — IDs use default color until the next try
+      console.error(`[leon-sync] checklist definitions for ${oprId} could not be read: ${errorDetail(error)}`);
     }
+    if (defs === null) { this.checklistDefsFailedAt = this.checklistDefsFailedAt || new Map(); this.checklistDefsFailedAt.set(oprId, Date.now()); }
     this.checklistDefsByOperator.set(oprId, defs);
     return defs;
   }

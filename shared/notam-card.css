@@ -1,0 +1,38 @@
+/* The one NOTAM card (shared/notam-card.mjs; design "NOTAM Cards", 2026-11-10). Portal tokens (--cw-*): the portal's
+   airport page, the wall console and the client surface all carry them. A chip's colour comes from the keyword group
+   (data, --chip). Phone widths move the validity under the number and keep A) B) C) as whole pairs. */
+.cw-nc { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--cw-border); border-radius: 12px; background: var(--cw-bg-surface); color: var(--cw-text); font-family: 'Public Sans', system-ui, sans-serif; }
+.cw-nc + .cw-nc { margin-top: 8px; }
+.cw-nc.is-flagged { border-color: var(--cw-warning-border); box-shadow: inset 3px 0 0 var(--cw-warning); }
+.cw-nc.is-muted { opacity: .62; }
+.cw-nc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.cw-nc-type { width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font: 700 11.5px 'IBM Plex Mono', monospace; background: var(--cw-neutral-tint); color: var(--cw-neutral-text); border: 1px solid var(--cw-border-control); flex: none; }
+.cw-nc[data-notam-type="R"] .cw-nc-type { background: var(--cw-info-tint); color: var(--cw-info-text); border-color: var(--cw-info-border); }
+.cw-nc[data-notam-type="C"] .cw-nc-type { background: var(--cw-danger-tint); color: var(--cw-danger-text); border-color: var(--cw-danger-border); }
+.cw-nc-id { font: 600 14px 'IBM Plex Mono', monospace; white-space: nowrap; }
+.cw-nc-refers { font-weight: 400; color: var(--cw-text-muted); }
+.cw-nc-refers::before { content: '↩ '; }
+.cw-nc-flag { height: 20px; padding: 0 7px; border-radius: 5px; background: var(--cw-warning-tint); color: var(--cw-warning-text); border: 1px solid var(--cw-warning-border); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; }
+.cw-nc-chip { height: 20px; padding: 0 7px; border-radius: 5px; font: 600 11px 'IBM Plex Mono', monospace; display: inline-flex; align-items: center; color: var(--chip, var(--cw-text-body)); border: 1px solid color-mix(in srgb, var(--chip, var(--cw-border)) 45%, transparent); background: color-mix(in srgb, var(--chip, var(--cw-border)) 12%, transparent); }
+.cw-nc-valid { margin-left: auto; font: 500 12px 'IBM Plex Mono', monospace; color: var(--cw-text-muted); white-space: nowrap; }
+.cw-nc-body { display: grid; gap: 3px; }
+.cw-nc-line { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 6px; align-items: baseline; font: 400 12.5px/1.5 'IBM Plex Mono', monospace; color: var(--cw-text-body); }
+.cw-nc-line.cw-nc-bc { grid-template-columns: 28px auto 28px minmax(0, 1fr); }
+.cw-nc-key { font-size: 11px; font-weight: 700; color: var(--cw-text-muted); letter-spacing: .04em; }
+.cw-nc-val { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+.cw-nc-q { font-size: 11.5px; color: var(--cw-text-muted); }
+.cw-nc-line.is-big { font-size: 14px; color: var(--cw-text); font-weight: 500; }
+.cw-nc-line.is-big .cw-nc-key { color: var(--cw-text-body); }
+.cw-nc-raw .cw-nc-val { color: var(--cw-text); }
+.cw-nc-foot { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 11.5px; color: var(--cw-text-muted); }
+.cw-nc-issued.is-none { font-style: italic; }
+.cw-nc-unparsed { color: var(--cw-warning-text); }
+.cw-nc-mark { background: color-mix(in srgb, var(--chip, var(--cw-warning)) 28%, transparent); border-radius: 3px; padding: 0 1px; }
+.cw-nc-note { margin: 8px 0 0; font-size: 12.5px; color: var(--cw-text-body); }
+.cw-nc-note.is-quiet { color: var(--cw-text-muted); }
+@media (max-width: 699px) {
+  .cw-nc { padding: 12px; }
+  .cw-nc-valid { margin-left: 0; flex-basis: 100%; white-space: normal; }
+  .cw-nc-line.cw-nc-bc { grid-template-columns: 28px minmax(0, 1fr); }
+  .cw-nc-line.cw-nc-bc .cw-nc-key:nth-child(3) { grid-column: 1; }
+}

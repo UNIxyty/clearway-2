@@ -326,7 +326,12 @@ async function gate(request: NextRequest) {
     const notOnAccount = () => (isApi ? NextResponse.json({ ok: false, error: "That is not on your account." }, { status: 404 }) : clientNotFoundResponse());
     // The root is where sign-in lands them: their world's front door (approved) or their holding page. Nothing else
     // outside /client redirects — it is 404, so no portal page is confirmed to exist.
-    if (pathname === "/") { const to = request.nextUrl.clone(); to.pathname = holding ?? "/client"; to.search = ""; return NextResponse.redirect(to); }
+    if (pathname === "/") {
+      // their start page (2026-11-10): Flights if they chose it after setting the password or in Account; Timeline
+      // otherwise, including for every client who never chose. A view preference only — it opens a page they have anyway.
+      const prefs = ((user.user_metadata as Record<string, unknown> | undefined)?.client_prefs ?? {}) as { start?: unknown }; // metadata-ok: a view preference, never a grant
+      const to = request.nextUrl.clone(); to.pathname = holding ?? (prefs.start === "flights" ? "/client/flights" : "/client"); to.search = ""; return NextResponse.redirect(to);
+    }
     if (holding) {
       // a holding page, their own standing and signing out; nothing else
       if (pathname === holding || pathname.startsWith("/api/auth/") || (pathname === "/api/client/me" && request.method === "GET")) return response;

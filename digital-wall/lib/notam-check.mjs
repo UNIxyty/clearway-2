@@ -29,6 +29,7 @@ import {
   notamStatus,
   parseNotamTime,
 } from "./notam-rules.mjs";
+import { prepareNotams } from "../../shared/notam-parse.mjs";
 
 const CHECK_WINDOW_MS = 24 * 3600_000;
 
@@ -324,21 +325,31 @@ export class NotamCheckService {
    * passed), so `filtered` only ever contains active/imminent notices.
    */
   annotateNotams(rawNotams, groups, nowMs, windowTo) {
-    const annotated = rawNotams.map((notam) => ({
-      number: notam.number ?? null,
-      class: notam.class ?? null,
-      startDateUtc: notam.startDateUtc ?? null,
-      endDateUtc: notam.endDateUtc ?? null,
-      validFrom: formatNotamTime(parseNotamTime(notam.startDateUtc), nowMs),
-      validTill: formatNotamTime(parseNotamTime(notam.endDateUtc), nowMs),
-      issued: issuedText(notam.created, nowMs),
-      condition: notam.condition ?? "",
-      status: notamStatus(notam, nowMs),
-      inWindow: notamOverlapsWindow(notam, nowMs, windowTo),
-      matches: matchNotamText(`${notam.number ?? ""} ${notam.condition ?? ""}`, groups),
-    }));
+    // Bug report 8 (2026-11-10): every NOTAM is parsed into its fields ONCE here (shared/notam-parse.mjs) and the
+    // cards draw from the fields; expired NOTAMs are dropped and counted, never shown; keyword matching runs over the
+    // E) text (and D/F/G) only — not the CrewBriefing ruler, the header's "[rwy | 9]" tag or the Q) line, which made
+    // the "RWY" term flag almost everything.
+    const prepared = prepareNotams(rawNotams, nowMs);
+    const annotated = prepared.items.map((notam) => {
+      const f = notam.fields;
+      const body = f.parsed ? [f.e, f.d, f.f, f.g].filter(Boolean).join("\n") : f.raw;
+      return {
+        number: notam.number ?? f.id ?? null,
+        class: notam.class ?? f.type ?? null,
+        startDateUtc: notam.startDateUtc ?? null,
+        endDateUtc: notam.endDateUtc ?? null,
+        validFrom: formatNotamTime(f.validFromMs ?? parseNotamTime(notam.startDateUtc), nowMs),
+        validTill: f.perm ? "PERM" : formatNotamTime(f.validTillMs ?? parseNotamTime(notam.endDateUtc), nowMs),
+        issued: issuedText(notam.created, nowMs) ?? (f.issuedMs != null ? formatNotamTime(f.issuedMs, nowMs) : null),
+        issuedFrom: f.issuedFrom,
+        condition: notam.condition ?? "",
+        fields: f,
+        status: notamStatus(notam, nowMs),
+        inWindow: notamOverlapsWindow(notam, nowMs, windowTo),
+        matches: matchNotamText(`${notam.number ?? ""} ${body}`, groups),
+      };
+    });
     const rank = (n) => {
-      if (n.status === "expired") return 3;
       if (!n.inWindow) return 2; // future, outside today's window
       return n.matches.length > 0 ? 0 : 1;
     };
@@ -347,6 +358,7 @@ export class NotamCheckService {
       all,
       // Filtered set = keyword-matched AND valid in [now, +24h] (PERM included).
       filtered: all.filter((n) => n.inWindow && n.matches.length > 0),
+      counts: { shown: all.length, expired: prepared.dropped, unparsed: prepared.unparsed },
     };
   }
 
@@ -459,7 +471,9 @@ export class NotamCheckService {
     const code = String(icao || "").toUpperCase();
     const airport = this.state.airports?.find((a) => a.icao === code);
     if (!airport) throw new PublicError(`Airport ${code} is not part of today's check.`);
-    if (!airport.error) throw new PublicError(`${code} has no error, so it does not need a resync.`);
+    // "Fetch again" (2026-11-10): a failed fetch, or data older than six hours, may be fetched again; fresh data need not.
+    const ageMs = airport.notamsAsOf ? Date.now() - Date.parse(airport.notamsAsOf) : Infinity;
+    if (!airport.error && ageMs <= 6 * 3600_000) throw new PublicError(`${code} was fetched less than six hours ago, so it does not need fetching again.`);
     this.resyncing = this.resyncing || new Set();
     if (this.resyncing.has(code)) throw new PublicError(`A resync for ${code} is already running. Wait for it to finish.`);
     this.resyncing.add(code);

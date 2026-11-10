@@ -44,7 +44,8 @@ function Welcome() {
       if (!r.ok || !d.ok) { setError(typeof d.error === "string" ? d.error : "That did not work. Try again in a minute."); return; } // public-error-ok: our own route's sentence
       setMade(d.email);
       const { error: signInError } = await createSupabaseBrowserClient().auth.signInWithPassword({ email: d.email, password: pw });
-      if (!signInError) { window.location.href = "/client"; return; }
+      // the one step after the password (2026-11-10): Timeline or Flights list, then their flights
+      if (!signInError) { window.location.href = "/client/start"; return; }
     } catch { setError("Nothing was saved. Check your connection and try again."); }
     finally { setBusy(false); }
   };

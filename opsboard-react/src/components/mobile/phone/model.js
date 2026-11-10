@@ -27,6 +27,7 @@ export function phoneFlight(f, nowMs) {
     raw: f, id: f.id, cs: f.fn, reg: f.__reg, operator: f.__operator, acId: `${f.oprId || 'opr'}:${f.__reg}`,
     adep: f.dep, ades: f.arr, depMs, arrMs, depT: f.depHm, arrT: f.arrHm, depKind: f.depKind, arrKind: f.arrKind,
     status: f.status, estimated: f.estimated === true,
+    unconfirmed: f.isConfirmed === false, // the wall's red ring (bug report 8 item 2.1): the phone draws it too since 2026-11-10
     depLate, arrLate,
     nextDay: Number.isFinite(arrMs) && Number.isFinite(depMs) && day(arrMs) > day(depMs),
     arrChanged: arrLate > 0 && depLate === 0 && f.status !== 'cancelled' && f.status !== 'arrived',

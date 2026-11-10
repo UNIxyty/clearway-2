@@ -8,6 +8,8 @@ import { flightInScope, hasSwitch } from "../../lib/clients/scope.mjs";
 export const CLIENT_READS = {
   "/api/health": null,
   "/api/users/me": null,
+  "/api/user": null,              // the same handler as /api/users/me; the wall app's sign-in check asks this name
+  "/api/display/clocks": null,    // the room's clocks (names and time zones), nothing of anyone's
   "/api/stream": null,
   "/api/timeline/flights": "flight_board",
   "/api/flights/normalized": "flight_board",
@@ -23,11 +25,11 @@ export const CLIENT_READS = {
   "/api/limitations": "limitations",
   "/api/important": "important",
   "/api/caa": "caa",
-  "/api/aip-pdf": "documents",
-  "/api/airports/search": "airport_search",
-  "/api/geo/airports": "airport_search",
-  "/api/geo/countries": "airport_search",
-  "/api/countries": "airport_search",
+  // (/api/aip-pdf, /api/airports/search, /api/geo/airports, /api/geo/countries, /api/countries were here until
+  // 2026-11-10: Airports, AIP pages, airport search and Documents are no longer part of a client's world, and their
+  // two switches are retired — lib/clients/switches.mjs)
+  "/api/geo/coords": "radar",     // lat/lon of the asked airports, for the flight map (data/airport-coords.json)
+  "/api/flight-passengers": "passengers", // the names of one of THEIR flights' passengers; "passengers" is the level, not a switch (see clientReadRefusal)
   "/api/timeline/sync-status": "service_status",
 };
 
@@ -40,6 +42,8 @@ export function clientReadRefusal(scope, method, pathname) {
   const path = pathname.replace(/\/+$/, "");
   if (!(path in CLIENT_READS)) return "not-in-their-world";
   const sw = CLIENT_READS[path];
+  // passengers is a level (off | names | documents), not a switch: anything but off opens the names read
+  if (sw === "passengers") return scope.passengerLevel && scope.passengerLevel !== "off" ? null : "switch-off";
   if (sw && !hasSwitch(scope, sw)) return "switch-off";
   return null;
 }

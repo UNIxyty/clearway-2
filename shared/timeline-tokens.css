@@ -1,0 +1,21 @@
+/* Digital Wall timeline — pill colours from the wall legend. Same hues in both themes; light theme adds an edge.
+   From the Claude Design project "Clearway Portal", shared/timeline-tokens.css (etag 1794262344938885, 2026-11-10), verbatim.
+   Read by the client surface of the wall app (opsboard-react/src/client) and nowhere on the ops wall display. */
+:root, [data-theme="light"] {
+  --tl-scheduled: #dde2ea; --tl-delayed: #e2bb67; --tl-ctot: #ad99d8; --tl-flying: #8fadd9; --tl-arrived: #c58ea9; --tl-aog: #d0575b;
+  --tl-cancelled: transparent;
+  --tl-pill-ink: #14161b; --tl-pill-edge: rgba(20,22,27,.16); --tl-pill-split: rgba(20,22,27,.28);
+  --tl-hatch: rgba(20,22,27,.55);
+  --tl-grid: #eceef1; --tl-grid-strong: #e0e3e7; --tl-lane-alt: #fafbfc;
+  --tl-now: #2563eb; --tl-now-glow: rgba(37,99,235,.10); --tl-now-tag-bg: #eef4ff; --tl-now-tag-fg: #1d4ed8;
+  --tl-time: #4b5563; --tl-clock: #1d4ed8;
+}
+[data-theme="dark"] {
+  --tl-scheduled: #dde2ea; --tl-delayed: #e2bb67; --tl-ctot: #ad99d8; --tl-flying: #8fadd9; --tl-arrived: #c58ea9; --tl-aog: #d0575b;
+  --tl-cancelled: transparent;
+  --tl-pill-ink: #14161b; --tl-pill-edge: rgba(255,255,255,.10); --tl-pill-split: rgba(20,22,27,.30);
+  --tl-hatch: #14181e;
+  --tl-grid: #1c2129; --tl-grid-strong: #252b34; --tl-lane-alt: #12161c;
+  --tl-now: #5aa9f5; --tl-now-glow: rgba(90,169,245,.10); --tl-now-tag-bg: #0f2338; --tl-now-tag-fg: #7cc0ff;
+  --tl-time: #a7b4c8; --tl-clock: #6cbcff;
+}

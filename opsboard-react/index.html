@@ -7,7 +7,11 @@
     <link rel="icon" type="image/png" href="/PFP.png" />
     <link rel="shortcut icon" href="/PFP.png" />
     <link rel="apple-touch-icon" href="/PFP.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The zoom bug (bug report 8 part 1B, 2026-11-10): the page never zooms by itself. No user-scalable=no (that breaks
+         accessibility); instead every text field is 16px or more (iOS zooms on focus below that), buttons use
+         touch-action: manipulation (no double-tap zoom), text-size-adjust is 100%, and nothing in code sets a scale.
+         viewport-fit=cover lets the phone pages pad the safe areas themselves. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Clearway Display Console</title>
     <!-- The console follows the portal's theme (src/theme/portalTheme.js, the portal's components/portal/theme-script.ts):
          read the choice before the first paint so a dark console never flashes light. Console paths only — the wall

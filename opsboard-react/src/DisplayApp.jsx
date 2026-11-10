@@ -22,7 +22,6 @@ import { WALL_FONT, applyWallFont } from './theme/wallFont';
 import { WallDisplayProvider } from './theme/WallDisplayContext';
 import { windowCheckLine } from './services/windowCheck';
 import { errorText } from './services/errorText';
-import { WALL_SIGN } from './theme/wallSign';
 // Item 1 diagnostic: append ?debug=viewport to the wall URL to see the
 // screen's real rendering environment without devtools. The same values are
 // reported to /api/display/env either way (visible on console Settings).
@@ -52,53 +51,8 @@ function ViewportDebug() {
   );
 }
 
-// Daily NOTAM-check wall sign (view-only: the display just renders the state
-// the backend pushes; acknowledgments happen in the Console).
-function NotamSign({ sign, scale = 1 }) {
-  const v = WALL_SIGN[sign];
-  if (!v) return null;
-  return (
-    <>
-      <style>{'@keyframes cwsignpulse{0%,100%{opacity:1}50%{opacity:.55}}'}</style>
-      <div
-        style={{
-          fontFamily: WALL_FONT,
-          fontSize: Math.round(14 * scale),
-          fontWeight: 700,
-          letterSpacing: '1px',
-          color: v.text,
-          background: v.bg,
-          border: `1px solid ${v.border}`,
-          borderRadius: 8,
-          padding: '8px 14px',
-          whiteSpace: 'nowrap',
-          animation: v.pulse ? 'cwsignpulse 1.6s ease-in-out infinite' : 'none',
-          boxShadow: `0 0 ${v.pulse ? 18 : 12}px ${v.glow}`,
-        }}
-      >
-        {v.label}
-      </div>
-    </>
-  );
-}
+// (The NotamSign component that drew the daily NOTAM-check sign on the wall lived here until 2026-11-10; part 1F.)
 
-
-const POLL_MS = 60_000;
-
-// Captured at module evaluation — the router normalizes the URL (dropping
-// the query) before components mount, so read it before that happens.
-const DEBUG_VIEWPORT = /[?&#]debug/.test(window.location.href);
-
-/**
- * The Display surface — a pure wall screen. No tabs, no CRUD controls, no
- * management UI; just the clock bar, the timeline board and the limitation
- * sidebar. All management lives in the Display Console (/console).
- *
- * Updates arrive two ways: the 60s poll (fallback, forces a Leon sync) and
- * SSE events (limitations.changed / config.changed) that trigger an
- * immediate cheap refetch. Both paths replace whole state slices, so an
- * event racing a poll is idempotent.
- */
 export default function DisplayApp() {
   const [aircraft, setAircraft] = useState([]);
   const [windowStartUtc, setWindowStartUtc] = useState('');
@@ -109,7 +63,6 @@ export default function DisplayApp() {
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [limitations, setLimitations] = useState([]);
   const [clocks, setClocks] = useState(FALLBACK_CLOCKS);
-  const [notamSign, setNotamSign] = useState('NONE');
   // Full NOTAM-check payload (per-airport checked state) — the phone's
   // Attention tab reads it; the desktop wall keeps using only the sign.
   const [notamState, setNotamState] = useState(null);
@@ -225,7 +178,7 @@ export default function DisplayApp() {
     loadTimeline({ refresh: false });
     loadClocks();
     loadSettings();
-    fetchNotamCheckToday().then((p) => { setNotamSign(p.sign || 'NONE'); setNotamState(p); }).catch(() => {});
+    fetchNotamCheckToday().then((p) => setNotamState(p)).catch(() => {});
     const id = setInterval(() => loadTimeline({ refresh: false }), POLL_MS);
     // Item 1: report this screen's real rendering environment (and again on
     // resize) so the console shows what the wall actually has to work with.
@@ -274,8 +227,7 @@ export default function DisplayApp() {
       // Sign update AND a cheap re-read: acking an airport on the console
       // clears that airport's NTM/WX pill markers within ~1-2s (server-side
       // decoration drops findings for CHECKED airports).
-      subscribeWallStream('notam-check.changed', (event) => {
-        setNotamSign(event.sign || 'NONE');
+      subscribeWallStream('notam-check.changed', () => {
         loadTimeline({ refresh: false });
         // Per-airport checked state for the mobile Attention tab.
         fetchNotamCheckToday().then((p) => setNotamState(p)).catch(() => {});
@@ -304,10 +256,12 @@ export default function DisplayApp() {
     <div style={s.shell}>
       {/* Clocks bar + wall sign scale with the SIDEBAR scale; the overlay
           with its own scale — the board scale moves neither (Item 2). */}
+      {/* The NOTAM CHECKED / CHECK NOTAM sign in the top right corner was removed on 2026-11-10 (bug report 8, part 1F):
+          display only — the NOTAM check page, its daily check, the mail and "Mark checked" all stay. The clocks bar
+          closes up over the space (Header draws no right slot). */}
       <Header
         clocks={clocks}
         scale={headerScale}
-        rightSlot={<NotamSign sign={notamSign} scale={sidebarScale} />}
       />
       <FlightOverlay topOffset={Math.round(92 * headerScale)} scale={overlayScale} />
       {/* Sidebar shows ONLY the manual text limitations from the Limitations
@@ -372,7 +326,7 @@ export default function DisplayApp() {
         loadTimeline({ refresh: false });
         loadClocks();
         loadSettings();
-        fetchNotamCheckToday().then((p) => { setNotamSign(p.sign || 'NONE'); setNotamState(p); }).catch(() => {});
+        fetchNotamCheckToday().then((p) => setNotamState(p)).catch(() => {});
       }}
     />
     )}

@@ -101,23 +101,21 @@ for (const theme of ["light", "dark"]) {
 }
 {
   const { ctx, page } = await phonePage("light");
-  // 2/4: hold for a second → the document covers the list; the fields are there only now
-  const hold = page.getByRole("button", { name: /^Hold to show the document of/ }).first();
-  // durations that ARE the test (a press shorter than the one-second hold, then long enough to show nothing opened)
-  await hold.dispatchEvent("pointerdown"); await page.waitForTimeout(400); await hold.dispatchEvent("pointerup"); await page.waitForTimeout(700);
+  // 2/4: one normal tap on Show (2026-11-10: no press-and-hold on phone pages) → the document covers the list; the
+  // fields are there only now
+  const hold = page.getByRole("button", { name: /^Show the document of/ }).first();
   ok((await page.getByRole("dialog").count()) === 0, "phone: letting go before one second cancels (nothing shown)");
-  // a full hold: the signal is the document appearing while the pointer is still down (was a fixed 1.3 s)
-  await hold.dispatchEvent("pointerdown"); await page.getByRole("dialog").waitFor({ timeout: 10_000 });
+  await hold.click(); await page.getByRole("dialog").waitFor({ timeout: 10_000 });
   const dlg = page.getByRole("dialog");
   const text = (await dlg.innerText()).replace(/\s+/g, " ");
-  ok(/DOCUMENT NUMBER/.test(text) && /TEST\d{5}/.test(text) && /DATE OF BIRTH/.test(text) && /EXPIRES/.test(text), "phone: after a one-second hold the document covers the list with the four fields", text.slice(0, 160));
+  ok(/DOCUMENT NUMBER/.test(text) && /TEST\d{5}/.test(text) && /DATE OF BIRTH/.test(text) && /EXPIRES/.test(text), "phone: after one tap on Show the document covers the list with the four fields", text.slice(0, 160));
   ok(!/PLACE OF BIRTH/.test(text), "phone: no place of birth shown");
   const name = (await page.locator("[data-phone-shell]").first().evaluate(() => "")) ?? "";
   const wm = await dlg.locator("[aria-hidden='true'] span").first().innerText();
   ok(/[A-Z]/.test(wm) && /\d\d:\d\d:\d\dZ/.test(wm), "phone: the watermark carries the viewer's name and the UTC time", wm);
   ok(/Your name and the time are on this view/.test(text), "phone: the fact is said on the screen, once");
   ok(/0:(30|29|28)/.test(text), "phone: the countdown starts at 30 s", text.match(/0:\d\d/)?.[0]);
-  const listVisible = await page.locator("[data-passenger-viewer] [role=button], [data-passenger-viewer] button[aria-label^='Hold']").first().isVisible().catch(() => false);
+  const listVisible = await page.locator("[data-passenger-viewer] [role=button], [data-passenger-viewer] button[aria-label^='Show']").first().isVisible().catch(() => false);
   ok(!listVisible || (await dlg.boundingBox())?.height > 700, "phone: the rest of the list is covered while a document is open");
   // 6: Copy all details is a reveal → another audit row
   const c0 = Number(psql("select count(*) from agent_audit_log where kind='intake.personal_revealed'"));
@@ -138,9 +136,9 @@ for (const theme of ["light", "dark"]) {
     const p2 = await c2.newPage();
     await p2.goto(`${BASE}/m/flights/${idOf(FID)}/passengers`, { waitUntil: "load" });
     await p2.locator("[data-passenger-viewer]").waitFor({ timeout: 15_000 }).catch(() => {});
-    const h2 = p2.getByRole("button", { name: /^Hold to show the document of/ }).first();
+    const h2 = p2.getByRole("button", { name: /^Show the document of/ }).first();
     await h2.waitFor({ timeout: 15_000 }).catch(() => {});
-    await h2.dispatchEvent("pointerdown"); await p2.clock.runFor(1_200);
+    await h2.click(); await p2.clock.runFor(200);
     await p2.getByRole("dialog").waitFor({ timeout: 10_000 }).catch(() => {});
     const opened = (await p2.getByRole("dialog").count()) === 1;
     await p2.clock.runFor(31_000);
@@ -149,7 +147,7 @@ for (const theme of ["light", "dark"]) {
     await c2.close();
   }
   // away: leaving the foreground hides names and closes any open document
-  await hold.dispatchEvent("pointerdown"); await page.getByRole("dialog").waitFor({ timeout: 10_000 });
+  await hold.click(); await page.getByRole("dialog").waitFor({ timeout: 10_000 });
   // pagehide is the earliest of the events a phone fires on its way to the switcher; the blur must be in the SAME frame
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   const sameFrame = await page.evaluate(() => ({ attr: document.documentElement.getAttribute("data-pax-away"), blur: getComputedStyle(document.querySelector("[data-pax-list]")).filter, doc: document.querySelector("[data-pax-doc]") ? getComputedStyle(document.querySelector("[data-pax-doc]")).visibility : "gone" }));
@@ -168,7 +166,7 @@ for (const theme of ["light", "dark"]) {
   const ctx = await context(browser); const page = await ctx.newPage();
   await page.route(/\/agent\/api\/flights\/[^/]+\/passengers$/, async (route) => { const r = await route.fetch(); const j = await r.json(); await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...j, canReveal: false }) }); });
   await page.goto(`${BASE}/m/flights/${idOf(FID)}/passengers`, { waitUntil: "load" }); await page.getByText(/Your role shows names/).first().waitFor({ timeout: 10_000 }).catch(() => {}); await settled(page);
-  ok((await page.getByRole("button", { name: /^Hold to show/ }).count()) === 0 && /Your role shows names/.test(await page.locator("[data-passenger-viewer]").innerText()), "phone: without the permission there is no Hold and the strip says why");
+  ok((await page.getByRole("button", { name: /^Show the document of/ }).count()) === 0 && /Your role shows names/.test(await page.locator("[data-passenger-viewer]").innerText()), "phone: without the permission there is no Show and the strip says why");
   await ctx.close();
 }
 // a refused reveal shows nothing
@@ -176,8 +174,8 @@ for (const theme of ["light", "dark"]) {
   const ctx = await context(browser); const page = await ctx.newPage();
   await page.route(/\/reveal$/, (route) => route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ ok: false, message: "You don't have permission to do this." }) }));
   await page.goto(`${BASE}/m/flights/${idOf(FID)}/passengers`, { waitUntil: "load" }); await settled(page);
-  const hold = page.getByRole("button", { name: /^Hold to show the document of/ }).first();
-  await hold.dispatchEvent("pointerdown"); await page.locator("[role=alert]").first().waitFor({ timeout: 10_000 }).catch(() => {});   // the refusal is said
+  const hold = page.getByRole("button", { name: /^Show the document of/ }).first();
+  await hold.click(); await page.locator("[role=alert]").first().waitFor({ timeout: 10_000 }).catch(() => {});   // the refusal is said
   ok((await page.getByRole("dialog").count()) === 0 && !DOC_VALUES.test(await page.content()) && (await page.locator("[role=alert]").count()) > 0, "phone: a refused reveal shows nothing and says so");
   await ctx.close();
 }

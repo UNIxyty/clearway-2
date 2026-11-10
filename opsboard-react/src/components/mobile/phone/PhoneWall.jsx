@@ -140,7 +140,8 @@ function Pill({ p, onOpen }) {
   const chip = (code) => <span style={{ height: 17, padding: '0 6px', borderRadius: 9, background: l.chipBg, color: l.chipFg, fontSize: 10.5, fontWeight: 900, letterSpacing: '0.03em', display: 'flex', alignItems: 'center' }}>{code}</span>;
   return (
     <button type="button" data-pill={p.cs} onClick={() => onOpen(p)} aria-label={`${p.cs}, ${p.adep} ${p.depT} to ${p.ades} ${p.arrT}, ${p.status}`}
-      style={{ flex: 'none', position: 'relative', zIndex: 3, height: 44, display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px', borderRadius: 12, background: l.bg, border: `1px ${l.borderStyle} ${l.border}`, overflow: 'hidden' }}>
+      data-unconfirmed={p.unconfirmed && p.status !== 'cancelled' ? '1' : undefined}
+      style={{ flex: 'none', position: 'relative', zIndex: 3, height: 44, display: 'flex', alignItems: 'center', gap: 8, padding: '0 10px', borderRadius: 12, background: l.bg, border: `1px ${l.borderStyle} ${l.border}`, overflow: 'hidden', boxShadow: p.unconfirmed && p.status !== 'cancelled' ? `0 0 0 2px ${v('bad')}` : 'none' }}>
       <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '0.01em', color: l.color, whiteSpace: 'nowrap' }}>{p.cs}</span>
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>{chip(p.adep)}<span style={{ fontSize: 11, fontWeight: 800, color: l.depColor, textDecoration: l.deco, whiteSpace: 'nowrap' }}>{p.depT}</span></span>
       <span style={{ fontSize: 12, fontWeight: 900, color: v('text-4') }}>→</span>

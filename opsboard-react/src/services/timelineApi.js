@@ -50,7 +50,7 @@ export async function fetchCurrentUser() {
 
 // `what` is the sentence shown when the server sends none, e.g. "Couldn't load the flights." The network error and
 // the API base setting go to the browser console, never to the screen.
-async function fetchJson(pathWithQuery, what) {
+export async function fetchJson(pathWithQuery, what) {
   let response;
   try {
     response = await fetch(buildApiUrl(pathWithQuery));
@@ -128,6 +128,8 @@ function mapFlight(flight, group) {
     isConfirmed: flight.isConfirmed !== false,
     checklistColor: flight.checklistColor || null,
     ctot: flight.ctot || null,
+    // the count Leon holds (the client surface shows it next to the passenger list, 2026-11-10)
+    passengerCount: Number.isFinite(Number(flight.passengerCount)) ? Number(flight.passengerCount) : null,
     startUtcMs: t.startUtcMs,
     delayedStartUtcMs: t.delayedStartUtcMs,
     scheduledEndUtcMs: t.scheduledEndUtcMs,
@@ -540,26 +542,8 @@ export async function postFlightCheck({ flightNid, oprId, types, checked = true 
   return payload;
 }
 
-export async function sendFlightDocs({ flightNid, oprId, airports, docs }) {
-  const response = await fetch(buildApiUrl('/api/aip/send'), {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ flightNid, oprId, airports, docs }),
-  });
-  const payload = await readPayload(response);
-  if (!response.ok || payload.ok === false) {
-    throw failureFrom(payload, "Couldn't start sending the documents.");
-  }
-  return payload;
-}
-
-export async function fetchAipSendJob(jobId) {
-  return fetchJson(`/api/aip/send/${encodeURIComponent(jobId)}`, "Couldn't load the document send.");
-}
-
-export function aipPdfUrl(icao) {
-  return buildApiUrl(`/api/aip-pdf?icao=${encodeURIComponent(String(icao || '').toUpperCase())}`);
-}
+// (sendFlightDocs, fetchAipSendJob and aipPdfUrl moved to services/consoleApi.js on 2026-11-10: AIP code stays out of
+// the chunks a client's browser downloads; rig/bundle-sweep.mjs reads them)
 
 export async function fetchAircraftSchedule() {
   // refresh=false: the backend's own poll keeps the cache current; forcing

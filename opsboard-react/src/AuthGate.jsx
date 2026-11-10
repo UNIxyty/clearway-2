@@ -60,7 +60,10 @@ const DEVICE_POLL_APPROVED_MS = 60_000; // running on a device token: watch for 
  * device from the console drops it back to this waiting screen.
  */
 export default function AuthGate({ surface = 'display', children }) {
-  const isDisplay = surface !== 'console';
+  // Three surfaces (2026-11-10): the display (a person or a registered screen), the console (a person) and the
+  // client surface (a person with a client account, framed by the portal; never a device, never the console's gate).
+  const isDisplay = surface === 'display';
+  const isClient = surface === 'client';
   // Device tokens are only ever attached on the display surface; the console
   // must always be a real person.
   if (isDisplay) installDeviceFetch();
@@ -243,6 +246,17 @@ export default function AuthGate({ surface = 'display', children }) {
   }
 
   if (state.phase === 'unauthorized') {
+    if (isClient) {
+      return (
+        <div style={{ ...s.center, background: 'transparent', color: 'inherit' }} data-client-signed-out="">
+          <div style={{ ...s.card, background: 'transparent', border: 0 }}>
+            <div style={{ ...s.title, color: 'inherit' }}>Your session ended</div>
+            <div style={{ ...s.text, color: 'inherit', opacity: 0.8 }}>Sign in again to see your flights.</div>
+            <a style={s.btn} href="/login">Sign in</a>
+          </div>
+        </div>
+      );
+    }
     if (!isDisplay) return <ConsoleGate loginHref={loginHref()} />;
     return (
       <div style={s.center}>

@@ -227,6 +227,17 @@ const clocksStore = new JsonFileStore("display-clocks.json", { clocks: DEFAULT_C
 // zone is local: WALL_STATION_TIME_ZONE, default Europe/Riga (EVRA). A saved choice, including "no local clock",
 // always wins over the default.
 const STATION_TIME_ZONE = String(process.env.WALL_STATION_TIME_ZONE || "Europe/Riga").trim();
+// data/airport-coords.json (2147 airports, lat/lon), mounted read-only as shared-data: loaded once, kept for the process.
+let airportCoordsCache = null;
+async function airportCoords() {
+  if (airportCoordsCache) return airportCoordsCache;
+  for (const file of [path.resolve(process.cwd(), "shared-data", "airport-coords.json"), path.resolve(process.cwd(), "..", "data", "airport-coords.json")]) {
+    try { airportCoordsCache = JSON.parse(await fs.readFile(file, "utf8")); return airportCoordsCache; } catch { /* next */ }
+  }
+  airportCoordsCache = {};
+  return airportCoordsCache;
+}
+
 function clocksWithLocal(stored) {
   if (stored?.localChosen === true) {
     const clocks = (stored.clocks ?? DEFAULT_CLOCKS).map((c) => ({ ...c, local: c.local === true || c.home === true }));
@@ -927,6 +938,11 @@ const server = http.createServer(async (req, res) => {
           requestUser = { ...requestUser, clientPieces: pieces };
         }
         if (pathname === "/api/stream") requestUser = { ...requestUser, streamFilter: clientStreamFilter(clientScope, timelineService) };
+        if (pathname === "/api/flight-passengers") {
+          // one of THEIR flights only: outside scope the flight does not exist (404), as /api/flight-info answers
+          const found = timelineService.getFlightByNid(url.searchParams.get("flightNid"), url.searchParams.get("oprId") || "");
+          if (!found || !flightInfoForClient(found, clientScope)) { sendJson(res, NOT_ON_ACCOUNT, 404); return; }
+        }
         scopedSenders.set(res, (payload, status = 200) => {
           if (status !== 200) return rawSendJson(res, payload, status);
           let out = scopePayload({ pathname, payload, scope: clientScope, timelineService, importantStore, caaStore });
@@ -1296,6 +1312,33 @@ const server = http.createServer(async (req, res) => {
     // ── Flight info fan-out: timings + NOTAMs + weather + AIP availability ──
     // A flight's services from Leon, for the phone wall's Service status sheet (2026-10-27). Staff only: a client's
     // reads are an allow-list (lib/client-scope.mjs) and this is not on it.
+    // ── Passenger names of one flight (2026-11-10): the client surface's list (names only; the agent's passenger
+    // viewer keeps documents for staff). Staff reach it too. Read from Leon with the operator's token; the log
+    // carries the flight and the count, never a name. ──
+    if (pathname === "/api/flight-passengers" && req.method === "GET") {
+      const found = timelineService.getFlightByNid(url.searchParams.get("flightNid"), url.searchParams.get("oprId") || "");
+      if (!found) { sendJson(res, { ok: false, error: "That flight is not on the wall any more." }, 404); return; }
+      const oprId = found.aircraft?.oprId || url.searchParams.get("oprId") || undefined;
+      try {
+        const out = await timelineService.getFlightPassengerNames(found.flight.flightNid ?? url.searchParams.get("flightNid"), oprId);
+        console.log(`[passengers] names read: flight ${found.flight.flightNid} count=${out.passengers.length} by=${requestUser?.permRole || "?"}`);
+        sendJson(res, { ok: true, count: out.count, passengers: out.passengers, readAt: new Date().toISOString() });
+      } catch (error) {
+        sendFailure(res, 502, "Couldn't read this flight's passengers from Leon. Try again in a minute.", "flight-passengers", error);
+      }
+      return;
+    }
+
+    // ── Airport coordinates (2026-11-10): lat/lon for the flight map, from data/airport-coords.json (shared-data). ──
+    if (pathname === "/api/geo/coords" && req.method === "GET") {
+      const asked = String(url.searchParams.get("icao") || "").toUpperCase().split(",").map((x) => x.trim()).filter((x) => /^[A-Z0-9]{4}$/.test(x)).slice(0, 12);
+      const table = await airportCoords();
+      const coords = {};
+      for (const i of asked) if (table[i]) coords[i] = { lat: Number(table[i].lat), lon: Number(table[i].lon) };
+      sendJson(res, { ok: true, coords, missing: asked.filter((i) => !coords[i]) });
+      return;
+    }
+
     if (pathname === "/api/flight-services" && req.method === "GET") {
       const found = timelineService.getFlightByNid(url.searchParams.get("flightNid"), url.searchParams.get("oprId") || "");
       if (!found) { sendJson(res, { ok: false, error: "That flight is not on the wall any more." }, 404); return; }

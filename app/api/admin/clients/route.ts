@@ -3,7 +3,7 @@ import { onboardingReady } from "@/lib/clients/onboarding";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { listClients, listDecisions } from "@/lib/clients/admin";
-import { SWITCHES, STARTING_SWITCHES, PASSENGER_LEVELS, SCOPE_KINDS } from "@/lib/clients/switches.mjs";
+import { ACTIVE_SWITCHES as SWITCHES, STARTING_SWITCHES, PASSENGER_LEVELS, SCOPE_KINDS } from "@/lib/clients/switches.mjs";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
 
 export const dynamic = "force-dynamic";

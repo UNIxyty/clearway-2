@@ -7,6 +7,7 @@ import { logError } from "@/lib/utils/logger";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
 import { TRY_AGAIN, failure, publicEventStream, upstreamFailure } from "@/lib/public-error";
 import { requirePermission } from "@/lib/permissions/server";
+import { prepareNotams } from "@/shared/notam-parse.mjs";
 
 // What a person sees when NOTAMs cannot be fetched. The detail goes to the log.
 const NOT_SET_UP = "Getting new NOTAMs is not set up on this server. Report it from Help & support.";
@@ -40,6 +41,48 @@ const SYNC_TIMEOUT_MS = 120_000;
 const NOTAMS_PREFIX = "notam";
 const NOTAM_SYNC_URL = process.env.NOTAM_SYNC_URL?.replace(/\/$/, ""); // base URL of EC2 sync server
 const NOTAM_SYNC_SECRET = process.env.NOTAM_SYNC_SECRET ?? "";
+// Bug report 8 item 2.4 (2026-11-10): a stored file older than this is refreshed through the sync worker before it is
+// served; until then the stored file answered for ever (LXGB: "data 4619 h old"). A refresh that fails leaves the old
+// file in service, marked stale, and is not retried for RETRY_AFTER_MS so a broken source cannot stall every reader.
+const MAX_AGE_MS = 6 * 3600_000;
+const RETRY_AFTER_MS = 30 * 60_000;
+const lastRefreshFailure = new Map<string, number>();
+
+/** Every NOTAM answer leaves through here (item 4): fields parsed once, expired ones dropped, the counts said. */
+function answer(data: { icao: string; notams: NotamItem[]; updatedAt: string | null }, extra: Record<string, unknown> = {}) {
+  const prepared = prepareNotams(data.notams);
+  const ageMs = data.updatedAt ? Date.now() - Date.parse(data.updatedAt) : null;
+  return NextResponse.json({
+    icao: data.icao,
+    notams: prepared.items,
+    updatedAt: data.updatedAt,
+    counts: { shown: prepared.items.length, expired: prepared.dropped, unparsed: prepared.unparsed, total: data.notams.length },
+    stale: ageMs != null && ageMs > MAX_AGE_MS,
+    ...extra,
+  });
+}
+
+async function refreshThroughWorker(icao: string): Promise<{ icao: string; notams: NotamItem[]; updatedAt: string | null } | null> {
+  if (!NOTAM_SYNC_URL) return null;
+  const failedAt = lastRefreshFailure.get(icao);
+  if (failedAt && Date.now() - failedAt < RETRY_AFTER_MS) return null;
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (NOTAM_SYNC_SECRET) headers["X-Sync-Secret"] = NOTAM_SYNC_SECRET;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+    const res = await fetch(`${NOTAM_SYNC_URL}/sync?icao=${encodeURIComponent(icao)}`, { method: "GET", headers, signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) { lastRefreshFailure.set(icao, Date.now()); logError("NOTAM-API", `NOTAM refresh for ${icao} failed (${res.status})`); return null; }
+    const data = (await res.json()) as { icao?: string; notams?: NotamItem[]; updatedAt?: string };
+    lastRefreshFailure.delete(icao);
+    return { icao: data.icao ?? icao, notams: data.notams ?? [], updatedAt: data.updatedAt ?? null };
+  } catch (e) {
+    lastRefreshFailure.set(icao, Date.now());
+    logError("NOTAM-API", `NOTAM refresh for ${icao} did not answer`, e);
+    return null;
+  }
+}
 
 export type NotamItem = {
   location: string;
@@ -117,11 +160,7 @@ export async function GET(request: NextRequest) {
       }
       if (res.ok) {
         const data = (await res.json()) as { icao?: string; notams?: NotamItem[]; updatedAt?: string };
-        return NextResponse.json({
-          icao: data.icao ?? icao,
-          notams: data.notams ?? [],
-          updatedAt: data.updatedAt ?? null,
-        });
+        return answer({ icao: data.icao ?? icao, notams: data.notams ?? [], updatedAt: data.updatedAt ?? null });
       }
       const errBody = await res.text();
       logError("NOTAM-API", `NOTAM sync failed with status ${res.status}: ${errBody.slice(0, 200)}`);
@@ -137,11 +176,12 @@ export async function GET(request: NextRequest) {
 
   const fromStorage = await getFromStorage(icao);
   if (fromStorage) {
-    return NextResponse.json({
-      icao: fromStorage.icao,
-      notams: fromStorage.notams,
-      updatedAt: fromStorage.updatedAt,
-    });
+    const ageMs = fromStorage.updatedAt ? Date.now() - Date.parse(fromStorage.updatedAt) : Infinity;
+    if (!(ageMs > MAX_AGE_MS)) return answer(fromStorage);
+    // old data: refresh now; if that fails, the old file still answers, marked stale, with the reason
+    const fresh = await refreshThroughWorker(icao);
+    if (fresh) return answer(fresh, { refreshed: true });
+    return answer(fromStorage, { refreshError: NOTAM_SYNC_URL ? "The NOTAM service could not refresh this airport. The stored data is shown with its age." : NOT_SET_UP });
   }
 
   // Cache miss: delegate to the dedicated sync worker when configured. The
@@ -162,11 +202,7 @@ export async function GET(request: NextRequest) {
       clearTimeout(timeoutId);
       if (res.ok) {
         const data = (await res.json()) as { icao?: string; notams?: NotamItem[]; updatedAt?: string };
-        return NextResponse.json({
-          icao: data.icao ?? icao,
-          notams: data.notams ?? [],
-          updatedAt: data.updatedAt ?? null,
-        });
+        return answer({ icao: data.icao ?? icao, notams: data.notams ?? [], updatedAt: data.updatedAt ?? null });
       }
       const errBody = await res.text();
       logError("NOTAM-API", `NOTAM cache-miss sync for ${icao} failed (${res.status}): ${errBody.slice(0, 300)}`);
@@ -251,7 +287,7 @@ export async function GET(request: NextRequest) {
           : Array.isArray(parsed?.notams)
             ? parsed.notams
             : [];
-        resolve(NextResponse.json({ icao, notams, updatedAt: null }));
+        resolve(answer({ icao, notams, updatedAt: null }));
       } catch {
         logError("NOTAM-API", `NOTAM scraper for ${icao} printed no JSON: ${stdout.slice(-300)}`);
         resolve(failure(500, FAILED)); // our own scraper process, not a gateway

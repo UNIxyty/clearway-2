@@ -6,8 +6,8 @@ import {
   fetchOverlay,
   fetchTimelineRaw,
   openFlightOverlay,
-  sendFlightDocs,
 } from '../../services/timelineApi';
+import { sendFlightDocs } from '../../services/consoleApi';
 import { FlightMarkers } from '../FlightPill';
 import { subscribeWallStream } from '../../services/wallStream';
 import useViewport from '../../hooks/useViewport';

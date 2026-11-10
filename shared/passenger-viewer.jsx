@@ -56,10 +56,10 @@ export default function PassengerViewer({ api, viewer, phone = false, icon, seco
   const [open, setOpen] = useState(null); // { passenger, shownAt, left }
   const [opening, setOpening] = useState(null); // id being fetched
   const [revealError, setRevealError] = useState(null);
-  const [hold, setHold] = useState(null); // id being held (phone)
+  // (the phone hold-to-reveal state lived here until 2026-11-10)
   const [away, setAway] = useState(false);
   const [copied, setCopied] = useState(false);
-  const holdTimer = useRef(null), tick = useRef(null);
+  const tick = useRef(null);
 
   const load = useCallback(async () => {
     setState("loading"); setError(null);
@@ -102,14 +102,12 @@ export default function PassengerViewer({ api, viewer, phone = false, icon, seco
     const text = [`${p.surname} ${p.given}`, `Nationality ${p.nationality ?? ""}`, `Sex ${p.sex ?? ""}`, `Date of birth ${p.dateOfBirth ?? ""}`, `Document ${p.documentCountry ?? ""} ${p.documentNumber ?? ""}`, `Expires ${p.documentExpiry ?? ""}`].join("\n");
     try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard refused: nothing copied */ }
   }, [api, open]);
-  const down = (p) => { if (opening || open) return; setHold(p.id); clearTimeout(holdTimer.current); holdTimer.current = setTimeout(() => { setHold(null); void reveal(p); }, 1000); };
-  const up = () => { clearTimeout(holdTimer.current); setHold(null); };
 
   const canReveal = data?.canReveal !== false;
   const stamp = useMemo(() => (open ? `${(viewer?.name || "Viewer").toUpperCase()} · ${hhmmss(open.shownAt)}Z` : ""), [open, viewer]);
   const sens = { tint: "var(--pv-ca-sens-tint)", border: "var(--pv-ca-sens-border)", text: "var(--pv-ca-sens-text)", solid: "var(--pv-ca-sens-solid)", onSolid: "var(--pv-ca-sens-on-solid)" };
   const strip = canReveal
-    ? { icon: "lock", color: sens.text, bg: sens.tint, bd: sens.border, text: phone ? `Hold a passenger for 1 second to see their document. It covers the list, closes after ${seconds} seconds, and is logged with your name.` : `Documents stay hidden. Open one passenger at a time; it closes after ${seconds} seconds and the view is logged with your name.` }
+    ? { icon: "lock", color: sens.text, bg: sens.tint, bd: sens.border, text: phone ? `Tap Show on a passenger to see their document. It covers the list, closes after ${seconds} seconds, and is logged with your name.` : `Documents stay hidden. Open one passenger at a time; it closes after ${seconds} seconds and the view is logged with your name.` }
     : { icon: "users", color: "var(--pv-text-muted)", bg: "var(--pv-bg-sunken)", bd: "var(--pv-border)", text: "Your role shows names and seats. Document details aren’t part of it; an admin can add “Reveal a passenger’s personal data” under Permissions." };
   const card = { border: "1px solid var(--pv-border)", borderRadius: 14, background: "var(--pv-bg-surface)", overflow: "hidden", position: "relative" };
 
@@ -155,11 +153,12 @@ export default function PassengerViewer({ api, viewer, phone = false, icon, seco
                       {/* absent (a client at the names level) shows nothing; empty (not in Leon) shows a dash */}
                       {!("nationality" in p) && !("sex" in p) ? null : <span style={{ font: `500 12.5px ${MONO}`, color: "var(--pv-text-muted)" }}>{[p.nationality, SEX[p.sex] ?? p.sex].filter(Boolean).join(" · ") || "—"}</span>}
                     </span>
-                    {canReveal && (phone ? (
-                      <button type="button" aria-label={`Hold to show the document of ${p.surname}`} disabled={Boolean(open) || Boolean(opening)} onPointerDown={() => down(p)} onPointerUp={up} onPointerLeave={up} onPointerCancel={up} onContextMenu={(e) => e.preventDefault()}
-                        style={{ position: "relative", height: 44, minWidth: 76, padding: "0 12px", borderRadius: 12, border: `1.5px solid ${sens.border}`, background: "var(--pv-bg-surface)", color: sens.text, fontSize: 13.5, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, overflow: "hidden", cursor: "pointer", userSelect: "none", touchAction: "none", fontFamily: "inherit" }}>
-                        <span aria-hidden style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: hold === p.id ? "100%" : "0%", background: sens.tint, transition: `width ${hold === p.id ? 1000 : 150}ms linear` }} />
-                        <span style={{ position: "relative", display: "flex" }}>{icon("hand", 14)}</span><span style={{ position: "relative" }}>{opening === p.id ? "…" : "Hold"}</span>
+                    {/* one normal tap on every surface (2026-11-10, bug report 8 part 1B: no press-and-hold on phone pages); the
+                        view still covers the list, closes itself and is logged */}
+                    {canReveal && (phone && !isOpen ? (
+                      <button type="button" onClick={() => void reveal(p)} disabled={Boolean(open) || Boolean(opening)} aria-label={`Show the document of ${p.surname}`}
+                        style={{ position: "relative", height: 44, minWidth: 76, padding: "0 12px", borderRadius: 12, border: `1.5px solid ${sens.border}`, background: "var(--pv-bg-surface)", color: sens.text, fontSize: 13.5, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", touchAction: "manipulation" }}>
+                        <span style={{ display: "flex" }}>{icon("id-card", 14)}</span><span>{opening === p.id ? "…" : "Show"}</span>
                       </button>
                     ) : isOpen ? (
                       <button type="button" onClick={hide} aria-label={`Hide the document of ${p.surname}`} style={{ height: 30, padding: "0 10px", borderRadius: 8, border: "none", background: sens.solid, color: sens.onSolid, fontSize: 12.5, fontWeight: 650, display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit" }}>{icon("eye-off", 13)}Hide</button>

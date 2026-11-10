@@ -41,7 +41,9 @@ export function parseRoute(pathname) {
   if (LEGACY_CONSOLE_ALIASES[last]) {
     return { surface: 'console', page: LEGACY_CONSOLE_ALIASES[last] };
   }
-  return { surface: 'display' };
+  // the client surface (2026-11-10): the display route framed by the portal's client shell with ?in=client
+  const client = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('in') === 'client';
+  return { surface: 'display', client };
 }
 
 export function routeToPath(route) {

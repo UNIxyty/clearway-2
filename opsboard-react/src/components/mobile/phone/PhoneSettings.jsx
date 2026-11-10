@@ -111,7 +111,7 @@ function ClocksPage({ prefs, setPrefs, nowMs }) {
                 {editing === i ? (
                   <form onSubmit={(e) => { e.preventDefault(); rename(i); }} style={{ height: 36, padding: '0 10px', borderRadius: 9, background: v('bg-1'), border: `2px solid ${v('accent')}`, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <input autoFocus value={draft} maxLength={12} onChange={(e) => setDraft(e.target.value.toUpperCase())} onBlur={() => rename(i)} aria-label="City name"
-                      style={{ flex: 1, minWidth: 0, background: 'transparent', border: 0, outline: 'none', color: v('text-1'), font: 'inherit', fontSize: 15, fontWeight: 900, letterSpacing: '0.06em' }} />
+                      style={{ flex: 1, minWidth: 0, background: 'transparent', border: 0, outline: 'none', color: v('text-1'), font: 'inherit', fontSize: 16, fontWeight: 900, letterSpacing: '0.06em' }} />
                     <span style={{ fontSize: 11, fontWeight: 800, color: v('text-4') }}>{draft.length}/12</span>
                   </form>
                 ) : (

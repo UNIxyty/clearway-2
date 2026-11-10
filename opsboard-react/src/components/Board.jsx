@@ -200,6 +200,9 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   staleMode = false,            // stale feed: dashed neutral pills, now-line HIDDEN
   onPillTap = null,             // tap → detail sheet (replaces the desktop info tab)
   touchHitMinPx = null,         // pad each pill's hit area to ≥N px per axis
+  autoReturnToNow = true,       // the ops wall drifts back to "now" when idle; a client browsing another day must not be dragged back (2026-11-10)
+  scrollToMs = null,            // client day switching (2026-11-10): when this changes, the view scrolls so this instant sits where "now" normally does
+  onViewRange = null,           // reports the visible time range on every scroll ({ startMs, endMs }), for a parent's day label
 }) {
   // Resolved wall colour tokens — every colour on the board derives from
   // these (chromeFor/legend*/aogStylesFor bridge the shipped odd shades).
@@ -212,9 +215,6 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   // Retractable info tab (bug report item 1): one open at a time so the
   // board stays clean; auto-collapses after 3 min of being left open.
   const [openInfoId, setOpenInfoId] = useState(null);
-  // Bug report 3 item 2: sidebar limitation rows expand their description
-  // in place (retractable, collapsed by default).
-  const [openLimId, setOpenLimId] = useState(null);
   useEffect(() => {
     if (!openInfoId) return undefined;
     const timer = setTimeout(() => setOpenInfoId(null), 180_000);
@@ -225,6 +225,8 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   const headerScrollRef = useRef(null);
   const bodyScrollRef = useRef(null);
   const hasCenteredInitiallyRef = useRef(false);
+  const autoReturnRef = useRef(autoReturnToNow);
+  autoReturnRef.current = autoReturnToNow;
   // Ops-room legibility: all metrics scale with the display scale setting;
   // a larger scale also shows fewer hours per viewport, so pills get wider
   // and their bigger labels still fit.
@@ -627,6 +629,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
         }
         return;
       }
+      if (!autoReturnRef.current) return; // a client keeps the day they chose (2026-11-10)
       if (Date.now() - lastInteractionAt < AUTO_RETURN_TO_NOW_MS) return;
       const target = nowScrollRef.current.target;
       // Follow "now" continuously: the view keeps it at the same place on screen, re-aligned whenever it is a
@@ -648,7 +651,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
       cancelAnimationFrame(animationFrame);
       tickNow(); // the clock first, so the target below is computed from the real time, not the last tick
       const target = nowScrollRef.current.target;
-      if (Math.abs(body.scrollLeft - target) >= 1 && Date.now() - lastInteractionAt >= AUTO_RETURN_TO_NOW_MS) {
+      if (autoReturnRef.current && Math.abs(body.scrollLeft - target) >= 1 && Date.now() - lastInteractionAt >= AUTO_RETURN_TO_NOW_MS) {
         snapTo(target);
       } else {
         autoScrolling = false; // clear any latch either way
@@ -683,6 +686,40 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
     centerNowInView();
     hasCenteredInitiallyRef.current = true;
   }, [timelinePx, END_PAD_PX, windowStartMs, windowDurationMs, nowX]);
+
+  // Client day switching (2026-11-10): a parent asks for an instant; the view scrolls so it sits where "now" sits on
+  // first paint. Null asks for nothing; "now" itself goes through centerNowInView so the two agree to the pixel.
+  useEffect(() => {
+    if (scrollToMs == null) return;
+    const header = headerScrollRef.current;
+    const body = bodyScrollRef.current;
+    if (!header || !body) return;
+    if (Math.abs(scrollToMs - Date.now()) < 60_000) { centerNowInView(); return; }
+    const width = Math.max(0, body.clientWidth - AC_LABEL_W);
+    const maxScroll = Math.max(0, (timelinePx + END_PAD_PX) - width);
+    const x = nowFracUtc(scrollToMs, windowStartMs, windowDurationMs) * timelinePx;
+    const next = Math.max(0, Math.min(maxScroll, x - BEFORE_NOW_HOURS * pxPerHour));
+    body.scrollLeft = next;
+    header.scrollLeft = next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToMs, timelinePx]);
+
+  // The visible range, for a parent's day label (client timeline, 2026-11-10).
+  useEffect(() => {
+    if (!onViewRange) return;
+    const body = bodyScrollRef.current;
+    if (!body) return;
+    const report = () => {
+      const width = Math.max(0, body.clientWidth - AC_LABEL_W);
+      const startMs = windowStartMs + (body.scrollLeft / Math.max(1, timelinePx)) * windowDurationMs;
+      const endMs = startMs + (width / Math.max(1, pxPerHour)) * 3600_000;
+      onViewRange({ startMs, endMs });
+    };
+    report();
+    body.addEventListener('scroll', report, { passive: true });
+    return () => body.removeEventListener('scroll', report);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onViewRange, windowStartMs, windowDurationMs, timelinePx, pxPerHour]);
 
   // Sidebar list = the manual text limitations only (NTM/WX/IMP are pill
   // markers, not sidebar entries). Numbers link sidebar cards to pill badges.
@@ -745,28 +782,9 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
           ))}
         </div>
 
-        <div style={{ ...s.panelTitle, marginTop: 18 }}>PERMANENT:</div>
-        <div className="cw-lim-scroll" style={s.limList}>
-          {allLims.length === 0 && <div style={s.limEmpty}>None active</div>}
-          {/* Titles ONLY (bug report 2 item 5) — the full description lives
-              in the flight's retractable tab. */}
-          {allLims.map((l, i) => (
-            <div key={l.id}>
-              <div
-                style={{ ...s.limTitleRow, cursor: 'pointer' }}
-                onClick={() => setOpenLimId((prev) => (prev === l.id ? null : l.id))}
-                title="Show description"
-              >
-                <span style={{ ...s.limBadgeNum, borderColor: chrome.limNumBorder, color: chrome.limNum }}>{i + 1}</span>
-                <span style={s.limTitle}>{l.title}</span>
-                <span style={{ marginLeft: 'auto', color: chrome.sidebarMuted, fontSize: szSide(11) }}>{openLimId === l.id ? '▴' : '▾'}</span>
-              </div>
-              {openLimId === l.id && (l.description || l.body) && (
-                <div style={s.limDescTab}>{l.description || l.body}</div>
-              )}
-            </div>
-          ))}
-        </div>
+        {/* The "PERMANENT:" limitations list that stood here was removed on 2026-11-10 (bug report 8, part 1F): display only.
+            The limitations store, their matching to flights, the markers on pills and the flight detail all stay. The
+            sidebar ends with the two agendas; nothing keeps the empty space (s.leftPanel has no fixed height for it). */}
       </div>
       )}
 

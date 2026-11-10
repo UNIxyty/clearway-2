@@ -75,7 +75,7 @@ export default function Header({ clocks = FALLBACK_CLOCKS, rightSlot = null, sca
         ))}
       </div>
 
-      <div style={s.rightSlot}>{rightSlot}</div>
+      {rightSlot ? <div style={s.rightSlot}>{rightSlot}</div> : null}
     </header>
   );
 }

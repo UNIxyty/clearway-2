@@ -101,14 +101,16 @@ export async function getNotams(icao, { fresh = false } = {}) {
   if (!validIcao(code)) return { ok: false, error: REASONS.badIcao() };
   const key = `notam:${code}`;
   if (fresh) {
-    // Explicit per-airport resync: skip (and evict) the cached result —
-    // otherwise a retry inside the 60s failure-cache window is a no-op.
+    // Explicit per-airport resync ("Fetch again"): skip (and evict) the cached result, and ask the portal to scrape
+    // NOW (sync=1) rather than serve its stored file — until 2026-11-10 this re-read the same old file (LXGB: 4619 h).
     cache.delete(key);
   } else {
     const cached = cacheGet(key);
     if (cached) return cached;
   }
-  const answer = await portalJson(`/api/notams?icao=${code}&scraper=crewbriefing`);
+  // The portal refreshes stored data older than six hours on its own before answering; the scrape can take two
+  // minutes, so the wait here is longer than the usual portal call.
+  const answer = await portalJson(`/api/notams?icao=${code}&scraper=crewbriefing${fresh ? "&sync=1" : ""}`, { timeoutMs: 150_000 });
   const result = answer.ok
     ? answer
     : {

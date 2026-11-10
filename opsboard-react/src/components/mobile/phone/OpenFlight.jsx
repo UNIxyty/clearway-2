@@ -12,6 +12,8 @@ import { hmZ, spanText } from '../mobileUtil';
 import { v } from './tokens';
 import { lookOf } from './model';
 import { Btn, CheckChip, CloseButton, Icon, Label, Msg, Scroll, Segmented, Sheet, SheetFoot } from './ui';
+import MapView, { mapStateOf, useCoords } from '../../../client/MapView';
+import '../../../client/client.css';
 
 const KEYS = ['IMP', 'NTM', 'WX', 'CAA', 'LIM'];
 const NAME = { IMP: 'Important', NTM: 'NOTAMs', WX: 'Weather', CAA: 'CAA', LIM: 'Limitations' };
@@ -222,11 +224,11 @@ export default function OpenFlight({ flight: p, limitations = [], notamState, no
           </div>
         </div>
 
-        <div data-fr24 style={{ borderRadius: 14, border: `1px solid ${v('line-2')}`, backgroundColor: v('surface-1'), backgroundImage: `linear-gradient(${v('line-1')} 1px, transparent 1px), linear-gradient(90deg, ${v('line-1')} 1px, transparent 1px)`, backgroundSize: '28px 28px', padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ height: 20, padding: '0 6px', borderRadius: 5, background: v('surface-3'), border: `1px solid ${v('line-3')}`, fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', color: v('text-3'), display: 'flex', alignItems: 'center' }}>FR24</span><span style={{ fontSize: 14, fontWeight: 800, color: v('text-1') }}>Live tracking isn’t connected yet</span></div>
-          <div style={{ fontSize: 12.5, lineHeight: 1.5, color: v('text-3'), textWrap: 'pretty' }}>The map fills in once the FlightRadar24 data feed is set up. Times and status above come from Leon and are current.</div>
-          <a href={`https://www.flightradar24.com/${encodeURIComponent(p.cs)}`} target="_blank" rel="noreferrer" style={{ alignSelf: 'flex-start', height: 44, padding: '0 14px', borderRadius: 11, background: v('surface-3'), border: `1px solid ${v('line-3')}`, display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 800, color: v('text-1'), textDecoration: 'none' }}>Open {p.cs} in FlightRadar24<Icon name="external" size={14} stroke={2.4} /></a>
-        </div>
+        {/* The map (2026-11-10, design "Phone Views"): our own map from the wall's data — both airports and the route;
+            no live position feed is connected, and the map says so instead of inventing one. One normal tap. */}
+        <button type="button" data-open-map onClick={() => setSheet('map')} style={{ height: 52, borderRadius: 12, border: `1px solid ${v('line-3')}`, background: v('surface-2'), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 15, fontWeight: 800, color: v('text-1') }}>
+          <Icon name="map" size={18} />Map{p.status === 'airborne' && <span style={{ height: 18, padding: '0 6px', borderRadius: 9, background: v('accent-soft'), color: v('st-airborne'), fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', display: 'inline-flex', alignItems: 'center' }}>AIRBORNE</span>}
+        </button>
 
         <button type="button" onClick={() => setSheet('services')} style={{ minHeight: 56, padding: '0 14px', borderRadius: 12, background: v('surface-2'), border: `1px solid ${v('line-3')}`, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: v('text-1') }}>Service status</span>
@@ -323,12 +325,25 @@ export default function OpenFlight({ flight: p, limitations = [], notamState, no
 
       {sheet?.startsWith('ap:') && <AirportSheet side={sheet.slice(3)} p={p} info={info} notam={notam} onRetry={loadInfo} onClose={() => setSheet(null)} />}
 
+      {sheet === 'map' && (
+        <Frame onClose={() => setSheet(null)}>
+          <div style={{ flex: 'none', height: 52, display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 0 16px', borderBottom: `1px solid ${v('line-1')}` }}><span style={{ flex: 1, fontSize: 17, fontWeight: 900, color: v('text-1') }}>{p.cs} · Map</span><CloseButton onClick={() => setSheet(null)} /></div>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', color: v('text-1') }}><StaffMap p={p} /></div>
+        </Frame>
+      )}
       {sheet === 'services' && <ServicesSheet p={p} svc={svc} rows={svcRows} awaiting={awaiting} answered={answered} onRetry={loadServices} onClose={() => setSheet(null)} />}
     </Frame>
   );
 }
 
 /** The open flight's frame: 56 px of the list showing above, the sheet below (§3.0). */
+/** The staff phone's map: the same MapView the client gets (one flight, no other traffic), in the phone's own frame. */
+function StaffMap({ p }) {
+  const coords = useCoords([p.adep, p.ades]);
+  const f = { ...p.raw, fn: p.cs, dep: p.adep, arr: p.ades, __reg: p.reg, depHm: p.depT, arrHm: p.arrT, atdHm: p.raw?.atdHm, ataHm: p.raw?.ataHm, etd: p.raw?.etd, depKind: p.depKind, endUtcMs: p.arrMs, delayedStartUtcMs: p.depMs, status: p.status };
+  return <MapView p={f} coords={coords} position={null} state={mapStateOf(f, null, true)} theme="dark" />;
+}
+
 function Frame({ children, onClose }) {
   return (
     <div role="dialog" aria-modal="true" aria-label="Flight" style={{ position: 'absolute', inset: 0, zIndex: 20, background: v('scrim'), display: 'flex', flexDirection: 'column' }}>

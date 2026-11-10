@@ -21,7 +21,9 @@ export const FORBIDDEN_IN_CLIENT_BUNDLE = ["agent/api", "useAgentDock", "Ops Age
 const ourRoutes = ourRoutesFrom("app");
 const publicHosts = [String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "")].filter(Boolean);
 const permissionNames = permissionNamesFrom(readCatalogue());
-const fetchStatus = async (u) => { try { return (await fetch(u, { method: "GET" })).status; } catch { return 0; } };
+// a .map answers "served" only when it IS a source map (JSON): the wall's single-page app answers its index page for any
+// missing file, as production's gateway does (try_files … /index.html), and that is not a leaked source (2026-11-10)
+const fetchStatus = async (u) => { try { const r = await fetch(u); if (r.status !== 200) return r.status; const head = (await r.text()).trimStart().slice(0, 1); return head === "{" ? 200 : 404; } catch { return 0; } };
 
 /**
  * Every JS body a client downloaded (portal scripts and the frame's chunks) holding a forbidden word: [{ url, words }].

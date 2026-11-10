@@ -99,11 +99,11 @@ try {
   ok(row?.status === "requested" && row.user_id === null, "the request is a clients row with no account", JSON.stringify(row));
   // asked of the database itself (2026-11-07): page 1 of the account list is not every account
   ok(psql(`select count(*) from auth.users where lower(email) = lower('${ME.email.replace(/'/g, "")}');`) === "0", "no auth account exists for the asker");
-  const opsMail = (await newSends(n, OPS[0], /Access request/))[0];
+  const opsMail = (await newSends(n, OPS[0], /Client waiting|Access request/))[0];
   ok(Boolean(opsMail) && OPS.every((o) => [].concat(opsMail.to).includes(o)), "ops: one email to everyone on the notify list", opsMail ? `${[].concat(opsMail.to).join(", ")} · ${opsMail.subject}` : "none");
   ok(/^Clearway </.test(String(opsMail?.from)), "ops: from the brand's sender name", opsMail?.from);
   const opsHtml = opsMail ? (await sentBody(opsMail.id)).html : "";
-  ok(opsHtml.includes(ME.name) && opsHtml.includes(ME.company) && opsHtml.includes(ME.email) && /\/admin\/clients"/.test(opsHtml), "ops: says who, for which company, from which address, and links to Admin › Clients");
+  ok(opsHtml.includes(ME.name) && opsHtml.includes(ME.company) && opsHtml.includes(ME.email) && /\/admin\/clients"/.test(opsHtml.replaceAll("&amp;", "&")), "ops: says who, for which company, from which address, and links to Admin › Clients");
 
   {
     // an email link that needs a session is a broken link (2026-11-05): ops's link, opened in a fresh browser, is the
@@ -127,7 +127,7 @@ try {
   r = await api(`/api/admin/clients/${row.id}/approve`, admin, { method: "POST", body: JSON.stringify({ scope: [{ kind: "operator", value: "cwy-cwy" }], switches: ["flight_board"], passengerLevel: "off" }) });
   j = await r.json();
   ok(r.ok && j.linkSent === true && j.email?.ok === true, "approve: saved, and the set-password email was accepted", `${r.status} ${JSON.stringify({ linkSent: j.linkSent, email: j.email?.ok, error: j.error })}`);
-  const link1Mail = (await newSends(n, ME.email, /Set your password/))[0];
+  const link1Mail = (await newSends(n, ME.email, /access is approved|new link to set your|Set your password/))[0];
   const link1 = link1Mail ? linkIn((await sentBody(link1Mail.id)).html, /https?:\/\/[^"\s<]+\/welcome\?token=[\w-]+/) : null;
   ok(Boolean(link1), "the client gets an email with a set-password link", link1Mail?.subject);
 
@@ -140,7 +140,7 @@ try {
   await approvedRow.locator("[data-resend-link]").click();
   await adminPage.getByText(`A new link went to ${ME.email}`).waitFor({ timeout: 15000 }).catch(() => {});
   ok(await adminPage.getByText(`A new link went to ${ME.email}`).count() > 0, "Admin › Clients: “Send the link again” says where it went once the mail service took it");
-  const link2Mail = (await newSends(n, ME.email, /Set your password/))[0];
+  const link2Mail = (await newSends(n, ME.email, /access is approved|new link to set your|Set your password/))[0];
   const link2 = link2Mail ? linkIn((await sentBody(link2Mail.id)).html, /https?:\/\/[^"\s<]+\/welcome\?token=[\w-]+/) : null;
   ok(Boolean(link2) && link2 !== link1, "a second, different link went out");
   await page0.close();
@@ -199,7 +199,7 @@ try {
     const late = (await db(`clients?select=id&email=eq.${encodeURIComponent(LATE.email)}`))[0];
     n = (await sentList()).length;
     r = await api(`/api/admin/clients/${late.id}/approve`, admin, { method: "POST", body: JSON.stringify({ scope: [{ kind: "operator", value: "cwy-cwy" }], switches: ["flight_board"], passengerLevel: "off" }) });
-    const lateMail = (await newSends(n, LATE.email, /Set your password/))[0];
+    const lateMail = (await newSends(n, LATE.email, /access is approved|new link to set your|Set your password/))[0];
     const lateLink = lateMail ? linkIn((await sentBody(lateMail.id)).html, /https?:\/\/[^"\s<]+\/welcome\?token=[\w-]+/) : null;
     ok(Boolean(lateLink), "a second client is approved and gets a link");
     const past = new Date(Date.now() - 73 * 3600e3).toISOString();
@@ -213,8 +213,8 @@ try {
     await page.getByText(/on its way to/).waitFor({ timeout: 15000 }).catch(() => {});
     const said = await page.locator("[data-welcome-expired]").innerText().catch(() => "");
     ok(/on its way to r\S*@rig\.invalid/.test(said) && !said.includes(LATE.email), "the page says a new link is on its way, to the address masked", said.replace(/\s+/g, " ").slice(0, 160));
-    const fresh = await newSends(n, LATE.email, /Set your password/);
-    const anyElse = (await sentList()).slice(n).filter((e) => /Set your password/.test(e.subject) && ![].concat(e.to).includes(LATE.email));
+    const fresh = await newSends(n, LATE.email, /access is approved|new link to set your|Set your password/);
+    const anyElse = (await sentList()).slice(n).filter((e) => /access is approved|new link to set your|Set your password/.test(e.subject) && ![].concat(e.to).includes(LATE.email));
     ok(fresh.length === 1 && anyElse.length === 0, "the new link went to the address on the request, and nowhere else", `${fresh.length} to the client, ${anyElse.length} elsewhere`);
     const freshLink = fresh[0] ? linkIn((await sentBody(fresh[0].id)).html, /https?:\/\/[^"\s<]+\/welcome\?token=[\w-]+/) : null;
     await page.goto(onRig(freshLink), { waitUntil: "load" });
@@ -247,13 +247,13 @@ let refusal = [];
     const ask = (email) => api("/api/client-requests", null, { method: "POST", body: JSON.stringify({ name: "Rig Ceiling Person", company: "Rig Ceiling Air (invented)", email }) });
     n = (await sentList()).length;
     const r1 = await ask("rig-onboard-ceiling-1@rig.invalid");
-    const last = (await newSends(n, OPS[0], /Access request/))[0];
+    const last = (await newSends(n, OPS[0], /Client waiting|Access request/))[0];
     const lastHtml = last ? (await sentBody(last.id)).html : "";
     ok(r1.ok && Boolean(last) && lastHtml.includes(`the most this list is sent in a day`), `ops ceiling: the ${CAP}th email in 24 hours goes, and says it is the last`, `${CAP} a day; ${today} today before the seed`);
     n = (await sentList()).length;
     const r2 = await ask("rig-onboard-ceiling-2@rig.invalid");
     await new Promise((res) => setTimeout(res, 1500));
-    const after = (await sentList()).slice(n).filter((e) => /Access request/.test(e.subject));
+    const after = (await sentList()).slice(n).filter((e) => /Client waiting|Access request/.test(e.subject));
     const kept = (await db(`clients?select=status&email=eq.rig-onboard-ceiling-2%40rig.invalid`))[0];
     ok(r2.ok && after.length === 0 && kept?.status === "requested", "ops ceiling: the next request is recorded for Admin › Clients, and nobody is emailed", `${after.length} emails · ${kept?.status}`);
     psql("delete from intake_messages where provider = 'rig' and provider_message_id like 'rig-ops-ceiling-%';");

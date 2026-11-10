@@ -22,23 +22,34 @@ export async function check({ base, accounts: [client], ok }) {
   ok(link.st === 200 && /"state":"unknown"/.test(link.text) && !/"email":"[^"]/.test(link.text), "signed out: a made-up set-password link is unknown, and names nobody", link.st);
   const again = await ask("/api/client-invite/new-link", { method: "POST", body: JSON.stringify({ token: "x".repeat(43) }) });
   ok(again.st < 500 && !/"state":"sent"/.test(again.text), "signed out: asking for a new link with a made-up one sends nothing", again.st);
-  for (const p of ["/client", "/client/account", "/client/airports", "/client/documents"]) { const r = await ask(p); ok(r.st >= 300 && r.st < 400 && r.to === "/login", `signed out: ${p} asks for a sign-in`, `${r.st} → ${r.to}`); }
+  for (const p of ["/client", "/client/flights", "/client/account", "/client/start"]) { const r = await ask(p); ok(r.st >= 300 && r.st < 400 && r.to === "/login", `signed out: ${p} asks for a sign-in`, `${r.st} → ${r.to}`); }
   const pwOut = await ask("/api/client/account/password", { method: "POST", body: "{}" });
   ok([401, 403, 404].includes(pwOut.st) || (pwOut.st >= 300 && pwOut.st < 400), "signed out: the password route answers nobody", pwOut.st);
 
   // ── the client ──
   const root = await ask("/", { who: client });
-  ok(root.st >= 300 && root.st < 400 && root.to === "/client", "client: signing in lands on Flights (/client)", `${root.st} → ${root.to}`);
+  ok(root.st >= 300 && root.st < 400 && (root.to === "/client" || root.to === "/client/flights"), "client: signing in lands on Timeline (/client), or Flights when they chose it", `${root.st} → ${root.to}`);
   const home = await ask("/client", { who: client });
   const menu = (/data-menu="([^"]*)"/.exec(home.text)?.[1] ?? "").split(" ").filter(Boolean);
-  ok(home.st === 200 && /data-client-shell/.test(home.text) && !/data-cw-sidebar/.test(home.text), "client: Flights opens in the client shell, with no staff shell", home.st);
-  ok(JSON.stringify(menu) === JSON.stringify(["/client", "/client/airports", "/client/documents"]) && /data-account-link/.test(home.text), "client: the menu is Flights, Airports, Documents, with Account beside it", menu.join(" "));
+  ok(home.st === 200 && /data-client-shell/.test(home.text) && !/data-cw-sidebar/.test(home.text), "client: Timeline opens in the client shell, with no staff shell", home.st);
+  ok(JSON.stringify(menu) === JSON.stringify(["/client", "/client/flights", "/client/account"]) && /data-client-frame/.test(home.text), "client: the menu is Timeline, Flights, Account, and the page carries the wall's client frame", menu.join(" "));
+  // the frame's own document, and the wall reads it makes (their scope only; this check account's scope matches nothing)
+  const frameDoc = await ask("/digital-wall/timeline/?in=client&page=timeline", { who: client });
+  ok(frameDoc.st === 200 && /<div id="root">/.test(frameDoc.text), "client: the wall's client surface answers the frame", frameDoc.st);
+  const prefs = await ask("/api/client/prefs", { who: client }); let prefsJson = {}; try { prefsJson = JSON.parse(prefs.text); } catch { /* judged below */ }
+  ok(prefs.st === 200 && prefsJson.ok === true && prefsJson.prefs && "start" in prefsJson.prefs, "client: their view preferences answer (start page, hidden operators and aircraft)", prefs.st);
+  const prefsPut = await ask("/api/client/prefs", { who: client, method: "PUT", body: "{}" });
+  ok(prefsPut.st === 403, "client: a check account's write to the preferences is refused (read-only)", prefsPut.st);
+  for (const p of ["/digital-wall/api/aip-pdf?icao=EVRA", "/digital-wall/api/airports/search?q=EV", "/digital-wall/api/geo/airports", "/digital-wall/api/geo/countries", "/digital-wall/api/countries"]) { const r = await ask(p, { who: client }); ok(r.st === 404, `client: the retired wall read ${p.split("?")[0].replace("/digital-wall", "")} is 404`, r.st); }
+  const clocks = await ask("/digital-wall/api/display/clocks", { who: client });
+  ok(clocks.st === 200, "client: the room's clocks answer (the frame's clock bar)", clocks.st);
   const me = await ask("/api/client/me", { who: client }); let meJson = {}; try { meJson = JSON.parse(me.text); } catch { /* judged below */ }
   ok(me.st === 200 && meJson.ok === true && meJson.status === "approved" && Array.isArray(meJson.switches), "client: their own standing answers (approved, their switches)", `${me.st} · ${meJson.switches?.length ?? 0} switches`);
   const from = encodeURIComponent(new Date(Date.now() - 2 * 3600e3).toISOString()), to = encodeURIComponent(new Date(Date.now() + 7 * 86400e3).toISOString());
   const feed = await ask(`/digital-wall/api/flights/normalized?window=all-cached&limit=500&from=${from}&to=${to}`, { who: client }); let n = -1; try { n = (JSON.parse(feed.text).flights ?? []).length; } catch { /* judged below */ }
   ok(feed.st === 200 && n === 0, "client: the wall's feed answers, cut to their scope (this one matches nothing: 0 flights)", `${feed.st} · ${n} flights`);
-  for (const [p, mark] of [["/client/airports", 'data-tab="airports"'], ["/client/documents", 'data-tab="documents"'], ["/client/account", 'data-tab="account"']]) { const r = await ask(p, { who: client }); ok(r.st === 200 && r.text.includes(mark), `client: ${p} opens`, r.st); }
+  for (const [p, mark] of [["/client/flights", "data-client-frame"], ["/client/account", 'data-tab="account"'], ["/client/start", "data-client-start"]]) { const r = await ask(p, { who: client }); ok(r.st === 200 && r.text.includes(mark), `client: ${p} opens`, r.st); }
+  for (const p of ["/client/airports", "/client/documents"]) { const r = await ask(p, { who: client }); ok(r.st === 404, `client: the retired page ${p} is 404`, r.st); }
   const acct = await ask("/client/account", { who: client });
   ok(acct.text.includes(client.email), "client: Account says who is signed in");
   // the address clients write to is a setting; the page must show exactly what the setting holds (never printed here)

@@ -195,6 +195,14 @@
   {
    "kind": "page",
    "method": "GET",
+   "route": "/aip/library",
+   "file": "app/aip/library/page.tsx",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
    "route": "/aip",
    "file": "app/aip/page.tsx",
    "ungated": false,
@@ -483,6 +491,30 @@
   {
    "kind": "api",
    "method": "GET",
+   "route": "/api/aip/enr/pdf/exists",
+   "file": "app/api/aip/enr/pdf/exists/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/enr/pdf",
+   "file": "app/api/aip/enr/pdf/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/enr/sync",
+   "file": "app/api/aip/enr/sync/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
    "route": "/api/aip/gen/pdf/exists",
    "file": "app/api/aip/gen/pdf/exists/route.ts",
    "ungated": false,
@@ -517,6 +549,22 @@
    "method": "GET",
    "route": "/api/aip/gen-non-ead",
    "file": "app/api/aip/gen-non-ead/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "POST",
+   "route": "/api/aip/library/check",
+   "file": "app/api/aip/library/check/route.ts",
+   "ungated": false,
+   "onList": false
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/aip/library",
+   "file": "app/api/aip/library/route.ts",
    "ungated": false,
    "onList": false
   },
@@ -821,6 +869,22 @@
    "method": "GET",
    "route": "/api/client/me",
    "file": "app/api/client/me/route.ts",
+   "ungated": false,
+   "onList": true
+  },
+  {
+   "kind": "api",
+   "method": "GET",
+   "route": "/api/client/prefs",
+   "file": "app/api/client/prefs/route.ts",
+   "ungated": false,
+   "onList": true
+  },
+  {
+   "kind": "api",
+   "method": "PUT",
+   "route": "/api/client/prefs",
+   "file": "app/api/client/prefs/route.ts",
    "ungated": false,
    "onList": true
   },
@@ -1283,24 +1347,8 @@
   {
    "kind": "page",
    "method": "GET",
-   "route": "/client/account",
-   "file": "app/client/account/page.tsx",
-   "ungated": false,
-   "onList": true
-  },
-  {
-   "kind": "page",
-   "method": "GET",
-   "route": "/client/airports",
-   "file": "app/client/airports/page.tsx",
-   "ungated": false,
-   "onList": true
-  },
-  {
-   "kind": "page",
-   "method": "GET",
-   "route": "/client/documents",
-   "file": "app/client/documents/page.tsx",
+   "route": "/client/flights",
+   "file": "app/client/(watch)/flights/page.tsx",
    "ungated": false,
    "onList": true
   },
@@ -1308,7 +1356,15 @@
    "kind": "page",
    "method": "GET",
    "route": "/client",
-   "file": "app/client/page.tsx",
+   "file": "app/client/(watch)/page.tsx",
+   "ungated": false,
+   "onList": true
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/client/account",
+   "file": "app/client/account/page.tsx",
    "ungated": false,
    "onList": true
   },
@@ -1327,6 +1383,14 @@
    "file": "app/client/removed/page.tsx",
    "ungated": false,
    "onList": false
+  },
+  {
+   "kind": "page",
+   "method": "GET",
+   "route": "/client/start",
+   "file": "app/client/start/page.tsx",
+   "ungated": false,
+   "onList": true
   },
   {
    "kind": "page",
@@ -2080,6 +2144,18 @@
     },
     {
      "method": "GET",
+     "path": "/api/flight-passengers",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
+     "path": "/api/geo/coords",
+     "clientMay": true,
+     "public": false
+    },
+    {
+     "method": "GET",
      "path": "/api/flight-services",
      "clientMay": false,
      "public": false
@@ -2093,7 +2169,7 @@
     {
      "method": "GET",
      "path": "/api/aip-pdf",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {
@@ -2231,7 +2307,7 @@
     {
      "method": "GET",
      "path": "/api/display/clocks",
-     "clientMay": false,
+     "clientMay": true,
      "public": false
     },
     {
@@ -2303,13 +2379,13 @@
     {
      "method": "GET",
      "path": "/api/airports/search",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {
      "method": "GET",
      "path": "/api/countries",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {
@@ -2531,13 +2607,13 @@
     {
      "method": "GET",
      "path": "/api/geo/airports",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {
      "method": "GET",
      "path": "/api/geo/countries",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     }
    ],
@@ -3170,8 +3246,6 @@
   "radar",
   "service_status",
   "notam_check_status",
-  "documents",
-  "airport_search",
   "limitations",
   "important",
   "caa"

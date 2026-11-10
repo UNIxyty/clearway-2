@@ -56,7 +56,7 @@ function FlightPage({ p, me, names, onBack }) {
       <div className="cwp-scroll">
         <ClientFlightBody p={p} me={me} names={names} info={info} extraTop={
           <div className="cwp-btns" style={{ gridTemplateColumns: paxOn ? '1fr 1.25fr' : '1fr' }}>
-            {radarOn && <button type="button" className="cwp-big" onClick={() => setSub('map')} data-open-map="">Map{p.status === 'airborne' && <span className="cwp-live">LIVE</span>}</button>}
+            {radarOn && <button type="button" className="cwp-big" onClick={() => setSub('map')} data-open-map="">Map{p.status === 'airborne' && <span className="cwp-live">AIRBORNE</span>}</button>}
             {paxOn && <button type="button" className="cwp-big" onClick={() => setSub('pax')} data-open-pax="">Passengers{Number.isFinite(p.passengerCount) ? ` · ${p.passengerCount}` : ''}</button>}
           </div>
         } />

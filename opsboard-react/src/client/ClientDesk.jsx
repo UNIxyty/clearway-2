@@ -16,7 +16,7 @@ function Clocks({ clocks }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   const hm = (tz) => { try { return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz || 'UTC' }).format(now); } catch { return hmZ(now); } };
-  return <div className="cwd-clocks">{clocks.map((c, i) => <span key={`${c.timeZone}-${c.name}`} className={i === 0 || c.utc ? 'is-utc' : ''}><small>{(c.code || c.name || 'UTC').toUpperCase()}</small><b suppressHydrationWarning>{hm(c.timeZone)}</b></span>)}</div>;
+  return <div className="cwd-clocks">{clocks.map((c, i) => <span key={`${c.timeZone}-${c.name}`} className={i === 0 || c.utc ? 'is-utc' : ''}><small>{(c.label || c.name || c.code || 'UTC').toUpperCase()}</small><b suppressHydrationWarning>{hm(c.timeZone)}</b></span>)}</div>;
 }
 
 function OperatorsPanel({ aircraft, hidden, setHidden, onClose }) {

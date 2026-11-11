@@ -1,8 +1,9 @@
 // The status screen as static HTML (2026-11-11), for the two pages the middleware answers itself — a client's 404 for
 // anything outside their world (and staff under /client), and the 404 for a role nobody planned for. The same layout
 // as components/portal/StatusScreen.tsx: centred card, the Clearway logo (currentColor, so light on dark), an eyebrow,
-// a headline, one line, one button. Theme: the device's, overridden by the portal's saved choice (localStorage cw-theme)
-// through a two-line script, with the portal's own colour values. No React: under a streamed root layout notFound()
+// a headline, one line, one button. Theme: the device's (prefers-color-scheme) with the portal's own colour values; no
+// script at all (the gate walk holds the unknown-role page to that), so the portal's saved theme choice is not read
+// here. No React: under a streamed root layout notFound()
 // would arrive after the 200 has gone out, and the root not-found's payload carries the docs.
 import { CLEARWAY_LOGO_PATHS, CLEARWAY_LOGO_VIEWBOX } from "@/lib/brand/clearway-logo-paths";
 
@@ -26,6 +27,5 @@ h1{margin:12px 0 0;font-size:22px;line-height:1.2;font-weight:800;text-wrap:bala
 p{margin:8px 0 0;max-width:60ch;color:var(--body)}
 .btn{display:inline-flex;align-items:center;justify-content:center;min-width:160px;height:44px;margin-top:24px;padding:0 20px;border-radius:10px;border:0;background:var(--ink);color:var(--on-ink);font:600 14px/1 inherit;text-decoration:none;cursor:pointer}
 </style>
-<script>try{var t=localStorage.getItem("cw-theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head><body><main class="card" data-status-screen="${esc(kind)}"${kind === "client-not-found" ? " data-client-notfound=\"\"" : ""} role="region" aria-labelledby="t"><div class="logo">${logo}</div><div class="pill${tone === "danger" ? " danger" : ""}" data-status-eyebrow="">${esc(eyebrow)}</div><h1 id="t">${esc(title)}</h1><p>${esc(line)}</p>${button}</main></body></html>`;
 }

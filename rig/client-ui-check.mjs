@@ -63,6 +63,7 @@ const fresh = { user_id: uid, email: EMAIL, person_name: "Rig Client Person", co
 const existing = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=id`)).json();
 if (existing[0]) await svc(`/rest/v1/clients?id=eq.${existing[0].id}`, { method: "PATCH", body: JSON.stringify(fresh) });
 else await svc("/rest/v1/clients", { method: "POST", body: JSON.stringify(fresh) });
+const rowId = existing[0]?.id ?? ((await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=id`)).json())[0]?.id);   // this check's own row (other checks leave waiting rows of their own)
 // the address clients write to is a setting (app_settings, Admin › Clients): this check sets its own, an invented one
 const contact = "rig-client-help@rig.invalid";
 await svc("/rest/v1/app_settings?on_conflict=key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ key: "clients.support_email", value: { email: contact }, updated_by_email: "rig/client-ui-check" }) });
@@ -99,7 +100,7 @@ for (const theme of ["light", "dark"]) {
       ok(await approve.isEnabled(), "editor: Approve enabled with a scope, the board and a level");
       await page.screenshot({ path: `${OUT}/client-admin-editor.png`, fullPage: true });
       await approve.click(); await page.waitForSelector(`[data-client-approved]`, { timeout: 15000 }); await settled(page);
-      ok(await page.locator("[data-client-approved]").count() >= 1 && await page.locator("[data-client-request]").count() === 0, "approved through the page: moved from Waiting to Approved");
+      ok(await page.locator(`[data-client-approved="${rowId}"]`).count() === 1 && await page.locator(`[data-client-request="${rowId}"]`).count() === 0, "approved through the page: moved from Waiting to Approved", rowId);
       ok(await page.locator('[data-decision="approved"]').count() >= 1, "the decision log shows APPROVED");
       const row = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=status,scope,switches,passenger_level`)).json();
       ok(row[0]?.status === "approved" && JSON.stringify(row[0]?.scope) === JSON.stringify([{ kind: "registration", value: "LY-TST" }]) && row[0]?.switches.includes("limitations") && row[0]?.passenger_level === "names", "the row: approved, scope LY-TST, limitations on, names", JSON.stringify(row[0]).slice(0, 150));

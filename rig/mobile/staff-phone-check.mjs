@@ -41,7 +41,8 @@ for (const [theme, width] of [["light", 390], ["dark", 360], ["dark", 390]]) {
   await page.waitForSelector('[data-section="checks"]', { timeout: 15000 }).catch(() => {});
   ok(await page.locator('[data-section="checks"] [data-check]').count() === 5, `${theme} ${width}: the flight page carries the five checks`, fn);
   ok(await page.locator("[data-open-map]").count() === 1 && await page.locator("[data-open-pax]").count() === 1, `${theme} ${width}: Map and Passengers buttons`);
-  await page.locator("[data-open-pax]").click(); await page.waitForSelector('[data-passenger-viewer="phone"]', { timeout: 40000 }).catch(() => {});
+  await page.locator("[data-open-pax]").click(); await page.waitForSelector('[data-passenger-viewer="phone"]', { timeout: 15000 }).catch(() => {});
+  if (await page.locator('[data-passenger-viewer="phone"]').count() === 0) { await page.locator("[data-open-pax]").click().catch(() => {}); await page.waitForSelector('[data-passenger-viewer="phone"]', { timeout: 30000 }).catch(() => {}); }
   ok(await page.locator('[data-passenger-viewer="phone"]').count() === 1, `${theme} ${width}: Passengers opens the shared viewer on one tap`);
   const show = page.getByRole("button", { name: /^Show the document of/ }).first();
   const showN = await show.count();

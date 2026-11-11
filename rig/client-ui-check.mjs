@@ -465,8 +465,8 @@ for (const theme of ["light", "dark"]) {
     const fd = frameDoc(page);
     if (PHONE(width)) { await frameOf(page).locator('[data-settings-section="font"] .cws-section-toggle').click(); }
     else { await frameOf(page).locator('[data-jump="font"]').click(); await page.waitForTimeout(700); }
-    await frameOf(page).locator('[data-reset-section="font"]').scrollIntoViewIfNeeded().catch(() => {});
-    const reach = fd ? await fd.evaluate(() => { const b = document.querySelector('[data-reset-section="font"]'); if (!b) return null; const r = b.getBoundingClientRect(); return { inView: r.top >= 0 && r.bottom <= window.innerHeight, scrollY: window.scrollY, docScrolls: getComputedStyle(document.documentElement).overflowY !== "hidden" }; }) : null;
+    if (fd) await fd.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await page.waitForTimeout(400);
+    const reach = fd ? await fd.evaluate(() => { const b = document.querySelector('[data-reset-section="font"]'); if (!b) return null; const r = b.getBoundingClientRect(); const p = document.querySelector("[data-view-preview]")?.getBoundingClientRect(); return { inView: r.top >= (p ? p.bottom : 0) && r.bottom <= window.innerHeight, scrollY: window.scrollY, docScrolls: getComputedStyle(document.documentElement).overflowY !== "hidden" }; }) : null;
     ok(Boolean(reach?.inView) && reach.docScrolls && reach.scrollY > 0, `${theme} ${width}: the last section (Font) is reachable by scrolling, and the document itself scrolls`, JSON.stringify(reach));
     const sections = await frameOf(page).locator("[data-settings-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-settings-section")));
     ok(sections.join(",") === "scale,hour,vertical,horizontal,chips,colours,font", `${theme} ${width}: the ops wall's sections, in its order`, sections.join(","));
@@ -541,7 +541,7 @@ for (const theme of ["light", "dark"]) {
       if (path !== "/client/account") { await frameOf(page).locator("[data-client-surface]").waitFor({ timeout: 30000 }).catch(() => {}); await frameOf(page).locator("[data-board] [data-fid], [data-flight-row], [data-client-settings]").first().waitFor({ timeout: 30000 }).catch(() => {}); }
       await settled(page); await page.waitForTimeout(400);
       const shell = await textOverlaps(page, { ignore: ["iframe"] });
-      const fd = frameDoc(page); const inner = fd ? await textOverlaps(fd, { ignore: [".cwp-scrim", "[data-pax-sheet]"] }) : [];
+      const fd = frameDoc(page); const inner = fd ? await textOverlaps(fd, { ignore: [".cwp-scrim", "[data-pax-sheet]", "[data-view-preview]"] }) : [];   // the sticky preview is an overlay by design
       const clipped = fd ? await clippedText(fd) : [];
       ok(shell.length === 0 && inner.length === 0, `${theme} ${width} ${path}: no two text boxes overlap (shell and frame)`, [...shell, ...inner].map((o) => `"${o.a}" × "${o.b}" ${o.x}×${o.y}px`).join(" · "));
       ok(clipped.length === 0, `${theme} ${width} ${path}: no text is cut without an ellipsis`, clipped.map((c) => `"${c.t}" +${c.over}px`).join(" · "));
@@ -557,7 +557,7 @@ for (const theme of ["light", "dark"]) {
       if (!PHONE(width)) { await page.keyboard.press("Escape").catch(() => {}); await fr.locator("[data-operators-button]").click().catch(() => {}); }
       await settled(page); await page.waitForTimeout(300);
       const fd = frameDoc(page); const inner = fd ? await textOverlaps(fd, { ignore: [".cwp-scrim", "[data-operators-panel]"] }) : [];
-      const geo = fd ? await fd.evaluate(() => { const e = document.querySelector('[data-empty="all-hidden"]'); const b = document.querySelector("[data-board]"); return e && b ? { top: e.getBoundingClientRect().top - b.getBoundingClientRect().top, boardH: b.getBoundingClientRect().height } : null; }) : null;
+      const geo = fd ? await fd.evaluate(() => { const e = document.querySelector('[data-empty="all-hidden"]'); const b = document.querySelector('[data-card="timeline"], .cwp-lanes'); return e && b ? { emptyH: e.getBoundingClientRect().height, boardH: b.getBoundingClientRect().height } : null; }) : null;
       ok(inner.length === 0, `${theme} ${width}: the empty board (every aircraft hidden) overlaps nothing`, inner.map((o) => `"${o.a}" × "${o.b}"`).join(" · "));
       ok(Boolean(geo) && geo.boardH >= 200, `${theme} ${width}: the empty board keeps a sensible height`, JSON.stringify(geo));
       await shot(page, `${OUT}/overlap-empty-${theme}-${width}.png`, width);

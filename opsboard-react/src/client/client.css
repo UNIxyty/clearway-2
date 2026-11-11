@@ -226,7 +226,7 @@ html.cw-client-doc, html.cw-client-doc body, html.cw-client-doc #root { height: 
 }
 
 /* ── Display settings (2026-11-11; sections and the side list 2026-11-12): the ops console's look cards on the client surface ── */
-.cws { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 60px; max-width: 1180px; margin: 0 auto; }
+.cws { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 45vh; max-width: 1180px; margin: 0 auto; }   /* room at the end so the last section scrolls clear of the sticky preview */
 .cws-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
 .cws-head .cwd-title { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 .cws-head p { margin: 4px 0 0; font-size: 14px; max-width: 60ch; }
@@ -255,7 +255,7 @@ html.cw-client-doc, html.cw-client-doc body, html.cw-client-doc #root { height: 
 .cws-chev { color: var(--cw-text-muted); flex: none; }
 .cws-section.is-collapsible .cws-section-head { padding: 4px 16px 0; } .cws-section.is-collapsible .cws-section-head h2 { display: none; } .cws-section.is-collapsible .cws-section-head p { display: none; }
 .cws-section.is-collapsible .cws-section-body { padding: 8px 12px 12px; }
-[data-client-surface="phone"] .cws { padding: 16px 16px 60px; gap: 12px; }
+[data-client-surface="phone"] .cws { padding: 16px 16px 80px; gap: 12px; }
 [data-client-surface="phone"] .cws .cwd-btn { min-height: 44px; }
 [data-client-surface="phone"] .cws-head .cwd-title { font-size: 22px; }
 

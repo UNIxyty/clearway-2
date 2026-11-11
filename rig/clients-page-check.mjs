@@ -38,6 +38,9 @@ async function seed(email, person, company, status) {
   if (!r.ok) throw new Error(`seed ${email}: ${r.status} ${JSON.stringify(out).slice(0, 200)}`);
   return out[0];
 }
+// a decision row this check invents (the long "By" value below) would block the seed's delete of the client: clear it first
+const LONG_BY = "a-very-long-person-name.with-a-long-company-part+client-of-rig-invented@example-of-a-long-domain.invalid";
+await svc(`/rest/v1/client_decisions?actor_email=eq.${encodeURIComponent(LONG_BY)}`, { method: "DELETE" });
 const waitingRow = await seed("rig-clients-page-waiting@rig.invalid", "Rig Waiting Person", "Rig Waiting Brokers (invented)", "requested");
 const approvedRow = await seed("rig-clients-page-approved@rig.invalid", "Rig Approved Person", "Rig Approved Air (invented)", "approved");
 
@@ -209,7 +212,7 @@ async function typeWord(page, locator, word, what) {
 // email ends with … and carries the whole value, the date never wraps, and no two text boxes overlap, at 1280, 1440,
 // 1920 and 390 ──
 {
-  const longBy = "a-very-long-person-name.with-a-long-company-part+client-of-rig-invented@example-of-a-long-domain.invalid";
+  const longBy = LONG_BY;
   await svc("/rest/v1/client_decisions", { method: "POST", body: JSON.stringify({ client_id: waitingRow.id, kind: "changed", actor_email: longBy, detail: { from: "names", to: "documents" }, note: "Invented for the rig: a long actor address." }) });
   for (const width of [1280, 1440, 1920, 390]) {
     const ctx = await browser.newContext({ viewport: { width, height: 1000 } }); await ctx.addCookies([cookie(admin)]); const page = await ctx.newPage();
@@ -228,6 +231,7 @@ async function typeWord(page, locator, word, what) {
     await page.screenshot({ path: `${OUT}/clients-decisions-${width}.png`, fullPage: width !== 390 });
     await ctx.close();
   }
+  await svc(`/rest/v1/client_decisions?actor_email=eq.${encodeURIComponent(LONG_BY)}`, { method: "DELETE" });   // the invented row goes (rig only)
 }
 await browser.close();
 

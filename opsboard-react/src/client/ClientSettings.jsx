@@ -104,7 +104,7 @@ export default function ClientSettings({ visible, windowStartUtc, windowEndUtc, 
             <div className="cws-main">
               <section className="cwd-card cws-preview" data-view-preview="">
                 <div className="cwd-card-head"><b>Preview</b><span className="cwd-muted">{preview.length ? 'Your own flights, as the timeline draws them with these settings.' : 'The preview shows your flights once there are some.'}</span></div>
-                <div className="cwd-board" style={{ height: phone ? 200 : 260 }}>
+                <div className="cwd-board" style={{ height: phone ? 200 : 200 }}>
                   {preview.length > 0 && (
                     <Board aircraft={preview} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc}
                       scale={n('scale', 1.3)} timeZoom={n('timeZoom', 1)} rowZoom={n('rowZoom', 1)} pillHeight={n('pillHeight', 1)} markerScale={n('markerScale', 1)} labelScale={n('labelScale', 1)} acColScale={n('acColScale', 1)} autoFitRows={s.autoFitRows === true}

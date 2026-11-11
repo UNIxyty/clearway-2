@@ -118,10 +118,8 @@ const GLOBAL_CSS = `
   @keyframes cwfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   @keyframes cw-shimmer { 0% { background-position: -320px 0; } 100% { background-position: 320px 0; } }
   .cw-fade { animation: cwfade .22s ease; }
-  /* The portal's skeleton: shimmer 1400 ms linear (app/globals.css, §1.5). */
   .cw-skel { background: linear-gradient(90deg, var(--cw-skeleton) 0, var(--cw-skeleton-shine) 50%, var(--cw-skeleton) 100%); background-size: 640px 100%; animation: cw-shimmer 1400ms linear infinite; border-radius: 4px; }
   .cw-skel-still { background: var(--cw-skeleton); border-radius: 4px; }
-  /* Motion: the OS setting when the portal's Motion is "Match device"; the portal's "Reduce" (data-motion) regardless. */
   @media (prefers-reduced-motion: reduce) {
     .cw-fade, .cw-skel, .cw-motion-decor { animation: none !important; }
   }

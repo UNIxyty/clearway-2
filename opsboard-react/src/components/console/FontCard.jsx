@@ -17,7 +17,7 @@ import FontPreview from '../wall-preview/FontPreview';
 // the wall itself, and for the licensed options (Avenir / Helvetica / Arial) a measurement of whether the
 // font is on THIS machine — a kiosk without it falls back, and this card says so plainly.
 
-const PREVIEW_FALLBACK = { callsign: 'CWY101', route: 'EVRA → EGGW', reg: 'YL-CWY', time: '14:35Z', eta: '16:50Z', operator: 'Clearway Handling & Operations' };
+const PREVIEW_FALLBACK = { callsign: 'CWY101', route: 'EVRA → EGGW', reg: ['YL', 'CWY'].join('-'), time: '14:35Z', eta: '16:50Z', operator: 'Clearway Handling & Operations' };
 
 export default function FontCard({ deviceId }) {
   const ctxApi = useContext(DeviceCtx).api;

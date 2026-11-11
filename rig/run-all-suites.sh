@@ -165,6 +165,7 @@ preview 5199   # back to the normal wall
 run mobile/tier1-check $E rig/mobile/tier1-check.mjs
 run mobile/tier2-check $E rig/mobile/tier2-check.mjs
 run mobile/phone-wall-check $E rig/mobile/phone-wall-check.mjs
+run mobile/staff-phone-check $E rig/mobile/staff-phone-check.mjs   # the staff phone app: five tabs, timeline, flight checks, the document viewer, the console tabs, More, deep links (2026-11-12)
 # The passenger check reads the manifest's mock Leon through the agent, which needs the manifest key in its environment
 # (rig/manifest/start.sh); anything that restarted :5175 in between (rig/start.sh has no key) would leave it unable to read
 # the operators' credentials. Start it fresh here, as at the top.

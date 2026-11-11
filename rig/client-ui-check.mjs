@@ -471,6 +471,67 @@ for (const theme of ["light", "dark"]) {
   await p2.screenshot({ path: `${OUT}/client-removed-1440.png` });
   await c2.close(); await ctx.close();
 }
+// ── Display settings (2026-11-11): the ops look cards on the client's own profile, desk and phone, light and dark ──
+{
+  cs = await grant(EMAIL);
+  for (const [theme, width] of [["light", 1440], ["dark", 390]]) {
+    const ctx = await browser.newContext({ viewport: viewportOf(width), colorScheme: theme, hasTouch: PHONE(width) });
+    await ctx.addCookies([cookie(cs)]); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
+    const page = await ctx.newPage();
+    await page.goto(`${B}/client/account`, { waitUntil: "load" });
+    ok(await page.locator("[data-display-settings]").count() === 1, `${theme} ${width}: Account links to the display settings`);
+    await page.locator("[data-display-settings]").click();
+    await page.waitForURL(/\/client\/settings/, { timeout: 15000 }).catch(() => {});
+    await frameOf(page).locator("[data-client-settings]").waitFor({ timeout: 30000 });
+    const cards = await frameOf(page).locator("[data-client-settings] h3").allInnerTexts();
+    ok(/Display scale/.test(cards.join("|")) && /Hour spacing/.test(cards.join("|")) && /Vertical sizing/.test(cards.join("|")) && /Horizontal sizing/.test(cards.join("|")) && /Chips/.test(cards.join("|")) && /Colours|Colors/i.test(cards.join("|")) && /Font/.test(cards.join("|")), `${theme} ${width}: the ops look cards are all there (scale, hour spacing, vertical, horizontal, chips, colours, font)`, cards.join(" | ").slice(0, 160));
+    ok(await frameOf(page).locator("[data-view-preview]").count() === 1 && await frameOf(page).locator("[data-reset-view]").count() === 1, `${theme} ${width}: a live preview and a Reset to default button`);
+    // a change saves on the account: set the scale through the slider's own route and read it back at the wall
+    const before = await fetch(`${B}/digital-wall/api/client/view`, { headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
+    const put = await fetch(`${B}/digital-wall/api/client/view`, { method: "PUT", headers: { cookie: cookieHeader(cs), "content-type": "application/json" }, body: JSON.stringify({ settings: { scale: 1.55, upcomingHorizonHours: 99 } }) }).then((r) => r.json());
+    const after = await fetch(`${B}/digital-wall/api/client/view`, { headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
+    ok(before.ok && put.ok && after.settings?.scale === 1.55 && after.source === "account", `${theme} ${width}: a saved setting is read back from the client's own profile`, JSON.stringify({ before: before.settings?.scale, after: after.settings?.scale, source: after.source }));
+    ok(!("upcomingHorizonHours" in (after.settings ?? {})) && put.settings?.upcomingHorizonHours === undefined, `${theme} ${width}: the visibility window is not a client's to set (ignored)`);
+    const theirs = await fetch(`${B}/digital-wall/api/display/settings`, { headers: { cookie: cookieHeader(cs) } });
+    ok(theirs.status === 404, `${theme} ${width}: the ops settings route stays 404 to a client`, theirs.status);
+    await page.reload({ waitUntil: "load" }); await frameOf(page).locator("[data-client-settings]").waitFor({ timeout: 30000 }); await page.waitForTimeout(600);
+    await shot(page, `${OUT}/client-settings-${theme}-${width}.png`, width, { whole: true });
+    const reset = await fetch(`${B}/digital-wall/api/client/view`, { method: "DELETE", headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
+    ok(reset.ok && reset.source === "default" && reset.settings?.scale !== 1.55, `${theme} ${width}: Reset puts the ops wall's default back`, JSON.stringify({ scale: reset.settings?.scale, source: reset.source }));
+    await ctx.close();
+  }
+}
+
+// ── The status screens (2026-11-11): one shared screen for not-found, refused, for-admins and the link states ──
+{
+  const shots = [];
+  for (const [theme, width] of [["light", 1440], ["dark", 390]]) {
+    const ctx = await browser.newContext({ viewport: viewportOf(width), colorScheme: theme, hasTouch: PHONE(width) });
+    await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
+    const page = await ctx.newPage();
+    const see = async (path, kind, what, who = null) => {
+      if (who) await ctx.addCookies([cookie(who)]);
+      await page.goto(`${B}${path}`, { waitUntil: "load" });
+      await page.waitForSelector(`[data-status-screen="${kind}"]`, { timeout: 15000 }).catch(() => {});
+      const r = await page.evaluate((k) => { const el = document.querySelector(`[data-status-screen="${k}"]`); if (!el) return null; const a = el.querySelector("[data-status-action]"); const logo = el.querySelector("svg[role=img]"); const cs = logo ? getComputedStyle(logo) : null; return { title: el.querySelector("h1")?.textContent ?? "", action: a?.textContent ?? "", href: a?.getAttribute("href") ?? "", logo: Boolean(logo), logoColor: cs?.color ?? "", centred: Math.abs((el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2) - window.innerWidth / 2) < 8 }; }, kind);
+      ok(Boolean(r) && r.logo && r.title.length > 0 && r.action.length > 0 && r.centred, `${theme} ${width}: ${what} — one status screen, centred, with the logo, a headline and one button`, r ? `${r.title} → ${r.action} ${r.href}` : "no status screen");
+      if (r) shots.push({ kind, logoColor: r.logoColor, theme });
+      await page.screenshot({ path: `${OUT}/status-${kind}-${theme}-${width}.png` });
+      return r;
+    };
+    const nf = await see("/no-such-page-at-all", "not-found", "a page that does not exist", cs);
+    ok(nf?.href === "/", "the not-found button goes to the start (the person's own front door)", nf?.href);
+    const cnf = await see("/client/airports", "client-not-found", "a client reaching a page outside their account", cs);
+    ok(cnf?.href === "/" && /Your flights/.test(cnf?.action ?? ""), "the client's not-found button is Your flights, to their start page", cnf?.action);
+    await see("/forbidden", "forbidden", "a page a role does not cover", cs);
+    await see("/welcome?token=not-a-real-token", "link-unknown", "a set-password link nobody knows");
+    await ctx.close();
+  }
+  const dark = shots.filter((x) => x.theme === "dark"), light = shots.filter((x) => x.theme === "light");
+  const lum = (c) => { const m = c.match(/\d+/g) || [0, 0, 0]; return (Number(m[0]) + Number(m[1]) + Number(m[2])) / 3; };
+  ok(dark.length > 0 && dark.every((x) => lum(x.logoColor) > 160) && light.every((x) => lum(x.logoColor) < 100), "the Clearway logo on the status screens is light on the dark theme and dark on the light theme", JSON.stringify({ dark: dark[0]?.logoColor, light: light[0]?.logoColor }));
+}
+
 await browser.close();
 console.log(failures ? `${failures} FAILED` : "ALL PASSED");
 process.exit(failures ? 1 : 0);

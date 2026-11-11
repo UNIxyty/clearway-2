@@ -11,7 +11,7 @@ import { spawn } from "node:child_process";
 import { sweepAssets, downloadedAssets, permissionNamesFrom, ourRoutesFrom, printSweep, readCatalogue } from "./lib/bundle-sweep.mjs";
 
 const SIGNED_OUT = ["/login", "/request-access", "/welcome", "/forgot-password", "/reset-password"];
-const CLIENT = ["/client", "/client/flights", "/client/account"];
+const CLIENT = ["/client", "/client/flights", "/client/account", "/client/settings"];
 // what a client's own pages legitimately name: their pages, their standing, their preferences, their password, the frame
 // and the wall's scoped reads (the client never calls the agent since 2026-11-10: passenger names come from the wall)
 const CLIENT_OWN = /^\/(client(\/|$)|api\/client\/(me|account\/password|prefs)$|digital-wall\/(api|timeline)(\/|$))/;

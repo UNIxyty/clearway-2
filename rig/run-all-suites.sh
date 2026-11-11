@@ -141,6 +141,7 @@ run client-ui-check $E rig/client-ui-check.mjs
 run client-allow-check $E rig/client-allow-check.mjs   # the client allow-list, the menu, and no staff menu in a client's page or scripts (2026-11-04; needs the rig build, uses :3982/:3979)
 run client-feed-check $E rig/client-feed-check.mjs   # what a client's browser is given of a flight: a list of fields, ops' notes only by switch (2026-11-09)
 run email-templates $E rig/email-templates-check.mjs   # every email template built, sent once to the mail mock, rendered light and dark (2026-11-10)
+run aip-library $E rig/aip-library-check.mjs   # the AIP library table with ENR paused: one paused state, no counting, dated links rebuilt, the no-AIP countries (2026-11-11)
 run clients-page-check $E rig/clients-page-check.mjs   # Admin › Clients: padding, overlap at 6 widths, a whole word in every field
 run client-onboarding-check $E rig/client-onboarding-check.mjs   # ask → ops mail → approve → set-password link → account; our own sign-in emails, all in Mailbox › Sent
 run files-route-check $E rig/files-route-check.mjs   # /files serves only its allow-list: AIP PDFs; a new folder, a .json, another's draft → 404

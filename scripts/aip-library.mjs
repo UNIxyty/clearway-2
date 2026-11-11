@@ -44,6 +44,35 @@ export function airacNow(at = new Date()) {
   return { cycle: label(from), effectiveFrom: from.toISOString().slice(0, 10), nextCycle: label(next), nextEffectiveFrom: next.toISOString().slice(0, 10) };
 }
 
+// ── Dated links and eAIP guesses (2026-11-11) ──────────────────────────────────────────────────────────────────────
+const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+/** The same URL with the date in its path rewritten to the cycle in force, in the format the path uses; null when it holds no date. */
+export function datedUrlForCycle(url, effectiveFrom) {
+  const [y, m, d] = effectiveFrom.split("-"); const mon = MON[Number(m) - 1]; const Mon = mon[0] + mon.slice(1).toLowerCase();
+  const forms = [
+    [/\d{4}-\d{2}-\d{2}/, `${y}-${m}-${d}`],                 // 2026-11-27
+    [/(?<![\d])\d{4}[A-Z]{3}\d{2}(?![\d])/, `${y}${mon}${d}`],   // 2026NOV27
+    [/(?<![\d])\d{2}[A-Z][a-z]{2}\d{4}(?![\d])/, `${d}${Mon}${y}`],   // 27Nov2026
+    [/(?<![\d])\d{2}_[A-Z]{3}_\d{4}(?![\d])/, `${d}_${mon}_${y}`],   // 27_NOV_2026
+    [/(?<![\d])\d{8}(?![\d])/, `${y}${m}${d}`],                 // 20261127
+  ];
+  for (const [re, to] of forms) if (re.test(url)) { const next = url.replace(re, to); return next === url ? null : next; }
+  return null;
+}
+/** Where an eAIP site keeps its GEN 1.2 page, from the official page's address: the same folder's eAIP/<PREFIX>-GEN-1.2-<lang>.html. */
+export function eaipGenGuesses(officialUrl, prefixes) {
+  const out = [];
+  let base;
+  try { base = new URL(officialUrl); } catch { return out; }
+  const dir = base.href.replace(/[^/]*$/, "");
+  const roots = [...new Set([dir, dir.replace(/\/eAIP\/$/i, "/"), dir.replace(/\/html\/$/i, "/html/")])];
+  if (!/eaip|history-|\/aip\/|aip-|\/ais\//i.test(base.href)) return out;   // only sites that look like an eAIP
+  for (const root of roots) for (const p of prefixes) for (const lang of ["en-GB", "en-US", "en"]) {
+    out.push(`${root}eAIP/${p}-GEN-1.2-${lang}.html`, `${root}html/eAIP/${p}-GEN-1.2-${lang}.html`, `${root}eAIP/${p}-GEN%201.2-${lang}.html`, `${root}html/eAIP/${p}-GEN%201.2-${lang}.html`);
+  }
+  return [...new Set(out)];
+}
+
 export function seedCountries() {
   return JSON.parse(readFileSync(SEED_FILE, "utf8"));
 }
@@ -69,8 +98,9 @@ export async function libraryTable() {
 function pausedEnr() { return { url: null, state: "paused", why: ENR_PAUSED_TEXT, source: null }; }
 
 function emptyLinks(s) {
-  const official = s.official ? { url: s.official, state: "unchecked", why: "Not checked yet", source: s.officialSource } : { url: null, state: "none", why: "No official page on file", source: null };
-  const part = s.official ? { url: null, state: "unchecked", why: "Not resolved yet", source: null } : { url: null, state: "none", why: "No official page on file", source: null };
+  const none = s.noAip ? `No public AIP: ${s.noAip}` : "No official page on file";
+  const official = s.official ? { url: s.official, state: "unchecked", why: "Not checked yet", source: s.officialSource } : { url: null, state: "none", why: none, source: null };
+  const part = s.official ? { url: null, state: "unchecked", why: "Not resolved yet", source: null } : { url: null, state: "none", why: none, source: null };
   return { official, gen: { ...part }, enr: { ...part } };
 }
 
@@ -80,7 +110,7 @@ async function get(url, { head = false } = {}) {
   try {
     const r = await fetch(url, { method: head ? "HEAD" : "GET", redirect: "follow", signal: ctl.signal, headers: { "user-agent": UA, accept: "text/html,application/pdf,*/*" } });
     const type = r.headers.get("content-type") || "";
-    const text = head || !/html|xml|text/i.test(type) ? "" : (await r.text()).slice(0, 2_000_000);
+    const text = head || !/html|xml|text/i.test(type) ? "" : (await r.text()).slice(0, /menu/i.test(url) ? 12_000_000 : 2_000_000);   // eAIP menus run to 9 MB (Finland)
     return { ok: r.ok, status: r.status, url: r.url || url, type, text };
   } catch (e) {
     return { ok: false, status: 0, url, type: "", text: "", error: e?.name === "AbortError" ? `Timed out after ${FETCH_MS / 1000} s` : String(e?.message || e).slice(0, 80) };
@@ -115,7 +145,7 @@ export async function resolveCountry(country, { log = () => {} } = {}) {
   if (!country.official) {
     out.links = emptyLinks(country).links ?? emptyLinks(country);
     if (!ENR_ENABLED) out.links.enr = pausedEnr();
-    out.lastResult = "No official page on file";
+    out.lastResult = country.noAip ? `No public AIP: ${country.noAip}` : "No official page on file";
     return out;
   }
   if (EAD_LOGIN.test(country.official)) {
@@ -126,14 +156,29 @@ export async function resolveCountry(country, { log = () => {} } = {}) {
     out.lastResult = r.ok ? "EAD login page answers; parts need a login" : `Official page failed: ${out.links.official.why}`;
     return out;
   }
-  let first = await get(country.official);
-  out.links.official = { url: country.official, state: first.ok ? "ok" : "failed", why: first.ok ? "Opens" : first.error || `HTTP ${first.status}`, source: country.officialSource };
+  // a link whose path carries a cycle date is built for the cycle in force first; the stored link stays the fallback
+  const dated = datedUrlForCycle(country.official, airacNow().effectiveFrom);
+  let officialUrl = country.official;
+  if (dated) { const rd = await get(dated); if (rd.ok) officialUrl = dated; }
+  let first = officialUrl === country.official ? await get(country.official) : { ok: true, status: 200, url: officialUrl, text: (await get(officialUrl)).text };
+  out.links.official = { url: officialUrl, state: first.ok ? "ok" : "failed", why: first.ok ? (dated && officialUrl === dated ? `Opens (built for AIRAC ${airacNow().cycle})` : "Opens") : first.error || `HTTP ${first.status}`, source: country.officialSource };
   if (!first.ok && first.status === 404) {
     // A link with a cycle date in its path goes stale when the publisher moves to the next edition (2026-11-10: France,
     // Germany, Lithuania, Hong Kong…). The publisher's home page then still opens: offer it, and say the deep link moved.
     const home = new URL(country.official).origin + "/";
     const r2 = home !== country.official ? await get(home) : { ok: false };
     if (r2.ok) { out.links.official = { url: home, state: "ok", why: "The dated link moved; the publisher's home page opens", source: country.officialSource }; first = r2; }
+  }
+  if (!first.ok && (first.status === 403 || first.status === 429 || first.status === 503 || first.status === 0)) {
+    // A refusal of OUR SERVER is not a dead link (2026-11-11): the link is for a person's browser, and the publisher
+    // blocks bots, needs a browser, or did not answer in time. The link stays live and is marked as unchecked from
+    // here; nothing tries to get around the block.
+    out.links.official = { url: country.official, state: "unchecked", why: `Can't be checked from the server (${first.error || `HTTP ${first.status}`}); the link stays live`, source: country.officialSource };
+    out.links.gen = { url: null, state: "nodeep", why: "The official page can't be read from the server, so no direct link to GEN", source: null };
+    out.links.enr = ENR_ENABLED ? { ...out.links.gen } : pausedEnr();
+    out.lastResult = "Official page can't be checked from the server; the link stays live";
+    log(`${country.name}: ${out.lastResult}`);
+    return out;
   }
   if (!first.ok) {
     out.links.gen = { url: null, state: "failed", why: `Official page failed: ${out.links.official.why}`, source: null };
@@ -146,7 +191,7 @@ export async function resolveCountry(country, { log = () => {} } = {}) {
   const MAX_PAGES = 10;
   const host = new URL(first.url).host;
   const today = new Date().toISOString().slice(0, 10);
-  const dateOf = (u) => (u.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";
+  const dateOf = (u) => { const m = u.match(/(\d{4})[-_](\d{2})[-_](\d{2})/); return m ? `${m[1]}-${m[2]}-${m[3]}` : ""; };   // 2026-10-16 and the EAD-style 2026_10_16
   const prio = (u) => (/menu/i.test(u) ? 4 : /\/index\.html?$|index-en/i.test(u) ? 3 : /eAIP|history|current|package|publication|toc/i.test(u) ? 2 : 1);
   let links = linksOf(first.text, first.url);
   const seen = new Set([first.url]);
@@ -164,8 +209,17 @@ export async function resolveCountry(country, { log = () => {} } = {}) {
     if (pickPart(links, "gen") && (!ENR_ENABLED || pickPart(links, "enr"))) break;
   }
   for (const part of ENR_ENABLED ? ["gen", "enr"] : ["gen"]) {
-    const url = pickPart(links, part);
+    let url = pickPart(links, part);
+    let guessed = false;
+    if (!url && part === "gen") {
+      // script menus hide the link (2026-11-11): try where eAIP sites keep GEN 1.2, next to the official page
+      // from the official page and from the issue pages the walk reached (EAD-style sites: <issue>/index.html → html/eAIP/…)
+      const bases = [...new Set([first.url || officialUrl, ...[...seen]])].sort((a, b) => dateOf(b).localeCompare(dateOf(a))).slice(0, 6);   // newest issue first
+      const guesses = [...new Set(bases.flatMap((b) => eaipGenGuesses(b, country.prefixes)))];
+      for (const g of guesses) { const r = await get(g, { head: true }); const r2 = r.ok ? r : (r.status === 405 || r.status === 0 ? await get(g) : r); if (r2.ok && (!r2.type || /html/i.test(r2.type))) { url = g; guessed = true; break; } }
+    }
     if (!url) { out.links[part] = { url: null, state: "nodeep", why: `The site offers no direct link to ${part.toUpperCase()} that we can read`, source: "resolved" }; continue; }
+    if (guessed) { out.links[part] = { url, state: "ok", why: "Opens the part (the eAIP's own page, found beside the official page)", source: "resolved" }; continue; }
     const r = await get(url, { head: true });
     const r2 = r.ok ? r : await get(url); // some servers refuse HEAD
     out.links[part] = r2.ok ? { url, state: "ok", why: "Opens the part", source: "resolved" } : { url, state: "failed", why: r2.error || `HTTP ${r2.status}`, source: "resolved" };

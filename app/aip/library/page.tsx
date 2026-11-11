@@ -114,6 +114,7 @@ export default function AipLibraryPage() {
           <span className="flex items-center gap-2 font-mono text-cw-text-body"><span className="h-2 w-2 rounded-full" style={{ background: dot }} />{none ? `checked ${ago(c.checkedAt)}` : c.checkedAt ? `AIRAC ${c.airac ?? "—"} · checked ${ago(c.checkedAt)}` : "not checked yet"}</span>
           {fail && <span className="text-cw-danger-text">{fail === "official" ? "Official" : fail.toUpperCase()} link failed · {c.links[fail].why}</span>}
           {!fail && stale && <span className="text-cw-warning-text">Site still on AIRAC {c.airac}</span>}
+          {c.links.official.state === "unchecked" && c.checkedAt && <span className="text-cw-text-muted" data-unchecked-note="">{c.links.official.why}</span>}
           {offs.length > 0 && <span className="text-cw-text-muted">{offs.map((k) => c.links[k].why).join(" · ")}</span>}
           <button type="button" onClick={() => void checkOne(c)} disabled={Boolean(checking)} className="self-start text-[12px] font-semibold text-cw-text-link disabled:opacity-50" data-check-country={c.iso}>{checking === c.iso ? "Checking…" : "Check now"}</button>
         </div>

@@ -193,9 +193,9 @@ try {
       if (p === "/client/flights") { const fr = pg.frameLocator("iframe[data-client-frame]"); const f = fr.locator("[data-flight-row]:not(.is-cnl)").first(); await f.waitFor({ timeout: 20000 }).catch(() => {}); if (await f.count()) { await f.click(); await pg.waitForTimeout(3000); } }
     }
     await br.close();
-    const ALLOWED = /^(GET|HEAD) \/(client(\/(flights|account))?$|_next\/|api\/client\/(me|prefs)$|digital-wall\/timeline(\/|$)|digital-wall\/api\/(user|users\/me|display\/clocks|timeline\/flights|timeline\/aircraft|timeline\/limitations|flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|flight-passengers|geo\/coords|stream|weather)\b|favicon|PFP\.png$|icons\/)/;
+    const ALLOWED = /^(GET|HEAD) \/(client(\/(flights|account))?$|_next\/|api\/client\/(me|prefs)$|digital-wall\/timeline(\/|$)|digital-wall\/api\/(user|users\/me|client\/view|display\/clocks|timeline\/flights|timeline\/aircraft|timeline\/limitations|flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|flight-passengers|geo\/coords|stream|weather)\b|favicon|PFP\.png$|icons\/)/;
     const other = [...asked].filter((a) => !ALLOWED.test(a) && !/^(GET|HEAD) \/[^/]+\.(png|svg|ico|woff2?)$/.test(a));
-    ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, the frame, their standing and preferences, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
+    ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, the frame, their standing, preferences and view, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
     ok([...asked].some((a) => /^GET \/digital-wall\/timeline\//.test(a)) && [...asked].some((a) => /^GET \/digital-wall\/api\/timeline\/flights$/.test(a)), "…the frame was loaded and read the wall's flights (so the list above means something)");
     // passport scans and raw email: unreachable to a client, through the same path Cloudflare sends them (straight to the agent)
     const id = "00000000-0000-4000-8000-000000000001";

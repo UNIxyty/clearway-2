@@ -9,7 +9,6 @@ import { flattenFlights, hmZ } from '../components/mobile/mobileUtil';
 import { dayIndex, dayLabel, dayName, dayShort, dayStartMs, groupOperators, matchesQuery, readView, writeView, fetchPassengers } from './clientApi';
 import ClientFlightBody, { StatusChip, useFlightInfo } from './ClientFlight';
 import MapView, { mapStateOf, useCoords } from './MapView';
-import StaffChecks, { openCheckChips } from './StaffChecks';
 
 const ZOOM = [{ label: '0.7×', hours: 3 }, { label: '1×', hours: 2 }, { label: '1.4×', hours: 1.5 }];
 const H = 3600_000;
@@ -35,7 +34,7 @@ function PaxSheet({ p, onClose }) {
   );
 }
 
-function FlightPage({ p, me, names, onBack, role = 'client', onChanged }) {
+function FlightPage({ p, me, names, onBack, role = 'client', onChanged, staff = null }) {
   const info = useFlightInfo(p);
   const [sub, setSub] = useState(null); // null | 'map' | 'pax'
   const [full, setFull] = useState(false);
@@ -55,7 +54,7 @@ function FlightPage({ p, me, names, onBack, role = 'client', onChanged }) {
     <div className="cwp-page" data-flight-page={p.fn}>
       <div className="cwp-bar"><button type="button" className="cwp-back" onClick={onBack} aria-label="Back" data-back="">‹</button><span className="cwp-bar-title"><b className="cwd-mono">{p.fn}</b><small>{p.dep} → {p.arr} · {dayLabel(dayIndex(p.delayedStartUtcMs))}</small></span></div>
       <div className="cwp-scroll">
-        <ClientFlightBody p={p} me={me} names={names} info={info} afterTop={role === 'staff' && p.status !== 'cancelled' ? <StaffChecks p={p} onChanged={onChanged} /> : null} extraTop={
+        <ClientFlightBody p={p} me={me} names={names} info={info} afterTop={role === 'staff' && staff?.Checks && p.status !== 'cancelled' ? <staff.Checks p={p} onChanged={onChanged} /> : null} extraTop={
           <div className="cwp-btns" style={{ gridTemplateColumns: paxOn ? '1fr 1.25fr' : '1fr' }}>
             {radarOn && <button type="button" className="cwp-big" onClick={() => setSub('map')} data-open-map="">Map{p.status === 'airborne' && <span className="cwp-live">AIRBORNE</span>}</button>}
             {paxOn && <button type="button" className="cwp-big" onClick={() => setSub('pax')} data-open-pax="">Passengers{Number.isFinite(p.passengerCount) ? ` · ${p.passengerCount}` : ''}</button>}
@@ -67,8 +66,11 @@ function FlightPage({ p, me, names, onBack, role = 'client', onChanged }) {
   );
 }
 
-export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload, look, role = 'client' }) {
+// `staffParts` ({ Checks, openChips }) comes only from the staff surface (StaffPhone.jsx): a client's bundle never holds the
+// wall's check code or the NOTAM Check page's address (rig/client-allow-check.mjs sweeps for staff routes).
+export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload, look, role = 'client', staffParts = null }) {
   const staff = role === 'staff';
+  const openCheckChips = (f) => (staffParts?.openChips ? staffParts.openChips(f) : []);
   const view0 = readView();
   const [zoom, setZoom] = useState(() => (Number.isInteger(view0.zoom) ? Math.max(0, Math.min(2, view0.zoom)) : 1));
   const [day, setDay] = useState(() => (Number.isInteger(view0.day) ? view0.day : 0));
@@ -96,7 +98,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
   const ops = useMemo(() => groupOperators(aircraft), [aircraft]);
   const failed = loadedOnce && Boolean(error) && aircraft.length === 0;
 
-  if (openF) return <FlightPage p={openF} me={me} names={names} onBack={() => setOpenId(null)} role={role} onChanged={onReload} />;
+  if (openF) return <FlightPage p={openF} me={me} names={names} onBack={() => setOpenId(null)} role={role} onChanged={onReload} staff={staffParts} />;
   if (openId && loadedOnce && !openF) { /* the flight left the board while it was open */ setOpenId(null); }
 
   return (

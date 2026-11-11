@@ -27,6 +27,7 @@ const NOT_PORTAL = {
   // audits it as a client, in both themes — Timeline and Flights (drawn in the wall app's frame), Account and the start page
   "/client": "the client's Timeline — audited by client-ui-check", "/client/flights": "the client's Flights — the same", "/client/account": "a client's own page — audited by client-ui-check, in both themes", "/client/start": "the client's start page — the same",
   "/client/refused": "a client's holding page — the same", "/client/removed": "the same",
+  "/client/settings": "the client's display settings (drawn in the wall app's frame) — audited by client-ui-check, in both themes",
 };
 // Pages people see signed out: audited in a signed-out browser. Sign-in sits on a dark backdrop in both themes (the
 // night-* tokens); its card, fields and text follow the theme like any page.

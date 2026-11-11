@@ -14,6 +14,7 @@ import { useWallDisplay } from '../theme/WallDisplayContext';
 import { useClientTheme } from './ClientApp';
 import { clientWallColors } from './clientColors';
 import ClientPhone from './ClientPhone';
+import StaffChecks, { openCheckChips } from './StaffChecks';
 import '../../../shared/portal-tokens.css';
 import '../../../shared/client-tokens.css';
 import '../../../shared/timeline-tokens.css';
@@ -32,7 +33,7 @@ export default function StaffPhone({ aircraft = [], windowStartUtc, windowEndUtc
   return (
     <WallColorsProvider colors={colors}>
       <div data-client-surface="phone" data-staff-phone="" data-theme={theme} className="cw-client">
-        <ClientPhone role="staff" page={page} goPage={setPage} me={STAFF} prefs={NO_HIDE} setHidden={() => {}} aircraft={aircraft} visible={aircraft}
+        <ClientPhone role="staff" staffParts={{ Checks: StaffChecks, openChips: openCheckChips }} page={page} goPage={setPage} me={STAFF} prefs={NO_HIDE} setHidden={() => {}} aircraft={aircraft} visible={aircraft}
           windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} clocks={clocks} loadedOnce={loadedOnce} error={error} feed={null} serviceOn={false} onReload={onReload} look={look} />
       </div>
     </WallColorsProvider>

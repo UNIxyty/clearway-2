@@ -27,5 +27,5 @@ h1{margin:12px 0 0;font-size:22px;line-height:1.2;font-weight:800;text-wrap:bala
 p{margin:8px 0 0;max-width:60ch;color:var(--body)}
 .btn{display:inline-flex;align-items:center;justify-content:center;min-width:160px;height:44px;margin-top:24px;padding:0 20px;border-radius:10px;border:0;background:var(--ink);color:var(--on-ink);font:600 14px/1 inherit;text-decoration:none;cursor:pointer}
 </style>
-</head><body><main class="card" data-status-screen="${esc(kind)}"${kind === "client-not-found" ? " data-client-notfound=\"\"" : ""} role="region" aria-labelledby="t"><div class="logo">${logo}</div><div class="pill${tone === "danger" ? " danger" : ""}" data-status-eyebrow="">${esc(eyebrow)}</div><h1 id="t">${esc(title)}</h1><p>${esc(line)}</p>${button}</main></body></html>`;
+</head><body><main class="card" data-status-screen="${esc(kind)}"${kind === "client-not-found" ? " data-client-notfound=\"\"" : kind === "unknown-role" ? " data-unknown-role=\"\"" : ""} role="region" aria-labelledby="t"><div class="logo">${logo}</div><div class="pill${tone === "danger" ? " danger" : ""}" data-status-eyebrow="">${esc(eyebrow)}</div><h1 id="t">${esc(title)}</h1><p>${esc(line)}</p>${button}</main></body></html>`;
 }

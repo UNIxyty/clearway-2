@@ -122,7 +122,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
           </div>
           <div className="cwp-lanes" ref={lanesRef} data-board="">
             {allHidden ? <div className="cwd-empty" data-empty="all-hidden"><b>You’ve hidden every aircraft</b><span>The flights are still there, just not on your screen.</span><button type="button" className="cwd-btn is-primary" onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></div>
-              : <div style={{ height: 30 + Math.max(3, visible.length) * Math.round(78 * look.rowZoom) }}>
+              : <div style={{ height: 34 + Math.max(3, visible.length) * Math.round(78 * look.rowZoom) }}>
                 <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={look.scale} timeZoom={look.timeZoom} rowZoom={look.rowZoom} pillHeight={look.pillHeight} markerScale={look.markerScale} labelScale={look.labelScale} autoFitRows={look.autoFitRows} hideSidebar rowHeightPx={Math.round(78 * look.rowZoom)} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={staff} touchHitMinPx={44} maxMarkers={staff ? 2 : 1} forceMarkerMode="dots" markersInside bodyContent="callsign" bodyRight="times" belowText="none" acColScale={0.8} />
               </div>}
             {!loadedOnce && <p className="cwd-muted" style={{ padding: 16 }}>Loading your flights…</p>}

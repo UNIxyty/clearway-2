@@ -29,18 +29,20 @@ async function userFor(email) {
   return u.id;
 }
 async function seed(email, person, company, status) {
-  await svc(`/rest/v1/clients?email=eq.${encodeURIComponent(email)}`, { method: "DELETE" });
+  // A previous run's row cannot always be deleted (decisions reference it, and decisions are append-only): put it
+  // back to the fresh state instead, or make it when there is none (2026-11-12; as rig/client-ui-check.mjs does).
   const row = { user_id: await userFor(email), email, person_name: person, company, kind: "broker", note: status === "requested" ? "Invented for the Clients page check." : "", status,
     scope: status === "approved" ? [{ kind: "operator", value: "cwy-cwy" }, { kind: "registration", value: "LY-TST" }] : [], switches: status === "approved" ? ["flight_board", "weather"] : [],
     passenger_level: "off", consent: false, requested_at: new Date(Date.now() - 3600e3).toISOString(), decided_at: status === "approved" ? new Date().toISOString() : null };
-  const r = await svc("/rest/v1/clients", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify(row) });
+  const had = await (await svc(`/rest/v1/clients?email=eq.${encodeURIComponent(email)}&select=id`)).json().catch(() => []);
+  const r = had?.[0]
+    ? await svc(`/rest/v1/clients?id=eq.${had[0].id}`, { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(row) })
+    : await svc("/rest/v1/clients", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify(row) });
   const out = await r.json().catch(() => null);
   if (!r.ok) throw new Error(`seed ${email}: ${r.status} ${JSON.stringify(out).slice(0, 200)}`);
   return out[0];
 }
-// a decision row this check invents (the long "By" value below) would block the seed's delete of the client: clear it first
-const LONG_BY = "a-very-long-person-name.with-a-long-company-part+client-of-rig-invented@example-of-a-long-domain.invalid";
-await svc(`/rest/v1/client_decisions?actor_email=eq.${encodeURIComponent(LONG_BY)}`, { method: "DELETE" });
+const LONG_BY = "a-very-long-person-name.with-a-long-company-part+client-of-rig-invented@example-of-a-long-domain.invalid";   // the decision log's long "By" case (decisions are append-only: inserted once)
 const waitingRow = await seed("rig-clients-page-waiting@rig.invalid", "Rig Waiting Person", "Rig Waiting Brokers (invented)", "requested");
 const approvedRow = await seed("rig-clients-page-approved@rig.invalid", "Rig Approved Person", "Rig Approved Air (invented)", "approved");
 
@@ -213,7 +215,8 @@ async function typeWord(page, locator, word, what) {
 // 1920 and 390 ──
 {
   const longBy = LONG_BY;
-  await svc("/rest/v1/client_decisions", { method: "POST", body: JSON.stringify({ client_id: waitingRow.id, kind: "changed", actor_email: longBy, detail: { from: "names", to: "documents" }, note: "Invented for the rig: a long actor address." }) });
+  const have = await (await svc(`/rest/v1/client_decisions?actor_email=eq.${encodeURIComponent(longBy)}&select=id&limit=1`)).json().catch(() => []);
+  if (!have?.[0]) await svc("/rest/v1/client_decisions", { method: "POST", body: JSON.stringify({ client_id: waitingRow.id, kind: "changed", actor_email: longBy, detail: { from: "names", to: "documents" }, note: "Invented for the rig: a long actor address." }) });
   for (const width of [1280, 1440, 1920, 390]) {
     const ctx = await browser.newContext({ viewport: { width, height: 1000 } }); await ctx.addCookies([cookie(admin)]); const page = await ctx.newPage();
     await page.goto(`${B}/admin/clients`, { waitUntil: "load" }); await page.waitForSelector(`[data-decision]`, { timeout: 20000 }).catch(() => {}); await settled(page);
@@ -231,7 +234,6 @@ async function typeWord(page, locator, word, what) {
     await page.screenshot({ path: `${OUT}/clients-decisions-${width}.png`, fullPage: width !== 390 });
     await ctx.close();
   }
-  await svc(`/rest/v1/client_decisions?actor_email=eq.${encodeURIComponent(LONG_BY)}`, { method: "DELETE" });   // the invented row goes (rig only)
 }
 await browser.close();
 

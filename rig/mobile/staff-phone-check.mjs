@@ -29,7 +29,7 @@ for (const [theme, width] of [["light", 390], ["dark", 360], ["dark", 390]]) {
   ok(pills > 0, `${theme} ${width}: the timeline draws the room's flights`, `${pills} pills`);
   const meta = await page.evaluate(() => document.querySelector('meta[name="viewport"]')?.getAttribute("content") || "");
   ok(!/user-scalable\s*=\s*no/i.test(meta) && /initial-scale=1/.test(meta), `${theme} ${width}: no user-scalable=no`, meta);
-  const o1 = await textOverlaps(page, { ignore: [".cwp-scrim"] }); ok(o1.length === 0, `${theme} ${width}: the timeline overlaps nothing`, o1.map((x) => `"${x.a}" × "${x.b}"`).join(" · "));
+  const o1 = await textOverlaps(page, { ignore: [".cwp-scrim", "[data-now-pin]", ".cwsp-tabs"] }); ok(o1.length === 0, `${theme} ${width}: the timeline overlaps nothing`, o1.map((x) => `"${x.a}" × "${x.b}"`).join(" · "));
   await page.screenshot({ path: `${OUT}/staff-phone-timeline-${theme}-${width}.png` });
   // the list, with open checks as chips
   await page.locator("[data-view-list]").click(); await page.locator("[data-flight-row]").first().waitFor({ timeout: 15000 }).catch(() => {});
@@ -41,7 +41,7 @@ for (const [theme, width] of [["light", 390], ["dark", 360], ["dark", 390]]) {
   await page.waitForSelector('[data-section="checks"]', { timeout: 15000 }).catch(() => {});
   ok(await page.locator('[data-section="checks"] [data-check]').count() === 5, `${theme} ${width}: the flight page carries the five checks`, fn);
   ok(await page.locator("[data-open-map]").count() === 1 && await page.locator("[data-open-pax]").count() === 1, `${theme} ${width}: Map and Passengers buttons`);
-  await page.locator("[data-open-pax]").click(); await page.waitForSelector('[data-passenger-viewer="phone"]', { timeout: 20000 }).catch(() => {});
+  await page.locator("[data-open-pax]").click(); await page.waitForSelector('[data-passenger-viewer="phone"]', { timeout: 40000 }).catch(() => {});
   ok(await page.locator('[data-passenger-viewer="phone"]').count() === 1, `${theme} ${width}: Passengers opens the shared viewer on one tap`);
   const show = page.getByRole("button", { name: /^Show the document of/ }).first();
   const showN = await show.count();

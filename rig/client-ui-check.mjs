@@ -441,36 +441,6 @@ for (const theme of ["light", "dark"]) {
   await l.close();
 }
 
-// change, then remove through the page: the row stays, emptied
-{
-  const ctx = await browser.newContext({ viewport: viewportOf(1440) }); await ctx.addCookies([cookie(admin)]); const page = await ctx.newPage();
-  await page.goto(`${B}/admin/clients`, { waitUntil: "load" }); await page.waitForSelector("[data-client-approved]", { timeout: 20000 }); await settled(page);
-  await page.locator("[data-change]").first().click(); await page.waitForSelector("[data-client-editor]", { timeout: 10000 });
-  await page.locator('[data-switch="weather"]').click(); await page.locator("[data-approve]").click(); await settled(page);
-  const changed = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=switches`)).json();
-  ok(!changed[0]?.switches.includes("weather"), "Change: a switch turned off is saved", JSON.stringify(changed[0]?.switches));
-  ok(await page.locator('[data-decision="changed"]').count() >= 1, "the decision log shows CHANGED");
-  await page.locator("[data-change]").first().click(); await page.waitForSelector("[data-client-editor]", { timeout: 10000 });
-  await page.getByRole("button", { name: "Remove access" }).first().click(); await settled(page);
-  ok(await page.locator("[data-remove-confirm]").isDisabled(), "Remove: confirm is disabled until the company is typed");
-  await page.getByLabel("Company name to confirm").fill(COMPANY);
-  ok(await page.locator("[data-remove-confirm]").isEnabled(), "Remove: typing the company enables it");
-  await page.screenshot({ path: `${OUT}/client-admin-remove.png` });
-  await page.locator("[data-remove-confirm]").click(); await settled(page);
-  const gone = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=status,scope,switches`)).json();
-  ok(gone[0]?.status === "removed" && gone[0]?.scope.length === 0 && gone[0]?.switches.length === 0, "Removed: the row stays, emptied", JSON.stringify(gone[0]));
-  const au = await (await svc(`/auth/v1/admin/users/${uid}`)).json();
-  ok(au.app_metadata?.is_approved === false && au.app_metadata?.client_status === "removed", "Removed: the account is not approved, status removed", JSON.stringify(au.app_metadata));
-  cs = await grant(EMAIL);
-  const c2 = await browser.newContext({ viewport: viewportOf(1440) }); await c2.addCookies([cookie(cs)]); const p2 = await c2.newPage();
-  const resp = await p2.goto(`${B}/`, { waitUntil: "load" });
-  ok(p2.url().includes("/client/removed") && resp && resp.status() === 200, "the removed client lands on the removed page", p2.url());
-  // the client's layout reads their standing on the server (2026-11-04), so the page streams in after a blank skeleton: wait for it
-  await p2.waitForSelector("[data-client-hold]", { timeout: 15000 }).catch(() => {});
-  ok(await p2.locator("[data-client-hold]").count() === 1 && await p2.locator("[data-cw-sidebar]").count() === 0 && await p2.locator("[data-client-shell]").count() === 0, "the removed page: shell-less (no portal shell, no client shell, no menu), with Sign out");
-  await p2.screenshot({ path: `${OUT}/client-removed-1440.png` });
-  await c2.close(); await ctx.close();
-}
 // ── Display settings (2026-11-11): the ops look cards on the client's own profile, desk and phone, light and dark ──
 {
   cs = await grant(EMAIL);
@@ -532,6 +502,36 @@ for (const theme of ["light", "dark"]) {
   ok(dark.length > 0 && dark.every((x) => lum(x.logoColor) > 160) && light.every((x) => lum(x.logoColor) < 100), "the Clearway logo on the status screens is light on the dark theme and dark on the light theme", JSON.stringify({ dark: dark[0]?.logoColor, light: light[0]?.logoColor }));
 }
 
+// change, then remove through the page: the row stays, emptied
+{
+  const ctx = await browser.newContext({ viewport: viewportOf(1440) }); await ctx.addCookies([cookie(admin)]); const page = await ctx.newPage();
+  await page.goto(`${B}/admin/clients`, { waitUntil: "load" }); await page.waitForSelector("[data-client-approved]", { timeout: 20000 }); await settled(page);
+  await page.locator("[data-change]").first().click(); await page.waitForSelector("[data-client-editor]", { timeout: 10000 });
+  await page.locator('[data-switch="weather"]').click(); await page.locator("[data-approve]").click(); await settled(page);
+  const changed = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=switches`)).json();
+  ok(!changed[0]?.switches.includes("weather"), "Change: a switch turned off is saved", JSON.stringify(changed[0]?.switches));
+  ok(await page.locator('[data-decision="changed"]').count() >= 1, "the decision log shows CHANGED");
+  await page.locator("[data-change]").first().click(); await page.waitForSelector("[data-client-editor]", { timeout: 10000 });
+  await page.getByRole("button", { name: "Remove access" }).first().click(); await settled(page);
+  ok(await page.locator("[data-remove-confirm]").isDisabled(), "Remove: confirm is disabled until the company is typed");
+  await page.getByLabel("Company name to confirm").fill(COMPANY);
+  ok(await page.locator("[data-remove-confirm]").isEnabled(), "Remove: typing the company enables it");
+  await page.screenshot({ path: `${OUT}/client-admin-remove.png` });
+  await page.locator("[data-remove-confirm]").click(); await settled(page);
+  const gone = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=status,scope,switches`)).json();
+  ok(gone[0]?.status === "removed" && gone[0]?.scope.length === 0 && gone[0]?.switches.length === 0, "Removed: the row stays, emptied", JSON.stringify(gone[0]));
+  const au = await (await svc(`/auth/v1/admin/users/${uid}`)).json();
+  ok(au.app_metadata?.is_approved === false && au.app_metadata?.client_status === "removed", "Removed: the account is not approved, status removed", JSON.stringify(au.app_metadata));
+  cs = await grant(EMAIL);
+  const c2 = await browser.newContext({ viewport: viewportOf(1440) }); await c2.addCookies([cookie(cs)]); const p2 = await c2.newPage();
+  const resp = await p2.goto(`${B}/`, { waitUntil: "load" });
+  ok(p2.url().includes("/client/removed") && resp && resp.status() === 200, "the removed client lands on the removed page", p2.url());
+  // the client's layout reads their standing on the server (2026-11-04), so the page streams in after a blank skeleton: wait for it
+  await p2.waitForSelector("[data-client-hold]", { timeout: 15000 }).catch(() => {});
+  ok(await p2.locator("[data-client-hold]").count() === 1 && await p2.locator("[data-cw-sidebar]").count() === 0 && await p2.locator("[data-client-shell]").count() === 0, "the removed page: shell-less (no portal shell, no client shell, no menu), with Sign out");
+  await p2.screenshot({ path: `${OUT}/client-removed-1440.png` });
+  await c2.close(); await ctx.close();
+}
 await browser.close();
 console.log(failures ? `${failures} FAILED` : "ALL PASSED");
 process.exit(failures ? 1 : 0);

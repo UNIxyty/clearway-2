@@ -54,6 +54,9 @@ const MORE = [
 const agentJson = async (path, init) => { const r = await fetch(`/agent/api${path}`, { credentials: 'same-origin', cache: 'no-store', ...init }); const j = await r.json().catch(() => null); if (!r.ok || j?.ok === false) { const e = new Error(typeof j?.message === 'string' ? j.message : `The agent answered ${r.status}.`); e.shown = true; throw e; } return j; };
 
 /** The passengers sheet for staff: the shared viewer, names first, a document on one tap, in the portal's calm colours. */
+// the viewer's icons from the portal's own set (public/icons, the same files the tab bar uses), drawn as a mask
+const paxIcon = (name, size, color) => <span className="cwsp-icon" style={{ width: size, height: size, background: color || 'currentColor', WebkitMaskImage: `url(/icons/${name}.svg)`, maskImage: `url(/icons/${name}.svg)` }} aria-hidden />;
+
 function StaffPax({ p, onClose }) {
   const { user } = useAuth();
   const id = `${p.oprId}:${p.flightNid}`;
@@ -64,7 +67,7 @@ function StaffPax({ p, onClose }) {
         <div className="cwp-handle" />
         <div className="cwp-sheet-head"><span><b>Passengers</b><small className="cwd-mono">{p.fn} · {p.dep} → {p.arr}</small></span><button type="button" className="cwd-icon-btn" onClick={onClose} aria-label="Close">×</button></div>
         <div className="cwp-sheet-body">
-          <PassengerViewer phone viewer={{ name: user?.name || user?.email || 'Viewer' }} api={{ list: () => agentJson(`/flights/${encodeURIComponent(id)}/passengers`), reveal: (pid) => agentJson(`/flights/${encodeURIComponent(id)}/passengers/${encodeURIComponent(pid)}/reveal`, { method: 'POST' }) }} />
+          <PassengerViewer phone icon={paxIcon} viewer={{ name: user?.name || user?.email || 'Viewer' }} api={{ list: () => agentJson(`/flights/${encodeURIComponent(id)}/passengers`), reveal: (pid) => agentJson(`/flights/${encodeURIComponent(id)}/passengers/${encodeURIComponent(pid)}/reveal`, { method: 'POST' }) }} />
         </div>
       </div>
     </>

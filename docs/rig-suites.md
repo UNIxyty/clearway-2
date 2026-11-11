@@ -61,6 +61,13 @@ count. Nothing joins an entry because it failed in the same run. A failure not n
 is investigated. If it has the same cause, it is added by name, with the date and the evidence, and the count changes.
 No wildcards: "intake/browser-*" used to stand for five suites, and a sixth would have joined it unseen.
 
+- **Cause: no credit on the Anthropic account (since 2026-11-11).** The account behind the rig's key is the same one
+  production uses; it has no credit left, so the API refuses every model call with a credit-balance error. Not a code
+  fault; it clears when the account is topped up (the probe, `rig/probes/no-credits.mjs`, sends a one-token message and
+  exits 0 while the API refuses it for want of credit). **12 suites:** agent-disclosure, knowledge-roundtrip,
+  manifest/browser, intake/extraction-repeat, intake/e2e, intake/e2e-classify, intake/e2e-unread, intake/browser-flows,
+  intake/e2e-people, intake/browser-people, intake/browser-check, intake/browser-edits. Recorded on 2026-11-12 from the
+  full run at 1be18dcc (each shows `model_error` or the agent's "Something went wrong while answering").
 - **Cause: no working model key on the rig (since 2026-11-01).** AWS Bedrock refuses the rig's access key
   (UnrecognizedClientException), so every call to the model fails. It is not a code fault. It clears when the agent
   moves to the Anthropic API with a working key, or `.env.rig` holds a working AWS key. **9 suites** (intake/e2e-scheduled, intake/e2e-cancel and intake/browser-cancel passed on 2026-11-02 and came off):

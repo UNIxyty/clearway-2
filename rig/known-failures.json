@@ -1,3 +1,22 @@
 {
- "$comment": "The known-failures record (docs/rig-suites.md). Each entry is ONE cause, the date it was recorded, every suite under it BY NAME (no wildcards), and a `probe`: a command that exits 0 while the cause still holds. The runner runs each probe once at the start; the suites of a cause that still holds are SKIPPED and printed with the cause, and the suites of a cleared cause run again by themselves. rig/verdict.mjs names every red suite that is not listed. Nothing here makes a run green."
+  "$comment": "The known-failures record (docs/rig-suites.md). Each entry is ONE cause, the date it was recorded, every suite under it BY NAME (no wildcards), and a `probe`: a command that exits 0 while the cause still holds. The runner runs each probe once at the start; the suites of a cause that still holds are SKIPPED and printed with the cause, and the suites of a cleared cause run again by themselves. rig/verdict.mjs names every red suite that is not listed. Nothing here makes a run green.",
+  "no-credits": {
+    "since": "2026-11-11",
+    "cause": "The Anthropic account behind the rig's key (and production's: the same account) has no credit left; the API refuses every model call with a credit-balance error. Not a code fault. Clears when the account is topped up.",
+    "suites": [
+      "agent-disclosure",
+      "knowledge-roundtrip",
+      "manifest/browser",
+      "intake/extraction-repeat",
+      "intake/e2e",
+      "intake/e2e-classify",
+      "intake/e2e-unread",
+      "intake/browser-flows",
+      "intake/e2e-people",
+      "intake/browser-people",
+      "intake/browser-check",
+      "intake/browser-edits"
+    ],
+    "probe": "node --env-file=.env.rig rig/probes/no-credits.mjs"
+  }
 }

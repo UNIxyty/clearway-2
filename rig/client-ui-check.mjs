@@ -455,6 +455,7 @@ for (const theme of ["light", "dark"]) {
     await page.locator("[data-display-settings]").click();
     await page.waitForURL(/\/client\/settings/, { timeout: 15000 }).catch(() => {});
     await frameOf(page).locator("[data-client-settings]").waitFor({ timeout: 30000 });
+    await frameOf(page).locator("[data-client-settings] h3", { hasText: /Font/ }).first().waitFor({ timeout: 30000 }).catch(() => {});   // the last card draws after its own reads
     const cards = await frameOf(page).locator("[data-client-settings] h3").allInnerTexts();
     ok(/Display scale/.test(cards.join("|")) && /Hour spacing/.test(cards.join("|")) && /Vertical sizing/.test(cards.join("|")) && /Horizontal sizing/.test(cards.join("|")) && /Chips/.test(cards.join("|")) && /Colours|Colors/i.test(cards.join("|")) && /Font/.test(cards.join("|")), `${theme} ${width}: the ops look cards are all there (scale, hour spacing, vertical, horizontal, chips, colours, font)`, cards.join(" | ").slice(0, 160));
     ok(await frameOf(page).locator("[data-view-preview]").count() === 1 && await frameOf(page).locator("[data-reset-view]").count() === 1, `${theme} ${width}: a live preview and a Reset to default button`);
@@ -491,11 +492,14 @@ for (const theme of ["light", "dark"]) {
       await page.screenshot({ path: `${OUT}/status-${kind}-${theme}-${width}.png` });
       return r;
     };
-    const nf = await see("/no-such-page-at-all", "not-found", "a page that does not exist", cs);
+    // staff see the portal's not-found and forbidden; a client gets their own not-found for anything outside their world
+    const nf = await see("/no-such-page-at-all", "not-found", "a page that does not exist (staff)", admin);
     ok(nf?.href === "/", "the not-found button goes to the start (the person's own front door)", nf?.href);
+    await see("/forbidden", "forbidden", "a page a role does not cover (staff)", admin);
+    await ctx.clearCookies();
     const cnf = await see("/client/airports", "client-not-found", "a client reaching a page outside their account", cs);
     ok(cnf?.href === "/" && /Your flights/.test(cnf?.action ?? ""), "the client's not-found button is Your flights, to their start page", cnf?.action);
-    await see("/forbidden", "forbidden", "a page a role does not cover", cs);
+    await ctx.clearCookies();
     await see("/welcome?token=not-a-real-token", "link-unknown", "a set-password link nobody knows");
     await ctx.close();
   }

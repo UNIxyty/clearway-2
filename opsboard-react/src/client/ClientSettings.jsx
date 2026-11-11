@@ -58,10 +58,11 @@ export default function ClientSettings({ visible, windowStartUtc, windowEndUtc, 
   // the side list follows the scroll (desk)
   useEffect(() => {
     if (phone) return undefined;
+    // the section whose heading was the last to pass the upper third of the window is the current one
     const heads = SECTIONS.map((x) => document.getElementById(`cws-${x.id}`)).filter(Boolean);
-    const io = new IntersectionObserver((entries) => { const hit = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]; if (hit) setCurrent(hit.target.id.replace('cws-', '')); }, { rootMargin: '-20% 0px -70% 0px' });
-    heads.forEach((h) => io.observe(h));
-    return () => io.disconnect();
+    const on = () => { const line = window.innerHeight * 0.34; let cur = heads[0]; for (const h of heads) if (h.getBoundingClientRect().top <= line) cur = h; if (cur) setCurrent(cur.id.replace('cws-', '')); };
+    on(); window.addEventListener('scroll', on, { passive: true }); window.addEventListener('resize', on);
+    return () => { window.removeEventListener('scroll', on); window.removeEventListener('resize', on); };
   }, [phone, epoch]);
   const resetAll = async () => {
     setResetting('all'); setSaid('');

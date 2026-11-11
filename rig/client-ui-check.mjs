@@ -455,8 +455,8 @@ for (const theme of ["light", "dark"]) {
     await page.locator("[data-display-settings]").click();
     await page.waitForURL(/\/client\/settings/, { timeout: 15000 }).catch(() => {});
     await frameOf(page).locator("[data-client-settings]").waitFor({ timeout: 30000 });
-    await frameOf(page).locator("[data-client-settings] h3", { hasText: /Font/ }).first().waitFor({ timeout: 30000 }).catch(() => {});   // the last card draws after its own reads
-    const cards = await frameOf(page).locator("[data-client-settings] h3").allInnerTexts();
+    await frameOf(page).locator("[data-client-settings] .cws-cards > *", { hasText: /Wall font/ }).first().waitFor({ timeout: 30000 }).catch(() => {});   // the last card draws after its own reads
+    const cards = await frameOf(page).locator("[data-client-settings] .cws-cards > *").evaluateAll((els) => els.map((el) => (el.querySelector("h2, h3, h4") || el).textContent.trim().slice(0, 40)));
     ok(/Display scale/.test(cards.join("|")) && /Hour spacing/.test(cards.join("|")) && /Vertical sizing/.test(cards.join("|")) && /Horizontal sizing/.test(cards.join("|")) && /Chips/.test(cards.join("|")) && /Colours|Colors/i.test(cards.join("|")) && /Font/.test(cards.join("|")), `${theme} ${width}: the ops look cards are all there (scale, hour spacing, vertical, horizontal, chips, colours, font)`, cards.join(" | ").slice(0, 160));
     ok(await frameOf(page).locator("[data-view-preview]").count() === 1 && await frameOf(page).locator("[data-reset-view]").count() === 1, `${theme} ${width}: a live preview and a Reset to default button`);
     // a change saves on the account: set the scale through the slider's own route and read it back at the wall

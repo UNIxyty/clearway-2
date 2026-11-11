@@ -1,5 +1,6 @@
 import { clientMayReach, CLIENT_HOLDING_PAGES } from "@/lib/clients/allow.mjs";
 import { scopeFor } from "@/lib/clients/scope.mjs";
+import { statusPageHtml } from "@/lib/status-page-html";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { hasInternalDebugAccess } from "@/lib/internal-debug-auth";
@@ -56,14 +57,16 @@ function failClosed(request: NextRequest, pathname: string) {
 // here, not by a React not-found page: under a streamed root layout notFound() arrives after the 200 has gone out, and the
 // portal's root not-found payload would carry the docs. One sentence, the portal's tokens by name only, light and dark.
 function clientNotFoundResponse() {
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not found</title><meta name="robots" content="noindex"><style>:root{color-scheme:light dark}body{margin:0;min-height:100dvh;display:grid;place-items:center;font:16px/1.5 system-ui,sans-serif;background:#f6f7f9;color:#1b1f24}@media (prefers-color-scheme:dark){body{background:#0f1216;color:#e6e9ee}}main{max-width:560px;padding:32px 16px}h1{font-size:22px;margin:0 0 8px}p{opacity:.8;margin:0 0 20px}a{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid currentColor;color:inherit;text-decoration:none}</style></head><body><main data-client-notfound=""><h1>That is not on your account.</h1><p>If you reached this from a link, the flight or page is not one your account covers.</p><a href="/client">Your flights</a></main></body></html>`;
+  // the shared status screen as static HTML (lib/status-page-html.ts, 2026-11-11); the button goes to the start, which
+  // this middleware turns into the client's own start page (and the staff start page for staff)
+  const html = statusPageHtml({ kind: "client-not-found", eyebrow: "Not on your account", title: "That is not on your account", line: "If you reached this from a link, the flight or page is not one your account covers.", action: { label: "Your flights", href: "/" } });
   return new NextResponse(html, { status: 404, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
 // A role nobody planned for: 404, nothing confirmed to exist, and the way out (signing out: POST, as the route takes).
 function unknownRoleResponse(isApi: boolean) {
   if (isApi) return NextResponse.json({ ok: false, error: "That is not on your account." }, { status: 404 });
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Not found</title><meta name="robots" content="noindex"><style>:root{color-scheme:light dark}body{margin:0;min-height:100dvh;display:grid;place-items:center;font:16px/1.5 system-ui,sans-serif;background:#f6f7f9;color:#1b1f24}@media (prefers-color-scheme:dark){body{background:#0f1216;color:#e6e9ee}}main{max-width:560px;padding:32px 16px}h1{font-size:22px;margin:0 0 8px}p{opacity:.8;margin:0 0 20px}button{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid currentColor;background:none;color:inherit;font:inherit;cursor:pointer}</style></head><body><main data-unknown-role=""><h1>That is not on your account.</h1><p>Your account has no access here yet. Ask your Clearway contact to set it up.</p><form method="post" action="/auth/sign-out"><button type="submit">Sign out</button></form></main></body></html>`;
+  const html = statusPageHtml({ kind: "unknown-role", eyebrow: "Not on your account", title: "That is not on your account", line: "This account has no role here yet. Sign out, and ask Clearway ops if you expected access.", action: { label: "Sign out", form: "/auth/sign-out" } });
   return new NextResponse(html, { status: 404, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 

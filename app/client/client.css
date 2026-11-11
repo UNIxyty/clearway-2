@@ -57,7 +57,7 @@
   .clw-frame { height: calc(100dvh - 66px - env(safe-area-inset-bottom, 0px)); }
 }
 /* the phone's tab bar */
-.clw-bottomnav { display: grid; grid-template-columns: repeat(3, 1fr); position: fixed; left: 0; right: 0; bottom: 0; padding: 0 6px env(safe-area-inset-bottom, 0px); height: calc(66px + env(safe-area-inset-bottom, 0px)); background: var(--cw-bg-surface); border-top: 1px solid var(--cw-border); z-index: 6; }
+.clw-bottomnav { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; padding: 0 6px env(safe-area-inset-bottom, 0px); height: calc(66px + env(safe-area-inset-bottom, 0px)); background: var(--cw-bg-surface); border-top: 1px solid var(--cw-border); z-index: 6; }
 @media (min-width: 700px) { .clw-bottomnav { display: none; } }
 .clw-bottomnav a { height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 500; color: var(--cw-text-muted); position: relative; min-width: 44px; }
 .clw-bottomnav a.on { color: var(--cw-text-link); font-weight: 700; }
@@ -71,8 +71,9 @@
 .clw-card-head { height: 48px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--cw-divider); font-size: 15px; font-weight: 700; }
 @media (min-width: 700px) { .clw-card-head { padding: 0 20px; } }
 .clw-input { height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--cw-border-control); background: var(--cw-bg-surface); color: var(--cw-text); font: inherit; font-size: 16px; }
-.cl-btn { height: 40px; padding: 0 14px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; border: 1px solid var(--cw-border-control); background: var(--cw-bg-surface); color: var(--cw-text); }
-.cl-btn:hover { border-color: var(--cw-text-muted); }
+.cl-btn { height: 40px; padding: 0 18px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; border: 1px solid var(--cw-border-control); background: var(--cw-bg-surface); color: var(--cw-text); }
+.cl-btn:hover { border-color: var(--cw-border-strong); background: var(--cw-bg-hover); }   /* background and border, never the size (2026-11-12) */
+.cl-btn.primary:hover { background: var(--cw-primary-hover); border-color: var(--cw-primary-active); }
 .cl-btn.primary { background: var(--cw-primary); color: var(--cw-text-on-primary); border-color: transparent; font-weight: 650; }
 .cl-btn.primary:hover { background: var(--cw-primary-hover); }
 .cl-btn:disabled { opacity: .6; cursor: default; }

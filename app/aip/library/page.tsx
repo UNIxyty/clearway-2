@@ -41,16 +41,19 @@ function search(all: Country[], q: string) {
 
 function Action({ k, link, name, onOpen, phone }: { k: "official" | "gen" | "enr"; link: Link; name: string; onOpen: () => void; phone: boolean }) {
   const label = k === "official" ? "Official AIP" : k.toUpperCase();
+  // one fixed width per class of button (2026-11-12): the three line up as columns down the list, sized for each
+  // class's longest state, the words on one line and never cut
+  const W = phone ? "w-full" : k === "official" ? "w-[150px]" : k === "gen" ? "w-[196px]" : "w-[340px]";
   if (link.state === "paused") {
     // ENR is paused (lib/aip-enr.mjs, 2026-11-11): a real disabled button — not clickable, not a tab stop as an action —
     // whose words are visible text, the same for every country.
-    return <button type="button" disabled aria-disabled="true" className={`inline-flex items-center gap-2 rounded-[8px] border border-cw-border-control bg-cw-bg-sunken px-3 text-[13px] font-semibold text-cw-text-muted ${phone ? "h-12 w-full justify-start" : "h-9"} cursor-not-allowed`} data-aip-link={k} data-state="paused"><span>{label}</span><span className="font-medium">· {link.why}</span></button>;
+    return <button type="button" disabled aria-disabled="true" className={`inline-flex items-center gap-2 whitespace-nowrap rounded-[8px] border border-cw-border-control bg-cw-bg-sunken px-3 text-[13px] font-semibold text-cw-text-muted ${phone ? "h-12 justify-start" : "h-10"} ${W} cursor-not-allowed`} data-aip-link={k} data-state="paused"><span>{label}</span><span className="font-medium">· {link.why}</span></button>;
   }
   const off = link.state === "login" || link.state === "nodeep" || link.state === "none" || !link.url;
   const failed = link.state === "failed";
-  const cls = `inline-flex items-center gap-2 rounded-[8px] border px-3 text-[13px] font-semibold no-underline ${phone ? "h-12 w-full" : "h-9"} ${failed ? "border-cw-danger-border bg-cw-danger-tint text-cw-danger-text" : "border-cw-border-control bg-cw-bg-surface text-cw-text"}`;
+  const cls = `inline-flex items-center gap-2 whitespace-nowrap rounded-[8px] border px-3 text-[13px] font-semibold no-underline ${phone ? "h-12" : "h-10"} ${W} ${failed ? "border-cw-danger-border bg-cw-danger-tint text-cw-danger-text" : "border-cw-border-control bg-cw-bg-surface text-cw-text"}`;
   if (off) {
-    return <span className={`${cls} cursor-default text-cw-text-muted`} title={link.why} data-aip-link={k} data-state={link.state}><MaskIcon name={link.state === "login" ? "lock" : "link-2-off"} size={14} /><span className={k === "official" ? "" : "font-mono"}>{label}</span><span className="ml-auto truncate text-[11.5px] font-medium">{link.state === "login" ? "Login needed" : link.state === "none" ? "None" : "No direct link"}</span></span>;
+    return <span className={`${cls} cursor-default text-cw-text-muted`} title={link.why} data-aip-link={k} data-state={link.state}><MaskIcon name={link.state === "login" ? "lock" : "link-2-off"} size={14} /><span className={k === "official" ? "" : "font-mono"}>{label}</span><span className="ml-auto text-[11.5px] font-medium">{link.state === "login" ? "Login needed" : link.state === "none" ? "None" : "No direct link"}</span></span>;
   }
   return <a href={link.url!} target="_blank" rel="noopener noreferrer" onClick={onOpen} className={cls} title={failed ? `Last check failed: ${link.why}. The link may still open.` : `${name} · opens in a new tab`} data-aip-link={k} data-state={link.state}><span className={k === "official" ? "" : "font-mono"}>{label}</span><MaskIcon name={failed ? "triangle-alert" : "arrow-up-right"} size={14} className="ml-auto" /></a>;
 }
@@ -98,20 +101,20 @@ export default function AipLibraryPage() {
     const dot = none ? "var(--cw-neutral)" : fail ? "var(--cw-danger)" : stale ? "var(--cw-warning)" : c.checkedAt ? "var(--cw-success)" : "var(--cw-border-strong)";
     const offs = (["gen", "enr"] as const).filter((k) => c.links[k].state === "login" || c.links[k].state === "nodeep");
     return (
-      <div key={c.iso} data-country={c.iso} className={`grid gap-3 border-b border-cw-divider px-4 py-3 ${phone ? "grid-cols-1" : "grid-cols-[minmax(220px,1.2fr)_minmax(0,2fr)_minmax(180px,1fr)] items-center"} ${first && hasQ ? "bg-cw-bg-selected" : ""}`}>
+      <div key={c.iso} data-country={c.iso} className={`grid gap-4 border-b border-cw-divider px-5 py-3 ${phone ? "grid-cols-1" : "grid-cols-[minmax(200px,1fr)_auto_minmax(220px,1fr)] items-center"} ${first && hasQ ? "bg-cw-bg-selected" : ""}`}>
         <div className="flex min-w-0 items-center gap-3">
           <img src={`https://flagcdn.com/w80/${c.iso}.png`} alt="" width={24} height={17} className="rounded-[2px] shadow-[0_0_0_1px_var(--cw-border)]" />
           <span className="flex min-w-0 flex-col gap-0.5"><span className="flex items-baseline gap-2"><b className="text-[14.5px] font-bold">{c.name}</b>{match && <span className="rounded-[5px] bg-cw-primary-tint px-1.5 text-[11px] font-semibold text-cw-text-link">{match}</span>}</span><span className="truncate font-mono text-[12px] text-cw-text-muted">{c.prefixes.join(" ")}{c.provider ? ` · ${c.provider}` : ""}</span></span>
         </div>
         {none ? (
-          <div className="flex items-center gap-2 text-[13.5px] text-cw-text-body"><MaskIcon name="circle-slash" size={15} color="var(--cw-text-muted)" /><span><b className="font-semibold">No public AIP on file.</b> {c.links.official.why}</span></div>
+          <div className={`flex items-center gap-2 text-[13.5px] text-cw-text-body ${phone ? "" : "w-[710px]"}`} data-aip-actions="none"><MaskIcon name="circle-slash" size={15} color="var(--cw-text-muted)" /><span><b className="font-semibold">No public AIP on file.</b> {c.links.official.why}</span></div>
         ) : (
-          <div className={`flex gap-2 ${phone ? "flex-col" : "flex-wrap"}`}>
+          <div className={`flex gap-2 ${phone ? "flex-col" : ""}`} data-aip-actions="">
             {(["official", "gen", "enr"] as const).map((k) => <Action key={k} k={k} link={c.links[k]} name={c.name} onOpen={() => touch(c)} phone={phone} />)}
           </div>
         )}
-        <div className="flex flex-col gap-1 text-[12px]">
-          <span className="flex items-center gap-2 font-mono text-cw-text-body"><span className="h-2 w-2 rounded-full" style={{ background: dot }} />{none ? `checked ${ago(c.checkedAt)}` : c.checkedAt ? `AIRAC ${c.airac ?? "—"} · checked ${ago(c.checkedAt)}` : "not checked yet"}</span>
+        <div className="flex min-w-0 flex-col gap-1 text-[12px]" data-aip-status="">
+          <span className="flex items-center gap-2 whitespace-nowrap font-mono text-cw-text-body"><span className="h-2 w-2 rounded-full" style={{ background: dot }} />{none ? `checked ${ago(c.checkedAt)}` : c.checkedAt ? `AIRAC ${c.airac ?? "—"} · checked ${ago(c.checkedAt)}` : "not checked yet"}</span>
           {fail && <span className="text-cw-danger-text">{fail === "official" ? "Official" : fail.toUpperCase()} link failed · {c.links[fail].why}</span>}
           {!fail && stale && <span className="text-cw-warning-text">Site still on AIRAC {c.airac}</span>}
           {c.links.official.state === "unchecked" && c.checkedAt && <span className="text-cw-text-muted" data-unchecked-note="">{c.links.official.why}</span>}

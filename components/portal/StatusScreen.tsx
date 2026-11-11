@@ -27,7 +27,7 @@ export default function StatusScreen({ eyebrow, title, line, action, note, tone 
   const pill = tone === "danger"
     ? "border-cw-danger-border bg-cw-danger-tint text-cw-danger-text"
     : "border-cw-primary/30 bg-cw-primary/10 text-cw-text-link";
-  const button = "inline-flex h-11 min-w-[160px] items-center justify-center rounded-[10px] bg-cw-ink px-5 text-[14px] font-semibold text-cw-on-ink no-underline hover:opacity-90 focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_var(--cw-focus-halo)] disabled:opacity-60";
+  const button = "inline-flex h-11 min-w-[160px] items-center justify-center rounded-[10px] border border-transparent bg-cw-ink px-6 text-[14px] font-semibold text-cw-on-ink no-underline hover:border-cw-border-strong hover:opacity-90 focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_var(--cw-focus-halo)] disabled:opacity-60";
   const card = (
     <div className={`relative w-full max-w-2xl rounded-[16px] border border-cw-border/70 bg-cw-bg-surface/95 p-5 shadow-2xl backdrop-blur-sm sm:p-8 ${embedded ? "mx-auto" : ""}`} data-status-screen={kind} role="region" aria-labelledby="cw-status-title">
       <div className="flex flex-wrap items-center justify-between gap-3">

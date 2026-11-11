@@ -73,6 +73,7 @@ export default function ClientApp() {
 
   // the look of their timeline (2026-11-11): their own profile at the wall, re-read when a save broadcasts; the font
   // goes on <html> as the display does it, the rest reaches the Board as props and the chips through WallDisplayProvider
+  useEffect(() => { document.documentElement.classList.add('cw-client-doc'); return () => document.documentElement.classList.remove('cw-client-doc'); }, []);
   const [view, setView] = useState(null);
   const loadView = useCallback(() => fetchView().then((v) => { setView(v); applyWallFont(v?.settings?.font, v?.settings?.zeroStyle); }).catch(() => {}), []);
   useEffect(() => { loadView(); return subscribeWallStream('config.changed', (event) => { if (!event.section || event.section === 'settings') loadView(); }); }, [loadView]);

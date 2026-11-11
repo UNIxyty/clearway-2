@@ -32,7 +32,7 @@ export async function check({ base, accounts: [client], ok }) {
   const home = await ask("/client", { who: client });
   const menu = (/data-menu="([^"]*)"/.exec(home.text)?.[1] ?? "").split(" ").filter(Boolean);
   ok(home.st === 200 && /data-client-shell/.test(home.text) && !/data-cw-sidebar/.test(home.text), "client: Timeline opens in the client shell, with no staff shell", home.st);
-  ok(JSON.stringify(menu) === JSON.stringify(["/client", "/client/flights", "/client/account"]) && /data-client-frame/.test(home.text), "client: the menu is Timeline, Flights, Account, and the page carries the wall's client frame", menu.join(" "));
+  ok(JSON.stringify(menu) === JSON.stringify(["/client", "/client/flights", "/client/account", "/client/settings"]) && /data-client-frame/.test(home.text), "client: the menu is Timeline, Flights, Account, Settings, and the page carries the wall's client frame", menu.join(" "));
   // the frame's own document, and the wall reads it makes (their scope only; this check account's scope matches nothing)
   const frameDoc = await ask("/digital-wall/timeline/?in=client&page=timeline", { who: client });
   ok(frameDoc.st === 200 && /<div id="root">/.test(frameDoc.text), "client: the wall's client surface answers the frame", frameDoc.st);

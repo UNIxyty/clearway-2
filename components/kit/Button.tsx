@@ -13,16 +13,18 @@ export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger" | "dang
 export type ButtonSize = "sm" | "md" | "lg";
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: "border border-transparent bg-cw-primary text-cw-text-on-primary hover:bg-cw-primary-hover active:bg-cw-primary-active",
+  primary: "border border-transparent bg-cw-primary text-cw-text-on-primary hover:border-cw-primary-active hover:bg-cw-primary-hover active:bg-cw-primary-active",
   secondary: "border border-cw-border-control bg-cw-bg-surface text-cw-text hover:border-cw-border-strong hover:bg-cw-bg-hover active:bg-cw-bg-active",
-  quiet: "border border-transparent bg-transparent text-cw-text-body hover:bg-cw-bg-hover hover:text-cw-text active:bg-cw-bg-active",
-  danger: "border border-transparent bg-cw-danger-solid text-cw-text-on-primary hover:bg-cw-danger-solid-hover active:bg-cw-danger-solid-hover",
-  "danger-quiet": "border border-cw-danger-border bg-cw-bg-surface text-cw-danger-text hover:bg-cw-danger-tint active:bg-cw-danger-tint",
+  quiet: "border border-transparent bg-transparent text-cw-text-body hover:border-cw-border-control hover:bg-cw-bg-hover hover:text-cw-text active:bg-cw-bg-active",
+  danger: "border border-transparent bg-cw-danger-solid text-cw-text-on-primary hover:border-cw-danger-border hover:bg-cw-danger-solid-hover active:bg-cw-danger-solid-hover",
+  "danger-quiet": "border border-cw-danger-border bg-cw-bg-surface text-cw-danger-text hover:border-cw-danger-text hover:bg-cw-danger-tint active:bg-cw-danger-tint",
 };
 const SIZE: Record<ButtonSize, string> = {
-  sm: "h-[30px] gap-1.5 rounded-[8px] px-2.5 text-[13px]",
-  md: "h-9 gap-2 rounded-[10px] px-3.5 text-[14px]",
-  lg: "h-11 gap-2 rounded-[10px] px-[18px] text-[15px]",
+  // more room inside (2026-11-12, Dmitry's test: buttons felt cramped); the hover changes background and border only,
+  // never the size — every variant carries a 1 px border in every state
+  sm: "h-8 gap-1.5 rounded-[8px] px-3 text-[13px]",
+  md: "h-10 gap-2 rounded-[10px] px-4 text-[14px]",
+  lg: "h-11 gap-2 rounded-[10px] px-5 text-[15px]",
 };
 const FOCUS = "outline-none focus-visible:shadow-[0_0_0_2px_var(--cw-bg-surface),0_0_0_4px_var(--cw-focus)]";
 const FOCUS_DANGER = "outline-none focus-visible:shadow-[0_0_0_2px_var(--cw-bg-surface),0_0_0_4px_var(--cw-danger)]";
@@ -76,7 +78,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 /** A square icon-only button. The label is its accessible name and its tooltip. */
 export const IconButton = forwardRef<HTMLButtonElement, Omit<ButtonProps, "children" | "icon"> & { icon: string; label: string; shortcut?: string; bordered?: boolean }>(
   function IconButton({ icon, label, shortcut, bordered = false, size = "sm", variant, className, ...rest }, ref) {
-    const dim = size === "sm" ? "h-[30px] w-[30px] rounded-[8px]" : size === "md" ? "h-9 w-9 rounded-[10px]" : "h-11 w-11 rounded-[10px]";
+    const dim = size === "sm" ? "h-8 w-8 rounded-[8px]" : size === "md" ? "h-10 w-10 rounded-[10px]" : "h-11 w-11 rounded-[10px]";
     return (
       <Tooltip label={label} shortcut={shortcut}>
         <button

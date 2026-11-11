@@ -102,7 +102,9 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraf
   const opsLabel = grants.length === 1 ? grants[0].name : `${grants.length} operators`;
   const sub = noFleet ? emptyFleetWords(me).title : `${opsLabel} · ${visible.length} aircraft · ${empty ? 'nothing scheduled' : `${today} flight${today === 1 ? '' : 's'} today`}`;
   const laneH = 96;
-  const boardH = 34 + Math.max(1, visible.length) * laneH;
+  // the hour row is 34 px; with no lanes the board keeps three lanes' height, so the empty words sit below the hour row
+  // with room around them and the page never looks collapsed (2026-11-12, Dmitry's test)
+  const boardH = 34 + Math.max(3, visible.length) * Math.round(laneH * look.rowZoom);
   const row = (f, grid) => (
     <button type="button" key={f.id} className={`cwd-frow${f.status === 'airborne' ? ' is-air' : ''}${f.status === 'cancelled' ? ' is-cnl' : ''}`} style={{ gridTemplateColumns: grid }} onClick={() => setOpenId(f.id)} data-flight-row={f.fn}>
       <span className="cwd-mono is-time"><b>{f.depHm}</b>{f.depKind !== 'STD' && f.depHm !== f.etd && <s>{f.etd}</s>}</span>

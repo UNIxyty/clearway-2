@@ -10,6 +10,7 @@
 import { chromium } from "playwright";
 import fs from "node:fs";
 import { settled } from "./lib/settle.mjs";
+import { textOverlaps, clippedText } from "./lib/overlap.mjs";
 import { ACTIVE_SWITCHES, RETIRED_SWITCH_KEYS } from "../lib/clients/switches.mjs";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, SVC = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
@@ -112,7 +113,7 @@ for (const theme of ["light", "dark"]) {
 
 // the client's own screens: Timeline and Flights in the frame, a flight, and on a phone the map and the passengers
 let cs = await grant(EMAIL);
-const MENU = ["Timeline", "Flights", "Account"];
+const MENU = ["Timeline", "Flights", "Account", "Settings"];   // Settings in the menu since 2026-11-12
 // a flight that flies (a cancelled one carries no weather, NOTAM or passenger section, by design)
 const flightNoOf = async (page) => frameOf(page).locator("[data-flight-row]:not(.is-cnl)").first().getAttribute("data-flight-row");
 const readPax = (page, sel) => frameDoc(page)?.waitForFunction((q) => { const t = document.querySelector(q)?.textContent || ""; return t.length > 0 && !/Reading the passenger list/.test(t); }, sel, { timeout: 20000 }).catch(() => {});
@@ -124,7 +125,7 @@ for (const theme of ["light", "dark"]) {
     // ── Timeline ──
     await openClient(page, "/client", width);
     ok(await page.locator("[data-cw-sidebar]").count() === 0 && !(await page.content()).includes("Flight intake"), `${tag} Timeline: no portal shell in the page`);
-    ok((await page.locator("[data-client-shell]").getAttribute("data-menu")) === "/client /client/flights /client/account", `${tag} Timeline: the menu is Timeline, Flights, Account and nothing else`, await page.locator("[data-client-shell]").getAttribute("data-menu"));
+    ok((await page.locator("[data-client-shell]").getAttribute("data-menu")) === "/client /client/flights /client/account /client/settings", `${tag} Timeline: the menu is Timeline, Flights, Account and nothing else`, await page.locator("[data-client-shell]").getAttribute("data-menu"));
     if (PHONE(width)) {
       ok(JSON.stringify((await page.locator(".clw-bottomnav a").allInnerTexts()).map((x) => x.trim())) === JSON.stringify(MENU) && await page.locator(".clw-side").isHidden(), `${tag} Timeline: the tab bar is Timeline, Flights, Account; no sidebar`);
       ok(await page.locator(".clw-head").isHidden(), `${tag} Timeline: the header is hidden, the frame has the screen`);
@@ -325,7 +326,7 @@ for (const theme of ["light", "dark"]) {
   const ctx = await browser.newContext({ viewport: viewportOf(1440) }); await ctx.addCookies([cookie(cs)]); const page = await ctx.newPage();
   await page.goto(`${B}/client/start`, { waitUntil: "load" }); await page.waitForSelector("[data-client-start]", { timeout: 20000 }); await settled(page);
   ok(await page.locator('[data-start-choice="timeline"]').count() === 1 && await page.locator('[data-start-choice="flights"]').count() === 1 && await page.locator("[data-decide-later]").count() === 1, "start page: Timeline, Flights list and Decide later");
-  ok((await page.locator("[data-client-shell]").getAttribute("data-menu")) === "/client /client/flights /client/account", "start page: not a menu item (the menu stays the three)");
+  ok((await page.locator("[data-client-shell]").getAttribute("data-menu")) === "/client /client/flights /client/account /client/settings", "start page: not a menu item (the menu stays the three)");
   await page.screenshot({ path: `${OUT}/client-start-1440.png`, fullPage: true });
   await page.locator('[data-start-choice="flights"]').click();
   await page.waitForURL((x) => new URL(x).pathname === "/client/flights", { timeout: 20000 }).catch(() => {});
@@ -420,7 +421,7 @@ for (const theme of ["light", "dark"]) {
     const me = await (await fetch(`${B}/api/client/me`, { headers: { cookie: cookieHeader(cs) } })).json();
     ok(Array.isArray(me.switches) && !me.switches.some((k) => RETIRED_SWITCH_KEYS.includes(k)), "…and their own standing lists neither retired switch", (me.switches ?? []).join(","));
     const t = await get("/client");
-    ok(t.status === 200 && /data-menu="\/client \/client\/flights \/client\/account"/.test(t.text), "…and the menu stays the three", /data-menu="([^"]*)"/.exec(t.text)?.[1]);
+    ok(t.status === 200 && /data-menu="\/client \/client\/flights \/client\/account \/client\/settings"/.test(t.text), "…and the menu stays the four", /data-menu="([^"]*)"/.exec(t.text)?.[1]);
   } finally {
     await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ switches: before }) });
   }
@@ -459,6 +460,24 @@ for (const theme of ["light", "dark"]) {
     const cards = await frameOf(page).locator("[data-client-settings] .cws-cards > *").evaluateAll((els) => els.map((el) => (el.querySelector("h2, h3, h4") || el).textContent.trim().slice(0, 40)));
     ok(/Display scale/.test(cards.join("|")) && /Hour spacing/.test(cards.join("|")) && /Vertical sizing/.test(cards.join("|")) && /Horizontal sizing/.test(cards.join("|")) && /Chips/.test(cards.join("|")) && /Colours|Colors/i.test(cards.join("|")) && /font/i.test(cards.join("|")), `${theme} ${width}: the ops look cards are all there (scale, hour spacing, vertical, horizontal, chips, colours, font)`, cards.join(" | ").slice(0, 160));
     ok(await frameOf(page).locator("[data-view-preview]").count() === 1 && await frameOf(page).locator("[data-reset-view]").count() === 1, `${theme} ${width}: a live preview and a Reset to default button`);
+    // the page scrolls (2026-11-12: it could not): the last section's reset button comes into view by wheel, and the
+    // side list jumps to a section on the desk; on the phone the sections fold and the last one opens
+    const fd = frameDoc(page);
+    if (PHONE(width)) { await frameOf(page).locator('[data-settings-section="font"] .cws-section-toggle').click(); }
+    else { await frameOf(page).locator('[data-jump="font"]').click(); await page.waitForTimeout(700); }
+    await frameOf(page).locator('[data-reset-section="font"]').scrollIntoViewIfNeeded().catch(() => {});
+    const reach = fd ? await fd.evaluate(() => { const b = document.querySelector('[data-reset-section="font"]'); if (!b) return null; const r = b.getBoundingClientRect(); return { inView: r.top >= 0 && r.bottom <= window.innerHeight, scrollY: window.scrollY, docScrolls: getComputedStyle(document.documentElement).overflowY !== "hidden" }; }) : null;
+    ok(Boolean(reach?.inView) && reach.docScrolls && reach.scrollY > 0, `${theme} ${width}: the last section (Font) is reachable by scrolling, and the document itself scrolls`, JSON.stringify(reach));
+    const sections = await frameOf(page).locator("[data-settings-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-settings-section")));
+    ok(sections.join(",") === "scale,hour,vertical,horizontal,chips,colours,font", `${theme} ${width}: the ops wall's sections, in its order`, sections.join(","));
+    if (!PHONE(width)) { const stuck = fd ? await fd.evaluate(() => { const p = document.querySelector("[data-view-preview]"); const r = p.getBoundingClientRect(); return r.top >= 0 && r.top < 80; }) : false; ok(stuck, `${theme} ${width}: the preview stays in view while scrolled to the last section`); }
+    // one section's reset puts only its keys back
+    await fetch(`${B}/digital-wall/api/client/view`, { method: "PUT", headers: { cookie: cookieHeader(cs), "content-type": "application/json" }, body: JSON.stringify({ settings: { scale: 1.7, timeZoom: 1.4 } }) });
+    await page.reload({ waitUntil: "load" }); await frameOf(page).locator("[data-client-settings]").waitFor({ timeout: 30000 });
+    if (PHONE(width)) await frameOf(page).locator('[data-settings-section="hour"] .cws-section-toggle').click();
+    await frameOf(page).locator('[data-reset-section="hour"]').click(); await frameOf(page).locator("[data-reset-said]").waitFor({ timeout: 15000 }).catch(() => {});
+    const afterSec = await fetch(`${B}/digital-wall/api/client/view`, { headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
+    ok(afterSec.settings?.timeZoom === afterSec.defaults?.timeZoom && afterSec.settings?.scale === 1.7, `${theme} ${width}: Reset this section puts back only that section (hour spacing), the scale stays`, JSON.stringify({ timeZoom: afterSec.settings?.timeZoom, scale: afterSec.settings?.scale }));
     // a change saves on the account: set the scale through the slider's own route and read it back at the wall
     const before = await fetch(`${B}/digital-wall/api/client/view`, { headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
     const put = await fetch(`${B}/digital-wall/api/client/view`, { method: "PUT", headers: { cookie: cookieHeader(cs), "content-type": "application/json" }, body: JSON.stringify({ settings: { scale: 1.55, upcomingHorizonHours: 99 } }) }).then((r) => r.json());
@@ -506,6 +525,55 @@ for (const theme of ["light", "dark"]) {
   const dark = shots.filter((x) => x.theme === "dark"), light = shots.filter((x) => x.theme === "light");
   const lum = (c) => { const m = c.match(/\d+/g) || [0, 0, 0]; return (Number(m[0]) + Number(m[1]) + Number(m[2])) / 3; };
   ok(dark.length > 0 && dark.every((x) => lum(x.logoColor) > 160) && light.every((x) => lum(x.logoColor) < 100), "the Clearway logo on the status screens is light on the dark theme and dark on the light theme", JSON.stringify({ dark: dark[0]?.logoColor, light: light[0]?.logoColor }));
+}
+
+// ── Nothing may overlap (2026-11-12): every client page at 1280, 1440, 1920 and 390, light and dark, with the board
+// full, with every aircraft hidden (the empty words in the lanes), and the status screens ──
+{
+  cs = await grant(EMAIL);
+  const PAGES = ["/client", "/client/flights", "/client/account", "/client/settings"];
+  for (const theme of ["light", "dark"]) for (const width of [1280, 1440, 1920, 390]) {
+    const ctx = await browser.newContext({ viewport: viewportOf(width), colorScheme: theme, hasTouch: PHONE(width) });
+    await ctx.addCookies([cookie(cs)]); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
+    const page = await ctx.newPage();
+    for (const path of PAGES) {
+      await page.goto(`${B}${path}`, { waitUntil: "load" });
+      if (path !== "/client/account") { await frameOf(page).locator("[data-client-surface]").waitFor({ timeout: 30000 }).catch(() => {}); await frameOf(page).locator("[data-board] [data-fid], [data-flight-row], [data-client-settings]").first().waitFor({ timeout: 30000 }).catch(() => {}); }
+      await settled(page); await page.waitForTimeout(400);
+      const shell = await textOverlaps(page, { ignore: ["iframe"] });
+      const fd = frameDoc(page); const inner = fd ? await textOverlaps(fd, { ignore: [".cwp-scrim", "[data-pax-sheet]"] }) : [];
+      const clipped = fd ? await clippedText(fd) : [];
+      ok(shell.length === 0 && inner.length === 0, `${theme} ${width} ${path}: no two text boxes overlap (shell and frame)`, [...shell, ...inner].map((o) => `"${o.a}" × "${o.b}" ${o.x}×${o.y}px`).join(" · "));
+      ok(clipped.length === 0, `${theme} ${width} ${path}: no text is cut without an ellipsis`, clipped.map((c) => `"${c.t}" +${c.over}px`).join(" · "));
+      if (path === "/client" && (width === 1440 || width === 390)) await shot(page, `${OUT}/overlap-${path.replace(/\//g, "_") || "_client"}-${theme}-${width}.png`, width);
+    }
+    // the empty board: hide every aircraft, the words sit in the lanes below the hour row
+    if (width === 1440 || width === 390) {
+      await page.goto(`${B}/client`, { waitUntil: "load" }); const fr = frameOf(page);
+      await fr.locator("[data-board] [data-fid]").first().waitFor({ timeout: 30000 }).catch(() => {});
+      await fr.locator("[data-operators-button]").click(); await fr.locator("[data-op-switch]").first().waitFor({ timeout: 10000 }).catch(() => {});
+      const ops = await fr.locator("[data-op-switch]").count(); for (let i = 0; i < ops; i++) { const sw = fr.locator("[data-op-switch]").nth(i); if ((await sw.getAttribute("aria-checked")) === "true") await sw.click(); }
+      await fr.locator('[data-empty="all-hidden"]').first().waitFor({ timeout: 15000 }).catch(() => {});
+      if (!PHONE(width)) { await page.keyboard.press("Escape").catch(() => {}); await fr.locator("[data-operators-button]").click().catch(() => {}); }
+      await settled(page); await page.waitForTimeout(300);
+      const fd = frameDoc(page); const inner = fd ? await textOverlaps(fd, { ignore: [".cwp-scrim", "[data-operators-panel]"] }) : [];
+      const geo = fd ? await fd.evaluate(() => { const e = document.querySelector('[data-empty="all-hidden"]'); const b = document.querySelector("[data-board]"); return e && b ? { top: e.getBoundingClientRect().top - b.getBoundingClientRect().top, boardH: b.getBoundingClientRect().height } : null; }) : null;
+      ok(inner.length === 0, `${theme} ${width}: the empty board (every aircraft hidden) overlaps nothing`, inner.map((o) => `"${o.a}" × "${o.b}"`).join(" · "));
+      ok(Boolean(geo) && geo.boardH >= 200, `${theme} ${width}: the empty board keeps a sensible height`, JSON.stringify(geo));
+      await shot(page, `${OUT}/overlap-empty-${theme}-${width}.png`, width);
+      await fr.locator("[data-hidden-chip] [data-show-all], [data-operators-panel] [data-show-all]").first().click().catch(() => {});
+    }
+    await ctx.close();
+  }
+  for (const [theme, width] of [["light", 1440], ["dark", 390]]) {
+    const ctx = await browser.newContext({ viewport: viewportOf(width), colorScheme: theme }); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
+    const page = await ctx.newPage(); await ctx.addCookies([cookie(admin)]);
+    for (const [path, kind] of [["/no-such-page-at-all", "not-found"], ["/forbidden", "forbidden"]]) {
+      await page.goto(`${B}${path}`, { waitUntil: "load" }); await page.waitForSelector(`[data-status-screen="${kind}"]`, { timeout: 15000 }).catch(() => {});
+      const o = await textOverlaps(page); ok(o.length === 0, `${theme} ${width} ${kind}: the status screen overlaps nothing`, o.map((x) => `"${x.a}" × "${x.b}"`).join(" · "));
+    }
+    await ctx.close();
+  }
 }
 
 // change, then remove through the page: the row stays, emptied

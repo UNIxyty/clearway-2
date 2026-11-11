@@ -7,6 +7,7 @@
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
 import { settled } from "./lib/settle.mjs";
+import { textOverlaps } from "./lib/overlap.mjs";
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, SVC = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
@@ -202,6 +203,31 @@ async function typeWord(page, locator, word, what) {
   const res = await fetch(`${B}/api/admin/clients/${approvedRow.id}`, { method: "PATCH", headers: { "content-type": "application/json", cookie: `${cookie(admin).name}=${cookie(admin).value}` }, body: JSON.stringify({ scope: [{ kind: "operator", value: "no-such-operator" }, { kind: "operator", value: "cwy-cwy" }], switches: ["flight_board"], passengerLevel: "off" }) });
   const body = await res.json().catch(() => ({}));
   ok(res.status === 400 && /no operator no-such-operator in Leon/i.test(String(body.error)), "server: an operator that does not exist is refused, nothing saved", `${res.status} ${body.error ?? ""}`);
+}
+
+// ── The decision log with a long "By" value (2026-11-12, Dmitry's test): every column keeps to its own width, the
+// email ends with … and carries the whole value, the date never wraps, and no two text boxes overlap, at 1280, 1440,
+// 1920 and 390 ──
+{
+  const longBy = "a-very-long-person-name.with-a-long-company-part+client-of-rig-invented@example-of-a-long-domain.invalid";
+  await svc("/rest/v1/client_decisions", { method: "POST", body: JSON.stringify({ client_id: waitingRow.id, kind: "changed", actor_email: longBy, detail: { from: "names", to: "documents" }, note: "Invented for the rig: a long actor address." }) });
+  for (const width of [1280, 1440, 1920, 390]) {
+    const ctx = await browser.newContext({ viewport: { width, height: 1000 } }); await ctx.addCookies([cookie(admin)]); const page = await ctx.newPage();
+    await page.goto(`${B}/admin/clients`, { waitUntil: "load" }); await page.waitForSelector(`[data-decision]`, { timeout: 20000 }).catch(() => {}); await settled(page);
+    const m = await page.evaluate((who) => {
+      const row = [...document.querySelectorAll("[data-decision]")].find((r) => r.textContent.includes(who.slice(0, 20))); if (!row) return null;
+      const by = row.querySelector("[data-decision-by]"), when = row.querySelector("[data-decision-when]");
+      const rb = by?.getBoundingClientRect(), rw = when?.getBoundingClientRect();
+      return { found: true, byShown: Boolean(by) && getComputedStyle(by).display !== "none", ellipsis: by ? getComputedStyle(by).textOverflow === "ellipsis" && by.scrollWidth > by.clientWidth : false, title: by?.getAttribute("title") === who, whenLines: when ? Math.round(rw.height / parseFloat(getComputedStyle(when).lineHeight)) : null, covered: by && when ? Math.max(0, Math.min(rb.right, rw.right) - Math.max(rb.left, rw.left)) : 0, detail: /By a-very-long/.test(row.textContent) };
+    }, longBy);
+    if (width >= 900) {
+      ok(Boolean(m?.found) && m.byShown && m.ellipsis && m.title && m.covered === 0 && m.whenLines === 1 && m.detail, `${width}: a long By value ends with …, keeps its column, carries the whole value, and the date is one line and uncovered`, JSON.stringify(m));
+    } else ok(Boolean(m?.found), `${width}: the row is there (phone: By and When fold into the detail)`, JSON.stringify(m));
+    const o = await textOverlaps(page, { root: "[data-admin-clients]" });
+    ok(o.length === 0, `${width}: no two text boxes overlap on Admin › Clients`, o.map((x) => `"${x.a}" × "${x.b}" ${x.x}×${x.y}`).join(" · "));
+    await page.screenshot({ path: `${OUT}/clients-decisions-${width}.png`, fullPage: width !== 390 });
+    await ctx.close();
+  }
 }
 await browser.close();
 

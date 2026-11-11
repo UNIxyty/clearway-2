@@ -125,8 +125,8 @@ const GLOBAL_CSS = `
   }
   html[data-motion="reduce"] .cw-console *, html[data-motion="reduce"] .cw-console *::before, html[data-motion="reduce"] .cw-console *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
   html[data-motion="reduce"] .cw-skel, html[data-motion="reduce"] .cw-fade, html[data-motion="reduce"] .cw-motion-decor { animation: none !important; }
-  .cw-hover-surface:hover { background: var(--cw-bg-hover) !important; }
-  .cw-hover-primary:hover { background: var(--cw-primary-hover) !important; }
+  .cw-hover-surface:hover { background: var(--cw-bg-hover) !important; border-color: var(--cw-border-strong) !important; }
+  .cw-hover-primary:hover { background: var(--cw-primary-hover) !important; box-shadow: inset 0 0 0 1px var(--cw-primary-active); }
   .cw-hover-danger:hover { background: var(--cw-danger-border) !important; }
   .cw-hover-row:hover { background: var(--cw-bg-hover); }
 `;
@@ -288,7 +288,7 @@ export function Button({
     rest.title = VIEW_ONLY_TITLE;
   }
   const v = BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.secondary;
-  const pad = size === 'sm' ? '7px 13px' : size === 'lg' ? '11px 20px' : '10px 16px';
+  const pad = size === 'sm' ? '7px 14px' : size === 'lg' ? '12px 22px' : '10px 18px';   // more room inside (2026-11-12)
   const fontSize = size === 'sm' ? 13 : 14;
   return (
     <button

@@ -1,6 +1,10 @@
 /* The client surface of the wall app (designs "Client View v2" and "Phone Views", 2026-11-10). Portal tokens only
    (--cw-*, --tl-*), injected by ClientApp; the ops wall display reads none of this. */
-.cw-client { min-height: 100vh; background: var(--cw-bg-page); color: var(--cw-text); font-family: 'Public Sans', system-ui, sans-serif; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+ /* The wall's document is a kiosk (index.css: html, body, #root at 100% and overflow hidden). The client surface is a page:
+   the document scrolls — wheel, keyboard, touch — and the phone's own screens keep their inner scroll areas (2026-11-12:
+   the settings page could not scroll at all, and the desk Flights list past one screen neither). */
+html.cw-client-doc, html.cw-client-doc body, html.cw-client-doc #root { height: auto; min-height: 100%; overflow: visible; }
+.cw-client { min-height: 100dvh; background: var(--cw-bg-page); color: var(--cw-text); font-family: 'Public Sans', system-ui, sans-serif; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .cw-client input, .cw-client select, .cw-client textarea { font-size: 16px; } /* iOS zooms on focus below 16px (the zoom bug, 1B) */
 .cw-client button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
 .cw-client * { box-sizing: border-box; }
@@ -15,11 +19,11 @@
 .cwd-title { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 4px; }
 .cwd-title h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 .cwd-title span { font-size: 14px; }
-.cwd-btn { height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--cw-border-control); background: var(--cw-bg-surface); font-size: 13.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; color: var(--cw-text); }
-.cwd-btn:hover { background: var(--cw-bg-hover); }
+.cwd-btn { height: 38px; padding: 0 16px; border-radius: 9px; border: 1px solid var(--cw-border-control); background: var(--cw-bg-surface); font-size: 13.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; color: var(--cw-text); }
+.cwd-btn:hover { background: var(--cw-bg-hover); border-color: var(--cw-border-strong); }   /* background and border, never the size (2026-11-12) */
 .cwd-btn.is-on { background: var(--cw-bg-selected); border-color: var(--cw-primary-tint-border); }
-.cwd-btn.is-primary { background: var(--cw-primary); color: var(--cw-text-on-primary); border-color: transparent; font-weight: 650; height: 38px; padding: 0 16px; }
-.cwd-btn.is-primary:hover { background: var(--cw-primary-hover); }
+.cwd-btn.is-primary { background: var(--cw-primary); color: var(--cw-text-on-primary); border-color: transparent; font-weight: 650; height: 40px; padding: 0 18px; }
+.cwd-btn.is-primary:hover { background: var(--cw-primary-hover); border-color: var(--cw-primary-active); }
 .cwd-btn:disabled { color: var(--cw-text-disabled); cursor: default; }
 .cwd-link { height: 30px; padding: 0 10px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--cw-text-link); }
 .cwd-link:hover { background: var(--cw-bg-hover); }
@@ -56,7 +60,7 @@
 .cwd-empty { padding: 36px 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
 .cwd-empty b { font-size: 16px; font-weight: 700; }
 .cwd-empty span { font-size: 13.5px; line-height: 1.5; color: var(--cw-text-muted); max-width: 440px; }
-.cwd-empty.is-over { position: absolute; left: 176px; right: 0; top: 0; bottom: 0; justify-content: center; pointer-events: none; }
+.cwd-empty.is-over { position: absolute; left: 176px; right: 0; top: 34px; bottom: 0; justify-content: center; pointer-events: none; padding: 24px 20px; }   /* below the hour row (34 px), never over the hour labels */
 .cwd-empty.is-over > * { pointer-events: auto; }
 .cwd-empty.is-over b, .cwd-empty.is-over span { background: var(--cw-bg-surface); padding: 2px 8px; border-radius: 6px; }
 .cwd-frow { display: grid; gap: 16px; align-items: center; min-height: 54px; padding: 6px 20px; border-bottom: 1px solid var(--cw-divider); width: 100%; text-align: left; font-size: 13.5px; }
@@ -221,16 +225,37 @@
   .cwd-flight { width: 100vw; }
 }
 
-/* ── Display settings (2026-11-11): the ops console's look cards on the client surface ── */
-.cws { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 40px; max-width: 1080px; margin: 0 auto; }
+/* ── Display settings (2026-11-11; sections and the side list 2026-11-12): the ops console's look cards on the client surface ── */
+.cws { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 60px; max-width: 1180px; margin: 0 auto; }
 .cws-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
 .cws-head .cwd-title { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 .cws-head p { margin: 4px 0 0; font-size: 14px; max-width: 60ch; }
 .cws-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cws-grid { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 20px; align-items: start; }
+.cws-grid.is-phone { grid-template-columns: minmax(0, 1fr); }
+.cws-side { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; }
+.cws-side button { text-align: left; height: 36px; padding: 0 12px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--cw-text-body); }
+.cws-side button:hover { background: var(--cw-bg-hover); color: var(--cw-text); }
+.cws-side button.is-on { background: var(--cw-bg-selected); color: var(--cw-text); }
+.cws-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cws-preview { position: sticky; top: 16px; z-index: 2; }
+.cws-grid.is-phone .cws-preview { position: static; }
 .cws-preview .cwd-card-head { height: auto; min-height: 48px; padding: 10px 20px; flex-wrap: wrap; }
-.cws-cards { display: flex; flex-direction: column; }
-.cws-cards > * { margin-bottom: 16px; }
-[data-client-surface="phone"] .cws { padding: 16px 16px 40px; gap: 12px; }
+.cws-cards { display: flex; flex-direction: column; gap: 20px; }
+.cws-section { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 300px; }
+.cws-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cws-section-head h2 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
+.cws-section-head p { margin: 3px 0 0; font-size: 13.5px; max-width: 64ch; }
+.cws-section-body > * { margin-bottom: 0 !important; }
+.cws-section-body h3:first-child { display: none; }   /* the section's own heading says it; the card's repeat is hidden */
+.cws-section.is-collapsible { border: 1px solid var(--cw-border); border-radius: 14px; background: var(--cw-bg-surface); overflow: hidden; gap: 0; scroll-margin-top: 12px; }
+.cws-section-toggle { width: 100%; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; text-align: left; }
+.cws-section-toggle > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cws-section-toggle b { font-size: 15.5px; } .cws-section-toggle small { font-size: 12.5px; line-height: 1.4; }
+.cws-chev { color: var(--cw-text-muted); flex: none; }
+.cws-section.is-collapsible .cws-section-head { padding: 4px 16px 0; } .cws-section.is-collapsible .cws-section-head h2 { display: none; } .cws-section.is-collapsible .cws-section-head p { display: none; }
+.cws-section.is-collapsible .cws-section-body { padding: 8px 12px 12px; }
+[data-client-surface="phone"] .cws { padding: 16px 16px 60px; gap: 12px; }
 [data-client-surface="phone"] .cws .cwd-btn { min-height: 44px; }
 [data-client-surface="phone"] .cws-head .cwd-title { font-size: 22px; }
 

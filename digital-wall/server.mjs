@@ -897,6 +897,7 @@ const server = http.createServer(async (req, res) => {
     // user permissions — settings resolution pins them to the main wall
     // profile, and requestUser.device gates them out of console endpoints.
     let requestUser = null;
+    let clientScope = null;   // the client's scope when the request is a client's (set in the client block below; read by the flights route)
     if (pathname.startsWith("/api/")) {
       requestUser = await authenticateRequest(req);
       if (!requestUser && isDisplayReadPath(pathname, req.method)) {
@@ -937,7 +938,6 @@ const server = http.createServer(async (req, res) => {
       // every request. Anything else — another operator's flight by id, a write, a console or display endpoint — is
       // 404: it does not exist for them. Reads that list flights are cut down to their flights before they are sent
       // (digital-wall/lib/client-scope.mjs); the handlers below run unchanged. ──
-      let clientScope = null;
       if (requestUser && !requestUser.device && requestUser.permRole === "client") {
         clientScope = await scopeFor(requestUser);
         if (clientScope.nobody) { sendJson(res, { ok: false, error: "Unauthorized. Sign in through the Clearway portal first." }, 401); return; }

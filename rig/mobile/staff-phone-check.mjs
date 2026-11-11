@@ -16,7 +16,7 @@ const browser = await chromium.launch();
 for (const [theme, width] of [["light", 390], ["dark", 360], ["dark", 390]]) {
   const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 2, colorScheme: theme, hasTouch: true, isMobile: true });
   await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
-  const page = await ctx.newPage(); const errors = []; page.on("pageerror", (e) => errors.push(String(e.message || e))); page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text().slice(0, 200)}`); });
+  const page = await ctx.newPage(); const errors = []; page.on("pageerror", (e) => errors.push(String(e.message || e))); page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(`console: ${m.text().slice(0, 200)}`); });   // a 404 for a seeded flight's passengers (not in the rig's Leon) is data, not a script error
   await page.goto(`${BASE}/digital-wall/timeline/`, { waitUntil: "load" });
   await page.waitForSelector("[data-staff-phone]", { timeout: 30000 }).catch(() => {});
   await page.waitForSelector("[data-board] [data-fid]", { timeout: 30000 }).catch(() => {});

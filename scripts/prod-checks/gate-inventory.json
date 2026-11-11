@@ -1363,6 +1363,14 @@
   {
    "kind": "page",
    "method": "GET",
+   "route": "/client/settings",
+   "file": "app/client/(watch)/settings/page.tsx",
+   "ungated": false,
+   "onList": true
+  },
+  {
+   "kind": "page",
+   "method": "GET",
    "route": "/client/account",
    "file": "app/client/account/page.tsx",
    "ungated": false,

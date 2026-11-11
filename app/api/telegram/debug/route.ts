@@ -845,7 +845,7 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
       );
       // the designed email (03, 2026-11-11): once, when the account turns approved from the chat button
       if (currentMeta.is_approved !== true && userLookupRole?.user?.email) {
-        const meta = (userLookupRole.user.user_metadata ?? {}) as { full_name?: string; name?: string };
+        const meta = (userLookupRole.user.user_metadata ?? {}) as { full_name?: string; name?: string }; // metadata-ok: the display name for an email greeting, never a right
         await sendStaffApproved({ userId: targetUserId, email: userLookupRole.user.email, name: meta.full_name ?? meta.name ?? null, role: role === "developer" ? "Developer" : role === "admin" ? "Admin" : role === "temporary" ? "Temporary" : "User", approvedBy: "An admin (Telegram)" });
       }
 

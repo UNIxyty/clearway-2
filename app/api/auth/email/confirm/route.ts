@@ -246,7 +246,7 @@ export async function POST(request: Request) {
   await notifyApprovalNeeded(targetUserId, confirmation.row.email);
   // the designed emails (2026-11-11): 02 to the person, 14 to the ops list
   const { data: staff } = await service.auth.admin.getUserById(targetUserId);
-  const staffMeta = (staff?.user?.user_metadata ?? {}) as { full_name?: string; name?: string };
+  const staffMeta = (staff?.user?.user_metadata ?? {}) as { full_name?: string; name?: string }; // metadata-ok: the display name for an email greeting, never a right
   await sendStaffPending(service, { userId: targetUserId, email: confirmation.row.email, name: staffMeta.full_name ?? staffMeta.name ?? null, signedUpAt: new Date() }, request);
   }
 

@@ -134,7 +134,7 @@ export async function POST(request: Request) {
       });
       // the designed email (03, 2026-11-11): once, when the account turns approved
       if (body.isApproved && !wasApproved && before?.user?.email) {
-        const meta = (before.user.user_metadata ?? {}) as { full_name?: string; name?: string };
+        const meta = (before.user.user_metadata ?? {}) as { full_name?: string; name?: string }; // metadata-ok: the display name for an email greeting, never a right
         await sendStaffApproved({ userId: targetUserId, email: before.user.email, name: meta.full_name ?? meta.name ?? null, role: patch.is_admin ? "Admin" : patch.is_developer ? "Developer" : "User", approvedBy: auth.user.email ?? null }, request);
       }
     }

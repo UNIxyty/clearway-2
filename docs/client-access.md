@@ -248,3 +248,28 @@ cannot prove.
 ## Decisions taken (2026-10-20)
 404 outside scope; documents for clients are the same logged reveal, off by default, with lower thresholds; removing
 access empties, never deletes; no promise of a time — "You will get an email when it is decided."
+
+## Display settings for the client (2026-11-11)
+
+A client has the ops wall's look settings for their own timeline: display scale, hour spacing, vertical sizing (row
+zoom, pill height, markers, labels, auto-fit), horizontal sizing (callsign, route, chip spacing, minimum pill, padding,
+lane gap, auto-fit), the chips on the pills, the colours and the font with its zero style. Drawn by the ops console's own
+cards (`opsboard-react/src/components/console/LookCards.jsx`, `ColoursCard`, `FontCard`) on the client surface's
+settings page (`/client/settings`, the frame's `page=settings`), with a live preview of their own flights above the cards
+and Reset to default (the ops wall's default look). Saved on the server in the same display-settings file as everyone
+else's profile, under the client's own account, through the wall's `/api/client/view` (GET, PUT, DELETE), which the client
+block answers before the write gate: never the big screen, never another profile, never the visibility window. Reached
+from the Timeline page (desk button, phone sheet) and from Account. Left out on purpose: the visibility window, the
+movement-overdue flash, the unconfirmed ring, the Upcoming Flight Table, the overlay/sidebar/header scales, the text
+floors. The client suites prove it (rig/client-ui-check.mjs); the gate walk counts the route as the client's own
+(`CLIENT_WRITES` in digital-wall/lib/client-scope.mjs).
+
+## The status screens (2026-11-11)
+
+Every "you cannot have this" page is one shared screen, `components/portal/StatusScreen.tsx`, laid out like the
+maintenance screen: centred, the Clearway logo (light on the dark theme), an eyebrow, a headline, one line and one button.
+A client reaching anything outside their account (`/client/gone`), a refused or removed client, a staff role without a
+page (`/forbidden`, the Admin pages' for-admins states, the phone's), a set-password link that was used, expired, replaced,
+closed or unknown, a dead reset link, a page that does not exist, and a page that failed (`app/error.tsx`). The words stay
+each case's own and never say whether the hidden thing exists; the button goes to `/`, which the middleware turns into
+the person's own front door (a client's start page, the staff start page, sign-in), or to the dashboard inside a shell.

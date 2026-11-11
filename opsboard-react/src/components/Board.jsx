@@ -824,7 +824,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
 
         <div className="timeline-scroll timeline-scroll--body" style={s.rowsWrap} ref={bodyScrollRef}>
           <div style={{ width: AC_LABEL_W + timelinePx + END_PAD_PX, position: 'relative' }}>
-            <div style={s.board} ref={boardRef} data-hfit={JSON.stringify(hFit.active ? { factor: hFit.factor, lanes: hFit.lanes, manualLanes: hFit.manualLanes, busiest: hFit.busiest, knobs: hFit.knobs } : null)}>
+            <div style={s.board} ref={boardRef} data-board-rows="" data-hfit={JSON.stringify(hFit.active ? { factor: hFit.factor, lanes: hFit.lanes, manualLanes: hFit.manualLanes, busiest: hFit.busiest, knobs: hFit.knobs } : null)}>
               {aircraft.map((ac, acIndex) => {
                 const laneData = assignFlightLanes(ac.flights || [], {
                   frontPadFracOf: frontPadFrac,

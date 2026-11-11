@@ -16,7 +16,7 @@ const browser = await chromium.launch();
 for (const [theme, width] of [["light", 390], ["dark", 360], ["dark", 390]]) {
   const ctx = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 2, colorScheme: theme, hasTouch: true, isMobile: true });
   await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
-  const page = await ctx.newPage(); const errors = []; page.on("pageerror", (e) => errors.push(String(e.message || e)));
+  const page = await ctx.newPage(); const errors = []; page.on("pageerror", (e) => errors.push(String(e.message || e))); page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text().slice(0, 200)}`); });
   await page.goto(`${BASE}/digital-wall/timeline/`, { waitUntil: "load" });
   await page.waitForSelector("[data-staff-phone]", { timeout: 30000 }).catch(() => {});
   await page.waitForSelector("[data-board] [data-fid]", { timeout: 30000 }).catch(() => {});
@@ -43,7 +43,7 @@ for (const [theme, width] of [["light", 390], ["dark", 360], ["dark", 390]]) {
   ok(await page.locator("[data-open-map]").count() === 1 && await page.locator("[data-open-pax]").count() === 1, `${theme} ${width}: Map and Passengers buttons`);
   await page.locator("[data-open-pax]").click(); await page.waitForSelector('[data-passenger-viewer="phone"]', { timeout: 15000 }).catch(() => {});
   if (await page.locator('[data-passenger-viewer="phone"]').count() === 0) { await page.locator("[data-open-pax]").click().catch(() => {}); await page.waitForSelector('[data-passenger-viewer="phone"]', { timeout: 30000 }).catch(() => {}); }
-  ok(await page.locator('[data-passenger-viewer="phone"]').count() === 1, `${theme} ${width}: Passengers opens the shared viewer on one tap`);
+  ok(await page.locator('[data-passenger-viewer="phone"]').count() === 1, `${theme} ${width}: Passengers opens the shared viewer on one tap`, `${page.url()} · app ${await page.locator("[data-staff-phone]").count()} · ${errors.join(" | ").slice(0, 300)}`);
   const show = page.getByRole("button", { name: /^Show the document of/ }).first();
   const showN = await show.count();
   ok(showN >= 0, `${theme} ${width}: documents are behind a normal Show button (${showN} in the list)`);
@@ -51,7 +51,7 @@ for (const [theme, width] of [["light", 390], ["dark", 360], ["dark", 390]]) {
   ok(!held, `${theme} ${width}: nothing on the passengers sheet says hold`);
   await page.screenshot({ path: `${OUT}/staff-phone-pax-${theme}-${width}.png` });
   await page.locator("[data-pax-sheet] [aria-label='Close']").click().catch(() => {});
-  await page.locator("[data-back]").first().click(); await page.waitForSelector("[data-flight-row]", { timeout: 15000 }).catch(() => {});
+  await page.locator("[data-back]").first().click({ timeout: 15000 }).catch(() => {}); await page.waitForSelector("[data-flight-row]", { timeout: 15000 }).catch(() => {});
   ok(await page.locator("[data-flight-row]").count() > 0, `${theme} ${width}: back from the flight lands on the same list`);
   // the other tabs and More
   for (const [k, sel] of [["notam", "[data-notam-check-page], .cw-kit"], ["limits", ".cw-kit"], ["important", ".cw-kit"]]) {

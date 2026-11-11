@@ -5,6 +5,7 @@
 // chosen zoom, day and scroll survive a refresh and a trip into a flight (sessionStorage, clientApi.readView).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Board from '../components/Board';
+import { useBoardHeight } from './useBoardHeight';
 import { flattenFlights, hmZ } from '../components/mobile/mobileUtil';
 import { dayIndex, dayLabel, dayName, dayShort, dayStartMs, groupOperators, matchesQuery, readView, writeView, fetchPassengers, emptyFleetWords } from './clientApi';
 import ClientFlightBody, { StatusChip, useFlightInfo } from './ClientFlight';
@@ -79,6 +80,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
   const [filter, setFilter] = useState(false);
   const [q, setQ] = useState(() => view0.q || '');
   const lanesRef = useRef(null);
+  const boardH = useBoardHeight(lanesRef, 34 + Math.max(3, visible.length) * Math.round(78 * look.rowZoom));
   useEffect(() => { writeView({ zoom, day, openId, q }); }, [zoom, day, openId, q]);
   // the scroll position of the lanes survives a trip into a flight (and a reload)
   useEffect(() => { const el = lanesRef.current; if (!el) return undefined; const v = readView(); if (Number.isFinite(v.lanesTop)) el.scrollTop = v.lanesTop; const on = () => writeView({ lanesTop: el.scrollTop }); el.addEventListener('scroll', on, { passive: true }); return () => el.removeEventListener('scroll', on); }, [openId, page]);
@@ -122,7 +124,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
           </div>
           <div className="cwp-lanes" ref={lanesRef} data-board="">
             {allHidden ? <div className="cwd-empty" data-empty="all-hidden"><b>You’ve hidden every aircraft</b><span>The flights are still there, just not on your screen.</span><button type="button" className="cwd-btn is-primary" onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></div>
-              : <div style={{ height: 34 + Math.max(3, visible.length) * Math.round(78 * look.rowZoom) + 48 }}>   {/* + one stacked lane's worth, so a row with two flights at once never runs over the legend */}
+              : <div style={{ height: boardH }}>   {/* as tall as the rows it draws: a stacked lane never runs over the legend */}
                 <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={look.scale} timeZoom={look.timeZoom} rowZoom={look.rowZoom} pillHeight={look.pillHeight} markerScale={look.markerScale} labelScale={look.labelScale} autoFitRows={look.autoFitRows} hideSidebar rowHeightPx={Math.round(78 * look.rowZoom)} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={staff} touchHitMinPx={44} maxMarkers={staff ? 2 : 1} forceMarkerMode="dots" markersInside bodyContent="callsign" bodyRight="times" belowText="none" acColScale={0.8} />
               </div>}
             {!loadedOnce && <p className="cwd-muted" style={{ padding: 16 }}>Loading your flights…</p>}

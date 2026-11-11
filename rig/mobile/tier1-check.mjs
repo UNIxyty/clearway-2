@@ -207,12 +207,13 @@ const STATES = [
     const file = u.pathname.startsWith("/digital-wall/") && !/\.[a-z0-9]+$/i.test(u.pathname) ? "opsboard-react/dist/index.html" : `opsboard-react/dist${u.pathname.replace(/^\/digital-wall/, "")}`;
     try { await route.fulfill({ path: file }); } catch { await route.fulfill({ status: 404, body: "" }); }
   }); };
-  // who is asking decides, not the orientation: a signed-in person on a phone-sized screen leaves for /m/wall, upright
-  // or sideways; a registered screen (device token, approved) stays on the display at the same sizes
+  // who is asking decides, not the orientation: a signed-in person on a phone-sized screen gets the staff phone app
+  // (the wall's own, since 2026-11-12; before that the portal's /m/wall), upright or sideways; a registered screen
+  // (device token, approved) stays on the display at the same sizes
   const LANDSCAPE = { width: 844, height: 390 };
   for (const [vp, who, expect, what] of [
-    [PHONE, "person", "/m/wall", "a signed-in person on an upright phone at /digital-wall/timeline lands on /m/wall"],
-    [LANDSCAPE, "person", "/m/wall", "…and sideways too"],
+    [PHONE, "person", "/digital-wall/timeline", "a signed-in person on an upright phone at /digital-wall/timeline gets the staff phone app"],
+    [LANDSCAPE, "person", "/digital-wall/timeline", "…and sideways too"],
     [PHONE, "screen", "/digital-wall/timeline", "a registered screen the size of an upright phone stays on the display"],
     [LANDSCAPE, "screen", "/digital-wall/timeline", "…and sideways (a small screen mounted sideways is a wall, not a phone)"],
   ]) {
@@ -224,8 +225,9 @@ const STATES = [
     }
     const page = await ctx.newPage(); await page.goto(`${BASE}/digital-wall/timeline`, { waitUntil: "load" });
     try { await page.waitForURL((u) => u.pathname === expect, { timeout: 6000 }); } catch {} await settled(page);
-    const shown = who === "screen" ? await page.locator("[data-wall-display], canvas, [class*=timeline], [data-count-line]").count() : 0;
-    ok(new URL(page.url()).pathname === expect, what, `${page.url()}${who === "screen" ? ` · display elements ${shown}` : ""}`);
+    if (who === "person") await page.waitForSelector("[data-staff-phone]", { timeout: 30000 }).catch(() => {});
+    const shown = who === "screen" ? await page.locator("[data-wall-display], canvas, [class*=timeline], [data-count-line]").count() : await page.locator("[data-staff-phone] [data-staff-tabs]").count();
+    ok(new URL(page.url()).pathname === expect && shown > 0, what, `${page.url()} · ${who === "screen" ? "display elements" : "staff phone"} ${shown}`);
     await ctx.close();
   }
 }

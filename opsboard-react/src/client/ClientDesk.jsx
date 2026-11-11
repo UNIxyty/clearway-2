@@ -2,8 +2,9 @@
 // and zoom controls, the legend, "Coming up" under it — and Flights, a list grouped by day with search. Operators &
 // aircraft is the view filter (saved on the account); a flight opens in a side panel. Nothing here decides what the
 // client may see: the wall backend already cut every answer to their scope.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Board from '../components/Board';
+import { useBoardHeight } from './useBoardHeight';
 import { flattenFlights, hmZ } from '../components/mobile/mobileUtil';
 import { STATUS_WORD, dayIndex, dayLabel, dayName, dayShort, dayStartMs, groupOperators, matchesQuery, readView, writeView, tellShell, emptyFleetWords } from './clientApi';
 import ClientFlightBody, { StatusChip, useFlightInfo } from './ClientFlight';
@@ -104,7 +105,8 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraf
   const laneH = 96;
   // the hour row is 34 px; with no lanes the board keeps three lanes' height, so the empty words sit below the hour row
   // with room around them and the page never looks collapsed (2026-11-12, Dmitry's test)
-  const boardH = 34 + Math.max(3, visible.length) * Math.round(laneH * look.rowZoom);
+  const boardRef = useRef(null);
+  const boardH = useBoardHeight(boardRef, 34 + Math.max(3, visible.length) * Math.round(laneH * look.rowZoom));
   const row = (f, grid) => (
     <button type="button" key={f.id} className={`cwd-frow${f.status === 'airborne' ? ' is-air' : ''}${f.status === 'cancelled' ? ' is-cnl' : ''}`} style={{ gridTemplateColumns: grid }} onClick={() => setOpenId(f.id)} data-flight-row={f.fn}>
       <span className="cwd-mono is-time"><b>{f.depHm}</b>{f.depKind !== 'STD' && f.depHm !== f.etd && <s>{f.etd}</s>}</span>
@@ -145,7 +147,7 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraf
             {allHidden ? (
               <div className="cwd-empty" data-empty="all-hidden"><b>You’ve hidden every aircraft</b><span>Every operator is switched off in Operators &amp; aircraft. The flights are still there, just not on your screen.</span><button type="button" className="cwd-btn is-primary" onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></div>
             ) : (
-              <div className="cwd-board" style={{ height: boardH }} data-board="">
+              <div className="cwd-board" style={{ height: boardH }} data-board="" ref={boardRef}>
                 <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={look.scale} timeZoom={look.timeZoom} rowZoom={look.rowZoom} pillHeight={look.pillHeight} markerScale={look.markerScale} labelScale={look.labelScale} autoFitRows={look.autoFitRows} hideSidebar rowHeightPx={Math.round(laneH * look.rowZoom)} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onViewRange={onRange} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={false} touchHitMinPx={44} maxMarkers={2} />
                 {!loadedOnce && <div className="cwd-empty is-over"><span>Loading your flights…</span></div>}
                 {empty && <div className="cwd-empty is-over" data-empty="no-flights"><b>No flights in the next 7 days</b><span>Nothing is scheduled for your aircraft. New flights appear here as soon as Clearway ops has them.</span></div>}

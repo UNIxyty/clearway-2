@@ -18,6 +18,8 @@ docker cp scripts/check-accounts.mjs "$C:/tmp/check-accounts/check-accounts.mjs"
 ENVS=(-e AGENT_ROOT=/app)
 # ONLY=k1,k2: a check that runs a list of prompts runs only those (scripts/prod-checks/agent-web-prompts.mjs)
 [ -n "${ONLY:-}" ] && ENVS+=(-e "ONLY=$ONLY")
+# CHECK_CLIENT_OPERATOR=<oprId>: the check client is scoped to a real operator (client-feed-probe, counts only; 2026-11-12)
+[ -n "${CHECK_CLIENT_OPERATOR:-}" ] && ENVS+=(-e "CHECK_CLIENT_OPERATOR=$CHECK_CLIENT_OPERATOR")
 if [ "$C" = agent-service ] && [ "${AGENT_CODE:-}" = checkout ]; then
   # laid out as the agent image lays it out (agent/Dockerfile): the agent folder, with lib/ and digital-wall/lib beside it
   docker exec "$C" mkdir -p /tmp/check-accounts/agent /tmp/check-accounts/lib /tmp/check-accounts/digital-wall/lib \
@@ -27,7 +29,7 @@ if [ "$C" = agent-service ] && [ "${AGENT_CODE:-}" = checkout ]; then
     && docker cp digital-wall/lib/mailer.mjs "$C:/tmp/check-accounts/digital-wall/lib/mailer.mjs" >/dev/null \
     && docker cp digital-wall/lib/flight-record.mjs "$C:/tmp/check-accounts/digital-wall/lib/flight-record.mjs" >/dev/null \
     && docker exec "$C" ln -s /app/node_modules /tmp/check-accounts/agent/node_modules || exit 2
-  ENVS=(-e AGENT_ROOT=/tmp/check-accounts/agent); [ -n "${ONLY:-}" ] && ENVS+=(-e "ONLY=$ONLY")
+  ENVS=(-e AGENT_ROOT=/tmp/check-accounts/agent); [ -n "${ONLY:-}" ] && ENVS+=(-e "ONLY=$ONLY"); [ -n "${CHECK_CLIENT_OPERATOR:-}" ] && ENVS+=(-e "CHECK_CLIENT_OPERATOR=$CHECK_CLIENT_OPERATOR")
   echo "agent code: this checkout ($(git rev-parse --short HEAD)), not the deployed image"
 fi
 docker exec "${ENVS[@]}" "$C" node /tmp/check-accounts/check-accounts.mjs "$@"; rc=$?

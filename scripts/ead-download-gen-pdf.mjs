@@ -169,9 +169,12 @@ async function extractPdfText(pdfPath) {
       };
     }
 
-    const pdfParse = (await import('pdf-parse')).default;
+    // pdf-parse 2 (the worker image) exports a PDFParse class; pdf-parse 1 exported a function. Until 2026-11-11 the
+    // old call returned "" on v2, so no GEN text was ever read on production.
+    const m = await import('pdf-parse');
     const buf = readFileSync(pdfPath);
-    const result = await pdfParse(buf);
+    if (m.PDFParse) { const p = new m.PDFParse({ data: buf }); const r = await p.getText(); await p.destroy?.(); return typeof r?.text === 'string' ? r.text : ''; }
+    const result = await m.default(buf);
     return typeof result?.text === 'string' ? result.text : '';
   } catch (e) {
     log('Could not extract PDF text: ' + e.message);

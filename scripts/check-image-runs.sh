@@ -49,6 +49,9 @@ for s in "$@"; do
   running=$(docker compose ps -q "$s" 2>/dev/null | head -1)
   if [ -n "$running" ]; then
     keep="${image%%:*}:pre-$(git rev-parse --short=8 HEAD)"
+    # two services share the worker image: the second gets its OWN revert tag (2026-11-11), so a revert of one never
+    # depends on the other's image
+    [ "$s" = notam-sync ] && keep="${keep}-notam-sync"
     if docker tag "$(docker inspect -f '{{.Image}}' "$running")" "$keep" 2>/dev/null; then
       say "kept the running $s image as $keep"; kept_tags="$kept_tags $keep"
     elif [ -n "$(docker images -q "$keep" 2>/dev/null)" ] && [[ " $kept_tags " == *" $keep "* ]]; then

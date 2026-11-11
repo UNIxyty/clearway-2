@@ -36,7 +36,7 @@ export function notamCardHtml(fields, opts = {}) {
   const refers = fields.refers ? ` <span class="cw-nc-refers">${esc(fields.refers)}</span>` : '';
   const chips = (opts.groups || []).map((g) => `<span class="cw-nc-chip" style="--chip:${esc(g.color || '')}">${esc(g.group)}</span>`).join('');
   const flag = opts.flagged ? `<span class="cw-nc-flag">${esc(opts.flagText || 'Flagged')}</span>` : '';
-  const issued = fields.issuedMs != null ? `<span class="cw-nc-issued">${fields.issuedFrom === 'source' ? 'Issued' : 'First seen'} ${esc(fmtZ(fields.issuedMs))}</span>` : '<span class="cw-nc-issued is-none">Issue time not in source</span>';
+  const issued = fields.issuedMs != null ? `<span class="cw-nc-issued" title="${fields.issuedFrom === 'source' ? 'The issue time in the NOTAM' : 'The source gives no issue time: this is when Clearway first saw the NOTAM'}">${fields.issuedFrom === 'source' ? 'Issued' : 'First seen (no issue time in source)'} ${esc(fmtZ(fields.issuedMs))}</span>` : '<span class="cw-nc-issued is-none">Issue time not in source</span>';
   const line = (key, text, big = false) => (text ? `<div class="cw-nc-line cw-nc-${key}${big ? ' is-big' : ''}"><span class="cw-nc-key">${key.toUpperCase()})</span><span class="cw-nc-val">${hl(wrap80(text))}</span></div>` : '');
   const body = fields.parsed
     ? [line('q', fields.q), line('a', fields.a), fields.b || fields.c ? `<div class="cw-nc-line cw-nc-bc"><span class="cw-nc-key">B)</span><span class="cw-nc-val">${esc(fields.b || '—')}</span><span class="cw-nc-key">C)</span><span class="cw-nc-val">${esc(fields.perm ? 'PERM' : fields.c || '—')}</span></div>` : '', line('d', fields.d), line('e', fields.e, true), line('f', fields.f), line('g', fields.g)].join('')

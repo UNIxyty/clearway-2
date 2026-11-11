@@ -61,21 +61,21 @@ function FlightPage({ p, me, names, onBack, role = 'client', onChanged, staff = 
           </div>
         } />
       </div>
-      {sub === 'pax' && <PaxSheet p={p} onClose={() => setSub(null)} />}
+      {sub === 'pax' && (staff?.Pax ? <staff.Pax p={p} onClose={() => setSub(null)} /> : <PaxSheet p={p} onClose={() => setSub(null)} />)}
     </div>
   );
 }
 
 // `staffParts` ({ Checks, openChips }) comes only from the staff surface (StaffPhone.jsx): a client's bundle never holds the
 // wall's check code or the NOTAM Check page's address (rig/client-allow-check.mjs sweeps for staff routes).
-export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload, look, role = 'client', staffParts = null }) {
+export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload, look, role = 'client', staffParts = null, initialOpenId = null }) {
   const staff = role === 'staff';
   const openCheckChips = (f) => (staffParts?.openChips ? staffParts.openChips(f) : []);
   const view0 = readView();
   const [zoom, setZoom] = useState(() => (Number.isInteger(view0.zoom) ? Math.max(0, Math.min(2, view0.zoom)) : 1));
   const [day, setDay] = useState(() => (Number.isInteger(view0.day) ? view0.day : 0));
   const [scrollTo, setScrollTo] = useState(null);
-  const [openId, setOpenId] = useState(() => view0.openId || null);
+  const [openId, setOpenId] = useState(() => initialOpenId || view0.openId || null);
   const [filter, setFilter] = useState(false);
   const [q, setQ] = useState(() => view0.q || '');
   const lanesRef = useRef(null);

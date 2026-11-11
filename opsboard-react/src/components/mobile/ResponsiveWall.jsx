@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import Board from '../Board';
 import { useWallColors } from '../../theme/WallColorsContext';
 import { chromeFor, markerChipsFor, wxCategoryColorsFor } from '../../theme/wallColors';
@@ -10,6 +10,9 @@ import { flattenFlights, hmZ } from './mobileUtil';
 import { ConnChip, StaleBanner } from './WallChrome';
 import useConnection from './useConnection';
 import PhoneWall from './phone/PhoneWall';
+// The staff phone app (design "Phone Views", 2026-11-12): a signed-in person on a phone, NOT framed by /m/wall, gets the
+// wall's own phone app with its five tabs. Loaded only then, so its stylesheet never reaches the display (rig/stage1-check).
+const StaffPhone = lazy(() => import('../../client/StaffPhone'));
 
 // The Digital Wall below the ops-room breakpoint (design sections A + B):
 //   a signed-in PERSON on a phone-sized screen, upright or sideways → the portal's phone wall at /m/wall
@@ -37,6 +40,7 @@ export default function ResponsiveWall({
   onReload = null,
   notamState = null,
   loadedOnce = false,
+  displaySettings = {},   // the signed-in person's own display profile (DisplayApp › loadSettings), for the staff phone's look
 }) {
   const conn = useConnection(dataUpdatedAt);
   const chrome = chromeFor(useWallColors());
@@ -84,19 +88,16 @@ export default function ResponsiveWall({
   const framed = params.get('in') === 'm' && window.top !== window.self;
   const person = Boolean(user) && !deviceMode;
   const phoneWall = person && framed;
-  const leaving = person && !framed && (vp.isPhone || phoneLandscape);
-  useEffect(() => {
-    if (!leaving || !/\/digital-wall\//.test(window.location.pathname)) return;
-    const flight = params.get('flight');
-    window.location.replace(`/m/wall${flight ? `?flight=${encodeURIComponent(flight)}` : ''}`);
-  }, [leaving]); // eslint-disable-line react-hooks/exhaustive-deps
+  // (until 2026-11-12 a person on a phone outside the /m frame was sent to /m/wall; now the phone app is here)
+  const staffPhone = person && !framed && (vp.isPhone || phoneLandscape);
+  if (staffPhone) {
+    return <Suspense fallback={null}><StaffPhone aircraft={aircraft} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} clocks={clocks} loadedOnce={loadedOnce} error={error} onReload={onReload} settings={displaySettings} initialFlightId={params.get('flight')} /></Suspense>;
+  }
   if (phoneWall) {
     return <PhoneWall aircraft={aircraft} limitations={limitations} clocks={clocks} notamState={notamState} loadedOnce={loadedOnce} error={error} dataUpdatedAt={dataUpdatedAt} onReload={onReload} initialFlightId={params.get('flight')} />;
   }
   let view;
-  if (leaving) {
-    view = null; // leaving for /m/wall
-  } else if (phoneLandscape) {
+  if (phoneLandscape) {
     view = <LandscapePhoneWall {...shared} />;
   } else {
     view = <TabletWall {...shared} clocks={clocks} />;

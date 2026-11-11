@@ -324,6 +324,7 @@ export default function DisplayApp() {
       mvtThresholdMin={mvtThresholdMin}
       mvtFlashSeconds={mvtFlashSeconds}
       showUnconfirmedRing={unconfirmedOutline}
+      displaySettings={displayOptions}
       loadedOnce={loadedOnce}
       error={error}
       dataUpdatedAt={dataUpdatedAt}

@@ -83,7 +83,7 @@ export default function StaffPhone({ aircraft = [], windowStartUtc, windowEndUtc
   const [page, setPage] = useState('timeline');
   const [more, setMore] = useState(null);
   const display = useWallDisplay();
-  useEffect(() => { document.documentElement.classList.add('cw-client-doc'); return () => document.documentElement.classList.remove('cw-client-doc'); }, []);
+  useEffect(() => { document.documentElement.classList.add('cw-client-doc', 'cw-staff-phone-doc'); return () => document.documentElement.classList.remove('cw-client-doc', 'cw-staff-phone-doc'); }, []);
   useEffect(() => { const on = () => setTab(tabFromHash()); window.addEventListener('hashchange', on); return () => window.removeEventListener('hashchange', on); }, []);
   const go = (k) => { setTab(k); setMore(null); if (window.location.hash !== `#${k}`) window.history.replaceState(null, '', k === 'timeline' ? window.location.pathname + window.location.search : `#${k}`); window.scrollTo(0, 0); };
   const colors = useMemo(() => ({ ...clientWallColors(theme), ...(display?.colors ?? {}) }), [theme, display]);

@@ -159,6 +159,7 @@ export function FixedActionBar({ children }) {
   return createPortal(
     <div
       className="cw-console"
+      data-fixed-action-bar=""
       style={{
         position: 'fixed',
         left: 0,

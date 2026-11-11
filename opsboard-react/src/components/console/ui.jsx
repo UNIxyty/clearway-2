@@ -1109,6 +1109,7 @@ export function ToastProvider({ children }) {
       {toast && (
         <div
           className="cw-fade"
+          data-console-toast=""
           style={{
             position: 'fixed',
             bottom: 28,

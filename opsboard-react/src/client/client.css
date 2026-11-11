@@ -280,6 +280,9 @@ html.cw-client-doc, html.cw-client-doc body, html.cw-client-doc #root { height: 
 .cwsp-tabs button.is-on::before { content: ""; position: absolute; left: 22%; right: 22%; top: 0; height: 2.5px; border-radius: 0 0 2px 2px; background: var(--cw-text-link); }
 .cwsp-icon { width: 22px; height: 22px; background: currentColor; -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; }
 .cws-console { padding: 8px 0 24px; }
+/* a console page's fixed bar (Limits: Publish a limitation) and the toast sit ABOVE the tab bar, never on it */
+html.cw-staff-phone-doc [data-fixed-action-bar] { bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important; padding-bottom: 12px !important; }
+html.cw-staff-phone-doc [data-console-toast] { bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important; }
 .cwsp-more { padding: 16px 16px 24px; display: flex; flex-direction: column; gap: 8px; }
 .cwsp-more h1 { margin: 0 0 8px; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 .cwsp-row { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid var(--cw-border); border-radius: 12px; background: var(--cw-bg-surface); color: var(--cw-text); text-decoration: none; text-align: left; }

@@ -25,6 +25,7 @@ import { routeTurn } from "./router.mjs";
 import { rest } from "./knowledge/retrieval.mjs";
 import { logDetail, recordedReason } from "./public-errors.mjs";
 import { alertDevelopers } from "./alert.mjs";
+import { emailDevelopers } from "./alert-email.mjs";
 import { isRigRun, isLocalSupabase } from "../../lib/rig-guard.mjs";
 
 export const EVERY_HOURS = Number(process.env.SMOKE_EVERY_HOURS || 6);
@@ -173,6 +174,9 @@ export async function runSmokes({ only = null, alert = true, now = () => new Dat
   if (alert && lines.length) {
     alerted = await alertDevelopers(`Agent smoke check (${process.env.CW_ENV_NAME || "production"}), ${at.slice(0, 16)}Z\n${lines.join("\n")}`);
     if (alerted) for (const name of failingNow) alerts[name] = at;
+    // the designed system alert by email too (18 for a path that just failed, 18c for one working again; 2026-11-11)
+    for (const name of failingNow) await emailDevelopers("18-system-alert", { level: "critical", service: `Agent · ${name}`, statusText: "failed its smoke check", check: `smoke ${name}, every ${EVERY_HOURS} h`, since: at, lastOk: prev.results?.[name]?.ok ? prev.ranAt ?? null : null, impact: "That path of the agent is not working until it passes again.", error: results[name]?.detail ?? "" });
+    for (const [name, r] of Object.entries(results)) { const was = prev.results?.[name]; if (r.ok && was && !was.ok) await emailDevelopers("18c-system-alert-resolved", { service: `Agent · ${name}`, check: `smoke ${name}, every ${EVERY_HOURS} h`, since: prev.ranAt ?? at, lastOk: at, duration: `${EVERY_HOURS} h or less` }); }
   }
   const body = { ranAt: at, everyHours: EVERY_HOURS, results: { ...(only ? prev.results ?? {} : {}), ...results }, alerts, lastAlert: lines.length ? { at, sent: alerted } : prev.lastAlert ?? null };
   await writeRow(body).catch((e) => logDetail("smoke", "could not record the run", e));

@@ -11,6 +11,7 @@ import {
 import { failure, logFailure } from "@/lib/public-error";
 import { TRY_AGAIN_SIGNED_OUT } from "@/lib/error-text";
 import { listAllUsers } from "@/lib/auth-users";
+import { sendStaffPending } from "@/lib/mail/staff-account";
 
 // What a person sees on the confirmation page. The detail (a missing setting, a Supabase error) goes to the log.
 const NO_TOKEN = "This confirmation link is not complete. Open the link from your email again.";
@@ -243,6 +244,10 @@ export async function POST(request: Request) {
     .from("user_preferences")
     .upsert({ user_id: targetUserId, is_approved: false }, { onConflict: "user_id" });
   await notifyApprovalNeeded(targetUserId, confirmation.row.email);
+  // the designed emails (2026-11-11): 02 to the person, 14 to the ops list
+  const { data: staff } = await service.auth.admin.getUserById(targetUserId);
+  const staffMeta = (staff?.user?.user_metadata ?? {}) as { full_name?: string; name?: string };
+  await sendStaffPending(service, { userId: targetUserId, email: confirmation.row.email, name: staffMeta.full_name ?? staffMeta.name ?? null, signedUpAt: new Date() }, request);
   }
 
   const { error: markUsedError } = await service

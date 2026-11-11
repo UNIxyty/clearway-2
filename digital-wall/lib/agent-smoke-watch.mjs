@@ -8,7 +8,23 @@
 // Once a day while it holds; "running again" when it clears. Not on a rig (a local database, or the test auth bypass).
 const CHECK_MS = 30 * 60_000;
 const REALERT_MS = 24 * 3600_000;
-let state = { problem: null, alertedAt: 0 };
+let state = { problem: null, alertedAt: 0, since: 0 };
+
+// The designed system alert by email too (18 / 18c, 2026-11-11): to the developers (DEVELOPER_EMAILS, the same list the
+// roles read), once when the problem starts and once when it clears — the Telegram message is unchanged. The mailer
+// is loaded lazily so a rig without one (or a unit test) never touches it.
+export async function emailDevelopers(kind, vars) {
+  const to = String(process.env.DEVELOPER_EMAILS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!to.length) return false;
+  try {
+    const [{ sendEmail, mailerConfigured }, { buildEmail }] = await Promise.all([import("./mailer.mjs"), import("../../shared/email/templates.mjs")]);
+    if (!mailerConfigured()) return false;
+    const portalUrl = String(process.env.PORTAL_SITE_URL || process.env.PORTAL_BASE_URL || "").replace(/\/+$/, "");
+    const mail = buildEmail(kind, { portalUrl, supportEmail: "", link: `${portalUrl}/aip/service-status`, ...vars });
+    const r = await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text, record: { kind: "system-alert", ref: vars.service } });
+    return Boolean(r?.ok);
+  } catch (e) { console.error(`[smoke-watch] alert email NOT sent: ${e?.message ?? e}`); return false; }
+}
 
 const base = () => String(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const key = () => String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
@@ -46,17 +62,22 @@ export async function smokeProblem({ now = Date.now(), fetchImpl = fetch } = {})
   return null;
 }
 
-export async function checkOnce({ now = Date.now(), fetchImpl = fetch, send = alertDevelopers } = {}) {
+export async function checkOnce({ now = Date.now(), fetchImpl = fetch, send = alertDevelopers, email = emailDevelopers } = {}) {
   const problem = await smokeProblem({ now, fetchImpl });
   if (problem) {
-    if (!state.problem || now - state.alertedAt >= REALERT_MS) { if (await send(`Wall watching the agent's smoke checks: ${problem}.`)) state.alertedAt = now; }
+    const first = !state.problem;
+    if (first || now - state.alertedAt >= REALERT_MS) { if (await send(`Wall watching the agent's smoke checks: ${problem}.`)) state.alertedAt = now; }
+    if (first) { state.since = now; await email("18-system-alert", { level: "critical", service: "Agent smoke checks", statusText: "have stopped", check: "smoke:last read by the wall every 30 min", since: new Date(now), lastOk: null, impact: "The agent's model and AI paths are no longer being proven every few hours.", error: problem }); }
     state.problem = problem;
   } else if (state.problem) {
-    if (await send("Wall watching the agent's smoke checks: they are running again.")) state = { problem: null, alertedAt: 0 };
+    const since = state.since || now;
+    if (await send("Wall watching the agent's smoke checks: they are running again.")) state = { problem: null, alertedAt: 0, since: 0 };
+    const mins = Math.round((now - since) / 60_000);
+    await email("18c-system-alert-resolved", { service: "Agent smoke checks", check: "smoke:last read by the wall every 30 min", since: new Date(since), lastOk: new Date(now), duration: mins >= 120 ? `${Math.round(mins / 60)} h` : `${mins} min` });
   }
   return problem;
 }
-export function resetForTest() { state = { problem: null, alertedAt: 0 }; }
+export function resetForTest() { state = { problem: null, alertedAt: 0, since: 0 }; }
 
 export function startSmokeWatch() {
   const local = /^(https?:\/\/)?(127\.0\.0\.1|localhost)(:|\/|$)/.test(base());

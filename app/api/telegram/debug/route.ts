@@ -17,6 +17,7 @@ import {
   TELEGRAM_BUG_CALLBACK_PREFIX,
   parseBugCallbackData,
 } from "@/lib/telegram-bug-actions";
+import { sendStaffApproved } from "@/lib/mail/staff-account";
 
 type DebugStep = "aip" | "notam" | "weather" | "pdf" | "gen";
 type SourceMode = "auto" | "ead-only";
@@ -842,6 +843,11 @@ async function handleCallbackQuery(update: TelegramUpdate, bot: TelegramBotKind)
         },
         { onConflict: "user_id" },
       );
+      // the designed email (03, 2026-11-11): once, when the account turns approved from the chat button
+      if (currentMeta.is_approved !== true && userLookupRole?.user?.email) {
+        const meta = (userLookupRole.user.user_metadata ?? {}) as { full_name?: string; name?: string };
+        await sendStaffApproved({ userId: targetUserId, email: userLookupRole.user.email, name: meta.full_name ?? meta.name ?? null, role: role === "developer" ? "Developer" : role === "admin" ? "Admin" : role === "temporary" ? "Temporary" : "User", approvedBy: "An admin (Telegram)" });
+      }
 
       const roleLabel =
         role === "developer"

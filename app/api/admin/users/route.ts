@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { currentPerson, holds, refused, requirePermission } from "@/lib/permissions/server";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
 import { listAllUsers } from "@/lib/auth-users";
+import { sendStaffApproved } from "@/lib/mail/staff-account";
 
 const NOT_LOADED = `Users could not be loaded. ${TRY_AGAIN}`;
 const NOT_SAVED = `The change was not saved. ${TRY_AGAIN}`;
@@ -126,9 +127,16 @@ export async function POST(request: Request) {
     if (upsertErr) return failure(500, NOT_SAVED, { tag: "ADMIN-USERS", what: "user_preferences upsert failed", detail: upsertErr });
 
     if (settingApproved) {
+      const { data: before } = await service.auth.admin.getUserById(targetUserId);
+      const wasApproved = (before?.user?.app_metadata as { is_approved?: unknown } | undefined)?.is_approved === true;
       await service.auth.admin.updateUserById(targetUserId, {
         app_metadata: { is_approved: body.isApproved! }, // app_metadata: the person cannot change it themselves
       });
+      // the designed email (03, 2026-11-11): once, when the account turns approved
+      if (body.isApproved && !wasApproved && before?.user?.email) {
+        const meta = (before.user.user_metadata ?? {}) as { full_name?: string; name?: string };
+        await sendStaffApproved({ userId: targetUserId, email: before.user.email, name: meta.full_name ?? meta.name ?? null, role: patch.is_admin ? "Admin" : patch.is_developer ? "Developer" : "User", approvedBy: auth.user.email ?? null }, request);
+      }
     }
 
     return NextResponse.json({ ok: true });

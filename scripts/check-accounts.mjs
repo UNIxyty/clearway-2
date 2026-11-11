@@ -42,7 +42,7 @@ async function make(role, check, mod = {}) {
   if (role === "client") {
     // the most a client can be (every switch the check names, the documents level), on a scope that matches nothing;
     // inserted directly, so no decision row is written and no email goes. If it cannot be made, the account goes too.
-    const row = await fetch(`${SB}/rest/v1/clients`, { method: "POST", headers: { ...H, prefer: "return=minimal" }, body: JSON.stringify({ user_id: u.id, email, person_name: "Check account (synthetic)", company: "Check (synthetic)", kind: "operator", status: "approved", scope: [{ kind: "operator", value: "check-matches-nothing" }], switches: mod.CLIENT_SWITCHES ?? ["flight_board"], passenger_level: "documents", decided_at: new Date().toISOString() }) });
+    const row = await fetch(`${SB}/rest/v1/clients`, { method: "POST", headers: { ...H, prefer: "return=minimal" }, body: JSON.stringify({ user_id: u.id, email, person_name: "Check account (synthetic)", company: "Check (synthetic)", kind: "operator", status: "approved", scope: [{ kind: "operator", value: process.env.CHECK_CLIENT_OPERATOR || "check-matches-nothing" }]   // CHECK_CLIENT_OPERATOR (2026-11-12): a real operator id, for a counts-only probe of what a client of that operator is sent, switches: mod.CLIENT_SWITCHES ?? ["flight_board"], passenger_level: "documents", decided_at: new Date().toISOString() }) });
     if (!row.ok) { await fetch(`${SB}/auth/v1/admin/users/${u.id}`, { method: "DELETE", headers: H }); throw new Error(`the check client's row was not made (${row.status}); its account was removed`); }
   }
   await audit("check_account.created", email, { role, check });

@@ -231,7 +231,7 @@ for (const theme of ["light", "dark"]) {
     }
 
     // ── Account, reached the way a person does: the sidebar on a desk, the last tab on a phone ──
-    if (PHONE(width)) await page.locator(".clw-bottomnav a").last().click(); else await page.locator(".clw-side-nav a", { hasText: "Account" }).click();
+    if (PHONE(width)) await page.locator(".clw-bottomnav a", { hasText: "Account" }).click(); else await page.locator(".clw-side-nav a", { hasText: "Account" }).click();   // Account is the third of four since 2026-11-12
     await page.waitForSelector('[data-tab="account"]', { timeout: 15000 }); await settled(page);
     const at = `${tag} account`;
     ok(new URL(page.url()).pathname === "/client/account" && await page.locator(FRAME).count() === 0, `${at}: ${PHONE(width) ? "the last tab" : "the sidebar"} opens it, with no frame on it`, page.url());

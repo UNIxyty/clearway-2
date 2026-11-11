@@ -28,8 +28,8 @@ const few = new Set(["flight_board", "weather"]), all = new Set(ACTIVE_SWITCHES.
 ok(["/client", "/client/flights", "/client/account", "/client/start"].every((p) => clientMayReach(p, "GET", few).ok) && clientMayReach("/api/client/me", "GET", few).ok && clientMayReach("/api/client/prefs", "GET", few).ok && clientMayReach("/api/client/prefs", "PUT", few).ok && clientMayReach("/api/client/account/password", "POST", few).ok && !clientMayReach("/api/auth/password/reset", "POST", few).ok, "Timeline, Flights, Account, the start page, their standing, their preferences and their password: every approved client (the public auth routes are not a client's)");
 ok(["/client/airports", "/client/documents"].every((p) => !clientMayReach(p, "GET", few).ok && !clientMayReach(p, "GET", all).ok && !clientMayReach(p, "GET", old).ok), "Airports and Documents: on no list any more, with the old switches or every switch");
 ok(["/dashboard", "/aip", "/admin/users", "/api/search", "/api/admin/clients", "/api/client/me/../../admin", "/api/client/me/x", "/client/airports/x", "/client/start/x", "/clientx", "/client-requests", "/api/client/other", "/api/client/prefs/x", "/developer/inbox", "/files/x"].every((p) => !clientMayReach(p, "GET", all).ok) && !clientMayReach("/api/client/me", "POST", all).ok && !clientMayReach("/api/client/prefs", "POST", all).ok && !clientMayReach("/api/client/prefs", "DELETE", all).ok, "everything else is not on the list — staff pages, their APIs, look-alike addresses, other methods");
-const MENU = [{ path: "/client", label: "Timeline", icon: "chart-gantt" }, { path: "/client/flights", label: "Flights", icon: "list" }, { path: "/client/account", label: "Account", icon: "circle-user" }];
-ok(JSON.stringify(clientMenu(few)) === JSON.stringify(MENU) && JSON.stringify(clientMenu(all)) === JSON.stringify(MENU) && JSON.stringify(clientMenu(new Set())) === JSON.stringify(MENU), "the menu: Timeline, Flights, Account for every client, whatever the switches; the start page is not an item");
+const MENU = [{ path: "/client", label: "Timeline", icon: "chart-gantt" }, { path: "/client/flights", label: "Flights", icon: "plane" }, { path: "/client/account", label: "Account", icon: "circle-user" }, { path: "/client/settings", label: "Settings", icon: "sliders-horizontal" }];
+ok(JSON.stringify(clientMenu(few)) === JSON.stringify(MENU) && JSON.stringify(clientMenu(all)) === JSON.stringify(MENU) && JSON.stringify(clientMenu(new Set())) === JSON.stringify(MENU), "the menu: Timeline, Flights, Account, Settings for every client, whatever the switches; the start page is not an item");
 // the retired switches (2026-11-10)
 ok(JSON.stringify(RETIRED_SWITCH_KEYS.slice().sort()) === JSON.stringify(["airport_search", "documents"]) && SWITCHES.filter((w) => w.retired === true).length === 2 && ACTIVE_SWITCHES.every((w) => !w.retired && !RETIRED_SWITCH_KEYS.includes(w.key)) && ACTIVE_SWITCHES.length === 9, "the switches: documents and airport_search are marked retired; the nine active ones do not include them", `${ACTIVE_SWITCHES.map((w) => w.key).join(",")}`);
 ok(JSON.stringify(normaliseSwitches(["flight_board", "documents", "airport_search", "weather"])) === JSON.stringify(["flight_board", "weather"]), "normaliseSwitches drops a retired switch from an old row", normaliseSwitches(["flight_board", "documents", "airport_search", "weather"]).join(","));
@@ -75,7 +75,7 @@ try {
 
   // ── 3. only the required switches ──
   const home = await get("/client");
-  ok(home.status === 200 && /data-client-shell/.test(home.text) && /data-menu="\/client \/client\/flights \/client\/account"/.test(home.text) && /data-client-frame/.test(home.text), "Timeline: open, inside the client shell, with the three-item menu and the frame", home.status);
+  ok(home.status === 200 && /data-client-shell/.test(home.text) && /data-menu="\/client \/client\/flights \/client\/account \/client\/settings"/.test(home.text) && /data-client-frame/.test(home.text), "Timeline: open, inside the client shell, with the four-item menu and the frame", home.status);
   const fl = await get("/client/flights");
   ok(fl.status === 200 && /data-client-shell/.test(fl.text) && /data-client-frame/.test(fl.text), "Flights: open, the same shell and frame", fl.status);
   ok((await get("/api/client/me")).status === 200, "their own standing: 200");
@@ -193,7 +193,7 @@ try {
       if (p === "/client/flights") { const fr = pg.frameLocator("iframe[data-client-frame]"); const f = fr.locator("[data-flight-row]:not(.is-cnl)").first(); await f.waitFor({ timeout: 20000 }).catch(() => {}); if (await f.count()) { await f.click(); await pg.waitForTimeout(3000); } }
     }
     await br.close();
-    const ALLOWED = /^(GET|HEAD) \/(client(\/(flights|account))?$|_next\/|api\/client\/(me|prefs)$|digital-wall\/timeline(\/|$)|digital-wall\/api\/(user|users\/me|client\/view|display\/clocks|timeline\/flights|timeline\/aircraft|timeline\/limitations|flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|flight-passengers|geo\/coords|stream|weather)\b|favicon|PFP\.png$|icons\/)/;
+    const ALLOWED = /^(GET|HEAD) \/(client(\/(flights|account|settings))?$|_next\/|api\/client\/(me|prefs)$|digital-wall\/timeline(\/|$)|digital-wall\/api\/(user|users\/me|client\/view|display\/clocks|timeline\/flights|timeline\/aircraft|timeline\/limitations|flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|flight-passengers|geo\/coords|stream|weather)\b|favicon|PFP\.png$|icons\/)/;
     const other = [...asked].filter((a) => !ALLOWED.test(a) && !/^(GET|HEAD) \/[^/]+\.(png|svg|ico|woff2?)$/.test(a));
     ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, the frame, their standing, preferences and view, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
     ok([...asked].some((a) => /^GET \/digital-wall\/timeline\//.test(a)) && [...asked].some((a) => /^GET \/digital-wall\/api\/timeline\/flights$/.test(a)), "…the frame was loaded and read the wall's flights (so the list above means something)");
@@ -207,7 +207,7 @@ try {
   await svc(`/rest/v1/clients?id=eq.${rowId}`, { method: "PATCH", body: JSON.stringify({ switches: ["flight_board", "weather", "airport_search", "documents"] }) });
   await new Promise((r2) => setTimeout(r2, 11_000));   // the scope is cached ten seconds
   const home2 = await get("/client");
-  ok(home2.status === 200 && /data-menu="\/client \/client\/flights \/client\/account"/.test(home2.text) && !/>Airports</.test(home2.text) && !/>Documents</.test(home2.text), "the menu is still Timeline, Flights, Account", /data-menu="([^"]*)"/.exec(home2.text)?.[1]);
+  ok(home2.status === 200 && /data-menu="\/client \/client\/flights \/client\/account \/client\/settings"/.test(home2.text) && !/>Airports</.test(home2.text) && !/>Documents</.test(home2.text), "the menu is still Timeline, Flights, Account, Settings", /data-menu="([^"]*)"/.exec(home2.text)?.[1]);
   const a = await get("/client/airports"), d = await get("/client/documents");
   ok(a.status === 404 && d.status === 404, "Airports and Documents stay 404 with the retired switches on the row", `${a.status} ${d.status}`);
   const me2 = JSON.parse((await get("/api/client/me")).text);

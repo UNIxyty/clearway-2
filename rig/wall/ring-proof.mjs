@@ -7,7 +7,7 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 
-const DISPLAY = process.env.RIG_CONSOLE_URL || "http://127.0.0.1:4173";   // the built wall app (vite preview, as the console suites use it)
+const DISPLAY = process.env.RIG_SHELL_URL || "http://127.0.0.1:3999";   // the rig proxy serves the built display at /digital-wall/timeline/
 const SHELL = process.env.RIG_SHELL_URL || "http://127.0.0.1:3999";
 const OUT = "rig/.scratch/shots"; mkdirSync(OUT, { recursive: true });
 let failures = 0; const ok = (c, what, d = "") => { console.log(`${c ? "PASS" : "FAIL"}  ${what}${d ? `  · ${String(d).slice(0, 200)}` : ""}`); if (!c) failures += 1; };
@@ -17,7 +17,7 @@ for (const theme of ["light", "dark"]) {
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, colorScheme: theme });
   await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
   const page = await ctx.newPage();
-  await page.goto(`${DISPLAY}/timeline`, { waitUntil: "load" });
+  await page.goto(`${DISPLAY}/digital-wall/timeline/`, { waitUntil: "load" });
   await page.waitForSelector("[data-unconfirmed-ring]", { timeout: 40000 }).catch(() => {});
   const rings = await page.evaluate(() => [...document.querySelectorAll("[data-unconfirmed-ring]")].map((el) => { let pill = el; for (let i = 0; i < 4 && pill && !/TST\d{3}/.test(pill.textContent || ""); i++) pill = pill.parentElement; const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return { flight: ((pill?.textContent || "").match(/TST\d{3}/) || ["?"])[0], outline: cs.outline || cs.boxShadow || cs.borderColor, w: Math.round(r.width), h: Math.round(r.height), x: Math.round(r.x), y: Math.round(r.y) }; }));
   ok(rings.length >= 1 && rings.some((r) => /TST203/.test(r.flight)), `${theme}: the display draws the unconfirmed ring on the rig's OPTION flight TST203`, JSON.stringify(rings.slice(0, 3)));
@@ -34,6 +34,8 @@ for (const theme of ["light", "dark"]) {
   await page.goto(`${SHELL}/m/wall`, { waitUntil: "load" });
   await page.waitForSelector("iframe[title='Digital Wall']", { timeout: 20000 }).catch(() => {});
   const frame = page.frameLocator("iframe[title='Digital Wall']");
+  await frame.locator("[data-mobile-wall]").waitFor({ timeout: 30000 }).catch(() => {});
+  await frame.getByRole("radio", { name: "DAY" }).click().catch(() => {});   // TST203 departs in 6 h: outside the 6H range
   await frame.locator("[data-unconfirmed='1']").first().waitFor({ timeout: 40000 }).catch(() => {});
   const n = await frame.locator("[data-unconfirmed='1']").count().catch(() => 0);
   ok(n >= 1, `${theme}: the phone wall marks the unconfirmed flight's pill (data-unconfirmed)`, `${n} marked`);

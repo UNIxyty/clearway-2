@@ -189,6 +189,7 @@ for (const theme of ["light", "dark"]) {
     ok(await opened.count() === 1, `${tag} flight ${fn}: opens as a ${PHONE(width) ? "page" : "side panel"}`);
     await opened.locator('[data-section="weather"] [data-card="weather"], [data-section="weather"] .cwc-muted').first().waitFor({ timeout: 20000 }).catch(() => {});
     await opened.locator('[data-section="notams"], [data-section="passengers"]').first().waitFor({ timeout: 20000 }).catch(() => {}); // drawn once /api/flight-info has answered
+    await opened.locator('[data-section="passengers"]').first().waitFor({ timeout: 20000 }).catch(() => {}); // the last section to draw (2026-11-11: the 1440 desk once counted before it was there)
     ok(await opened.locator('[data-card="times"]').count() === 1 && await opened.locator('[data-section="weather"]').count() === 1 && await opened.locator('[data-section="notams"]').count() === 1 && await opened.locator('[data-section="limitations"][data-card="limitations"]').count() === 1 && await opened.locator('[data-section="passengers"]').count() === 1, `${tag} flight ${fn}: times, weather, NOTAMs, limitations and passengers — their switches and level`);
     ok(await opened.locator('[data-section="important"]').count() === 0 && await opened.locator('[data-section="caa"]').count() === 0, `${tag} flight ${fn}: no notices and no authority sections — switches off add nothing`);
     await readPax(page, '[data-section="passengers"]');
@@ -449,7 +450,8 @@ for (const theme of ["light", "dark"]) {
     await ctx.addCookies([cookie(cs)]); await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
     const page = await ctx.newPage();
     await page.goto(`${B}/client/account`, { waitUntil: "load" });
-    ok(await page.locator("[data-display-settings]").count() === 1, `${theme} ${width}: Account links to the display settings`);
+    await page.waitForSelector("[data-display-settings]", { timeout: 20000 }).catch(() => {});   // the account page streams in after the standing is read
+    ok(await page.locator("[data-display-settings]").count() === 1, `${theme} ${width}: Account links to the display settings`, page.url());
     await page.locator("[data-display-settings]").click();
     await page.waitForURL(/\/client\/settings/, { timeout: 15000 }).catch(() => {});
     await frameOf(page).locator("[data-client-settings]").waitFor({ timeout: 30000 });

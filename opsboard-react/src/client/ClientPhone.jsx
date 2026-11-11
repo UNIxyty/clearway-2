@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Board from '../components/Board';
 import { flattenFlights, hmZ } from '../components/mobile/mobileUtil';
-import { dayIndex, dayLabel, dayName, dayShort, dayStartMs, groupOperators, matchesQuery, readView, writeView, fetchPassengers } from './clientApi';
+import { dayIndex, dayLabel, dayName, dayShort, dayStartMs, groupOperators, matchesQuery, readView, writeView, fetchPassengers, emptyFleetWords } from './clientApi';
 import ClientFlightBody, { StatusChip, useFlightInfo } from './ClientFlight';
 import MapView, { mapStateOf, useCoords } from './MapView';
 
@@ -127,7 +127,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
               </div>}
             {!loadedOnce && <p className="cwd-muted" style={{ padding: 16 }}>Loading your flights…</p>}
             {loadedOnce && aircraft.length > 0 && all.length === 0 && !allHidden && <div className="cwd-empty" data-empty="no-flights"><b>No flights in the next 7 days</b><span>New flights appear here as soon as Clearway ops has them.</span></div>}
-            {loadedOnce && aircraft.length === 0 && !error && <div className="cwd-empty" data-empty="no-fleet"><b>No aircraft on your account yet</b><span>Clearway ops grants operators and aircraft.</span></div>}
+            {loadedOnce && aircraft.length === 0 && !error && <div className="cwd-empty" data-empty={emptyFleetWords(me).kind}><b>{emptyFleetWords(me).title}</b><span>{emptyFleetWords(me).line}</span></div>}
             <div className="cwd-legend is-phone">{[['Scheduled', 'var(--tl-scheduled)'], ['Delayed', 'var(--tl-delayed)'], ['CTOT / slot', 'var(--tl-ctot)'], ['Flying', 'var(--tl-flying)'], ['Arrived', 'var(--tl-arrived)']].map(([t, bg]) => <span key={t}><i style={{ background: bg }} />{t}</span>)}</div>
           </div>
         </>
@@ -151,7 +151,7 @@ export default function ClientPhone({ page, goPage, me, prefs, setHidden, aircra
           {allHidden && <div className="cwd-empty" data-empty="all-hidden"><b>You’ve hidden every aircraft</b><button type="button" className="cwd-btn is-primary" onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></div>}
           {!allHidden && q && !listed.length && all.length > 0 && <div className="cwd-empty" data-empty="no-match"><b>No flights match “{q}”</b><span>Search looks at flight numbers, registrations and airport codes.</span></div>}
           {loadedOnce && aircraft.length > 0 && all.length === 0 && !allHidden && <div className="cwd-empty" data-empty="no-flights"><b>No flights in the next 7 days</b><span>New flights appear here as soon as Clearway ops has them.</span></div>}
-          {loadedOnce && aircraft.length === 0 && !error && <div className="cwd-empty" data-empty="no-fleet"><b>No aircraft on your account yet</b></div>}
+          {loadedOnce && aircraft.length === 0 && !error && <div className="cwd-empty" data-empty={emptyFleetWords(me).kind}><b>{emptyFleetWords(me).title}</b><span>{emptyFleetWords(me).line}</span></div>}
           {!loadedOnce && <p className="cwd-muted" style={{ padding: 16 }}>Loading your flights…</p>}
         </div>
       )}

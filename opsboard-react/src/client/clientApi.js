@@ -39,6 +39,18 @@ export const resetView = () => json(buildApiUrl(VIEW_PATH), { method: 'DELETE' }
 /** The read/write pair the look cards use on the client surface (components/console/LookCards.jsx › DeviceCtx.api). */
 export const viewApi = { fetch: () => fetchView(), save: (settings) => saveView(settings) };
 
+/**
+ * The empty board's words (2026-11-12): a client WITH a grant whose aircraft are not on the board right now must never
+ * read "no aircraft on your account" — that sentence is for an account that was granted nothing yet. `me.scopeKinds`
+ * says what the account covers (the portal's /api/client/me).
+ */
+export function emptyFleetWords(me) {
+  const kinds = me?.scopeKinds ?? [];
+  if (kinds.length === 0) return { kind: 'no-grant', title: 'No aircraft on your account yet', line: 'Clearway ops grants operators and aircraft. Until then this page stays empty.' };
+  const what = kinds.map((k) => ({ operator: 'operator', registration: 'aircraft', trip: 'trip' }[k] || k)).join(', ');
+  return { kind: 'nothing-on-board', title: 'Nothing of yours is on the board right now', line: `Your account covers ${kinds.length === 1 ? `an ${what}` : `these: ${what}`}. Flights appear here as soon as Clearway ops has them in the board's window.` };
+}
+
 export const fetchSyncStatus = () => json(buildApiUrl('/api/timeline/sync-status')).catch(() => null);
 export const fetchPassengers = (flightNid, oprId) => json(buildApiUrl(`/api/flight-passengers?flightNid=${encodeURIComponent(flightNid)}${oprId ? `&oprId=${encodeURIComponent(oprId)}` : ''}`));
 

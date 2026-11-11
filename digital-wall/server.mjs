@@ -991,6 +991,12 @@ const server = http.createServer(async (req, res) => {
         scopedSenders.set(res, (payload, status = 200) => {
           if (status !== 200) return rawSendJson(res, payload, status);
           let out = scopePayload({ pathname, payload, scope: clientScope, timelineService, importantStore, caaStore });
+          // never silently empty (2026-11-12): a client WITH a grant whose feed comes out empty is logged with counts,
+          // so an ops hide, a missing operator or an empty window is found in the log, not by the client
+          if (pathname === "/api/timeline/flights" && Array.isArray(out?.aircraft) && out.aircraft.length === 0) {
+            const g = clientScope.scope ?? {}; const granted = (g.operators?.size ?? 0) + (g.registrations?.size ?? 0) + (g.trips?.size ?? 0);
+            if (granted > 0) console.warn(`[client-scope] empty feed for a client with ${granted} grant(s): the uncut feed had ${(payload?.aircraft ?? []).length} aircraft groups over ${[...new Set((payload?.aircraft ?? []).map((a) => a.oprId))].length} operators`);
+          }
           if (pathname === "/api/flight-info" && out && typeof out === "object") {
             const p = requestUser.clientPieces;
             const drop = (keys) => { for (const k of keys) delete out[k]; };
@@ -2572,7 +2578,10 @@ const server = http.createServer(async (req, res) => {
       try {
         sendJson(
           res,
-          await timelineService.getFlights({ from, to, oprId, refresh, allOperators })
+          // A client's feed ignores the ops room's "hidden aircraft" (2026-11-12): hiding a tail on the wall is a
+          // display choice of the ops room, not a change to what a client was granted. The test client saw "No aircraft
+          // on your account yet" because ops had hidden 12 of KlasJet's tails. The scope cut still applies after this.
+          await timelineService.getFlights({ from, to, oprId, refresh, allOperators, includeHidden: Boolean(clientScope) })
         );
       } catch (error) {
         sendFailure(res, 500, "Couldn't load the flights. Try again in a few minutes. If it keeps failing, report it from Help & support.", "timeline", error);

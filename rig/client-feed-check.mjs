@@ -70,6 +70,21 @@ try {
   const staffKeys = new Set(staff.flatMap((r) => Object.keys(r.flight ?? {})));
   ok(staff.length >= recs.length && ["checks", "limitations", "checklistColor", "tripStatus"].every((k) => staffKeys.has(k)), "control: staff get the wall's own record (checks, limitations, checklist colour, trip status)", `${staffKeys.size} fields`);
 
+  // ── 1b. the ops room's "hidden aircraft" never empties a client's board (2026-11-12: the test client saw "No aircraft
+  // on your account yet" because ops had hidden KlasJet's tails on the wall) ──
+  {
+    const before = ((await wall(c, "/api/timeline/flights?allOperators=true")).json?.aircraft ?? []);
+    const first = before[0];
+    if (first) {
+      const hide = await wall(admin, "/api/aircraft/visibility", { method: "PUT", body: JSON.stringify({ oprId: first.oprId, registration: first.registration, isHidden: true }) });
+      const during = ((await wall(c, "/api/timeline/flights?allOperators=true")).json?.aircraft ?? []);
+      const staffDuring = ((await wall(admin, "/api/timeline/flights?allOperators=true")).json?.aircraft ?? []);
+      await wall(admin, "/api/aircraft/visibility", { method: "PUT", body: JSON.stringify({ oprId: first.oprId, registration: first.registration, isHidden: false }) });
+      ok(hide.status === 200 && during.some((g) => g.registration === first.registration) && during.length === before.length, "an aircraft ops hid on the wall stays on the client's board (hiding is the room's display choice, not a grant)", `${before.length} → ${during.length} aircraft while hidden`);
+      ok(!staffDuring.some((g) => g.registration === first.registration), "control: the same aircraft is off the ops feed while hidden", `${staffDuring.length} groups`);
+    } else ok(false, "the client's board has an aircraft to hide and show", "0 aircraft");
+  }
+
   // ── 2. invented notes on the airport of the client's first flight, made through the wall as the admin ──
   // (one the timeline's own window holds too, so the page part below finds its row on Flights)
   const boardNids = new Set(((await wall(c, "/api/timeline/flights?allOperators=true")).json?.aircraft ?? []).flatMap((g) => (g.flights ?? []).map((f) => String(f.flightNid))));

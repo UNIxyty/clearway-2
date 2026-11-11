@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Board from '../components/Board';
 import { flattenFlights, hmZ } from '../components/mobile/mobileUtil';
-import { STATUS_WORD, dayIndex, dayLabel, dayName, dayShort, dayStartMs, groupOperators, matchesQuery, readView, writeView, tellShell } from './clientApi';
+import { STATUS_WORD, dayIndex, dayLabel, dayName, dayShort, dayStartMs, groupOperators, matchesQuery, readView, writeView, tellShell, emptyFleetWords } from './clientApi';
 import ClientFlightBody, { StatusChip, useFlightInfo } from './ClientFlight';
 
 const ZOOM = [{ label: '0.7×', hours: 13 }, { label: '1×', hours: 9 }, { label: '1.4×', hours: 6 }];
@@ -100,7 +100,7 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraf
   const goDay = (d) => { const idx = Math.max(-1, Math.min(6, d)); setDay(idx); setScrollTo(dayStartMs(idx)); };
   const dayIdx = viewRange ? dayIndex(viewRange.startMs + (viewRange.endMs - viewRange.startMs) * 0.3, nowMs) : day;
   const opsLabel = grants.length === 1 ? grants[0].name : `${grants.length} operators`;
-  const sub = noFleet ? 'No aircraft on your account yet' : `${opsLabel} · ${visible.length} aircraft · ${empty ? 'nothing scheduled' : `${today} flight${today === 1 ? '' : 's'} today`}`;
+  const sub = noFleet ? emptyFleetWords(me).title : `${opsLabel} · ${visible.length} aircraft · ${empty ? 'nothing scheduled' : `${today} flight${today === 1 ? '' : 's'} today`}`;
   const laneH = 96;
   const boardH = 34 + Math.max(1, visible.length) * laneH;
   const row = (f, grid) => (
@@ -147,7 +147,7 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraf
                 <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={look.scale} timeZoom={look.timeZoom} rowZoom={look.rowZoom} pillHeight={look.pillHeight} markerScale={look.markerScale} labelScale={look.labelScale} autoFitRows={look.autoFitRows} hideSidebar rowHeightPx={Math.round(laneH * look.rowZoom)} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onViewRange={onRange} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={false} touchHitMinPx={44} maxMarkers={2} />
                 {!loadedOnce && <div className="cwd-empty is-over"><span>Loading your flights…</span></div>}
                 {empty && <div className="cwd-empty is-over" data-empty="no-flights"><b>No flights in the next 7 days</b><span>Nothing is scheduled for your aircraft. New flights appear here as soon as Clearway ops has them.</span></div>}
-                {noFleet && <div className="cwd-empty is-over" data-empty="no-fleet"><b>No aircraft on your account yet</b><span>Clearway ops grants operators and aircraft. Until then this page stays empty.</span></div>}
+                {noFleet && <div className="cwd-empty is-over" data-empty={emptyFleetWords(me).kind}><b>{emptyFleetWords(me).title}</b><span>{emptyFleetWords(me).line}</span></div>}
               </div>
             )}
           </section>
@@ -178,7 +178,7 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, aircraf
             {allHidden && <div className="cwd-empty" data-empty="all-hidden"><b>You’ve hidden every aircraft</b><span>Every operator is switched off in Operators &amp; aircraft. The flights are still there, just not on your screen.</span><button type="button" className="cwd-btn is-primary" onClick={() => setHidden({ operators: [], registrations: [] })} data-show-all="">Show all</button></div>}
             {!allHidden && q && !listed.length && all.length > 0 && <div className="cwd-empty" data-empty="no-match"><b>No flights match “{q}”</b><span>Search looks at flight numbers, registrations and airport ICAO codes.</span></div>}
             {empty && <div className="cwd-empty" data-empty="no-flights"><b>No flights in the next 7 days</b><span>Nothing is scheduled for your aircraft. New flights appear here as soon as Clearway ops has them.</span></div>}
-            {noFleet && <div className="cwd-empty" data-empty="no-fleet"><b>No aircraft on your account yet</b><span>Clearway ops grants operators and aircraft. Until then this page stays empty.</span></div>}
+            {noFleet && <div className="cwd-empty" data-empty={emptyFleetWords(me).kind}><b>{emptyFleetWords(me).title}</b><span>{emptyFleetWords(me).line}</span></div>}
             {!loadedOnce && <div className="cwd-empty"><span>Loading your flights…</span></div>}
           </section>
         </>

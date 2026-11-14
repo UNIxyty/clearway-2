@@ -2,7 +2,8 @@
 # After every deploy (called by scripts/deploy-chain.sh once the deploy is done): stop the disk filling up again.
 # What grows on this server with each deploy (2026-11-13 disk report): the build cache (about 10 GB per chain), one more
 # revert image per deployed service, dangling image layers. This removes exactly those three, nothing else:
-#   1. build cache down to 4 GB (unused records first; the next build of an unchanged layer stays warm)
+#   1. build cache down to 4 GB (unused records first; the next build of an unchanged layer stays warm); all of it
+#      when the disk is still under the 15 GB floor at the end
 #   2. revert images older than the newest one, per image and per revert lane (":pre-<sha>" and ":pre-<sha>-notam-sync"
 #      are two lanes of the shared worker image). "Newest" = the newest commit among the tags' shas. A tag whose sha this
 #      checkout does not know is KEPT (cannot be ordered: fail closed), and so is a tie.
@@ -55,6 +56,11 @@ else docker image prune -f > /tmp/cleanup-images.out 2>&1; say "dangling images:
 [ $dry -eq 1 ] || find /tmp -maxdepth 1 -type f \( -name 'deploy-*.out' -o -name 'image-runs-*.build' \) -mtime +14 -delete 2>/dev/null
 
 after=$(free_gb)
+# Still under the floor a rig run needs: the 4 GB of warm build cache goes too (the next build is slower, nothing is lost).
+if [ -n "${after:-}" ] && [ "$after" -lt 15 ]; then
+  if [ $dry -eq 1 ]; then say "would prune the whole build cache (free space is under the 15 GB floor)"
+  else docker builder prune -af > /tmp/cleanup-builder.out 2>&1; say "under the 15 GB floor: the whole build cache went: $(tail -1 /tmp/cleanup-builder.out | cut -c1-80)"; after=$(free_gb); fi
+fi
 say "free space on /: ${before:-?} GB before, ${after:-?} GB after"
 [ -n "${after:-}" ] && [ "$after" -lt 15 ] && say "WARNING: under the 15 GB floor a rig run needs (rig/box/host-lock.sh)"
 exit 0

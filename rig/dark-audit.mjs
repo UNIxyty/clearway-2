@@ -28,6 +28,9 @@ const NOT_PORTAL = {
   "/client": "the client's Timeline — audited by client-ui-check", "/client/flights": "the client's Flights — the same", "/client/account": "a client's own page — audited by client-ui-check, in both themes", "/client/start": "the client's start page — the same",
   "/client/refused": "a client's holding page — the same", "/client/removed": "the same",
   "/client/settings": "the client's display settings (drawn in the wall app's frame) — audited by client-ui-check, in both themes",
+  // The phone app (v3, 2026-11-14): these three addresses only redirect to /digital-wall/phone/, which is the wall app's
+  // and has its own tokens — audited by mobile/phone-v3-check and phone-v3-client-check, light and dark.
+  "/m": "a redirect to the phone app — audited by mobile/phone-v3-check", "/m/wall": "the same", "/m/wall/[id]": "the same",
 };
 // Pages people see signed out: audited in a signed-out browser. Sign-in sits on a dark backdrop in both themes (the
 // night-* tokens); its card, fields and text follow the theme like any page.

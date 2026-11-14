@@ -2055,6 +2055,12 @@
      "public": false
     },
     {
+     "method": "POST",
+     "path": "/api/ui-error",
+     "clientMay": true,
+     "public": false
+    },
+    {
      "method": "GET",
      "path": "/api/stream",
      "clientMay": true,

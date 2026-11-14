@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 //
 //   Display          /digital-wall/timeline            (what hangs on the wall)
 //   Display Console  /digital-wall/console/<page>      (management app)
+//   Phone app        /digital-wall/phone               (staff and clients on a phone; src/phone/)
 //
 // In dev (vite, no /digital-wall prefix) the same shapes work without the
 // prefix: /timeline, /console/operators, ...
@@ -37,6 +38,9 @@ export function parseRoute(pathname) {
     };
   }
 
+  // the phone app (v3, 2026-11-12): one address for staff and clients, /digital-wall/phone (?flight=<id>, #<page>)
+  if (segments.includes('phone')) return { surface: 'phone' };
+
   const last = (segments[segments.length - 1] || '').toLowerCase();
   if (LEGACY_CONSOLE_ALIASES[last]) {
     return { surface: 'console', page: LEGACY_CONSOLE_ALIASES[last] };
@@ -51,7 +55,17 @@ export function routeToPath(route) {
   if (route.surface === 'console') {
     return `${prefix}/console/${route.page || 'flights'}`;
   }
+  if (route.surface === 'phone') return `${prefix}/phone`;
   return `${prefix}/timeline`;
+}
+
+/** The phone app's address, from anywhere in the wall app (a deep link keeps its ?flight= and #page). */
+export function phoneHref({ flight = '', view = '', hash = '' } = {}) {
+  const q = new URLSearchParams();
+  if (flight) q.set('flight', flight);
+  if (view) q.set('view', view);
+  const qs = q.toString();
+  return `${basePrefix()}/phone/${qs ? `?${qs}` : ''}${hash ? `#${String(hash).replace(/^#/, '')}` : ''}`;
 }
 
 export function useRoute() {

@@ -14,7 +14,8 @@ phone's browser. Tier 3 pages (a grid or a runner that needs a wide screen — o
 it the Tier 1 desktop pages send the person to their counterpart, once, after the first measurement
 (`components/m/PhoneRedirect.tsx`: `/agent` → `/m/agent`, `/agent/intake` → `/m/intake`, `/aip` → `/m/airport`,
 `/aip/<ICAO>` → `/m/airport/<ICAO>`), and the ops-room display at `/digital-wall/timeline` sends a **signed-in person** on a
-phone-sized screen, upright or sideways, to `/m/wall` (`opsboard-react/src/components/mobile/ResponsiveWall.jsx`).
+phone-sized screen, upright or sideways, to the phone app at `/digital-wall/phone/`
+(`opsboard-react/src/components/mobile/ResponsiveWall.jsx`).
 Who is asking decides, not the orientation: a **registered screen** — one with a device
 token, `AuthGate`'s `deviceMode`, or one still waiting to be paired — stays on the display at any size, because a
 small screen mounted sideways in an ops room is a wall, not a phone; with no session and the backend unreachable
@@ -22,23 +23,32 @@ nobody is redirected. A screen that is phone-sized gets the mini timeline sidewa
 timeline upright; a tablet keeps the tablet layout. At or above the breakpoint the `/m`
 pages still work, as a 430 px column, and the desktop pages keep their own layout — nothing redirects the other way.
 
-## The Wall tab is a door into the wall (2026-10-28)
+## The Wall tab leads to the phone app (v3, 2026-11-13)
 
-`/m` is the portal, on portal tokens. The **Wall** tab is not a portal page: `app/m/wall/page.tsx` drops the app bar
-(`usePhonePage({ bar: false })`), keeps the tab bar, and frames the wall's own page, `/digital-wall/timeline/?in=m`
-(`?flight=<oprId:nid>` opens one flight; `/m/wall/<id>` redirects there). Behind the door is the wall app
-(`opsboard-react/src/components/mobile/phone/`, from `design/mobile-wall/`): it looks like the wall — the room's own
-palette, font and slashed zero from the wall settings, exactly as the display paints them — and reads no `--cw-*`
-token and no `data-theme`. Its tokens are `--mw-*` on `[data-mobile-wall]` (`mobile-wall.css`, values from
-`tokens.js` › `phoneTokens(useWallColors())`), so portal Light and Dark change the tab bar around it and nothing inside
-it. `ResponsiveWall` draws it only for a signed-in person inside that frame; anywhere else a person on a phone is sent
-to `/m/wall`, and a registered screen stays on the display at any size and orientation. The seam is the tab: the rest of
-`/m` (Flights, Important, NOTAM check, the agent) stays the portal and links into the wall by `/m/wall?flight=…`.
+`/m` is the portal, on portal tokens. The wall on a phone is not a portal page and is no longer framed by one: it is
+the wall app's own phone surface at `/digital-wall/phone/` (`opsboard-react/src/phone/`, from the v3 design), one app
+for staff and for clients. The old addresses only lead there and keep the flight they named: `/m/wall`,
+`/m/wall?flight=<oprId:nid>` and `/m/wall/<id>` (`app/m/wall/`), and a signed-in person on a phone at
+`/digital-wall/timeline/` (with `?flight=`, with an old tab name `#notam` `#limits` `#important` `#more`, or inside
+the old frame `?in=m`, where the top window is replaced). It is one direction and never goes back; a registered screen
+stays on the display at any size and orientation. The rest of `/m` (Flights, Important, NOTAM check, the agent)
+stays the portal and links into the phone app.
 
-What is the phone's own, stored per person on that phone (`mw-phone-prefs:<email>`): the world clocks (first run copies
-the room's), the view and range it opens in, keep-awake. Font and colours are the room's and say "From the wall". The
-amber Wall settings row (only with `wall.bigscreen.settings`) opens the portal's `/m/wall-settings`. Where the build
-differs from the design is in `design/mobile-wall/README.md`.
+The phone app has its own tokens (`--c-*` on `[data-cw3]`, `src/phone/tokens.css`). Nothing under `src/phone/` reads a
+`--cw-*`, `--tl-*` or `--mw-*` token except `pages/console-embed.css`, which lends the console's pages the phone's
+values where they are shown inside the app. It sets no `data-theme`; it follows the theme chosen on this device
+(`cw-theme`: Light, Dark or the system's), which the old phone wall did not.
+
+Opening a flight makes no history entry and leaves the address alone; a page (Settings, Account, a staff page) is one
+step of Back. Staff reach NOTAM check, Limits, Important and More (Operators, Aircraft, CAA details, Reports, Wall
+settings, Service status, Notifications, Phone settings, and the links to the portal's pages) from the rail's Menu. A
+client has Timeline, Flights, Settings and Account and nothing of the staff's: no checks, no service status, no
+limitations, no documents, and the staff code is not downloaded for them.
+
+What is the phone's own, stored per person on that phone (`cw3-phone-prefs:<email>`; a list the old phone wall kept
+under `mw-phone-prefs:<email>` is taken over once): the world clocks, the view and range it opens in, keep-awake and
+which flight events make a notification. A client's start page and their operator and aircraft filter are kept on
+the account instead (`/api/client/prefs`), so another phone shows the same.
 
 ## The facts are shared, not copied
 
@@ -60,8 +70,8 @@ the wall holds no overrides either.
 
 | Page | Data | Loading · empty · error |
 | --- | --- | --- |
-| `/m/wall` (the wall's page, framed) | the board as the display fetches it; Timeline (6H −1/+5 h · 12H −2/+10 h · DAY −4/+20 h, the now-line at the same x in each) or Cards (Now / Attention); aircraft filter; flight events seen this session | skeleton · a plain empty window with a way to widen, or "it is the filter" · failed with nothing held, or the last good board dimmed under STALE |
-| `/m/wall?flight=<id>` | one flight: status, times, airports (Weather · NOTAMs), FR24 link, service status from Leon (`/api/flight-services`), PAX through the shared viewer, the five checks marked from their own sheets ("n of 5 checked · Next") | skeleton · "This flight isn't on the wall" · each sheet fails on its own |
+| `/digital-wall/phone/` (the phone app; `/m/wall` leads here) | the board as the display fetches it; Timeline (6H · 12H · DAY, the now-line at one sixth of the width in each) or the Flights list; operator and aircraft filter; flight events seen this session | grey rows · a plain empty window with a way to widen, or "it is the filter" · failed with nothing held, or the last good board dimmed under a banner |
+| `/digital-wall/phone/?flight=<id>` | one flight: status, times, airports (Weather · NOTAMs), the map, and for staff the service status (`/api/flight-services`), PAX through the shared viewer, limitations, the five checks in a grid with one "Mark checked" at the foot (the check sheets are read-only) | grey blocks · "This flight is no longer on the schedule" · each sheet fails on its own |
 | `/m/flights`, `/m/flights/[id]` | every cached flight, by UTC day, search over callsign / reg / airport / trip | row skeleton · "No flights on …" / "Nothing matches" · error with Try again |
 | `/m/intake`, `[id]`, `[id]/leg/[n]`, `[id]/confirm` | the intake API as the desktop uses it (`intakeApi`); the question first, answered from the list; legs with issues; the existing `ConfirmDialog` | card/row skeleton · "Nothing needs you" · error with Try again |
 | `/m/agent` | `useThread`, the same composer, suggestions; context from `?icao=` / `?flight=` or the wall | the thread · suggestions · the failed send is said in the thread and the composer stays |
@@ -196,11 +206,12 @@ page — docs/portal-tokens.md.
 ## Deliberate differences from the spec
 
 - **No Edit of times on a phone flight.** The wall holds no overrides, so the phone cannot either.
-- **The phone wall's departures from its design** (the room's font and colours rather than the phone's, the shared
-  passenger viewer rather than masked cards, notifications from this session only, clocks reordered by arrows, no
-  plain-English NOTAM summary, no TAF): `design/mobile-wall/README.md`.
+- **The October phone wall's departures from its design** (the room's font and colours rather than the phone's, the
+  shared passenger viewer rather than masked cards, notifications from this session only, clocks reordered by arrows,
+  no plain-English NOTAM summary, no TAF): `design/mobile-wall/README.md`. That build was replaced by the phone app
+  (v3, 2026-11-13), which has the phone's own colours and follows the device's theme.
 - **The display's redirect asks who, not which way up** (decided 2026-10-19): a person on a phone-sized screen goes
-  to `/m/wall` in either orientation; a registered screen never does.
+  to the phone app (`/digital-wall/phone/`; before v3, `/m/wall`) in either orientation; a registered screen never does.
 - **The shared composer's icon buttons are 30–36 px on a desk.** On a phone a scoped rule makes every composer
   button 44 px and hides the keyboard hint for voice; the composer itself is unchanged.
 
@@ -210,12 +221,22 @@ page — docs/portal-tokens.md.
 at 390 × 844 in light and in dark — no horizontal overflow (nothing past the edge unless an ancestor scrolls or clips
 sideways), every target ≥ 44 px, no page error, photographed at 2× to `rig/.scratch/shots/m-*.png`; each page's
 loading, empty and error state by holding, emptying or failing its own route; the redirects at 390 and not at 1024;
-the display redirect for a person upright and sideways, and not for a registered screen; the facts (the phone's flight page shows the
-times and status `shared/wall-facts.mjs` computes from the wall's data); marking from the sheet, then put back.
+the display redirect for a person upright and sideways (to the phone app), and not for a registered screen; the facts
+(the phone app's flight shows the times and status `shared/wall-facts.mjs` computes from the wall's data).
 
-`node --env-file=.env.rig rig/mobile/phone-wall-check.mjs` (needs `rig/.scratch/display-dist`, the wall built at
-`/digital-wall/timeline/`; the runner builds it): the door; inside it no `var(--cw-`, no `data-theme`, the same colours
-in portal Light and Dark, the room's board colour and font; 360 / 390 / 430; the ranges, cards, filter and
-notifications; the open flight, its service rows and PAX; a deep link and a flight that is gone; settings, clocks off;
-empty and failed states; a registered screen stays on the display. `rig/stage1-check.mjs` § 6 holds the phone wall to
-the same no-portal-token rule as the display.
+`node --env-file=.env.rig rig/mobile/phone-v3-check.mjs` (staff, the rig behind `:3999`; needs
+`rig/.scratch/display-dist`, the wall built at `/digital-wall/timeline/`; the runner builds it): the source rule (no
+portal, timeline or old phone token under `src/phone/`); every old address leads to the phone app once and a
+registered screen stays on the display; the timeline and the flight as the old phone wall behaved (rows, ranges,
+filter, notifications, loading, failed, not live and empty states, the clocks, keep-awake; the open flight, its
+airports, passengers and documents, limitations, the map, service status, the five checks and Mark checked, a deep
+link and a flight that is gone); every staff page and sheet reached by taps; what is kept on the phone; a part that
+breaks says "This part failed." with Reload while the rest works; and every screen at 390 and 360 px, light and dark:
+no overlap, nothing cut off, 44 px targets, fields of 16 px or more, zoom not blocked, everything scrolls.
+`node --env-file=.env.rig rig/mobile/phone-v3-client-check.mjs` (a client, the sign-in shell `:3989`): only the
+granted aircraft; a flight outside the grants reads like one that never was; no staff control, word or request (every
+file and API path the browser asked for is looked at); the switches (weather, NOTAMs, map, passenger names) each take
+their part away; the start page and the filter are saved on the account; `?view=flights` and `#account` are
+honoured and staff page names ignored; the support address shows when the setting has one; the same phone rules on
+every client screen. Both use `rig/mobile/phone-v3-lib.mjs`. `rig/stage1-check.mjs` § 6 holds the phone app to the
+no-portal-token rule.

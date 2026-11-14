@@ -1,5 +1,5 @@
 // The red ring, shown (bug report 8 item 2.1 follow-up, 2026-11-11): the rig's Leon holds one OPTION flight (TST203,
-// rig/wall/mock-leon.mjs); the ops display draws the unconfirmed ring on its pill, and the phone wall marks its pill.
+// rig/wall/mock-leon.mjs); the ops display draws the unconfirmed ring on its pill, and the phone app (/digital-wall/phone/) marks its pill.
 // Screenshots of both, light and dark, and of the pill up close. The "with the MVT overdue flash" case needs an
 // unconfirmed flight whose departure is overdue, which the rig's Leon does not hold (its flights are shared by many
 // suites): that case is not proven here and the report says so.
@@ -31,14 +31,12 @@ for (const theme of ["light", "dark"]) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: theme, hasTouch: true, isMobile: true });
   await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch {} }, theme);
   const page = await ctx.newPage();
-  await page.goto(`${SHELL}/m/wall`, { waitUntil: "load" });
-  await page.waitForSelector("iframe[title='Digital Wall']", { timeout: 20000 }).catch(() => {});
-  const frame = page.frameLocator("iframe[title='Digital Wall']");
-  await frame.locator("[data-mobile-wall]").waitFor({ timeout: 30000 }).catch(() => {});
-  await frame.getByRole("radio", { name: "DAY" }).click().catch(() => {});   // TST203 departs in 6 h: outside the 6H range
-  await frame.locator("[data-unconfirmed='1']").first().waitFor({ timeout: 40000 }).catch(() => {});
-  const n = await frame.locator("[data-unconfirmed='1']").count().catch(() => 0);
-  ok(n >= 1, `${theme}: the phone wall marks the unconfirmed flight's pill (data-unconfirmed)`, `${n} marked`);
+  await page.goto(`${SHELL}/digital-wall/phone/`, { waitUntil: "load" });   // the phone app (v3); /m/wall only redirects here
+  await page.locator("[data-phone-app] [data-bottom-bar]").waitFor({ timeout: 30000 }).catch(() => {});
+  await page.locator('[data-bottom-bar] [data-seg="DAY"]').click().catch(() => {});   // TST203 departs in 6 h: outside the 6H range
+  await page.locator("[data-pill][data-unconfirmed]").first().waitFor({ timeout: 40000 }).catch(() => {});
+  const marked = await page.locator("[data-pill][data-unconfirmed]").evaluateAll((els) => els.map((e) => e.getAttribute("data-pill"))).catch(() => []);
+  ok(marked.includes("TST203"), `${theme}: the phone app marks the unconfirmed flight's pill (data-unconfirmed)`, `${marked.length} marked: ${marked.join(" ")}`);
   await page.screenshot({ path: `${OUT}/ring-phone-${theme}.png` });
   await ctx.close();
 }

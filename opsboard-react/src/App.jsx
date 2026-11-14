@@ -1,4 +1,5 @@
 import { Suspense, lazy } from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
 import AuthGate from './AuthGate';
 import { useRoute } from './router';
 
@@ -11,22 +12,30 @@ import { useRoute } from './router';
 const DisplayApp = lazy(() => import('./DisplayApp'));
 const ConsoleApp = lazy(() => import('./ConsoleApp'));
 const ClientApp = lazy(() => import('./client/ClientApp'));
+// The phone app (v3, 2026-11-12): /digital-wall/phone, one app for staff and for clients, its own chunk and its own
+// tokens (src/phone/tokens.css — no portal token). Staff-only parts load as a further chunk inside it.
+const PhoneApp = lazy(() => import('./phone/PhoneApp'));
 
 export default function App() {
   const { route, navigate } = useRoute();
-  const surface = route.surface === 'console' ? 'console' : route.client ? 'client' : 'display';
+  const surface = route.surface === 'console' ? 'console' : route.surface === 'phone' ? 'phone' : route.client ? 'client' : 'display';
 
   return (
     <AuthGate surface={surface}>
+      {/* the last net: a surface that fails outside every inner boundary shows the small message, never a blank page */}
+      <ErrorBoundary where={`surface/${surface}`}>
       <Suspense fallback={null}>
         {surface === 'console' ? (
           <ConsoleApp page={route.page} navigate={navigate} />
+        ) : surface === 'phone' ? (
+          <PhoneApp />
         ) : surface === 'client' ? (
           <ClientApp />
         ) : (
           <DisplayApp />
         )}
       </Suspense>
+      </ErrorBoundary>
     </AuthGate>
   );
 }

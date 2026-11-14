@@ -328,6 +328,7 @@ export default function LimitationsPage() {
 
         {mobileFormOpen && (
           <PushedPage
+            name="limitation"
             title={editingId ? 'Edit limitation' : 'New limitation'}
             subtitle={dirty ? 'Unsaved changes' : editingId ? `editing ${editingId}` : ''}
             subtitleColor={dirty ? t.amber : undefined}

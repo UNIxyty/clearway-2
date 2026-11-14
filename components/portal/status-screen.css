@@ -1,0 +1,33 @@
+/* The status screen on a phone (design "Mobile Pages v3", 2026-11-13): at 699 px and under, the full-page status screen
+   is the phone layout — a 52 px logo bar, an icon, a code line, the headline (22 / 600), the line (16), a quiet line,
+   one 48 px blue button, and a footer with the company's name and the address for questions. A desk keeps the centred
+   card (the classes in StatusScreen.tsx); the embedded card (inside a shell) is not changed. Portal tokens only. The
+   selectors carry two attributes so they outrank the one-class utilities on the same elements. */
+/* the phone-only parts are hidden everywhere else (a desk, and the embedded card at every width) */
+[data-status-icon], [data-status-code], [data-status-foot] { display: none; }
+@media (max-width: 699px) {
+  [data-status-page][data-status-page] { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: 100dvh; padding: env(safe-area-inset-top, 0px) 0 0; overflow: visible; background: var(--cw-bg-page); }
+  [data-status-page] [data-status-backdrop] { display: none; }
+  [data-status-page] [data-status-screen] { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  [data-status-page] [data-status-brand] { flex: none; height: 52px; padding: 0 24px; display: flex; align-items: center; flex-wrap: nowrap; border-bottom: 1px solid var(--cw-border); }
+  [data-status-page] [data-status-brand] svg { height: 20px; }
+  [data-status-page] [data-status-maker] { display: none; }
+  [data-status-page] [data-status-body] { flex: 1; min-height: 0; padding: 72px 24px 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+  [data-status-page] [data-status-body] > * { margin: 0; }
+  [data-status-page] [data-status-icon] { display: flex; color: var(--cw-text-muted); }
+  [data-status-page] [data-status-eyebrow] { padding: 0; border: 0; border-radius: 0; background: none; font: 400 11px/1.4 var(--font-mono), ui-monospace, monospace; letter-spacing: .06em; color: var(--cw-text-muted); }
+  [data-status-page] [data-status-words] { display: none; }
+  [data-status-page] [data-status-code] { display: inline; }
+  [data-status-page] [data-status-body] > h1 { font-size: 22px; font-weight: 600; line-height: 1.25; text-wrap: pretty; }
+  [data-status-page] [data-status-body] > [data-status-line] { font-size: 16px; line-height: 1.5; max-width: none; color: var(--cw-text-body); text-wrap: pretty; }
+  [data-status-page] [data-status-body] > [data-status-note] { font: 400 13px/1.5 var(--font-mono), ui-monospace, monospace; color: var(--cw-text-muted); overflow-wrap: anywhere; }
+  /* the button comes last, under the quiet line */
+  [data-status-page] [data-status-body] > [data-status-actions] { order: 2; margin-top: 12px; }
+  [data-status-page] [data-status-action] { height: 48px; min-width: 0; padding: 0 24px; border: 0; border-radius: 8px; background: var(--cw-primary); color: var(--cw-text-on-primary); font-size: 16px; font-weight: 600; opacity: 1; }
+  [data-status-page] [data-status-action]:hover { background: var(--cw-primary-hover); opacity: 1; }
+  [data-status-page] [data-status-action]:disabled { opacity: .6; }
+  [data-status-page] [data-status-foot] { display: block; flex: none; margin: 0; padding: 16px 24px calc(32px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--cw-border); font-size: 13px; line-height: 1.5; color: var(--cw-text-muted); overflow-wrap: anywhere; }
+  /* a part the footer already carries on a phone (the address for questions in a caller's quiet line) */
+  [data-status-page] [data-status-desk] { display: none; }
+  [data-status-page] [data-status-foot] a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+}

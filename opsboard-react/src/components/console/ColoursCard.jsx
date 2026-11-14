@@ -130,7 +130,7 @@ function ContrastChip({ hex, against }) {
   const low = ratio < WARN_RATIO;
   return (
     <span
-      title={`Contrast ${ratio.toFixed(2)}:1 against the board background (${against}). The wall is read from metres away — below ${WARN_RATIO}:1 text washes out on the panel. Advisory only.`}
+      title={`Contrast ${ratio.toFixed(2)}:1 against the board background (${against}). Read from a distance, text below ${WARN_RATIO}:1 washes out. Advisory only.`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

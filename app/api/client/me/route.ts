@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requireClient } from "@/lib/admin-auth";
 import { normaliseScope, normaliseSwitches } from "@/lib/clients/switches.mjs";
+import { supportEmail } from "@/lib/clients/onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,12 @@ export async function GET() {
   const { data } = await service.from("clients").select("company,person_name,kind,note,status,switches,passenger_level,scope,requested_at,decided_at,decision_note").eq("user_id", auth.user.id).maybeSingle();
   if (!data) return NextResponse.json({ ok: false, error: "That is not on your account." }, { status: 404 });
   const approved = data.status === "approved";
+  const support = await supportEmail(service).catch(() => "");   // the support-address setting; empty = the pages show the company name only
   return NextResponse.json({
     ok: true, status: data.status, company: data.company, personName: data.person_name, kind: data.kind, note: data.note, requestedAt: data.requested_at, decidedAt: data.decided_at,
     decisionNote: data.status === "refused" ? data.decision_note : "",
     switches: approved ? normaliseSwitches(data.switches) : [], passengerLevel: approved ? data.passenger_level : "off",
     scopeKinds: approved ? [...new Set(normaliseScope(data.scope).map((e) => e.kind))] : [],
+    supportEmail: support,
   });
 }

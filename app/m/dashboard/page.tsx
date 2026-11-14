@@ -14,7 +14,7 @@ type Check = { id: string; label: string; state: "operational" | "degraded" | "d
 type Entry = { kind: "edit" | "error"; source?: string; summary: string; actor?: string | null; at: string };
 const STATE_TONE: Record<Check["state"], Tone> = { operational: "ok", degraded: "warn", down: "bad", unknown: "neutral" };
 const STATE_LABEL: Record<Check["state"], string> = { operational: "Working", degraded: "Degraded", down: "Down", unknown: "Unknown" };
-const LINKS = [{ icon: "search", label: "Airport search", href: "/m/airport" }, { icon: "activity", label: "Service status", href: "/m/service-status" }, { icon: "monitor", label: "Wall", href: "/m/wall" }, { icon: "shield-check", label: "NOTAM check", href: "/m/notam-check" }, { icon: "life-buoy", label: "Report a problem", href: "/m/help" }];
+const LINKS = [{ icon: "search", label: "Airport search", href: "/m/airport" }, { icon: "activity", label: "Service status", href: "/m/service-status" }, { icon: "monitor", label: "Wall", href: "/digital-wall/phone/" }, { icon: "shield-check", label: "NOTAM check", href: "/m/notam-check" }, { icon: "life-buoy", label: "Report a problem", href: "/m/help" }];
 const day = () => new Date().toISOString().slice(0, 10);
 
 export default function DashboardPhonePage() {
@@ -35,7 +35,7 @@ export default function DashboardPhonePage() {
 
   const blocks: T2Block[] = [];
   for (const item of layout) {
-    if (item.id === "today") blocks.push({ key: "today", title: "Today", href: "/m/wall", rows: [["Flights", n(flights.data?.total)], ["Delayed", n(delayed.data?.total)], ["NOTAM round", notam.data ? `${notam.data.done ?? 0} of ${notam.data.total ?? 0}` : "—"], ["Open reports", reports.data ? String(openReports) : "—"]] });
+    if (item.id === "today") blocks.push({ key: "today", title: "Today", href: "/digital-wall/phone/", rows: [["Flights", n(flights.data?.total)], ["Delayed", n(delayed.data?.total)], ["NOTAM round", notam.data ? `${notam.data.done ?? 0} of ${notam.data.total ?? 0}` : "—"], ["Open reports", reports.data ? String(openReports) : "—"]] });
     if (item.id === "monitors") { const checks = monitors.data?.checks ?? []; blocks.push({ key: "monitors", title: monitors.data?.lastSweep ? `Services · checked ${new Date(monitors.data.lastSweep).toISOString().slice(11, 16)}Z` : "Services", href: "/m/service-status", rows: checks.length ? checks.map((c) => [c.label, <Badge key={c.id} tone={STATE_TONE[c.state]} small>{STATE_LABEL[c.state]}</Badge>]) : [["Checks", monitors.loading ? "…" : "none yet"]] }); }
     if (item.id === "health" && role === "admin") { const h = health.data; blocks.push({ key: "health", title: "Server", rows: h?.available === false ? [["Metrics", "not available"]] : [["Load", h?.cpu ? `${h.cpu.load1.toFixed(2)} / ${h.cpu.cores}` : "—"], ["Memory free", h?.ram ? `${Math.round((h.ram.availB / h.ram.totalB) * 100)} %` : "—"], ...(h?.disks ?? []).slice(0, 2).map((d): [string, string] => [`Disk ${d.mount}`, `${d.pct} %`]), ...(h?.tempC != null ? [["Temperature", `${Math.round(h.tempC)} °C`] as [string, string]] : [])] }); }
   }
@@ -53,7 +53,7 @@ export default function DashboardPhonePage() {
       )}
       {layout.some((l) => l.id === "links") && (
         <div className="flex flex-col gap-1.5"><span className="px-0.5 pt-1 text-[12px] font-bold tracking-[.06em] text-cw-text-muted">QUICK LINKS</span>
-          <div className="overflow-hidden rounded-[14px] border border-cw-border bg-cw-bg-surface">{LINKS.map((l) => <Link key={l.href} href={l.href} className="flex min-h-12 items-center gap-3 border-t border-cw-divider px-3.5 text-[15px] font-medium text-cw-text first:border-t-0"><span className="flex-1">{l.label}</span></Link>)}</div>
+          <div className="overflow-hidden rounded-[14px] border border-cw-border bg-cw-bg-surface">{LINKS.map((l) => { const cls = "flex min-h-12 items-center gap-3 border-t border-cw-divider px-3.5 text-[15px] font-medium text-cw-text first:border-t-0"; return l.href.startsWith("/digital-wall/") ? <a key={l.href} href={l.href} className={cls}><span className="flex-1">{l.label}</span></a> : <Link key={l.href} href={l.href} className={cls}><span className="flex-1">{l.label}</span></Link>; })}</div>
         </div>
       )}
       {layout.some((l) => l.id === "changelog") && (

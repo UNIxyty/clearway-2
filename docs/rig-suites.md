@@ -137,22 +137,25 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | wall/access-check | 65 | 2026-10-12 |
 | wall/browser-access | 9 | 2026-10-12 |
 | wall/console-theme-check | 40 | 2026-10-18 |
-| mobile/tier1-check | 201 | 2026-10-28 |
-| mobile/tier2-check | 437 | 2026-10-28 |
-| mobile/phone-wall-check | 38 | 2026-10-28 |
+| mobile/tier1-check | 190 (the Wall page left the list: the phone app has its own suite) | 2026-11-14 |
+| mobile/tier2-check | 427 | 2026-11-14 |
+| mobile/phone-v3-check | 1053 (the phone app v3 as staff at /digital-wall/phone/: the old addresses lead there once and a registered screen stays; the timeline and the flight as the old phone wall behaved, T1–T9, F1–F11, D1–D2; every staff page and sheet by taps; the settings kept; a broken part says "This part failed." with Reload; every page and sheet at 390 and 360 px, light and dark: 16 px fields, 44 px targets, no overlap, nothing under the bottom bar. Replaces mobile/phone-wall-check and mobile/staff-phone-check) | 2026-11-14 |
+| mobile/phone-v3-client-check | 412 (the same app as a client, sign-in shell :3989: only the granted aircraft, no staff part drawn and no staff or console file downloaded, the switches, the filter and start page saved on the account, the support address both ways, first-visit set-up, the same audit at 390 and 360 px, light and dark) | 2026-11-14 |
+| error-boundary-check | 45 (one part made to throw in the console, the ops room display, the phone app and the client desk: the small message with Reload, the rest working, the error in the wall's log and never in the words; the timeline's last good picture under NOT LIVE; a phone part's report is taken under either of its two boundary names) | 2026-11-14 |
 | mobile/pax-check | 47 | 2026-10-28 |
 | self-promotion-check | 12 | 2026-10-20 |
 | temporary-access-check | 24 | 2026-10-21 |
-| client-scope-check | 64 | 2026-11-09 |
+| client-scope-check | 66 | 2026-11-14 |
 | client-ui-check | 324 (the client view v2: Admin › Clients approval with the nine switches; the shell, the frame and the Board at 1440/390/360 light and dark; Flights with search; a flight as panel and page; the map and the passengers sheet; Operators & aircraft saved on the account; the start page; Account with start page, appearance, grants and a real password change; the zoom check; the retired pages 404) | 2026-11-10 |
-| client-feed-check | 67 (what a client's browser is given of a flight: the listed fields, ops' notes only by switch; the retired wall reads 404; coords and passenger names; invented notes it makes and removes) | 2026-11-10 |
+| client-feed-check | 85 (what a client's browser is given of a flight: the listed fields, ops' notes only by switch; the retired wall reads 404; coords and passenger names; invented notes it makes and removes; since 2026-11-13 the phone app, opened with a start page saved first, and every aircraft it is given carries what names it and nothing else) | 2026-11-14 |
 | client-ui-check | +23 on 2026-11-11: the client display settings (desk light, phone dark: the ops look cards, a saved setting read back from the client's own profile, the window key ignored, the ops settings route 404, Reset to default) and the status screens (not-found, client not-found, forbidden, an unknown set-password link: centred, logo, headline, one button; the logo light on dark and dark on light) | 2026-11-11 |
+| client-ui-check | 1161 on 2026-11-14 (the client desktop v3 at 1280/1440/1920 light and dark: the sidebar with Help & support and the collapse to a rail; Timeline with its hour labels level and inside their columns at every zoom; Flights with search, the columns lined up; the flight panel and its head; Operators & aircraft; Account from the top, one failed part with Reload; the start page; phones sent to the phone app once; a window narrow for an instant is not; the settings preview shows hours and a flight, desk and phone; the status logo judged by the theme the screen is drawn in) | 2026-11-14 |
 | email-templates | 20 templates × 11 (every email template built with sample values, sent once to the mail mock, rendered at 660/375 light and dark; escaping, preheader, Outlook button, UTC times, no raw variable, no internal hostname) | 2026-11-10 |
 | aip-library | 11 (the AIP library table while ENR is paused: every ENR link one paused state with the one sentence, not counted; the four countries without a public AIP; dated links rebuilt for the cycle in force; the eAIP GEN guesses) | 2026-11-11 |
 | clients-page-check | 41 (red on the pre-fix page: padding ×6, past the edge at 1250, focus; `CLIENTS_CHECK_SELFTEST=overlap` turns the overlap assertion red) | 2026-11-02 |
-| client-onboarding-check | 60 | 2026-11-09 |
+| client-onboarding-check | 62 | 2026-11-14 |
 | files-route-check | 9 (red on 1b3fbbf1: another person read a help draft through /files) | 2026-11-02 |
-| client-gate-check | 49 (red on b8ba5dd0 with the approval redirect off: 74 of 135 handlers answered an unapproved or temporary account; red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client; red on fcf442fb: 93 pages rendered for an unknown role, and the docs search index answered one) | 2026-11-04 |
+| client-gate-check | 49 (red on b8ba5dd0 with the approval redirect off: 74 of 135 handlers answered an unapproved or temporary account; red on 8d627e99 with the middleware block off: 73 of 115 portal handlers answered a client; red on fcf442fb: 93 pages rendered for an unknown role, and the docs search index answered one; 49 again on 2026-11-14, with the gateless portal on :3981 started as rig/run-all-suites.sh starts it) | 2026-11-14 |
 | web-search | 60 (the follow-up section red on 0053146f's rules: a check that was made still showed a partial answer first; the ceiling section red when the day's real-model runs had already spent past its $2, now it starts from an empty day) | 2026-11-05 |
 | agent-disclosure (real model, the rig key, a few cents) | 21 (red on the code before: "hey" → a partial banner and a NOTAM follow-up; "what can you do" 198 tokens) | 2026-11-05 |
 | knowledge-roundtrip (real model for its two answer checks) | 11 (red on the code before: an upload waited for approval; the uploader's own approval was refused only by the page; no Remove) | 2026-11-05 |
@@ -169,7 +172,7 @@ was at load 13-42 (macOS's Bluetooth server stuck at full CPU), and their failur
 | group2-check | 13 | 2026-10-12 |
 | group4-check | 33 | 2026-10-12 |
 | shell-check | 10 (red from at least 8d627e99 until 2026-11-02: a page opened from the sidebar kept the old scroll; fixed in the shell) | 2026-11-02 |
-| stage1-check | 23 | 2026-10-28 |
+| stage1-check | 22 | 2026-11-14 |
 | portal-foundations-check | 30 | 2026-10-12 |
 | stage2-check | 58 | 2026-10-12 |
 | stage3-batch1-check | 39 | 2026-10-12 |

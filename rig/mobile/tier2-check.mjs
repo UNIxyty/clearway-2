@@ -129,7 +129,8 @@ for (const theme of ["light", "dark"]) {
 // ── the More sheet lists every Tier 2 page with its phone route, and marks Permissions Desk ──
 {
   const ctx = await context(browser, { theme: "light" }); const page = await ctx.newPage();
-  await page.goto(`${BASE}/m/wall`, { waitUntil: "load" }); await page.getByRole("button", { name: "More", exact: true }).waitFor({ timeout: 10_000 }).catch(() => {});
+  // (from a portal phone page: /m/wall only redirects to the phone app at /digital-wall/phone/ since v3)
+  await page.goto(`${BASE}/m/flights`, { waitUntil: "load" }); await page.getByRole("button", { name: "More", exact: true }).waitFor({ timeout: 10_000 }).catch(() => {});
   await page.getByRole("button", { name: "More", exact: true }).click(); await page.locator("[role=dialog][aria-label='Every page'] a[href]").first().waitFor({ timeout: 10_000 }).catch(() => {}); await settled(page);   // the agent's pages join once the person's access has been read
   const links = await page.locator("[role=dialog][aria-label='Every page'] a[href]").evaluateAll((as) => as.map((a) => ({ href: a.getAttribute("href"), text: a.textContent.replace(/\s+/g, " ").trim() })));
   const want = ["/m/dashboard", "/m/service-status", "/m/hidden-airports", "/m/notam-check", "/m/operators", "/m/aircraft", "/m/limitations", "/m/important", "/m/caa", "/m/webhooks", "/m/reports", "/m/wall-settings", "/m/history", "/m/knowledge", "/m/activity", "/m/agent-settings", "/m/profile", "/m/settings", "/m/help",

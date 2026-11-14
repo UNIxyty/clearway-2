@@ -150,6 +150,15 @@ for (const [what, path, init] of [
   ["wall write (clocks)", "/digital-wall/api/display/clocks", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ clocks: [] }) }],
   ["wall write (limitation)", "/digital-wall/api/timeline/limitations", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }],
 ]) { const r = await ask(sA, path, init); ok(r.status === 404, `client A → ${what}: 404`, `${r.status} ${r.location}`); }
+// the one wall write a client's page may make besides its own view: the report a broken part of the page sends, so it can
+// be found and fixed. One log line at the wall; answered 204 with no body, and never with what was sent.
+{
+  const report = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ where: "client/flight", name: "Error", message: "rig-client-echo-marker-51", stack: "", component: "", path: "/client" }) };
+  const r = await ask(sA, "/digital-wall/api/ui-error", report);
+  ok(r.status === 204 && r.text === "", "client A → the page-error report (POST /digital-wall/api/ui-error): 204, no body, nothing sent back", `${r.status} ${r.text.slice(0, 60)}`);
+  const out = await fetch(`${B}/digital-wall/api/ui-error`, { ...report, redirect: "manual" }); const outText = await out.text();
+  ok(out.status === 401 && !outText.includes("rig-client-echo-marker-51"), "signed out → the page-error report: 401, nothing sent back", `${out.status} ${outText.slice(0, 60)}`);
+}
 const home = await ask(sA, "/client"); ok(home.status === 200, "client A → /client: 200 (their world)", home.status);
 const me = await ask(sA, "/api/client/me"); ok(me.status === 200 && me.json?.status === "approved" && Array.isArray(me.json?.switches) && !("scope" in (me.json ?? {})), "client A → /api/client/me: their switches, not their scope's values", `${me.status} ${me.json?.switches?.join(",")}`);
 const meStaff = await ask(staff, "/api/client/me"); ok(meStaff.status === 404, "staff → /api/client/me: 404", meStaff.status);

@@ -22,7 +22,8 @@ function Preview({ kind }: { kind: Pick }) {
   );
 }
 
-export default function StartChoice({ person, company }: { person: string; company: string }) {
+// (the person and the company are named by the shell around this page: its sidebar and its crumb)
+export default function StartChoice() {
   const [picked, setPicked] = useState<Pick | null>(null);
   const [error, setError] = useState("");
   async function choose(k: Pick | null) {
@@ -43,8 +44,6 @@ export default function StartChoice({ person, company }: { person: string; compa
   ];
   return (
     <main className="cls" data-client-start="">
-      <header className="cls-head"><span className="clw-brand">Clearway</span><span className="clw-grow" /><span className="clw-muted">{[person, company].filter(Boolean).join(" · ")}</span></header>
-      <div className="cls-body">
         <ol className="cls-steps"><li className="done"><i><MaskIcon name="check" size={12} /></i>Your details</li><li className="done"><i><MaskIcon name="check" size={12} /></i>Password</li><li className="now"><i>3</i>Layout</li></ol>
         <h1>How do you want to watch your flights?</h1>
         <p className="cls-lead">This sets the page you see after signing in. Both stay in the sidebar, and you can change it any time in Account.</p>
@@ -52,13 +51,12 @@ export default function StartChoice({ person, company }: { person: string; compa
           {choices.map((c) => (
             <button type="button" key={c.k} className={`cls-choice${picked === c.k ? " is-picked" : ""}`} onClick={() => choose(c.k)} disabled={Boolean(picked)} data-start-choice={c.k}>
               <Preview kind={c.k} />
-              <span className="cls-choice-text"><span className="cls-icon"><MaskIcon name={c.icon} size={20} /></span><span><b>{c.t}</b><small>{c.d}</small></span><span className={`cl-btn${picked === c.k ? " primary" : ""}`}>{picked === c.k ? "Opening…" : "Choose"}</span></span>
+              <span className="cls-choice-text"><span className="cls-icon"><MaskIcon name={c.icon} size={20} /></span><span><b>{c.t}</b><small>{c.d}</small></span><span className={`clw-btn${picked === c.k ? " is-primary" : ""}`}>{picked === c.k ? "Opening…" : "Choose"}</span></span>
             </button>
           ))}
         </div>
-        <div className="cls-later"><button type="button" className="clw-link" onClick={() => choose(null)} disabled={Boolean(picked)} data-decide-later="">Decide later</button><span className="clw-muted">Opens Timeline.</span></div>
-        {error && <p className="clw-form-error" role="alert">{error}</p>}
-      </div>
+        <div className="cls-later"><button type="button" className="clw-btn" onClick={() => choose(null)} disabled={Boolean(picked)} data-decide-later="">Decide later</button><span className="clw-muted">Opens Timeline.</span></div>
+        {error && <p className="clw-form-error" role="alert" data-start-error="">{error}</p>}
     </main>
   );
 }

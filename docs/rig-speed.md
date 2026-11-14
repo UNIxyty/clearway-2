@@ -82,7 +82,7 @@ refused. The first verification pass, on a quiet machine, cut them from 39.4 to 
 | utc-browser | 115 s | 22 s |
 | stage1-check | 186 s | 119 s |
 | signin-perf (removed with the sign-in panel, 2026-11-02) | 103 s | 42 s |
-| mobile/phone-wall-check | 60 s | 20 s |
+| mobile/phone-v3-check | 60 s | 20 s |
 | permissions-check | 47 s | 9 s |
 
 The later passes, which fixed what the first one got wrong (below), ran on a Mac that was swapping. Their times are not

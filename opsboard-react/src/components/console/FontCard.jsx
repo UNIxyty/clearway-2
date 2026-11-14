@@ -90,12 +90,12 @@ export default function FontCard({ deviceId }) {
     }
   }
 
-  if (!loaded) return <Card><LoadingState>Loading the wall font…</LoadingState></Card>;
+  if (!loaded) return <Card><LoadingState>Loading the font…</LoadingState></Card>;
 
   return (
     <Card>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 14 }}>
-        <div>
+        <div data-ops-words="">
           <div style={{ fontSize: 15, fontWeight: 700, color: t.ink }}>Wall font</div>
           <div style={{ fontSize: 12.5, color: t.muted, marginTop: 3, maxWidth: 620, lineHeight: 1.5 }}>
             The text font of the wall display, per profile like the colours. The wall changes within seconds, no reload.
@@ -115,7 +115,7 @@ export default function FontCard({ deviceId }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '4px 2px 2px' }}>
           <span style={{ fontSize: 13.5, fontWeight: 700, color: t.ink }}>Zero on Nunito, Roboto and Public Sans</span>
           <Segmented value={zeroStyle} onChange={(v) => void chooseZero(v)} options={ZERO_STYLES} />
-          <span style={{ fontSize: 12, color: t.muted, flexBasis: '100%' }}>At the wall’s label size a dot can fill in to a blob; a slash leaves two open triangles and survives small sizes better. The other fonts keep the zero they were designed with.</span>
+          <span style={{ fontSize: 12, color: t.muted, flexBasis: '100%' }}>At label size a dot can fill in to a blob; a slash leaves two open triangles and survives small sizes better. The other fonts keep the zero they were designed with.</span>
         </div>
         {WALL_FONTS.map((f0) => {
           const f = resolveWallFont(f0.id, zeroStyle);
@@ -157,7 +157,7 @@ export default function FontCard({ deviceId }) {
           );
         })}
       </div>
-      <div style={{ fontSize: 12, color: t.faint, marginTop: 12, lineHeight: 1.5 }}>
+      <div data-ops-words="" style={{ fontSize: 12, color: t.faint, marginTop: 12, lineHeight: 1.5 }}>
         Every option ends in a generic sans-serif, so a missing font never falls back to a serif. The measurement above is of
         <b> this </b>machine; the wall kiosk has its own fonts — a Linux kiosk has none of Avenir, Helvetica or Arial and renders the
         generic sans-serif (usually Liberation Sans or DejaVu Sans) for those two options.

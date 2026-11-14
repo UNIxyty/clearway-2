@@ -4,8 +4,9 @@
 // pills — whatever the client's switches said. The page drew none of it; the browser had all of it.
 // Now a flight is a list of fields (digital-wall/lib/client-scope.mjs › CLIENT_FLIGHT_FIELDS) and the notes come only
 // with their switches. This makes its own client and its own invented notes (through the wall's API, as the rig admin),
-// reads every feed as the client with the switches off and then on, looks at a flight on Flights at 1440 and 390 (the
-// frame, since 2026-11-10: iframe[data-client-frame] holds the wall app's client surface), and removes what it made.
+// reads every feed as the client with the switches off and then on, looks at a flight on Flights at 1440 (the frame,
+// since 2026-11-10: iframe[data-client-frame] holds the wall app's client surface) and at 390 (the phone app, where a
+// client on a phone is sent since v3, 2026-11-13: /digital-wall/phone/), and removes what it made.
 //   node --env-file=.env.rig rig/client-feed-check.mjs
 import { chromium } from "playwright";
 import fs from "node:fs";
@@ -156,39 +157,78 @@ try {
   const st = await wall(c, "/api/timeline/sync-status");
   ok(st.status === 200 && Object.keys(st.json ?? {}).every((k) => ["ok", "lastSyncTimestamp", "healthy", "live", "updatedAt"].includes(k)) && typeof st.json?.live === "boolean", "Service status on: live or not, and when last updated; nothing about operators, errors or the cache", Object.keys(st.json ?? {}).join(" "));
 
-  // ── 6. the page: the cards for the notes, the status chip; nothing drawn empty. Flights and the flight are drawn
-  //    inside the frame (iframe[data-client-frame]); the flight is a side panel on a desk, a page on a phone ──
+  // ── 6. the page: the cards for the notes, the status chip; nothing drawn empty. On a desk (1440) Flights and the
+  //    flight are drawn inside the frame (iframe[data-client-frame]); the flight is a side panel. On a phone (390) the
+  //    client is sent to the phone app (/digital-wall/phone/, since v3 2026-11-13): the same facts are checked there —
+  //    what the phone's browser is GIVEN is the listed fields, only their operators' flights are drawn, nothing of the
+  //    staff's is on the screen, and the notes come as "Notes" on the flight, only with their switches ──
   const browser = await chromium.launch();
   const FRAME = "iframe[data-client-frame]";
-  const open = async (theme, width) => {
+  const newCtx = async (theme, width) => {
     const ctx = await browser.newContext({ viewport: { width, height: width < 700 ? 844 : 900 }, colorScheme: theme, hasTouch: width < 700 });
     const ck = cookieOf(c); await ctx.addCookies([{ name: ck.split("=")[0], value: ck.slice(ck.indexOf("=") + 1), url: B }]);
     await ctx.addInitScript((t) => { try { localStorage.setItem("cw-theme", t); } catch { /* no storage */ } }, theme);
+    return ctx;
+  };
+  const open = async (theme, width) => {
+    const ctx = await newCtx(theme, width);
     const page = await ctx.newPage(); await page.goto(`${B}/client/flights`, { waitUntil: "load" }); await page.waitForSelector("[data-client-shell]", { timeout: 20000 });
     const fr = page.frameLocator(FRAME);
-    await fr.locator(`[data-client-surface="${width < 700 ? "phone" : "desk"}"]`).waitFor({ timeout: 30000 });
+    await fr.locator('[data-client-surface="desk"]').waitFor({ timeout: 30000 });
     await fr.locator("[data-flight-row]").first().waitFor({ timeout: 30000 }).catch(() => {});
     await settled(page);
     return { ctx, page, fr };
   };
-  const openFlight = async (fr, fno, width) => {
+  const openFlight = async (fr, fno) => {
     await fr.locator(`[data-flight-row="${fno}"]`).first().click();
-    const panel = width < 700 ? fr.locator(`[data-flight-page="${fno}"]`) : fr.locator(`[data-flight-panel="${fno}"]`);
+    const panel = fr.locator(`[data-flight-panel="${fno}"]`);
     await panel.waitFor({ timeout: 15000 }).catch(() => {});
     // the notes come with /api/flight-info: the Limitations section is drawn once it has answered
-    await panel.locator('[data-card="limitations"] .cwc-note, [data-card="limitations"] .cwc-muted').first().waitFor({ timeout: 20000 }).catch(() => {});
+    await panel.locator('[data-card="limitations"] .cwc-note, [data-card="limitations"] .cwc-muted:not([data-reading])').first().waitFor({ timeout: 20000 }).catch(() => {});   // "Reading…" is not an answer yet
     return panel;
   };
-  const closeFlight = async (fr, width) => { await fr.locator(width < 700 ? "[data-back]" : "[data-close-flight]").click(); await fr.locator("[data-flight-row]").first().waitFor({ timeout: 10000 }).catch(() => {}); };
-  const fno = String(target.flight.flightNo);
-  for (const theme of ["light", "dark"]) for (const width of [1440, 390]) {
+  const closeFlight = async (fr) => { await fr.locator("[data-close-flight]").click(); await fr.locator("[data-flight-row]").first().waitFor({ timeout: 10000 }).catch(() => {}); };
+  // the phone app: where /client/flights sends a phone; when the rig does not answer /digital-wall/phone/ the same
+  // app is under /digital-wall/timeline/phone/. Every answer of the wall's API the page is given is kept, to be read.
+  const PHONE_APP = '[data-phone-app][data-role="client"]';
+  const STAFF_PARTS = "[data-open-limits], [data-open-checks], [data-open-checks-sheet], [data-open-services], [data-mark-checked], [data-staff-console], [data-notam-row], [data-notam-sheet], [data-limit-row], [data-service-row], [data-wall-section], [data-more-group]";
+  const openPhone = async (theme) => {
+    const ctx = await newCtx(theme, 390);
+    const page = await ctx.newPage(); const given = []; const asked = new Set();
+    page.on("response", async (r) => { const u = new URL(r.url()); if (!u.pathname.startsWith("/digital-wall/api/")) return; asked.add(u.pathname.replace("/digital-wall", "")); if (r.status() !== 200) return; try { given.push({ path: u.pathname.replace("/digital-wall", ""), json: await r.json() }); } catch { /* not JSON */ } });
+    await page.goto(`${B}/client/flights`, { waitUntil: "load" }).catch(() => {});
+    await page.waitForURL((x) => /\/phone\//.test(new URL(x).pathname), { timeout: 15000 }).catch(() => {});
+    const sentTo = new URL(page.url()).pathname + new URL(page.url()).search;
+    let drawn = await page.locator(PHONE_APP).waitFor({ timeout: 20000 }).then(() => true, () => false);
+    let addr = drawn ? new URL(page.url()).pathname : "";
+    for (const a of ["/digital-wall/phone/", "/digital-wall/timeline/phone/"]) {
+      if (drawn) break;
+      await page.goto(`${B}${a}?view=flights`, { waitUntil: "load" }).catch(() => {});
+      drawn = await page.locator(PHONE_APP).waitFor({ timeout: 20000 }).then(() => true, () => false); if (drawn) addr = a;
+    }
+    await page.locator('[data-view="flights"] [data-flight-row]').first().waitFor({ timeout: 30000 }).catch(() => {});
+    await settled(page);
+    return { ctx, page, given, asked, sentTo, addr, drawn };
+  };
+  const phoneRow = (page, nid) => page.locator(`[data-view="flights"] [data-flight-row$=":${nid}"]`);
+  const openPhoneFlight = async (page, nid) => {
+    await phoneRow(page, nid).first().scrollIntoViewIfNeeded().catch(() => {}); await phoneRow(page, nid).first().click({ timeout: 10000 }).catch(() => {});
+    const sheet = page.locator(`[data-open-flight$=":${nid}"]`);
+    await sheet.waitFor({ timeout: 15000 }).catch(() => {});
+    // the notes come with /api/flight-info: the sheet has read the flight once its state is no longer "loading"
+    await page.waitForFunction((n) => { const e = document.querySelector(`[data-open-flight$=":${n}"]`); return e && !/load|read/i.test(e.getAttribute("data-flight-state") || ""); }, nid, { timeout: 20000 }).catch(() => {});
+    await page.waitForResponse((r) => /\/api\/flight-info/.test(r.url()), { timeout: 4000 }).catch(() => {}); await page.waitForTimeout(400);
+    return sheet;
+  };
+  const fno = String(target.flight.flightNo), nid = String(target.flight.flightNid);
+  for (const theme of ["light", "dark"]) {
+    const width = 1440;
     const { ctx, page, fr } = await open(theme, width); const tag = `client notes ${theme} ${width}`;
-    // the status line: on a desk, live or behind, in words; a phone draws it only when behind
-    const chip = fr.locator("[data-service-status]"); if (width >= 700) await chip.waitFor({ timeout: 10000 }).catch(() => {}); const chipN = await chip.count(); const chipState = chipN ? await chip.first().getAttribute("data-service-status") : null;
-    if (width >= 700) ok(chipN === 1 && ["live", "behind"].includes(chipState) && /Flight data is live|Not live right now/.test(await chip.first().innerText()), `${tag}: the service status is said in words`, `${chipState} · ${(await chip.first().innerText().catch(() => "")).trim()}`);
-    else ok(chipN === 0 || (chipState === "behind" && /Not live right now/.test(await chip.first().innerText())), `${tag}: the phone says the status only when the data is behind`, chipState ?? "live (nothing drawn)");
+    // the status line: live or behind, in words
+    const chip = fr.locator("[data-service-status]"); await chip.waitFor({ timeout: 10000 }).catch(() => {}); const chipN = await chip.count(); const chipState = chipN ? await chip.first().getAttribute("data-service-status") : null;
+    ok(chipN === 1 && ["live", "behind"].includes(chipState) && /Flight data is live|Not live right now/.test(await chip.first().innerText()), `${tag}: the service status is said in words`, `${chipState} · ${(await chip.first().innerText().catch(() => "")).trim()}`);
     ok(await fr.locator(`[data-flight-row="${fno}"]`).count() >= 1, `${tag}: the flight with the notes is on Flights`, fno);
-    const panel = await openFlight(fr, fno, width);
+    const panel = await openFlight(fr, fno);
     const text = async (sel) => (await panel.locator(sel).innerText().catch(() => "")).replace(/\s+/g, " ");
     ok((await text('[data-card="limitations"]')).includes(`${TAG} limitation`) && /slots required/.test(await text('[data-card="limitations"]')), `${tag}: Limitations shows the limitation, title and text`);
     ok((await text('[data-card="important"]')).includes(`${TAG} notice`) && /fuel by prior arrangement/.test(await text('[data-card="important"]')), `${tag}: the notice from Clearway shows the notice`);
@@ -201,10 +241,65 @@ try {
       // a flight the notes do not match: Limitations and the notice say "none" in words; Authority contacts is not drawn
       const other = recs.find((r) => r.key !== target.key && r.flight.adep?.icao !== icao && r.flight.ades?.icao !== icao && !r.flight.isCnl && (r.flight.limitations ?? []).length === 0 && boardNids.has(String(r.flight.flightNid)));
       if (other) {
-        await closeFlight(fr, width);
-        const p2 = await openFlight(fr, String(other.flight.flightNo), width);
+        await closeFlight(fr);
+        const p2 = await openFlight(fr, String(other.flight.flightNo));
         const t2 = async (sel) => (await p2.locator(sel).innerText().catch(() => "")).replace(/\s+/g, " ");
         ok(/No limitations apply/.test(await t2('[data-card="limitations"]')) && /No notices/.test(await t2('[data-card="important"]')) && await p2.locator('[data-section="caa"]').count() === 0, `${tag}: a flight with no notes says so in words twice, and draws no authority section`);
+      }
+    }
+    await ctx.close();
+  }
+  // the phone app, switches on. A client who has not chosen a start page is walked through set-up first (the phone app
+  // draws it over the flights; client-ui-check and client-onboarding-check cover that walk), so this client chooses one.
+  {
+    const r = await fetch(`${B}/api/client/prefs`, { method: "PUT", headers: { cookie: cookieOf(c), "content-type": "application/json" }, body: JSON.stringify({ start: "flights" }) }).catch(() => null);
+    const j = r && r.ok ? await r.json().catch(() => null) : null;
+    ok(j?.prefs?.start === "flights", "the client's start page is saved before the phone is opened (no set-up steps in the way)", r ? r.status : "no answer");
+  }
+  const feedNids = new Set(recs.map((r) => String(r.flight.flightNid)));
+  const grantedOps = new Set(ops.map((o) => String(o).toLowerCase()));
+  for (const theme of ["light", "dark"]) {
+    const { ctx, page, given, asked, sentTo, addr, drawn } = await openPhone(theme); const tag = `client notes ${theme} 390 (phone app)`;
+    ok(/^\/digital-wall\/phone\/\?view=flights$/.test(sentTo), `${tag}: a phone on /client/flights is sent to the phone app's Flights`, sentTo);
+    ok(drawn && await page.locator("[data-client-shell], iframe[data-client-frame]").count() === 0, `${tag}: the phone app draws for a client, with no desk shell and no frame`, addr || "not drawn");
+    const rowIds = await page.locator('[data-view="flights"] [data-flight-row]').evaluateAll((els) => els.map((e) => e.getAttribute("data-flight-row") || ""));
+    const strangers = rowIds.filter((id) => !feedNids.has(id.slice(id.lastIndexOf(":") + 1)) || !grantedOps.has(id.slice(0, id.lastIndexOf(":")).toLowerCase()));
+    ok(rowIds.length >= 1 && strangers.length === 0, `${tag}: every flight drawn is one of the client's feed, of an operator granted to them`, `${rowIds.length} rows · not theirs: ${strangers.slice(0, 4).join(" ") || "none"}`);
+    ok(await phoneRow(page, nid).count() >= 1, `${tag}: the flight with the notes is on Flights`, fno);
+    const sheet = await openPhoneFlight(page, nid);
+    const state = await sheet.getAttribute("data-flight-state").catch(() => null);
+    ok(await sheet.count() === 1 && await page.locator("[data-open-notes]").count() === 1, `${tag}: the flight opens, with a Notes button`, `state ${state}`);
+    await page.locator("[data-open-notes]").click({ timeout: 8000 }).catch(() => {});
+    const notes = page.locator('[data-sheet="notes"]'); await notes.waitFor({ timeout: 8000 }).catch(() => {});
+    const text = async (sel) => (await notes.locator(sel).innerText().catch(() => "")).replace(/\s+/g, " ");
+    ok((await text('[data-notes="LIM"]')).includes(`${TAG} limitation`) && /slots required/.test(await text('[data-notes="LIM"]')), `${tag}: Notes shows the limitation, title and text`);
+    ok((await text('[data-notes="IMP"]')).includes(`${TAG} notice`) && /fuel by prior arrangement/.test(await text('[data-notes="IMP"]')), `${tag}: Notes shows the notice from Clearway`);
+    ok((await text('[data-notes="CAA"]')).includes(`${TAG} authority`) && /Landing permits/.test(await text('[data-notes="CAA"]')) && /permits@rig\.invalid/.test(await text('[data-notes="CAA"]')), `${tag}: Notes shows the authority and how to reach it`);
+    ok(await page.locator(STAFF_PARTS).count() === 0, `${tag}: nothing of the staff's is on the screen (no checks, service status, limitations list, NOTAM check, console)`, await page.locator(STAFF_PARTS).evaluateAll((els) => els.slice(0, 4).map((e) => e.getAttributeNames().filter((n) => n.startsWith("data-")).join(",")).join(" ")));
+    // what this phone's browser was GIVEN: every flight, by any answer, is the listed fields; no staff read was asked
+    const fl = [], rowKeys = new Set();
+    for (const g of given) {
+      // the feed gives a list of aircraft; one flight (/api/flight-info) gives its one aircraft
+      for (const a of (Array.isArray(g.json?.aircraft) ? g.json.aircraft : g.json?.aircraft && typeof g.json.aircraft === "object" ? [g.json.aircraft] : [])) { for (const k of Object.keys(a)) if (!ROW.has(k) && k !== "flights") rowKeys.add(`${g.path}:${k}`); for (const f of a.flights ?? []) fl.push([g.path, f]); }
+      for (const r of g.json?.flights ?? []) if (r && typeof r === "object") fl.push([g.path, r.flight ?? r]);
+      if (g.json?.flight && typeof g.json.flight === "object") fl.push([g.path, g.json.flight]);
+    }
+    const beyond = [...new Set(fl.flatMap(([path, f]) => Object.keys(f).filter((k) => !FLIGHT.has(k)).map((k) => `${path}:${k}`)))];
+    ok(fl.length >= 1 && beyond.length === 0, `${tag}: every flight the phone's browser was given is the listed fields and nothing else`, `${fl.length} flights read · beyond the list: ${beyond.slice(0, 6).join(" ") || "none"}`);
+    ok(rowKeys.size === 0, `${tag}: every aircraft the phone's browser was given carries what names it and nothing else`, [...rowKeys].slice(0, 6).join(" ") || "none beyond the list");
+    const staffReads = [...new Set(given.map((g) => g.path))].filter((x) => /^\/api\/(flight-services|notam-check|flight-checks|operators|reports|webhooks|alerts)(\/|$)/.test(x));
+    ok(staffReads.length === 0 && !/rig-access-admin|confirmedBy|addedBy|updatedBy|"match"|"checks"|"checklistColor"|"tripStatus"/.test(JSON.stringify(given.map((g) => g.json))), `${tag}: no staff read was answered, and no answer names ops' checks or who wrote a note`, `${staffReads.join(" ") || "none"} · asked: ${[...asked].join(" ")}`);
+    ok(await noOverflow(page), `${tag}: no horizontal scroll`);
+    const wide = await page.locator("[data-phone-app] *").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().right > window.innerWidth + 1).length);
+    ok(wide === 0, `${tag}: nothing runs past the edge of the screen`, wide);
+    await page.screenshot({ path: `${OUT}/client-notes-${theme}-390.png` });
+    if (theme === "light") {
+      // a flight the notes do not match: no Notes button at all (the phone draws the button only when there is a note)
+      const other = recs.find((r) => r.key !== target.key && r.flight.adep?.icao !== icao && r.flight.ades?.icao !== icao && !r.flight.isCnl && (r.flight.limitations ?? []).length === 0 && boardNids.has(String(r.flight.flightNid)));
+      if (other) {
+        await page.goto(`${B}${addr}?view=flights`, { waitUntil: "load" }); await page.locator('[data-view="flights"] [data-flight-row]').first().waitFor({ timeout: 30000 }).catch(() => {});
+        const s2 = await openPhoneFlight(page, String(other.flight.flightNid));
+        ok(await s2.count() === 1 && await page.locator("[data-open-notes]").count() === 0 && await page.locator(STAFF_PARTS).count() === 0, `${tag}: a flight with no notes has no Notes button, and still nothing of the staff's`);
       }
     }
     await ctx.close();
@@ -212,8 +307,14 @@ try {
   await setSwitches(["flight_board"]);
   {
     const { ctx, fr } = await open("light", 1440);
-    const panel = await openFlight(fr, fno, 1440);
+    const panel = await openFlight(fr, fno);
     ok(await panel.count() === 1 && await fr.locator('[data-card="limitations"], [data-card="important"], [data-section="caa"], [data-service-status]').count() === 0, "switches off again: no notes sections and no status line are drawn — a switch that is off adds nothing");
+    await ctx.close();
+  }
+  {
+    const { ctx, page, given } = await openPhone("light");
+    const sheet = await openPhoneFlight(page, nid);
+    ok(await sheet.count() === 1 && await page.locator('[data-open-notes], [data-sheet="notes"]').count() === 0 && !JSON.stringify(given.map((g) => g.json)).includes(TAG), "switches off again, on the phone app: the flight opens with no Notes button, and no answer the phone was given holds a note");
     await ctx.close();
   }
   await browser.close();

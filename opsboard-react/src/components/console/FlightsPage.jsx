@@ -38,6 +38,7 @@ import {
 } from './ui';
 import { TABLE_GRID, gridHeader } from './pageMeta';
 import { errorText } from '../../services/errorText';
+import ErrorBoundary from '../ErrorBoundary';
 
 // Flights — the Console's control page for the wall (approved design):
 // wall banner + show/close-on-wall, today's NOTAM check workflow, and the
@@ -639,6 +640,7 @@ function MobileFlightDetail({
   );
   return (
     <PushedPage
+      name="flight/body"
       title={flight.flightNo}
       titleMono
       subtitle={position > 0 ? `${position} of ${total} · ${rangeWord}` : rangeWord}
@@ -1091,7 +1093,9 @@ export default function FlightsPage() {
           </div>
         )}
 
+        {/* the open flight in its own boundary: one flight that breaks its page leaves the list, and another flight starts clean */}
         {selected && (
+          <ErrorBoundary where="console/sheet/flight" resetKey={flightKey(selected)}>
           <MobileFlightDetail
             flight={selected}
             position={selIndex + 1}
@@ -1105,6 +1109,7 @@ export default function FlightsPage() {
             busy={busyNid === String(selected.flightNid)}
             onToggleWall={() => toggleWall(selected)}
           />
+          </ErrorBoundary>
         )}
       </div>
     );
@@ -1246,6 +1251,8 @@ export default function FlightsPage() {
 
         <div style={{ width: 'clamp(400px, 26vw, 560px)', flex: 'none' }}>
           {selected ? (
+            // the flight panel in its own boundary: a flight that breaks it leaves the table; another flight starts clean
+            <ErrorBoundary where="console/sheet/flight" resetKey={flightKey(selected)}>
             <DetailPanel
               flight={selected}
               status={String(selected.flightNid) === overlayNid ? 'On wall' : deriveStatus(selected)}
@@ -1254,6 +1261,7 @@ export default function FlightsPage() {
               onToggleWall={() => toggleWall(selected)}
               onClose={() => setSelectedKey('')}
             />
+            </ErrorBoundary>
           ) : (
             <div style={{ border: `1.5px dashed ${t.borderInput}`, borderRadius: 16, padding: '40px 24px', textAlign: 'center', color: t.faint }}>
               <Icon name="mouse-pointer-click" size={26} color={t.ghost} />

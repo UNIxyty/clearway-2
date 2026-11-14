@@ -3,6 +3,7 @@
 # revert image and prove each new image runs (scripts/check-image-runs.sh), then deploy (scripts/deploy.sh). It holds
 # the deploy lock from the image check to the end (rig/box/host-lock.sh), so a rig run waits or is paused throughout,
 # not only between the steps. The wait for a gap comes before the lock: waiting for a gap holds back no run.
+# After "CHAIN DONE" it cleans up what a deploy leaves behind (scripts/post-deploy-cleanup.sh), then prints "CLEANUP DONE".
 #   nohup bash scripts/deploy-chain.sh portal digital-wall-frontend > /tmp/deploy-<sha>.out 2>&1 < /dev/null &
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -16,4 +17,10 @@ grep -E "kept|OK|FAIL|CANNOT|all images" /tmp/imgruns.out
 [ $r -eq 0 ] || { echo "image check failed — not deploying"; exit 4; }
 bash scripts/flight-gap.sh 30 > /dev/null || { echo "window closed — not deploying"; exit 3; }
 bash scripts/deploy.sh "$@" 2>&1 | tail -9; d=${PIPESTATUS[0]}
-[ $d -eq 0 ] && echo "CHAIN DONE" || { echo "DEPLOY FAILED ($d) — see the lines above"; exit 5; }
+[ $d -eq 0 ] || { echo "DEPLOY FAILED ($d) — see the lines above"; exit 5; }
+# the gateway's routes come from a file in this checkout: load a changed one (proved first; a refused file is not loaded)
+bash scripts/gateway-refresh.sh 2>&1 | tail -4
+echo "CHAIN DONE"
+# the deploy is done and stays done whatever happens below: build cache, older revert images, dangling layers (2026-11-13)
+bash scripts/post-deploy-cleanup.sh 2>&1 | tail -12
+echo "CLEANUP DONE"

@@ -35,8 +35,8 @@ const M_ROUTES: Record<string, string> = {
 const DESK = new Set(["adm-perms", "aip-library"]);   // the AIP library (2026-11-10) has no phone page yet: the desk page, marked Desk
 
 function TabBar({ tab, hasAgent, intakeNeeds, onMore }: { tab?: PhoneTab; hasAgent: boolean; intakeNeeds: number; onMore: () => void }) {
-  const tabs: Array<{ k: PhoneTab; t: string; icon: string; href?: string; badge?: number }> = [
-    { k: "wall", t: "Wall", icon: "monitor", href: "/m/wall" },
+  const tabs: Array<{ k: PhoneTab; t: string; icon: string; href?: string; badge?: number; out?: boolean }> = [
+    { k: "wall", t: "Wall", icon: "monitor", href: "/digital-wall/phone/", out: true },   // the wall app's phone surface: another document, so a plain link
     { k: "flights", t: "Flights", icon: "plane", href: "/m/flights" },
     ...(hasAgent ? [{ k: "intake" as const, t: "Intake", icon: "plane-landing", href: "/m/intake", badge: intakeNeeds }, { k: "agent" as const, t: "Agent", icon: "bot", href: "/m/agent" }] : []),
     { k: "more", t: "More", icon: "menu" },
@@ -55,6 +55,7 @@ function TabBar({ tab, hasAgent, intakeNeeds, onMore }: { tab?: PhoneTab; hasAge
           </>
         );
         const cls = cx("relative flex h-[58px] flex-col items-center justify-center gap-[3px] text-[11.5px]", on ? "font-bold text-mx-tab-active" : "font-medium text-mx-tab-idle");
+        if (t.href && t.out) return <a key={t.k} href={t.href} className={cls} aria-current={on ? "page" : undefined}>{inner}</a>;
         return t.href ? <Link key={t.k} href={t.href} className={cls} aria-current={on ? "page" : undefined}>{inner}</Link>
           : <button key={t.k} type="button" className={cls} onClick={onMore}>{inner}</button>;
       })}

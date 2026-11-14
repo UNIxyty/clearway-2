@@ -1,15 +1,14 @@
-"use client";
+// A flight on the wall, by its old phone address (/m/wall/<id>): the wall app's phone surface with that flight open
+// (v3, 2026-11-13). The id is the wall's flight id (oprId:flightNid).
+import { redirect } from "next/navigation";
 
-// A flight on the wall, from anywhere in /m (Flights, Important, NOTAM check…): the Wall tab, with that flight open on
-// the wall's own phone page (2026-10-27). The id is the wall's flight id (oprId:flightNid).
-import { useParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { usePhonePage } from "@/components/m/chrome";
+export const dynamic = "force-dynamic";
 
-export default function WallFlightPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  usePhonePage({ title: "Wall", tab: "wall", bar: false });
-  useEffect(() => { router.replace(`/m/wall?flight=${encodeURIComponent(decodeURIComponent(String(id)))}`); }, [id, router]);
-  return null;
+function plain(id: string): string {
+  try { return decodeURIComponent(id); } catch { return id; }
+}
+
+export default function WallFlightPage({ params }: { params: { id: string } }) {
+  const id = plain(String(params?.id || "")).trim();
+  redirect(id ? `/digital-wall/phone/?flight=${encodeURIComponent(id)}` : "/digital-wall/phone/");
 }

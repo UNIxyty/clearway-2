@@ -1,11 +1,14 @@
-// The client's Timeline and Flights (2026-11-10, designs "Client View v2" and "Phone Views"). This is the wall app's
+// The client's Timeline and Flights (2026-11-10; the v3 look 2026-11-13, design "Client Portal v3"). This is the wall app's
 // third surface, framed by the portal's client shell at /client and /client/flights (?in=client). It is the ops
 // display with things taken away: the same Board, the same fetches, the same live stream, fed by the wall backend's
 // client-scoped answers (digital-wall/lib/client-scope.mjs decides what a client is sent; nothing here filters for
 // safety). What the client takes away for themselves — hiding an operator or an aircraft on screen — is a view
 // filter saved on their account through the portal (clientApi.js), never a change to what the server sends.
 //
-// Below PHONE_MAX the phone views draw (ClientPhone); above, the desk (ClientDesk). Both read the same state here.
+// This surface is the DESK only (2026-11-13). A client on a phone is sent to the phone app (/digital-wall/phone/) by
+// the portal's shell before this frame matters; the one page a phone still opens here is Display settings, which
+// folds its sections when the WINDOW is phone-wide (the frame itself is narrower than the window by the sidebar, so
+// its own width says nothing about the device).
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchDisplayClocks, fetchTimelineAircraft } from '../services/timelineApi';
 import { subscribeWallStream } from '../services/wallStream';
@@ -18,7 +21,7 @@ import { PHONE_MAX, applyHidden, fetchMe, fetchPrefs, fetchSyncStatus, fetchView
 import { applyWallFont } from '../theme/wallFont';
 import { clientWallColors } from './clientColors';
 import ClientDesk from './ClientDesk';
-import ClientPhone from './ClientPhone';
+import ErrorBoundary from '../components/ErrorBoundary';
 // the settings page carries the ops console's look cards: loaded only when opened
 const ClientSettings = lazy(() => import('./ClientSettings'));
 import '../../../shared/portal-tokens.css';
@@ -27,6 +30,8 @@ import '../../../shared/timeline-tokens.css';
 import './client.css';
 
 const POLL_MS = 60_000;
+// a colour of the client's own (Display settings) and the timeline token the legend and the swatches read
+const TL_OF = [['stateScheduled', '--tl-scheduled'], ['stateDelayed', '--tl-delayed'], ['stateCtot', '--tl-ctot'], ['stateAirborne', '--tl-flying'], ['stateArrived', '--tl-arrived'], ['stateAog', '--tl-aog'], ['clockUtc', '--tl-clock']];
 
 /**
  * The client's theme: the portal's choice on this device (localStorage cw-theme, shared with the shell on the same
@@ -44,6 +49,11 @@ export function useClientTheme() {
     return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('cw-theme-change', sync); mq?.removeEventListener?.('change', sync); clearInterval(id); };
   }, []);
   return theme;
+}
+
+/** The window's width, not the frame's: the shell's sidebar takes 248 px of it, and the layout follows the device. */
+function windowWidth() {
+  try { return window.top.innerWidth || window.innerWidth; } catch { return window.innerWidth; }
 }
 
 function pageFromLocation() {
@@ -65,7 +75,7 @@ export default function ClientApp() {
   const [error, setError] = useState('');
   const [dataUpdatedAt, setDataUpdatedAt] = useState(0);
   const [feed, setFeed] = useState(null);
-  const [width, setWidth] = useState(() => window.innerWidth);
+  const [width, setWidth] = useState(windowWidth);
   const loadingRef = useRef(false);
 
   // the shell's sidebar changes the page; a change made inside tells the shell
@@ -80,7 +90,7 @@ export default function ClientApp() {
   const goPage = useCallback((next) => { setPage(next); tellShell({ type: 'page', page: next }); }, []);
 
   useEffect(() => {
-    const onResize = () => setWidth(window.innerWidth);
+    const onResize = () => setWidth(windowWidth());
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -126,33 +136,44 @@ export default function ClientApp() {
     return () => { stop = true; clearInterval(id); };
   }, [serviceOn]);
 
-  // hide switches: saved on the account; applied here as a view filter only
+  // hide switches: saved on the account; applied here as a view filter only. The screen follows the switch at once
+  // (it is only a view); "Remembered for next time" is said only while the last save went through
+  const [hideSaveFailed, setHideSaveFailed] = useState(false);
   const setHidden = useCallback((hidden) => {
     const next = { ...prefs, hidden };
     setPrefs(next);
-    savePrefs({ hidden }).then((saved) => setPrefs((cur) => ({ ...cur, hidden: saved.hidden }))).catch(() => {});
+    savePrefs({ hidden }).then((saved) => { setPrefs((cur) => ({ ...cur, hidden: saved.hidden })); setHideSaveFailed(false); }).catch(() => setHideSaveFailed(true));
   }, [prefs]);
 
   const visible = useMemo(() => applyHidden(aircraft, prefs.hidden), [aircraft, prefs.hidden]);
   // the theme's palette, then the person's own colour overrides on top (the wall's colour keys)
   const colors = useMemo(() => ({ ...clientWallColors(theme), ...(view?.settings?.colors ?? {}) }), [theme, view]);
+  // the legend and the status swatches follow a colour the person changed in Display settings (this frame only)
+  const ownTokens = useMemo(() => {
+    const own = view?.settings?.colors ?? {}; const out = {};
+    for (const [k, v] of TL_OF) if (typeof own[k] === 'string' && own[k]) out[v] = own[k];
+    return out;
+  }, [view]);
   const look = useMemo(() => { const s = view?.settings ?? {}; const n = (k, d) => (Number.isFinite(s[k]) ? s[k] : d); return { scale: n('scale', 1.3), timeZoom: n('timeZoom', 1), rowZoom: n('rowZoom', 1), pillHeight: n('pillHeight', 1), markerScale: n('markerScale', 1), labelScale: n('labelScale', 1), acColScale: n('acColScale', 1), autoFitRows: s.autoFitRows === true }; }, [view]);
   const shared = {
-    page, goPage, me, prefs, prefsLoaded, setHidden, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error,
+    page, goPage, me, prefs, prefsLoaded, setHidden, hideSaveFailed, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error,
     dataUpdatedAt, feed, serviceOn, onReload: loadTimeline, theme, look, view, onViewChanged: (v) => { if (v?.settings) { setView((cur) => ({ ...(cur ?? {}), ...v })); applyWallFont(v.settings.font, v.settings.zeroStyle); } },
   };
+  const phone = width <= PHONE_MAX;
   const settings = page === 'settings' ? (
-    <Suspense fallback={<p className="cwd-muted" style={{ padding: 24 }}>Loading the settings…</p>}>
-      <ClientSettings visible={visible} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} view={view} onViewChanged={shared.onViewChanged} phone={width <= PHONE_MAX} goPage={goPage} />
-    </Suspense>
+    <ErrorBoundary where="client/settings">
+      <Suspense fallback={<p className="cwd-loading">Loading the settings…</p>}>
+        <ClientSettings visible={visible} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} view={view} onViewChanged={shared.onViewChanged} phone={phone} goPage={goPage} />
+      </Suspense>
+    </ErrorBoundary>
   ) : null;
 
   return (
     <WallColorsProvider colors={colors}>
       <WallDisplayProvider settings={view?.settings ?? {}}>
         {/* the portal's tokens come with this chunk's stylesheet, so the client surface follows the portal's theme */}
-        <div data-client-surface={width <= PHONE_MAX ? 'phone' : 'desk'} data-theme={theme} className="cw-client">
-          {settings ?? (width <= PHONE_MAX ? <ClientPhone {...shared} /> : <ClientDesk {...shared} />)}
+        <div data-client-surface={phone ? 'phone' : 'desk'} data-theme={theme} className="cw-client" style={ownTokens}>
+          {settings ?? <ClientDesk {...shared} />}
         </div>
       </WallDisplayProvider>
     </WallColorsProvider>

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from './icons';
 import { t } from './ui';
+import ErrorBoundary from '../ErrorBoundary';
 
 // Console mobile kit — the shared pieces of the phone/tablet layouts from
 // the "mobile-tablet" design (sections C + D): pushed pages, bottom sheets,
@@ -35,7 +36,9 @@ function useBodyScrollLock(active = true) {
  * button), scrollable content and an optional fixed bottom action bar
  * (48px controls, 12/14/22 padding per the design).
  */
-export function PushedPage({ title, titleMono = false, subtitle, subtitleColor, onBack, actions, headerRight, bottomBar, children, contentStyle = {} }) {
+// The page's content draws inside its own boundary (console/sheet/<name>, 2026-11-13): if it breaks, the top bar and
+// its Back button stay, and the small "This part failed. Reload" message takes the content's place.
+export function PushedPage({ title, titleMono = false, subtitle, subtitleColor, onBack, actions, headerRight, bottomBar, children, contentStyle = {}, name = 'page' }) {
   useBodyScrollLock();
   return createPortal(
     <div
@@ -98,7 +101,7 @@ export function PushedPage({ title, titleMono = false, subtitle, subtitleColor, 
         {headerRight}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 12, ...contentStyle }}>
-        {children}
+        <ErrorBoundary where={`console/sheet/${name}`}>{children}</ErrorBoundary>
       </div>
       {bottomBar && (
         <div
@@ -111,7 +114,7 @@ export function PushedPage({ title, titleMono = false, subtitle, subtitleColor, 
             gap: 10,
           }}
         >
-          {bottomBar}
+          <ErrorBoundary where={`console/sheet/${name}/actions`} compact>{bottomBar}</ErrorBoundary>
         </div>
       )}
     </div>,
@@ -120,7 +123,7 @@ export function PushedPage({ title, titleMono = false, subtitle, subtitleColor, 
 }
 
 /** C9: bottom sheet over a scrim (grab handle + 22px bottom padding). */
-export function BottomSheet({ open, onClose, children }) {
+export function BottomSheet({ open, onClose, children, name = 'sheet' }) {
   useBodyScrollLock(open);
   if (!open) return null;
   return createPortal(
@@ -147,7 +150,8 @@ export function BottomSheet({ open, onClose, children }) {
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <span style={{ width: 40, height: 4, borderRadius: 3, background: t.border }} />
         </div>
-        {children}
+        {/* its own boundary: a sheet that breaks keeps its scrim (tap to close) and shows the small message */}
+        <ErrorBoundary where={`console/sheet/${name}`} compact>{children}</ErrorBoundary>
       </div>
     </div>,
     document.body

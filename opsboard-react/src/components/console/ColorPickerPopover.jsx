@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from './ui';
+import ErrorBoundary from '../ErrorBoundary';
 
 // Custom colour picker for the Colours tab — console design language instead
 // of the native OS dialog. Swatch button → portal popover (document.body,
@@ -381,6 +382,7 @@ export default function ColorPicker({ value, onChange, wallPalette, ariaLabel, s
         <SheetScrim onClose={close} />
       )}
       {open && btnRef.current && (
+        <ErrorBoundary where="console/sheet/colour-picker" compact>
         <PickerPopover
           anchorRect={btnRef.current.getBoundingClientRect()}
           value={value}
@@ -389,6 +391,7 @@ export default function ColorPicker({ value, onChange, wallPalette, ariaLabel, s
           wallPalette={wallPalette}
           sheet={sheet}
         />
+        </ErrorBoundary>
       )}
     </>
   );

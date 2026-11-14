@@ -15,8 +15,10 @@ by this build"; that was wrong. It is the design for the wall on a phone.
 
 ## What the build is, and where it differs
 
-The build is `opsboard-react/src/components/mobile/phone/` — in the wall app, not the portal. The Wall tab in `/m`
-frames it (`app/m/wall/page.tsx`).
+The build was `opsboard-react/src/components/mobile/phone/` — in the wall app, not the portal; the Wall tab in `/m`
+framed it (`app/m/wall/page.tsx`). It was replaced on 2026-11-13 by the phone app v3 (`opsboard-react/src/phone/`, at
+`/digital-wall/phone/`, its own tokens `--c-*`); `/m/wall` now only leads there. What follows describes the October
+build and is kept as its record.
 
 - **Tokens are `--mw-*`.** The design named them `--cw-*`, the portal's prefix; the wall must read no portal token, and
   the check that proves it (`rig/stage1-check.mjs`) looks for `var(--cw-`. The roles and structure are the design's

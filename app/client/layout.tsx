@@ -1,8 +1,10 @@
-// The client's world (Stage 5; the shell since 2026-11-04; the three-item sidebar since 2026-11-10). The middleware
+// The client's world (Stage 5; the shell since 2026-11-04; the v3 shell since 2026-11-13). The middleware
 // decides who gets here and which page (lib/clients/allow.mjs). This layout gives an APPROVED client the client shell,
 // whose menu is built here, on the server, from the allow-list — so the page source holds their menu and nothing
 // else. The holding pages (refused, removed) render bare: no shell, no menu, no counts. Nothing here imports the
-// portal's staff shell.
+// portal's staff shell. First in the shell's markup, one small inline script: a phone on a desk page is sent to the
+// phone app before the desk UI is drawn (components/client/phone.ts); Settings and the holding pages are not sent.
+// The same script marks a sidebar the person collapsed (components/client/rail.ts), so it is drawn collapsed at once.
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "@/app/client/client.css";
@@ -10,6 +12,8 @@ import ClientShell from "@/components/client/ClientShell";
 import { currentClient } from "@/lib/clients/server-scope";
 import { clientMenu } from "@/lib/clients/allow.mjs";
 import { clientContactEmail } from "./contact";
+import { PHONE_GO_SCRIPT } from "@/components/client/phone";
+import { RAIL_SCRIPT } from "@/components/client/rail";
 
 // Nothing of the portal in the client's <head>: the title is theirs, and no description of what the portal does.
 export const metadata: Metadata = { title: "Your flights", description: "Sign in to see your flights." };
@@ -24,7 +28,7 @@ export default async function ClientLayout({ children }: { children: ReactNode }
       const company = String(scope.company ?? "");
       const person = String((user?.user_metadata as Record<string, unknown> | undefined)?.full_name || ""); // metadata-ok: the display name only, for the initials
       const initials = (person || company).split(/\s+/).map((s) => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-      return <div className="cl-root" data-client-root=""><ClientShell menu={menu} company={company} person={person} initials={initials} contact={await clientContactEmail()}>{children}</ClientShell></div>;
+      return <div className="cl-root" data-client-root=""><script dangerouslySetInnerHTML={{ __html: PHONE_GO_SCRIPT + RAIL_SCRIPT }} /><ClientShell menu={menu} company={company} person={person} initials={initials} contact={await clientContactEmail()}>{children}</ClientShell></div>;
     }
   } catch { /* no shell on any failure: the page alone, which shows nothing it was not given */ }
   return <div className="cl-root" data-client-root="">{children}</div>;

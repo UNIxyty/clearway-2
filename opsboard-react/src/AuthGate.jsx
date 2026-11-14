@@ -66,6 +66,7 @@ export default function AuthGate({ surface = 'display', children }) {
   // client surface (a person with a client account, framed by the portal; never a device, never the console's gate).
   const isDisplay = surface === 'display';
   const isClient = surface === 'client';
+  const isPhone = surface === 'phone';   // the phone app: a person (staff or client), never a device
   // Device tokens are only ever attached on the display surface; the console
   // must always be a real person.
   if (isDisplay) installDeviceFetch();
@@ -256,6 +257,17 @@ export default function AuthGate({ surface = 'display', children }) {
             <div style={{ ...s.text, color: 'inherit', opacity: 0.8 }}>Sign in again to see your flights.</div>
             <a style={s.btn} href="/login">Sign in</a>
           </div>
+        </div>
+      );
+    }
+    if (isPhone) {
+      // the phone app's own sign-in card, in the phone's colours (src/phone/tokens.css is loaded by index.css for this
+      // surface only through the phone chunk; here plain values so the card needs no chunk at all)
+      return (
+        <div data-phone-signed-out="" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 16, padding: '24px', background: '#0d1015', color: '#eceef2', fontFamily: "'Public Sans', system-ui, sans-serif" }}>
+          <div style={{ fontSize: 22, fontWeight: 600 }}>Sign in to Clearway</div>
+          <div style={{ fontSize: 16, lineHeight: 1.5, color: '#c3c8d0' }}>Your session ended. Sign in again and you come back to this page.</div>
+          <a href={loginHref()} style={{ height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, background: '#2563eb', color: '#ffffff', fontSize: 16, fontWeight: 600, textDecoration: 'none' }}>Go to sign in</a>
         </div>
       );
     }

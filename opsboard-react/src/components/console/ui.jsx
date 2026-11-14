@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import Icon from './icons';
+import ErrorBoundary, { PartFailed } from '../ErrorBoundary';
 import portalTokensCss from '../../../../shared/portal-tokens.css?raw';
 import clientTokensCss from '../../../../shared/client-tokens.css?raw';
 import mobileTokensCss from '../../../../shared/mobile-tokens.css?raw';
@@ -1069,6 +1070,15 @@ export function ConfirmDialog({ open, title, body, confirmLabel = 'Delete', dang
         onClick={(e) => e.stopPropagation()}
         style={{ background: t.raised, borderRadius: 16, boxShadow: t.shadowPop, border: `1px solid ${t.border}`, maxWidth: 470, width: '100%', padding: '22px 24px' }}
       >
+        {/* The dialog's content in its own boundary (console/sheet/confirm, 2026-11-13). If it breaks, the action is NOT
+            offered (nobody confirms what they cannot read): the small message, and a way out. */}
+        <ErrorBoundary where="console/sheet/confirm"
+          fallback={(retry) => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <PartFailed compact onRetry={retry} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}><Button variant="ghost" viewOnlyOk onClick={onCancel}>Close</Button></div>
+            </div>
+          )}>
         <div style={{ display: 'flex', gap: 13, alignItems: 'flex-start', marginBottom: 16 }}>
           <span style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: danger ? t.redTint : t.blueTint, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="alert-triangle" size={19} color={danger ? t.red : t.blueDeep} />
@@ -1082,6 +1092,7 @@ export function ConfirmDialog({ open, title, body, confirmLabel = 'Delete', dang
           <Button variant="ghost" viewOnlyOk disabled={busy} onClick={onCancel}>Cancel</Button>
           <Button variant={danger ? 'danger' : 'primary'} spin={busy} disabled={busy} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
+        </ErrorBoundary>
       </div>
     </div>
   );
@@ -1091,12 +1102,13 @@ export function useToast() {
   return useContext(ToastContext);
 }
 
-export function ToastProvider({ children }) {
+/** `rewrite` lets another surface (the client's Display settings) put a card's ops-room words into its own voice. */
+export function ToastProvider({ children, rewrite }) {
   const [toast, setToast] = useState(null);
   const timerRef = useRef(null);
 
   function flash(message, dot = t.green) {
-    setToast({ message, dot });
+    setToast({ message: typeof rewrite === 'function' ? rewrite(String(message ?? '')) : message, dot });
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setToast(null), 2400);
   }

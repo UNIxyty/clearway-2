@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Header, { FALLBACK_CLOCKS } from './components/Header';
-import Board from './components/Board';
+import BoardGuard, { WallPart, WallPartFailed } from './components/DisplayGuards';
+import ErrorBoundary from './components/ErrorBoundary';
 import UpcomingTable from './components/UpcomingTable';
 import FlightOverlay from './components/FlightOverlay';
 import {
@@ -58,7 +59,20 @@ const POLL_MS = 60_000;
 // the query) before components mount, so read it before that happens.
 const DEBUG_VIEWPORT = /[?&#]debug/.test(window.location.href);
 
+// The ops room display must never go blank from one error (2026-11-13). Every part below sits in its own boundary
+// (components/DisplayGuards.jsx): a part that throws is replaced by a small message, tries again on its own, and the
+// rest of the display keeps running. This outer one is for an error in the display's own body: it too tries again on
+// its own (5 s, 15 s, 60 s, then every 60 s), so the screen comes back without anyone touching it.
+// With no error the boundaries draw nothing: the display's elements and styles are what they were.
 export default function DisplayApp() {
+  return (
+    <ErrorBoundary where="display" autoRetry fallback={(retry) => <WallPartFailed part="display" onRetry={retry} style={{ margin: 16 }} />}>
+      <DisplayParts />
+    </ErrorBoundary>
+  );
+}
+
+function DisplayParts() {
   const [aircraft, setAircraft] = useState([]);
   const [windowStartUtc, setWindowStartUtc] = useState('');
   const [windowEndUtc, setWindowEndUtc] = useState('');
@@ -264,18 +278,26 @@ export default function DisplayApp() {
       {/* The NOTAM CHECKED / CHECK NOTAM sign in the top right corner was removed on 2026-11-10 (bug report 8, part 1F):
           display only — the NOTAM check page, its daily check, the mail and "Mark checked" all stay. The clocks bar
           closes up over the space (Header draws no right slot). */}
+      <WallPart where="display/header">
       <Header
         clocks={clocks}
         scale={headerScale}
       />
+      </WallPart>
+      {/* the overlay's own state and stream; the flight panel inside it has its own boundary (display/flight) */}
+      <WallPart where="display/overlay" fallbackStyle={{ position: 'fixed', right: 0, top: Math.round(92 * headerScale), zIndex: 150 }}>
       <FlightOverlay topOffset={Math.round(92 * headerScale)} scale={overlayScale} />
+      </WallPart>
       {/* Sidebar shows ONLY the manual text limitations from the Limitations
           page — NTM/WX/IMP markers live on the flight pills instead. */}
       <div style={s.boardRow}>
       {upcomingTable.enabled && upcomingTable.side === 'left' && (
+        <WallPart where="display/upcoming">
         <UpcomingTable scale={upcomingTable.scale} widthPct={upcomingTable.widthPct} />
+        </WallPart>
       )}
-      <Board
+      {/* The timeline: Board, in the guard that keeps the last good picture and a "NOT LIVE" mark while it fails */}
+      <BoardGuard
         aircraft={aircraft}
         limitations={limitations}
         windowStartUtc={windowStartUtc}
@@ -299,13 +321,17 @@ export default function DisplayApp() {
         }}
       />
       {upcomingTable.enabled && upcomingTable.side === 'right' && (
+        <WallPart where="display/upcoming">
         <UpcomingTable scale={upcomingTable.scale} widthPct={upcomingTable.widthPct} />
+        </WallPart>
       )}
       </div>
       {/* Read-only voice readout (item 6): bottom centre, room wall only —
           the phone/tablet views are personal screens and don't show it. */}
+      <WallPart where="display/voice" fallbackStyle={{ position: 'fixed', left: '50%', bottom: 10, transform: 'translateX(-50%)', zIndex: 200, margin: 0 }}>
       <VoiceReadout scale={sidebarScale} />
-      {debugViewport && <ViewportDebug />}
+      </WallPart>
+      {debugViewport && <WallPart where="display/debug" fallbackStyle={{ position: 'fixed', left: 12, top: 12, zIndex: 300, margin: 0 }}><ViewportDebug /></WallPart>}
       {!loadedOnce && <div style={s.notice}>Loading timeline…</div>}
       {error && <div style={{ ...s.notice, ...s.noticeError }}>Data unavailable: {error}</div>}
       {countLine && countLine.level !== 'ok' && (
@@ -313,6 +339,7 @@ export default function DisplayApp() {
       )}
     </div>
     ) : (
+    <WallPart where="display/narrow" fallbackStyle={{ margin: 16 }}>
     <ResponsiveWall
       vp={vp}
       aircraft={aircraft}
@@ -335,6 +362,7 @@ export default function DisplayApp() {
         fetchNotamCheckToday().then((p) => setNotamState(p)).catch(() => {});
       }}
     />
+    </WallPart>
     )}
     </WallDisplayProvider>
     </WallColorsProvider>

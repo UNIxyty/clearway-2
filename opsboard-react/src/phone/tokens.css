@@ -1,0 +1,29 @@
+/* The phone app's tokens (design "Mobile Wall - Phone v3": clearway-mobile-v3.css). The ONLY colour and type source of
+   the phone app: nothing under src/phone/ reads a portal token (--cw-*, --tl-*) or a wall-room colour. The design names
+   its two font variables --cw-font / --cw-mono; here they are --c-font / --c-mono, because --cw-* is the portal's
+   namespace and the phone must not look like it reads it. Scope: [data-cw3="dark"|"light"] on the phone app's root. */
+[data-cw3] { --c-font: 'Public Sans', system-ui, sans-serif; --c-mono: 'IBM Plex Mono', ui-monospace, monospace; }
+[data-cw3], [data-cw3] * { box-sizing: border-box; }
+[data-cw3] { font-family: var(--c-font); font-size: 13px; line-height: 1.35; color: var(--c-t1); background: var(--c-bg);
+  font-variant-numeric: tabular-nums slashed-zero; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+[data-cw3] button, [data-cw3] a, [data-cw3] [role="button"] { touch-action: manipulation; }
+[data-cw3] button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: inherit; }
+[data-cw3] a { color: inherit; text-decoration: none; }
+/* 16px or more in every field: iOS zooms the page when a smaller field takes focus */
+[data-cw3] input, [data-cw3] select, [data-cw3] textarea { font: inherit; font-size: 16px; color: var(--c-t1); outline: none; -webkit-appearance: none; appearance: none; }
+[data-cw3] input::placeholder, [data-cw3] textarea::placeholder { color: var(--c-t4); }
+[data-cw3] :focus-visible { outline: 2px solid var(--c-inv); outline-offset: 2px; }
+[data-cw3="dark"] { color-scheme: dark; --c-bg: #0d1015; --c-bg2: #14181e; --c-s1: #1a1f27; --c-s2: #232a34; --c-skel: #1c2129; --c-l1: #252b34; --c-l2: #333a45;
+  --c-t1: #eceef2; --c-t2: #c3c8d0; --c-t3: #959ca8; --c-t4: #8c93a0; --c-inv: #2563eb; --c-on-inv: #ffffff; --c-scrim: rgba(0, 0, 0, .60);
+  --c-ok: #5bd08a; --c-warn: #f0b252; --c-bad: #ff8f8f; --c-air: #62c3f5; --c-show-light: none; --c-show-dark: block; }
+[data-cw3="light"] { color-scheme: light; --c-bg: #fbfbfc; --c-bg2: #ffffff; --c-s1: #f0f1f3; --c-s2: #e9ebee; --c-skel: #eceef1; --c-l1: #e6e7ea; --c-l2: #d6d8dc;
+  --c-t1: #17181c; --c-t2: #3a3d44; --c-t3: #5f646d; --c-t4: #676c75; --c-inv: #2563eb; --c-on-inv: #ffffff; --c-scrim: rgba(16, 18, 22, .40);
+  --c-ok: #13773a; --c-warn: #a14a07; --c-bad: #b91c1c; --c-air: #0369a1; --c-show-light: block; --c-show-dark: none; }
+@keyframes cw3-up { from { transform: translateY(16px); } to { transform: translateY(0); } }
+@keyframes cw3-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { [data-cw3] * { animation: none !important; transition: none !important; } }
+/* the phone app owns the whole document: the wall's kiosk rules (html/body fixed height, no scroll) stay, the app scrolls inside itself */
+html.cw3-doc, html.cw3-doc body, html.cw3-doc #root { height: 100%; margin: 0; overflow: hidden; background: #0d1015; }
+html.cw3-doc[data-cw3-theme="light"], html.cw3-doc[data-cw3-theme="light"] body { background: #fbfbfc; }
+.cw3-scroll { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; min-height: 0; }
+.cw3-press:active { opacity: .7; }

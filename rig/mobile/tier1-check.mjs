@@ -5,8 +5,9 @@
 //   - the page reports no uncaught error.
 // Each page's loading, empty and error states are reached by holding, emptying or failing its own data route.
 // Then the redirects (a 390 px viewport on /agent, /agent/intake, /aip, /aip/EVRA lands on /m; 1024 px stays; the
-// ops-room display at /digital-wall/timeline sends a signed-in person on a phone-sized screen to /m/wall, upright or
-// sideways, and leaves a registered screen on the display) and the facts: the phone's flight page shows the times and status that shared/wall-facts.mjs computes
+// ops-room display at /digital-wall/timeline sends a signed-in person on a phone-sized screen to the phone app at
+// /digital-wall/phone, upright or
+// sideways, and leaves a registered screen on the display) and the facts: the phone app's flight shows the times and status that shared/wall-facts.mjs computes
 // from the wall's own data — the same module the display's mapFlight is built from.
 // Needs the rig (rig/start.sh: portal :3998, agent :5175, wall :5199 behind the proxy :3999) and the built wall
 // dist (cd opsboard-react && npx vite build) for the display redirect:
@@ -94,8 +95,8 @@ async function audit(name, theme, page, errors) {
 // ── the Tier 1 pages, both themes ──
 const enc = encodeURIComponent;
 const PAGES = [
-  // The Wall tab is a door into the wall's own phone page since 2026-10-27; its screens are rig/mobile/phone-wall-check.mjs.
-  { name: "wall", path: "/m/wall", ready: "iframe[title='Digital Wall']" },
+  // The Wall tab leads to the phone app (/digital-wall/phone/, v3, 2026-11-13); /m/wall only redirects there. Its
+  // screens and that redirect are rig/mobile/phone-v3-check.mjs.
   { name: "flights", path: "/m/flights", ready: "a[href^='/m/flights/']" },
   { name: "flight", path: `/m/flights/${enc(flightId)}`, ready: "text=UTC" },
   { name: "flight-passengers", path: `/m/flights/${enc(flightId)}/passengers`, ready: "[data-passenger-viewer]" },
@@ -207,13 +208,14 @@ const STATES = [
     const file = u.pathname.startsWith("/digital-wall/") && !/\.[a-z0-9]+$/i.test(u.pathname) ? "opsboard-react/dist/index.html" : `opsboard-react/dist${u.pathname.replace(/^\/digital-wall/, "")}`;
     try { await route.fulfill({ path: file }); } catch { await route.fulfill({ status: 404, body: "" }); }
   }); };
-  // who is asking decides, not the orientation: a signed-in person on a phone-sized screen gets the staff phone app
-  // (the wall's own, since 2026-11-12; before that the portal's /m/wall), upright or sideways; a registered screen
-  // (device token, approved) stays on the display at the same sizes
+  // who is asking decides, not the orientation: a signed-in person on a phone-sized screen is sent to the phone app
+  // (/digital-wall/phone, v3, 2026-11-13; before that the staff phone app drawn in place, and before that the
+  // portal's /m/wall), upright or sideways; a registered screen (device token, approved) stays on the display at the
+  // same sizes
   const LANDSCAPE = { width: 844, height: 390 };
   for (const [vp, who, expect, what] of [
-    [PHONE, "person", "/digital-wall/timeline", "a signed-in person on an upright phone at /digital-wall/timeline gets the staff phone app"],
-    [LANDSCAPE, "person", "/digital-wall/timeline", "…and sideways too"],
+    [PHONE, "person", "/digital-wall/phone", "a signed-in person on an upright phone at /digital-wall/timeline is sent to the phone app"],
+    [LANDSCAPE, "person", "/digital-wall/phone", "…and sideways too"],
     [PHONE, "screen", "/digital-wall/timeline", "a registered screen the size of an upright phone stays on the display"],
     [LANDSCAPE, "screen", "/digital-wall/timeline", "…and sideways (a small screen mounted sideways is a wall, not a phone)"],
   ]) {
@@ -224,53 +226,35 @@ const STATES = [
       await ctx.route(/\/api\/user(\?|$)/, (route) => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ ok: false, error: "Sign in" }) }));
     }
     const page = await ctx.newPage(); await page.goto(`${BASE}/digital-wall/timeline`, { waitUntil: "load" });
-    try { await page.waitForURL((u) => u.pathname === expect, { timeout: 6000 }); } catch {} await settled(page);
-    if (who === "person") await page.waitForSelector("[data-staff-phone]", { timeout: 30000 }).catch(() => {});
-    const shown = who === "screen" ? await page.locator("[data-wall-display], canvas, [class*=timeline], [data-count-line]").count() : await page.locator("[data-staff-phone] [data-staff-tabs]").count();
-    ok(new URL(page.url()).pathname === expect && shown > 0, what, `${page.url()} · ${who === "screen" ? "display elements" : "staff phone"} ${shown}`);
+    const at = () => new URL(page.url()).pathname.replace(/\/$/, "");
+    try { await page.waitForURL((u) => u.pathname.replace(/\/$/, "") === expect, { timeout: 6000 }); } catch {} await settled(page);
+    if (who === "person") await page.waitForSelector('[data-phone-app][data-role="staff"]', { timeout: 30000 }).catch(() => {});
+    const shown = who === "screen" ? await page.locator("[data-wall-display], canvas, [class*=timeline], [data-count-line]").count() : await page.locator('[data-phone-app][data-role="staff"] [data-rail-btn]').count();
+    ok(at() === expect && shown > 0 && (who === "person" || await page.locator("[data-phone-app]").count() === 0), what, `${page.url()} · ${who === "screen" ? "display elements" : "phone app rail buttons"} ${shown}`);
     await ctx.close();
   }
 }
 
-// ── the facts: the wall's phone page shows what shared/wall-facts.mjs computes from the wall's data ──
-const wallFrame = async (page, path) => {
-  await page.goto(`${BASE}${path}`, { waitUntil: "load" });
-  const h = await page.waitForSelector("iframe[title='Digital Wall']", { timeout: 20000 });
-  const f = await h.contentFrame(); await f.waitForSelector("[data-mobile-wall]", { timeout: 30000 }); await settled(page);
-  return f;
-};
+// ── the facts: the phone app's flight shows what shared/wall-facts.mjs computes from the wall's data ──
+// (the rig proxy serves the built phone app at /digital-wall/phone/; a link with ?flight=<id> opens that flight)
 {
   const t = flightTimes(pick.flight); const status = statusFromFlight(pick.flight);
   const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
-  const f = await wallFrame(page, `/m/wall/${enc(flightId)}`);
-  const text = (await f.locator("[role=dialog][aria-label=Flight]").innerText({ timeout: 15000 }).catch(() => "")).replace(/\s+/g, " ");
+  await page.goto(`${BASE}/digital-wall/phone/?flight=${enc(flightId)}`, { waitUntil: "load" });
+  await page.waitForSelector(`[data-open-flight="${flightId}"]`, { timeout: 30000 }).catch(() => {}); await settled(page);
+  const text = (await page.locator("[data-open-flight]").innerText({ timeout: 15000 }).catch(() => "")).replace(/\s+/g, " ");
   ok(text.includes(t.depHm) && text.includes(t.arrHm), `facts: ${pick.flight.flightNo} shows the shared module's departure ${t.depHm} and arrival ${t.arrHm}`, text.slice(0, 200));
   const WALL_WORD = { scheduled: "SCHEDULED", delayed: "DELAYED", ctot: "CTOT", airborne: "AIRBORNE", arrived: "ARRIVED", cancelled: "CANCELLED" };
-  ok(new RegExp(`${WALL_WORD[status]}|${STATUS_LABEL[status]}`, "i").test(text), `facts: the status reads the wall's word for "${status}"`, text.slice(0, 120));
+  const mark = await page.locator("[data-flight-status]").first().getAttribute("data-flight-status").catch(() => null);
+  ok(mark === status || new RegExp(`${WALL_WORD[status]}|${STATUS_LABEL[status]}`, "i").test(text), `facts: the status reads the wall's word for "${status}"`, `${mark} · ${text.slice(0, 120)}`);
   await page.goto(`${BASE}/m/flights/${enc(flightId)}`, { waitUntil: "load" }); await settled(page);
   const text2 = (await page.locator("[data-phone-shell]").innerText()).replace(/\s+/g, " ");
   ok(text2.includes(t.stdHm) && text2.includes(t.staHm), `facts: the flight record shows STD ${t.stdHm} and STA ${t.staHm} from the same module`, text2.slice(0, 200));
   await ctx.close();
 }
 
-// ── marking from the phone: the open checks in the Limitations and CAA sheet are marked there, then put back ──
-{
-  const ctx = await context({ theme: "light" }); const page = await ctx.newPage();
-  const f = await wallFrame(page, `/m/wall/${enc(flightId)}`);
-  const openHere = openChecksOf(pick.flight).filter((k) => ["imp", "wx", "caa"].includes(k));
-  const ntmOpen = openChecksOf(pick.flight).includes("ntm");
-  await f.getByRole("button", { name: /^LIMITATIONS AND CAA/ }).click(); await settled(page);
-  const btn = f.getByRole("button", { name: /^Mark \d checked$/ });
-  if (openHere.length && !ntmOpen && (await btn.count()) === 1 && (await btn.isEnabled())) {
-    ok(true, `marking: the sheet offers '${await btn.textContent()}' for ${openHere.join(", ")}`);
-    await btn.click(); await settled(page);
-    const foot = (await f.locator("[role=dialog][aria-label='Limitations and CAA']").innerText().catch(() => "")).replace(/\s+/g, " ");
-    ok(/All four here are checked|of 4 here still to check/.test(foot) && !/Mark \d checked/.test(foot), "marking: after the tap the sheet reads them checked, with who did it", foot.slice(0, 200));
-    const r = await fetch(`${BASE}/digital-wall/api/flight-checks`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ oprId: pick.oprId, flightNid: pick.flightNid, types: openHere, checked: false }) });
-    ok(r.ok, "marking: put back (unchecked by the API) so the rig is as it was", String(r.status));
-  } else ok(!openHere.length || ntmOpen, `marking: ${!openHere.length ? "nothing open among IMP / WX / CAA on the picked flight" : "its NOTAMs are open too (an airport-wide acknowledgement this check will not make)"}, so nothing is marked here`, openChecksOf(pick.flight).join(","));
-  await ctx.close();
-}
+// Marking from the phone (one "Mark checked" button at the foot of the flight, the marks put back afterwards) is
+// checked in rig/mobile/phone-v3-check.mjs (F9) since the phone app v3; the old Limitations-and-CAA sheet is gone.
 
 // ── the confirm step refuses until the original email was read on this phone ──
 {

@@ -33,8 +33,12 @@ export const CLIENT_READS = {
   "/api/timeline/sync-status": "service_status",
   "/api/client/view": null,       // the look of their own timeline (sizing, colours, font): read here, written by CLIENT_WRITES
 };
-/** The writes a client may make at the wall: their own view settings, nothing else (server.mjs handles them in the client block). */
-export const CLIENT_WRITES = { "/api/client/view": ["PUT", "DELETE"] };
+/**
+ * The writes a client may make at the wall (server.mjs handles them in the client block): their own view settings,
+ * and the render-error report of their own page (2026-11-13) — one line in the server's log saying which part of the
+ * page broke, so it can be fixed; it reads nothing, stores nothing and is answered 204 with no body.
+ */
+export const CLIENT_WRITES = { "/api/client/view": ["PUT", "DELETE"], "/api/ui-error": ["POST"] };
 
 /** The 404 a client gets for anything that is not theirs. One sentence, the same for a flight and for a page. */
 export const NOT_ON_ACCOUNT = { ok: false, error: "That is not on your account." };

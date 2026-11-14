@@ -156,6 +156,7 @@ function mapAircraft(group) {
     oprId: group.oprId || null,
     reg: group.registration || 'UNKNOWN',
     type: group.operatorName || group.oprId || 'OPS',
+    acType: group.acftTypeIcao || null,   // the aircraft's ICAO type, for the client's panels (data only: the Board does not read it)
     flights: mappedFlights,
   };
 }

@@ -1,4 +1,4 @@
-// A flight, as a client reads it (design "Client View v2" › A flight opened; "Phone Views" › flight page). The ops
+// A flight, as a client reads it (design "Client Portal v3" › flight panel, 2026-11-13: hairline rows, no boxes). The ops
 // overlay without the ops parts: status in plain words, the route, the times, weather at both ends, the NOTAMs for the
 // flight (read-only, the one NOTAM card), the notices ops chose to share, and passengers only when the passengers
 // switch is on. There is no checklist, no notes, no names of who checked what, and nothing to edit. Everything comes
@@ -10,6 +10,7 @@ import { STATUS_WORD, statusSentence, fetchPassengers } from './clientApi';
 import { prepareNotams } from '../../../shared/notam-parse.mjs';
 import { notamCardHtml } from '../../../shared/notam-card.mjs';
 import '../../../shared/notam-card.css';
+import Icon from './clientIcons';
 
 const SW = { scheduled: 'var(--tl-scheduled)', delayed: 'var(--tl-delayed)', ctot: 'var(--tl-ctot)', airborne: 'var(--tl-flying)', arrived: 'var(--tl-arrived)', cancelled: 'transparent' };
 
@@ -89,7 +90,7 @@ function Passengers({ p }) {
   return (
     <div className="cwc-pax" data-card="passengers">
       {st.rows.map((r, i) => <div key={r.id || i} className="cwc-pax-row"><span className="cwc-k">{i + 1}</span><span>{r.name}</span></div>)}
-      <p className="cwc-muted cwc-pax-foot">Names as entered in Leon, shared by Clearway ops.</p>
+      <p className="cwc-muted cwc-pax-foot">Names as shared by Clearway ops.</p>
     </div>
   );
 }
@@ -105,6 +106,11 @@ export default function ClientFlightBody({ p, me, names = {}, info, extraTop = n
   const lims = notes.filter((n) => n.type === 'LIM');
   const caa = notes.filter((n) => n.type === 'CAA');
   const paxOn = (me?.passengerLevel && me.passengerLevel !== 'off') && !canc;
+  // the notes come with the flight's own read: until it has answered the sections say so, and "none" is said only
+  // once it is known (2026-11-13: "No limitations apply" stood there while the read was still on its way)
+  const noNotes = (none) => (info.state === 'loading' ? <p className="cwc-muted" data-reading="">Reading…</p>
+    : info.state === 'failed' ? <p className="cwc-muted" data-notes-unread="">{info.error}</p>
+      : <p className="cwc-muted">{none}</p>);
   return (
     <div className="cwc-body">
       <div className="cwc-top">
@@ -114,10 +120,10 @@ export default function ClientFlightBody({ p, me, names = {}, info, extraTop = n
       </div>
       {extraTop}
       {afterTop}
-      {canc && <div className="cwc-note" data-card="cancelled">This flight was cancelled. It stays here for 7 days so you can see what was planned.</div>}
+      {canc && <div className="cwc-note is-cancelled" data-card="cancelled"><Icon name="circle-slash" className="cwc-note-icon" /><span>This flight was cancelled. It stays here for 7 days so you can see what was planned.</span></div>}
       <div className="cwc-route" data-card="route">
         <span><b>{p.dep}</b><small>{names[p.dep] || ''}</small></span>
-        <span className="cwc-arrow" aria-hidden>→</span>
+        <span className="cwc-arrow" aria-hidden><Icon name="arrow-right" /></span>
         <span className="is-right"><b>{p.arr}</b><small>{names[p.arr] || ''}</small></span>
       </div>
       <section><h3>Times (UTC)</h3><TimesTable p={p} /></section>
@@ -131,16 +137,16 @@ export default function ClientFlightBody({ p, me, names = {}, info, extraTop = n
       {!canc && on('notams') && info.state === 'ok' && (
         <section data-section="notams"><h3>NOTAMs for this flight</h3><Notams icao={p.dep} payload={info.data?.notams?.dep} /><Notams icao={p.arr} payload={info.data?.notams?.arr} /></section>
       )}
+      {paxOn && <section data-section="passengers"><h3>Passengers{Number.isFinite(p.passengerCount) ? ` · ${p.passengerCount}` : ''}</h3><Passengers p={p} /></section>}
       {!canc && on('limitations') && (
-        <section data-section="limitations" data-card="limitations"><h3>Limitations</h3>{lims.length ? lims.map((n) => <div key={n.id} className="cwc-note is-lim"><b>{n.title}</b>{n.description && <span>{n.description}</span>}</div>) : <p className="cwc-muted">No limitations apply to this flight.</p>}</section>
+        <section data-section="limitations" data-card="limitations"><h3>Limitations</h3>{lims.length ? lims.map((n) => <div key={n.id} className="cwc-note is-lim"><b>{n.title}</b>{n.description && <span>{n.description}</span>}</div>) : noNotes('No limitations apply to this flight.')}</section>
       )}
       {!canc && on('important') && (
-        <section data-section="important" data-card="important"><h3>Notice from Clearway</h3>{important.length ? important.map((n) => <div key={n.id} className="cwc-note is-imp"><b>{n.title}</b>{n.description && <span>{n.description}</span>}</div>) : <p className="cwc-muted">No notices for this flight.</p>}</section>
+        <section data-section="important" data-card="important"><h3>Important</h3>{important.length ? important.map((n) => <div key={n.id} className="cwc-note is-imp"><b>{n.title}</b>{n.description && <span>{n.description}</span>}</div>) : noNotes('No notices for this flight.')}</section>
       )}
       {!canc && on('caa') && caa.length > 0 && (
         <section data-section="caa" data-card="caa"><h3>Authority contacts</h3>{caa.map((n) => <div key={n.id} className="cwc-note"><b>{n.caa?.authorityName || n.caa?.country || n.title}</b>{n.caa?.functionText && <span>{n.caa.functionText}</span>}{n.caa?.contact && <span>{n.caa.contact}</span>}{n.caa?.phones && <span>{String(n.caa.phones)}</span>}{n.caa?.mail && <span>{String(n.caa.mail)}</span>}</div>)}</section>
       )}
-      {paxOn && <section data-section="passengers"><h3>Passengers{Number.isFinite(p.passengerCount) ? ` · ${p.passengerCount}` : ''}</h3><Passengers p={p} /></section>}
     </div>
   );
 }

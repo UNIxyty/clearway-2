@@ -17,6 +17,7 @@ import {
   useToast,
 } from './ui';
 import { errorText } from '../../services/errorText';
+import ErrorBoundary from '../ErrorBoundary';
 
 // Webhooks — Leon push subscriptions per operator (Phase 2c). Landing /
 // cancellation / schedule events push from Leon to the wall backend, which
@@ -272,7 +273,7 @@ function OperatorCard({ oprId, tenant, events, onChanged, setError }) {
           <span style={{ fontFamily: t.mono }}>{tenant.lastRepull.outcome}</span> · {timeAgo(tenant.lastRepull.at)}
         </div>
       )}
-      {logEvent && <TriggerLogOverlay oprId={oprId} event={logEvent} onClose={() => setLogEvent('')} />}
+      {logEvent && <ErrorBoundary where="console/sheet/trigger-log" resetKey={logEvent} compact><TriggerLogOverlay oprId={oprId} event={logEvent} onClose={() => setLogEvent('')} /></ErrorBoundary>}
     </Card>
   );
 }

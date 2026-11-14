@@ -14,7 +14,7 @@ import {
 } from "./lib/voice-readout.mjs";
 import { authenticateRequest, authEnabled, authMisconfigured, describeAuthPosture, MOCK_USER } from "./lib/auth.mjs";
 import { scopeFor } from "../lib/clients/scope.mjs";
-import { clientReadRefusal, scopePayload, flightInfoForClient, clientStreamFilter, clientFlight, clientRow, NOT_ON_ACCOUNT } from "./lib/client-scope.mjs";
+import { clientReadRefusal, scopePayload, flightInfoForClient, clientStreamFilter, clientFlight, clientRow, NOT_ON_ACCOUNT, CLIENT_WRITES } from "./lib/client-scope.mjs";
 import { assertRigSafe } from "./lib/rig-guard.mjs";
 import { resolveRoleKey } from "./lib/roles.mjs";
 import { endpointFor, isWriteMethod } from "../lib/permissions/catalogue.mjs";
@@ -683,6 +683,58 @@ async function readJsonBody(req) {
   return JSON.parse(raw);
 }
 
+// ── A render error in the wall app's own pages (2026-11-13) ──
+// When an error boundary in the wall app catches a render error it shows the person a small "This part failed"
+// message and posts what broke here (opsboard-react/src/services/uiError.js), so it can be found in this log. The
+// report is text a browser sent: it is cut to size, cleaned of control characters, written as ONE log line plus the
+// top of the stack, and never stored, sent on, or answered with anything (204, no body). Who sent it is logged as a
+// kind only — staff, client or device — never a name or an address.
+const UI_ERROR_MAX_BYTES = 8 * 1024;
+const UI_ERROR_LIMIT = 30;                 // reports per sender…
+const UI_ERROR_WINDOW_MS = 10 * 60 * 1000; // …in ten minutes; the rest are dropped without a word
+const uiErrorCounts = new Map();           // sender (account or screen id, else the address) → { since, count }
+
+/** The request body as text if it is at most `max` bytes, else null. Never holds more than `max` in memory. */
+async function readSmallBody(req, max) {
+  if (Number(req.headers["content-length"] || 0) > max) { req.resume(); return null; }
+  const chunks = []; let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > max) { req.resume(); return null; }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString("utf-8");
+}
+
+/** May this sender log one more report now? Counts it when it may. */
+function uiErrorAllowed(sender, now = Date.now()) {
+  if (uiErrorCounts.size > 2000) for (const [k, v] of uiErrorCounts) if (now - v.since >= UI_ERROR_WINDOW_MS) uiErrorCounts.delete(k);
+  if (uiErrorCounts.size > 2000) return false;   // a flood of senders: log nothing more until the window clears
+  const row = uiErrorCounts.get(sender);
+  if (!row || now - row.since >= UI_ERROR_WINDOW_MS) { uiErrorCounts.set(sender, { since: now, count: 1 }); return true; }
+  if (row.count >= UI_ERROR_LIMIT) return false;
+  row.count += 1;
+  return true;
+}
+
+/** One field of a report: a single line of plain text, cut to `max`. */
+const uiErrorField = (value, max) => String(typeof value === "string" ? value : "").replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ").trim().slice(0, max);
+/** A stack: the same, but its lines kept (at most `lines`), each one indented so none can pass for a log line of its own. */
+const uiErrorLines = (value, max, lines) => String(typeof value === "string" ? value : "").slice(0, max).split(/\r?\n/).map((l) => uiErrorField(l, 300)).filter(Boolean).slice(0, lines).map((l) => `    ${l}`).join("\n");
+
+/** Writes the log line for one report. `who` is "staff", "client" or "device". */
+function logUiError(raw, who) {
+  let body = null;
+  try { body = JSON.parse(raw); } catch { return; }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return;
+  const where = uiErrorField(body.where, 80), name = uiErrorField(body.name, 60), message = uiErrorField(body.message, 300);
+  // the page's path, never a query value (a link can carry a token)
+  const pagePath = uiErrorField(body.path, 200).replace(/=[^&#]*/g, "");
+  if (!where && !name && !message) return;
+  const stack = uiErrorLines(body.stack, 1600, 10), component = uiErrorLines(body.component, 800, 6);
+  console.error(`[ui-error] where=${JSON.stringify(where)} path=${JSON.stringify(pagePath)} name=${JSON.stringify(name)} message=${JSON.stringify(message)} who=${who}${stack ? `\n${stack}` : ""}${component ? `\n  in:\n${component}` : ""}`);
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -898,9 +950,11 @@ const server = http.createServer(async (req, res) => {
     // profile, and requestUser.device gates them out of console endpoints.
     let requestUser = null;
     let clientScope = null;   // the client's scope when the request is a client's (set in the client block below; read by the flights route)
+    // The one thing a registered screen may POST: its own render-error report (answered below with 204, one log line).
+    const uiErrorReport = pathname === "/api/ui-error" && req.method === "POST";
     if (pathname.startsWith("/api/")) {
       requestUser = await authenticateRequest(req);
-      if (!requestUser && isDisplayReadPath(pathname, req.method)) {
+      if (!requestUser && (isDisplayReadPath(pathname, req.method) || uiErrorReport)) {
         const deviceToken =
           req.headers["x-device-token"] || url.searchParams.get("device_token") || null;
         const device = deviceToken ? await validateDeviceToken(deviceToken) : null;
@@ -975,7 +1029,10 @@ const server = http.createServer(async (req, res) => {
           }
           sendJson(res, NOT_ON_ACCOUNT, 404); return;
         }
-        if (clientReadRefusal(clientScope, req.method, pathname)) { sendJson(res, NOT_ON_ACCOUNT, 404); return; }
+        // The other write on a client's list (CLIENT_WRITES): the render-error report of their own page. It reads
+        // nothing and changes nothing (one log line, 204), so it passes here and is answered after the write gate.
+        const clientsOwnReport = uiErrorReport && Boolean(CLIENT_WRITES[pathname]?.includes(req.method));
+        if (!clientsOwnReport && clientReadRefusal(clientScope, req.method, pathname)) { sendJson(res, NOT_ON_ACCOUNT, 404); return; }
         if (pathname === "/api/flight-info") {
           const found = timelineService.getFlightByNid(url.searchParams.get("flightNid"), url.searchParams.get("oprId") || "");
           const pieces = flightInfoForClient(found, clientScope);
@@ -1035,6 +1092,20 @@ const server = http.createServer(async (req, res) => {
           if (!allowed) { sendJson(res, { ok: false, error: REFUSED, permission: entry.action ?? entry.any }, 403); return; }
         }
       }
+    }
+
+    // A render-error report from the wall app (see logUiError above). Past the gate, so the sender is a signed-in
+    // person, a client or a registered screen; signed out it was answered 401 above. Always 204 and no body: not for a
+    // report that is too big, not JSON, or over the sender's limit — those are dropped and the answer is the same.
+    if (pathname === "/api/ui-error" && req.method === "POST") {
+      const who = requestUser?.device ? "device" : requestUser?.permRole === "client" ? "client" : "staff";
+      const sender = requestUser?.userId ? `id:${requestUser.userId}` : `at:${req.socket?.remoteAddress ?? ""}`;
+      let raw = null;
+      try { raw = await readSmallBody(req, UI_ERROR_MAX_BYTES); } catch { raw = null; }
+      if (raw && uiErrorAllowed(sender)) logUiError(raw, who);
+      res.writeHead(204);
+      res.end();
+      return;
     }
 
     // Who is acting — used for the added-by / confirmed-by / deleted-by audit

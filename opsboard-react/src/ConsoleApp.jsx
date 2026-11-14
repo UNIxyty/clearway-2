@@ -24,6 +24,7 @@ import LimitationsPage from './components/console/LimitationsPage';
 import OperatorsPage from './components/console/OperatorsPage';
 import SettingsPage from './components/console/SettingsPage';
 import DeviceApprovalPopup from './components/console/DeviceApprovalPopup';
+import ErrorBoundary, { PartFailed } from './components/ErrorBoundary';
 import { AgentNavRow } from './components/console/AgentDock';
 import { useAgentDock } from './hooks/useAgentDock';
 import {
@@ -481,7 +482,29 @@ export default function ConsoleApp({ page, navigate }) {
     );
   };
 
+  // One broken tab must not take the console down (2026-11-13): each tab draws inside its own boundary
+  // (console/<tab>). A tab that throws shows the small "This part failed. Reload" message where the tab was; the
+  // header, the menu and every other tab keep working, and going to another tab clears it (resetKey).
   function renderPage() {
+    return <ErrorBoundary where={`console/${page}`} resetKey={page}>{pageBody()}</ErrorBoundary>;
+  }
+
+  // The small parts around the tabs (the wall card, the agent row, the user badge): one that breaks leaves the menu.
+  const navPart = (name, node) => <ErrorBoundary where={`console/nav/${name}`} compact>{node}</ErrorBoundary>;
+  // What floats over the page (the screen-approval popup): the message takes its corner. (The agent dock is a plain
+  // frame element with no code of ours inside it to break.)
+  const floating = (name, node) => (
+    <ErrorBoundary where={`console/sheet/${name}`}
+      fallback={(retry) => (
+        <div style={{ position: 'fixed', right: 22, bottom: 22, zIndex: 120, maxWidth: 340, background: t.card, color: t.ink, borderRadius: 14, boxShadow: t.shadowPop }}>
+          <PartFailed compact onRetry={retry} />
+        </div>
+      )}>
+      {node}
+    </ErrorBoundary>
+  );
+
+  function pageBody() {
     if (booting) return <PageSkeleton page={page} />;
     switch (page) {
       case 'notam-check':
@@ -558,7 +581,7 @@ export default function ConsoleApp({ page, navigate }) {
       <ToastProvider>
         <div className="cw-console" style={{ ...s.shell, background: t.subtle }}>
           <ConsoleStyles />
-          {can('wall.devices.approve') && <DeviceApprovalPopup />}
+          {can('wall.devices.approve') && floating('device-approval', <DeviceApprovalPopup />)}
 
           {/* 56px top bar: 44px hamburger, page title + service context. */}
           <div
@@ -751,7 +774,7 @@ export default function ConsoleApp({ page, navigate }) {
                   })}
                 </div>
                 <div style={{ flex: 1, minHeight: 12 }} />
-                <WallDisplayCard collapsed={false} />
+                {navPart('wall-card', <WallDisplayCard collapsed={false} />)}
                 <div style={{ ...s.syncCard, marginBottom: 10, flex: 'none' }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
                     Sync status
@@ -770,7 +793,7 @@ export default function ConsoleApp({ page, navigate }) {
                 </div>
                 {/* User badge pinned at the bottom — exactly the desktop badge. */}
                 <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 10, flex: 'none' }}>
-                  <UserBadge user={user} collapsed={false} booting={booting} />
+                  {navPart('user', <UserBadge user={user} collapsed={false} booting={booting} />)}
                 </div>
               </div>
               <div onClick={() => setDrawerOpen(false)} style={{ flex: 1, background: MOBILE.scrim }} />
@@ -787,7 +810,7 @@ export default function ConsoleApp({ page, navigate }) {
     <ToastProvider>
       <div className="cw-console" style={s.shell}>
         <ConsoleStyles />
-        {can('wall.devices.approve') && <DeviceApprovalPopup />}
+        {can('wall.devices.approve') && floating('device-approval', <DeviceApprovalPopup />)}
 
         {/* ── Top bar ── */}
         <div style={s.topBar}>
@@ -945,7 +968,7 @@ export default function ConsoleApp({ page, navigate }) {
               })}
             </div>
             <div style={{ flex: 1 }} />
-            <WallDisplayCard collapsed={collapsed} />
+            {navPart('wall-card', <WallDisplayCard collapsed={collapsed} />)}
             {!collapsed && (
               <div style={{ ...s.syncCard, marginBottom: 10 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -964,8 +987,8 @@ export default function ConsoleApp({ page, navigate }) {
                 {repairLine && <div style={{ fontSize: 11, lineHeight: 1.4, marginTop: 3, color: t.faint }}>{repairLine}</div>}
               </div>
             )}
-            {agent.available && <AgentNavRow collapsed={collapsed} open={agent.open} onClick={agent.toggle} keycap={agent.keycap} />}
-            <UserBadge user={user} collapsed={collapsed} booting={booting} />
+            {agent.available && navPart('agent', <AgentNavRow collapsed={collapsed} open={agent.open} onClick={agent.toggle} keycap={agent.keycap} />)}
+            {navPart('user', <UserBadge user={user} collapsed={collapsed} booting={booting} />)}
             <button
               type="button"
               className="cw-hover-surface"

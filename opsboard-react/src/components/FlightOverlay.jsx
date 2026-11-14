@@ -5,6 +5,8 @@ import { WX_CATEGORY_COLORS } from './FlightPill';
 
 import { WALL_FONT } from '../theme/wallFont';
 import { errorText } from '../services/errorText';
+import ErrorBoundary from './ErrorBoundary';
+import { WallPartFailed } from './DisplayGuards';
 // Remote-controlled flight-detail side overlay (Feature 5.2). A Console user
 // opens/closes it for everyone; the backend holds the authoritative state and
 // pushes display.command over SSE. On boot the current state is restored, so
@@ -92,9 +94,6 @@ function WeatherBlock({ icao, wx, s }) {
 
 export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
   const [overlay, setOverlay] = useState({ open: false });
-  const [info, setInfo] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchOverlay()
@@ -102,13 +101,28 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
       .catch(() => {});
     return subscribeWallStream('display.command', (event) => {
       if (event.command === 'overlay.open') setOverlay(event.overlay || { open: false });
-      if (event.command === 'overlay.close') {
-        setOverlay({ open: false });
-        setInfo(null);
-        setError('');
-      }
+      // closing unmounts the panel below, and its flight details and error go with it
+      if (event.command === 'overlay.close') setOverlay({ open: false });
     });
   }, []);
+
+  if (!overlay.open) return null;
+
+  // The flight panel in its own boundary (2026-11-13): one flight whose details break the panel leaves the timeline,
+  // the clocks and the sidebars as they are; the small message sits where the panel would, the panel tries again on
+  // its own, and another flight (a new resetKey) starts clean. With no error this draws nothing of its own.
+  return (
+    <ErrorBoundary where="display/flight" resetKey={`${overlay.flightNid ?? ''}|${overlay.oprId ?? ''}`} autoRetry
+      fallback={(retry) => <WallPartFailed part="flight" onRetry={retry} style={{ position: 'fixed', right: 0, top: topOffset, zIndex: 150 }} />}>
+      <FlightPanel overlay={overlay} topOffset={topOffset} scale={scale} />
+    </ErrorBoundary>
+  );
+}
+
+function FlightPanel({ overlay, topOffset, scale }) {
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!overlay.open || !overlay.flightNid) return;
@@ -136,8 +150,6 @@ export default function FlightOverlay({ topOffset = 76, scale = 1 }) {
       unsubs.forEach((unsub) => unsub());
     };
   }, [overlay.open, overlay.flightNid, overlay.oprId]);
-
-  if (!overlay.open) return null;
 
   const s = makeStyles(scale);
   const flight = info?.flight;

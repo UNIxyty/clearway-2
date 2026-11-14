@@ -103,7 +103,7 @@ export default function MapView({ p, coords, position = null, state, theme = 'li
   const dep = p.depHm; const end = p.endUtcMs;
   const msg = state === 'notyet' ? ['Not airborne yet', `Departs ${dep}Z${p.depKind !== 'STD' && p.etd !== p.depHm ? ` · was ${p.etd}Z` : ''}`]
     : state === 'landed' ? [`Landed in ${p.arr} at ${p.ataHm || p.arrHm}Z`, p.atdHm ? `Flight time ${spanText(end - p.delayedStartUtcMs)}` : '']
-    : state === 'nopos' ? ['No live position', 'Live tracking is not connected. The route and the times are from Leon and are current.']
+    : state === 'nopos' ? ['No live position', 'Live tracking is not connected. The route and the times are from the schedule and are current.']
     : state === 'loading' ? ['Loading the map…', ''] : null;
   return (
     <div ref={ref} className="cwm" data-map-state={state} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={up}>

@@ -128,7 +128,7 @@ run intake/browser-edits $E rig/intake/browser-edits.mjs   # its own CIMOG1 requ
 run permissions-check $E rig/permissions-check.mjs
 run account-delete $E rig/account-delete-check.mjs   # deleting an account revokes its grants and takes it off the notify list, in the same delete (0029)
 ( cd opsboard-react && npx vite build > ../rig/.scratch/vite-build.out 2>&1 ) || echo "vite build failed — see rig/.scratch/vite-build.out" >> $LOG   # the console check and the phone check read the built dist
-# the wall's pages as production serves them, at /digital-wall/timeline/ (rig/proxy.mjs serves this folder): the phone wall
+# the wall's pages as production serves them, at /digital-wall/timeline/ (rig/proxy.mjs serves this folder): the display, and the phone app (v3) the proxy answers with the same build at /digital-wall/phone/
 ( cd opsboard-react && VITE_BASE_PATH=/digital-wall/timeline/ VITE_API_BASE_URL=/digital-wall npx vite build --outDir ../rig/.scratch/display-dist --emptyOutDir > ../rig/.scratch/display-build.out 2>&1 ) || echo "display build failed — see rig/.scratch/display-build.out" >> $LOG
 preview 5198   # the console against the sign-in-on wall
 bash rig/permissions-reset.sh >> $LOG 2>&1   # every grant back to the defaults (permissions-browser does this itself too)
@@ -164,8 +164,9 @@ run wall/console-theme-check $E rig/wall/console-theme-check.mjs
 preview 5199   # back to the normal wall
 run mobile/tier1-check $E rig/mobile/tier1-check.mjs
 run mobile/tier2-check $E rig/mobile/tier2-check.mjs
-run mobile/phone-wall-check $E rig/mobile/phone-wall-check.mjs
-run mobile/staff-phone-check $E rig/mobile/staff-phone-check.mjs   # the staff phone app: five tabs, timeline, flight checks, the document viewer, the console tabs, More, deep links (2026-11-12)
+run mobile/phone-v3-check $E rig/mobile/phone-v3-check.mjs   # the phone app v3 as staff (/digital-wall/phone/, 2026-11-13): the old addresses lead there once, the timeline and the flight as the old phone wall behaved, every staff page and sheet by taps, what is kept on the phone, a broken part, and every screen at 390/360 light/dark (replaces phone-wall-check and staff-phone-check)
+run mobile/phone-v3-client-check $E rig/mobile/phone-v3-client-check.mjs   # the same app as a client (sign-in shell :3989): only the granted aircraft, nothing of the staff's drawn or downloaded, the switches, the start page and filter saved on the account, the support address, the same phone rules
+run error-boundary-check $E rig/error-boundary-check.mjs   # one part throws (a console tab, the wall's timeline, its flight panel, a phone page) and the rest keeps working; the wall holds its last picture under NOT LIVE and comes back on its own (2026-11-13)
 # The passenger check reads the manifest's mock Leon through the agent, which needs the manifest key in its environment
 # (rig/manifest/start.sh); anything that restarted :5175 in between (rig/start.sh has no key) would leave it unable to read
 # the operators' credentials. Start it fresh here, as at the top.

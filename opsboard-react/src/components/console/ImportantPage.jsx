@@ -669,6 +669,7 @@ export default function ImportantPage() {
         {listBody}
         {form && (
           <PushedPage
+            name="important"
             title={form.id ? 'Edit entry' : 'New entry'}
             subtitle={dirty ? 'Unsaved changes' : form.id ? 'Important · IMP' : ''}
             subtitleColor={dirty ? t.amber : undefined}

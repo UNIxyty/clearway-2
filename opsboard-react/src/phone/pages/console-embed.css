@@ -1,0 +1,87 @@
+/* A console page drawn inside the phone app (pages/staff.jsx › Embed). The console kit paints with the portal's
+   --cw-* tokens; here each one it reads is DEFINED as an alias of a phone token (--c-*, src/phone/tokens.css), for
+   both themes at once, because the phone tokens already change with the theme. This is the ONE file under src/phone/
+   that may name a --cw-* token (plus the --ca-* / --mx-* chips the console's limitation and status pills read).
+
+   Two scopes carry the aliases:
+   - [data-cw3] .cw3-console              the wrapper inside the phone page;
+   - body[data-cw3-embed] > .cw-console   the console's own phone parts (pushed page, bottom sheet, fixed action bar,
+                                          colour picker), which it portals to <body>, outside the phone app's root.
+                                          While an embed is mounted staff.jsx copies the phone tokens onto <body>, so
+                                          the same aliases resolve there.
+   Both selectors beat the console's inline token sheet ([data-theme] / :root, one attribute or less).
+   Not aliased on purpose: --cw-danger-solid (a filled red under white text; the phone's --c-bad is a text colour). */
+[data-cw3] .cw3-console,
+body[data-cw3-embed] > .cw-console {
+  /* text */
+  --cw-text: var(--c-t1); --cw-text-body: var(--c-t2); --cw-text-muted: var(--c-t3); --cw-text-disabled: var(--c-t4);
+  --cw-text-placeholder: var(--c-t4); --cw-text-link: var(--c-air); --cw-text-on-primary: var(--c-on-inv);
+  /* surfaces */
+  --cw-bg-page: var(--c-bg); --cw-bg-sunken: var(--c-bg); --cw-bg-surface: var(--c-bg2); --cw-bg-raised: var(--c-bg2);
+  --cw-bg-sidebar: var(--c-bg2); --cw-bg-hover: var(--c-s1); --cw-bg-active: var(--c-s2); --cw-bg-selected: var(--c-s1);
+  --cw-bg-scrim: var(--c-scrim); --cw-disabled-bg: var(--c-s2); --cw-disabled-border: var(--c-l1);
+  /* lines */
+  --cw-border: var(--c-l1); --cw-border-control: var(--c-l2); --cw-border-strong: var(--c-l2); --cw-divider: var(--c-l1);
+  --cw-focus: var(--c-inv); --cw-focus-halo: transparent;
+  /* the blue */
+  --cw-primary: var(--c-inv); --cw-primary-hover: var(--c-inv); --cw-primary-active: var(--c-inv);
+  --cw-primary-tint: var(--c-s1); --cw-primary-tint-border: var(--c-l2); --cw-primary-wash: var(--c-s1); --cw-knob: var(--c-on-inv);
+  /* states: the phone has one colour per meaning; tints are the quiet surface, borders the control line */
+  --cw-success: var(--c-ok); --cw-success-text: var(--c-ok); --cw-success-tint: var(--c-s1); --cw-success-border: var(--c-l2);
+  --cw-danger: var(--c-bad); --cw-danger-text: var(--c-bad); --cw-danger-tint: var(--c-s1); --cw-danger-border: var(--c-l2);
+  --cw-warning: var(--c-warn); --cw-warning-text: var(--c-warn); --cw-warning-tint: var(--c-s1); --cw-warning-border: var(--c-l2);
+  --cw-orange: var(--c-warn); --cw-orange-text: var(--c-warn); --cw-orange-tint: var(--c-s1); --cw-orange-border: var(--c-l2);
+  --cw-info: var(--c-air); --cw-info-text: var(--c-air); --cw-info-tint: var(--c-s1); --cw-info-border: var(--c-l2);
+  --cw-neutral: var(--c-t3); --cw-neutral-text: var(--c-t2); --cw-neutral-tint: var(--c-s2);
+  --cw-diff: var(--c-warn); --cw-diff-text: var(--c-warn); --cw-diff-tint: var(--c-s1); --cw-diff-border: var(--c-l2);
+  /* inverse (toasts), skeletons, elevation (the phone is flat: a line, not a shadow) */
+  --cw-ink: var(--c-t1); --cw-on-ink: var(--c-bg); --cw-skeleton: var(--c-skel); --cw-skeleton-shine: var(--c-s2);
+  --cw-shadow-1: none; --cw-shadow-2: none; --cw-shadow-panel: none; --cw-shadow-pop: 0 0 0 1px var(--c-l2);
+  --cw-show-light: var(--c-show-light); --cw-show-dark: var(--c-show-dark);
+  /* flight-state pills and check chips */
+  --ca-st-scheduled-fg: var(--c-t2); --ca-st-scheduled-bg: var(--c-s1); --ca-st-flying-fg: var(--c-air); --ca-st-flying-bg: var(--c-s1);
+  --ca-st-delayed-fg: var(--c-warn); --ca-st-delayed-bg: var(--c-s1); --ca-st-ctot-fg: var(--c-warn); --ca-st-ctot-bg: var(--c-s1);
+  --ca-st-arrived-fg: var(--c-ok); --ca-st-arrived-bg: var(--c-s1); --ca-st-aog-fg: var(--c-bad); --ca-st-aog-bg: var(--c-s1);
+  --ca-sens-text: var(--c-warn); --ca-sens-tint: var(--c-s1); --ca-sens-border: var(--c-l2);
+  --mx-chk-caa-fg: var(--c-air); --mx-chk-caa-bg: var(--c-s1); --mx-chk-wx-fg: var(--c-air); --mx-chk-wx-bg: var(--c-s1);
+  --mx-chk-ntm-fg: var(--c-warn); --mx-chk-ntm-bg: var(--c-s1); --mx-chk-imp-fg: var(--c-bad); --mx-chk-imp-bg: var(--c-s1);
+}
+
+/* The wrapper: page padding, the console's own text size, and sideways scroll for anything wider than 360 px
+   (a table, a wide card) so the page itself never scrolls sideways. */
+[data-cw3] .cw3-console { padding: 12px 12px 24px; font-size: 14px; line-height: 1.4; color: var(--c-t1); min-width: 0; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+[data-cw3] .cw3-console.cw3-console-flush { padding: 0; }
+[data-cw3] .cw3-console h1, [data-cw3] .cw3-console h2, [data-cw3] .cw3-console h3, [data-cw3] .cw3-console p { overflow-wrap: anywhere; }
+[data-cw3] .cw3-console img, [data-cw3] .cw3-console canvas, [data-cw3] .cw3-console svg { max-width: 100%; }
+
+/* A console table (console/ui.jsx TableShell: a rounded box, a header grid, then the rows) keeps its desk columns on a
+   phone and scrolls sideways inside its own box. Squeezed into 360 px its columns ran into each other (seen on
+   Operators and Aircraft, 2026-11-13). The box is found by its shape, because it carries no class. */
+[data-cw3] .cw3-console div[style*="overflow: hidden"]:has(> div[style*="grid-template-columns"]:first-child) { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+[data-cw3] .cw3-console div[style*="overflow: hidden"]:has(> div[style*="grid-template-columns"]:first-child) > :is([style*="grid-template-columns"], :has([style*="grid-template-columns"])) { min-width: 640px; }
+
+/* The phone's reset (tokens.css) strips every button and field for the phone kit. Console controls were drawn on the
+   browser's defaults: give those back. */
+[data-cw3] .cw3-console button { text-align: center; }
+[data-cw3] .cw3-console input[type="checkbox"], [data-cw3] .cw3-console input[type="radio"], [data-cw3] .cw3-console input[type="range"],
+[data-cw3] .cw3-console input[type="color"], [data-cw3] .cw3-console input[type="file"], [data-cw3] .cw3-console input[type="date"],
+[data-cw3] .cw3-console select { -webkit-appearance: auto; appearance: auto; accent-color: var(--c-inv); }
+[data-cw3] .cw3-console input[type="checkbox"], [data-cw3] .cw3-console input[type="radio"] { width: 22px; height: 22px; flex: none; }
+[data-cw3] .cw3-console input[type="range"] { min-height: 44px; }
+
+/* Phone rules the console's desk sizes do not meet: 16 px in every field (iOS zooms on less), 44 px to tap. */
+[data-cw3] .cw3-console input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+[data-cw3] .cw3-console select, [data-cw3] .cw3-console textarea,
+body[data-cw3-embed] > .cw-console input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+body[data-cw3-embed] > .cw-console select, body[data-cw3-embed] > .cw-console textarea { font-size: 16px !important; min-height: 44px; }
+[data-cw3] .cw3-console button, [data-cw3] .cw3-console [role="button"], [data-cw3] .cw3-console [role="tab"], [data-cw3] .cw3-console [role="radio"],
+[data-cw3] .cw3-console summary { min-height: 44px; min-width: 44px; }
+/* A console chip that sets its own smaller height inline (Reports' status chips, 34 px) still gets 44 px to tap. */
+[data-cw3] .cw3-console button[style*="min-height: 3"], [data-cw3] .cw3-console button[style*="min-height: 2"],
+body[data-cw3-embed] > .cw-console button[style*="min-height: 3"], body[data-cw3-embed] > .cw-console button[style*="min-height: 2"] { min-height: 44px !important; }
+/* A console switch keeps its drawn size (46 x 27, set inline): stretched, it stops being a switch. Its tap area
+   grows instead, to 44 px tall, through a box nothing can see. */
+[data-cw3] .cw3-console button[role="switch"], body[data-cw3-embed] > .cw-console button[role="switch"] { min-height: 0; min-width: 0; position: relative; }
+[data-cw3] .cw3-console button[role="switch"]::after, body[data-cw3-embed] > .cw-console button[role="switch"]::after { content: ""; position: absolute; left: -2px; right: -2px; top: -9px; bottom: -9px; }
+body[data-cw3-embed="dark"] > .cw-console { color-scheme: dark; }
+body[data-cw3-embed="light"] > .cw-console { color-scheme: light; }

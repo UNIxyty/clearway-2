@@ -32,6 +32,7 @@ import {
 } from './ui';
 import { TABLE_GRID, gridHeader } from './pageMeta';
 import { errorText } from '../../services/errorText';
+import ErrorBoundary from '../ErrorBoundary';
 
 // Operators — Leon operators feeding the wall + sync health (approved design).
 
@@ -302,9 +303,10 @@ export default function OperatorsPage() {
         </div>
       </Card>
 
-      {addOpen && <OperatorForm onSaved={() => { setAddOpen(false); load(); }} onCancel={() => setAddOpen(false)} />}
+      {addOpen && <ErrorBoundary where="console/sheet/operator-form"><OperatorForm onSaved={() => { setAddOpen(false); load(); }} onCancel={() => setAddOpen(false)} /></ErrorBoundary>}
 
       {editingOperator && (
+        <ErrorBoundary where="console/sheet/operator-form" resetKey={editingOperator.id}>
         <OperatorForm
           key={editingOperator.id}
           operator={editingOperator}
@@ -321,6 +323,7 @@ export default function OperatorsPage() {
           }}
           onCancel={() => setEditingOperator(null)}
         />
+        </ErrorBoundary>
       )}
 
       {reregisterNotice && (

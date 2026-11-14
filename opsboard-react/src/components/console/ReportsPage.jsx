@@ -388,7 +388,7 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        <BottomSheet open={Boolean(sheetFor)} onClose={() => setSheetFor(null)}>
+        <BottomSheet name="report" open={Boolean(sheetFor)} onClose={() => setSheetFor(null)}>
           {sheetFor && (
             <>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>

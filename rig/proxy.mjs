@@ -36,6 +36,13 @@ function serveDisplay(req, res) {
 }
 const server = http.createServer((req, res) => {
   if (req.url.startsWith("/digital-wall/timeline")) { serveDisplay(req, res); return; }
+  // The phone app (v3, 2026-11-13): /digital-wall/phone/ is the same built app (production's gateway answers it with the
+  // wall app's index.html; the page picks its surface from the address, its files stay under /digital-wall/timeline/).
+  if (/^\/digital-wall\/phone(\/|\?|$)/.test(req.url)) {
+    const u = new URL(req.url, "http://x");
+    if (u.pathname === "/digital-wall/phone") { res.writeHead(301, { location: `/digital-wall/phone/${u.search}` }); res.end(); return; }
+    req.url = `/digital-wall/timeline/${u.search}`; serveDisplay(req, res); return;
+  }
   const [target, p] = route(req.url);
   if (req.url.startsWith("/agent/api")) {
     // A file `rig-strip-ext-cookie` drops the Cookie header from the EXTENSION's requests only (identified by

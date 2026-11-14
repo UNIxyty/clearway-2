@@ -19,6 +19,30 @@ function useSettingsApi() {
   return api ?? { fetch: fetchOpsDisplaySettings, save: saveOpsDisplaySettings };
 }
 
+/** A slider's save, held for 500 ms so a drag sends once. A card that goes away with a save still held (the page was
+ *  left inside the half second) sends it at once instead of dropping it; the card cannot show an error by then, so a
+ *  save that fails after leaving says so in the toast. */
+function useHeldSave(setError) {
+  const flash = useToast();
+  const timerRef = useRef(null);
+  const heldRef = useRef(null);
+  useEffect(() => () => {
+    clearTimeout(timerRef.current);
+    const save = heldRef.current;
+    heldRef.current = null;
+    if (save) save().catch((err) => flash?.(errorText(err), t.red));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (save) => {
+    clearTimeout(timerRef.current);
+    heldRef.current = save;
+    timerRef.current = setTimeout(() => {
+      heldRef.current = null;
+      save().catch((err) => setError(errorText(err)));
+    }, 500);
+  };
+}
+
 export function DisplayScaleCard() {
   const { deviceId } = useContext(DeviceCtx);
   const { fetch: fetchDisplaySettings, save: saveDisplaySettings } = useSettingsApi();
@@ -27,7 +51,7 @@ export function DisplayScaleCard() {
   const [scale, setScale] = useState(1.3);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
-  const timerRef = useRef(null);
+  const holdSave = useHeldSave(setError);
   const flash = useToast();
 
   useEffect(() => {
@@ -37,22 +61,16 @@ export function DisplayScaleCard() {
       })
       .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
-    return () => clearTimeout(timerRef.current);
   }, []);
 
   function onChange(value) {
     const next = Number(value);
     setScale(next);
     // Debounced persist — the wall re-renders live via config.changed.
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      try {
-        await saveDisplaySettings({ scale: next }, deviceId);
-        flash(`Display scale ${next.toFixed(2)}× — wall updates in seconds`);
-      } catch (err) {
-        setError(errorText(err));
-      }
-    }, 500);
+    holdSave(async () => {
+      await saveDisplaySettings({ scale: next }, deviceId);
+      flash(`Display scale ${next.toFixed(2)}× — wall updates in seconds`);
+    });
   }
 
   return (
@@ -66,7 +84,7 @@ export function DisplayScaleCard() {
       {mobileUI ? (
         <WindowRow
           label="Display scale"
-          hint="global wall text/density scale"
+          hint="global text/density scale"
           min={0.1}
           max={2}
           step={0.05}
@@ -109,7 +127,7 @@ export function HourSpacingCard() {
   const [timeZoom, setTimeZoom] = useState(1);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
-  const timerRef = useRef(null);
+  const holdSave = useHeldSave(setError);
   const flash = useToast();
 
   useEffect(() => {
@@ -119,7 +137,6 @@ export function HourSpacingCard() {
       })
       .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
-    return () => clearTimeout(timerRef.current);
   }, []);
 
   function onChange(value) {
@@ -127,15 +144,10 @@ export function HourSpacingCard() {
     setTimeZoom(next);
     // Debounced persist — the wall re-renders live via config.changed. The
     // backend merges partial PUTs, so this never clobbers the scale.
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      try {
-        await saveDisplaySettings({ timeZoom: next }, deviceId);
-        flash(`Hour spacing ${next.toFixed(2)}× — wall updates in seconds`);
-      } catch (err) {
-        setError(errorText(err));
-      }
-    }, 500);
+    holdSave(async () => {
+      await saveDisplaySettings({ timeZoom: next }, deviceId);
+      flash(`Hour spacing ${next.toFixed(2)}× — wall updates in seconds`);
+    });
   }
 
   return (
@@ -193,7 +205,7 @@ export function VerticalSizingCard() {
   const [autoFit, setAutoFit] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
-  const timerRef = useRef(null);
+  const holdSave = useHeldSave(setError);
   const flash = useToast();
 
   useEffect(() => {
@@ -210,22 +222,16 @@ export function VerticalSizingCard() {
       })
       .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
-    return () => clearTimeout(timerRef.current);
   }, []);
 
   function onChange(key, label, next) {
     setValues((prev) => ({ ...prev, [key]: next }));
     // Debounced persist; merge-safe PUT — each slider patches ONLY its key,
     // so none of the vertical knobs (or scale/timeZoom/…) clobber each other.
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      try {
-        await saveDisplaySettings({ [key]: next }, deviceId);
-        flash(`${label} ${next.toFixed(2)}× — wall updates in seconds`);
-      } catch (err) {
-        setError(errorText(err));
-      }
-    }, 500);
+    holdSave(async () => {
+      await saveDisplaySettings({ [key]: next }, deviceId);
+      flash(`${label} ${next.toFixed(2)}× — wall updates in seconds`);
+    });
   }
 
   const rows = [
@@ -247,7 +253,7 @@ export function VerticalSizingCard() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? 'var(--cw-bg-selected)' : t.card }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Auto-fit rows to the screen</div>
-          <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
+          <div data-ops-words="" style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
             The wall measures its own viewport and computes the four knobs below so EVERY aircraft
             row fits — recomputed live as rows come and go. Sliders become ceilings while on; the
             legibility floors (fonts ≥7px, chips ≥10px) always win, and if rows still can't fit
@@ -314,7 +320,7 @@ export function HorizontalSizingCard() {
   const [distance, setDistance] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
-  const timerRef = useRef(null);
+  const holdSave = useHeldSave(setError);
   const flash = useToast();
 
   useEffect(() => {
@@ -335,19 +341,15 @@ export function HorizontalSizingCard() {
       })
       .catch((err) => setError(errorText(err)))
       .finally(() => setLoaded(true));
-    return () => clearTimeout(timerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function onChange(key, label, next, unit) {
     setValues((prev) => ({ ...prev, [key]: next }));
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      try {
-        await saveDisplaySettings({ [key]: next }, deviceId);
-        flash(`${label} ${unit === 'min' ? `${next} min` : `${Number(next).toFixed(2)}×`} — wall updates in seconds`);
-      } catch (err) { setError(errorText(err)); }
-    }, 500);
+    holdSave(async () => {
+      await saveDisplaySettings({ [key]: next }, deviceId);
+      flash(`${label} ${unit === 'min' ? `${next} min` : `${Number(next).toFixed(2)}×`} — wall updates in seconds`);
+    });
   }
 
   const rows = [
@@ -361,13 +363,10 @@ export function HorizontalSizingCard() {
 
   function onFloor(key, label, next) {
     setFloors((prev) => ({ ...prev, [key]: next }));
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      try {
-        await saveDisplaySettings({ [key]: next }, deviceId);
-        flash(`${label} ${next} px — wall updates in seconds`);
-      } catch (err) { setError(errorText(err)); }
-    }, 500);
+    holdSave(async () => {
+      await saveDisplaySettings({ [key]: next }, deviceId);
+      flash(`${label} ${next} px — wall updates in seconds`);
+    });
   }
   async function recordCheck() {
     const metres = Number(String(distance).replace(',', '.'));
@@ -395,7 +394,7 @@ export function HorizontalSizingCard() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? 'var(--cw-bg-selected)' : t.card }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Auto-fit horizontal sizes</div>
-          <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
+          <div data-ops-words="" style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
             The wall shrinks the six knobs below together, just enough that labels stop forcing extra lanes in the
             busiest rows, and no further — recomputed live as flights come and go. Sliders become ceilings while on;
             the floors always win.
@@ -464,7 +463,7 @@ export function ChipsCard() {
     { key: 'chipImp', label: 'Important (!)', stops: 'the Important limitation mark on a flight' },
     { key: 'chipCaa', label: 'CAA', stops: 'the CAA authority-details mark' },
     { key: 'chipNtm', label: 'NOTAM (NTM)', stops: 'the unreviewed-NOTAM alert on a flight' },
-    { key: 'chipWx', label: 'WX', stops: 'weather marking — on the wall that is the colour of the airport codes; chips on phone and tablet' },
+    { key: 'chipWx', label: 'WX', stops: 'weather marking: the colour of the airport codes on the big timeline, chips on phone and tablet' },
   ];
   const [values, setValues] = useState({ chipImp: true, chipCaa: true, chipNtm: true, chipWx: true });
   const [loaded, setLoaded] = useState(false);
@@ -492,7 +491,7 @@ export function ChipsCard() {
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 6px' }}>
         Which warning chips the wall shows after each pill. A hidden chip leaves no gap; the row closes up.
       </p>
-      <p style={{ fontSize: 13, color: t.redDeep, margin: '0 0 14px', fontWeight: 600 }}>
+      <p data-ops-words="" style={{ fontSize: 13, color: t.redDeep, margin: '0 0 14px', fontWeight: 600 }}>
         Each chip is a real warning: switching one off means nobody looking at the wall sees it — the information is still
         in the Console and the flight overlay.
       </p>
@@ -501,7 +500,7 @@ export function ChipsCard() {
         <div key={k.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderTop: `1px solid ${t.borderInner}` }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 700 }}>{k.label}</div>
-            <div style={{ fontSize: 12.5, color: values[k.key] === false ? t.redDeep : t.faint }}>{values[k.key] === false ? `Hidden: the wall no longer shows ${k.stops}.` : `Shows ${k.stops}.`}</div>
+            <div style={{ fontSize: 12.5, color: values[k.key] === false ? t.redDeep : t.faint }}>{values[k.key] === false ? `Hidden. Not shown: ${k.stops}.` : `Shows ${k.stops}.`}</div>
           </div>
           <Toggle on={values[k.key] !== false} disabled={!loaded} onToggle={() => void toggle(k)} />
         </div>

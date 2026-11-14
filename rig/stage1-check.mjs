@@ -233,10 +233,12 @@ ok(totalBad === 0, `contrast measured on ${PAGES.length} views × 2 themes: ever
   }
 }
 
-// ── 6. The wall on a phone is the wall too (2026-10-27) ─────────────────────────────────────────────────────────────
-// The Wall tab in /m frames the wall's own phone page (/digital-wall/timeline/?in=m, served by the rig proxy from a
-// production-style build). Same rule as the display: no data-theme, no --cw-* token, the same pixels with the portal in
-// Light and Dark. The rest of /m (the shell around it) follows the portal.
+// ── 6. The wall on a phone is the phone app (v3, 2026-11-13) ────────────────────────────────────────────────────────
+// /m/wall (the old Wall tab, which framed the wall's phone page) now only leads to the phone app at /digital-wall/phone/
+// (served by the rig proxy from a production-style build). The phone app keeps the display's rule in its own way: it
+// sets no data-theme and reads no --cw-* token in what it draws (its own tokens, --c-*), so nothing the console or the
+// display reads changes; unlike the old phone wall it follows the theme chosen on this device (Light or Dark), as
+// its design asks. Its screens: rig/mobile/phone-v3-check.mjs.
 {
   const phone = async (device) => {
     const ctx = await context("user", { viewport: { width: 390, height: 844 }, colorScheme: device, isMobile: true, hasTouch: true });
@@ -244,28 +246,23 @@ ok(totalBad === 0, `contrast measured on ${PAGES.length} views × 2 themes: ever
     await ctx.route(/\/api\/user\/preferences/, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ preferences: { theme: device } }) }));
     const page = await ctx.newPage();
     await page.goto(`${BASE}/m/wall`, { waitUntil: "load" });
-    const handle = await page.waitForSelector("iframe[title='Digital Wall']", { timeout: 20000 }).catch(() => null);
-    const frame = handle ? await handle.contentFrame() : null;
-    await frame?.waitForSelector("[data-mobile-wall]", { timeout: 30000 }).catch(() => {});
-    await frame?.waitForSelector("[data-live]", { timeout: 20000 }).catch(() => {});   // the room's palette has arrived
+    await page.waitForSelector("[data-phone-app]", { timeout: 30000 }).catch(() => {});
+    await page.waitForSelector("[data-phone-app] [data-pill], [data-phone-app] [data-flight-row], [data-phone-app] [data-empty]", { timeout: 30000 }).catch(() => {});
     await settled(page);
-    const wall = frame ? await frame.evaluate(() => {
-      const cssText = [...document.styleSheets].map((s) => { try { return [...s.cssRules].map((r) => r.cssText).join("\n"); } catch { return ""; } }).join("\n");
-      const root = document.querySelector("[data-mobile-wall]");
+    const wall = await page.evaluate(() => {
+      const root = document.querySelector("[data-phone-app]");
       const inline = root ? [root, ...root.querySelectorAll("*")].map((e) => e.getAttribute("style") || "").join(";") : "";
-      const sample = root ? [root, ...root.querySelectorAll("*")].slice(0, 400).map((e) => { const s = getComputedStyle(e); return `${s.color}|${s.backgroundColor}|${s.fontFamily}`; }) : [];
-      return { present: !!root, dataTheme: document.documentElement.getAttribute("data-theme"), readsCw: /var\(--cw-/.test(cssText) || /--cw-[a-z]/.test(inline) || /--cw-[a-z]/.test(document.documentElement.getAttribute("style") ?? ""), sample: sample.join(";") };
-    }) : { present: false };
-    const shell = await page.evaluate(() => ({ dataTheme: document.documentElement.getAttribute("data-theme"), tabBg: getComputedStyle(document.querySelector("nav[aria-label='Sections']") || document.body).backgroundColor }));
+      return { present: !!root, at: location.pathname.replace(/\/$/, ""), frames: window.frames.length, dataTheme: document.documentElement.getAttribute("data-theme"), drawn: root?.getAttribute("data-cw3") ?? null,
+        readsCw: /--cw-[a-z]/.test(inline) || /--cw-[a-z]/.test(document.documentElement.getAttribute("style") ?? ""), bg: root ? getComputedStyle(root).backgroundColor : null };
+    });
     await page.screenshot({ path: `${OUT}/stage1-phone-wall-${device}.png` });
     await ctx.close();
-    return { wall, shell };
+    return { wall };
   };
   const pl = await phone("light"), pd = await phone("dark");
-  ok(pl.wall.present && pd.wall.present, "the phone wall renders behind the Wall tab (signed in, 390 × 844)");
-  ok(pd.wall.dataTheme === null && !pd.wall.readsCw && pl.wall.dataTheme === null && !pl.wall.readsCw, "wall on a phone: no data-theme, no --cw-* token read (portal set to Dark on a dark device, and Light)", JSON.stringify({ dark: [pd.wall.dataTheme, pd.wall.readsCw], light: [pl.wall.dataTheme, pl.wall.readsCw] }));
-  ok(pd.wall.sample && pd.wall.sample === pl.wall.sample, "wall on a phone: the same colours and fonts with the portal in Dark as in Light");
-  ok(pd.shell.dataTheme === "dark" && pl.shell.dataTheme === "light" && pd.shell.tabBg !== pl.shell.tabBg, "…while the /m shell around it follows the portal (its tab bar changes with the theme)", JSON.stringify({ dark: pd.shell, light: pl.shell }));
+  ok(pl.wall.present && pd.wall.present && pl.wall.at === "/digital-wall/phone" && pl.wall.frames === 0, "/m/wall leads to the phone app at /digital-wall/phone, in one window (signed in, 390 × 844)", JSON.stringify({ at: pl.wall.at, frames: pl.wall.frames }));
+  ok(pd.wall.dataTheme === null && !pd.wall.readsCw && pl.wall.dataTheme === null && !pl.wall.readsCw, "phone app: no data-theme, no --cw-* token in what it draws (the device set to Dark, and to Light)", JSON.stringify({ dark: [pd.wall.dataTheme, pd.wall.readsCw], light: [pl.wall.dataTheme, pl.wall.readsCw] }));
+  ok(pd.wall.drawn === "dark" && pl.wall.drawn === "light" && pd.wall.bg !== pl.wall.bg, "phone app: drawn dark with Dark chosen on the device and light with Light (its own tokens)", JSON.stringify({ dark: [pd.wall.drawn, pd.wall.bg], light: [pl.wall.drawn, pl.wall.bg] }));
 }
 
 await browser.close();

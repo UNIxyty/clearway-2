@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Board from '../Board';
 import { useWallColors } from '../../theme/WallColorsContext';
 import { chromeFor, markerChipsFor, wxCategoryColorsFor } from '../../theme/wallColors';
@@ -9,15 +9,29 @@ import { MONO } from './mobileChrome';
 import { flattenFlights, hmZ } from './mobileUtil';
 import { ConnChip, StaleBanner } from './WallChrome';
 import useConnection from './useConnection';
-import PhoneWall from './phone/PhoneWall';
-// The staff phone app (design "Phone Views", 2026-11-12): a signed-in person on a phone, NOT framed by /m/wall, gets the
-// wall's own phone app with its five tabs. Loaded only then, so its stylesheet never reaches the display (rig/stage1-check).
-const StaffPhone = lazy(() => import('../../client/StaffPhone'));
+import { phoneHref } from '../../router';
+
+// A signed-in person on a phone belongs in the phone app (/digital-wall/phone, src/phone/), not on the display's
+// address. This sends them there once, keeping an open flight (?flight=) and the old tab addresses (#notam #limits
+// #important #more). Inside the portal's old /m frame (?in=m) the TOP window goes, so the app is not left in a frame.
+const OLD_TABS = ['notam', 'limits', 'important', 'more'];
+function ToPhoneApp({ framed }) {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hash = String(window.location.hash || '').replace(/^#/, '');
+    const target = phoneHref({ flight: params.get('flight') || '', hash: OLD_TABS.includes(hash) ? hash : '' });
+    if (framed) {
+      try { window.top.location.replace(target); return; } catch { /* a frame that may not move its top: move itself */ }
+    }
+    window.location.replace(target);
+  }, [framed]);
+  return null;
+}
 
 // The Digital Wall below the ops-room breakpoint (design sections A + B):
-//   a signed-in PERSON on a phone-sized screen, upright or sideways → the portal's phone wall at /m/wall
-//     (mobile Stage 2; PhoneWall retired). A registered SCREEN (device token) stays here at any size: a small
-//     screen mounted sideways in an ops room is a wall, not a phone.
+//   a signed-in PERSON on a phone-sized screen, upright or sideways → the phone app at <base>/phone/
+//     (v3: one phone app for staff and clients; the old PhoneWall is removed). A registered SCREEN (device token)
+//     stays here at any size: a small screen mounted sideways in an ops room is a wall, not a phone.
 //   ≤767 portrait (a screen)  → the reduced timeline
 //   ≤767 landscape  → the mini timeline full-screen (A6)
 //   768–1919        → TabletWall (reduced timeline + rail + drawer)
@@ -38,9 +52,6 @@ export default function ResponsiveWall({
   error = '',
   dataUpdatedAt = 0,
   onReload = null,
-  notamState = null,
-  loadedOnce = false,
-  displaySettings = {},   // the signed-in person's own display profile (DisplayApp › loadSettings), for the staff phone's look
 }) {
   const conn = useConnection(dataUpdatedAt);
   const chrome = chromeFor(useWallColors());
@@ -81,21 +92,11 @@ export default function ResponsiveWall({
   // runs in deviceMode (or is waiting to be paired, and never reaches here). With no session and the backend
   // unreachable nobody is redirected: the display degrades in place.
   const { user, deviceMode } = useAuth();
-  // The phone wall (2026-10-27): the Wall tab in /m frames this page with ?in=m, and a signed-in person there gets the
-  // wall's own phone screens (phone/PhoneWall.jsx) in the room's colours and font. A person on a phone anywhere else
-  // is sent to /m/wall, so the one app keeps its tabs; a registered screen (deviceMode) never gets either.
-  const params = new URLSearchParams(window.location.search);
-  const framed = params.get('in') === 'm' && window.top !== window.self;
+  // The phone app (v3, 2026-11-13): a signed-in person on a phone-sized screen, or in the portal's old /m frame
+  // (?in=m), is sent to /digital-wall/phone. A registered screen (deviceMode) is never sent anywhere.
+  const framed = new URLSearchParams(window.location.search).get('in') === 'm' && window.top !== window.self;
   const person = Boolean(user) && !deviceMode;
-  const phoneWall = person && framed;
-  // (until 2026-11-12 a person on a phone outside the /m frame was sent to /m/wall; now the phone app is here)
-  const staffPhone = person && !framed && (vp.isPhone || phoneLandscape);
-  if (staffPhone) {
-    return <Suspense fallback={null}><StaffPhone aircraft={aircraft} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} clocks={clocks} loadedOnce={loadedOnce} error={error} onReload={onReload} settings={displaySettings} initialFlightId={params.get('flight')} /></Suspense>;
-  }
-  if (phoneWall) {
-    return <PhoneWall aircraft={aircraft} limitations={limitations} clocks={clocks} notamState={notamState} loadedOnce={loadedOnce} error={error} dataUpdatedAt={dataUpdatedAt} onReload={onReload} initialFlightId={params.get('flight')} />;
-  }
+  if (person && (framed || vp.isPhone || phoneLandscape)) return <ToPhoneApp framed={framed} />;
   let view;
   if (phoneLandscape) {
     view = <LandscapePhoneWall {...shared} />;

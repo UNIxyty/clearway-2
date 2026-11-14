@@ -10,13 +10,21 @@ export async function check({ base, accounts: [u, c], ok }) {
     return { st: r.status, to: (r.headers.get("location") || "").replace(/^https?:\/\/[^/]+/, ""), text: await r.text().catch(() => "") };
   };
   const moved = (r) => r.st >= 300 && r.st < 400;
+  // Where an old address leads. The portal has a loading screen at its root, so Next answers a page's redirect() as a
+  // 200 page that carries the redirect (a refresh meta, and the router's own instruction a browser acts on at once),
+  // not as a 307. Either way counts; `how` says which one production gave.
+  const led = (r) => {
+    if (moved(r)) return { to: r.to, how: String(r.st) };
+    const m = r.st === 200 ? r.text.match(/http-equiv="refresh"\s+content="\d+;\s*url=([^"]+)"/i) : null;
+    return m ? { to: m[1].replace(/&amp;/g, "&"), how: "200 + refresh" } : { to: "", how: `${r.st}, no redirect in it` };
+  };
   // the old phone wall's addresses
   const old = await ask("/m/wall", u);
-  ok(moved(old) && /^\/digital-wall\/phone\/?$/.test(old.to), "staff: the old phone wall (/m/wall) leads to the phone app", `${old.st} → ${old.to}`);
+  ok(/^\/digital-wall\/phone\/?$/.test(led(old).to), "staff: the old phone wall (/m/wall) leads to the phone app", `${led(old).how} → ${led(old).to}`);
   const oldFlight = await ask("/m/wall?flight=zzz%3A1", u);
-  ok(moved(oldFlight) && /^\/digital-wall\/phone\/?\?flight=zzz(%3A|:)1$/.test(oldFlight.to), "staff: /m/wall?flight=<id> leads to the phone app and keeps the flight", `${oldFlight.st} → ${oldFlight.to}`);
+  ok(/^\/digital-wall\/phone\/?\?flight=zzz(%3A|:)1$/.test(led(oldFlight).to), "staff: /m/wall?flight=<id> leads to the phone app and keeps the flight", `${led(oldFlight).how} → ${led(oldFlight).to}`);
   const oldPath = await ask("/m/wall/zzz%3A1", u);
-  ok(moved(oldPath) && /^\/digital-wall\/phone\/?\?flight=zzz(%3A|:)1$/.test(oldPath.to), "staff: /m/wall/<id> leads to the phone app and keeps the flight", `${oldPath.st} → ${oldPath.to}`);
+  ok(/^\/digital-wall\/phone\/?\?flight=zzz(%3A|:)1$/.test(led(oldPath).to), "staff: /m/wall/<id> leads to the phone app and keeps the flight", `${led(oldPath).how} → ${led(oldPath).to}`);
   // the one address
   const bare = await ask("/digital-wall/phone?flight=zzz%3A1", u);
   ok(bare.st === 301 && /^\/digital-wall\/phone\/\?flight=zzz(%3A|:)1$/.test(bare.to), "the address without its last slash is sent to the one with it, flight kept", `${bare.st} → ${bare.to}`);
@@ -24,7 +32,9 @@ export async function check({ base, accounts: [u, c], ok }) {
     const page = await ask("/digital-wall/phone/", who);
     ok(page.st === 200 && /<div id="root">/.test(page.text), `${name}: the phone app answers at /digital-wall/phone/`, page.st);
     // the page must not shut the user's zoom
-    ok(page.st === 200 && !/user-scalable\s*=\s*no|maximum-scale\s*=\s*1(\.0)?\b/.test(page.text), `${name}: the page lets the user zoom (no user-scalable=no, no maximum-scale=1)`);
+    // (the viewport tag only: a comment beside it names the words it must not hold)
+    const viewport = (page.text.match(/<meta\s+name="viewport"[^>]*>/i) || [""])[0];
+    ok(page.st === 200 && viewport !== "" && !/user-scalable\s*=\s*no|maximum-scale\s*=\s*1(\.0)?\b/.test(viewport), `${name}: the page lets the user zoom (no user-scalable=no, no maximum-scale=1)`, viewport ? "the viewport tag is clean" : "no viewport tag");
   }
   // the shipped code holds the phone app: the entry chunk names a PhoneApp chunk, and it answers
   const html = (await ask("/digital-wall/phone/", u)).text;

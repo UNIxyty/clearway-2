@@ -33,12 +33,19 @@ export default function ClientShell({ menu, company, person, initials, contact, 
   const toggleRail = () => { const on = !rail; setRail(on); writeRail(on); };
   // a phone: off to the phone app, on arriving here and when the window becomes a phone's width — and stays it: a
   // window that is narrow for a moment only (a browser taking a picture of the whole page makes it 1 px wide for an
-  // instant, which sent a desk to the phone app, 2026-11-13) is looked at again a moment later and left alone
+  // instant, which sent a desk to the phone app, 2026-11-13) is looked at again a moment later and left alone.
+  // Two more looks, not one (2026-11-14: on a busy machine the picture held the window narrow past a single 250 ms
+  // look), and a width no phone has (under 240 px) is never a phone at any look.
   useEffect(() => {
     goPhone(pathname);
     const mq = window.matchMedia(`(max-width: ${PHONE_MAX}px)`);
+    const narrow = () => mq.matches && window.innerWidth >= 240;
     let timer = 0;
-    const onChange = () => { window.clearTimeout(timer); if (mq.matches) timer = window.setTimeout(() => { if (mq.matches) goPhone(pathname); }, 250); };
+    const onChange = () => {
+      window.clearTimeout(timer);
+      if (!narrow()) return;
+      timer = window.setTimeout(() => { if (narrow()) timer = window.setTimeout(() => { if (narrow()) goPhone(pathname); }, 500); }, 250);
+    };
     mq.addEventListener("change", onChange);
     return () => { window.clearTimeout(timer); mq.removeEventListener("change", onChange); };
   }, [pathname]);

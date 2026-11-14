@@ -1,7 +1,7 @@
 /* The phone app's tokens (design "Mobile Wall - Phone v3": clearway-mobile-v3.css). The ONLY colour and type source of
-   the phone app: nothing under src/phone/ reads a portal token (--cw-*, --tl-*) or a wall-room colour. The design names
-   its two font variables --cw-font / --cw-mono; here they are --c-font / --c-mono, because --cw-* is the portal's
-   namespace and the phone must not look like it reads it. Scope: [data-cw3="dark"|"light"] on the phone app's root. */
+   the phone app: nothing under src/phone/ reads a portal token or a wall-room colour. The design names its two font
+   variables in the portal's namespace; here they are --c-font / --c-mono, because that namespace is the portal's
+   and the phone must not look like it reads it. Scope: [data-cw3="dark"|"light"] on the phone app's root. */
 [data-cw3] { --c-font: 'Public Sans', system-ui, sans-serif; --c-mono: 'IBM Plex Mono', ui-monospace, monospace; }
 [data-cw3], [data-cw3] * { box-sizing: border-box; }
 [data-cw3] { font-family: var(--c-font); font-size: 13px; line-height: 1.35; color: var(--c-t1); background: var(--c-bg);

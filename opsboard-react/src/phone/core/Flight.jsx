@@ -88,7 +88,7 @@ function OpenFlight({ p, role, me, user, nowMs, stale, limitations, notamState, 
   const f = p.raw;
   const can = useCanAction();
   const [info, setInfo] = useState({ state: 'loading', data: null, at: 0 });
-  const [sheet, setSheet] = useState(null); // pax | lim | notes | checks | services | ap:dep | ap:arr
+  const [sheet, setSheet] = useState(null); // pax | lim | checks | services | ap:dep | ap:arr
   const [mapOpen, setMapOpen] = useState(false);
   const [again, setAgain] = useState({ busy: false, said: '', at: 0 });
   const [layer, setLayer] = useState(null);
@@ -143,14 +143,8 @@ function OpenFlight({ p, role, me, user, nowMs, stale, limitations, notamState, 
 
   // staff: the limitations of this flight (the count on the button; the sheet itself is in the staff file)
   const limList = useMemo(() => (staff ? limListOf(f, limitations) : []), [staff, f, limitations]);
-  // client: the notes ops chose to share, by switch (the server already cut them; the switches are asked again here)
-  const notes = useMemo(() => {
-    if (staff || canc) return [];
-    const all = Array.isArray(info.data?.flight?.limitations) ? info.data.flight.limitations : [];
-    const key = { IMP: 'important', LIM: 'limitations', CAA: 'caa' };
-    return all.filter((n) => key[n?.type] && sw.includes(key[n.type]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staff, canc, info.data, sw.join(',')]);
+  // (a client's "Notes" — the Limitations, Important notices and CAA details ops chose to share — were here until
+  // 2026-11-15: those are ops' own now, the server sends a client none of them and this page draws none)
 
   const st = flightStatus(p);
   const durMs = p.arrMs - p.depMs;
@@ -221,7 +215,6 @@ function OpenFlight({ p, role, me, user, nowMs, stale, limitations, notamState, 
           <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
             {paxOn ? headBtn('PAX', paxCount, 'users', () => setSheet('pax'), { 'data-open-pax': '', 'aria-label': paxCount != null ? `Passengers, ${paxCount}` : 'Passengers' }) : null}
             {staff && limList.length > 0 ? headBtn('Limits', limList.length, null, () => setSheet('lim'), { 'data-open-limits': '', 'aria-label': `Limitations, ${limList.length}` }) : null}
-            {!staff && notes.length > 0 ? headBtn('Notes', notes.length, null, () => setSheet('notes'), { 'data-open-notes': '', 'aria-label': `Notes from ops, ${notes.length}` }) : null}
           </div>
         </div>
       </div>
@@ -260,7 +253,6 @@ function OpenFlight({ p, role, me, user, nowMs, stale, limitations, notamState, 
           nowMs={nowMs} again={again} onAgain={fetchAgain} onRetry={loadInfo} onClose={closeSheet} />
       ) : null}
       {!staff && sheet === 'pax' && paxOn ? <ClientPax p={p} count={paxCount} onClose={closeSheet} /> : null}
-      {!staff && sheet === 'notes' ? <NotesSheet notes={notes} cs={p.cs} onClose={closeSheet} /> : null}
     </Frame>
   );
 }
@@ -511,34 +503,6 @@ function ClientPax({ p, count, onClose }) {
                 {r.nationality ? <><span /><span style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginTop: 4 }}><span style={{ ...LAB, width: 88 }}>NATIONALITY</span><span style={{ ...MONO, fontSize: 13, color: c('t2') }}>{r.nationality}</span></span></> : null}
               </div>
             ))}
-    </Sheet>
-  );
-}
-
-const NOTE_GROUPS = [['IMP', 'IMPORTANT'], ['LIM', 'LIMITATIONS'], ['CAA', 'AUTHORITY CONTACTS']];
-/** A client's notes from ops on this flight, read only. Only the kinds their account has switched on arrive here. */
-function NotesSheet({ notes, cs, onClose }) {
-  return (
-    <Sheet name="notes" title="Notes from ops" sub={`${notes.length} on ${cs}`} height="62%" onClose={onClose}>
-      {notes.length === 0 ? <Msg title="No notes on this flight" /> : NOTE_GROUPS.map(([type, label]) => {
-        const rows = notes.filter((n) => n.type === type);
-        if (!rows.length) return null;
-        return (
-          <section key={type} data-notes={type}>
-            <div style={{ minHeight: 32, padding: '0 16px', display: 'flex', alignItems: 'center', background: c('bg2'), borderBottom: `1px solid ${c('l1')}`, ...LAB, color: c('t3') }}>{label}</div>
-            {rows.map((n, i) => {
-              const caa = type === 'CAA' ? n.caa || {} : null;
-              const lines = caa ? [caa.functionText, caa.contact, caa.phones, caa.mail].filter(Boolean).map(String) : [n.description].filter(Boolean).map(String);
-              return (
-                <div key={n.id ?? i} style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 4, borderBottom: `1px solid ${c('l1')}` }}>
-                  <span style={{ fontSize: 16, fontWeight: 600, color: c('t1'), overflowWrap: 'anywhere' }}>{caa ? caa.authorityName || caa.country || n.title : n.title}</span>
-                  {lines.map((t, k) => <span key={k} style={{ fontSize: 16, lineHeight: 1.5, color: c('t2'), overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>{t}</span>)}
-                </div>
-              );
-            })}
-          </section>
-        );
-      })}
     </Sheet>
   );
 }

@@ -2,7 +2,7 @@
 // Until then one middleware block was the whole client restriction, and beneath it a client was the User role.
 //
 // 1. The portal, every address in app/ — 135 handlers (the 19 public ones on UNGATED too) and 104 pages — as an approved
-//    client with every switch and the documents level, and as two roles nobody planned for ("contractor"; "Client " in
+//    client with every switch (the row stores the seven RETIRED ones too, 2026-11-15: they must open nothing) and the documents level, and as two roles nobody planned for ("contractor"; "Client " in
 //    another case with a space). Two layers (2026-11-04):
 //    - middleware client block OFF (a second rig portal on :3981 started with RIG_CLIENT_MIDDLEWARE_OFF=1, which only
 //      works against the rig's local Supabase): every HANDLER must refuse on its own (404, or 401/403/405);
@@ -20,7 +20,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { UNGATED } from "../lib/permissions/route-gates.mjs";
-import { SWITCH_KEYS } from "../lib/clients/switches.mjs";
+import { SWITCHES, SWITCH_KEYS, RETIRED_SWITCH_KEYS, STARTING_SWITCHES, REQUIRED_SWITCHES, normaliseSwitches } from "../lib/clients/switches.mjs";
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, SVC = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
@@ -32,6 +32,23 @@ const svc = (p, init = {}) => fetch(`${SB}${p}`, { ...init, headers: { ...H, ...
 const PW = "rig-client-gate-only-1";
 const session = async (email, password = PW) => (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email, password }) })).json();
 const ck = (s) => `sb-${new URL(SB).hostname.split(".")[0]}-auth-token=base64-${Buffer.from(JSON.stringify(s)).toString("base64")}`;
+
+// ── 0. the switch list itself (2026-11-15): four switches exist, seven are retired, and a retired one can never be on ──
+// No server needed: the same module the portal, the wall and Admin › Clients read. Limitations, Important notices, CAA
+// details, Service status and NOTAM check status are ops' own since 2026-11-15; Documents and Airport & AIP search
+// went on 2026-11-10.
+{
+  const RETIRED_2026_11_15 = ["service_status", "notam_check_status", "limitations", "important", "caa"];
+  ok(SWITCH_KEYS.join(",") === "flight_board,weather,notams,radar", "switches: the four that exist are Flight board, Weather, NOTAM information, Flight radar", SWITCH_KEYS.join(","));
+  ok(RETIRED_SWITCH_KEYS.length === 7 && [...RETIRED_2026_11_15, "documents", "airport_search"].every((k) => RETIRED_SWITCH_KEYS.includes(k)), "switches: seven are retired (five on 2026-11-15, two on 2026-11-10)", RETIRED_SWITCH_KEYS.join(","));
+  for (const k of RETIRED_2026_11_15) {
+    const alone = normaliseSwitches([k]), withOthers = normaliseSwitches(["flight_board", "weather", k]);
+    ok(alone.length === 0 && withOthers.join(",") === "flight_board,weather", `switches: normaliseSwitches drops ${k} (alone → nothing; beside real ones → only the real ones)`, `[${alone.join(",")}] [${withOthers.join(",")}]`);
+  }
+  const everything = normaliseSwitches(SWITCHES.map((x) => x.key));
+  ok(everything.join(",") === SWITCH_KEYS.join(","), "switches: every key ever known, saved together → the four that exist", everything.join(","));
+  ok(STARTING_SWITCHES.every((k) => SWITCH_KEYS.includes(k)) && REQUIRED_SWITCHES.join(",") === "flight_board", "switches: a new client's starting set and the required switch name no retired one", `starting ${STARTING_SWITCHES.join(",")} · required ${REQUIRED_SWITCHES.join(",")}`);
+}
 
 // the gateless portal must be up, and must really be gateless (or the walk proves only the middleware)
 const up = await fetch(`${BARE}/login`).then((r) => r.status, () => 0);
@@ -48,7 +65,9 @@ async function account(email, appMeta) {
 await svc(`/rest/v1/clients?email=eq.rig-gate-client%40rig.invalid`, { method: "DELETE" });
 const clientUser = await account("rig-gate-client@rig.invalid", { role: "client", is_approved: true, client_status: "approved" });
 await svc(`/rest/v1/clients?email=eq.rig-gate-client%40rig.invalid`, { method: "DELETE" });
-const row = await (await svc("/rest/v1/clients", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ user_id: clientUser.id, email: "rig-gate-client@rig.invalid", person_name: "Rig Gate Client", company: "Rig Gate Charter (invented)", kind: "operator", status: "approved", scope: [{ kind: "operator", value: "cwy-cwy" }], switches: SWITCH_KEYS, passenger_level: "documents", decided_at: new Date().toISOString() }) })).json();
+const row = await (await svc("/rest/v1/clients", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ user_id: clientUser.id, email: "rig-gate-client@rig.invalid", person_name: "Rig Gate Client", company: "Rig Gate Charter (invented)", kind: "operator", status: "approved", scope: [{ kind: "operator", value: "cwy-cwy" }], switches: SWITCHES.map((x) => x.key), passenger_level: "documents", decided_at: new Date().toISOString() }) })).json();
+// ↑ the row stores EVERY key the list has ever known, the seven retired ones too (as a row from before 2026-11-15 does):
+//   the walks below then prove a stored retired switch opens nothing, in the portal and at the wall
 const staffPw = JSON.parse(readFileSync("rig/dark-audit.mjs", "utf8").match(/token\?grant_type=password[^\n]*?password: ("[^"]+")/)[1]);
 const S = await session("rig-access-user@rig.invalid", staffPw);
 ok(Boolean((await session("rig-gate-client@rig.invalid")).access_token && S.access_token), "a client and a staff user sign in");

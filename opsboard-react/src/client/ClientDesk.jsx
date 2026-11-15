@@ -1,38 +1,23 @@
-// The client's desk (design "Client Portal v3", 2026-11-13): Timeline — the ops Board in a card that hugs its lanes,
-// the day, the clocks, day and zoom controls, the legend, "Coming up" under it — and Flights, a table grouped by day
-// with search. Operators & aircraft is the view filter (saved on the account); a flight opens in a side panel.
-// Nothing here decides what the client may see: the wall backend already cut every answer to their scope.
-//
-// The timeline IS the ops timeline: the shared Board component, fed by the wall's client-scoped feed, drawn with
-// client-only props. The v3 look around it (card, head, legend, the "AIRCRAFT" word, the empty box) is this file's
-// own markup and client.css rules under .cw-client; the Board, its pills and the display's tokens are not touched,
-// so the ops room wall display draws exactly as before.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Board from '../components/Board';
+// The client's desk. Timeline (2026-11-15): the ops Digital Wall timeline page itself (ClientTimeline.jsx: the display's
+// clock bar and Board with its sidebar and legends, nothing restyled), under one slim bar that holds the client's own
+// Operators & aircraft filter. Flights: a table grouped by day with search (design "Client Portal v3" / "Screen v3").
+// A flight opens in a panel docked beside the page on a wide screen. Operators & aircraft is the view filter (saved
+// on the account). Nothing here decides what the client may see: the wall backend already cut every answer to their
+// scope, and sends no limitations, important notices, CAA details or ops checks to a client at all.
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import ClientTimeline, { opsSidebarWidth } from './ClientTimeline';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { useBoardFrame, useBoardHeight } from './useBoardHeight';
 import { flattenFlights, hmZ } from '../components/mobile/mobileUtil';
-import { STATUS_WORD, dayIndex, dayLabel, dayName, dayShort, dayStartMs, groupOperators, matchesQuery, readView, writeView, tellShell, emptyFleetWords } from './clientApi';
+import { STATUS_WORD, dayIndex, dayLabel, dayName, groupOperators, matchesQuery, readView, writeView, tellShell, emptyFleetWords } from './clientApi';
 import ClientFlightBody, { StatusChip, useFlightInfo } from './ClientFlight';
 import Icon from './clientIcons';
 
-const ZOOM = [{ label: '0.7×', hours: 13 }, { label: '1×', hours: 9 }, { label: '1.4×', hours: 6 }];
-const LEGEND = [['Scheduled', 'scheduled'], ['Delayed', 'delayed'], ['CTOT / slot', 'ctot'], ['Flying', 'flying'], ['Arrived', 'arrived'], ['AOG', 'aog']];
-const H = 3600_000;
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FL_GRID = '84px 84px 100px 96px minmax(120px,1fr) 150px 160px';
-const AG_GRID = '90px 110px 100px minmax(0,1fr) 90px 150px';
 const NONE = { operators: [], registrations: [] };
 
 /** One broken part of the desk shows this in its own place; the rest of the page keeps working. */
 const guard = (where, children, resetKey) => <ErrorBoundary where={where} resetKey={resetKey} compact>{children}</ErrorBoundary>;
-
-function Clocks({ clocks }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
-  const hm = (tz) => { try { return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz || 'UTC' }).format(now); } catch { return hmZ(now); } };
-  return <div className="cwd-clocks">{clocks.map((c, i) => <span key={`${c.timeZone}-${c.name}`} className={i === 0 || c.utc ? 'is-utc' : ''}><small>{(c.label || c.name || c.code || 'UTC').toUpperCase()}</small><b suppressHydrationWarning>{hm(c.timeZone)}</b></span>)}</div>;
-}
 
 function OperatorsPanel({ aircraft, hidden, setHidden, saveFailed, onClose }) {
   const ops = useMemo(() => groupOperators(aircraft), [aircraft]);
@@ -96,17 +81,13 @@ function Empty({ kind, icon, title, line, children, box = false, style }) {
   );
 }
 
-export default function ClientDesk({ page, goPage, me, prefs, setHidden, hideSaveFailed = false, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, serviceOn, onReload, look }) {
+export default function ClientDesk({ page, me, prefs, setHidden, hideSaveFailed = false, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error, feed, onReload, settings }) {
   const view0 = readView();
-  const [zoom, setZoom] = useState(() => (Number.isInteger(view0.zoom) ? Math.max(0, Math.min(2, view0.zoom)) : 1));
-  const [day, setDay] = useState(() => (Number.isInteger(view0.day) ? view0.day : 0));
-  const [scrollTo, setScrollTo] = useState(null);
   const [q, setQ] = useState(() => view0.q || '');
   const [panel, setPanel] = useState(false);
   const [openId, setOpenId] = useState(null);
-  const [viewRange, setViewRange] = useState(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => { writeView({ zoom, day, q }); }, [zoom, day, q]);
+  useEffect(() => { writeView({ q }); }, [q]);
   useEffect(() => { const t = setInterval(() => setNowMs(Date.now()), 30_000); return () => clearInterval(t); }, []);
 
   const all = useMemo(() => flattenFlights(visible), [visible]);
@@ -119,21 +100,17 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, hideSav
   const typeOf = (f) => { const a = (aircraft || []).find((x) => x.reg === f.__reg && String(x.oprId || '') === String(f.oprId || x.oprId || '')); return String(a?.acType || '').trim(); };
   const nHidden = aircraft.length - visible.length;
   const today = flights.filter((f) => dayIndex(f.delayedStartUtcMs, nowMs) === 0).length;
-  const upcoming = flights.filter((f) => f.status !== 'arrived' && f.status !== 'cancelled' && f.endUtcMs > nowMs - H);
-  const agenda = upcoming.slice(0, 5);
   const listed = flights.filter((f) => matchesQuery(f, q));
   const days = [];
   for (const f of listed) { const k = dayIndex(f.delayedStartUtcMs, nowMs); let g = days.find((x) => x.k === k); if (!g) { g = { k, rows: [] }; days.push(g); } g.rows.push(f); }
   const allHidden = aircraft.length > 0 && visible.length === 0;
   const empty = loadedOnce && aircraft.length > 0 && all.length === 0 && !allHidden;
   const noFleet = loadedOnce && aircraft.length === 0;
-  const live = !serviceOn ? null : feed == null ? null : feed.live === 'working' && feed.healthy !== false;
-  const onRange = useCallback((r) => setViewRange(r), []);
+  // the feed's own verdict (every client may read it since 2026-11-15); null until it has answered
+  const live = feed == null ? null : feed.live === true && feed.healthy !== false;   // the client answer's live is true or false (client-scope.mjs)
   const closePanel = useCallback(() => setPanel(false), []);
   const closeFlight = useCallback(() => setOpenId(null), []);
   const showAll = () => setHidden(NONE);
-  const goDay = (d) => { const idx = Math.max(-1, Math.min(6, d)); setDay(idx); setScrollTo(dayStartMs(idx)); };
-  const dayIdx = viewRange ? dayIndex(viewRange.startMs + (viewRange.endMs - viewRange.startMs) * 0.3, nowMs) : day;
   const opsLabel = grants.length === 1 ? grants[0].name : `${grants.length} operators`;
   const fleetWords = emptyFleetWords(me);
   const sub = noFleet ? fleetWords.title : `${opsLabel} · ${visible.length} aircraft · ${empty ? 'nothing scheduled' : `${today} flight${today === 1 ? '' : 's'} today`}`;
@@ -144,14 +121,6 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, hideSav
   const hiddenLine = 'Every operator is switched off in Operators & aircraft. The flights are still there, just not on your screen.';
   const updatedMs = feed?.updatedAt ? Date.parse(feed.updatedAt) : NaN;
   const agoMin = Number.isFinite(updatedMs) ? Math.round((nowMs - updatedMs) / 60_000) : null;
-  const laneH = Math.round(96 * look.rowZoom);
-  // with no lanes the board keeps three lanes' height, so the empty words sit under the hour row with room around
-  // them and the page never looks collapsed (2026-11-12, Dmitry's test)
-  const boardRef = useRef(null);
-  const boardH = useBoardHeight(boardRef, 34 + Math.max(3, visible.length) * laneH);
-  const frame = useBoardFrame(boardRef);
-  const over = { top: frame.hourH + 16, left: frame.acW + 16 }; // the empty box: top-left of the lanes, under the hour row
-
   const allHiddenBlock = (
     <Empty kind="all-hidden" icon="eye-off" title="You’ve hidden every aircraft" line={hiddenLine}>
       <button type="button" className="cwd-cta" onClick={showAll} data-show-all=""><Icon name="eye" />Show all</button>
@@ -169,100 +138,90 @@ export default function ClientDesk({ page, goPage, me, prefs, setHidden, hideSav
     </button>
   );
 
-  return (
-    <div className="cwd" data-client-page={page}>
-      <div className="cwd-titlerow">
-        <div className="cwd-title"><h1>{page === 'flights' ? 'Flights' : 'Timeline'}</h1><span className="cwd-sub" data-page-sub="">{sub}</span></div>
-        {nHidden > 0 && <span className="cwd-hidden" data-hidden-chip=""><Icon name="eye-off" />{nHidden} aircraft hidden<button type="button" className="cwd-mini" onClick={showAll} data-show-all="">Show all</button></span>}
-{/* the panel hangs under its button, wherever the title row wraps */}
-        <span className="cwd-anchor">
-          <button type="button" className={`cwd-btn${panel ? ' is-on' : ''}`} onClick={() => setPanel((v) => !v)} data-operators-button="" aria-expanded={panel}><Icon name="sliders" className="cwd-muted" />Operators &amp; aircraft<span className="cwd-mono cwd-count">{visible.length} of {aircraft.length}</span><Icon name="chevron-down" className="cwd-muted" /></button>
-          {panel && (
-            <>
-              <div className="cwd-scrim" onClick={closePanel} />
-              <div className="cwd-panel" role="dialog" aria-label="Operators and aircraft" data-operators-panel="">
-                {guard('client/filter', <OperatorsPanel aircraft={aircraft} hidden={prefs.hidden} setHidden={setHidden} saveFailed={hideSaveFailed} onClose={closePanel} />)}
-              </div>
-            </>
-          )}
-        </span>
-      </div>
-      {serviceOn && live === false && (
+  const weatherOn = Boolean(me?.switches?.includes('weather'));
+  const hiddenChip = nHidden > 0 && <span className="cwd-hidden" data-hidden-chip=""><Icon name="eye-off" />{nHidden} aircraft hidden<button type="button" className="cwd-mini" onClick={showAll} data-show-all="">Show all</button></span>;
+  // the panel hangs under its button, wherever the row wraps
+  const filter = (
+    <span className="cwd-anchor">
+      <button type="button" className={`cwd-btn${panel ? ' is-on' : ''}`} onClick={() => setPanel((v) => !v)} data-operators-button="" aria-expanded={panel}><Icon name="sliders" className="cwd-muted" />Operators &amp; aircraft<span className="cwd-mono cwd-count">{visible.length} of {aircraft.length}</span><Icon name="chevron-down" className="cwd-muted" /></button>
+      {panel && (
+        <>
+          <div className="cwd-scrim" onClick={closePanel} />
+          <div className="cwd-panel" role="dialog" aria-label="Operators and aircraft" data-operators-panel="">
+            {guard('client/filter', <OperatorsPanel aircraft={aircraft} hidden={prefs.hidden} setHidden={setHidden} saveFailed={hideSaveFailed} onClose={closePanel} />)}
+          </div>
+        </>
+      )}
+    </span>
+  );
+  const lines = (
+    <>
+      {live === false && (
         <div className="cwd-notlive" data-service-status="behind"><Icon name="wifi-off" /><span><b>Not live right now.</b> Last updated at <span className="cwd-mono">{Number.isFinite(updatedMs) ? `${hmZ(updatedMs)}Z` : '—'}</span>{agoMin != null && agoMin >= 1 && agoMin < 600 ? `, ${agoMin} min ago` : ''}. The page reconnects on its own.</span></div>
       )}
-      {serviceOn && live === true && <div className="cwd-live" data-service-status="live">Flight data is live{Number.isFinite(updatedMs) ? <> · updated <span className="cwd-mono">{hmZ(updatedMs)}Z</span></> : null}</div>}
       {error && loadedOnce && !aircraft.length && <div className="cwd-notlive" data-error=""><Icon name="triangle-alert" /><span><b>Couldn’t load flights.</b> {error}</span><button type="button" className="cwd-btn" onClick={onReload} data-try-again=""><Icon name="rotate-ccw" />Try again</button></div>}
+    </>
+  );
+  const flightPanel = openF && <FlightPanel p={openF} me={me} names={names} acType={typeOf(openF)} onClose={closeFlight} />;
 
-      {page === 'timeline' && (
-        <>
-          <section className="cwd-card" data-card="timeline">
+  if (page === 'timeline') {
+    return (
+      <div className={`cwt${openF ? ' has-flight' : ''}`} data-client-page="timeline">
+        <div className="cwt-col">
+          {/* the one thing the client's page adds to the ops page: their own filter, in a slim bar above it */}
+          <div className="cwt-bar" data-timeline-bar="">
+            <span className="cwd-sub" data-page-sub="">{sub}</span>
+            <span className="cwd-grow" />
+            {hiddenChip}
+            {filter}
+          </div>
+          {lines}
+          <div className="cwt-ops" data-card="timeline">
             {guard('client/timeline', (
-              <>
-                <div className="cwd-tl-head">
-                  <div className="cwd-day"><small data-day-tag="">{dayName(dayIdx, nowMs)}</small><b>{dayLabel(dayIdx, nowMs)}</b></div>
-                  <Clocks clocks={clocks} />
-                  <div className="cwd-controls">
-                    <div className="cwd-seg"><button type="button" className="cwd-step" onClick={() => goDay(day - 1)} aria-label="Previous day" title="Previous day" data-prev-day=""><Icon name="chevron-left" /></button><span className="cwd-seg-label" data-day-short="">{dayShort(day, nowMs)}</span><button type="button" className="cwd-step" onClick={() => goDay(day + 1)} aria-label="Next day" title="Next day" data-next-day=""><Icon name="chevron-right" /></button></div>
-                    <div className="cwd-seg"><button type="button" className="cwd-step" onClick={() => setZoom((z) => Math.max(0, z - 1))} disabled={zoom === 0} aria-label="More hours" title="More hours" data-zoom-out=""><Icon name="minus" /></button><span className="cwd-seg-label cwd-mono is-zoom" data-zoom-label="">{ZOOM[zoom].label}</span><button type="button" className="cwd-step" onClick={() => setZoom((z) => Math.min(2, z + 1))} disabled={zoom === 2} aria-label="Fewer hours" title="Fewer hours" data-zoom-in=""><Icon name="plus" /></button></div>
-                    <button type="button" className="cwd-now" onClick={() => goDay(0)} data-go-now=""><Icon name="locate-fixed" />Now</button>
-                  </div>
-                </div>
-                <div className="cwd-legend" data-legend="">{LEGEND.map(([t, k]) => <span key={k}><i className={`is-${k}`} />{t}</span>)}</div>
-                {allHidden ? allHiddenBlock : (
-                  <div className="cwd-board" style={{ height: boardH }} data-board="" data-lanes={visible.length} ref={boardRef}>
-                    <Board aircraft={visible} limitations={[]} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} scale={look.scale} timeZoom={look.timeZoom} rowZoom={look.rowZoom} pillHeight={look.pillHeight} markerScale={look.markerScale} labelScale={look.labelScale} autoFitRows={look.autoFitRows} hideSidebar rowHeightPx={laneH} viewportHoursOverride={ZOOM[zoom].hours} autoReturnToNow={false} scrollToMs={scrollTo} onViewRange={onRange} onPillTap={(f) => setOpenId(f.id)} showUnconfirmedRing={false} touchHitMinPx={44} maxMarkers={2} />
-                    {/* the hour row's first cell is empty in the Board; the client's frame names the column, sized by the Board's own cell */}
-                    {frame.acW >= 84 && frame.hourH > 0 && <span className="cwd-achead" style={{ width: frame.acW, height: frame.hourH }} data-aircraft-head="" aria-hidden="true">AIRCRAFT</span>}
-                    {!loadedOnce && <Empty box style={over} line="Loading your flights…" />}
-                    {empty && <Empty kind="no-flights" box style={over} icon="calendar-x" title="No flights in the next 7 days" line={emptyLine} />}
-                    {noFleet && <Empty kind={fleetWords.kind} box style={over} icon="calendar-x" title={fleetWords.title} line={fleetWords.line} />}
+              <ClientTimeline aircraft={visible} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} clocks={clocks} settings={settings} weatherOn={weatherOn} onPillTap={(f) => setOpenId(f.id)}>
+                {/* what an empty board means, said over the lanes (the ops page has no words for it) */}
+                {(!loadedOnce || empty || noFleet || allHidden) && (
+                  <div className="cwt-over" style={{ paddingLeft: opsSidebarWidth(settings) }}>
+                    {!loadedOnce && <Empty box line="Loading your flights…" />}
+                    {allHidden && <Empty kind="all-hidden" box icon="eye-off" title="You’ve hidden every aircraft" line={hiddenLine}><button type="button" className="cwd-cta" onClick={showAll} data-show-all=""><Icon name="eye" />Show all</button></Empty>}
+                    {empty && <Empty kind="no-flights" box icon="calendar-x" title="No flights in the next 7 days" line={emptyLine} />}
+                    {noFleet && <Empty kind={fleetWords.kind} box icon="calendar-x" title={fleetWords.title} line={fleetWords.line} />}
                   </div>
                 )}
-              </>
+              </ClientTimeline>
             ))}
-          </section>
-          {agenda.length > 0 && !allHidden && (
-            <section className="cwd-card" data-card="coming-up">
-              {guard('client/coming-up', (
-                <>
-                  <div className="cwd-card-head"><b>Coming up</b><span className="cwd-mono cwd-muted">{upcoming.length}</span><span className="cwd-grow" /><button type="button" className="cwd-link" onClick={() => goPage('flights')} data-all-flights="">All in Flights<Icon name="arrow-right" /></button></div>
-                  {agenda.map((f) => (
-                    <button type="button" key={f.id} className="cwd-arow" style={{ gridTemplateColumns: AG_GRID }} onClick={() => setOpenId(f.id)} data-agenda-row={f.fn}>
-                      <span className="cwd-muted">{dayShort(dayIndex(f.delayedStartUtcMs, nowMs), nowMs)}</span>
-                      <span className="cwd-mono is-times">{f.depHm}–{f.arrHm}</span>
-                      <span className="cwd-mono is-cs">{f.fn}</span>
-                      <span className="cwd-mono cwd-body">{f.dep} → {f.arr}</span>
-                      <span className="cwd-mono cwd-muted">{f.__reg}</span>
-                      <StatusChip status={f.status} />
-                    </button>
-                  ))}
-                </>
-              ))}
-            </section>
-          )}
-        </>
-      )}
+          </div>
+        </div>
+        {flightPanel}
+      </div>
+    );
+  }
 
-      {page === 'flights' && (
-        <>
-          <label className="cwd-search"><Icon name="search" className="cwd-muted" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Flight number, registration or airport" spellCheck={false} aria-label="Search flights" data-flights-search="" />{q && <button type="button" className="cwd-clear" onClick={() => setQ('')} aria-label="Clear search" data-clear-search=""><Icon name="x" /></button>}</label>
-          <section className="cwd-card" data-card="flights">
-            {guard('client/flights', (
-              <div className="cwd-table">
-                {days.length > 0 && <div className="cwd-fhead" style={{ gridTemplateColumns: FL_GRID }} data-flights-head=""><span>DEP UTC</span><span>ARR UTC</span><span>FLIGHT</span><span>AIRCRAFT</span><span>OPERATOR</span><span>ROUTE</span><span>STATUS</span></div>}
-                {days.map((g) => <div key={g.k} data-day-group={g.k}><div className="cwd-dayhead">{dayName(g.k, nowMs)}<span className="cwd-mono">{dayLabel(g.k, nowMs)}</span></div>{g.rows.map(row)}</div>)}
-                {allHidden && allHiddenBlock}
-                {!allHidden && q && !listed.length && all.length > 0 && <Empty kind="no-match" icon="search-x" title={`No flights match “${q}”`} line="Search looks at flight numbers, registrations and airport ICAO codes." />}
-                {empty && <Empty kind="no-flights" icon="calendar-x" title="No flights in the next 7 days" line={emptyLine} />}
-                {noFleet && <Empty kind={fleetWords.kind} icon="calendar-x" title={fleetWords.title} line={fleetWords.line} />}
-                {!loadedOnce && <Empty line="Loading your flights…" />}
-              </div>
-            ))}
-          </section>
-        </>
-      )}
-
-      {openF && <FlightPanel p={openF} me={me} names={names} acType={typeOf(openF)} onClose={closeFlight} />}
+  return (
+    <div className={`cwd-wrap${openF ? ' has-flight' : ''}`}>
+      <div className="cwd" data-client-page={page}>
+        <div className="cwd-titlerow">
+          <div className="cwd-title"><h1>Flights</h1><span className="cwd-sub" data-page-sub="">{sub}</span></div>
+          {hiddenChip}
+          {filter}
+        </div>
+        {lines}
+        <label className="cwd-search"><Icon name="search" className="cwd-muted" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Flight number, registration or airport" spellCheck={false} aria-label="Search flights" data-flights-search="" />{q && <button type="button" className="cwd-clear" onClick={() => setQ('')} aria-label="Clear search" data-clear-search=""><Icon name="x" /></button>}</label>
+        <section className="cwd-card" data-card="flights">
+          {guard('client/flights', (
+            <div className="cwd-table">
+              {days.length > 0 && <div className="cwd-fhead" style={{ gridTemplateColumns: FL_GRID }} data-flights-head=""><span>DEP UTC</span><span>ARR UTC</span><span>FLIGHT</span><span>AIRCRAFT</span><span>OPERATOR</span><span>ROUTE</span><span>STATUS</span></div>}
+              {days.map((g) => <div key={g.k} data-day-group={g.k}><div className="cwd-dayhead">{dayName(g.k, nowMs)}<span className="cwd-mono">{dayLabel(g.k, nowMs)}</span></div>{g.rows.map(row)}</div>)}
+              {allHidden && allHiddenBlock}
+              {!allHidden && q && !listed.length && all.length > 0 && <Empty kind="no-match" icon="search-x" title={`No flights match “${q}”`} line="Search looks at flight numbers, registrations and airport ICAO codes." />}
+              {empty && <Empty kind="no-flights" icon="calendar-x" title="No flights in the next 7 days" line={emptyLine} />}
+              {noFleet && <Empty kind={fleetWords.kind} icon="calendar-x" title={fleetWords.title} line={fleetWords.line} />}
+              {!loadedOnce && <Empty line="Loading your flights…" />}
+            </div>
+          ))}
+        </section>
+      </div>
+      {flightPanel}
     </div>
   );
 }

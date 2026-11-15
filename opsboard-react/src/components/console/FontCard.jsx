@@ -41,7 +41,8 @@ export default function FontCard({ deviceId }) {
   // Preview text from the wall itself: the first flight on the timeline (never personal data: callsign, route,
   // registration, times, operator), with a fixed sample when the board is empty.
   useEffect(() => {
-    fetchTimelineAircraft({ refresh: false })
+    // no limitations read: the sample uses none, and a client may not make that read (2026-11-15)
+    fetchTimelineAircraft({ refresh: false, limitations: false })
       .then((payload) => {
         const row = (payload?.aircraft ?? []).find((a) => (a.flights ?? []).length);
         const f = row?.flights?.[0];

@@ -48,6 +48,33 @@ const PAX_NID = 880001;                                                         
 const withPax = (b) => { const a0 = b.aircraft[0]; const from = a0.flights[0]; const f = shiftTimes(from, T0 + 50 * 60_000 - Date.parse(from.startTimeUTC)); return { ...b, aircraft: [{ ...a0, flights: [...a0.flights, { ...f, flightNid: PAX_NID, flightNo: "TST880", movementState: "scheduled", isAirborne: false, hasArrived: false, checks: {}, limitations: [], limitationIds: [] }] }, ...b.aircraft.slice(1)] }; };
 const five = (b) => editFlight(b, PLAIN.flightNid, (f) => ({ ...f, ...FIVE }));
 
+/**
+ * The rail against the Flights list (2026-11-15, it used to float over the time column of the lower rows): the list
+ * scrolled to its top, its middle and its end; at each, no text of a row lies under the rail, the time of every row
+ * in view takes a tap itself, and at the end the last row is wholly in view. Returns the faults found, as words.
+ */
+const railFaults = (page) => page.evaluate(async () => {
+  const sc = document.querySelector("[data-list-scroll]"); const railEl = document.querySelector("[data-rail]");
+  if (!sc || !railEl) return { faults: ["no list or no rail"], max: 0, rows: 0 };
+  const faults = []; let rows = 0;
+  for (const where of ["top", "middle", "end"]) {
+    sc.scrollTop = where === "end" ? sc.scrollHeight : where === "middle" ? Math.round((sc.scrollHeight - sc.clientHeight) / 2) : 0;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const rail = railEl.getBoundingClientRect(), view = sc.getBoundingClientRect();
+    const all = [...sc.querySelectorAll("[data-flight-row]")];
+    for (const row of all) {
+      const r = row.getBoundingClientRect(); if (r.bottom <= view.top + 33 || r.top >= view.bottom - 1) continue;   // out of view, or under the day's sticky head
+      rows += 1; const id = row.getAttribute("data-flight-row");
+      for (const el of row.querySelectorAll(":scope > span")) { const b = el.getBoundingClientRect(); if (b.width > 0 && b.bottom > rail.top + 1 && b.top < rail.bottom - 1 && b.left < rail.right - 1 && b.right > rail.left + 1) { faults.push(`${where}: ${id} has text under the rail`); break; } }
+      const t = row.firstElementChild.getBoundingClientRect(); const y = Math.min(Math.max((t.top + t.bottom) / 2, view.top + 34), view.bottom - 2);
+      if (y >= t.top && y <= t.bottom) { const hit = document.elementFromPoint(t.left + Math.min(t.width / 2, 20), y); if (!hit || !row.contains(hit)) faults.push(`${where}: a tap on ${id}'s time lands on ${hit ? (hit.closest("[data-rail]") ? "the rail" : hit.tagName) : "nothing"}`); }
+    }
+    if (where === "end" && all.length) { const last = all[all.length - 1].getBoundingClientRect(); if (last.bottom > view.bottom + 1) faults.push(`end: the last row is cut (${Math.round(last.bottom - view.bottom)} px below the list)`); }
+  }
+  sc.scrollTop = 0;
+  return { faults, max: sc.scrollHeight - sc.clientHeight, rows };
+});
+
 // ════════════════════════════════════════════════════════════════════════════ the source (no browser)
 await part("source", async () => { sourceChecks(ok); });
 
@@ -272,6 +299,15 @@ await part("timeline", async () => {
   ok(await count(page, '[data-notif="DEP"]') === 1 && await count(page, '[data-notif="DEP"][data-unread]') === 0 && await count(page, "[data-bell] [data-badge]") === 0, "T6 the tapped notification is read afterwards, and the mark is gone");
   await closeSheet(page, "notifications");
 
+  // ── T7a: a reload asked while one runs is queued (2026-11-15): the wall answers slowly, three reloads are asked
+  // during the first read; exactly one more read follows it (the old phone dropped them: one read; never a pile: three)
+  {
+    fc.delay = 1500; const r0 = fc.reads;
+    await firePoll(page); await sleep(250); await firePoll(page); await sleep(250); await firePoll(page);
+    await sleep(5000); fc.delay = 0;
+    ok(fc.reads - r0 === 2, "T7a a reload asked during a reload is queued: one follow-up read after the running one, not dropped and not a pile", `${fc.reads - r0} reads of the feed for 3 asks during the first`);
+  }
+
   // ── T7: not live (the wall stops answering after a good load)
   fc.mode = "fail"; await firePoll(page);
   await page.waitForSelector("[data-stale-banner]", { timeout: 20000 }).catch(() => {});
@@ -457,6 +493,17 @@ await part("flight", async () => {
   await closeFlight(page);
 
   // ── F6: passengers (names first; a document on one tap)
+  // The list is the agent's real answer. The document is a stand-in (invented fields): a real reveal draws on the rig
+  // user's one bucket of 40 openings per 10 minutes, which mobile/pax-check fills on purpose to prove the stop, so in a
+  // shuffled or two-lane run this check met a full bucket (429) — the flaky F6 of 2026-11-13/14, reproduced 2026-11-15.
+  // The gate itself is pax-check's and personal-data-paths-check's to prove; this check proves the phone's one tap.
+  let reveals = 0;
+  await s.ctx.route(/\/agent\/api\/flights\/[^/]+\/passengers\/[^/]+\/reveal$/, (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    reveals += 1;
+    const id = decodeURIComponent(route.request().url().split("/passengers/")[1].split("/")[0]);
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, passenger: { id, nationality: "Invented", sex: "X", dateOfBirth: "2000-01-01", documentCountry: "XX", documentNumber: "RIG-INVENTED-0001", documentExpiry: "2099-01-01", masked: false }, shownAt: new Date().toISOString(), seconds: 30 }) });
+  });
   await tap(page, `[data-fid="${PAX_ID}"]`, "[data-open-flight]");
   ok(await count(page, "[data-open-pax]") === 1 && /^Passengers/.test(await page.locator("[data-open-pax]").getAttribute("aria-label")), "F6 the flight has the passengers button", await page.locator("[data-open-pax]").getAttribute("aria-label").catch(() => "none"));
   await tap(page, "[data-open-pax]", '[data-passenger-viewer="phone"] [data-pax-list]');
@@ -464,7 +511,7 @@ await part("flight", async () => {
   ok(await count(page, '[data-sheet="passengers"] [data-passenger-viewer="phone"]') === 1 && await show.count() >= 1 && await count(page, "[data-pax-doc]") === 0, "F6 one tap opens the passengers: names first, no document shown", `${await show.count()} passengers · the sheet: ${await page.evaluate(() => { const el = document.querySelector('[data-sheet="passengers"]'); if (!el) return "no sheet"; if (el.querySelector('[aria-busy="true"]')) return "still loading"; const a = el.querySelector('[role="alert"], [data-pax-failed]'); return a ? `failed: ${(a.textContent || "").slice(0, 110)}` : el.querySelector("[data-pax-list]") ? "the list" : `other: ${(el.textContent || "").slice(0, 110)}`; })}`);
   ok(!/hold/i.test(await textOf(page, '[data-sheet="passengers"]')), "nothing on the passengers sheet says hold");
   await tap(page, show.first(), "[data-pax-doc]");
-  ok(await count(page, "[data-pax-doc]") >= 1, "F6 one normal tap on Show brings one passenger's document", await page.evaluate(() => { const el = document.querySelector('[data-sheet="passengers"]'); const b = el?.querySelector('button[aria-label^="Show the document of"]'); const a = el?.querySelector('[role="alert"]'); return `first Show button: ${b ? (b.disabled ? "disabled" : "enabled") + " “" + (b.textContent || "").trim() + "”" : "none"}${a ? ` · alert: ${(a.textContent || "").slice(0, 110)}` : ""}`; }));
+  ok(await count(page, "[data-pax-doc]") >= 1 && reveals === 1, "F6 one normal tap on Show brings one passenger's document (asked for once)", `${reveals} reveal ask(s) · ` + await page.evaluate(() => { const el = document.querySelector('[data-sheet="passengers"]'); const b = el?.querySelector('button[aria-label^="Show the document of"]'); const a = el?.querySelector('[role="alert"]'); return `first Show button: ${b ? (b.disabled ? "disabled" : "enabled") + " “" + (b.textContent || "").trim() + "”" : "none"}${a ? ` · alert: ${(a.textContent || "").slice(0, 110)}` : ""}`; }));
   await page.locator("[data-pax-doc] button").filter({ hasText: /hide|close|done/i }).first().tap({ timeout: 4000 }).catch(() => {}); await gone(page, "[data-pax-doc]", 6000);
   ok(await count(page, "[data-pax-doc]") === 0, "the document closes again on one tap");
   await closeSheet(page, "passengers"); await closeFlight(page);
@@ -784,6 +831,7 @@ await part("audit", async () => {
     await sheetAud("menu", '[data-rail-btn="menu"]');
     await tap(page, '[data-rail-btn="flights"]', "[data-flight-row]");
     await aud("flights list", "[data-phone-column]");
+    { const rf = await railFaults(page); ok(rf.max > 200 && rf.rows >= 8 && rf.faults.length === 0, `${tag("flights list")}: the rail never lies over a row (top, middle and end of a long list): every row's time takes its own tap, the last row is whole`, rf.faults.length ? rf.faults.slice(0, 4).join(" · ") : `${rf.rows} rows looked at, list ${rf.max} px longer than the screen`); }
     await page.locator("input[data-search]").fill("zz-no-such-flight"); await page.waitForSelector('[data-empty="search"]', { timeout: 8000 }).catch(() => {}); await settled(page);
     await aud("flights list no match", "[data-phone-column]");
     await tap(page, "[data-search-clear]", "[data-flight-row]");

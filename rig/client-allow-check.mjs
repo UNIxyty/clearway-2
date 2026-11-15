@@ -4,9 +4,15 @@
 //      other address is outside it (the count is printed — the walk of all of them as a client is step 5)
 //   3. a client with only the required switches: Timeline, Flights, Account, the start page, their own standing and
 //      their preferences, nothing else — staff pages and APIs 404, the retired Airports and Documents 404
-//   4. the retired switches (documents, airport_search; 2026-11-10): marked retired, not among the active ones, and
-//      granting nothing when written on a row
+//   4. the retired switches (documents, airport_search, 2026-11-10; limitations, important, caa, service_status,
+//      notam_check_status, 2026-11-15): marked retired, not among the four active ones, and granting nothing when
+//      written on a row — the menu, their standing, and the wall's five ops-only reads (404) stay as they were
 //   5. the page source and EVERY script the client's page loads carry none of the staff menu's labels
+//   6. the whole bundle (rig/lib/bundle-sweep.mjs), and since 2026-11-15 the ops-only reads by NAME: no asset of the
+//      client's own names /api/timeline/limitations, /api/limitations, /api/important, /api/caa or /api/notam-check
+//      (the wall app's one entry chunk, which every visitor shares, still holds services/timelineApi.js and is
+//      counted apart)
+//   7. what the client's pages ASK for, a flight opened: only their own reads, and never one of those five
 // Starts its own portal (:3982, this checkout's rig build, sign-in ON) and proxy (:3979, to the sign-in rig's agent
 // :5176 and wall :5198). The rig's own services are not touched. Needs rig/build-portal.sh first.
 //   node --env-file=.env.rig rig/client-allow-check.mjs
@@ -24,15 +30,22 @@ const svc = (p, init = {}) => fetch(`${SB}${p}`, { ...init, headers: { ...H, ...
 // ── 1. the list itself ──
 const { clientMayReach, clientMenu, CLIENT_PAGES, CLIENT_APIS } = await import("../lib/clients/allow.mjs");
 const { SWITCHES, ACTIVE_SWITCHES, RETIRED_SWITCH_KEYS, normaliseSwitches } = await import("../lib/clients/switches.mjs");
-const few = new Set(["flight_board", "weather"]), all = new Set(ACTIVE_SWITCHES.map((w) => w.key)), old = new Set([...few, "airport_search", "documents"]);
+// retired 2026-11-10 (reference work) and 2026-11-15 (the ops room's own: a client never sees them)
+const RETIRED_2026_11_10 = ["airport_search", "documents"], RETIRED_2026_11_15 = ["limitations", "important", "caa", "service_status", "notam_check_status"];
+const RETIRED = [...RETIRED_2026_11_10, ...RETIRED_2026_11_15];
+const few = new Set(["flight_board", "weather"]), all = new Set(ACTIVE_SWITCHES.map((w) => w.key)), old = new Set([...few, ...RETIRED]);
 ok(["/client", "/client/flights", "/client/account", "/client/start"].every((p) => clientMayReach(p, "GET", few).ok) && clientMayReach("/api/client/me", "GET", few).ok && clientMayReach("/api/client/prefs", "GET", few).ok && clientMayReach("/api/client/prefs", "PUT", few).ok && clientMayReach("/api/client/account/password", "POST", few).ok && !clientMayReach("/api/auth/password/reset", "POST", few).ok, "Timeline, Flights, Account, the start page, their standing, their preferences and their password: every approved client (the public auth routes are not a client's)");
 ok(["/client/airports", "/client/documents"].every((p) => !clientMayReach(p, "GET", few).ok && !clientMayReach(p, "GET", all).ok && !clientMayReach(p, "GET", old).ok), "Airports and Documents: on no list any more, with the old switches or every switch");
 ok(["/dashboard", "/aip", "/admin/users", "/api/search", "/api/admin/clients", "/api/client/me/../../admin", "/api/client/me/x", "/client/airports/x", "/client/start/x", "/clientx", "/client-requests", "/api/client/other", "/api/client/prefs/x", "/developer/inbox", "/files/x"].every((p) => !clientMayReach(p, "GET", all).ok) && !clientMayReach("/api/client/me", "POST", all).ok && !clientMayReach("/api/client/prefs", "POST", all).ok && !clientMayReach("/api/client/prefs", "DELETE", all).ok, "everything else is not on the list — staff pages, their APIs, look-alike addresses, other methods");
 const MENU = [{ path: "/client", label: "Timeline", icon: "chart-gantt" }, { path: "/client/flights", label: "Flights", icon: "plane" }, { path: "/client/account", label: "Account", icon: "circle-user" }, { path: "/client/settings", label: "Settings", icon: "sliders-horizontal" }];
 ok(JSON.stringify(clientMenu(few)) === JSON.stringify(MENU) && JSON.stringify(clientMenu(all)) === JSON.stringify(MENU) && JSON.stringify(clientMenu(new Set())) === JSON.stringify(MENU), "the menu: Timeline, Flights, Account, Settings for every client, whatever the switches; the start page is not an item");
 // the retired switches (2026-11-10)
-ok(JSON.stringify(RETIRED_SWITCH_KEYS.slice().sort()) === JSON.stringify(["airport_search", "documents"]) && SWITCHES.filter((w) => w.retired === true).length === 2 && ACTIVE_SWITCHES.every((w) => !w.retired && !RETIRED_SWITCH_KEYS.includes(w.key)) && ACTIVE_SWITCHES.length === 9, "the switches: documents and airport_search are marked retired; the nine active ones do not include them", `${ACTIVE_SWITCHES.map((w) => w.key).join(",")}`);
-ok(JSON.stringify(normaliseSwitches(["flight_board", "documents", "airport_search", "weather"])) === JSON.stringify(["flight_board", "weather"]), "normaliseSwitches drops a retired switch from an old row", normaliseSwitches(["flight_board", "documents", "airport_search", "weather"]).join(","));
+ok(JSON.stringify(RETIRED_SWITCH_KEYS.slice().sort()) === JSON.stringify(RETIRED.slice().sort()) && SWITCHES.filter((w) => w.retired === true).length === 7 && ACTIVE_SWITCHES.every((w) => !w.retired && !RETIRED_SWITCH_KEYS.includes(w.key)) && JSON.stringify(ACTIVE_SWITCHES.map((w) => w.key)) === JSON.stringify(["flight_board", "weather", "notams", "radar"]), "the switches: seven are marked retired (documents, airport search, limitations, important, CAA, service status, NOTAM check status); the four active ones are Flight board, Weather, NOTAMs and Radar", `active ${ACTIVE_SWITCHES.map((w) => w.key).join(",")} · retired ${RETIRED_SWITCH_KEYS.join(",")}`);
+ok(JSON.stringify(normaliseSwitches(["flight_board", ...RETIRED, "weather"])) === JSON.stringify(["flight_board", "weather"]) && normaliseSwitches(RETIRED).length === 0, "normaliseSwitches drops every retired switch from an old row, and a row holding only retired ones holds nothing", normaliseSwitches(["flight_board", ...RETIRED, "weather"]).join(","));
+// the wall's own list agrees: none of the five ops-only reads is a client read under any switch, and no read is behind a retired switch
+const { CLIENT_READS, NOT_ON_ACCOUNT } = await import("../digital-wall/lib/client-scope.mjs");
+const { CLIENT_NEVER_PATHS, isNeverPath, neverPathsIn } = await import("./lib/bundle-sweep.mjs");
+ok(Object.keys(CLIENT_READS).every((p) => !isNeverPath(p)) && Object.values(CLIENT_READS).every((sw) => !RETIRED_SWITCH_KEYS.includes(sw)), "the wall's list of client reads holds none of the five ops-only reads (limitations ×2, important, CAA, NOTAM check), and no read is behind a retired switch", Object.entries(CLIENT_READS).filter(([p, sw]) => isNeverPath(p) || RETIRED_SWITCH_KEYS.includes(sw)).map(([p]) => p).join(" "));
 
 // ── 2. the portal's addresses, from app/ ──
 const routes = [];
@@ -160,16 +173,31 @@ try {
     // for any missing file, as production's gateway does (try_files … /index.html), and that is not a leaked source
     const fetchMap = async (u) => { try { const r = await fetch(u); if (r.status !== 200) return r.status; const head = (await r.text()).trimStart().slice(0, 1); return head === "{" ? 200 : 404; } catch { return 0; } };
     const common = { permissionNames, operators, fetchMap, ourRoutes, publicHosts };
-    const bad = (t) => Object.entries(t).filter(([k]) => k !== "jwtAnon").map(([k, n]) => `${k} ${n}`);
-    const cl = await sweepAssets(await downloadedAssets({ base: B, pages: ["/client", "/client/flights", "/client/account"], cookie: cookieOf(s) }), { ...common, allowedRoutes: /^\/(client(\/|$)|api\/client\/(me|account\/password|prefs)$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/ });
+    // neverPathsShared is counted apart and reported below: it is the wall app's entry chunk, which every visitor downloads
+    const bad = (t) => Object.entries(t).filter(([k]) => k !== "jwtAnon" && k !== "neverPathsShared").map(([k, n]) => `${k} ${n}`);
+    // The wall app is built with ONE entry chunk (assets/index-<hash>.js) that staff and clients both download, and
+    // services/timelineApi.js — every wall read, the limitations one behind its `limitations` option — is in it. So
+    // "no chunk a client downloads names the ops-only reads" cannot hold for that chunk until the build gives the
+    // client surface its own entry or moves the staff reads out of the shared module. What CAN be held, and is: no
+    // OTHER asset a client downloads (the portal's client pages, the client surface's own chunks) names one, and at
+    // run time the client's pages never ask for one (part 7 below).
+    const WALL_ENTRY = /\/digital-wall\/timeline\/assets\/index-[\w-]+\.js(\?|$)/;
+    const cl = await sweepAssets(await downloadedAssets({ base: B, pages: ["/client", "/client/flights", "/client/account", "/client/settings"], cookie: cookieOf(s), waitMs: 6000 }), { ...common, neverPaths: CLIENT_NEVER_PATHS, sharedAssets: WALL_ENTRY, allowedRoutes: /^\/(client(\/|$)|api\/client\/(me|account\/password|prefs)$|digital-wall\/api(\/|$)|agent\/api\/flights(\/|$))/ });
     ok(bad(cl.total).length === 0, `a client's bundle (${cl.rows.length} assets): nothing but the public anon key`, bad(cl.total).join(", ") || `jwtAnon ${cl.total.jwtAnon ?? 0}`);
+    const ownChunks = cl.rows.filter((r) => /\/digital-wall\/timeline\/assets\/.*\.js/.test(r.url) && !WALL_ENTRY.test(r.url)), namers = cl.rows.filter((r) => r.counts.neverPaths);
+    ok(ownChunks.length >= 1 && namers.length === 0, `no asset of the client's own names an ops-only read (limitations ×2, important, CAA, NOTAM check): the portal's client pages and the ${ownChunks.length} chunks of the client surface`, namers.map((r) => `${r.url.split("/").pop().replace(/\?.*$/, "")} ${r.counts.neverPaths}`).join(" · "));
+    console.log(`      note: the wall app's shared entry chunk names ${cl.total.neverPathsShared ?? 0} of the ${CLIENT_NEVER_PATHS.length} paths (services/timelineApi.js is in it; staff use them) — the request itself is checked in part 7`);
     const so = await sweepAssets(await downloadedAssets({ base: B, pages: ["/login", "/request-access", "/welcome"] }), { ...common, allowedRoutes: /^\/(api\/(auth|client-requests|client-invite)\b)/ });
     ok(bad(so.total).length === 0, `a signed-out visitor's bundle (${so.rows.length} assets): nothing but the public anon key`, bad(so.total).join(", ") || `jwtAnon ${so.total.jwtAnon ?? 0}`);
     // controls: every detector fires on a planted asset, and a staff page swept as staff shows our routes
     const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
-    const planted = ["//# sourceMappingURL=x.js.map", 'fetch("/admin/users")', "http://agent-service:5175", '"clients.manage"', "SUPABASE_SERVICE_ROLE_KEY", " LY-ABC ", "0123456789abcdef0123456789abcdef01234567", "/Users/someone/x", "dev@clearway.aero", `eyJ${b64({ alg: "HS256" }).slice(3)}.${b64({ role: "service_role", iss: "rig-planted" })}.plantedsignatureplanted`, "/* a block comment left in the shipped code, long enough */", "NEXT_PUBLIC_RIG_FLAG", "GIT_COMMIT"].join("\n");
-    const pc = (await sweepAssets(new Map([["http://x/planted.js", planted]]), { permissionNames: ["clients.manage"], ourRoutes: ["/admin/users"] })).total;
-    ok(["sourceMapRef", "staffRoutes", "internalHosts", "permissionNames", "serverEnvNames", "registrations", "hashes", "localPaths", "people", "jwtPrivileged", "comments", "featureFlags", "buildMeta"].every((k) => pc[k] >= 1), "control: every detector fires on a planted asset", JSON.stringify(pc));
+    const planted = ["//# sourceMappingURL=x.js.map", 'fetch("/admin/users")', "http://agent-service:5175", '"clients.manage"', "SUPABASE_SERVICE_ROLE_KEY", " LY-ABC ", "0123456789abcdef0123456789abcdef01234567", "/Users/someone/x", "dev@clearway.aero", `eyJ${b64({ alg: "HS256" }).slice(3)}.${b64({ role: "service_role", iss: "rig-planted" })}.plantedsignatureplanted`, "/* a block comment left in the shipped code, long enough */", "NEXT_PUBLIC_RIG_FLAG", "GIT_COMMIT", 'get("/api/timeline/limitations?includeInactive=false")', "`/api/notam-check/today`"].join("\n");
+    const pc = (await sweepAssets(new Map([["http://x/planted.js", planted]]), { permissionNames: ["clients.manage"], ourRoutes: ["/admin/users"], neverPaths: CLIENT_NEVER_PATHS, sharedAssets: WALL_ENTRY })).total;
+    ok(["sourceMapRef", "staffRoutes", "internalHosts", "permissionNames", "serverEnvNames", "registrations", "hashes", "localPaths", "people", "jwtPrivileged", "comments", "featureFlags", "buildMeta"].every((k) => pc[k] >= 1) && pc.neverPaths === 2 && !pc.neverPathsShared, "control: every detector fires on a planted asset (two ops-only reads named in it are counted as two)", JSON.stringify(pc));
+    // control for the path matcher: each of the five is found as written, a look-alike is not, and the same text in the shared entry chunk is counted apart
+    const five = neverPathsIn(CLIENT_NEVER_PATHS.map((p) => `fetch("/digital-wall${p}")`).join(";")), alike = neverPathsIn('"/api/caa-contacts" "/api/importantly" "/api/timeline/limitationsX" "/api/notam-checks"');
+    const apart = (await sweepAssets(new Map([["http://x/digital-wall/timeline/assets/index-AbCd1234.js", 'q("/api/caa")']]), { neverPaths: CLIENT_NEVER_PATHS, sharedAssets: WALL_ENTRY, people: [] })).total;
+    ok(five.length === 5 && alike.length === 0 && apart.neverPathsShared === 1 && !apart.neverPaths, "control: the matcher finds each of the five paths, not a look-alike, and counts the shared entry chunk apart", `${five.length} found · look-alikes ${alike.length} · ${JSON.stringify(apart)}`);
     const staffPw2 = JSON.parse(fs.readFileSync("rig/dark-audit.mjs", "utf8").match(/token\?grant_type=password[^\n]*?password: ("[^"]+")/)[1]);
     const st2 = await (await fetch(`${SB}/auth/v1/token?grant_type=password`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ email: "rig-access-user@rig.invalid", password: staffPw2 }) })).json();
     const sf = await sweepAssets(await downloadedAssets({ base: B, pages: ["/dashboard"], cookie: cookieOf(st2) }), common);
@@ -188,15 +216,21 @@ try {
     await ctx.addCookies([{ name: cookieOf(s).split("=")[0], value: cookieOf(s).slice(cookieOf(s).indexOf("=") + 1), url: B }]);
     const pg = await ctx.newPage(); const asked = new Set();
     pg.on("request", (rq) => { const u = new URL(rq.url()); if (u.origin === B) asked.add(`${rq.method()} ${u.pathname}`); });
-    for (const p of ["/client", "/client/flights", "/client/account"]) {
+    for (const p of ["/client", "/client/flights", "/client/account", "/client/settings"]) {
       await pg.goto(`${B}${p}`, { waitUntil: "load" }); await pg.waitForTimeout(1500);
       if (p === "/client/flights") { const fr = pg.frameLocator("iframe[data-client-frame]"); const f = fr.locator("[data-flight-row]:not(.is-cnl)").first(); await f.waitFor({ timeout: 20000 }).catch(() => {}); if (await f.count()) { await f.click(); await pg.waitForTimeout(3000); } }
     }
     await br.close();
-    const ALLOWED = /^(GET|HEAD) \/(client(\/(flights|account|settings))?$|_next\/|api\/client\/(me|prefs)$|digital-wall\/timeline(\/|$)|digital-wall\/api\/(user|users\/me|client\/view|display\/clocks|timeline\/flights|timeline\/aircraft|timeline\/limitations|flights\/normalized|notam-check\/today|timeline\/sync-status|flight-info|flight-passengers|geo\/coords|stream|weather)\b|favicon|PFP\.png$|icons\/)/;
+    const ALLOWED = /^(GET|HEAD) \/(client(\/(flights|account|settings))?$|_next\/|api\/client\/(me|prefs)$|digital-wall\/timeline(\/|$)|digital-wall\/api\/(user|users\/me|client\/view|display\/clocks|timeline\/flights|timeline\/aircraft|flights\/normalized|timeline\/sync-status|flight-info|flight-passengers|geo\/coords|stream|weather)\b|favicon|PFP\.png$|icons\/)/;
     const other = [...asked].filter((a) => !ALLOWED.test(a) && !/^(GET|HEAD) \/[^/]+\.(png|svg|ico|woff2?)$/.test(a));
     ok(asked.size > 3 && other.length === 0, `the client's pages ask only for their own pages, the frame, their standing, preferences and view, the wall's scoped reads and their passengers (${asked.size} distinct requests)`, other.join(" · "));
     ok([...asked].some((a) => /^GET \/digital-wall\/timeline\//.test(a)) && [...asked].some((a) => /^GET \/digital-wall\/api\/timeline\/flights$/.test(a)), "…the frame was loaded and read the wall's flights (so the list above means something)");
+    // the ops-only reads (2026-11-15): never asked for at all, by any method — not "asked and refused". Until then the
+    // client's pages read the limitations list and the NOTAM check state on every load, and with the switch off each
+    // load left a 404 in the server's log.
+    const never = [...asked].filter((a) => isNeverPath(a.slice(a.indexOf(" ") + 1)));
+    ok(never.length === 0, "the client's pages never ask for Limitations, Important notices, CAA details or the NOTAM check (Timeline, Flights with a flight open, Account, Settings)", never.join(" · "));
+    ok(isNeverPath("/digital-wall/api/notam-check/today") && isNeverPath("/api/timeline/limitations") && !isNeverPath("/digital-wall/api/timeline/flights") && !isNeverPath("/digital-wall/api/timeline/sync-status"), "control: the same test names the old limitations and NOTAM check reads, and not the flights or the live-data read");
     // passport scans and raw email: unreachable to a client, through the same path Cloudflare sends them (straight to the agent)
     const id = "00000000-0000-4000-8000-000000000001";
     const scan = await get(`/agent/api/intake/attachments/${id}`), raw = await get(`/agent/api/mailbox/messages/${id}/raw`);
@@ -204,7 +238,7 @@ try {
   }
 
   // ── 4. the retired switches written on the row (an old row may still hold them): they grant nothing ──
-  await svc(`/rest/v1/clients?id=eq.${rowId}`, { method: "PATCH", body: JSON.stringify({ switches: ["flight_board", "weather", "airport_search", "documents"] }) });
+  await svc(`/rest/v1/clients?id=eq.${rowId}`, { method: "PATCH", body: JSON.stringify({ switches: ["flight_board", "weather", ...RETIRED] }) });   // written with the service key, as a row from before the retirement holds them
   await new Promise((r2) => setTimeout(r2, 11_000));   // the scope is cached ten seconds
   const home2 = await get("/client");
   ok(home2.status === 200 && /data-menu="\/client \/client\/flights \/client\/account \/client\/settings"/.test(home2.text) && !/>Airports</.test(home2.text) && !/>Documents</.test(home2.text), "the menu is still Timeline, Flights, Account, Settings", /data-menu="([^"]*)"/.exec(home2.text)?.[1]);
@@ -213,6 +247,12 @@ try {
   const me2 = JSON.parse((await get("/api/client/me")).text);
   ok(Array.isArray(me2.switches) && !me2.switches.some((k) => RETIRED_SWITCH_KEYS.includes(k)) && me2.switches.includes("weather"), "their own standing drops the retired switches and keeps the live ones", me2.switches.join(","));
   ok((await get("/dashboard")).status === 404 && (await get("/api/search?q=EVRA")).status === 404 && (await get("/api/airports/search?q=EVRA")).status === 404, "…and nothing else opened with them");
+  // the wall's five ops-only reads, with their old switches on the row: 404 with the one sentence, like any path that is not theirs
+  const wallNever = ["/api/timeline/limitations", "/api/limitations", "/api/important", "/api/caa", "/api/notam-check/today"];
+  const wallRes = await Promise.all(wallNever.map(async (p) => { const r5 = await get(`/digital-wall${p}`); let j5 = null; try { j5 = JSON.parse(r5.text); } catch { /* not JSON */ } return [p, r5.status, j5?.error === NOT_ON_ACCOUNT.error && Object.keys(j5 ?? {}).sort().join() === "error,ok"]; }));
+  ok(wallRes.every(([, st5, said]) => st5 === 404 && said), `the wall's Limitations, Important, CAA and NOTAM check reads stay 404 "${NOT_ON_ACCOUNT.error}" with the retired switches on the row`, wallRes.map(([p, st5, said]) => `${p} ${st5}${said ? "" : " (other words)"}`).join(" · "));
+  const flightsStill = await get("/digital-wall/api/timeline/flights?allOperators=true");
+  ok(flightsStill.status === 200, "control: the same client, the same way, still reads their flights", flightsStill.status);
 } finally {
   if (rowId) await svc(`/rest/v1/clients?id=eq.${rowId}`, { method: "PATCH", body: JSON.stringify({ status: "removed", scope: [], switches: [], passenger_level: "off" }) }).catch(() => {});
   if (uid) await svc(`/auth/v1/admin/users/${uid}`, { method: "PUT", body: JSON.stringify({ app_metadata: { role: "client", is_approved: false, client_status: "removed" } }) }).catch(() => {});

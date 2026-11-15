@@ -92,6 +92,8 @@ await part("first", async () => {
   ok(metaIsFine(await viewportMeta(page)), "the page does not zoom by itself and does not block zoom", await viewportMeta(page));
   ok(await count(page, "[data-onboarding]") === 1 && await count(page, "[data-onboarding-choice]") === 2, "first visit: the account has no start page yet, so the phone asks (Timeline or Flights)", await textOf(page, "[data-onboarding]"));
   await auditLayer(ok, page, "onboarding 390 light", "[data-onboarding]", { theme: "light", shot: "phone-v3-client-onboarding-390-light" });
+  { const steps = (await textOf(page, "[data-onboarding]")).match(/STEP\s+\d+\s+OF\s+\d+/gi) || [];
+    ok(await count(page, "[data-onboarding] [data-back]") === 0 && steps.length === 1 && /^STEP 3 OF 3$/i.test(steps[0]), "first run: the set-up page offers no Back (behind it is only the spent set-password link, or nothing) and reads STEP 3 OF 3 once", `${await count(page, "[data-onboarding] [data-back]")} Back · ${steps.join(" · ") || "no step label"}`); }
   // a save the server refuses: words, and the app does not go on as if it had been saved
   await s.ctx.route(/\/api\/client\/prefs/, (route) => (route.request().method() === "PUT" ? route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ ok: false, error: "rig: refused" }) }) : route.fallback()));
   await tap(page, '[data-onboarding-choice="flights"]'); await tap(page, '[data-onboarding-open="flights"]');
@@ -174,7 +176,7 @@ await part("scope", async () => {
   p = await visit(`${APP}?flight=${encodeURIComponent(PLAIN.id)}`, "[data-open-flight]");
   const old = await p.evaluate(() => fetch("/m/wall", { cache: "no-store" }).then((x) => ({ status: x.status, at: new URL(x.url).pathname })).catch(() => ({ status: 0, at: "" })));
   ok(old.status === 404, "the portal's old phone address /m/wall stays closed to a client, as every portal page is (404)", `${old.status} ${old.at}`);
-  const lim = await api(p, "/digital-wall/api/timeline/limitations");
+  const lim = await fetch(`${B}/digital-wall/api/timeline/limitations`, { headers: { cookie: `${cookie.name}=${cookie.value}` } }).then(async (x) => ({ status: x.status, body: await x.json().catch(() => null) })).catch(() => ({ status: 0, body: null }));
   ok(lim.status === 404 && !Array.isArray(lim.body?.limitations), "the ops notes are not granted to this client: the wall answers the app's ask for limitations with 404", `status ${lim.status}`);
   ok(await count(p, `[data-open-flight="${PLAIN.id}"]`) === 1 && (await textOf(p, "[data-flight-callsign]")).includes(PLAIN.flightNo), "a link to a granted flight opens it", await textOf(p, "[data-flight-callsign]"));
   await p.close();
@@ -378,6 +380,33 @@ await part("boundary", async () => {
 // ════════════════════════════════════════════════════════════════════════════ every client screen, four phones
 // A busy day made of the client's own flights (copies, two at once in a lane, long callsign and registration).
 const busy = (b) => denseFeed(near(b), T0);
+
+/**
+ * The rail against the Flights list (2026-11-15, it used to float over the time column of the lower rows): the list
+ * scrolled to its top, its middle and its end; at each, no text of a row lies under the rail, the time of every row
+ * in view takes a tap itself, and at the end the last row is wholly in view. Returns the faults found, as words.
+ */
+const railFaults = (page) => page.evaluate(async () => {
+  const sc = document.querySelector("[data-list-scroll]"); const railEl = document.querySelector("[data-rail]");
+  if (!sc || !railEl) return { faults: ["no list or no rail"], max: 0, rows: 0 };
+  const faults = []; let rows = 0;
+  for (const where of ["top", "middle", "end"]) {
+    sc.scrollTop = where === "end" ? sc.scrollHeight : where === "middle" ? Math.round((sc.scrollHeight - sc.clientHeight) / 2) : 0;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const rail = railEl.getBoundingClientRect(), view = sc.getBoundingClientRect();
+    const all = [...sc.querySelectorAll("[data-flight-row]")];
+    for (const row of all) {
+      const r = row.getBoundingClientRect(); if (r.bottom <= view.top + 33 || r.top >= view.bottom - 1) continue;   // out of view, or under the day's sticky head
+      rows += 1; const id = row.getAttribute("data-flight-row");
+      for (const el of row.querySelectorAll(":scope > span")) { const b = el.getBoundingClientRect(); if (b.width > 0 && b.bottom > rail.top + 1 && b.top < rail.bottom - 1 && b.left < rail.right - 1 && b.right > rail.left + 1) { faults.push(`${where}: ${id} has text under the rail`); break; } }
+      const t = row.firstElementChild.getBoundingClientRect(); const y = Math.min(Math.max((t.top + t.bottom) / 2, view.top + 34), view.bottom - 2);
+      if (y >= t.top && y <= t.bottom) { const hit = document.elementFromPoint(t.left + Math.min(t.width / 2, 20), y); if (!hit || !row.contains(hit)) faults.push(`${where}: a tap on ${id}'s time lands on ${hit ? (hit.closest("[data-rail]") ? "the rail" : hit.tagName) : "nothing"}`); }
+    }
+    if (where === "end" && all.length) { const last = all[all.length - 1].getBoundingClientRect(); if (last.bottom > view.bottom + 1) faults.push(`end: the last row is cut (${Math.round(last.bottom - view.bottom)} px below the list)`); }
+  }
+  sc.scrollTop = 0;
+  return { faults, max: sc.scrollHeight - sc.clientHeight, rows };
+});
 await part("audit", async () => {
   for (const [theme, width] of COMBOS) {
     const tag = (n) => `${n} ${width} ${theme}`;
@@ -396,6 +425,7 @@ await part("audit", async () => {
     await sheetAud("notifications", "[data-bell]");
     await tap(page, '[data-rail-btn="flights"]', "[data-flight-row]");
     await aud("flights list", "[data-phone-column]");
+    { const rf = await railFaults(page); ok(rf.max > 200 && rf.rows >= 8 && rf.faults.length === 0, `${tag("flights list")}: the rail never lies over a row (top, middle and end of a long list): every row's time takes its own tap, the last row is whole`, rf.faults.length ? rf.faults.slice(0, 4).join(" · ") : `${rf.rows} rows looked at, list ${rf.max} px longer than the screen`); }
     await tap(page, `[data-flight-row="${PLAIN.id}"]`, "[data-open-flight]");
     await settled(page, { timeout: 8000 });
     await aud("flight", "[data-open-flight]");
@@ -438,6 +468,28 @@ await part("onboarding", async () => {
   await o.ctx.close();
 });
 
+// ════════════════════════════════════════════════════════════════════════════ ops' own notes never reach a client
+// Limitations, Important notices and CAA details are ops' own (2026-11-15). Even if the account still carried the
+// retired switches and the wall slipped a limitation into the flight's details, the phone draws none of it.
+await part("notes", async () => {
+  const slip = async (ctx) => {
+    await ctx.route(/\/api\/client\/me(\?|$)/, async (route) => { try { const res = await route.fetch(); const j = await res.json(); const add = ["limitations", "important", "caa", "service_status", "notam_check_status"]; if (j && typeof j === "object") { if (Array.isArray(j.switches)) j.switches = [...j.switches, ...add]; if (j.client && Array.isArray(j.client.switches)) j.client.switches = [...j.client.switches, ...add]; } return route.fulfill({ response: res, json: j }); } catch { return route.fallback(); } });
+    await ctx.route(/\/digital-wall\/api\/flight-info/, async (route) => { try { const res = await route.fetch(); const j = await res.json(); const notes = [{ id: "rig-lim", type: "LIM", title: "rig invented limitation", description: "rig: never shown to a client" }, { id: "rig-imp", type: "IMP", title: "rig invented important notice", description: "rig: never shown" }, { id: "rig-caa", type: "CAA", title: "rig invented authority", caa: { authorityName: "rig invented authority" } }]; if (j?.flight && typeof j.flight === "object") j.flight.limitations = notes; return route.fulfill({ response: res, json: j }); } catch { return route.fallback(); } });
+  };
+  const s = await start({ path: `${APP}?flight=${encodeURIComponent(PLAIN.id)}`, wait: "[data-open-flight]", before: slip });
+  const { page } = s;
+  await settled(page, { timeout: 8000 });
+  ok(await count(page, `[data-open-flight="${PLAIN.id}"]`) === 1, "the flight opens (with the retired switches and a slipped limitation stood in)");
+  ok(await count(page, "[data-open-notes]") === 0 && await count(page, '[data-sheet="notes"], [data-notes]') === 0, "a client's flight has no Notes button and no notes sheet");
+  const words = await textOf(page, "[data-phone-app]");
+  const seen = words.match(/\b(LIM|IMP|CAA)\b|limitation|important notice|authority contacts?|notes from ops|rig invented|service status|NOTAM check/gi) || [];
+  ok(seen.length === 0, "no Limitations, Important or CAA words anywhere on the client's phone, nor service status or the NOTAM check", seen.slice(0, 4).join(", ") || `${words.length} characters read`);
+  await closeFlight(page);
+  const list = await textOf(page, "[data-phone-app]");
+  ok(!/\b(LIM|IMP|CAA)\b|limitation|rig invented/i.test(list), "nor on the first screen behind it");
+  await s.ctx.close();
+});
+
 // ════════════════════════════════════════════════════════════════════════════ what the client's browser asked for
 await part("requests", async () => {
   const paths = [...new Set(asked.map((x) => { try { const v = new URL(x); return v.pathname; } catch { return x; } }))];
@@ -449,6 +501,9 @@ await part("requests", async () => {
   const badApis = paths.filter((x) => STAFF_API.test(x));
   const apis = paths.filter((x) => /\/api\//.test(x));
   ok(badApis.length === 0, "nor for a staff read: no service status, checks, NOTAM round, staff lists, reports, agent, AIP or documents", badApis.length ? badApis.join(" ") : `${apis.length} API paths`);
+  const OPS_READS = /\/api\/(timeline\/limitations|limitations|important|caa|notam-check\/today)(\/|$|\?)/;
+  const opsAsked = paths.filter((x) => OPS_READS.test(x));
+  ok(opsAsked.length === 0, "the client's phone never asked for ops' own reads: /api/timeline/limitations, /api/limitations, /api/important, /api/caa, /api/notam-check/today", opsAsked.join(" ") || `${apis.length} API paths`);
   console.log(`      every API path asked: ${apis.join(" ")}`);
   console.log(`      every file of the app asked: ${chunks.join(" ")}`);
 });

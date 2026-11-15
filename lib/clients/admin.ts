@@ -57,7 +57,10 @@ async function writeAccountMetadata(service: SupabaseClient, row: ClientRow) {
 
 export type Change = { scope?: unknown; switches?: unknown; passengerLevel?: unknown; consent?: unknown; note?: unknown };
 
-/** Validates a change against the rules: a scope entry, Flight board, a known level, consent for documents. */
+/** Validates a change against the rules: a scope entry, Flight board, a known level, consent for documents.
+ *  A save that carries a retired switch (lib/clients/switches.mjs) stores none of them: normaliseSwitches drops it,
+ *  whether it came from the page, a hand-made request or the row itself. A row that still stores one needs no
+ *  migration: it is dropped on every read and leaves the row at its next save. */
 export function validateChange(row: ClientRow, change: Change) {
   const scope = change.scope === undefined ? normaliseScope(row.scope) : normaliseScope(change.scope);
   const switches = change.switches === undefined ? normaliseSwitches(row.switches) : normaliseSwitches(change.switches);

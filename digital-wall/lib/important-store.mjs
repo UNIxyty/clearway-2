@@ -118,7 +118,7 @@ export function sanitizeImportantEntry(input = {}, existing = null) {
 
 export class ImportantStore {
   constructor() {
-    this.store = new JsonFileStore(`${PORTAL_SHARED}/important.json`, { entries: [] }, { movedFrom: "important.json" });
+    this.store = new JsonFileStore(`${PORTAL_SHARED}/important.json`, { entries: [] }, { movedFrom: "important.json", seedFrom: "seeds/important-data.json" });
     this.entries = [];
     // Soft-deleted entries. A separate list, not a flag: every read path over
     // this.entries stays exactly as it was, and a deleted bulletin cannot

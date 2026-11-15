@@ -2,7 +2,8 @@
 // walks (gate-inventory.json beside this file, from rig/lib/gate-inventory.mjs; the rig walk fails when it is stale).
 // Through the public address, so Cloudflare, the portal's middleware and the wall's and agent's own gates are all in it.
 // Read-only: every write from a check account is refused anyway, and every body here is "{}". Status codes only.
-// The client is the most a client can be (every switch, the documents level) on a scope that matches nothing.
+// The client is the most a client can be (every switch, the documents level) on a scope that matches nothing. Since
+// 2026-11-15 the switches are four (flight board, weather, NOTAMs, radar); the five ops-only reads are walked by name too.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 // the user is the control: the same addresses answer a plain staff account, so a refusal means something
@@ -33,6 +34,11 @@ export async function check({ base, accounts: [client, unknown, user], ok }) {
   const emlRoute = INV.services.find((s) => s.name === "agent").walk.find((e) => /^\/api\/mailbox\/messages\/[^/]+\/raw$/.test(e.path));
   const scan = await call(`/agent${scanRoute.path}`, "GET", client), eml = await call(`/agent${emlRoute.path}`, "GET", client);
   ok(scan.st === 404 && eml.st === 404, "agent: a passport scan and a raw email (.eml) answer 404 to the client", `${scan.st} ${eml.st}`);
+  // the five reads that were a client's until 2026-11-15 (Limitations ×2, Important, CAA, the NOTAM check): ops' own,
+  // their switches retired; 404 to the client, which holds every switch there is (status codes only)
+  const retired = []; for (const p of ["/api/notam-check/today", "/api/timeline/limitations", "/api/limitations", "/api/important", "/api/caa"]) retired.push([p, (await call(`/digital-wall${p}`, "GET", client)).st]);
+  ok(retired.every(([, st]) => st === 404), "wall: the five ops-only reads (Limitations ×2, Important, CAA, NOTAM check) answer 404 to the client", retired.map(([p, st]) => `${p} ${st}`).join(" · "));
+  ok(INV.services.find((s) => s.name === "wall").walk.filter((e) => e.clientMay && /^\/api\/(notam-check|timeline\/limitations|limitations|important|caa)(\/|$)/.test(e.path)).length === 0, "wall: the inventory marks none of them a client's read (gate-inventory.json is today's)");
   const board = await call("/digital-wall/api/timeline/flights?allOperators=true", "GET", client);
   ok(board.st === 200, "wall: the client's own flight board answers (scoped to nothing here)", board.st);
 

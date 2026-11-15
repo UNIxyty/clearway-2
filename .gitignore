@@ -77,6 +77,10 @@ downloads/aim-from-json/
 downloads/aim-batch-gen12-ad2/
 # runtime geo snapshot (regenerated from the Supabase airports table at boot)
 digital-wall/data/geo-airports.json
+# the wall's live data (2026-11-15): written by the wall through the server's bind mount, edited by ops in the console.
+# Never in git, so no pull can clash with it; the starting copies of CAA and Important are in digital-wall/seeds/.
+digital-wall/data/*
+!digital-wall/data/.gitkeep
 
 # Agent service dependencies (installed in its image; never tracked)
 agent/node_modules/

@@ -357,7 +357,7 @@ function Phone({ role, user, themeApi }) {
       : [{ key: 'settings', icon: 'settings', label: 'Settings', active: false, onClick: () => go('settings') },
         { key: 'account', icon: 'circle-user', label: 'Account', active: false, onClick: () => go('account') }]),
   ];
-  const pad = rail.length * 48 + 24;
+  const pad = rail.length * 48 + 24;   // room under the timeline's last lane, where the rail floats (the Flights list stands beside the rail instead)
   let menuRows = [];
   if (staff && sheet === 'menu') {
     const airports = Array.isArray(notamState?.airports) ? notamState.airports : null;
@@ -401,7 +401,7 @@ function Phone({ role, user, themeApi }) {
           </ErrorBoundary>
         ) : (
           <ErrorBoundary key="list" where="phone/list" fallback={(retry) => <Failed title="Couldn’t show the flights list" onRetry={retry} leave="Open timeline" onLeave={() => switchView('timeline')} />}>
-            <FlightsList days={days} total={total} nowMs={nowMs} state={state} empty={listEmpty} failed={failedMsg} onOpen={openFlight} dim={stale} query={query} setQuery={setQuery} scrollRef={listScroll} pad={pad} />
+            <FlightsList days={days} total={total} nowMs={nowMs} state={state} empty={listEmpty} failed={failedMsg} onOpen={openFlight} dim={stale} query={query} setQuery={setQuery} scrollRef={listScroll} />
           </ErrorBoundary>
         )}
         <Rail items={rail} />
@@ -431,7 +431,7 @@ function Phone({ role, user, themeApi }) {
 
       {onboarding ? (
         <ErrorBoundary where="phone/onboarding" fallback={(retry) => <Failed z={30} title="Couldn’t show this screen" onRetry={retry} />}>
-          <Onboarding ctx={{ ...ctx, back: () => { if (window.history.length > 1) window.history.back(); } }} onDone={(start) => setView(start === 'flights' ? 'flights' : 'timeline')} />
+          <Onboarding ctx={ctx} onDone={(start) => setView(start === 'flights' ? 'flights' : 'timeline')} />
         </ErrorBoundary>
       ) : null}
 

@@ -353,7 +353,12 @@ const CHOICES = [
   { value: 'flights', label: 'Flights list', icon: 'list', sub: 'The same flights as rows, grouped by day, with search. Best for finding one flight.' },
 ];
 
-/** A client's first run, step 3 of 3: where the app opens. onDone(start) only after the server kept the choice. */
+/**
+ * A client's first run, step 3 of 3: where the app opens. onDone(start) only after the server kept the choice.
+ * No Back (2026-11-15): behind this page is the spent set-password link (Back opened "This link was used already" for
+ * a person already signed in) or nothing at all (opened directly, Back did nothing). Steps 1 and 2 are not here to go
+ * back to; the only way on is to choose.
+ */
 export function Onboarding({ ctx, onDone }) {
   const [pick, setPick] = useState(() => (ctx?.clientPrefs?.start === 'flights' ? 'flights' : 'timeline'));
   const [busy, setBusy] = useState(false);
@@ -369,7 +374,7 @@ export function Onboarding({ ctx, onDone }) {
   }
   const word = pick === 'flights' ? 'flights list' : 'timeline';
   return (
-    <Page name="onboarding" title="Set up" back="Back" onBack={ctx?.back} data-onboarding=""
+    <Page name="onboarding" title="Set up" back={false} data-onboarding=""
       foot={<><Note words={said} kind="bad" data-onboarding-note="" /><Btn onClick={open} disabled={busy} data-onboarding-open={pick}>{busy ? 'Saving…' : `Open ${word}`}</Btn></>}>
       <div style={{ padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Logo height={20} />

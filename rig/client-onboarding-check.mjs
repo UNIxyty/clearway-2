@@ -170,6 +170,14 @@ try {
     await page.waitForURL((u) => new URL(u).pathname === "/client/start", { timeout: 20000 }).catch(() => {});
     await page.waitForSelector("[data-client-start]", { timeout: 15000 }).catch(() => {});
     ok(new URL(page.url()).pathname === "/client/start" && await page.locator("[data-client-start]").count() === 1 && await page.locator('[data-start-choice="timeline"]').count() === 1 && await page.locator('[data-start-choice="flights"]').count() === 1, "setting the password signs them in and asks how they want to watch their flights (the start page)", page.url());
+    // step 3 of 3 (Part 3 item 5, 2026-11-15): the step list says where they are, and there is no Back — behind this
+    // page is the set-password link, which is used up
+    const steps = await page.locator("[data-client-start] .cls-steps li").evaluateAll((els) => els.map((e) => ({ cls: e.className, text: e.textContent.replace(/\s+/g, " ").trim() })));
+    ok(steps.length === 3 && /Your details/.test(steps[0].text) && /\bdone\b/.test(steps[0].cls) && /Password/.test(steps[1].text) && /\bdone\b/.test(steps[1].cls) && /Layout/.test(steps[2].text) && /\bnow\b/.test(steps[2].cls), "1280: the start page is step 3 of 3 — Your details and Password done, Layout now", steps.map((x) => `${x.text} (${x.cls})`).join(" · "));
+    const deskLabels = (await page.locator("[data-client-start]").innerText().catch(() => "")).match(/STEP\s+\d+\s+OF\s+\d+/gi) ?? [];
+    ok(deskLabels.every((l) => /^STEP\s+3\s+OF\s+3$/i.test(l)), "1280: a step label on the start page, if drawn, reads STEP 3 OF 3", deskLabels.join(" · ") || "no label: the step list says it");
+    const deskBacks = await page.locator("[data-client-start]").getByRole("button", { name: /^\s*(←\s*)?back\s*$/i }).count() + await page.locator("[data-client-start]").getByRole("link", { name: /^\s*(←\s*)?back\s*$/i }).count() + await page.locator("[data-client-start] [data-back]").count();
+    ok(deskBacks === 0, "1280: the start page offers no Back (nothing is behind it but a spent link)", `${deskBacks} Back controls`);
     await page.locator('[data-start-choice="timeline"]').click();
     await page.waitForURL((u) => new URL(u).pathname === "/client", { timeout: 20000 }).catch(() => {});
     await page.waitForSelector("[data-client-shell]", { timeout: 20000 }).catch(() => {});
@@ -177,6 +185,21 @@ try {
     ok(new URL(page.url()).pathname === "/client" && await page.locator("[data-client-shell]").count() === 1 && await page.locator("iframe[data-client-frame]").count() === 1, "choosing Timeline goes on to their flights, in the client shell with the frame", page.url());
     const prefs = await page.request.get(`${B}/api/client/prefs`).then((r) => r.json()).catch(() => null);
     ok(prefs?.ok === true && prefs?.prefs?.start === "timeline", "…and the choice is saved on the new account", JSON.stringify(prefs?.prefs ?? null));
+    // the browser's own Back from their flights: the start page again, usable — not stuck on "Opening…" with every
+    // choice disabled (a page kept by the browser's back-forward cache would be) — and choosing again works
+    await page.goBack({ waitUntil: "load" }).catch(() => {});
+    await page.waitForSelector("[data-client-start]", { timeout: 15000 }).catch(() => {});
+    const backTo = new URL(page.url()).pathname;
+    const usable = backTo === "/client/start" ? await page.locator("[data-start-choice]").evaluateAll((els) => els.length >= 2 && els.every((e) => !e.disabled && !/Opening/.test(e.textContent || ""))) : false;
+    ok(backTo === "/client/start" && usable, "1280: the browser's Back from their flights opens the start page again, every choice usable", backTo);
+    await page.locator('[data-start-choice="flights"]').click().catch(() => {});
+    await page.waitForURL((u) => new URL(u).pathname === "/client/flights", { timeout: 20000 }).catch(() => {});
+    const prefs2 = await page.request.get(`${B}/api/client/prefs`).then((r) => r.json()).catch(() => null);
+    ok(new URL(page.url()).pathname === "/client/flights" && prefs2?.prefs?.start === "flights", "1280: choosing again (Flights) opens Flights and saves the new choice", `${new URL(page.url()).pathname} · ${prefs2?.prefs?.start}`);
+    // finishing lands on the client's start page: the site's own address now opens what they chose
+    await page.goto(`${B}/`, { waitUntil: "load" }).catch(() => {});
+    await page.waitForURL((u) => new URL(u).pathname.startsWith("/client"), { timeout: 20000 }).catch(() => {});
+    ok(new URL(page.url()).pathname === "/client/flights", "1280: after set-up, the site's own address opens the start page they chose (Flights)", new URL(page.url()).pathname);
     const made = (await db(`clients?select=user_id,status&id=eq.${row.id}`))[0];
     const u = made?.user_id ? await (await svc(`/auth/v1/admin/users/${made.user_id}`)).json() : null;
     ok(Boolean(made?.user_id) && u?.app_metadata?.role === "client" && u?.app_metadata?.client_status === "approved" && Boolean(u?.email_confirmed_at), "the account exists now: a confirmed, approved client, linked to the row", JSON.stringify(u?.app_metadata ?? {}));
@@ -221,6 +244,61 @@ try {
     await page.locator('[data-welcome="valid"]').waitFor({ timeout: 15000 }).catch(() => {});
     ok(await page.locator('[data-welcome="valid"]').count() === 1, "the new link works");
     await ctx.close();
+
+    // ── 4a. the third step on a phone (390; Part 3 item 5, 2026-11-15). A phone is sent to the phone app, whose
+    // first-run page (opsboard-react/src/phone/pages/common.jsx › Onboarding) reads "STEP 3 OF 3" with a Back in its
+    // header. Steps 1 and 2 (/request-access, /welcome) draw no step label, so only step 3's is read. ──
+    {
+      const LPASS = `rig-onboard-${Math.random().toString(36).slice(2, 10)}`;
+      const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true };
+      const tap = async (loc) => { await loc.first().tap({ timeout: 8000 }).catch(() => loc.first().click({ timeout: 8000 }).catch(() => {})); };
+      const prefsOf = async (pg) => pg.request.get(`${B}/api/client/prefs`).then((r) => r.json()).catch(() => null);
+      const pctx = await browser.newContext(PHONE); const pp = await pctx.newPage();
+      await pp.goto(onRig(freshLink), { waitUntil: "load" });
+      await pp.locator("[data-welcome-form]").waitFor({ timeout: 15000 }).catch(() => {});
+      await pp.locator("#w-pw").fill(LPASS); await pp.locator("#w-pw2").fill(LPASS);
+      await pp.getByRole("button", { name: "Set password and sign in" }).click();
+      const ob = pp.locator("[data-onboarding]");
+      await pp.waitForURL((u) => new URL(u).pathname.startsWith("/digital-wall/phone"), { timeout: 25000 }).catch(() => {});
+      await ob.waitFor({ timeout: 25000 }).catch(() => {});
+      ok(/^\/digital-wall\/phone\/?$/.test(new URL(pp.url()).pathname) && await ob.count() === 1, "390: setting the password on a phone goes on to the phone app's set-up page", new URL(pp.url()).pathname);
+      const labels = (await ob.innerText().catch(() => "")).replace(/\s+/g, " ").match(/STEP\s+\d+\s+OF\s+\d+/gi) ?? [];
+      ok(labels.length === 1 && /^STEP\s+3\s+OF\s+3$/i.test(labels[0]), "390: the set-up page reads STEP 3 OF 3, and names no other step", labels.join(" · ") || "no step label");
+      await tap(pp.locator('[data-onboarding-choice="flights"]'));
+      ok(await pp.locator('[data-onboarding-choice="flights"]').getAttribute("aria-checked").catch(() => null) === "true" && await pp.locator('[data-onboarding-choice="timeline"]').getAttribute("aria-checked").catch(() => null) === "false" && await pp.locator("[data-onboarding-open]").getAttribute("data-onboarding-open").catch(() => null) === "flights", "390: tapping Flights chooses it, and the button says it opens Flights");
+      // Back, when offered here: behind this page is the set-password link, spent. Back must not take a signed-in
+      // person to "This link was used already … sign in", nor to the sign-in page; and it saves nothing
+      const back = ob.locator("[data-back]");
+      if (await back.count()) {
+        await tap(back); await pp.waitForTimeout(1500);
+        const where = new URL(pp.url()).pathname, welcome = await pp.locator("[data-welcome]").getAttribute("data-welcome").catch(() => null);
+        ok(!welcome && !/^\/(login|welcome)/.test(where), "390: Back from the set-up page does not open the spent set-password link or the sign-in page", `${where}${welcome ? ` · the link page says "${welcome}"` : ""}`);
+        if (!/^\/digital-wall\/phone/.test(where)) { await pp.goto(`${B}/digital-wall/phone/`, { waitUntil: "load" }).catch(() => {}); await ob.waitFor({ timeout: 20000 }).catch(() => {}); }
+        ok(await ob.count() === 1 && (await prefsOf(pp))?.prefs?.start == null, "390: …and after it the set-up page is still there to finish: Back saved no choice", `${await ob.count()} set-up page · start ${(await prefsOf(pp))?.prefs?.start ?? "not chosen"}`);
+      } else ok(true, "390: the set-up page offers no Back (nothing is behind it but a spent link)");
+      // the set-up page opened straight (nothing behind it in this tab): Back must not be offered where it can do nothing
+      {
+        const ls = await session(LATE.email, LPASS);
+        const c2 = await browser.newContext(PHONE); await c2.addCookies([cookie(ls)]); const p2 = await c2.newPage();
+        await p2.goto(`${B}/digital-wall/phone/`, { waitUntil: "load" }).catch(() => {});
+        await p2.locator("[data-onboarding]").waitFor({ timeout: 25000 }).catch(() => {});
+        const len = await p2.evaluate(() => window.history.length).catch(() => 0), offered = await p2.locator("[data-onboarding] [data-back]").count();
+        ok(await p2.locator("[data-onboarding]").count() === 1 && offered === 0, "390: the set-up page opened on its own (nothing behind it) offers no Back", `${offered} Back · history ${len}`);
+        await c2.close();
+      }
+      // finishing: Open Flights saves the choice and opens Flights; the site's own address opens Flights from then on
+      if (await pp.locator('[data-onboarding-choice="flights"]').getAttribute("aria-checked").catch(() => null) !== "true") await tap(pp.locator('[data-onboarding-choice="flights"]'));
+      await tap(pp.locator('[data-onboarding-open="flights"]'));
+      await ob.waitFor({ state: "detached", timeout: 20000 }).catch(() => {});
+      const view = await pp.locator("[data-phone-app]").getAttribute("data-current-view").catch(() => null);
+      const saved = (await prefsOf(pp))?.prefs?.start;
+      ok(await ob.count() === 0 && view === "flights" && saved === "flights", "390: Open Flights finishes set-up: the choice is saved and Flights opens", `view ${view} · start ${saved}`);
+      await pp.goto(`${B}/`, { waitUntil: "load" }).catch(() => {});
+      await pp.waitForURL((u) => new URL(u).pathname.startsWith("/digital-wall/phone"), { timeout: 20000 }).catch(() => {});
+      await pp.locator("[data-phone-app]").waitFor({ timeout: 25000 }).catch(() => {});
+      ok(await pp.locator("[data-phone-app]").getAttribute("data-current-view").catch(() => null) === "flights" && await pp.locator("[data-onboarding]").count() === 0, "390: after set-up, the site's own address opens the phone app on Flights, with no set-up page", `${new URL(pp.url()).pathname}${new URL(pp.url()).search}`);
+      await pctx.close();
+    }
     // a refused request: told by email, no account
     n = (await sentList()).length;
     const refusedReq = await api("/api/client-requests", null, { method: "POST", body: JSON.stringify({ name: "Rig Refused Person", company: "Rig Refused Ltd (invented)", email: "rig-onboard-refused@rig.invalid", kind: "operator" }) });

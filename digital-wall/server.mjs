@@ -313,13 +313,17 @@ async function readDisplayProfiles() {
 // resolve from the shared default even when an account profile carries a
 // stale copy from the pre-report-4 full-object saves.
 const GLOBAL_SETTING_KEYS = ["upcomingHorizonHours", "postLandingHours"];
-// What a client may set about their own timeline's look (2026-11-11): the ops wall's sizing, spacing, chips, colours and
-// font knobs. Left out on purpose: the visibility window (global, data), the movement-overdue flash and the unconfirmed
-// ring (ops alerts), the Upcoming Flight Table and the overlay/sidebar/header scales (ops-room parts the client view
-// does not draw), and the wall's physical text floors.
+// What a client may set about their own timeline's look (2026-11-11): the ops wall's sizing, spacing, colours and font
+// knobs. Since 2026-11-15 the client's Timeline is the ops timeline page (header with the clocks, sidebar with the
+// legend), so the sidebar and header scales are theirs too. Left out on purpose: the visibility window (global, data),
+// the movement-overdue flash and the unconfirmed ring (ops alerts), the Upcoming Flight Table (it is coloured by the
+// OPS checklist and the handling services), the overlay scale (the ops overlay is not drawn for a client), the chip
+// switches (IMP, CAA, NOTAM and WX chips are ops' notes and review marks: a client's pills carry none, so there is
+// nothing to switch), and the wall's physical text floors.
 const CLIENT_VIEW_KEYS = ["scale", "timeZoom", "rowZoom", "pillHeight", "markerScale", "labelScale", "autoFitRows", "acColScale",
+  "sidebarScale", "headerScale",
   "callsignScale", "routeScale", "chipSpacing", "minPillMinutes", "pillPadding", "laneGap", "autoFitHorizontal",
-  "chipImp", "chipCaa", "chipNtm", "chipWx", "colors", "font", "zeroStyle"];
+  "colors", "font", "zeroStyle"];
 
 function resolveDisplaySettings(shape, account) {
   const globalBase = { ...DEFAULT_DISPLAY_SETTINGS, ...shape.default };
@@ -1039,7 +1043,7 @@ const server = http.createServer(async (req, res) => {
           if (!pieces) { sendJson(res, NOT_ON_ACCOUNT, 404); return; }
           requestUser = { ...requestUser, clientPieces: pieces };
         }
-        if (pathname === "/api/stream") requestUser = { ...requestUser, streamFilter: clientStreamFilter(clientScope, timelineService) };
+        if (pathname === "/api/stream") requestUser = { ...requestUser, streamFilter: clientStreamFilter(clientScope, timelineService, requestUser?.email) };
         if (pathname === "/api/flight-passengers") {
           // one of THEIR flights only: outside scope the flight does not exist (404), as /api/flight-info answers
           const found = timelineService.getFlightByNid(url.searchParams.get("flightNid"), url.searchParams.get("oprId") || "");
@@ -1047,7 +1051,7 @@ const server = http.createServer(async (req, res) => {
         }
         scopedSenders.set(res, (payload, status = 200) => {
           if (status !== 200) return rawSendJson(res, payload, status);
-          let out = scopePayload({ pathname, payload, scope: clientScope, timelineService, importantStore, caaStore });
+          let out = scopePayload({ pathname, payload, scope: clientScope, timelineService });
           // never silently empty (2026-11-12): a client WITH a grant whose feed comes out empty is logged with counts,
           // so an ops hide, a missing operator or an empty window is found in the log, not by the client
           if (pathname === "/api/timeline/flights" && Array.isArray(out?.aircraft) && out.aircraft.length === 0) {
@@ -1063,7 +1067,7 @@ const server = http.createServer(async (req, res) => {
             if (!p.aip) drop(["aip", "depAip", "arrAip"]);
             if (!p.radar) drop(["radar", "position", "track"]);
             drop(["checks", "limitations", "important"]);
-            // the flight itself as a client's (2026-11-09): a list of fields, its notes by switch, no ops marks; and of
+            // the flight itself as a client's (2026-11-09): a list of fields, no notes (2026-11-15), no ops marks; and of
             // the aircraft, what names it
             if (out.flight) out.flight = clientFlight(out.flight, clientScope);
             if (out.aircraft && typeof out.aircraft === "object") out.aircraft = clientRow(out.aircraft);

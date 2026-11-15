@@ -154,7 +154,18 @@ function ContrastChip({ hex, against }) {
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-export default function ColoursCard({ deviceId }) {
+// `hideKeys` (the client's Settings, 2026-11-15): colour keys left out of the card, and a group with none left goes too.
+// A client never sees the IMP/CAA/NOTAM markers, limitation circles, the MVT and unconfirmed rings or the Upcoming
+// Flight Table, so their colours are not offered. Left out (ops), the card is as it was.
+export default function ColoursCard({ deviceId, hideKeys = null }) {
+  // a client's sidebar has no limitation titles: its words for the one description that names them
+  const descOf = (key) => (hideKeys?.length && key === 'sidebarText' ? 'Sidebar body text (the date and the legend labels)' : TOKEN_DESC[key] || '');
+  const hideSet = useMemo(() => (hideKeys?.length ? new Set(hideKeys) : null), [hideKeys]);
+  const GROUPS = useMemo(() => {
+    if (!hideKeys?.length) return WALL_COLOR_GROUPS;
+    const hide = new Set(hideKeys);
+    return WALL_COLOR_GROUPS.map((g) => ({ ...g, tokens: g.tokens.filter((tk) => !hide.has(tk.key)) })).filter((g) => g.tokens.length > 0);
+  }, [hideKeys]);
   // the client surface passes its own read/write pair through the context (LookCards.jsx); ops use the ops routes
   const ctxApi = useContext(DeviceCtx).api;
   const fetchDisplaySettings = ctxApi?.fetch ?? fetchOpsDisplaySettings; const saveDisplaySettings = ctxApi?.save ?? saveOpsDisplaySettings;
@@ -164,7 +175,7 @@ export default function ColoursCard({ deviceId }) {
   const [hexDrafts, setHexDrafts] = useState({});
   const [query, setQuery] = useState('');
   const [onlyOverridden, setOnlyOverridden] = useState(false);
-  const [expanded, setExpanded] = useState(() => new Set([WALL_COLOR_GROUPS[0].id]));
+  const [expanded, setExpanded] = useState(() => new Set([GROUPS[0].id]));
   const timersRef = useRef({});
   const flash = useToast();
   // C8 (<768): collapsed groups are 56px rows with a three-swatch preview;
@@ -193,14 +204,14 @@ export default function ColoursCard({ deviceId }) {
     return map;
   }, [problems]);
   const overriddenKeys = Object.keys(overrides).filter(
-    (k) => k in WALL_COLOR_DEFAULTS && overrides[k] !== WALL_COLOR_DEFAULTS[k]
+    (k) => k in WALL_COLOR_DEFAULTS && overrides[k] !== WALL_COLOR_DEFAULTS[k] && !(hideKeys ?? []).includes(k)
   );
 
   // The picker's "on the wall now" palette: current resolved values, deduped.
   const wallPalette = useMemo(() => {
     const seen = new Set();
     const out = [];
-    for (const group of WALL_COLOR_GROUPS) {
+    for (const group of GROUPS) {
       for (const token of group.tokens) {
         const hex = resolved[token.key];
         if (seen.has(hex)) continue;
@@ -209,7 +220,7 @@ export default function ColoursCard({ deviceId }) {
       }
     }
     return out.slice(0, 16);
-  }, [resolved]);
+  }, [resolved, GROUPS]);
 
   function persist(key, value, message) {
     clearTimeout(timersRef.current[key]);
@@ -256,7 +267,7 @@ export default function ColoursCard({ deviceId }) {
     !q ||
     token.label.toLowerCase().includes(q) ||
     token.key.toLowerCase().includes(q) ||
-    (TOKEN_DESC[token.key] || '').toLowerCase().includes(q) ||
+    descOf(token.key).toLowerCase().includes(q) ||
     group.label.toLowerCase().includes(q);
   const visibleTokens = (group) =>
     group.tokens
@@ -284,7 +295,7 @@ export default function ColoursCard({ deviceId }) {
         <>
           {/* Sticky preview: judge a change without scrolling back up. */}
           <div style={{ position: 'sticky', top: 8, zIndex: 40, background: t.card, borderRadius: 12, boxShadow: t.shadowPanel }}>
-            <PreviewPill c={resolved} />
+            <PreviewPill c={resolved} hide={hideSet} />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '14px 0 12px', flexWrap: 'wrap' }}>
@@ -304,7 +315,7 @@ export default function ColoursCard({ deviceId }) {
           </div>
 
           {isPhone &&
-            WALL_COLOR_GROUPS.map((group) => {
+            GROUPS.map((group) => {
               const tokens = visibleTokens(group);
               if (filtering && tokens.length === 0) return null;
               const open = filtering || expanded.has(group.id);
@@ -435,7 +446,7 @@ export default function ColoursCard({ deviceId }) {
                 </div>
               );
             })}
-          {!isPhone && WALL_COLOR_GROUPS.map((group) => {
+          {!isPhone && GROUPS.map((group) => {
             const tokens = visibleTokens(group);
             if (filtering && tokens.length === 0) return null;
             const open = filtering || expanded.has(group.id);
@@ -518,7 +529,7 @@ export default function ColoursCard({ deviceId }) {
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 13.5, fontWeight: 700 }}>{token.label}</div>
                             <div style={{ fontSize: 12, color: t.faint, lineHeight: 1.4 }}>
-                              {TOKEN_DESC[token.key] || ''}
+                              {descOf(token.key)}
                             </div>
                             {rowProblems.map((msg) => (
                               <div key={msg} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: t.red, marginTop: 3, fontWeight: 600 }}>
@@ -570,7 +581,7 @@ export default function ColoursCard({ deviceId }) {
             );
           })}
           {filtering &&
-            WALL_COLOR_GROUPS.every((group) => visibleTokens(group).length === 0) && (
+            GROUPS.every((group) => visibleTokens(group).length === 0) && (
               <div style={{ padding: '22px 0', textAlign: 'center', fontSize: 13.5, color: t.faint }}>
                 No colours match{q ? ` "${query.trim()}"` : ''}{onlyOverridden ? ' among the overridden ones' : ''}.
               </div>

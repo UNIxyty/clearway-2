@@ -3,7 +3,7 @@ import { onboardingReady } from "@/lib/clients/onboarding";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { listClients, listDecisions } from "@/lib/clients/admin";
-import { ACTIVE_SWITCHES as SWITCHES, STARTING_SWITCHES, PASSENGER_LEVELS, SCOPE_KINDS } from "@/lib/clients/switches.mjs";
+import { ACTIVE_SWITCHES as SWITCHES, STARTING_SWITCHES, PASSENGER_LEVELS, SCOPE_KINDS, normaliseSwitches } from "@/lib/clients/switches.mjs";
 import { TRY_AGAIN, failure } from "@/lib/public-error";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,11 @@ export async function GET() {
     if ("error" in auth) return auth.error;
     const service = createSupabaseServiceRoleClient();
     if (!service) return failure(503, NOT_LOADED, { tag: "ADMIN-CLIENTS", what: "SUPABASE_SERVICE_ROLE_KEY not set" });
-    const [clients, decisions] = await Promise.all([listClients(service), listDecisions(service)]);
+    const [rows, decisions] = await Promise.all([listClients(service), listDecisions(service)]);
+    // Today's switches only. A row may still store a retired one (lib/clients/switches.mjs); it needs no migration:
+    // it is dropped here and on every other read, and the page is never told of it. The decision log is history and
+    // keeps the names it was written with.
+    const clients = rows.map((c) => ({ ...c, switches: normaliseSwitches(c.switches) }));
     return NextResponse.json({ ok: true, onboardingReady: await onboardingReady(service), clients, decisions, catalogue: { switches: SWITCHES, starting: STARTING_SWITCHES, passengerLevels: PASSENGER_LEVELS, scopeKinds: SCOPE_KINDS } });
   } catch (error) {
     return failure(500, NOT_LOADED, { tag: "ADMIN-CLIENTS", what: "list failed", detail: error });

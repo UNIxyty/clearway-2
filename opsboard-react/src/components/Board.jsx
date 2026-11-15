@@ -203,6 +203,7 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
   autoReturnToNow = true,       // the ops wall drifts back to "now" when idle; a client browsing another day must not be dragged back (2026-11-10)
   scrollToMs = null,            // client day switching (2026-11-10): when this changes, the view scrolls so this instant sits where "now" normally does
   onViewRange = null,           // reports the visible time range on every scroll ({ startMs, endMs }), for a parent's day label
+  showWxLegend = true,          // the sidebar's WX AGENDA legend; a client without the Weather switch gets no weather colours, so no legend for them (2026-11-15)
 }) {
   // Resolved wall colour tokens — every colour on the board derives from
   // these (chromeFor/legend*/aogStylesFor bridge the shipped odd shades).
@@ -754,7 +755,8 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
           {(() => { const d = new Date(nowMs); const p = (n) => String(n).padStart(2, '0'); return `${p(d.getUTCDate())}.${p(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`; })()}
         </div>
 
-        <div style={s.panelTitle}>WX AGENDA</div>
+        {showWxLegend && <div style={s.panelTitle}>WX AGENDA</div>}
+        {showWxLegend && (
         <div style={s.legendGrid}>
           {WX_LEGEND.map((w) => (
             <div key={w.label} style={s.legendItem}>
@@ -763,8 +765,9 @@ export default function Board({ aircraft = [], limitations = [], windowStartUtc,
             </div>
           ))}
         </div>
+        )}
 
-        <div style={{ ...s.panelTitle, marginTop: 18 }}>TIMELINE AGENDA</div>
+        <div style={showWxLegend ? { ...s.panelTitle, marginTop: 18 } : s.panelTitle}>TIMELINE AGENDA</div>
         <div style={s.legendGrid}>
           {LEGEND.map(l => (
             <div key={l.status} style={s.legendItem}>

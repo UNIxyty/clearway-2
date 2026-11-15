@@ -26,9 +26,8 @@ Requests arrive from **Ask for access** on the sign-in page, with the person's n
    **trip number** (only those trips). Any mix. A suggestion appears when a Leon operator has the same name as the
    company. The line under the list counts the flights that match in the next 7 days.
    Note: without a scope the client sees no flights, and **Approve** stays disabled.
-4. **Access · what they see of those flights.** The starting set is on: Flight board, Weather, NOTAM information,
-   Flight radar. Turn the others on as needed: Service status, NOTAM check status, Documents, Airport & AIP search,
-   Limitations, Important notices, CAA details. **Flight board is required.**
+4. **Access · what they see of those flights.** There are four switches, and all four start on: Flight board,
+   Weather, NOTAM information, Flight radar. Turn off what they should not see. **Flight board is required.**
 5. **Passenger details**, apart from the rest: **Off**, **Names and seats**, or **Names and documents**. Documents
    open one passenger at a time, close after 30 seconds and are logged — choosing it asks you to confirm the client is
    the operator, or that written consent is held.
@@ -40,7 +39,7 @@ To turn a request down, press **Refuse** and write a note the person will see on
 ## Change a client
 Roles: Admin and Developer by default
 
-1. Under **Approved clients**, find the row. Reading across shows one client: scope chips, the eleven dots (filled for
+1. Under **Approved clients**, find the row. Reading across shows one client: scope chips, the four dots (filled for
    on), the passenger chip, when and by whom they were granted.
 2. Press **Change**. The same editor opens with their current scope and switches; what you change is marked **CHANGED**
    and the footer lists the difference.
@@ -63,6 +62,13 @@ Every approval, change, passenger-level change, refusal and removal is a row: wh
 note if there was one. Newest first.
 
 ## What a client never has
-The Ops Agent, Flight intake, Admin, Developer, Users and Permissions are not switches and do not appear on this page or
-anywhere a client can see. A client asking for a flight outside their scope — through their pages or straight at the
+A client never sees **Important notices, Limitations or CAA details**. Those three switches are retired (since
+15 November 2026) and are no longer on this page, so they cannot be turned on. Service status and NOTAM check status
+went the same way, and Documents and Airport & AIP search before them. A client who had one of them on before keeps
+nothing of it: it opens nothing, and the next save drops it. Older decisions in the log still name them, marked
+"(retired)".
+
+The other things that are for the ops room only never reach a client either: the NOTAM check, the OPS checklist,
+internal notes, who checked what, and every staff action or setting. The Ops Agent, Flight intake, Admin, Developer,
+Users and Permissions are not switches and do not appear on this page or anywhere a client can see. A client asking for a flight outside their scope — through their pages or straight at the
 server — gets "That is not on your account", never a hint that the flight exists.

@@ -18,9 +18,10 @@
 .cl-approved-scope { order: 3; grid-column: span 2 / span 2; }
 .cl-approved-count { order: 4; }
 .cl-approved-wide-grid, .cl-approved-wide-flex { display: none; }
+/* The third column holds one 22px dot per switch with 4px gaps: four switches since 2026-11-15 (100px), was eleven. */
 @container (min-width: 1060px) {
-  .cl-approved-head { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) 286px 120px 120px 96px; }
-  .cl-approved-row { grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) 286px 120px 120px 96px; }
+  .cl-approved-head { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) 112px 120px 120px 96px; }
+  .cl-approved-row { grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) 112px 120px 120px 96px; }
   .cl-approved-scope { order: 0; grid-column: auto; }
   .cl-approved-count { display: none; }
   .cl-approved-wide-grid { display: grid; }

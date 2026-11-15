@@ -1,7 +1,7 @@
 // A flight, as a client reads it (design "Client Portal v3" › flight panel, 2026-11-13: hairline rows, no boxes). The ops
 // overlay without the ops parts: status in plain words, the route, the times, weather at both ends, the NOTAMs for the
-// flight (read-only, the one NOTAM card), the notices ops chose to share, and passengers only when the passengers
-// switch is on. There is no checklist, no notes, no names of who checked what, and nothing to edit. Everything comes
+// flight (read-only, the one NOTAM card), and passengers only when the passengers switch is on. No limitations, no
+// important notices, no authority contacts (2026-11-15). There is no checklist, no notes, no names of who checked what, and nothing to edit. Everything comes
 // from /api/flight-info, which the wall backend cut to this client before answering.
 import { useEffect, useMemo, useState } from 'react';
 import { fetchFlightInfo } from '../services/timelineApi';
@@ -99,18 +99,10 @@ function Passengers({ p }) {
 export default function ClientFlightBody({ p, me, names = {}, info, extraTop = null, afterTop = null }) {
   const sw = me?.switches || [];
   const on = (k) => sw.includes(k);
-  const f = info.data?.flight;
   const canc = p.status === 'cancelled';
-  const notes = Array.isArray(f?.limitations) ? f.limitations : [];
-  const important = notes.filter((n) => n.type === 'IMP');
-  const lims = notes.filter((n) => n.type === 'LIM');
-  const caa = notes.filter((n) => n.type === 'CAA');
   const paxOn = (me?.passengerLevel && me.passengerLevel !== 'off') && !canc;
-  // the notes come with the flight's own read: until it has answered the sections say so, and "none" is said only
-  // once it is known (2026-11-13: "No limitations apply" stood there while the read was still on its way)
-  const noNotes = (none) => (info.state === 'loading' ? <p className="cwc-muted" data-reading="">Reading…</p>
-    : info.state === 'failed' ? <p className="cwc-muted" data-notes-unread="">{info.error}</p>
-      : <p className="cwc-muted">{none}</p>);
+  // No limitations, important notices or authority contacts here (2026-11-15): a client never sees them, and the
+  // server no longer sends them. What is left: status, route, times, weather, NOTAMs, the map and passenger names.
   return (
     <div className="cwc-body">
       <div className="cwc-top">
@@ -138,15 +130,6 @@ export default function ClientFlightBody({ p, me, names = {}, info, extraTop = n
         <section data-section="notams"><h3>NOTAMs for this flight</h3><Notams icao={p.dep} payload={info.data?.notams?.dep} /><Notams icao={p.arr} payload={info.data?.notams?.arr} /></section>
       )}
       {paxOn && <section data-section="passengers"><h3>Passengers{Number.isFinite(p.passengerCount) ? ` · ${p.passengerCount}` : ''}</h3><Passengers p={p} /></section>}
-      {!canc && on('limitations') && (
-        <section data-section="limitations" data-card="limitations"><h3>Limitations</h3>{lims.length ? lims.map((n) => <div key={n.id} className="cwc-note is-lim"><b>{n.title}</b>{n.description && <span>{n.description}</span>}</div>) : noNotes('No limitations apply to this flight.')}</section>
-      )}
-      {!canc && on('important') && (
-        <section data-section="important" data-card="important"><h3>Important</h3>{important.length ? important.map((n) => <div key={n.id} className="cwc-note is-imp"><b>{n.title}</b>{n.description && <span>{n.description}</span>}</div>) : noNotes('No notices for this flight.')}</section>
-      )}
-      {!canc && on('caa') && caa.length > 0 && (
-        <section data-section="caa" data-card="caa"><h3>Authority contacts</h3>{caa.map((n) => <div key={n.id} className="cwc-note"><b>{n.caa?.authorityName || n.caa?.country || n.title}</b>{n.caa?.functionText && <span>{n.caa.functionText}</span>}{n.caa?.contact && <span>{n.caa.contact}</span>}{n.caa?.phones && <span>{String(n.caa.phones)}</span>}{n.caa?.mail && <span>{String(n.caa.mail)}</span>}</div>)}</section>
-      )}
     </div>
   );
 }

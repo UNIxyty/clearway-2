@@ -14,6 +14,9 @@ const POLL_MS = 60_000;
 // the display's own fallback (components/Header.jsx FALLBACK_CLOCKS), repeated so the phone does not pull the header in
 const ROOM_FALLBACK = [{ label: 'Riga', timeZone: 'Europe/Riga', local: true }, { label: 'UTC', timeZone: 'UTC' }];
 const FEED_EVENTS = ['limitations.changed', 'important.changed', 'caa.changed', 'roster.changed', 'flight.changed', 'weather.changed'];
+// a client's stream carries their flights changing and nothing else (digital-wall/lib/client-scope.mjs): Limitations,
+// Important notices and CAA are ops' own, so a client's phone does not listen for them either (2026-11-15)
+const CLIENT_FEED_EVENTS = ['flight.changed', 'weather.changed'];
 
 /** Which answer the feed gives right now, as a number (0 = no answer). Only asked after a load failed. */
 async function feedStatus() {
@@ -50,25 +53,37 @@ export function usePhoneData(role) {
   const [clientPrefs, setClientPrefs] = useState(null);
   const [clientPrefsState, setClientPrefsState] = useState('loading'); // loading | ok | failed
   const loadingRef = useRef(false);
+  const queuedRef = useRef(false);
   const prefsRef = useRef(null);
 
+  // A reload asked for while one is running is QUEUED, not dropped (2026-11-15): a stream event that lands during a
+  // read used to be lost until the next 60 s poll, so a change made in that moment showed a minute late. One follow-up
+  // run is kept however many are asked (never a pile), and it starts when the running one ends.
   const load = useCallback(async () => {
-    if (!role || loadingRef.current) return;
+    if (!role) return;
+    if (loadingRef.current) { queuedRef.current = true; return; }
     loadingRef.current = true;
-    setLastTry(Date.now());
     try {
-      const result = await fetchTimelineAircraft({ refresh: false });
-      setAircraft(result.aircraft || []);
-      setLimitations(role === 'staff' ? result.limitations || [] : []);
-      setError('');
-      setDenied(0);
-      setDataUpdatedAt(Date.now());
-    } catch (err) {
-      setError(errorText(err));
-      const status = await feedStatus();
-      setDenied(status === 403 || status === 401 ? status : 0);
+      do {
+        queuedRef.current = false;
+        setLastTry(Date.now());
+        try {
+          // a client asks for the flights only: the limitations list is ops' own and that read is not on their account
+          const result = await fetchTimelineAircraft({ refresh: false, limitations: role === 'staff' });
+          setAircraft(result.aircraft || []);
+          setLimitations(role === 'staff' ? result.limitations || [] : []);
+          setError('');
+          setDenied(0);
+          setDataUpdatedAt(Date.now());
+        } catch (err) {
+          setError(errorText(err));
+          const status = await feedStatus();
+          setDenied(status === 403 || status === 401 ? status : 0);
+        } finally {
+          setLoadedOnce(true);
+        }
+      } while (queuedRef.current);
     } finally {
-      setLoadedOnce(true);
       loadingRef.current = false;
     }
   }, [role]);
@@ -101,7 +116,7 @@ export function usePhoneData(role) {
       loadClientPrefs().catch(() => {});
     }
     const id = setInterval(load, POLL_MS);
-    const events = role === 'staff' ? [...FEED_EVENTS, 'alerts.changed'] : FEED_EVENTS;
+    const events = role === 'staff' ? [...FEED_EVENTS, 'alerts.changed'] : CLIENT_FEED_EVENTS;
     const unsubs = events.map((ev) => subscribeWallStream(ev, () => load()));
     if (role === 'staff') unsubs.push(subscribeWallStream('notam-check.changed', () => { load(); loadNotam(); }));
     unsubs.push(subscribeWallStream('config.changed', (event) => {

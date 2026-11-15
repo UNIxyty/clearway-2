@@ -21,6 +21,8 @@ export async function GET() {
   return NextResponse.json({
     ok: true, status: data.status, company: data.company, personName: data.person_name, kind: data.kind, note: data.note, requestedAt: data.requested_at, decidedAt: data.decided_at,
     decisionNote: data.status === "refused" ? data.decision_note : "",
+    // today's switches only: a retired one a row still stores is dropped here (no migration needed), so the client's
+    // pages never hear of it
     switches: approved ? normaliseSwitches(data.switches) : [], passengerLevel: approved ? data.passenger_level : "off",
     scopeKinds: approved ? [...new Set(normaliseScope(data.scope).map((e) => e.kind))] : [],
     supportEmail: support,

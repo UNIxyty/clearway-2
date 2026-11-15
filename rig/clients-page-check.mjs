@@ -4,10 +4,14 @@
 //   node --env-file=.env.rig rig/clients-page-check.mjs
 // Seeds two invented clients (one waiting, one approved) with the service key, signs in as the rig admin through the
 // sign-in proxy (:3989), and removes nothing it did not make.
+// 2026-11-15: four switches exist and seven are retired (lib/clients/switches.mjs). The approved client's row STORES
+// the retired ones, as a row from before that day does, so every measurement here is of such a row; a section of its
+// own proves the page shows and saves only the four, and that the decision log keeps the words of old decisions.
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
 import { settled } from "./lib/settle.mjs";
 import { textOverlaps } from "./lib/overlap.mjs";
+import { SWITCH_KEYS, RETIRED_SWITCH_KEYS } from "../lib/clients/switches.mjs";
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, SVC = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
@@ -32,7 +36,7 @@ async function seed(email, person, company, status) {
   // A previous run's row cannot always be deleted (decisions reference it, and decisions are append-only): put it
   // back to the fresh state instead, or make it when there is none (2026-11-12; as rig/client-ui-check.mjs does).
   const row = { user_id: await userFor(email), email, person_name: person, company, kind: "broker", note: status === "requested" ? "Invented for the Clients page check." : "", status,
-    scope: status === "approved" ? [{ kind: "operator", value: "cwy-cwy" }, { kind: "registration", value: "LY-TST" }] : [], switches: status === "approved" ? ["flight_board", "weather"] : [],
+    scope: status === "approved" ? [{ kind: "operator", value: "cwy-cwy" }, { kind: "registration", value: "LY-TST" }] : [], switches: status === "approved" ? ["flight_board", "weather", ...RETIRED_SWITCH_KEYS] : [],   // a row from before the switches were retired: no migration empties it
     passenger_level: "off", consent: false, requested_at: new Date(Date.now() - 3600e3).toISOString(), decided_at: status === "approved" ? new Date().toISOString() : null };
   const had = await (await svc(`/rest/v1/clients?email=eq.${encodeURIComponent(email)}&select=id`)).json().catch(() => []);
   const r = had?.[0]
@@ -210,6 +214,68 @@ async function typeWord(page, locator, word, what) {
   ok(res.status === 400 && /no operator no-such-operator in Leon/i.test(String(body.error)), "server: an operator that does not exist is refused, nothing saved", `${res.status} ${body.error ?? ""}`);
 }
 
+// ── The switches (2026-11-15): four exist; Limitations, Important notices, CAA details, Service status and NOTAM check
+// status are retired with Documents and Airport & AIP search. The page neither shows nor saves a retired one, whatever
+// the row stores and whatever a request carries; the decision log still says what an OLD decision granted. ──
+{
+  const RETIRED_LABELS = ["Limitations", "Important notices", "CAA details", "Service status", "NOTAM check status", "Documents", "Airport & AIP search"];
+  const adminCookie = `${cookie(admin).name}=${cookie(admin).value}`;
+  const storedSwitches = async () => (await (await svc(`/rest/v1/clients?id=eq.${approvedRow.id}&select=switches`)).json())?.[0]?.switches ?? null;
+  const before = await storedSwitches();
+  ok(Array.isArray(before) && RETIRED_SWITCH_KEYS.every((k) => before.includes(k)), "the approved client's row stores the seven retired switches (seeded like a row from before 2026-11-15)", (before ?? []).join(","));
+  // what the server tells the page
+  const list = await fetch(`${B}/api/admin/clients`, { headers: { cookie: adminCookie } }); const listed = await list.json().catch(() => ({}));
+  const offered = (listed.catalogue?.switches ?? []).map((x) => x.key);
+  ok(list.status === 200 && offered.join(",") === SWITCH_KEYS.join(",") && SWITCH_KEYS.length === 4, "server: the page is offered the four switches that exist and no retired one", `${list.status} ${offered.join(",")}`);
+  const mine = (listed.clients ?? []).find((c) => c.id === approvedRow.id);
+  ok((mine?.switches ?? []).join(",") === "flight_board,weather", "server: the client is listed with today's switches only (the stored retired ones are dropped on read)", (mine?.switches ?? []).join(","));
+  // two OLD decisions, as the log holds them from before the retirement. Decisions are append-only and the page lists
+  // the newest 200, so they are written once and written again only when they have left the page's reach.
+  const mark = "rig-old-decision-2026-11-15";
+  const recent = await (await svc(`/rest/v1/client_decisions?select=note&order=created_at.desc&limit=150`)).json().catch(() => []);
+  if (!(Array.isArray(recent) ? recent : []).some((d) => String(d.note ?? "").includes(mark))) await svc("/rest/v1/client_decisions", { method: "POST", body: JSON.stringify([
+    { client_id: approvedRow.id, kind: "approved", actor_email: "rig-clients-page@rig.invalid", detail: { before: { scope: [], switches: [], passengerLevel: "off" }, after: { scope: [{ kind: "operator", value: "cwy-cwy" }], switches: ["flight_board", "weather", "notams", "radar", "service_status", "notam_check_status", "limitations", "important", "caa"], passengerLevel: "off" } }, note: `Invented for the rig: an approval with nine switches. ${mark}` },
+    { client_id: approvedRow.id, kind: "changed", actor_email: "rig-clients-page@rig.invalid", detail: { before: { scope: [{ kind: "operator", value: "cwy-cwy" }], switches: ["flight_board", "weather", "limitations", "important", "caa"], passengerLevel: "off" }, after: { scope: [{ kind: "operator", value: "cwy-cwy" }], switches: ["flight_board", "weather", "radar"], passengerLevel: "off" } }, note: `Invented for the rig: three switches taken away. ${mark}` },
+  ]) });
+  // the page
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } }); await ctx.addCookies([cookie(admin)]);
+  const page = await ctx.newPage(); await page.goto(`${B}/admin/clients`, { waitUntil: "load" });
+  const row = page.locator(`[data-client-approved="${approvedRow.id}"]`);
+  const there = await row.waitFor({ timeout: 20000 }).then(() => true, () => false);
+  ok(there, "switches: the approved client's row rendered");
+  if (there) {
+    await settled(page);
+    const dots = await row.locator(".cl-approved-wide-grid").evaluate((el) => ({ n: el.children.length, label: el.getAttribute("aria-label"), titles: [...el.children].map((c) => c.getAttribute("title")).join(" | "), cols: getComputedStyle(el).gridTemplateColumns.split(" ").length, shown: getComputedStyle(el).display })).catch(() => null);
+    ok(dots?.n === 4 && dots.label === "2 of 4 switches" && (dots.shown === "none" || dots.cols === 4), "switches: the row draws four dots, one per switch that exists, and says “2 of 4 switches”", JSON.stringify(dots));
+    const head = await page.locator(".cl-approved-head span.grid").evaluate((el) => [...el.children].map((c) => c.getAttribute("title")).join(" | ")).catch(() => "");
+    ok(head === "Flight board | Weather | NOTAM information | Flight radar", "switches: the table's heading has the four icons, in order", head);
+    await row.locator("[data-change]").click();
+    const ed = page.locator(`[data-client-editor="${approvedRow.id}"]`); await ed.waitFor({ timeout: 10000 }).catch(() => {});
+    const shown = await ed.locator("[role=switch][data-switch]").evaluateAll((els) => els.map((e) => `${e.getAttribute("data-switch")}=${e.getAttribute("aria-checked")}`));
+    ok(shown.join(",") === "flight_board=true,weather=true,notams=false,radar=false", "switches: the editor shows the four switches and no other; the stored retired ones are not on", shown.join(","));
+    const edText = await ed.innerText().catch(() => "");
+    const named = RETIRED_LABELS.filter((l) => edText.includes(l));
+    ok(edText.length > 0 && named.length === 0 && !/\bREFERENCE\b/.test(edText), "switches: the editor names no retired switch and has no empty REFERENCE group", `${named.join(", ")}${/\bREFERENCE\b/.test(edText) ? " · REFERENCE heading" : ""}`);
+    // the decision log keeps the words of old decisions
+    const words = await page.locator("[data-decision]").evaluateAll((els, m) => els.filter((e) => e.textContent.includes(m)).map((e) => `${e.getAttribute("data-decision")}: ${e.textContent.replace(/\s+/g, " ")}`), mark);
+    const oldApproval = words.find((w) => w.startsWith("approved:")) ?? "", oldChange = words.find((w) => w.startsWith("changed:")) ?? "";
+    ok(/\b9 switches\b/.test(oldApproval), "decision log: an old approval still says the nine switches it granted", oldApproval.slice(0, 200));
+    ok(["+ Flight radar", "− Limitations (retired)", "− Important notices (retired)", "− CAA details (retired)"].every((w) => oldChange.includes(w)), "decision log: an old change still names the switches it took away, marked retired", oldChange.slice(0, 260));
+    await page.screenshot({ path: `${OUT}/clients-switches-1440.png`, fullPage: true });
+  }
+  await ctx.close();
+  // a save that carries retired switches stores none of them
+  const save = (switches) => fetch(`${B}/api/admin/clients/${approvedRow.id}`, { method: "PATCH", headers: { "content-type": "application/json", cookie: adminCookie }, body: JSON.stringify({ switches, note: "Invented for the rig: a save carrying retired switches." }) });
+  const only = await save(["limitations", "important", "caa", "service_status", "notam_check_status"]); const onlyBody = await only.json().catch(() => ({}));
+  ok(only.status === 400 && /Flight board is required/.test(String(onlyBody.error)) && JSON.stringify(await storedSwitches()) === JSON.stringify(before), "server: a save of retired switches alone is a save of nothing: refused (Flight board is required), the row untouched", `${only.status} ${onlyBody.error ?? ""}`);
+  const mixed = await save(["flight_board", "weather", "radar", ...RETIRED_SWITCH_KEYS]); const mixedBody = await mixed.json().catch(() => ({}));
+  const after = await storedSwitches();
+  ok(mixed.status === 200 && (mixedBody.client?.switches ?? []).join(",") === "flight_board,weather,radar", "server: a save carrying the seven retired switches beside three real ones answers with the three", `${mixed.status} ${(mixedBody.client?.switches ?? []).join(",")} ${mixedBody.error ?? ""}`);
+  ok(Array.isArray(after) && after.join(",") === "flight_board,weather,radar" && !RETIRED_SWITCH_KEYS.some((k) => after.includes(k)), "server: …and the row now stores none of the retired ones (the old stored ones left with this save)", (after ?? []).join(","));
+  const logged = (await (await svc(`/rest/v1/client_decisions?client_id=eq.${approvedRow.id}&kind=eq.changed&actor_email=eq.rig-access-admin%40rig.invalid&select=detail&order=created_at.desc&limit=1`)).json().catch(() => []))?.[0]?.detail;
+  ok(Boolean(logged) && (logged.after?.switches ?? []).join(",") === "flight_board,weather,radar" && (logged.before?.switches ?? []).join(",") === "flight_board,weather", "server: the decision is logged with today's switches only, before and after", JSON.stringify(logged ?? null).slice(0, 220));
+}
+
 // ── The decision log with a long "By" value (2026-11-12, Dmitry's test): every column keeps to its own width, the
 // email ends with … and carries the whole value, the date never wraps, and no two text boxes overlap, at 1280, 1440,
 // 1920 and 390 ──
@@ -238,5 +304,8 @@ async function typeWord(page, locator, word, what) {
 await browser.close();
 
 for (const r of [waitingRow, approvedRow]) { await svc(`/rest/v1/clients?id=eq.${r.id}`, { method: "DELETE" }); await svc(`/auth/v1/admin/users/${r.user_id}`, { method: "DELETE" }); }
+// The approved row has decisions now (the switches section), so it cannot be deleted: decisions are append-only. It is
+// left the way production leaves a client whose access ended: removed, emptied, kept. (No row → this changes nothing.)
+await svc(`/rest/v1/clients?id=eq.${approvedRow.id}`, { method: "PATCH", body: JSON.stringify({ status: "removed", scope: [], switches: [], passenger_level: "off", consent: false }) });
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");
 process.exit(failures ? 1 : 0);

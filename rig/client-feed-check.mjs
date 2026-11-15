@@ -2,8 +2,14 @@
 // carried each flight as the ops wall keeps it: 55 fields, with ops' notes matched to the flight (Limitations, Important
 // entries, CAA contacts, unreviewed NOTAM and weather markers), ops' check marks, the checklist colours and the weather
 // pills — whatever the client's switches said. The page drew none of it; the browser had all of it.
-// Now a flight is a list of fields (digital-wall/lib/client-scope.mjs › CLIENT_FLIGHT_FIELDS) and the notes come only
-// with their switches. This makes its own client and its own invented notes (through the wall's API, as the rig admin),
+// Now a flight is a list of fields (digital-wall/lib/client-scope.mjs › CLIENT_FLIGHT_FIELDS, plus the weather category
+// of each airport with the Weather switch: CLIENT_FLIGHT_SWITCH_FIELDS). Since 2026-11-15 the notes never come, at any
+// setting: Limitations, Important notices, CAA details, service status and the NOTAM check are the ops room's own, their
+// switches are retired, and their reads answer a client 404. Every read that carries flights is walked, for a client with
+// the fewest switches and for one with every switch a row has ever held (the five retired ones written straight into
+// the row, as an old row would have them): no flight key outside the list, no key of CLIENT_FLIGHT_NEVER at any depth of
+// any answer, no word of the invented notes — which ops DO see on the same flight (the control).
+// This makes its own client and its own invented notes (through the wall's API, as the rig admin),
 // reads every feed as the client with the switches off and then on, looks at a flight on Flights at 1440 (the frame,
 // since 2026-11-10: iframe[data-client-frame] holds the wall app's client surface) and at 390 (the phone app, where a
 // client on a phone is sent since v3, 2026-11-13: /digital-wall/phone/), and removes what it made.
@@ -11,7 +17,8 @@
 import { chromium } from "playwright";
 import fs from "node:fs";
 import { settled } from "./lib/settle.mjs";
-import { CLIENT_FLIGHT_FIELDS } from "../digital-wall/lib/client-scope.mjs";
+import { CLIENT_FLIGHT_FIELDS, CLIENT_FLIGHT_SWITCH_FIELDS, CLIENT_FLIGHT_NEVER, NOT_ON_ACCOUNT } from "../digital-wall/lib/client-scope.mjs";
+import { isNeverPath } from "./lib/bundle-sweep.mjs";
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, SVC = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(String(SB))) { console.error("Refused: the rig's local Supabase only."); process.exit(2); }
@@ -35,9 +42,17 @@ const shot = async (page, file, width, { whole = false } = {}) => {
 
 const EMAIL = "rig-client-feed@rig.invalid", PASSWORD = "rig-access-check-only-client-feed";
 const TAG = `rig-feed-${Date.now().toString(36)}`;   // in every invented note's title, so this run finds and removes its own
-const ROW = new Set(["key", "oprId", "operatorName", "registration", "acftTypeIcao", "acftTypeShortName", "flightNid", "flight", "notamCheck"]);
-const FLIGHT = new Set([...CLIENT_FLIGHT_FIELDS, "limitations"]);
-const CAA = new Set(["country", "authorityName", "validity", "functionText", "info", "contact", "phones", "mail", "sita", "aftn"]);
+const ROW = new Set(["key", "oprId", "operatorName", "registration", "acftTypeIcao", "acftTypeShortName", "flightNid", "flight"]);
+// the fields a client's flight may carry with these switches on: the list, and the switch fields their switches allow
+const flightFieldsFor = (switches) => new Set([...CLIENT_FLIGHT_FIELDS, ...Object.entries(CLIENT_FLIGHT_SWITCH_FIELDS).filter(([, sw]) => switches.includes(sw)).map(([k]) => k)]);
+let FLIGHT = flightFieldsFor(["flight_board"]); let SWITCHED = ["flight_board"];
+const NEVER = new Set(CLIENT_FLIGHT_NEVER), WX = new Set(["VFR", "MVFR", "IFR", "LIFR"]);
+// every key of the never-list, at any depth of an answer: "path.to.key" for each one found
+const neverKeys = (v, at = "", out = []) => { if (Array.isArray(v)) v.forEach((x, i) => neverKeys(x, `${at}[${i}]`, out)); else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) { if (NEVER.has(k)) out.push(`${at}.${k}`.replace(/\[\d+\]/g, "[]")); neverKeys(x, `${at}.${k}`, out); } return [...new Set(out)]; };
+// every flight in an answer: an object with a flight id and a start time (the airports inside one are not flights)
+const flightsIn = (v, out = []) => { if (Array.isArray(v)) v.forEach((x) => flightsIn(x, out)); else if (v && typeof v === "object") { if ("flightNid" in v && "startTimeUTC" in v) out.push(v); for (const [k, x] of Object.entries(v)) if (k !== "adep" && k !== "ades") flightsIn(x, out); } return out; };
+// the weather category: only with the Weather switch, and only one of the four categories or null
+const wxWrong = (f, switches) => ["wxDep", "wxArr"].filter((k) => k in f && (!switches.includes("weather") || !(f[k] === null || WX.has(f[k]))));
 const made = { lim: null, imp: null, caa: null }; let uid = null;
 const admin = await grant("rig-access-admin@rig.invalid", "rig-access-check-only");
 if (!admin.access_token) { console.error("the rig's admin account cannot sign in (rig/access-accounts.mjs)"); process.exit(2); }
@@ -50,7 +65,10 @@ try {
   uid = u.id;
   const ops = (await (await svc("/rest/v1/leon_operators?select=opr_id")).json()).map((o) => o.opr_id);
   await svc("/rest/v1/clients", { method: "POST", body: JSON.stringify({ user_id: uid, email: EMAIL, person_name: "Rig Feed Person", company: "Rig Feed Charter (invented)", kind: "operator", status: "approved", scope: ops.map((value) => ({ kind: "operator", value })), switches: ["flight_board"], passenger_level: "names" }) });   // names: the passengers read is a level, not a switch (step 3)
-  const setSwitches = async (switches) => { await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", body: JSON.stringify({ switches }) }); await sleep(11_000); };   // the scope is cached ten seconds
+  // written with the service key, straight into the row (an old row may hold switches retired since); what the client
+  // is allowed is what survives normaliseSwitches — the active ones
+  const ACTIVE = ["flight_board", "weather", "notams", "radar"];
+  const setSwitches = async (switches) => { await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", body: JSON.stringify({ switches }) }); await sleep(11_000); SWITCHED = switches.filter((k) => ACTIVE.includes(k)); FLIGHT = flightFieldsFor(SWITCHED); };   // the scope is cached ten seconds
   const c = await grant(EMAIL, PASSWORD);
   ok(Boolean(c.access_token) && ops.length > 0, "a client on every operator the rig wall has signs in", `${ops.length} operators`);
 
@@ -58,14 +76,40 @@ try {
   const FEED = `/api/flights/normalized?window=all-cached&limit=500&from=${from}&to=${to}`;
   const feedOf = async (s) => (await wall(s, FEED)).json?.flights ?? [];
   const extra = (recs) => { const row = new Set(), fl = new Set(); for (const r of recs) { for (const k of Object.keys(r)) if (!ROW.has(k)) row.add(k); for (const k of Object.keys(r.flight ?? {})) if (!FLIGHT.has(k)) fl.add(k); } return { row: [...row], fl: [...fl] }; };
-  const types = (recs) => { const t = {}; for (const r of recs) for (const l of r.flight?.limitations ?? []) t[l.type] = (t[l.type] ?? 0) + 1; return t; };
+  // the five reads that were a client's until 2026-11-15 (Limitations ×2, Important, CAA, the NOTAM check): 404 with the one sentence
+  const RETIRED_READS = ["/api/notam-check/today", "/api/timeline/limitations", "/api/limitations", "/api/important", "/api/caa"];
+  const retiredReads = async (tag) => {
+    const res = await Promise.all(RETIRED_READS.map(async (p) => { const r = await wall(c, p); return [p, r.status, r.json?.error === NOT_ON_ACCOUNT.error && r.json?.ok === false && Object.keys(r.json).length === 2]; }));
+    ok(res.every(([, st, said]) => st === 404 && said), `${tag}: the five ops-only reads (Limitations ×2, Important, CAA, NOTAM check) answer 404 "${NOT_ON_ACCOUNT.error}" and nothing else`, res.map(([p, st, said]) => `${p} ${st}${said ? "" : " (other words)"}`).join(" · "));
+  };
+  // the words of the invented notes (titles and texts), as a client must never be sent them
+  const SEEDED = () => [TAG, "slots required after 2200", "fuel by prior arrangement", "Landing permits", "permits@rig.invalid", "Rigland (invented)"];
+  const seededIn = (text) => SEEDED().filter((w) => text.includes(w));
+  // every client read that carries flights, walked as the client: exact fields, no never-key at any depth, the weather
+  // rule, no word of the notes; aircraft rows are what names them
+  const walkReads = async (tag, { notes = true } = {}) => {
+    const reads = ["/api/timeline/flights?allOperators=true", "/api/upcoming/flights", FEED, "/api/flights/data", "/api/timeline/aircraft", "/api/aircraft/schedule", `/api/flight-info?flightNid=${target.flight.flightNid}&oprId=${encodeURIComponent(target.oprId)}`];
+    let all = "";
+    for (const p of reads) {
+      const r = await wall(c, p); const fl = flightsIn(r.json); all += r.text;
+      const beyond = [...new Set(fl.flatMap((f) => Object.keys(f)).filter((k) => !FLIGHT.has(k)))];
+      const wx = [...new Set(fl.flatMap((f) => wxWrong(f, SWITCHED)))];
+      const nk = neverKeys(r.json);
+      const words = notes ? seededIn(r.text) : [];
+      const name = p.replace(/\?.*/, "");
+      ok(r.status === 200 && (fl.length >= 1 || !["/api/timeline/flights", "/api/flights/normalized", "/api/flight-info"].includes(name)) && beyond.length === 0 && wx.length === 0, `${tag}: ${name} — every flight in it is the listed fields${SWITCHED.includes("weather") ? " (and the weather category, a category or null)" : " (no weather category without Weather)"} (${fl.length} flights)`, `${r.status} · beyond: ${beyond.join(" ") || "none"} · weather: ${wx.join(" ") || "ok"}`);
+      ok(r.status === 200 && nk.length === 0, `${tag}: ${name} — no key of the never-list (${CLIENT_FLIGHT_NEVER.length}: limitations, checks, notamCheck, important, caa, services, notes…) at any depth`, nk.slice(0, 6).join(" ") || "none");
+      if (notes) ok(words.length === 0, `${tag}: ${name} — no title or text of the invented limitation, notice or CAA entry`, words.join(" · ") || "none");
+    }
+    return all;
+  };
 
   // ── 1. the required switch only: a flight is the listed fields, with no notes at all ──
   let recs = await feedOf(c);
   ok(recs.length >= 1, "the client's feed has their flights", `${recs.length} flights`);
   let x = extra(recs);
   ok(x.row.length === 0 && x.fl.length === 0, "every flight in the feed is the listed fields and nothing else", `record: ${x.row.join(" ") || "—"} · flight: ${x.fl.join(" ") || "—"}`);
-  ok(recs.every((r) => Array.isArray(r.flight?.limitations) && r.flight.limitations.length === 0) && recs.every((r) => !("notamCheck" in r)), "with the note switches off no flight carries a note, and no NOTAM check state", JSON.stringify(types(recs)));
+  ok(recs.every((r) => r.flight && !("limitations" in r.flight)) && recs.every((r) => !("notamCheck" in r)), "no flight carries a limitations key at all (not even an empty list), and no record a NOTAM check state", `${recs.filter((r) => r.flight && "limitations" in r.flight).length} with limitations · ${recs.filter((r) => "notamCheck" in r).length} with notamCheck`);
   // the control: the same feed as staff carries the wall's own record, so the cut means something
   const staff = await feedOf(admin);
   const staffKeys = new Set(staff.flatMap((r) => Object.keys(r.flight ?? {})));
@@ -99,22 +143,24 @@ try {
   const staffNow = (await feedOf(admin)).find((r) => r.key === target.key);
   const staffTypes = new Set((staffNow?.flight?.limitations ?? []).map((l) => l.type));
   ok(["LIM", "IMP", "CAA"].every((t) => staffTypes.has(t)), "control: staff see all three on the flight", [...staffTypes].join(" "));
+  // the control for every word looked for below: ops' read of the same flight, and ops' lists, DO carry them
+  const staffInfo = await wall(admin, `/api/flight-info?flightNid=${target.flight.flightNid}&oprId=${encodeURIComponent(target.oprId)}`);
+  const staffLists = (await Promise.all(["/api/timeline/limitations?includeInactive=false", "/api/important", "/api/caa"].map((p) => wall(admin, p)))).map((r) => r.text).join("\n");
+  ok(staffInfo.status === 200 && staffInfo.text.includes(TAG) && neverKeys(staffInfo.json).length > 0 && SEEDED().every((w) => (staffInfo.text + staffLists).includes(w)), "control: ops' read of the same flight carries the notes (and never-list keys), and ops' lists carry every word looked for", `${staffInfo.status} · never-keys ${neverKeys(staffInfo.json).length} · words ${SEEDED().filter((w) => (staffInfo.text + staffLists).includes(w)).length}/${SEEDED().length}`);
 
   // ── 3. still only the required switch: none of it reaches the client, by any feed ──
   recs = await feedOf(c);
   const mine = recs.find((r) => r.key === target.key);
-  ok(mine && mine.flight.limitations.length === 0 && !JSON.stringify(recs).includes(TAG), "the notes exist, the switches are off: the client's feed has none of them");
+  ok(mine && !("limitations" in mine.flight) && !JSON.stringify(recs).includes(TAG), "the notes exist: the client's feed has none of them, and their flight no limitations key");
   const info = await wall(c, `/api/flight-info?flightNid=${target.flight.flightNid}&oprId=${encodeURIComponent(target.oprId)}`);
   const infoExtra = Object.keys(info.json?.flight ?? {}).filter((k) => !FLIGHT.has(k));
   ok(info.status === 200 && infoExtra.length === 0 && !info.text.includes(TAG) && !("portalConfigured" in (info.json ?? {})) && Object.keys(info.json?.aircraft ?? {}).every((k) => ROW.has(k)), "one flight opened: the same listed fields, no notes, and of the aircraft only what names it", infoExtra.join(" "));
-  for (const p of ["/api/timeline/flights?allOperators=true", "/api/upcoming/flights", "/api/flights/data", "/api/timeline/aircraft"]) {
-    const r = await wall(c, p); const fl = [];
-    const walk = (v) => { if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === "object") { if ("flightNid" in v && "startTimeUTC" in v) fl.push(v); for (const k of Object.keys(v)) if (k !== "adep" && k !== "ades") walk(v[k]); } };
-    walk(r.json);
-    const bad = [...new Set(fl.flatMap((f) => Object.keys(f)).filter((k) => !FLIGHT.has(k)))];
-    ok(r.status === 200 && bad.length === 0 && !r.text.includes(TAG), `${p.replace(/\?.*/, "")}: every flight in it is the listed fields (${fl.length} flights)`, `${r.status} ${bad.join(" ")}`);
+  await walkReads("fewest switches");
+  await retiredReads("fewest switches");
+  { // is the feed live: every client is told (under the flight board since 2026-11-15), as four plain facts
+    const st0 = await wall(c, "/api/timeline/sync-status");
+    ok(st0.status === 200 && Object.keys(st0.json ?? {}).every((k) => ["ok", "lastSyncTimestamp", "healthy", "live", "updatedAt"].includes(k)) && typeof st0.json?.live === "boolean", "/api/timeline/sync-status with the fewest switches: 200, live or not and when last updated; nothing about operators, errors or the cache", `${st0.status} · ${Object.keys(st0.json ?? {}).join(" ")}`);
   }
-  for (const p of ["/api/limitations", "/api/important", "/api/caa", "/api/timeline/sync-status", "/api/notam-check/today"]) ok((await wall(c, p)).status === 404, `${p}: 404 with its switch off`);
   ok((await wall(c, `/api/flight-checks?keys=${encodeURIComponent(target.key)}`)).status === 404, "ops' check marks (/api/flight-checks) are not a client's at any setting: 404");
   // the reference reads a client had until 2026-11-10 (Airports, AIP pages, airport search, Documents): gone for good
   const removed = ["/api/aip-pdf?icao=EVRA", "/api/airports/search?q=EVRA", "/api/geo/airports", "/api/geo/countries", "/api/countries"];
@@ -127,41 +173,39 @@ try {
   const notTheirs = await wall(c, "/api/flight-passengers?flightNid=999999999&oprId=cwy-cwy");
   ok(notTheirs.status === 404 && /not on your account/i.test(notTheirs.text), "/api/flight-passengers for a flight that is not theirs: 404, not on your account", `${notTheirs.status} ${notTheirs.text.slice(0, 60)}`);
 
-  // ── 4. one switch on: that kind of note, and only that kind ──
-  await setSwitches(["flight_board", "limitations"]);
-  let notes = (await feedOf(c)).find((r) => r.key === target.key)?.flight.limitations ?? [];
-  ok(notes.some((n) => n.type === "LIM" && n.title.includes(TAG) && /slots required/.test(n.description)) && notes.every((n) => n.type === "LIM" && Object.keys(n).every((k) => ["id", "type", "title", "description"].includes(k))), "Limitations on: the limitation, as its title and text, and nothing of another kind", notes.map((n) => n.type).join(" "));
-
-  // ── 5. every note switch on ──
+  // ── 4. every switch a row has ever held, the five retired ones written straight into the row: still none of it ──
+  // (until 2026-11-15 the Limitations, Important and CAA switches brought the notes on the flight, and the lists; they
+  // are retired: an old row holding them grants nothing)
   await setSwitches(["flight_board", "weather", "notams", "radar", "limitations", "important", "caa", "service_status", "notam_check_status"]);
   { const co = await wall(c, "/api/geo/coords?icao=EVRA"); ok(co.status === 200 && co.json?.ok === true && Number.isFinite(co.json?.coords?.EVRA?.lat), "/api/geo/coords?icao=EVRA: 200 with the radar switch on, the airport's position for the map", `${co.status} ${JSON.stringify(co.json?.coords?.EVRA ?? null)}`); }
-  recs = await feedOf(c); notes = recs.find((r) => r.key === target.key)?.flight.limitations ?? [];
-  const byType = (t) => notes.filter((n) => n.type === t);
-  ok(byType("LIM").length >= 1 && byType("IMP").some((n) => n.title.includes(TAG) && /fuel by prior arrangement/.test(n.description)) && byType("CAA").some((n) => String(n.caa?.authorityName).includes(TAG)), "all three on: the limitation, the notice and the CAA entry are on the flight", notes.map((n) => n.type).join(" "));
-  ok(recs.every((r) => (r.flight.limitations ?? []).every((n) => ["LIM", "IMP", "CAA"].includes(n.type))), "ops' review markers (NTM, WX) never reach the client", JSON.stringify(types(recs)));
-  ok(byType("IMP").every((n) => Object.keys(n).every((k) => ["id", "type", "title", "description"].includes(k))) && byType("CAA").every((n) => Object.keys(n.caa ?? {}).every((k) => CAA.has(k)) && !("description" in n)), "a notice is its title and text (no attachments); a CAA entry is its contact fields (no match rules)");
+  {
+    const me = await fetch(`${B}/api/client/me`, { headers: { cookie: cookieOf(c) } }).then((r) => r.json()).catch(() => null);
+    ok(JSON.stringify(me?.switches ?? null) === JSON.stringify(ACTIVE), "their own standing with every old switch on the row: the four active ones only", (me?.switches ?? []).join(","));
+  }
+  recs = await feedOf(c);
   x = extra(recs);
-  ok(x.row.length === 0 && x.fl.length === 0 && recs.every((r) => !r.notamCheck || Object.keys(r.notamCheck).every((k) => ["day", "dep", "arr"].includes(k))), "with every switch on a flight is still the listed fields; the NOTAM check state has no name on it", `${x.row.join(" ")} ${x.fl.join(" ")}`);
-  const lists = { "/api/timeline/limitations": ["limitations", ["id", "title", "description", "isPermanent", "startDate", "endDate"]], "/api/important": ["entries", ["id", "title", "body"]], "/api/caa": ["entries", ["id", ...CAA]] };
-  for (const [p, [key, fields]] of Object.entries(lists)) {
-    const r = await wall(c, p); const items = r.json?.[key] ?? [];
-    const bad = [...new Set(items.flatMap((e) => Object.keys(e)).filter((k) => !fields.includes(k)))];
-    ok(r.status === 200 && items.some((e) => JSON.stringify(e).includes(TAG)) && bad.length === 0, `${p}: the client's own, as content only (no match rules, no names from the audit trail)`, `${r.status} · ${items.length} items · ${bad.join(" ")}`);
-  }
-  { // the older list address answers the same cut (it holds Leon's own limitations, none on the rig)
-    const r = await wall(c, "/api/limitations");
-    ok(r.status === 200 && Object.keys(r.json ?? {}).join() === "limitations" && (r.json.limitations ?? []).every((e) => Object.keys(e).every((k) => ["id", "title", "description", "isPermanent", "startDate", "endDate"].includes(k))), "/api/limitations: the same cut, content only", `${r.status} · ${(r.json?.limitations ?? []).length} items`);
-  }
-  const everything = (await Promise.all([FEED, "/api/limitations", "/api/timeline/limitations", "/api/important", "/api/caa", `/api/flight-info?flightNid=${target.flight.flightNid}&oprId=${encodeURIComponent(target.oprId)}`].map((p) => wall(c, p)))).map((r) => r.text).join("\n");
+  ok(recs.length >= 1 && x.row.length === 0 && x.fl.length === 0 && recs.every((r) => !("limitations" in r.flight) && !("notamCheck" in r)), "every switch on: a flight is still the listed fields (with the weather category now), no limitations key, no NOTAM check state", `record: ${x.row.join(" ") || "—"} · flight: ${x.fl.join(" ") || "—"}`);
+  const everything = await walkReads("every switch");
+  await retiredReads("every switch, the retired ones on the row");
   ok(!/rig-access-admin|confirmedBy|addedBy|updatedBy|"match"/.test(everything), "nothing the client is sent names who in ops wrote or confirmed a note, or what it is matched on");
   const st = await wall(c, "/api/timeline/sync-status");
-  ok(st.status === 200 && Object.keys(st.json ?? {}).every((k) => ["ok", "lastSyncTimestamp", "healthy", "live", "updatedAt"].includes(k)) && typeof st.json?.live === "boolean", "Service status on: live or not, and when last updated; nothing about operators, errors or the cache", Object.keys(st.json ?? {}).join(" "));
+  ok(st.status === 200 && Object.keys(st.json ?? {}).every((k) => ["ok", "lastSyncTimestamp", "healthy", "live", "updatedAt"].includes(k)) && typeof st.json?.live === "boolean", "/api/timeline/sync-status with every switch: the same four facts; the old Service status switch adds nothing", Object.keys(st.json ?? {}).join(" "));
+  { // the stream: its first events for this client are flight changes cut to their keys, and nothing of the never-list
+    const ac = new AbortController(); let text = "";
+    try {
+      const r = await fetch(`${B}/digital-wall/api/stream`, { headers: { cookie: cookieOf(c), authorization: `Bearer ${c.access_token}`, accept: "text/event-stream" }, signal: ac.signal });
+      const rd = r.body.getReader(); const until = Date.now() + 4000;
+      while (Date.now() < until) { const chunk = await Promise.race([rd.read(), sleep(Math.max(1, until - Date.now())).then(() => null)]); if (!chunk || chunk.done) break; text += Buffer.from(chunk.value).toString("utf8"); }
+    } catch { /* stopped */ } finally { ac.abort(); }
+    const events = text.split("\n").filter((l) => l.startsWith("data:")).map((l) => { try { return JSON.parse(l.slice(5)); } catch { return null; } }).filter(Boolean);
+    ok(text.length > 0 && events.every((e) => neverKeys(e).length === 0) && seededIn(text).length === 0 && !/"type":"(limitations|important|caa|notam-check)\.changed"/.test(text), "the stream's first events (4 s) carry nothing of the never-list, no note's words, no notes event", `${events.length} events · ${text.length} bytes`);
+  }
 
-  // ── 6. the page: the cards for the notes, the status chip; nothing drawn empty. On a desk (1440) Flights and the
+  // ── 6. the page, every switch on: no notes card, no Notes button, no word of the notes, no request for them. On a desk (1440) Flights and the
   //    flight are drawn inside the frame (iframe[data-client-frame]); the flight is a side panel. On a phone (390) the
   //    client is sent to the phone app (/digital-wall/phone/, since v3 2026-11-13): the same facts are checked there —
   //    what the phone's browser is GIVEN is the listed fields, only their operators' flights are drawn, nothing of the
-  //    staff's is on the screen, and the notes come as "Notes" on the flight, only with their switches ──
+  //    staff's is on the screen, and no note is drawn or asked for at any setting (2026-11-15) ──
   const browser = await chromium.launch();
   const FRAME = "iframe[data-client-frame]";
   const newCtx = async (theme, width) => {
@@ -172,22 +216,26 @@ try {
   };
   const open = async (theme, width) => {
     const ctx = await newCtx(theme, width);
-    const page = await ctx.newPage(); await page.goto(`${B}/client/flights`, { waitUntil: "load" }); await page.waitForSelector("[data-client-shell]", { timeout: 20000 });
+    const page = await ctx.newPage(); const asked = new Set();
+    page.on("request", (rq) => { const u = new URL(rq.url()); if (u.pathname.startsWith("/digital-wall/api/")) asked.add(u.pathname); });
+    await page.goto(`${B}/client/flights`, { waitUntil: "load" }); await page.waitForSelector("[data-client-shell]", { timeout: 20000 });
     const fr = page.frameLocator(FRAME);
     await fr.locator('[data-client-surface="desk"]').waitFor({ timeout: 30000 });
     await fr.locator("[data-flight-row]").first().waitFor({ timeout: 30000 }).catch(() => {});
     await settled(page);
-    return { ctx, page, fr };
+    return { ctx, page, fr, asked };
   };
-  const openFlight = async (fr, fno) => {
+  // whatever the panel draws from /api/flight-info is drawn once it has answered: wait for that answer, then a beat
+  const openFlight = async (fr, fno, page) => {
+    const read = page.waitForResponse((r) => /\/api\/flight-info/.test(r.url()), { timeout: 20000 }).catch(() => null);
     await fr.locator(`[data-flight-row="${fno}"]`).first().click();
     const panel = fr.locator(`[data-flight-panel="${fno}"]`);
     await panel.waitFor({ timeout: 15000 }).catch(() => {});
-    // the notes come with /api/flight-info: the Limitations section is drawn once it has answered
-    await panel.locator('[data-card="limitations"] .cwc-note, [data-card="limitations"] .cwc-muted:not([data-reading])').first().waitFor({ timeout: 20000 }).catch(() => {});   // "Reading…" is not an answer yet
+    await read; await page.waitForTimeout(600);
     return panel;
   };
-  const closeFlight = async (fr) => { await fr.locator("[data-close-flight]").click(); await fr.locator("[data-flight-row]").first().waitFor({ timeout: 10000 }).catch(() => {}); };
+  // what the notes were drawn as, on the desk and on the phone, until 2026-11-15: none of it may be on a client's screen
+  const NOTE_PARTS = '[data-card="limitations"], [data-card="important"], [data-card="caa"], [data-section="caa"], [data-notes], [data-open-notes], [data-sheet="notes"], [data-limit-row], [data-open-limits]';
   // the phone app: where /client/flights sends a phone; when the rig does not answer /digital-wall/phone/ the same
   // app is under /digital-wall/timeline/phone/. Every answer of the wall's API the page is given is kept, to be read.
   const PHONE_APP = '[data-phone-app][data-role="client"]';
@@ -215,7 +263,7 @@ try {
     await phoneRow(page, nid).first().scrollIntoViewIfNeeded().catch(() => {}); await phoneRow(page, nid).first().click({ timeout: 10000 }).catch(() => {});
     const sheet = page.locator(`[data-open-flight$=":${nid}"]`);
     await sheet.waitFor({ timeout: 15000 }).catch(() => {});
-    // the notes come with /api/flight-info: the sheet has read the flight once its state is no longer "loading"
+    // the sheet has read the flight (/api/flight-info) once its state is no longer "loading"
     await page.waitForFunction((n) => { const e = document.querySelector(`[data-open-flight$=":${n}"]`); return e && !/load|read/i.test(e.getAttribute("data-flight-state") || ""); }, nid, { timeout: 20000 }).catch(() => {});
     await page.waitForResponse((r) => /\/api\/flight-info/.test(r.url()), { timeout: 4000 }).catch(() => {}); await page.waitForTimeout(400);
     return sheet;
@@ -223,30 +271,20 @@ try {
   const fno = String(target.flight.flightNo), nid = String(target.flight.flightNid);
   for (const theme of ["light", "dark"]) {
     const width = 1440;
-    const { ctx, page, fr } = await open(theme, width); const tag = `client notes ${theme} ${width}`;
-    // the status line: live or behind, in words
-    const chip = fr.locator("[data-service-status]"); await chip.waitFor({ timeout: 10000 }).catch(() => {}); const chipN = await chip.count(); const chipState = chipN ? await chip.first().getAttribute("data-service-status") : null;
-    ok(chipN === 1 && ["live", "behind"].includes(chipState) && /Flight data is live|Not live right now/.test(await chip.first().innerText()), `${tag}: the service status is said in words`, `${chipState} · ${(await chip.first().innerText().catch(() => "")).trim()}`);
-    ok(await fr.locator(`[data-flight-row="${fno}"]`).count() >= 1, `${tag}: the flight with the notes is on Flights`, fno);
-    const panel = await openFlight(fr, fno);
-    const text = async (sel) => (await panel.locator(sel).innerText().catch(() => "")).replace(/\s+/g, " ");
-    ok((await text('[data-card="limitations"]')).includes(`${TAG} limitation`) && /slots required/.test(await text('[data-card="limitations"]')), `${tag}: Limitations shows the limitation, title and text`);
-    ok((await text('[data-card="important"]')).includes(`${TAG} notice`) && /fuel by prior arrangement/.test(await text('[data-card="important"]')), `${tag}: the notice from Clearway shows the notice`);
-    ok((await text('[data-section="caa"]')).includes(`${TAG} authority`) && /Landing permits/.test(await text('[data-section="caa"]')) && /permits@rig\.invalid/.test(await text('[data-section="caa"]')), `${tag}: Authority contacts shows the authority and how to reach it`);
+    const { ctx, page, fr, asked } = await open(theme, width); const tag = `client flight ${theme} ${width}, every switch`;
+    // the status line: a client is told only when the feed is NOT live, in words; never a "live" chip, never ops' list of services
+    const chipStates = await fr.locator("[data-service-status]").evaluateAll((els) => els.map((e) => e.getAttribute("data-service-status")));
+    ok(chipStates.every((st) => st === "behind") && (chipStates.length === 0 || /Not live right now/.test(await fr.locator("[data-service-status]").first().innerText().catch(() => ""))) && await fr.locator("[data-service-row]").count() === 0, `${tag}: the only status line is "Not live right now", in words, when it is so; no service list`, chipStates.join(" ") || "live: nothing drawn");
+    ok(await fr.locator(`[data-flight-row="${fno}"]`).count() >= 1, `${tag}: the flight the invented notes are on is on Flights`, fno);
+    const panel = await openFlight(fr, fno, page);
+    const words = seededIn(`${await panel.innerText().catch(() => "")}\n${await fr.locator("body").innerText().catch(() => "")}`);
+    ok(await panel.count() === 1 && await fr.locator(NOTE_PARTS).count() === 0 && words.length === 0, `${tag}: the flight opens with no Limitations, Important or CAA section, and no word of the invented notes anywhere in the frame`, `${await fr.locator(NOTE_PARTS).count()} note parts · words: ${words.join(" · ") || "none"}`);
+    const never = [...asked].filter((x) => isNeverPath(x));
+    ok(asked.size >= 2 && never.length === 0, `${tag}: the page never asked for Limitations, Important, CAA or the NOTAM check (${asked.size} wall reads)`, never.join(" ") || "none");
     ok(await noOverflow(page) && await (page.frames().find((f) => /\/digital-wall\/timeline(\/|\?|$)/.test(f.url()))?.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1) ?? false), `${tag}: no horizontal scroll, on the page or in the frame`);
     const wide = await panel.locator("*").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().right > window.innerWidth + 1).length);
     ok(wide === 0, `${tag}: nothing in the flight runs past the edge of the screen`, wide);
-    await shot(page, `${OUT}/client-notes-${theme}-${width}.png`, width);
-    if (theme === "light") {
-      // a flight the notes do not match: Limitations and the notice say "none" in words; Authority contacts is not drawn
-      const other = recs.find((r) => r.key !== target.key && r.flight.adep?.icao !== icao && r.flight.ades?.icao !== icao && !r.flight.isCnl && (r.flight.limitations ?? []).length === 0 && boardNids.has(String(r.flight.flightNid)));
-      if (other) {
-        await closeFlight(fr);
-        const p2 = await openFlight(fr, String(other.flight.flightNo));
-        const t2 = async (sel) => (await p2.locator(sel).innerText().catch(() => "")).replace(/\s+/g, " ");
-        ok(/No limitations apply/.test(await t2('[data-card="limitations"]')) && /No notices/.test(await t2('[data-card="important"]')) && await p2.locator('[data-section="caa"]').count() === 0, `${tag}: a flight with no notes says so in words twice, and draws no authority section`);
-      }
-    }
+    await shot(page, `${OUT}/client-flight-${theme}-${width}.png`, width);
     await ctx.close();
   }
   // the phone app, switches on. A client who has not chosen a start page is walked through set-up first (the phone app
@@ -259,22 +297,17 @@ try {
   const feedNids = new Set(recs.map((r) => String(r.flight.flightNid)));
   const grantedOps = new Set(ops.map((o) => String(o).toLowerCase()));
   for (const theme of ["light", "dark"]) {
-    const { ctx, page, given, asked, sentTo, addr, drawn } = await openPhone(theme); const tag = `client notes ${theme} 390 (phone app)`;
+    const { ctx, page, given, asked, sentTo, addr, drawn } = await openPhone(theme); const tag = `client flight ${theme} 390 (phone app), every switch`;
     ok(/^\/digital-wall\/phone\/\?view=flights$/.test(sentTo), `${tag}: a phone on /client/flights is sent to the phone app's Flights`, sentTo);
     ok(drawn && await page.locator("[data-client-shell], iframe[data-client-frame]").count() === 0, `${tag}: the phone app draws for a client, with no desk shell and no frame`, addr || "not drawn");
     const rowIds = await page.locator('[data-view="flights"] [data-flight-row]').evaluateAll((els) => els.map((e) => e.getAttribute("data-flight-row") || ""));
     const strangers = rowIds.filter((id) => !feedNids.has(id.slice(id.lastIndexOf(":") + 1)) || !grantedOps.has(id.slice(0, id.lastIndexOf(":")).toLowerCase()));
     ok(rowIds.length >= 1 && strangers.length === 0, `${tag}: every flight drawn is one of the client's feed, of an operator granted to them`, `${rowIds.length} rows · not theirs: ${strangers.slice(0, 4).join(" ") || "none"}`);
-    ok(await phoneRow(page, nid).count() >= 1, `${tag}: the flight with the notes is on Flights`, fno);
+    ok(await phoneRow(page, nid).count() >= 1, `${tag}: the flight the invented notes are on is on Flights`, fno);
     const sheet = await openPhoneFlight(page, nid);
     const state = await sheet.getAttribute("data-flight-state").catch(() => null);
-    ok(await sheet.count() === 1 && await page.locator("[data-open-notes]").count() === 1, `${tag}: the flight opens, with a Notes button`, `state ${state}`);
-    await page.locator("[data-open-notes]").click({ timeout: 8000 }).catch(() => {});
-    const notes = page.locator('[data-sheet="notes"]'); await notes.waitFor({ timeout: 8000 }).catch(() => {});
-    const text = async (sel) => (await notes.locator(sel).innerText().catch(() => "")).replace(/\s+/g, " ");
-    ok((await text('[data-notes="LIM"]')).includes(`${TAG} limitation`) && /slots required/.test(await text('[data-notes="LIM"]')), `${tag}: Notes shows the limitation, title and text`);
-    ok((await text('[data-notes="IMP"]')).includes(`${TAG} notice`) && /fuel by prior arrangement/.test(await text('[data-notes="IMP"]')), `${tag}: Notes shows the notice from Clearway`);
-    ok((await text('[data-notes="CAA"]')).includes(`${TAG} authority`) && /Landing permits/.test(await text('[data-notes="CAA"]')) && /permits@rig\.invalid/.test(await text('[data-notes="CAA"]')), `${tag}: Notes shows the authority and how to reach it`);
+    const words = seededIn(await page.locator("body").innerText().catch(() => ""));
+    ok(await sheet.count() === 1 && await page.locator(NOTE_PARTS).count() === 0 && words.length === 0, `${tag}: the flight opens with no Notes button or sheet, and no word of the invented notes on the screen`, `state ${state} · ${await page.locator(NOTE_PARTS).count()} note parts · words: ${words.join(" · ") || "none"}`);
     ok(await page.locator(STAFF_PARTS).count() === 0, `${tag}: nothing of the staff's is on the screen (no checks, service status, limitations list, NOTAM check, console)`, await page.locator(STAFF_PARTS).evaluateAll((els) => els.slice(0, 4).map((e) => e.getAttributeNames().filter((n) => n.startsWith("data-")).join(",")).join(" ")));
     // what this phone's browser was GIVEN: every flight, by any answer, is the listed fields; no staff read was asked
     const fl = [], rowKeys = new Set();
@@ -285,36 +318,32 @@ try {
       if (g.json?.flight && typeof g.json.flight === "object") fl.push([g.path, g.json.flight]);
     }
     const beyond = [...new Set(fl.flatMap(([path, f]) => Object.keys(f).filter((k) => !FLIGHT.has(k)).map((k) => `${path}:${k}`)))];
-    ok(fl.length >= 1 && beyond.length === 0, `${tag}: every flight the phone's browser was given is the listed fields and nothing else`, `${fl.length} flights read · beyond the list: ${beyond.slice(0, 6).join(" ") || "none"}`);
+    const wxBad = [...new Set(fl.flatMap(([path, f]) => wxWrong(f, SWITCHED).map((k) => `${path}:${k}`)))];
+    ok(fl.length >= 1 && beyond.length === 0 && wxBad.length === 0, `${tag}: every flight the phone's browser was given is the listed fields and nothing else (the weather category a category or null)`, `${fl.length} flights read · beyond the list: ${beyond.slice(0, 6).join(" ") || "none"} · weather: ${wxBad.join(" ") || "ok"}`);
+    const nk = [...new Set(given.flatMap((g) => neverKeys(g.json).map((k) => `${g.path}${k}`)))], gw = seededIn(JSON.stringify(given.map((g) => g.json)));
+    ok(nk.length === 0 && gw.length === 0, `${tag}: no answer the phone's browser was given holds a key of the never-list at any depth, or a word of the invented notes`, `${nk.slice(0, 6).join(" ") || "no keys"} · ${gw.join(" · ") || "no words"}`);
+    const neverAsked = [...asked].filter((x) => isNeverPath(x));
+    ok(neverAsked.length === 0, `${tag}: the phone never asked for Limitations, Important, CAA or the NOTAM check`, neverAsked.join(" ") || "none");
     ok(rowKeys.size === 0, `${tag}: every aircraft the phone's browser was given carries what names it and nothing else`, [...rowKeys].slice(0, 6).join(" ") || "none beyond the list");
-    const staffReads = [...new Set(given.map((g) => g.path))].filter((x) => /^\/api\/(flight-services|notam-check|flight-checks|operators|reports|webhooks|alerts)(\/|$)/.test(x));
+    const staffReads = [...new Set(given.map((g) => g.path))].filter((x) => /^\/api\/(flight-services|notam-check|flight-checks|operators|reports|webhooks|alerts|limitations|timeline\/limitations|important|caa)(\/|$)/.test(x));
     ok(staffReads.length === 0 && !/rig-access-admin|confirmedBy|addedBy|updatedBy|"match"|"checks"|"checklistColor"|"tripStatus"/.test(JSON.stringify(given.map((g) => g.json))), `${tag}: no staff read was answered, and no answer names ops' checks or who wrote a note`, `${staffReads.join(" ") || "none"} · asked: ${[...asked].join(" ")}`);
     ok(await noOverflow(page), `${tag}: no horizontal scroll`);
     const wide = await page.locator("[data-phone-app] *").evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().right > window.innerWidth + 1).length);
     ok(wide === 0, `${tag}: nothing runs past the edge of the screen`, wide);
-    await page.screenshot({ path: `${OUT}/client-notes-${theme}-390.png` });
-    if (theme === "light") {
-      // a flight the notes do not match: no Notes button at all (the phone draws the button only when there is a note)
-      const other = recs.find((r) => r.key !== target.key && r.flight.adep?.icao !== icao && r.flight.ades?.icao !== icao && !r.flight.isCnl && (r.flight.limitations ?? []).length === 0 && boardNids.has(String(r.flight.flightNid)));
-      if (other) {
-        await page.goto(`${B}${addr}?view=flights`, { waitUntil: "load" }); await page.locator('[data-view="flights"] [data-flight-row]').first().waitFor({ timeout: 30000 }).catch(() => {});
-        const s2 = await openPhoneFlight(page, String(other.flight.flightNid));
-        ok(await s2.count() === 1 && await page.locator("[data-open-notes]").count() === 0 && await page.locator(STAFF_PARTS).count() === 0, `${tag}: a flight with no notes has no Notes button, and still nothing of the staff's`);
-      }
-    }
+    await page.screenshot({ path: `${OUT}/client-flight-${theme}-390.png` });
     await ctx.close();
   }
   await setSwitches(["flight_board"]);
   {
-    const { ctx, fr } = await open("light", 1440);
-    const panel = await openFlight(fr, fno);
-    ok(await panel.count() === 1 && await fr.locator('[data-card="limitations"], [data-card="important"], [data-section="caa"], [data-service-status]').count() === 0, "switches off again: no notes sections and no status line are drawn — a switch that is off adds nothing");
+    const { ctx, page, fr, asked } = await open("light", 1440);
+    const panel = await openFlight(fr, fno, page);
+    ok(await panel.count() === 1 && await fr.locator(NOTE_PARTS).count() === 0 && seededIn(await fr.locator("body").innerText().catch(() => "")).length === 0 && ![...asked].some((x) => isNeverPath(x)), "the fewest switches, on the desk: the flight opens with no notes section and no word of the notes, and nothing of them is asked for");
     await ctx.close();
   }
   {
-    const { ctx, page, given } = await openPhone("light");
+    const { ctx, page, given, asked } = await openPhone("light");
     const sheet = await openPhoneFlight(page, nid);
-    ok(await sheet.count() === 1 && await page.locator('[data-open-notes], [data-sheet="notes"]').count() === 0 && !JSON.stringify(given.map((g) => g.json)).includes(TAG), "switches off again, on the phone app: the flight opens with no Notes button, and no answer the phone was given holds a note");
+    ok(await sheet.count() === 1 && await page.locator(NOTE_PARTS).count() === 0 && seededIn(JSON.stringify(given.map((g) => g.json))).length === 0 && given.every((g) => neverKeys(g.json).length === 0) && ![...asked].some((x) => isNeverPath(x)), "the fewest switches, on the phone app: the flight opens with no Notes, no answer holds a note or a never-list key, and nothing of them is asked for");
     await ctx.close();
   }
   await browser.close();

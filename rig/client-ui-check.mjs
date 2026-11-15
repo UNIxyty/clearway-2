@@ -1,5 +1,6 @@
 // The client screens (Stage 5, 2026-10-25; Client View v2, 2026-11-10; the v3 look, 2026-11-13): Admin › Clients, the
-// ask-for-access page and the client's own world on a DESK — the shell (sidebar 248, header 56), Timeline, Flights, the
+// ask-for-access page and the client's own world on a DESK — the shell (sidebar 232, bar 48; Screen v3, 2026-11-15),
+// Timeline (the ops wall's timeline page itself since 2026-11-15), Flights, the
 // Operators & aircraft panel, the flight panel, Account, Settings, the start page, the status screens, the sidebar's
 // "Help & support" row and its collapse to a 72 px rail — at 1280, 1440
 // and 1920, light and dark. On every page and panel: no two text boxes overlap (rig/lib/overlap.mjs), every button
@@ -77,8 +78,9 @@ const scrollsToEnd = (target, sel) => target.evaluate(async (q) => {
   window.scrollTo(0, 0); return out;
 }, sel);
 const scrolled = (s) => Boolean(s) && s.free && (!s.tall || s.y > 0) && s.lastBottom !== null && s.lastBottom <= s.h + 1;
-// the shell on a desk: sidebar 248 with the logo, the four items (each with an icon), the address for questions and
-// the person; header 56 with the crumb and the theme button. `here` is the item marked (null on the start page).
+// the shell on a desk (Screen v3, 2026-11-15): sidebar 232 with the logo, the four items (each with an icon), YOUR FLEET,
+// the address for questions and the person; a 48 px bar with the crumb, the live indicator, the UTC clock and the 32 px
+// theme button. `here` is the item marked (null on the start page).
 const shellChecks = async (page, tag, here, crumb, theme, contact) => {
   const s = await page.evaluate(() => {
     const box = (q) => { const e = document.querySelector(q); if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; };
@@ -93,13 +95,13 @@ const shellChecks = async (page, tag, here, crumb, theme, contact) => {
       old: document.querySelectorAll(".clw-bottomnav, .clw-signout").length,
     };
   });
-  ok(s.side?.w === 248 && s.side?.x === 0 && s.head?.h === 56 && s.head?.x === 248 && s.head?.y === 0, `${tag}: the sidebar is 248 wide, the header 56 tall beside it`, JSON.stringify({ side: s.side, head: s.head }));
+  ok(s.side?.w === 232 && s.side?.x === 0 && s.head?.h === 48 && s.head?.x === 232 && s.head?.y === 0, `${tag}: the sidebar is 232 wide, the bar 48 tall beside it`, JSON.stringify({ side: s.side, head: s.head }));
   ok(JSON.stringify(s.items.map((i) => i.t)) === JSON.stringify(MENU) && s.items.every((i) => i.icon) && new Set(s.items.map((i) => i.h)).size === 1, `${tag}: the sidebar is Timeline, Flights, Account, Settings — each with its icon, all one height`, JSON.stringify(s.items));
   ok(here ? s.on.join() === `${here}:page` : s.on.length === 0, `${tag}: ${here ? `${here} is the one item marked` : "no item is marked"}`, s.on.join());
   ok(s.crumb.includes(COMPANY) && s.crumb.includes(crumb), `${tag}: the crumb names the company and the page`, s.crumb);
   ok(/Rig Client Person/.test(s.user) && s.user.includes(`${COMPANY.toUpperCase()} · CLIENT`), `${tag}: the person and the company under the sidebar`, s.user);
   ok(s.logoH >= 20 && (theme === "dark" ? lum(s.logo) > 160 : lum(s.logo) < 100), `${tag}: the logo is ${theme === "dark" ? "white on dark" : "dark on light"}`, `${s.logo} ${s.logoH}px`);
-  ok(s.themeBtn?.w === 36 && s.themeBtn?.h === 36 && !s.phoneBar && s.old === 0, `${tag}: the header has the theme button (36 × 36); no phone bar, no tab bar, no Sign out in the header`, JSON.stringify({ themeBtn: s.themeBtn, phoneBar: s.phoneBar, old: s.old }));
+  ok(s.themeBtn?.w === 32 && s.themeBtn?.h === 32 && !s.phoneBar && s.old === 0, `${tag}: the bar has the theme button (32 × 32); no phone bar, no tab bar, no Sign out in the bar`, JSON.stringify({ themeBtn: s.themeBtn, phoneBar: s.phoneBar, old: s.old }));
   ok((await page.locator(".clw-side-help[data-client-contact] a").getAttribute("href").catch(() => null)) === `mailto:${contact}`, `${tag}: the address for questions under the sidebar is the client contact setting`);
   // "Help & support" (to the Account page's help card) and the collapse button, under the menu
   const h = await page.evaluate(() => {
@@ -112,6 +114,22 @@ const shellChecks = async (page, tag, here, crumb, theme, contact) => {
   ok(h.btn === "32x32" && h.label === "Collapse sidebar" && h.open === "true" && h.mark === "none", `${tag}: the collapse button (32 × 32) sits by the person; the sidebar is open, the mark not drawn`, JSON.stringify(h));
   const flat = await noHover(page, [["a menu item", page.locator(".clw-side-nav a:not(.on)")], ["the theme button", page.locator("[data-theme-button]")], ["Help & support", page.locator("[data-help-link]")], ["the collapse button", page.locator("[data-rail-button]")]]);
   ok(flat.length === 0, `${tag}: the menu items, Help & support, the collapse button and the theme button show a hover`, flat.join(", "));
+  // Screen v3 (2026-11-15): YOUR FLEET in the sidebar, the live indicator and the UTC clock in the bar. The indicator
+  // says what the client's own sync-status answer says (live is true or false there)
+  await page.locator('[data-fleet-summary="read"], [data-fleet-summary="failed"]').first().waitFor({ timeout: 20000 }).catch(() => {});
+  await page.locator('[data-live-indicator="live"], [data-live-indicator="behind"]').first().waitFor({ timeout: 20000 }).catch(() => {});
+  const v3 = await page.evaluate(async () => {
+    const fleet = document.querySelector("[data-fleet-summary]");
+    const rows = [...document.querySelectorAll("[data-fleet-row]")].map((r) => [r.getAttribute("data-fleet-row"), (r.textContent || "").replace(/\s+/g, " ").trim()]);
+    let sync = null; try { const r = await fetch("/digital-wall/api/timeline/sync-status", { credentials: "include" }); sync = r.ok ? await r.json() : { status: r.status }; } catch { sync = { failed: true }; }
+    const clock = (document.querySelector("[data-utc-clock]")?.textContent || "").trim();
+    return { fleet: fleet?.getAttribute("data-fleet-summary") ?? "", rows, live: document.querySelector("[data-live-indicator]")?.getAttribute("data-live-indicator") ?? "", sync, clock, now: new Date().toISOString().slice(11, 16) };
+  });
+  ok(v3.fleet === "read" && v3.rows.map((r) => r[0]).join(",") === "operators,aircraft,next" && /\d+ of \d+/.test(v3.rows.find((r) => r[0] === "aircraft")?.[1] ?? ""), `${tag}: YOUR FLEET is read — operators, "x of y" aircraft shown, the next departure`, JSON.stringify({ fleet: v3.fleet, rows: v3.rows }));
+  const liveNow = Boolean(v3.sync) && (v3.sync.live === true || v3.sync.live === "working") && v3.sync.healthy !== false;
+  ok(v3.sync && "live" in v3.sync && v3.live === (liveNow ? "live" : "behind"), `${tag}: the live indicator says what the feed says (${liveNow ? "live" : "not live"})`, JSON.stringify({ indicator: v3.live, sync: v3.sync }).slice(0, 160));
+  const mins = (t) => { const m = /^(\d\d):(\d\d)/.exec(t); return m ? Number(m[1]) * 60 + Number(m[2]) : NaN; };
+  const drift = Math.abs(mins(v3.clock) - mins(v3.now)); ok(/^\d\d:\d\d UTC$/.test(v3.clock) && (drift <= 1 || drift >= 1439), `${tag}: the bar's clock is the time in UTC`, `${v3.clock} · now ${v3.now}Z`);
 };
 // the sidebar collapsed: a 72 px rail — the mark, each item an icon over a short word with its name as the title
 const railState = (page) => page.evaluate(() => {
@@ -166,10 +184,11 @@ for (const theme of ["light", "dark"]) {
       await opt.waitFor({ timeout: 15000 }); await opt.dispatchEvent("mousedown");
       ok(await page.locator('[data-scope-entry="registration:LY-TST"]').count() === 1, "editor: the registration is in the scope list");
       ok(await page.locator('[data-switch="flight_board"]').isDisabled(), "editor: Flight board is required (cannot be turned off)");
-      // the retired switches (2026-11-10): Documents and Airport search are not in the editor, and the nine that exist are
+      // the retired switches (2026-11-10, 2026-11-15): none of the seven is in the editor; the four that exist are
       const shown = await page.locator("[data-switch]").evaluateAll((els) => els.map((e) => e.getAttribute("data-switch")));
-      ok(RETIRED_SWITCH_KEYS.length === 2 && shown.every((k) => !RETIRED_SWITCH_KEYS.includes(k)) && shown.length === ACTIVE_SWITCHES.length && ACTIVE_SWITCHES.length === 9, "editor: the nine switches that exist, and neither retired one (Documents, Airport search)", shown.join(","));
-      await page.locator('[data-switch="limitations"]').click();
+      ok(RETIRED_SWITCH_KEYS.length === 7 && shown.every((k) => !RETIRED_SWITCH_KEYS.includes(k)) && [...shown].sort().join(",") === ACTIVE_SWITCHES.map((x) => x.key).sort().join(",") && ACTIVE_SWITCHES.length === 4, "editor: the four switches that exist (board, weather, NOTAMs, radar), and none of the seven retired ones (Limitations, Important, CAA, service status, NOTAM check, Documents, Airport search)", shown.join(","));
+      // a switch toggled: radar off, then on again (every switch a client can have starts on)
+      await page.locator('[data-switch="radar"]').click(); await page.locator('[data-switch="radar"]').click();
       await page.locator('[data-level="names"]').click();
       ok(await approve.isEnabled(), "editor: Approve enabled with a scope, the board and a level");
       await page.screenshot({ path: `${OUT}/client-admin-editor.png`, fullPage: true });
@@ -177,7 +196,7 @@ for (const theme of ["light", "dark"]) {
       ok(await page.locator(`[data-client-approved="${rowId}"]`).count() === 1 && await page.locator(`[data-client-request="${rowId}"]`).count() === 0, "approved through the page: moved from Waiting to Approved", rowId);
       ok(await page.locator('[data-decision="approved"]').count() >= 1, "the decision log shows APPROVED");
       const row = await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=status,scope,switches,passenger_level`)).json();
-      ok(row[0]?.status === "approved" && JSON.stringify(row[0]?.scope) === JSON.stringify([{ kind: "registration", value: "LY-TST" }]) && row[0]?.switches.includes("limitations") && row[0]?.passenger_level === "names", "the row: approved, scope LY-TST, limitations on, names", JSON.stringify(row[0]).slice(0, 150));
+      ok(row[0]?.status === "approved" && JSON.stringify(row[0]?.scope) === JSON.stringify([{ kind: "registration", value: "LY-TST" }]) && ["flight_board", "weather", "notams", "radar"].every((k) => row[0]?.switches.includes(k)) && row[0]?.passenger_level === "names", "the row: approved, scope LY-TST, the four switches on, names", JSON.stringify(row[0]).slice(0, 150));
       ok(row[0]?.switches.includes("radar") && !row[0]?.switches.some((k) => RETIRED_SWITCH_KEYS.includes(k)), "the row: the radar switch is among the starting ones, and no retired switch is saved", JSON.stringify(row[0]?.switches));
       const au = await (await svc(`/auth/v1/admin/users/${uid}`)).json();
       ok(au.app_metadata?.role === "client" && au.app_metadata?.is_approved === true && au.app_metadata?.client_status === "approved", "the account: client, approved, in app_metadata", JSON.stringify(au.app_metadata));
@@ -218,62 +237,56 @@ for (const theme of ["light", "dark"]) {
     const ctx = await browser.newContext({ viewport: viewportOf(width), colorScheme: theme });
     await ctx.addCookies([cookie(cs)]); await ctx.addInitScript(themed, theme);
     const page = await ctx.newPage(); const tag = `client ${theme} ${width}`; const fr = frameOf(page);
+    // the flight panel docks beside the page when the frame is 1280 wide or more (the 1920 desk); below that it lies over it
+    const docked = width - 232 >= 1280;
     // ── the shell, and Timeline in the frame ──
     await openClient(page, "/client", width);
     ok(await page.locator("[data-cw-sidebar]").count() === 0 && !(await page.content()).includes("Flight intake"), `${tag} Timeline: no portal shell in the page`);
     ok((await page.locator("[data-client-shell]").getAttribute("data-menu")) === "/client /client/flights /client/account /client/settings", `${tag} Timeline: the menu is Timeline, Flights, Account, Settings and nothing else`, await page.locator("[data-client-shell]").getAttribute("data-menu"));
     await shellChecks(page, `${tag} Timeline`, "Timeline", "Timeline", theme, contact);
     const fb = await page.locator(FRAME).boundingBox(), vh = viewportOf(width).height;
-    ok(fb && Math.abs(fb.x - 248) <= 1 && Math.abs(fb.y - 56) <= 1 && Math.abs(fb.x + fb.width - width) <= 1 && Math.abs(fb.y + fb.height - vh) <= 1, `${tag} Timeline: the frame fills the room beside the sidebar and under the header`, fb ? `${Math.round(fb.x)},${Math.round(fb.y)} ${Math.round(fb.width)}×${Math.round(fb.height)}` : "none");
+    ok(fb && Math.abs(fb.x - 232) <= 1 && Math.abs(fb.y - 48) <= 1 && Math.abs(fb.x + fb.width - width) <= 1 && Math.abs(fb.y + fb.height - vh) <= 1, `${tag} Timeline: the frame fills the room beside the sidebar and under the bar`, fb ? `${Math.round(fb.x)},${Math.round(fb.y)} ${Math.round(fb.width)}×${Math.round(fb.height)}` : "none");
     ok(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1), `${tag} Timeline: the page itself is one screen (the frame scrolls, not the page around it)`);
     const surface = fr.locator("[data-client-surface]");
     ok((await surface.getAttribute("data-client-surface")) === "desk" && (await surface.getAttribute("data-theme")) === theme, `${tag} Timeline: the frame draws the desk surface in the ${theme} theme`, `${await surface.getAttribute("data-client-surface")} ${await surface.getAttribute("data-theme")}`);
-    ok(await fr.locator('.cwd[data-client-page="timeline"]').count() === 1 && (await fr.locator(".cwd-title h1").innerText()).trim() === "Timeline", `${tag} Timeline: the frame is on the timeline page, under its title`);
+    // Session 5 (2026-11-15): the client's Timeline is the ops wall's timeline page itself (ClientTimeline.jsx: the ops
+    // clock bar and Board, in the ops layout and colours) under one slim bar with the client's own filter
+    ok(await fr.locator('[data-client-page="timeline"] [data-timeline-bar]').count() === 1 && await fr.locator('[data-client-page="timeline"] [data-ops-timeline]').count() === 1 && await fr.locator("[data-client-page] h1").count() === 0, `${tag} Timeline: the frame is the ops timeline page under one slim bar (no page title)`);
     const pills = await fr.locator("[data-board] [data-fid]").count();
     ok(pills >= 1 && Number(await fr.locator("[data-board]").getAttribute("data-lanes")) >= 1, `${tag} Timeline: the board (the ops timeline) draws their flights in their aircraft's lanes`, `${pills} pills · ${await fr.locator("[data-board]").getAttribute("data-lanes")} lanes`);
-    ok(await fr.locator("[data-service-status]").count() === 0, `${tag} Timeline: no service status line (its switch is off)`);
-    ok(/LY-TST|1 aircraft/.test(await fr.locator("[data-page-sub]").innerText()) && await fr.locator("[data-operators-button]").count() === 1 && await fr.locator("[data-hidden-chip]").count() === 0, `${tag} Timeline: the subtitle counts their aircraft, Operators & aircraft is there, nothing is marked hidden`, (await fr.locator("[data-page-sub]").innerText()).trim());
-    const card = fr.locator('[data-card="timeline"]');
-    ok(await card.locator("[data-prev-day]").count() === 1 && await card.locator("[data-next-day]").count() === 1 && await card.locator("[data-zoom-out]").count() === 1 && await card.locator("[data-zoom-in]").count() === 1 && await card.locator("[data-go-now]").count() === 1, `${tag} Timeline: day, zoom and Now controls`);
-    const tl = await frameDoc(page).evaluate(() => { const q = (s) => document.querySelector(s); const left = (e) => (e ? Math.round(e.getBoundingClientRect().left) : null);
-      return { dayTag: (q("[data-day-tag]")?.textContent || "").trim(), clocks: Boolean(q(".cwd-clocks")), legend: [...document.querySelectorAll("[data-legend] > span")].map((s) => ({ t: (s.textContent || "").trim(), key: (s.querySelector("i")?.getBoundingClientRect().width ?? 0) > 0 })), head: (q("[data-aircraft-head]")?.textContent || "").trim(), headLeft: left(q("[data-aircraft-head]")), boardLeft: left(q("[data-board]")), acW: q("[data-board] .timeline-scroll--header") ? left(q("[data-board] .timeline-scroll--header")) - left(q("[data-board]")) : null }; });
-    ok(tl.dayTag.length > 0 && tl.clocks, `${tag} Timeline: the card's head names the day and shows the clocks`, tl.dayTag);
-    ok(tl.legend.length >= 3 && tl.legend.every((l) => l.t.length > 0 && l.key), `${tag} Timeline: the legend names each colour, each with its key`, tl.legend.map((l) => l.t).join(", "));
-    // (the head is drawn when the aircraft column, whose width is a display setting, has room for the word: 84 px)
-    ok(tl.acW !== null && (tl.acW >= 84 ? tl.head === "AIRCRAFT" && Math.abs(tl.headLeft - tl.boardLeft) <= 1 : tl.head === ""), `${tag} Timeline: the AIRCRAFT column head sits over the registrations`, JSON.stringify({ head: tl.head, headLeft: tl.headLeft, boardLeft: tl.boardLeft, acW: tl.acW }));
-    // the day steps and Now
-    const dayAt = async () => (await fr.locator("[data-day-short]").innerText()).trim();
-    const d0 = await dayAt(); await fr.locator("[data-next-day]").click(); await page.waitForTimeout(250); const d1 = await dayAt();
-    await fr.locator("[data-go-now]").click(); await page.waitForTimeout(250);
-    ok(d1 !== d0 && (await dayAt()) === d0, `${tag} Timeline: the next day is another day, Now comes back`, `${d0} → ${d1} → ${await dayAt()}`);
-    await fr.locator("[data-board] [data-fid]").first().waitFor({ timeout: 15000 }).catch(() => {});
-    // the zoom steps: the label changes, and each end's button is off when there is no further step
-    const zoomAt = async () => (await fr.locator("[data-zoom-label]").innerText()).trim();
-    const z0 = await zoomAt(); const seen = new Set([z0]);
-    for (let i = 0; i < 4 && await fr.locator("[data-zoom-in]").isEnabled(); i += 1) { await fr.locator("[data-zoom-in]").click(); await page.waitForTimeout(150); seen.add(await zoomAt()); }
-    const topEnd = await fr.locator("[data-zoom-in]").isDisabled();
-    for (let i = 0; i < 4 && await fr.locator("[data-zoom-out]").isEnabled(); i += 1) { await fr.locator("[data-zoom-out]").click(); await page.waitForTimeout(150); seen.add(await zoomAt()); }
-    const lowEnd = await fr.locator("[data-zoom-out]").isDisabled();
-    const hoursOut = await hourRow(page);
-    for (let i = 0; i < 4 && (await zoomAt()) !== z0; i += 1) { await fr.locator("[data-zoom-in]").click(); await page.waitForTimeout(150); }
-    ok(seen.size >= 2 && topEnd && lowEnd && (await zoomAt()) === z0, `${tag} Timeline: zoom changes the label, and is off at each end`, `${[...seen].join(" ")} · ends ${topEnd}/${lowEnd}`);
-    const hoursUsual = await hourRow(page);
-    ok(hoursFine(hoursUsual) && hoursFine(hoursOut), `${tag} Timeline: the hour labels lie level, readable and inside their columns — at the usual zoom and zoomed all the way out`, `usual: ${hoursSaid(hoursUsual)} · out: ${hoursSaid(hoursOut)}`);
-    await fr.locator("[data-board] [data-fid]").first().waitFor({ timeout: 15000 }).catch(() => {});
-    const agenda = await fr.locator('[data-card="coming-up"] [data-agenda-row]').count();
-    ok(await fr.locator('[data-card="coming-up"]').count() === 0 || agenda >= 1, `${tag} Timeline: Coming up, when drawn, lists at least one flight`, `${agenda} rows`);
+    ok(/LY-TST|1 aircraft/.test(await fr.locator("[data-page-sub]").innerText()) && await fr.locator("[data-timeline-bar] [data-operators-button]").count() === 1 && await fr.locator("[data-hidden-chip]").count() === 0, `${tag} Timeline: the bar counts their aircraft and holds Operators & aircraft; nothing is marked hidden`, (await fr.locator("[data-page-sub]").innerText()).trim());
+    // the "not live" line: only when the client's own sync-status answer says not live (live is true or false there)
+    const sync = await frameDoc(page).evaluate(async () => { try { const r = await fetch("/digital-wall/api/timeline/sync-status", { credentials: "include" }); return r.ok ? await r.json() : { status: r.status }; } catch { return { failed: true }; } });
+    const liveNow = Boolean(sync) && sync.live === true && sync.healthy !== false;
+    ok(Boolean(sync) && typeof sync.live === "boolean" && await fr.locator('[data-service-status="behind"]').count() === (liveNow ? 0 : 1) && await fr.locator('[data-service-status="live"]').count() === 0, `${tag} Timeline: "Not live right now" shows only when the feed is not live (it says ${liveNow ? "live" : "not live"}); no "Flight data is live" line`, JSON.stringify(sync).slice(0, 140));
+    const tl = await frameDoc(page).evaluate(() => {
+      const root = document.querySelector("[data-ops-timeline]"); const txt = root?.innerText || ""; const head = root?.firstElementChild?.getBoundingClientRect();
+      const bar = document.querySelector("[data-timeline-bar]")?.getBoundingClientRect(); const top = root?.getBoundingClientRect();
+      const inBoard = [...(root?.querySelectorAll("[data-board] *") ?? [])];
+      return { headH: head ? Math.round(head.height) : 0, barH: bar ? Math.round(bar.height) : 0, barAbove: Boolean(bar && top) && bar.bottom <= top.top + 1, utc: /UTC/.test(txt), agenda: /TIMELINE AGENDA/.test(txt), wx: /WX AGENDA/.test(txt),
+        chips: inBoard.filter((e) => e.children.length === 0 && /^(IMP|CAA|NTM)$/.test((e.textContent || "").trim())).length,
+        opsTitles: inBoard.map((e) => e.getAttribute("title") || "").filter((t) => /limitation|important|caa details|notam alert|unreviewed notam/i.test(t)),
+        rings: document.querySelectorAll("[data-mvt-ring], [data-unconfirmed-ring]").length,
+        old: ["[data-prev-day]", "[data-next-day]", "[data-zoom-in]", "[data-zoom-out]", "[data-go-now]", "[data-legend]", "[data-aircraft-head]", "[data-day-tag]", '[data-card="coming-up"]', "[data-agenda-row]", "[data-all-flights]"].filter((q) => document.querySelector(q)),
+        liveWords: /Flight data is live/.test(document.body.innerText) };
+    });
+    ok(tl.headH >= 90 && tl.utc && tl.agenda && tl.barH === 48 && tl.barAbove, `${tag} Timeline: the ops clock bar (with UTC) and the ops sidebar (TIMELINE AGENDA), under the 48 px bar`, JSON.stringify({ headH: tl.headH, barH: tl.barH, barAbove: tl.barAbove, utc: tl.utc, agenda: tl.agenda }));
+    ok(tl.wx, `${tag} Timeline: the WX AGENDA legend is there (their Weather switch is on)`);
+    ok(tl.chips === 0 && tl.opsTitles.length === 0 && tl.rings === 0, `${tag} Timeline: no IMP, CAA or NTM chips, no limitation circles and no MVT or unconfirmed rings on their pills`, JSON.stringify({ chips: tl.chips, titles: tl.opsTitles.slice(0, 4), rings: tl.rings }));
+    ok(tl.old.length === 0 && !tl.liveWords, `${tag} Timeline: none of the old v3 timeline card (day steps, zoom, Now, legend, AIRCRAFT head, Coming up, "Flight data is live")`, tl.old.join(", "));
     ok(await noOverflow(page) && await frameNoOverflow(page), `${tag} Timeline: no horizontal scroll, on the page or in the frame`);
     await settled(page); await page.waitForTimeout(300);
     let over = [...await textOverlaps(page, { ignore: ["iframe"] }), ...await frameOverlaps(page)];
     ok(over.length === 0, `${tag} Timeline: no two text boxes overlap (shell and frame)`, said(over));
     let cut = await clippedText(frameDoc(page)); ok(cut.length === 0, `${tag} Timeline: no text is cut without an ellipsis`, cut.map((c) => `"${c.t}" +${c.over}px`).join(" · "));
     let uneven = await unevenButtons(frameDoc(page), FRAME_BUTTONS); ok(uneven.length === 0, `${tag} Timeline: every button class is one size`, uneven.join(", "));
-    let flat = await noHover(page, [["Operators & aircraft", fr.locator("[data-operators-button]")], ["a day step", fr.locator("[data-prev-day]")], ["Now", fr.locator("[data-go-now]")], ["All flights", fr.locator("[data-all-flights]")], ["a Coming up row", fr.locator("[data-agenda-row]")]]);
+    let flat = await noHover(page, [["Operators & aircraft", fr.locator("[data-operators-button]")]]);
     ok(flat.length === 0, `${tag} Timeline: every button shows a hover`, flat.join(", "));
     await shot(page, `${OUT}/client-timeline-${theme}-${width}.png`, width);
-    // the page scrolls: on a short window the frame's document reaches its last card
+    // like the ops wall, the page is one screen on a short window too: the lanes scroll inside the board
     await page.setViewportSize({ width, height: 560 }); await page.waitForTimeout(400);
-    let sc = await scrollsToEnd(frameDoc(page), "section.cwd-card"); ok(scrolled(sc), `${tag} Timeline: on a short window the page scrolls to its last card`, JSON.stringify(sc));
+    let sc = await frameDoc(page).evaluate(() => ({ one: document.documentElement.scrollHeight <= window.innerHeight + 1, board: Math.round(document.querySelector("[data-board]")?.getBoundingClientRect().height ?? 0) }));
+    ok(sc.one && sc.board > 0, `${tag} Timeline: on a short window the page stays one screen, the board in it`, JSON.stringify(sc));
     await page.setViewportSize(viewportOf(width)); await page.waitForTimeout(400);
 
     // ── Operators & aircraft: a 400 px panel under its button (the walk that saves is further down) ──
@@ -286,17 +299,18 @@ for (const theme of ["light", "dark"]) {
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
     ok(await fr.locator("[data-operators-panel]").count() === 0 && (await fr.locator("[data-operators-button]").getAttribute("aria-expanded")) === "false", `${tag} operators panel: Escape closes it`);
 
-    // ── a flight from the timeline: a pill opens the 440 px side panel ──
+    // ── a flight from the timeline: a pill opens the 420 px panel, docked beside the timeline on a wide frame ──
     const pill = fr.locator("[data-board] [data-fid]").first(); await pill.scrollIntoViewIfNeeded().catch(() => {}); await pill.click({ timeout: 10000 }).catch(() => {});
     await fr.locator("[data-flight-panel]").waitFor({ timeout: 15000 }).catch(() => {});
     const pg = await panelGeo(page, "[data-flight-panel]");
-    ok(Boolean(pg) && pg.tag === "ASIDE" && pg.w === 440 && pg.right <= 16 && pg.top === 0 && pg.h === pg.vh, `${tag} Timeline: a pill opens the flight panel — 440 wide, the full height, on the right`, JSON.stringify(pg));
+    const tlRight = await frameDoc(page).evaluate(() => { const r = document.querySelector("[data-ops-timeline]")?.getBoundingClientRect(); return r ? Math.round(r.right) : null; });
+    ok(Boolean(pg) && pg.tag === "ASIDE" && pg.w === 420 && pg.top === 0 && pg.h === pg.vh && (docked ? pg.right <= 1 && tlRight !== null && pg.left >= tlRight - 1 : pg.right <= 16), `${tag} Timeline: a pill opens the flight panel — 420 wide, the full height, ${docked ? "docked beside the timeline (the lanes end where it starts)" : "over the page on the right (the frame is under 1280)"}`, JSON.stringify({ ...pg, timelineRight: tlRight }));
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
     if (await fr.locator("[data-flight-panel]").count()) await fr.locator("[data-flight-panel] [data-close-flight]").click();
     ok(await fr.locator("[data-flight-panel]").count() === 0, `${tag} Timeline: the panel closes`);
 
-    // ── Flights: by "All flights" under Coming up (one pass), else by the sidebar — the frame stays, the address follows ──
-    if (width === 1440 && await fr.locator("[data-all-flights]").count()) await fr.locator("[data-all-flights]").click(); else await page.locator(".clw-side-nav a", { hasText: "Flights" }).click();
+    // ── Flights, by the sidebar — the frame stays, the address follows ──
+    await page.locator(".clw-side-nav a", { hasText: "Flights" }).click();
     await page.waitForURL((x) => new URL(x).pathname === "/client/flights", { timeout: 15000 }).catch(() => {});
     await fr.locator('.cwd[data-client-page="flights"]').waitFor({ timeout: 15000 }).catch(() => {});
     ok(new URL(page.url()).pathname === "/client/flights" && await fr.locator('[data-client-page="flights"]').count() === 1 && await page.locator(FRAME).count() === 1, `${tag} Flights: the frame's page and the address switch together`, page.url());
@@ -343,6 +357,10 @@ for (const theme of ["light", "dark"]) {
     const opened = fr.locator(`[data-flight-panel="${fn}"]`);
     await opened.waitFor({ timeout: 15000 }).catch(() => {});
     ok(await opened.count() === 1, `${tag} flight ${fn}: a row opens it as a side panel`);
+    // Part 3 item 1 (2026-11-15): on a wide frame the panel is beside the table, never over its columns
+    const fg = await panelGeo(page, "[data-flight-panel]");
+    const tableRight = await frameDoc(page).evaluate(() => { const r = document.querySelector('[data-card="flights"]')?.getBoundingClientRect(); return r ? Math.round(r.right) : null; });
+    ok(Boolean(fg) && fg.w === 420 && fg.top === 0 && fg.h === fg.vh && (docked ? tableRight !== null && fg.left >= tableRight - 1 && fg.right <= 1 : fg.right <= 16), `${tag} flight ${fn}: the panel is 420 wide and the full height — ${docked ? "beside the table, not over its columns" : "over the page on the right (the frame is under 1280)"}`, JSON.stringify({ ...fg, tableRight }));
     // the head: the flight, its aircraft, and the aircraft's type when the feed gives one (C56X) — never the flight
     // plan's one-letter "type of flight", which the head once showed in its place
     const headWords = (await opened.locator(".cwd-flight-head").innerText().catch(() => "")).replace(/\s+/g, " ").trim();
@@ -350,8 +368,10 @@ for (const theme of ["light", "dark"]) {
     await opened.locator('[data-section="weather"] [data-card="weather"], [data-section="weather"] .cwc-muted').first().waitFor({ timeout: 20000 }).catch(() => {});
     await opened.locator('[data-section="notams"]').first().waitFor({ timeout: 20000 }).catch(() => {}); // drawn once /api/flight-info has answered (the passengers section does not wait for it: counting once that one was there found no NOTAMs yet at 1440 dark, 2026-11-13)
     await opened.locator('[data-section="passengers"]').first().waitFor({ timeout: 20000 }).catch(() => {}); // the last section to draw (2026-11-11: the 1440 desk once counted before it was there)
-    ok(await opened.locator('[data-card="times"]').count() === 1 && await opened.locator('[data-section="weather"]').count() === 1 && await opened.locator('[data-section="notams"]').count() === 1 && await opened.locator('[data-section="limitations"][data-card="limitations"]').count() === 1 && await opened.locator('[data-section="passengers"]').count() === 1, `${tag} flight ${fn}: times, weather, NOTAMs, limitations and passengers — their switches and level`, await opened.evaluate((el) => ["[data-card=times]", "[data-section=weather]", "[data-section=notams]", "[data-section=limitations][data-card=limitations]", "[data-section=passengers]"].map((q) => `${q}:${el.querySelectorAll(q).length}`).join(" ") + ` · ${(el.textContent || "").slice(0, 120)}`).catch(() => "no panel"));
-    ok(await opened.locator('[data-section="important"]').count() === 0 && await opened.locator('[data-section="caa"]').count() === 0, `${tag} flight ${fn}: no notices and no authority sections — switches off add nothing`);
+    ok(await opened.locator('[data-card="times"]').count() === 1 && await opened.locator('[data-section="weather"]').count() === 1 && await opened.locator('[data-section="notams"]').count() === 1 && await opened.locator('[data-section="passengers"]').count() === 1, `${tag} flight ${fn}: times, weather, NOTAMs and passengers — their switches and level`, await opened.evaluate((el) => ["[data-card=times]", "[data-section=weather]", "[data-section=notams]", "[data-section=passengers]"].map((q) => `${q}:${el.querySelectorAll(q).length}`).join(" ")));
+    // a client never sees Important, Limitations, CAA, notes or a staff action, whatever their row holds (2026-11-15)
+    const ops2 = await opened.evaluate((el) => ({ sections: [...el.querySelectorAll("[data-section]")].map((x) => x.getAttribute("data-section")), heads: [...el.querySelectorAll("h3")].map((h) => (h.textContent || "").trim()), words: (el.innerText.match(/mark checked|limitations?\b|important notice|caa details|internal note|checked by|notes\b/gi) || []) }));
+    ok(ops2.sections.every((x) => ["weather", "notams", "passengers"].includes(x)) && !ops2.heads.some((h) => /limitation|important|caa|notes/i.test(h)) && ops2.words.length === 0, `${tag} flight ${fn}: no Limitations, Important, CAA or notes blocks, and no staff action like Mark checked`, JSON.stringify(ops2).slice(0, 170));
     await readPax(page, '[data-section="passengers"]');
     const paxText = (await opened.locator('[data-section="passengers"]').innerText().catch(() => "")).replace(/\s+/g, " ");
     ok(!/could not be read|answered \d{3}/.test(paxText), `${tag} flight ${fn}: the passenger list is read (names, or none entered)`, paxText.slice(0, 80));
@@ -378,6 +398,10 @@ for (const theme of ["light", "dark"]) {
     ok((await page.locator("[data-account-email]").innerText()).trim() === EMAIL && (await page.locator('[data-card="you"]').innerText()).includes(COMPANY), `${at}: says who is signed in, and for which company`);
     ok(await page.locator('[data-card="start-page"] [data-start-option="timeline"]').count() === 1 && await page.locator('[data-card="start-page"] [data-start-option="flights"]').count() === 1 && await page.locator('[data-card="appearance"] [data-theme-option]').count() === 3 && await page.locator('[data-card="display"] [data-display-settings]').count() === 1, `${at}: the start page choice, the three appearance options and the way to the display settings`);
     ok(await page.locator('[data-card="password"][data-password-form="closed"] [data-open-password]').count() === 1 && await page.locator('[data-card="password"] input').count() === 0, `${at}: the password row, its form closed`);
+    // the design's group heads (2026-11-15): YOU, OPENING, SESSION — 11 px, upper case; the password in its own block after "you"
+    const groups = await page.evaluate(() => [...document.querySelectorAll("h2.clw-group-h[data-group]")].map((h) => { const c = getComputedStyle(h); return { g: h.getAttribute("data-group"), px: Math.round(parseFloat(c.fontSize)), upper: c.textTransform === "uppercase" || h.textContent === h.textContent.toUpperCase(), shown: h.getBoundingClientRect().height > 0 }; }));
+    ok(groups.map((x) => x.g).join(",") === "you,opening,session" && groups.every((x) => x.px === 11 && x.upper && x.shown), `${at}: the group heads YOU, OPENING and SESSION, 11 px upper case`, JSON.stringify(groups));
+    ok(await page.evaluate(() => { const you = document.querySelector('[data-card="you"]'), sec = document.querySelector('[data-card="security"]'); return Boolean(you && sec && sec.querySelector('[data-card="password"]') && (you.compareDocumentPosition(sec) & Node.DOCUMENT_POSITION_FOLLOWING)); }), `${at}: the password is in its own security block, after the person`);
     await page.locator('[data-card="grants"] [data-grant], [data-card="grants"] [data-grants-empty], [data-card="grants"] [data-grants-failed]').first().waitFor({ timeout: 15000 }).catch(() => {});
     const grantsText = (await page.locator('[data-card="grants"]').innerText().catch(() => "")).replace(/\s+/g, " ");
     ok(await page.locator('[data-card="grants"] [data-grant]').count() >= 1 && /LY-TST/.test(grantsText) && await page.locator("[data-grants-empty], [data-grants-failed]").count() === 0, `${at}: the grants card lists their operator and LY-TST`, grantsText.slice(0, 100));
@@ -417,13 +441,14 @@ for (const theme of ["light", "dark"]) {
       await failed.waitFor({ timeout: 10000 }).catch(() => {});
       const failedText = (await failed.innerText().catch(() => "")).replace(/\s+/g, " ").trim();
       ok(await failed.count() === 1 && await page.locator('[data-card="grants"]').count() === 0 && /This part failed/i.test(failedText) && !/probe|error|stack/i.test(failedText), `${at}: a part that fails says so in short words, with nothing of the error in them`, failedText);
-      ok(await page.locator("[data-part-failed]").count() === 1 && await page.locator('[data-card="you"]').isVisible() && await page.locator('[data-card="choices"]').isVisible() && await page.locator("[data-signout]").isVisible() && await page.locator(".clw-side-nav a").count() === MENU.length && await page.locator("[data-client-crumb]").isVisible(), `${at}: only that part is replaced: the sidebar, the header and the other cards stay`);
+      ok(await page.locator("[data-part-failed]").count() === 1 && await page.locator('[data-card="you"]').isVisible() && await page.locator('[data-card="security"]').isVisible() && await page.locator('[data-card="choices"]').isVisible() && await page.locator("[data-signout]").isVisible() && await page.locator(".clw-side-nav a").count() === MENU.length && await page.locator("[data-client-crumb]").isVisible(), `${at}: only that part is replaced: the sidebar, the header and the other cards stay`);
       const sentUp = await reported;
       ok(sentUp && sentUp.where === "client/account/grants" && sentUp.path === "/client/account", `${at}: the failure is reported to the server's log, with the part's name and the page`, JSON.stringify(sentUp ?? null).slice(0, 160));
       over = await textOverlaps(page); ok(over.length === 0, `${at}: with a part failed, no two text boxes overlap`, said(over));
       const reloadBtn = page.locator('[data-part-failed] [data-part-reload]');
       const rb = await reloadBtn.boundingBox();
-      ok(rb && Math.abs(rb.height - 36) <= 1 && await hoverShows(page, reloadBtn), `${at}: its Reload is the page's button size, with a visible hover`, JSON.stringify(rb));
+      const pageBtnH = await page.locator(".clw-btn").first().evaluate((e) => Math.round(e.getBoundingClientRect().height)).catch(() => null);
+      ok(rb && pageBtnH !== null && Math.abs(rb.height - pageBtnH) <= 1 && await hoverShows(page, reloadBtn), `${at}: its Reload is the page's button size, with a visible hover`, JSON.stringify({ ...rb, pageBtnH }));
       await shot(page, `${OUT}/client-account-part-failed-${theme}-${width}.png`, width, { whole: true });
       await reloadBtn.click(); await page.waitForTimeout(300);
       ok(await page.locator("[data-part-failed]").count() === 1 && await page.locator('[data-card="grants"]').count() === 0, `${at}: Reload while it still fails leaves the message, the page still working`);
@@ -457,6 +482,8 @@ for (const theme of ["light", "dark"]) {
     ok(rs.cls && rs.kept === "1" && rs.side?.w === 72 && rs.head?.x === 72 && rs.label === "Expand sidebar" && rs.open === "false" && rs.btn?.w === 32 && rs.btn?.h === 32, `${rt}: the button collapses the sidebar to 72, the header moves beside it, and the button now opens it`, JSON.stringify({ cls: rs.cls, kept: rs.kept, side: rs.side, head: rs.head, label: rs.label, btn: rs.btn }));
     ok(rs.mark === "CW" && !rs.logo && !rs.who && !rs.contact, `${rt}: the mark stands for the logo; the person's name and the address line are put away`, JSON.stringify({ mark: rs.mark, logo: rs.logo, who: rs.who, contact: rs.contact }));
     ok(rs.items.length === MENU.length + 1 && rs.items.every((i) => i.icon && i.inside && i.fits && i.h === 48 && i.word.length > 0) && JSON.stringify(rs.items.map((i) => i.title)) === JSON.stringify([...MENU, "Help & support"]), `${rt}: every item keeps its icon and a short word, all one height, inside the rail, its full name as the title`, JSON.stringify(rs.items));
+    // from the top: Help & support left the page scrolled, and what scrolls under the opaque sticky bar is hidden, not overlapping
+    await page.evaluate(() => window.scrollTo(0, 0)); await page.waitForTimeout(200);
     over = await textOverlaps(page); ok(over.length === 0 && await noOverflow(page), `${rt}: no two text boxes overlap, no horizontal page scroll`, said(over));
     flat = await noHover(page, [["a rail item", page.locator(".clw-side-nav a:not(.on)")], ["Help", page.locator("[data-help-link]")], ["the open button", page.locator("[data-rail-button]")]]);
     ok(flat.length === 0, `${rt}: the rail's items and its button show a hover`, flat.join(", "));
@@ -474,7 +501,7 @@ for (const theme of ["light", "dark"]) {
     await shot(page, `${OUT}/client-rail-timeline-${theme}-${width}.png`, width);
     await page.locator("[data-rail-button]").click(); await page.waitForTimeout(250);
     rs = await railState(page);
-    ok(!rs.cls && rs.kept === null && rs.side?.w === 248 && rs.head?.x === 248 && rs.label === "Collapse sidebar" && rs.logo && rs.who && rs.mark === "" && rs.items.every((i) => i.title === "" && i.h === 36), `${rt}: the button opens the sidebar again — 248, the logo, the names — and the choice is cleared`, JSON.stringify({ cls: rs.cls, kept: rs.kept, side: rs.side, label: rs.label }));
+    ok(!rs.cls && rs.kept === null && rs.side?.w === 232 && rs.head?.x === 232 && rs.label === "Collapse sidebar" && rs.logo && rs.who && rs.mark === "" && rs.items.every((i) => i.title === "" && i.h === 32), `${rt}: the button opens the sidebar again — 232, the logo, the names — and the choice is cleared`, JSON.stringify({ cls: rs.cls, kept: rs.kept, side: rs.side, label: rs.label }));
     await ctx.close();
   }
 }
@@ -708,67 +735,121 @@ for (const theme of ["light", "dark"]) {
   await l.close();
 }
 
-// ── Display settings (2026-11-11): the ops look cards on the client's own profile, desk and phone, light and dark.
-// On a desk the way in is Account's button; on a phone the page is opened by its address (Account is the phone app's) ──
+// ── Settings (2026-11-15): the ops wall's Settings page itself (ClientSettings.jsx) on the client's own profile — the
+// ops page head, its tabs and its cards in its order, less what only the ops room has. On a desk the way in is the
+// sidebar or Account's button; on a phone the page is opened by its address (Account is the phone app's) ──
 {
   cs = await grant(EMAIL);
+  const OPS_ONLY = /Minimums|Record wall check|Marker size|Overlay size|MVT|Unconfirmed|Chips on the pills|Upcoming Flight Table|IMP marker|CAA marker|NTM marker|Limitation circle|Whose view|Wall content|NOTAM, alerts|Main wall/g;
+  const view = () => fetch(`${B}/digital-wall/api/client/view`, { headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
+  const putView = (settings) => fetch(`${B}/digital-wall/api/client/view`, { method: "PUT", headers: { cookie: cookieHeader(cs), "content-type": "application/json" }, body: JSON.stringify({ settings }) }).then((r) => r.json());
   for (const [theme, width] of [["light", 1440], ["dark", 390]]) {
     const ctx = await browser.newContext({ viewport: viewportOf(width), colorScheme: theme, hasTouch: PHONE(width) });
     await ctx.addCookies([cookie(cs)]); await ctx.addInitScript(themed, theme);
-    const page = await ctx.newPage();
+    const page = await ctx.newPage(); const fr = frameOf(page); const tag = `${theme} ${width} settings`;
     if (PHONE(width)) await page.goto(`${B}/client/settings`, { waitUntil: "load" });
     else {
       await page.goto(`${B}/client/account`, { waitUntil: "load" });
       await page.waitForSelector("[data-display-settings]", { timeout: 20000 }).catch(() => {});   // the account page streams in after the standing is read
-      ok(await page.locator("[data-display-settings]").count() === 1, `${theme} ${width}: Account links to the display settings`, page.url());
+      ok(await page.locator("[data-display-settings]").count() === 1, `${tag}: Account links to the settings`, page.url());
       await page.locator("[data-display-settings]").click();
     }
     await page.waitForURL(/\/client\/settings/, { timeout: 15000 }).catch(() => {});
-    await frameOf(page).locator("[data-client-settings]").waitFor({ timeout: 30000 });
-    await frameOf(page).locator("[data-client-settings] .cws-cards > *", { hasText: /Wall font/ }).first().waitFor({ timeout: 30000 }).catch(() => {});   // the last card draws after its own reads
-    const cards = await frameOf(page).locator("[data-client-settings] .cws-cards > *").evaluateAll((els) => els.map((el) => (el.querySelector("h2, h3, h4") || el).textContent.trim().slice(0, 40)));
-    ok(/Display scale/.test(cards.join("|")) && /Hour spacing/.test(cards.join("|")) && /Vertical sizing/.test(cards.join("|")) && /Horizontal sizing/.test(cards.join("|")) && /Chips/.test(cards.join("|")) && /Colours|Colors/i.test(cards.join("|")) && /font/i.test(cards.join("|")), `${theme} ${width}: the ops look cards are all there (scale, hour spacing, vertical, horizontal, chips, colours, font)`, cards.join(" | ").slice(0, 160));
-    ok(await frameOf(page).locator("[data-view-preview]").count() === 1 && await frameOf(page).locator("[data-reset-view]").count() === 1, `${theme} ${width}: a live preview and a Reset to default button`);
-    // the preview is the client's own timeline: its hour row and at least one of their flights are inside its box
-    const pv = await frameDoc(page)?.evaluate(() => {
-      const p = document.querySelector("[data-view-preview]"); if (!p) return null; const box = p.getBoundingClientRect();
-      const inBox = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.right > box.left + 1 && r.left < box.right - 1 && r.bottom > box.top + 1 && r.top < box.bottom - 1; };
-      return { hours: [...p.querySelectorAll("[data-hour-ms]")].filter(inBox).length, flights: [...p.querySelectorAll("[data-fid]")].filter(inBox).length, width: Math.round(box.width), height: Math.round(box.height) };
-    }).catch(() => null);
-    ok(Boolean(pv) && pv.hours >= 2 && pv.flights >= 1, `${theme} ${width}: the preview shows hours and at least one of the client's flights`, JSON.stringify(pv));
-    // the page scrolls (2026-11-12: it could not): the last section's reset button comes into view by wheel, and the
-    // side list jumps to a section on the desk; on the phone the sections fold and the last one opens
+    await fr.locator("[data-client-settings]").waitFor({ timeout: 30000 });
+    await fr.locator('[data-settings-section="panels"]').waitFor({ timeout: 30000 }).catch(() => {});
+    await settled(page); await page.waitForTimeout(500);
     const fd = frameDoc(page);
-    if (PHONE(width)) { await frameOf(page).locator('[data-settings-section="font"] .cws-section-toggle').click(); }
-    else { await frameOf(page).locator('[data-jump="font"]').click(); await page.waitForTimeout(700); }
-    if (fd) await fd.evaluate(() => { document.querySelector('[data-reset-section="font"]')?.scrollIntoView({ block: "center" }); }); await page.waitForTimeout(400);
-    const reach = fd ? await fd.evaluate(() => { const b = document.querySelector('[data-reset-section="font"]'); if (!b) return null; const r = b.getBoundingClientRect(); const p = document.querySelector("[data-view-preview]")?.getBoundingClientRect(); return { inView: r.top >= (p ? p.bottom : 0) && r.bottom <= window.innerHeight, scrollY: window.scrollY, docScrolls: getComputedStyle(document.documentElement).overflowY !== "hidden" }; }) : null;
-    ok(Boolean(reach?.inView) && reach.docScrolls && reach.scrollY > 0, `${theme} ${width}: the last section (Font) is reachable by scrolling, and the document itself scrolls`, JSON.stringify(reach));
-    ok(new URL(page.url()).pathname === "/client/settings" && (PHONE(width) ? await page.locator("[data-phone-bar]").isVisible() && await page.locator(".clw-side").isHidden() : await page.locator(".clw-side-nav a.on").innerText().then((t) => t.trim() === "Settings", () => false) && /Settings/.test(await page.locator("[data-client-crumb]").innerText())), `${theme} ${width}: ${PHONE(width) ? "under the phone bar, with no sidebar" : "Settings is marked in the sidebar and named in the crumb"}`, page.url());
-    ok((PHONE(width) ? await frameOf(page).locator('[data-reset-section="font"]').count() === 1 : await frameOf(page).locator("[data-reset-section]").count() === 7) && await frameOf(page).locator("[data-back-to-timeline]").count() === (PHONE(width) ? 0 : 1), `${theme} ${width}: ${PHONE(width) ? "the open section has its own reset (the bar carries the way back)" : "a reset for each of the seven sections, and a way back to the timeline"}`, await frameOf(page).locator("[data-reset-section]").count());
-    const sections = await frameOf(page).locator("[data-settings-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-settings-section")));
-    ok(sections.join(",") === "scale,hour,vertical,horizontal,chips,colours,font", `${theme} ${width}: the ops wall's sections, in its order`, sections.join(","));
-    if (!PHONE(width)) { const stuck = fd ? await fd.evaluate(() => { const p = document.querySelector("[data-view-preview]"); const r = p.getBoundingClientRect(); return r.top >= 0 && r.top < 80; }) : false; ok(stuck, `${theme} ${width}: the preview stays in view while scrolled to the last section`); }
-    // one section's reset puts only its keys back
-    await fetch(`${B}/digital-wall/api/client/view`, { method: "PUT", headers: { cookie: cookieHeader(cs), "content-type": "application/json" }, body: JSON.stringify({ settings: { scale: 1.7, timeZoom: 1.4 } }) });
-    await page.reload({ waitUntil: "load" }); await frameOf(page).locator("[data-client-settings]").waitFor({ timeout: 30000 });
-    if (PHONE(width)) await frameOf(page).locator('[data-settings-section="hour"] .cws-section-toggle').click();
-    await frameOf(page).locator('[data-reset-section="hour"]').click(); await frameOf(page).locator("[data-reset-said]").waitFor({ timeout: 15000 }).catch(() => {});
-    const afterSec = await fetch(`${B}/digital-wall/api/client/view`, { headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
-    ok(afterSec.settings?.timeZoom === afterSec.defaults?.timeZoom && afterSec.settings?.scale === 1.7, `${theme} ${width}: Reset this section puts back only that section (hour spacing), the scale stays`, JSON.stringify({ timeZoom: afterSec.settings?.timeZoom, scale: afterSec.settings?.scale }));
-    // a change saves on the account: set the scale through the slider's own route and read it back at the wall
-    const before = await fetch(`${B}/digital-wall/api/client/view`, { headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
-    const put = await fetch(`${B}/digital-wall/api/client/view`, { method: "PUT", headers: { cookie: cookieHeader(cs), "content-type": "application/json" }, body: JSON.stringify({ settings: { scale: 1.55, upcomingHorizonHours: 99 } }) }).then((r) => r.json());
-    const after = await fetch(`${B}/digital-wall/api/client/view`, { headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
-    ok(before.ok && put.ok && after.settings?.scale === 1.55 && after.source === "account", `${theme} ${width}: a saved setting is read back from the client's own profile`, JSON.stringify({ before: before.settings?.scale, after: after.settings?.scale, source: after.source }));
-    ok(!("upcomingHorizonHours" in (after.settings ?? {})) && put.settings?.upcomingHorizonHours === undefined, `${theme} ${width}: the visibility window is not a client's to set (ignored)`);
+    const head = (await fr.locator("[data-client-settings] h2").first().innerText().catch(() => "")).trim();
+    const tabs = await fr.locator("[data-settings-tabs] button").evaluateAll((els) => els.map((e) => (e.textContent || "").trim()));
+    ok(head === "Settings" && tabs.join("|") === "Display & sizing|Colours|Font", `${tag}: the ops Settings page's head and tabs — Display & sizing, Colours, Font (no Wall content, no NOTAM/alerts tab)`, `${head} · ${tabs.join(", ")}`);
+    const sectionsOf = () => fr.locator("[data-settings-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-settings-section")));
+    let sections = await sectionsOf();
+    ok(sections.join(",") === "scale,hour,vertical,horizontal,panels" && (await fr.locator("[data-client-settings]").getAttribute("data-settings-tab")) === "display", `${tag}: Display & sizing holds the ops cards in the ops order (scale, hour spacing, vertical, horizontal, sidebar & clock bar)`, sections.join(","));
+    ok(await fr.locator("[data-reset-view]").count() === 1 && await fr.locator("[data-jump], [data-view-preview], [data-reset-section], [data-back-to-timeline], .cws-side").count() === 0, `${tag}: one Reset to default; no side list, no preview, no per-section reset (the ops page has none)`);
+    const panels = (await fr.locator('[data-settings-section="panels"]').innerText().catch(() => "")).replace(/\s+/g, " ");
+    ok(/Sidebar size/.test(panels) && /Top clock bar/.test(panels) && /Aircraft column/.test(panels) && !/Overlay size|MVT|Unconfirmed/.test(panels), `${tag}: the sidebar & clock bar card keeps the sidebar, the clock bar and the aircraft column — no overlay, MVT or outline rows`, panels.slice(0, 160));
+    const seenOps = new Set(); const addOps = (t) => { for (const m of String(t).match(OPS_ONLY) || []) seenOps.add(m); };
+    addOps(await fd.evaluate(() => document.querySelector("[data-client-settings]")?.innerText ?? ""));
+    let over = await frameOverlaps(page); ok(over.length === 0, `${tag} Display & sizing: no two text boxes overlap`, said(over));
+    // Colours: the ops card, less the colours a client's timeline never draws
+    await fr.locator("[data-settings-tabs] button", { hasText: "Colours" }).click();
+    await fr.locator('[data-settings-section="colours"]').waitFor({ timeout: 15000 }).catch(() => {}); await page.waitForTimeout(600);
+    ok((await fr.locator("[data-client-settings]").getAttribute("data-settings-tab")) === "colours" && (await sectionsOf()).join(",") === "colours", `${tag}: the Colours tab is the ops colours card`, (await sectionsOf()).join(","));
+    addOps(await fd.evaluate(() => document.querySelector("[data-client-settings]")?.innerText ?? ""));
+    const pv = await fd.evaluate(() => { const p = document.querySelector('[data-settings-section="colours"] [data-wall-display]'); const t = p ? [...p.querySelectorAll("span")].map((e) => (e.textContent || "").trim()) : []; return { found: Boolean(p), marks: t.filter((x) => /^(IMP|CAA|NTM)$/.test(x)).length }; });
+    ok(pv.found && pv.marks === 0, `${tag}: the colours preview pill carries no IMP, CAA or NTM marks`, JSON.stringify(pv));
+    if (!PHONE(width)) {
+      const search = fr.locator('[data-settings-section="colours"] input').first(); const hits = [];
+      for (const q of ["IMP", "CAA marker", "Limitation", "MVT", "Unconfirmed", "Status red"]) {
+        await search.fill(q); await page.waitForTimeout(250);
+        if (!/No colours match/.test(await fr.locator('[data-settings-section="colours"]').innerText().catch(() => ""))) hits.push(q);
+      }
+      await search.fill("");
+      ok(hits.length === 0, `${tag}: a search for an ops-only colour (IMP, CAA marker, limitation, MVT, unconfirmed, the flight table) finds none`, hits.join(", "));
+      over = await frameOverlaps(page); ok(over.length === 0, `${tag} Colours: no two text boxes overlap`, said(over));
+    }
+    // Font: the ops font card
+    await fr.locator("[data-settings-tabs] button", { hasText: /^Font$/ }).click();
+    await fr.locator('[data-settings-section="font"]').filter({ hasText: /Wall font/ }).waitFor({ timeout: 20000 }).catch(() => {}); await page.waitForTimeout(600);
+    ok((await sectionsOf()).join(",") === "font" && /Wall font/.test(await fr.locator('[data-settings-section="font"]').innerText().catch(() => "")), `${tag}: the Font tab is the ops font card`);
+    addOps(await fd.evaluate(() => document.querySelector("[data-client-settings]")?.innerText ?? ""));
+    ok(seenOps.size === 0, `${tag}: nothing only the ops room has, on any tab (minimums and their wall check, marker size, overlay, MVT, outline, chips, the flight table, ops-only colours, whose view, Wall content, NOTAM/alerts)`, [...seenOps].join(", "));
+    if (!PHONE(width)) { over = await frameOverlaps(page); ok(over.length === 0, `${tag} Font: no two text boxes overlap`, said(over)); }
+    await fr.locator("[data-settings-tabs] button", { hasText: "Display & sizing" }).click(); await page.waitForTimeout(400);
+    // the page scrolls to its last card
+    const sc = await scrollsToEnd(fd, "[data-settings-section]"); ok(scrolled(sc) && sc.tall, `${tag}: the page scrolls to its last card`, JSON.stringify(sc));
+    ok(new URL(page.url()).pathname === "/client/settings" && (PHONE(width) ? await page.locator("[data-phone-bar]").isVisible() && await page.locator(".clw-side").isHidden() : await page.locator(".clw-side-nav a.on").innerText().then((t) => t.trim() === "Settings", () => false) && /Settings/.test(await page.locator("[data-client-crumb]").innerText())), `${tag}: ${PHONE(width) ? "under the phone bar, with no sidebar" : "Settings is marked in the sidebar and named in the crumb"}`, page.url());
+    const uneven = await unevenButtons(fd, ["[data-settings-tabs] button"]); ok(uneven.length === 0, `${tag}: the tabs are one size`, uneven.join(", "));
+    if (!PHONE(width)) { const flat = await noHover(page, [["Reset to default", fr.locator("[data-reset-view]")]]); ok(flat.length === 0, `${tag}: Reset to default shows a hover`, flat.join(", ")); }
+    // Reset to default (the page's button) puts the ops wall's default back on their profile
+    await putView({ scale: 1.7, timeZoom: 1.4 });
+    await page.reload({ waitUntil: "load" }); await fr.locator("[data-reset-view]").waitFor({ timeout: 30000 });
+    await fr.locator("[data-reset-view]").click(); await fr.locator("[data-reset-said]").waitFor({ timeout: 15000 }).catch(() => {});
+    const afterReset = await view();
+    ok(/Back to the default look/.test(await fr.locator("[data-reset-said]").innerText().catch(() => "")) && afterReset.source === "default" && afterReset.settings?.scale !== 1.7, `${tag}: Reset to default says so once done, and the profile is back at the default`, JSON.stringify({ source: afterReset.source, scale: afterReset.settings?.scale }));
+    // a change saves on the account: set the scale through the cards' own route and read it back at the wall
+    const before = await view();
+    const put = await putView({ scale: 1.55, upcomingHorizonHours: 99, overlayScale: 1.9, mvtThresholdMin: 50 });
+    const after = await view();
+    ok(before.ok && put.ok && after.settings?.scale === 1.55 && after.source === "account", `${tag}: a saved setting is read back from the client's own profile`, JSON.stringify({ before: before.settings?.scale, after: after.settings?.scale, source: after.source }));
+    ok(!("upcomingHorizonHours" in (after.settings ?? {})) && !("overlayScale" in (after.settings ?? {})) && !("mvtThresholdMin" in (after.settings ?? {})), `${tag}: the visibility window, the overlay and the MVT flash are not a client's to set (ignored)`, Object.keys(after.settings ?? {}).join(","));
     const theirs = await fetch(`${B}/digital-wall/api/display/settings`, { headers: { cookie: cookieHeader(cs) } });
-    ok(theirs.status === 404, `${theme} ${width}: the ops settings route stays 404 to a client`, theirs.status);
-    await page.reload({ waitUntil: "load" }); await frameOf(page).locator("[data-client-settings]").waitFor({ timeout: 30000 }); await page.waitForTimeout(600);
+    ok(theirs.status === 404, `${tag}: the ops settings route stays 404 to a client`, theirs.status);
+    await page.reload({ waitUntil: "load" }); await fr.locator("[data-client-settings]").waitFor({ timeout: 30000 }); await page.waitForTimeout(600);
     await shot(page, `${OUT}/client-settings-${theme}-${width}.png`, width, { whole: true });
+    // the Timeline follows a saved setting without a reload (the save is broadcast, the frame re-reads its view)
+    if (!PHONE(width)) {
+      await fetch(`${B}/digital-wall/api/client/view`, { method: "DELETE", headers: { cookie: cookieHeader(cs) } });
+      const t = await ctx.newPage(); await openClient(t, "/client", width);
+      const headH = () => frameDoc(t)?.evaluate(() => Math.round(document.querySelector("[data-ops-timeline]")?.firstElementChild?.getBoundingClientRect().height ?? 0)) ?? 0;
+      const h0 = await headH();
+      await putView({ headerScale: 1 });
+      let h1 = h0; for (let i = 0; i < 40 && Math.abs(h1 - 92) > 2; i += 1) { await sleep(250); h1 = await headH(); }
+      ok(Math.abs(h0 - 120) <= 2 && Math.abs(h1 - 92) <= 2, `${tag}: an open Timeline follows a saved setting (the clock bar 1.3× → 1×, 120 → 92 px) without a reload`, `${h0} → ${h1}`);
+      await t.close();
+    }
     const reset = await fetch(`${B}/digital-wall/api/client/view`, { method: "DELETE", headers: { cookie: cookieHeader(cs) } }).then((r) => r.json());
-    ok(reset.ok && reset.source === "default" && reset.settings?.scale !== 1.55, `${theme} ${width}: Reset puts the ops wall's default back`, JSON.stringify({ scale: reset.settings?.scale, source: reset.source }));
+    ok(reset.ok && reset.source === "default" && reset.settings?.scale !== 1.55, `${tag}: Reset puts the ops wall's default back`, JSON.stringify({ scale: reset.settings?.scale, source: reset.source }));
     await ctx.close();
+  }
+}
+
+// ── Weather off (2026-11-15): a client without the Weather switch gets no weather colours, so the ops sidebar draws
+// no WX AGENDA legend for them; TIMELINE AGENDA stays ──
+{
+  const keep = (await (await svc(`/rest/v1/clients?user_id=eq.${uid}&select=switches`)).json())[0]?.switches ?? [];
+  await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ switches: keep.filter((k) => k !== "weather") }) });
+  try {
+    const ctx = await browser.newContext({ viewport: viewportOf(1440) }); await ctx.addCookies([cookie(cs)]); const page = await ctx.newPage();
+    let wx = null; for (let i = 0; i < 4; i += 1) {
+      await openClient(page, "/client", 1440);
+      wx = await frameDoc(page)?.evaluate(() => { const t = document.querySelector("[data-ops-timeline]")?.innerText ?? ""; return { wx: /WX AGENDA/.test(t), agenda: /TIMELINE AGENDA/.test(t) }; });
+      if (wx && !wx.wx) break; await sleep(4000);
+    }
+    ok(Boolean(wx) && !wx.wx && wx.agenda, "weather off: no WX AGENDA legend on their timeline; TIMELINE AGENDA stays", JSON.stringify(wx));
+    await ctx.close();
+  } finally {
+    await svc(`/rest/v1/clients?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ switches: keep }) });
   }
 }
 
@@ -849,17 +930,17 @@ for (const theme of ["light", "dark"]) {
       await page.waitForSelector("[data-client-shell]", { timeout: 20000 }).catch(() => {});
       if (IN_FRAME.includes(path)) { await frameOf(page).locator("[data-client-surface]").waitFor({ timeout: 30000 }).catch(() => {}); await frameOf(page).locator("[data-board] [data-fid], [data-flight-row], [data-client-settings]").first().waitFor({ timeout: 30000 }).catch(() => {}); }
       else await page.waitForSelector('[data-tab="account"], [data-client-start]', { timeout: 20000 }).catch(() => {});
-      if (path === "/client/settings") await frameOf(page).locator("[data-client-settings] .cws-cards > *", { hasText: /Wall font/ }).first().waitFor({ timeout: 30000 }).catch(() => {});
+      if (path === "/client/settings") await frameOf(page).locator('[data-settings-section="panels"]').waitFor({ timeout: 30000 }).catch(() => {});
       await settled(page); await page.waitForTimeout(400);
       const shell = await textOverlaps(page, { ignore: ["iframe"] });
-      const fd = IN_FRAME.includes(path) ? frameDoc(page) : null; const inner = fd ? await frameOverlaps(page, ["[data-view-preview]"]) : [];   // the sticky preview is an overlay by design
+      const fd = IN_FRAME.includes(path) ? frameDoc(page) : null; const inner = fd ? await frameOverlaps(page) : [];
       const clipped = fd ? await clippedText(fd) : [];
       ok((!IN_FRAME.includes(path) || Boolean(fd)) && shell.length === 0 && inner.length === 0, `${theme} ${width} ${path}: no two text boxes overlap (shell and frame)`, said([...shell, ...inner]));
       ok(clipped.length === 0, `${theme} ${width} ${path}: no text is cut without an ellipsis`, clipped.map((c) => `"${c.t}" +${c.over}px`).join(" · "));
       ok(await noOverflow(page) && (!fd || await frameNoOverflow(page)), `${theme} ${width} ${path}: no horizontal scroll`);
       if (path === "/client/settings") {
-        const uneven = await unevenButtons(fd, [".cws-side button", "[data-reset-section]", ".cwd-btn"]); ok(uneven.length === 0, `${theme} ${width} ${path}: every button class is one size`, uneven.join(", "));
-        const flat = await noHover(page, [["a side-list item", frameOf(page).locator("[data-jump]:not(.is-on)")], ["Reset to default", frameOf(page).locator("[data-reset-view]")], ["a section's reset", frameOf(page).locator("[data-reset-section]")], ["Back to Timeline", frameOf(page).locator("[data-back-to-timeline]")]]);
+        const uneven = await unevenButtons(fd, ["[data-settings-tabs] button", ".cwd-btn"]); ok(uneven.length === 0, `${theme} ${width} ${path}: every button class is one size`, uneven.join(", "));
+        const flat = await noHover(page, [["Reset to default", frameOf(page).locator("[data-reset-view]")]]);
         ok(flat.length === 0, `${theme} ${width} ${path}: the buttons show a hover`, flat.join(", "));
       }
       if (path === "/client/start") {

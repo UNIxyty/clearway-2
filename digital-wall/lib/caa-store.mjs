@@ -149,7 +149,7 @@ export function sanitizeCaaEntry(input = {}, existing = null) {
 
 export class CaaStore {
   constructor() {
-    this.store = new JsonFileStore("caa.json", { entries: [] });
+    this.store = new JsonFileStore("caa.json", { entries: [] }, { seedFrom: "seeds/caa-data.json" });
     this.entries = [];
     this.loaded = false;
   }

@@ -1,6 +1,8 @@
 // The test that matters most in Stage 5 (2026-10-25): two clients with different scopes, and client A's session asking
-// for client B's flight and B's passengers BY ID, straight at the endpoints — both 404 — while A's board, A's stream
-// and A's NOTAM round never carry B. Then the forgery: A writes role: "admin", is_approved: true and a scope naming
+// for client B's flight and B's passengers BY ID, straight at the endpoints — both 404 — while A's board and A's
+// stream never carry B. (Until 2026-11-15 A's NOTAM round was read here too: the NOTAM check, Limitations, Important
+// notices and CAA details are ops' own now, their switches retired, and section 3 holds every client to 404 on them
+// whatever their row stores.) Then the forgery: A writes role: "admin", is_approved: true and a scope naming
 // B's operator into their OWN metadata, refreshes, and tries everything again — still 404, still a client.
 // Plus: a client is 404 everywhere else (portal pages, agent chat, wall writes, the display), their level gates the
 // passenger routes (names → list but no reveal; off → nothing), and a staff user still sees both operators.
@@ -77,8 +79,10 @@ let sA = await grant(A.email);
   ok(waiting.status === 200 && !/data-cw-sidebar|Dashboard|\bAdmin\b|Flight intake|Ops Agent|Permissions|Developer/.test(waiting.text) && !/\b\d+ (flights|requests|notices)\b/.test(waiting.text), "holding page's source: no navigation, no counts, no page titles of the portal", `${waiting.status} ${waiting.text.length}B`);
 }
 
-// 1. approved, different scopes
-await approve(A, A_REGS.map((value) => ({ kind: "registration", value })), ["flight_board", "weather", "notams", "notam_check_status", "limitations"], "names");
+// 1. approved, different scopes. A's row STORES the five switches retired on 2026-11-15, written with the service key
+//    the way a row approved before that day holds them (no migration empties it); B's row stores none.
+const RETIRED_2026_11_15 = ["service_status", "notam_check_status", "limitations", "important", "caa"];
+await approve(A, A_REGS.map((value) => ({ kind: "registration", value })), ["flight_board", "weather", "notams", ...RETIRED_2026_11_15], "names");
 await approve(Bc, [{ kind: "operator", value: "cwy-cwy" }], ["flight_board", "weather", "notams"], "documents", true);
 sA = await grant(A.email); let sB = await grant(Bc.email);
 
@@ -119,7 +123,7 @@ const PAX_ID = ownPax.json?.passengers?.[0]?.id ?? "1"; // a real passenger of A
 const ownRev = await ask(sA, `/agent/api/flights/${A_AGENT_FLIGHT}/passengers/${PAX_ID}/reveal`, { method: "POST" });
 ok(ownRev.status === 404, "A at level names → a reveal on A's own flight: 404 (documents are not on their account)", ownRev.status);
 
-// 3. the stream and the NOTAM round
+// 3. the stream
 {
   const ac = new AbortController(); const frames = [];
   const streamP = fetch(`${B}/digital-wall/api/stream?surface=console`, { headers: { cookie: cookieOf(sA) }, signal: ac.signal }).then(async (r) => { const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = ""; while (true) { const { value, done } = await reader.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i; while ((i = buf.indexOf("\n\n")) >= 0) { frames.push(buf.slice(0, i)); buf = buf.slice(i + 2); } } }).catch(() => {});
@@ -134,12 +138,31 @@ ok(ownRev.status === 404, "A at level names → a reveal on A's own flight: 404 
   const fc = events.filter((e) => e.type === "flight.changed");
   ok(!JSON.stringify(fc).includes(String(bFlight.flightNid)) && fc.every((e) => [...(e.updated ?? []), ...(e.deleted ?? [])].every((k) => boardA.flights.some((f) => String(k?.key ?? k).endsWith(":" + f.flightNid)))), `A's stream's flight events (${fc.length}) carry only A's flight keys`, `refresh ${refresh.status}`);
 }
-const notamA = await ask(sA, "/digital-wall/api/notam-check/today");
-const aAirports = new Set(boardA.flights.flatMap((f) => [f.adep?.icao, f.ades?.icao]).filter(Boolean));
-ok(notamA.status === 200 && (notamA.json?.airports ?? []).every((a) => aAirports.has(a.icao)), "A's NOTAM round lists only airports of A's flights", `${notamA.status} ${(notamA.json?.airports ?? []).map((a) => a.icao).join(" ")} ⊆ ${[...aAirports].join(" ")}`);
-ok(notamA.status === 200 && !("emailedTo" in (notamA.json ?? {})) && !("remindersSent" in (notamA.json ?? {})), "…without ops' email and reminder bookkeeping");
-const notamB = await ask(sB, "/digital-wall/api/notam-check/today");
-ok(notamB.status === 404, "B (switch off) → the NOTAM round: 404", notamB.status);
+// 3b. ops' own reads (2026-11-15): the NOTAM check, Limitations, Important notices and CAA details are on no client's
+//     account. What a row stores makes no difference: A's still stores all five retired switches, B's stores none,
+//     and both are answered the one 404 sentence. Staff still read them, so the 404 is a refusal and not a dead path.
+const OPS_ONLY_READS = ["/api/notam-check/today", "/api/timeline/limitations", "/api/limitations", "/api/important", "/api/caa"];
+const NOT_ON_ACCOUNT = "That is not on your account.";
+const SYNC_STATUS_KEYS = ["healthy", "lastSyncTimestamp", "live", "ok", "updatedAt"];
+{
+  const storedRows = await (await svc(`/rest/v1/clients?select=id,switches&id=in.(${A.rowId},${Bc.rowId})`)).json();
+  const storedA = storedRows.find((r) => r.id === A.rowId)?.switches ?? [], storedB = storedRows.find((r) => r.id === Bc.rowId)?.switches ?? [];
+  ok(RETIRED_2026_11_15.every((k) => storedA.includes(k)) && !RETIRED_2026_11_15.some((k) => storedB.includes(k)), "the rows as stored: A's holds the five retired switches, B's holds none", `A ${storedA.join(",")} · B ${storedB.join(",")}`);
+  for (const [who, s] of [["A (the five retired switches stored)", sA], ["B (none stored)", sB]]) {
+    for (const p of OPS_ONLY_READS) {
+      const r = await ask(s, `/digital-wall${p}`);
+      ok(r.status === 404 && r.json?.ok === false && r.json?.error === NOT_ON_ACCOUNT, `${who} → GET ${p}: 404 "${NOT_ON_ACCOUNT}"`, `${r.status} ${r.text.slice(0, 80)}`);
+    }
+    // is the flight data live: every approved client is told, with the five fields below and nothing else
+    const sync = await ask(s, "/digital-wall/api/timeline/sync-status");
+    const keys = Object.keys(sync.json ?? {}).sort();
+    ok(sync.status === 200 && keys.join(",") === SYNC_STATUS_KEYS.join(",") && typeof sync.json?.live === "boolean", `${who} → GET /api/timeline/sync-status: 200 with only ${SYNC_STATUS_KEYS.join(", ")}`, `${sync.status} ${keys.join(",")}`);
+  }
+  const staffReads = []; for (const p of OPS_ONLY_READS) staffReads.push(`${p} ${(await ask(staff, `/digital-wall${p}`)).status}`);
+  ok(staffReads.every((x) => / 200$/.test(x)), "control: staff still read all five (a client's 404 is a refusal, not a dead path)", staffReads.join(" | "));
+  const staffSync = await ask(staff, "/digital-wall/api/timeline/sync-status");
+  ok(staffSync.status === 200 && Object.keys(staffSync.json ?? {}).some((k) => !SYNC_STATUS_KEYS.includes(k)), "control: staff's sync status carries more than the five fields (the client's answer is a cut)", `${staffSync.status} ${Object.keys(staffSync.json ?? {}).length} keys`);
+}
 
 // 4. everything else is 404 for a client
 for (const [what, path, init] of [
@@ -161,11 +184,12 @@ for (const [what, path, init] of [
 }
 const home = await ask(sA, "/client"); ok(home.status === 200, "client A → /client: 200 (their world)", home.status);
 const me = await ask(sA, "/api/client/me"); ok(me.status === 200 && me.json?.status === "approved" && Array.isArray(me.json?.switches) && !("scope" in (me.json ?? {})), "client A → /api/client/me: their switches, not their scope's values", `${me.status} ${me.json?.switches?.join(",")}`);
+ok(me.status === 200 && (me.json?.switches ?? []).join(",") === "flight_board,weather,notams", "…and only today's switches: the five retired ones A's row still stores are not in the answer", (me.json?.switches ?? []).join(","));
 const meStaff = await ask(staff, "/api/client/me"); ok(meStaff.status === 404, "staff → /api/client/me: 404", meStaff.status);
 
 // 5. THE FORGERY: A writes admin, approval and B's operator into their own metadata, refreshes, tries again
 {
-  const w = await setOwnMeta(sA, { role: "admin", roles: ["admin", "developer"], is_admin: true, is_developer: true, is_approved: true, client_status: "approved", scope: [{ kind: "operator", value: "cwy-cwy" }], switches: ["flight_board", "documents"], passenger_level: "documents" });
+  const w = await setOwnMeta(sA, { role: "admin", roles: ["admin", "developer"], is_admin: true, is_developer: true, is_approved: true, client_status: "approved", scope: [{ kind: "operator", value: "cwy-cwy" }], switches: ["flight_board", "documents", ...RETIRED_2026_11_15], passenger_level: "documents" });
   ok(w.ok, "Supabase accepts A's own user_metadata write (the services must not believe a word of it)", w.status);
   sA = await (await fetch(`${SB}/auth/v1/token?grant_type=refresh_token`, { method: "POST", headers: { apikey: ANON, "content-type": "application/json" }, body: JSON.stringify({ refresh_token: sA.refresh_token }) })).json();
   const b2 = await boardOf(sA); ok(b2.status === 200 && b2.regs.join(",") === "LY-TST", "after the forgery · A's board: still only LY-TST", b2.regs.join(","));
@@ -175,6 +199,8 @@ const meStaff = await ask(staff, "/api/client/me"); ok(meStaff.status === 404, "
   const d2 = await ask(sA, "/dashboard"); ok(d2.status === 404, "after the forgery · /dashboard: still 404, still a client", d2.status);
   const s2 = await ask(sA, "/api/admin/status"); ok(s2.status === 404, "after the forgery · /api/admin/status: 404 (a client has no admin status to read)", s2.status);
   const c2 = await ask(sA, "/digital-wall/api/display/clocks", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ clocks: [] }) }); ok(c2.status === 404, "after the forgery · a wall write: still 404", c2.status);
+  const o2 = []; for (const p of OPS_ONLY_READS) o2.push(`${p} ${(await ask(sA, `/digital-wall${p}`)).status}`);
+  ok(o2.every((x) => / 404$/.test(x)), "after the forgery (the retired switches written into their own metadata too) · the five ops-only reads: still 404", o2.join(" | "));
   await setOwnMeta(sA, { role: null, roles: null, is_admin: null, is_developer: null, is_approved: null, client_status: null, scope: null, switches: null, passenger_level: null });
 }
 

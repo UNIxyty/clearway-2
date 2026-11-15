@@ -161,7 +161,9 @@ function mapAircraft(group) {
   };
 }
 
-export async function fetchTimelineAircraft({ refresh = true } = {}) {
+// `limitations: false` (a client's pages, 2026-11-15): the limitations list is ops' own and is not asked for at all —
+// the read does not exist on a client's account, and asking left a 404 in the log at every reload.
+export async function fetchTimelineAircraft({ refresh = true, limitations = true } = {}) {
   const now = new Date();
   // Ops window: 1 day before through next 3 days.
   const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 0, 0, 0));
@@ -176,10 +178,12 @@ export async function fetchTimelineAircraft({ refresh = true } = {}) {
   });
 
   const payload = await fetchJson(`/api/timeline/flights?${query.toString()}`, "Couldn't load the flights.");
-  const limitationsPayload = await fetchJson(
-    '/api/timeline/limitations?includeInactive=false',
-    "Couldn't load the limitations."
-  ).catch(() => ({ limitations: [] }));
+  const limitationsPayload = limitations
+    ? await fetchJson(
+      '/api/timeline/limitations?includeInactive=false',
+      "Couldn't load the limitations."
+    ).catch(() => ({ limitations: [] }))
+    : { limitations: [] };
 
   const aircraft = (payload.aircraft || []).map(mapAircraft).filter(Boolean);
   return {

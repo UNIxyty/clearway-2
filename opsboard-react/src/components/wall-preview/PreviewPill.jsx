@@ -6,8 +6,11 @@ import { MONO_FONT } from '../../theme/wallFont';
 // scripts/check-console-theme.mjs refuses a --cw-* token or data-theme anywhere in this folder, and the rig's
 // console-theme check proves these render pixel-identical with the portal in light and in dark.
 
-/** Miniature pill rendered purely from resolved tokens (the Colours tab's sticky preview). */
-export default function PreviewPill({ c }) {
+/** Miniature pill rendered purely from resolved tokens (the Colours tab's sticky preview). `hide` (a Set of colour keys,
+ *  the client's Settings 2026-11-15) leaves out the parts drawn in those colours: a client sees no limitation circle,
+ *  MVT ring or IMP/NTM/CAA marks. Left out (ops), the pill is as it was. */
+export default function PreviewPill({ c, hide = null }) {
+  const off = (key) => Boolean(hide?.has(key));
   const hatch = `repeating-linear-gradient(45deg, ${withAlpha(c.hatchLight, 0.9)} 0px, ${withAlpha(
     c.hatchLight,
     0.9
@@ -26,7 +29,7 @@ export default function PreviewPill({ c }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span
+        {!off('limUnchecked') && <span
           style={{
             width: 18,
             height: 18,
@@ -41,7 +44,7 @@ export default function PreviewPill({ c }) {
           }}
         >
           1
-        </span>
+        </span>}
         <span style={{ color: c.textCallsign, fontWeight: 700, fontSize: 13 }}>CWY101</span>
         <div style={{ position: 'relative', flex: 1, maxWidth: 300, height: 22 }}>
           <div
@@ -51,7 +54,7 @@ export default function PreviewPill({ c }) {
               borderRadius: 99,
               display: 'flex',
               overflow: 'hidden',
-              boxShadow: `0 0 0 2px ${c.mvtRing}`,
+              boxShadow: off('mvtRing') ? 'none' : `0 0 0 2px ${c.mvtRing}`,
             }}
           >
             <div style={{ width: '26%', background: hatch }} />
@@ -72,11 +75,11 @@ export default function PreviewPill({ c }) {
             </div>
           </div>
         </div>
-        <span style={{ color: c.markerImp, fontSize: 10.5, fontWeight: 800 }}>IMP</span>
-        <span style={{ color: c.markerNtm, fontSize: 10.5, fontWeight: 800 }}>NTM</span>
-        <span style={{ color: c.markerCaa, fontSize: 10.5, fontWeight: 800 }}>CAA</span>
+        {!off('markerImp') && <span style={{ color: c.markerImp, fontSize: 10.5, fontWeight: 800 }}>IMP</span>}
+        {!off('markerNtm') && <span style={{ color: c.markerNtm, fontSize: 10.5, fontWeight: 800 }}>NTM</span>}
+        {!off('markerCaa') && <span style={{ color: c.markerCaa, fontSize: 10.5, fontWeight: 800 }}>CAA</span>}
       </div>
-      <div style={{ display: 'flex', gap: 12, fontSize: 11.5, paddingLeft: 26, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, fontSize: 11.5, paddingLeft: off('limUnchecked') ? 0 : 26, flexWrap: 'wrap' }}>
         <span style={{ color: c.textTimes }}>T/O 13:22</span>
         <span style={{ color: c.textDeltaLate, fontWeight: 800 }}>+22</span>
         <span style={{ color: c.textTimes }}>LDG 15:35</span>

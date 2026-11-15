@@ -180,9 +180,19 @@ export function TimelineView({ rows, win, nowMs, state, empty, failed, onOpen, d
 }
 
 /**
- * The Flights list: search, then the flights by UTC day. `days`: [{ key, ms, flights }] already filtered by the search.
+ * The rail's own column in the Flights list: 8 (its left) + 44 (a button) + 8. Every row, day head and message of the
+ * list starts to the right of it, so the rail never lies over a departure time or takes a tap meant for a row
+ * (2026-11-15: it used to float over the time column of the lower rows). The Rail below is drawn from the same numbers.
  */
-export function FlightsList({ days, total, nowMs, state, failed, empty, onOpen, dim, query, setQuery, scrollRef, pad = 150 }) {
+const RAIL_LEFT = 8;
+const RAIL_BTN = 44;
+export const RAIL_GUTTER = RAIL_LEFT + RAIL_BTN + 8;
+
+/**
+ * The Flights list: search, then the flights by UTC day. `days`: [{ key, ms, flights }] already filtered by the search.
+ * The rows stand beside the rail (RAIL_GUTTER), so the list needs no empty room under its last row.
+ */
+export function FlightsList({ days, total, nowMs, state, failed, empty, onOpen, dim, query, setQuery, scrollRef }) {
   return (
     <div data-view="flights" data-state={state} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ flex: 'none', padding: '8px 16px', borderBottom: `1px solid ${c('l1')}` }}>
@@ -197,18 +207,18 @@ export function FlightsList({ days, total, nowMs, state, failed, empty, onOpen, 
         </div>
       </div>
       <div ref={scrollRef} data-list-scroll="" className="cw3-scroll" style={{ flex: 1, opacity: dim ? 0.55 : 1 }}>
-        {state === 'failed' ? failed : null}
+        {state === 'failed' ? <div style={{ paddingLeft: RAIL_GUTTER - 16 }}>{failed}</div> : null}
         {state === 'loading' ? (
-          <div aria-busy="true" aria-label="Loading flights" data-skeleton="">
+          <div aria-busy="true" aria-label="Loading flights" data-skeleton="" style={{ paddingLeft: RAIL_GUTTER }}>
             {SKEL.map(([x], i) => <div key={x} style={{ height: 56, borderBottom: `1px solid ${c('l1')}`, background: c('skel'), opacity: 1 - i * 0.15, animation: 'cw3-pulse 1.4s ease-in-out infinite' }} />)}
           </div>
         ) : null}
-        {state === 'ok' && total === 0 ? empty : null}
+        {state === 'ok' && total === 0 ? <div style={{ paddingLeft: RAIL_GUTTER - 16 }}>{empty}</div> : null}
         {state === 'ok' && total > 0 ? (
-          <div style={{ paddingBottom: pad }}>
+          <div data-list-rows="" style={{ paddingBottom: 12 }}>
             {days.map((d) => (
               <section key={d.key} data-day={d.key}>
-                <div style={{ position: 'sticky', top: 0, zIndex: 1, height: 32, padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: c('bg2'), borderBottom: `1px solid ${c('l1')}` }}>
+                <div data-day-head="" style={{ position: 'sticky', top: 0, zIndex: 1, height: 32, padding: `0 16px 0 ${RAIL_GUTTER}px`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: c('bg2'), borderBottom: `1px solid ${c('l1')}` }}>
                   <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em', color: c('t3'), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{dayHead(d.ms, nowMs)}</span>
                   <span style={{ ...MONO, fontSize: 11, color: c('t4'), flex: 'none' }}>{d.flights.length} {d.flights.length === 1 ? 'flight' : 'flights'}</span>
                 </div>
@@ -229,7 +239,7 @@ function ListRow({ p, onOpen }) {
   return (
     <button type="button" data-flight-row={p.id} data-status={p.status} onClick={() => onOpen(p.id)} className="cw3-press"
       aria-label={`${p.cs}, ${p.adep} ${p.depT} to ${p.ades} ${p.arrT} UTC, ${st.t}`}
-      style={{ width: '100%', minHeight: 56, padding: '8px 16px', display: 'grid', gridTemplateColumns: '48px minmax(0,1fr) auto', alignItems: 'center', columnGap: 12, borderBottom: `1px solid ${c('l1')}`, textAlign: 'left' }}>
+      style={{ width: '100%', minHeight: 56, padding: `8px 16px 8px ${RAIL_GUTTER}px`, display: 'grid', gridTemplateColumns: '48px minmax(0,1fr) auto', alignItems: 'center', columnGap: 12, borderBottom: `1px solid ${c('l1')}`, textAlign: 'left' }}>
       <span style={{ ...MONO, fontSize: 13, fontWeight: 700, color: dimmed ? c('t3') : c('t1'), textDecoration: deco, whiteSpace: 'nowrap' }}>{p.depT || '--:--'}<span style={{ fontSize: 11, fontWeight: 400, color: c('t4') }}>Z</span></span>
       <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, whiteSpace: 'nowrap' }}>
@@ -283,13 +293,13 @@ export function BottomBar({ view, range, onRange, filterLabel, hiddenCount, unre
   );
 }
 
-/** The rail, bottom left over the list. items: [{ key, icon, label, active, onClick }] */
+/** The rail, bottom left: over the timeline's lanes, and in its own column beside the Flights list (RAIL_GUTTER). items: [{ key, icon, label, active, onClick }] */
 export function Rail({ items }) {
   return (
-    <nav data-rail="" aria-label="Views" style={{ position: 'absolute', left: 8, bottom: 12, zIndex: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <nav data-rail="" aria-label="Views" style={{ position: 'absolute', left: RAIL_LEFT, bottom: 12, zIndex: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
       {items.map((it) => (
         <button key={it.key} type="button" data-rail-btn={it.key} aria-label={it.label} title={it.label} aria-current={it.active ? 'page' : undefined} onClick={it.onClick} className="cw3-press"
-          style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, border: `1px solid ${c('l2')}`, background: it.active ? c('s2') : c('bg2'), color: it.active ? c('t1') : c('t3') }}>
+          style={{ width: RAIL_BTN, height: RAIL_BTN, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, border: `1px solid ${c('l2')}`, background: it.active ? c('s2') : c('bg2'), color: it.active ? c('t1') : c('t3') }}>
           <Icon name={it.icon} size={20} />
         </button>
       ))}

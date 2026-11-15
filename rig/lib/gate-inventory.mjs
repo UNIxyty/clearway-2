@@ -9,7 +9,7 @@ import path from "node:path";
 import { UNGATED } from "../../lib/permissions/route-gates.mjs";
 import { CLIENT_PAGES, CLIENT_APIS } from "../../lib/clients/allow.mjs";
 import { codeRouteBlocks } from "../../lib/permissions/check.mjs";
-import { CLIENT_READS, CLIENT_WRITES } from "../../digital-wall/lib/client-scope.mjs";
+import { CLIENT_READS, CLIENT_WRITES, CLIENT_FLIGHT_FIELDS, CLIENT_FLIGHT_SWITCH_FIELDS, CLIENT_FLIGHT_NEVER } from "../../digital-wall/lib/client-scope.mjs";
 import { SWITCH_KEYS } from "../../lib/clients/switches.mjs";
 
 export const COPY = "scripts/prod-checks/gate-inventory.json";
@@ -76,7 +76,9 @@ export function serviceEndpoints(root = ".") {
 }
 
 // clientSwitches: every switch there is, so a production check client holds the most a client can
-export const inventory = (root = ".") => ({ portal: portalAddresses(root), services: serviceEndpoints(root), clientSwitches: SWITCH_KEYS });
+// clientFlight: what a client's flight may carry and must never carry (digital-wall/lib/client-scope.mjs), for the
+// production feed probe — it runs in the portal container, which has none of the wall's sources (2026-11-15)
+export const inventory = (root = ".") => ({ portal: portalAddresses(root), services: serviceEndpoints(root), clientSwitches: SWITCH_KEYS, clientFlight: { fields: CLIENT_FLIGHT_FIELDS, switchFields: CLIENT_FLIGHT_SWITCH_FIELDS, never: CLIENT_FLIGHT_NEVER } });
 
 if (import.meta.url === `file://${process.argv[1]}` && process.argv.includes("--write")) {
   const inv = inventory();

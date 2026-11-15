@@ -20,17 +20,16 @@ export const CLIENT_READS = {
   "/api/flight-info": "flight_board",
   // (/api/flight-checks was here until 2026-11-09: ops' own "checked" marks, with the name of who ticked each one, and
   // no client page ever asked for it)
-  "/api/notam-check/today": "notam_check_status",
-  "/api/timeline/limitations": "limitations",
-  "/api/limitations": "limitations",
-  "/api/important": "important",
-  "/api/caa": "caa",
+  // (/api/notam-check/today, /api/timeline/limitations, /api/limitations, /api/important and /api/caa were here until
+  // 2026-11-15: Limitations, Important notices, CAA details and the NOTAM check are ops' own, on no client's account;
+  // their switches are retired — lib/clients/switches.mjs — and a client asking for one is answered 404 like any
+  // other path that is not theirs)
   // (/api/aip-pdf, /api/airports/search, /api/geo/airports, /api/geo/countries, /api/countries were here until
   // 2026-11-10: Airports, AIP pages, airport search and Documents are no longer part of a client's world, and their
   // two switches are retired — lib/clients/switches.mjs)
   "/api/geo/coords": "radar",     // lat/lon of the asked airports, for the flight map (data/airport-coords.json)
   "/api/flight-passengers": "passengers", // the names of one of THEIR flights' passengers; "passengers" is the level, not a switch (see clientReadRefusal)
-  "/api/timeline/sync-status": "service_status",
+  "/api/timeline/sync-status": "flight_board", // is the feed live (cut to four fields below): every client is told when it is not (2026-11-15; its own switch is retired)
   "/api/client/view": null,       // the look of their own timeline (sizing, colours, font): read here, written by CLIENT_WRITES
 };
 /**
@@ -74,35 +73,31 @@ export function scopedAirports(timelineService, scope) {
 
 /**
  * What of ONE flight is a client's (2026-11-09): a list of fields, not the wall's own record with pieces taken out.
- * Until now a client's feed carried each flight as the ops wall keeps it, verbatim: with `limitations` (the ops notes
+ * Until then a client's feed carried each flight as the ops wall keeps it, verbatim: with `limitations` (the ops notes
  * matched to the flight — Limitations, Important entries and their attachment names, CAA contacts, unreviewed NOTAM and
- * weather markers) and `checks` (who in ops ticked what, by name), whatever the client's switches said. The page drew
- * none of it; the browser was given all of it. Now a flight is these fields and nothing else, and the notes come back
- * only by switch: Limitations (LIM), Important notices (IMP, title and text, no attachments), CAA details (CAA).
- * Ops' review marks (NTM, WX), `checks`, the checklist colour and the trip's internal status never leave.
+ * weather markers) and `checks` (who in ops ticked what, by name). Now a flight is these fields and nothing else.
+ * 2026-11-15: no notes at all. Limitations, Important notices and CAA details are ops' own; a client never gets them,
+ * whatever their account says — there is no `limitations` key on a client's flight any more. Ops' review marks (NTM,
+ * WX), `checks`, the checklist colour, the trip's internal status and the handling services never leave either.
+ * With the Weather switch on, a flight also carries the weather CATEGORY of its two airports (wxDep, wxArr: "VFR",
+ * "MVFR", "IFR", "LIFR" or null) — weather data, the colour the timeline gives an airport code; never without it.
  */
 export const CLIENT_FLIGHT_FIELDS = [
-  "flightNid", "flightNo", "tripNo", "status", "movementState", "isCnl", "oprId", "operatorName", "aircraftRegistration", "icaoType", "flightType",
+  "flightNid", "flightNo", "tripNo", "status", "movementState", "movementStateEstimated", "isCnl", "oprId", "operatorName", "aircraftRegistration", "icaoType", "flightType",
   "startTimeUTC", "endTimeUTC", "etd", "eta", "atd", "ata", "ctot", "ctotUTC", "takeOffUTC", "landingUTC", "blockOff", "takeOff", "landing", "blockOn",
   "delayMin", "departureDelayMin", "arrivalDelayMin", "delayedDepartureUTC", "delayedArrivalUTC", "eetMin", "isAirborne", "hasArrived",
   "isCommercial", "isFerry", "adep", "ades", "passengerCount",
 ];
-const CAA_FIELDS = ["country", "authorityName", "validity", "functionText", "info", "contact", "phones", "mail", "sita", "aftn"];
-const NOTE_SWITCH = { LIM: "limitations", IMP: "important", CAA: "caa" };
+/** The fields a flight carries only with a switch on: the weather category of each airport, with Weather. */
+export const CLIENT_FLIGHT_SWITCH_FIELDS = { wxDep: "weather", wxArr: "weather" };
+const WX_CATEGORIES = new Set(["VFR", "MVFR", "IFR", "LIFR"]);
+/** What must never be on a client's flight, under any name the wall uses for it (the suites and the production probe read this list). */
+export const CLIENT_FLIGHT_NEVER = ["limitations", "limitationIds", "lim", "checks", "notamCheck", "important", "caa", "services", "serviceStatus", "notes", "checklist", "checkedBy"];
 export function clientFlight(flight, scope) {
   if (!flight || typeof flight !== "object") return flight;
   const out = {};
   for (const k of CLIENT_FLIGHT_FIELDS) if (k in flight) out[k] = flight[k];
-  const notes = [];
-  for (const l of Array.isArray(flight.limitations) ? flight.limitations : []) {
-    const sw = NOTE_SWITCH[l?.type];
-    if (!sw || !hasSwitch(scope, sw)) continue;
-    const note = { id: l.id, type: l.type, title: l.title ?? null };
-    if (l.type === "CAA") { note.caa = {}; for (const k of CAA_FIELDS) if (l.caa?.[k] != null && l.caa[k] !== "") note.caa[k] = l.caa[k]; }
-    else note.description = l.description ?? null;
-    notes.push(note);
-  }
-  out.limitations = notes;
+  for (const [k, sw] of Object.entries(CLIENT_FLIGHT_SWITCH_FIELDS)) if (k in flight && hasSwitch(scope, sw)) out[k] = WX_CATEGORIES.has(flight[k]) ? flight[k] : null;
   return out;
 }
 
@@ -118,7 +113,7 @@ const groupFilter = (groups, scope) => (Array.isArray(groups) ? groups : [])
  * Cuts a payload down to the client's flights. `pathname` says which shape it is. Returns the payload to send, or
  * { status: 404 } when the thing asked for is a single flight outside scope.
  */
-export function scopePayload({ pathname, payload, scope, timelineService, importantStore, caaStore }) {
+export function scopePayload({ pathname, payload, scope, timelineService }) {
   const path = pathname.replace(/\/+$/, "");
   if (!payload || typeof payload !== "object") return payload;
   switch (path) {
@@ -128,11 +123,9 @@ export function scopePayload({ pathname, payload, scope, timelineService, import
       return { ...payload, aircraft, totalAircraft: aircraft.length, totalFlights: aircraft.reduce((n, g) => n + g.flights.length, 0), operators: [...new Set(aircraft.map((g) => g.oprId).filter(Boolean))], windowCheck: undefined };
     }
     case "/api/flights/normalized": {
-      // each record's flight as a client's (clientFlight); the NOTAM check state only with its switch, and then only
-      // whether each airport is in today's check and checked, never the name on a tick
-      const side = (x) => (x ? { icao: x.icao ?? null, inTodaysCheck: x.inTodaysCheck ?? null, checked: x.checked ?? null } : null);
+      // each record's flight as a client's (clientFlight); the NOTAM check state is ops' own and is not sent (2026-11-15)
       const flights = (payload.flights ?? []).filter((r) => flightInScope(scope, r.flight ?? r, { oprId: r.oprId, registration: r.registration }))
-        .map((r) => { const { notamCheck } = r; return { ...clientRow(r), ...(r.flight ? { flight: clientFlight(r.flight, scope) } : {}), ...(notamCheck && hasSwitch(scope, "notam_check_status") ? { notamCheck: { day: notamCheck.day ?? null, dep: side(notamCheck.dep), arr: side(notamCheck.arr) } } : {}) }; });
+        .map((r) => ({ ...clientRow(r), ...(r.flight ? { flight: clientFlight(r.flight, scope) } : {}) }));
       return { ...payload, flights, total: flights.length, truncated: false };
     }
     case "/api/flights/data": {
@@ -146,32 +139,6 @@ export function scopePayload({ pathname, payload, scope, timelineService, import
       const aircraft = (payload.aircraft ?? []).filter((a) => theirs.has(`${String(a.oprId ?? "").toLowerCase()}:${String(a.registration ?? "").toUpperCase()}`))
         .map((a) => (Array.isArray(a.flights) ? { ...clientRow(a), flights: a.flights.filter((f) => flightInScope(scope, f, { oprId: a.oprId, registration: a.registration })).map((f) => clientFlight(f, scope)) } : clientRow(a)));
       return { ...payload, aircraft, totalAircraft: aircraft.length };
-    }
-    case "/api/notam-check/today": {
-      const theirs = scopedAirports(timelineService, scope);
-      const airports = (payload.airports ?? []).filter((a) => theirs.has(String(a.icao ?? "").toUpperCase()));
-      // Their sign: checked when every airport of THEIR flights is checked. Ops' email and reminder bookkeeping is not theirs.
-      const sign = airports.length === 0 ? "NONE" : airports.every((a) => a.checked) ? "CHECKED" : "CHECK";
-      return { ok: true, day: payload.day ?? null, timeZone: payload.timeZone ?? null, checkHour: payload.checkHour ?? null, ranAt: payload.ranAt ?? null, sign, done: airports.filter((a) => a.checked).length, total: airports.length, airports };
-    }
-    case "/api/timeline/limitations":
-    case "/api/limitations": {
-      const ids = new Set();
-      for (const { flight } of scopedFlights(timelineService, scope)) for (const id of timelineService.getMatchedLimitationIds?.(flight) ?? []) ids.add(String(id));
-      // what a limitation says, not what it is matched on (other operators' registrations) or who wrote it (2026-11-09)
-      const list = (payload.limitations ?? []).filter((l) => ids.has(String(l.id))).map((l) => ({ id: l.id, title: l.title ?? null, description: l.description ?? null, isPermanent: l.isPermanent ?? null, startDate: l.startDate ?? null, endDate: l.endDate ?? null }));
-      return { limitations: list };
-    }
-    case "/api/important": {
-      const ids = new Set();
-      if (importantStore?.loaded) for (const { flight, aircraft } of scopedFlights(timelineService, scope)) for (const e of importantStore.matchFlight(timelineService.buildFlightMatchContext(flight, { oprId: aircraft.oprId, registration: aircraft.registration }))) ids.add(String(e.id));
-      // the notice's title and text: no match criteria (other operators), no attachments, no names from the audit trail
-      return { ok: payload.ok ?? true, entries: (payload.entries ?? []).filter((e) => ids.has(String(e.id))).map((e) => ({ id: e.id, title: e.title ?? null, body: e.body ?? null })) };
-    }
-    case "/api/caa": {
-      const ids = new Set();
-      if (caaStore) for (const { flight, aircraft } of scopedFlights(timelineService, scope)) for (const e of caaStore.matchFlight(timelineService.buildFlightMatchContext(flight, { oprId: aircraft.oprId, registration: aircraft.registration }))) ids.add(String(e.id));
-      return { ok: payload.ok ?? true, entries: (payload.entries ?? []).filter((e) => ids.has(String(e.id))).map((e) => { const o = { id: e.id }; for (const k of CAA_FIELDS) if (e[k] != null && e[k] !== "") o[k] = e[k]; return o; }) };
     }
     case "/api/timeline/sync-status":
       // is the flight data live, and when was it last brought up to date: the two things a client's page says
@@ -197,9 +164,17 @@ export function flightInfoForClient(found, scope) {
 }
 
 /** Which stream events a client's stream carries: flight.changed cut to their keys, nothing about devices, overlays, presence or reports. */
-export function clientStreamFilter(scope, timelineService) {
+export function clientStreamFilter(scope, timelineService, email = "") {
+  const own = String(email || "").toLowerCase();
   return (event) => {
-    if (!event || event.type !== "flight.changed") return null;
+    if (!event) return null;
+    // the four other events a client's page listens to, bare: no account, operator, aircraft or count (2026-11-15:
+    // only flight.changed passed, so an open Timeline never followed the client's own saved settings, the clocks,
+    // the weather or a roster change until a reload)
+    if (event.type === "config.changed" && event.section === "settings") return own && String(event.account || "").toLowerCase() === own ? { type: "config.changed", section: "settings" } : null;
+    if (event.type === "config.changed" && event.section === "clocks") return { type: "config.changed", section: "clocks" };
+    if (event.type === "weather.changed" || event.type === "roster.changed") return { type: event.type };
+    if (event.type !== "flight.changed") return null;
     // a sync says how many flights changed, not which (2026-11-09: the counts were read as lists, the filter threw, and
     // the hub dropped the client's stream at the first sync): a client with flights is told to look again, no numbers
     if (!Array.isArray(event.updated) && !Array.isArray(event.deleted)) return scopedFlights(timelineService, scope).length ? { type: "flight.changed", via: event.via ?? "sync" } : null;

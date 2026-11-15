@@ -4,6 +4,28 @@ A client is a person outside Clearway — an operator or a broker — who sees o
 (docs/client-access-scoping.md) found that before this stage "inside" meant every operator's flights in all three
 services. This document is the rule set that replaced that, where each rule lives, and what the check proves.
 
+## What a client sees, and what they never see (2026-11-15)
+A client sees their own flights: the route, the times, the status, the aircraft, the weather, the NOTAMs (to read
+only), the map, and the passenger names when ops turn that on. That is all.
+
+A client never sees **Important notices, Limitations or CAA details**, anywhere: not as a menu item, a page, a card, a
+notification or a line of text. The same goes for the other things that are for the ops room only: service status, the
+NOTAM check, the OPS checklist, internal notes, who checked what, and every staff action or setting.
+
+- **Four switches are left** in Admin › Clients: Flight board (always on), Weather, NOTAM information and Flight radar.
+  The passenger level is set apart from them.
+- **Seven switches are retired** (`lib/clients/switches.mjs`, `retired: true`): Limitations, Important notices, CAA
+  details, Service status and NOTAM check status on 2026-11-15; Documents and Airport & AIP search on 2026-11-10. They
+  cannot be shown or turned on. A save that carries one stores none of them.
+- **Nothing needs a migration.** A client row from before may still store a retired switch. `normaliseSwitches` drops
+  it every time the row is read (the scope, the menu, `/api/client/me`, Admin › Clients), so it opens nothing. The next
+  save writes the row without it. The decision log keeps the old words, with "(retired)" after a retired switch.
+- **The wall answers 404 "That is not on your account."** to a client for `/api/limitations`, `/api/important`,
+  `/api/caa`, `/api/timeline/limitations` and `/api/notam-check/today`, whatever switches their row stores.
+  `/api/timeline/sync-status` (for the board's "live" dot) gives a client five fields only: `ok`, `lastSyncTimestamp`,
+  `healthy`, `live`, `updatedAt`.
+- Checked by `rig/client-scope-check.mjs`, `rig/client-gate-check.mjs` and `rig/clients-page-check.mjs`.
+
 ## Identity
 - A client is a Supabase account with `app_metadata.role = "client"`, written only with the service key when ops
   decide (`lib/clients/admin.ts`). The same writer sets `is_approved` (true only while approved) and `client_status`
@@ -36,18 +58,18 @@ of it.
 Now `digital-wall/lib/client-scope.mjs` › `clientFlight` builds what a client is sent:
 - **A flight** is `CLIENT_FLIGHT_FIELDS` (identity, route, times, delay, state, passenger count) and nothing else. A
   new field on the wall's record does not reach a client until someone adds it to the list.
-- **Ops' notes** come back only with their switch, cut to what they say: Limitations (title and text), Important
-  notices (title and text, no attachments), CAA details (the authority and how to reach it). Ops' review markers (NTM,
-  WX) and check marks never leave.
+- **Ops' notes never leave** (since 2026-11-15): no Limitations, no Important notices, no CAA details, whatever the
+  client's row stores. Ops' review markers (NTM, WX) and check marks never leave either. (From 2026-11-09 to
+  2026-11-15 the notes came back cut to their text behind three switches; those switches are retired.)
 - **An aircraft or a row** is what names it: operator, registration, type.
-- **The NOTAM check state** on a flight comes only with NOTAM check status, as "in today's check, checked or not" per
-  airport, with no name on it.
-- `/api/limitations`, `/api/important` and `/api/caa` answer a client with content only: no match rules (which name
-  other operators and registrations) and no names from the audit trail. `/api/flight-checks` is not a client's at all.
-- **Service status** answers whether the flight data is live and when it was last brought up to date.
+- **The NOTAM check** is the ops room's work and never reaches a client: no check state on a flight, and
+  `/api/notam-check/today` answers 404.
+- `/api/limitations`, `/api/important`, `/api/caa` and `/api/timeline/limitations` answer a client 404 "That is not on
+  your account." `/api/flight-checks` is not a client's at all.
+- **Service status** is gone for a client. `/api/timeline/sync-status` gives them only whether the data is live and
+  when it was last brought up to date (five fields), for the board's dot.
 
-Every switch now draws something on the client's pages: the four that drew nothing (Limitations, Important notices,
-CAA details, Service status) are cards on a flight and a line above the board. A switch that is off still adds
+Each of the four switches draws something on the client's pages. A switch that is off still adds
 nothing, to the page or to what the browser is sent. `rig/client-feed-check.mjs` reads every feed as a client with the
 switches off and on, against invented notes it makes itself.
 
@@ -59,12 +81,13 @@ adds it later.
 
 | Address | Opened by |
 | --- | --- |
-| `/client` (Flights) | every approved client |
-| `/client/airports` | Airport & AIP search |
-| `/client/documents` | Documents |
+| `/client` (Timeline), `/client/flights`, `/client/settings`, `/client/start` | every approved client |
 | `/client/account` (Account, 2026-11-09) | every approved client |
 | `GET /api/client/me` (their own standing) | every approved client |
 | `POST /api/client/account/password` (their own password) | every approved client |
+
+No page is behind a switch any more: `/client/airports` (Airport & AIP search) and `/client/documents` (Documents)
+left with their switches on 2026-11-10. The switches only cut what the wall sends.
 
 Matching is exact: `/api/client/me/x` is not `/api/client/me`. Two kinds of address are not on the list, and neither
 belongs to a client:
@@ -88,7 +111,8 @@ timeline component ops use**, limited to their own aircraft. Flight watch only; 
 - **Three items and nothing else:** Timeline (`/client`), Flights (`/client/flights`), Account (`/client/account`).
   The sidebar on a desk, a tab bar on a phone. Airports, AIP pages, airport search and Documents are gone for clients,
   with their two switches **retired** (`lib/clients/switches.mjs`: `documents`, `airport_search` carry `retired: true`;
-  `normaliseSwitches` drops them, Admin › Clients does not show them, no page or wall read is behind them). The Ops Agent
+  `normaliseSwitches` drops them, Admin › Clients does not show them, no page or wall read is behind them). Five more
+  were retired on 2026-11-15 the same way (see "What a client sees" at the top). The Ops Agent
   and every `/agent/api/*` address were never on a client's list; the one client use of the agent (passenger names)
   moved to the wall backend (`GET /api/flight-passengers`, names only, the wall's own Leon read).
 - **Timeline and Flights are the wall app's client surface**, framed: `/digital-wall/timeline/?in=client&page=…`
@@ -106,9 +130,9 @@ timeline component ops use**, limited to their own aircraft. Flight watch only; 
   Timeline) and stored as `client_prefs.start`; it decides where `/` sends them (middleware). Changeable in Account.
   A client who never chose gets Timeline.
 - **A flight for a client**: status in plain words, route, times (scheduled / estimated / actual), weather at both
-  ends, the NOTAMs for the flight (read-only, the one NOTAM card), Limitations, the notice from Clearway and CAA
-  contacts by their switches, passenger names only when the passenger level is on. No checklist, no notes, no names
-  of who checked what, nothing to edit.
+  ends, the NOTAMs for the flight (read-only, the one NOTAM card), passenger names only when the passenger level is on.
+  No Limitations, no Important notices, no CAA details (since 2026-11-15), no checklist, no notes, no names of who
+  checked what, nothing to edit.
 - **The map** (phone): our own map — OpenStreetMap data styled by CARTO, both airports, the great-circle route — for
   one flight only, never other traffic. The wall has no live position feed (docs/agent-flight-tracking-decision.md),
   so an airborne flight shows "No live position" honestly, with the schedule; landed and not-airborne states draw the
@@ -155,14 +179,16 @@ The screens' design is still to come; this is the plumbing it will sit on.
 ## Where it is enforced — on the server, on every request
 | Service | Gate | What a client gets |
 | --- | --- | --- |
-| Wall backend | `digital-wall/server.mjs`, before any handler; `digital-wall/lib/client-scope.mjs` | Only the reads in `CLIENT_READS`, each behind its switch; every list payload cut to their flights before it is sent (board, feed, upcoming, aircraft, limitations, notices, CAA, flight checks); `/api/flight-info` 404 outside scope and, inside it, only the pieces their switches cover; `/api/notam-check/today` only the airports of their flights, with ops' bookkeeping removed; the stream carries only `flight.changed` events about their flights and nothing about presence, devices, overlays or reports; everything else — every write, the display, devices, operators — 404 |
+| Wall backend | `digital-wall/server.mjs`, before any handler; `digital-wall/lib/client-scope.mjs` | Only the reads in `CLIENT_READS`, each behind its switch; every list payload cut to their flights before it is sent (board, feed, upcoming, aircraft); `/api/flight-info` 404 outside scope and, inside it, only the pieces their switches cover; Limitations, Important notices, CAA details and the NOTAM check never (404 since 2026-11-15); `/api/timeline/sync-status` cut to five fields; the stream carries only `flight.changed` events about their flights and nothing about presence, devices, overlays or reports; everything else — every write, the display, devices, operators — 404 |
 | Agent | `agent/server.mjs`; `agent/lib/passengers/api.mjs` | The passenger routes only, for their flights (operator from the id; registration or trip from one small Leon read), at their level: off → 404 even for their own list; names → the list with names only (nationality and sex belong to documents since 2026-11-02: a client approved to see who is on their flight is not approved to see where those people are from), no reveal; documents → nationality and sex in the list, and the reveal, one at a time, logged, with lower thresholds (15 per 10 minutes, a burst at more than one flight). No allowlist, no chat, no tools, no intake: 404 |
 | Portal | `middleware.ts` | Their world is `/client`; the holding pages (`/client/refused`, `/client/removed`) render under a bare route with no shell, no navigation, no counts; every other page and API is 404; `/api/client/me` is their own standing (switches, level, never their scope's values); staff get 404 under `/client` |
 
 ## The check
 `rig/client-scope-check.mjs` (in the runner): two clients on the sign-in rig, A on operator artlw and B on cwy-cwy.
 A's session asks for B's flight and B's passengers by id at the wall and at the agent — both 404 — while A's board,
-A's normalized feed (even asked for B's key), A's stream and A's NOTAM round carry nothing of B. Then the forgery:
+A's normalized feed (even asked for B's key) and A's stream carry nothing of B. Since 2026-11-15 A's row stores the
+five retired switches: the five ops-only reads still answer 404 to A and to B, and sync-status gives both the five
+fields only (staff, as the control, get all five reads and the full status). Then the forgery:
 A writes `role: "admin"`, `is_approved: true` and a scope naming B's operator into their own metadata, refreshes,
 and tries everything again — still 404, still a client. Plus a holding page's source, the passenger levels,
 twenty-odd addresses outside their world, and the removed state. See docs/rig-vs-production.md for what the rig
@@ -225,7 +251,7 @@ cannot prove.
   be read, new aircraft and trips are refused rather than let through). The page search opens a person's client, or
   lists the approved clients who can see an operator, aircraft or trip — directly or through their operator or aircraft.
 - **Admin › Clients** (`app/admin/clients`, action `clients.manage`): Waiting (review → the editor in the row),
-  Approved (scope chips, the 11-dot matrix, the passenger chip, granted by whom), the decision log. The editor keeps
+  Approved (scope chips, one dot per switch — four since 2026-11-15, the passenger chip, granted by whom), the decision log. The editor keeps
   scope and access apart; Flight board is required; no scope, no Approve; documents need the consent line; the summary
   says what the client will see; Remove access asks for the company typed and lists what happens. The live "matches N
   flights in the next 7 days" and the suggestion row read the wall as the admin.
@@ -236,8 +262,7 @@ cannot prove.
 - **The client wall** (`app/client/wall.tsx`): builds itself from the switches. Board (Today / Tomorrow / 7 days, or
   trips grouped for trip-scoped clients) and the open flight side by side from 700px; the board first and the flight full
   screen below it, with "← All flights". Cards per switch: weather, NOTAMs, radar, passengers (the one passenger viewer,
-  at the client's level), documents; Airports and Documents become header tabs, or a bottom tab bar on the phone, only
-  when switched on. Every number comes from the wall backend's scoped answers.
+  at the client's level). (Documents and Airports went with their switches on 2026-11-10.) Every number comes from the wall backend's scoped answers.
 - **Checks**: `rig/client-onboarding-check.mjs` (in the runner) walks the whole flow above against the mock Resend:
   request, ops email, approve, link, replaced link, password, account, used link, expired link and a new one to the
   address on file only, refusal by email, then the sign-in emails Supabase used to send, and the Mailbox › Sent rows.

@@ -160,14 +160,17 @@ export function Sheet({ title, sub, action, onAction, onClose, children, foot, h
 /**
  * Full page over the app: 52 px top bar (‹ back label, title right), optional notice line, scrolling body, optional
  * foot bar. The app's root is a fixed-height column, so the body is the only thing that scrolls.
+ * `back={false}` (or no onBack): no Back at all, for a page with nothing safe behind it (a client's first run).
  */
 export function Page({ title, back = 'Back', onBack, notice, noticeTone = 'warn', children, foot, z = 25, name, ...rest }) {
   return (
     <div role="dialog" aria-label={title} data-page={name || ''} style={{ position: 'absolute', inset: 0, zIndex: z, display: 'flex', flexDirection: 'column', background: c('bg'), paddingTop: SAFE_TOP, minHeight: 0 }} {...rest}>
       <div style={{ flex: 'none', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '0 16px 0 4px', borderBottom: `1px solid ${c('l1')}` }}>
-        <button type="button" data-back="" onClick={onBack} className="cw3-press" style={{ minHeight: 44, minWidth: 44, padding: '0 10px 0 6px', display: 'flex', alignItems: 'center', gap: 2, fontSize: 16, color: c('t2') }}>
-          <Icon name="chevron-left" size={20} />{back}
-        </button>
+        {back !== false && typeof onBack === 'function' ? (
+          <button type="button" data-back="" onClick={onBack} className="cw3-press" style={{ minHeight: 44, minWidth: 44, padding: '0 10px 0 6px', display: 'flex', alignItems: 'center', gap: 2, fontSize: 16, color: c('t2') }}>
+            <Icon name="chevron-left" size={20} />{back}
+          </button>
+        ) : <span aria-hidden="true" />}
         <div style={{ fontSize: 16, fontWeight: 600, color: c('t1'), minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
       </div>
       {notice ? <div data-notice="" style={{ flex: 'none', padding: '10px 16px', fontSize: 13, lineHeight: 1.45, color: tone(noticeTone), borderBottom: `1px solid ${c('l1')}`, background: c('bg2') }}>{notice}</div> : null}

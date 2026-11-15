@@ -1,7 +1,7 @@
 // The client's pages on production (2026-11-09), as an approved client and signed out: the front door, the three areas,
 // Account, the wall's scoped feed, the onboarding pages, and what a client must not reach. Read-only: the one write it
 // tries (the password route, with an empty form) must be refused because a check account can write nothing.
-// Status codes, counts and yes/no only. The client is the most a client can be (every switch) on a scope that matches
+// Status codes, counts and yes/no only. The client is the most a client can be (every switch: four since 2026-11-15) on a scope that matches
 // nothing, so its flight list is empty by design: the pages with flights on them are the rig's (rig/client-ui-check.mjs).
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -41,15 +41,33 @@ export async function check({ base, accounts: [client], ok }) {
   const prefsPut = await ask("/api/client/prefs", { who: client, method: "PUT", body: "{}" });
   ok(prefsPut.st === 403, "client: a check account's write to the preferences is refused (read-only)", prefsPut.st);
   for (const p of ["/digital-wall/api/aip-pdf?icao=EVRA", "/digital-wall/api/airports/search?q=EV", "/digital-wall/api/geo/airports", "/digital-wall/api/geo/countries", "/digital-wall/api/countries"]) { const r = await ask(p, { who: client }); ok(r.st === 404, `client: the retired wall read ${p.split("?")[0].replace("/digital-wall", "")} is 404`, r.st); }
+  // the five ops-only reads (2026-11-15): 404 with the one sentence, like any read that is not theirs
+  const said = []; for (const p of ["/digital-wall/api/notam-check/today", "/digital-wall/api/timeline/limitations", "/digital-wall/api/limitations", "/digital-wall/api/important", "/digital-wall/api/caa"]) { const r = await ask(p, { who: client }); let j = null; try { j = JSON.parse(r.text); } catch { /* judged below */ } said.push([p, r.st, j?.ok === false && j?.error === "That is not on your account."]); }
+  ok(said.every(([, st, w]) => st === 404 && w), "client: Limitations (both reads), Important, CAA and the NOTAM check are 404, \"That is not on your account.\"", said.map(([p, st, w]) => `${p.replace("/digital-wall", "")} ${st}${w ? "" : " (other words)"}`).join(" · "));
   const clocks = await ask("/digital-wall/api/display/clocks", { who: client });
   ok(clocks.st === 200, "client: the room's clocks answer (the frame's clock bar)", clocks.st);
   const me = await ask("/api/client/me", { who: client }); let meJson = {}; try { meJson = JSON.parse(me.text); } catch { /* judged below */ }
   ok(me.st === 200 && meJson.ok === true && meJson.status === "approved" && Array.isArray(meJson.switches), "client: their own standing answers (approved, their switches)", `${me.st} · ${meJson.switches?.length ?? 0} switches`);
+  // four switches since 2026-11-15 (flight board, weather, NOTAMs, radar); the check client holds every one there is
+  ok(Array.isArray(meJson.switches) && meJson.switches.length === 4 && JSON.stringify(meJson.switches) === JSON.stringify(CLIENT_SWITCHES), "client: every switch there is, and there are four", `${meJson.switches?.length ?? 0} of ${CLIENT_SWITCHES.length} switches`);
   const from = encodeURIComponent(new Date(Date.now() - 2 * 3600e3).toISOString()), to = encodeURIComponent(new Date(Date.now() + 7 * 86400e3).toISOString());
   const feed = await ask(`/digital-wall/api/flights/normalized?window=all-cached&limit=500&from=${from}&to=${to}`, { who: client }); let n = -1; try { n = (JSON.parse(feed.text).flights ?? []).length; } catch { /* judged below */ }
   ok(feed.st === 200 && n === 0, "client: the wall's feed answers, cut to their scope (this one matches nothing: 0 flights)", `${feed.st} · ${n} flights`);
   for (const [p, mark] of [["/client/flights", "data-client-frame"], ["/client/account", 'data-tab="account"'], ["/client/start", "data-client-start"]]) { const r = await ask(p, { who: client }); ok(r.st === 200 && r.text.includes(mark), `client: ${p} opens`, r.st); }
   for (const p of ["/client/airports", "/client/documents"]) { const r = await ask(p, { who: client }); ok(r.st === 404, `client: the retired page ${p} is 404`, r.st); }
+  // no client page names the ops room's notes or services (2026-11-15): Limitations, Important notices, CAA / authority
+  // contacts, Notes, service status, the NOTAM check — in its words (the HTML with scripts and styles taken out) or in
+  // its markers. Counts only.
+  const OPS_WORDS = /\b(Limitations?|Important notices?|CAA|Authority contacts|Notes|Service status|NOTAM check)\b/g;
+  const OPS_MARKS = /data-(card|section)="(limitations|important|caa)"|data-notes\b|data-open-notes|data-service-row|data-open-limits/g;
+  const visible = (html) => html.replace(/<script\b[\s\S]*?<\/script>/gi, " ").replace(/<style\b[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
+  const opsHits = [];
+  for (const p of ["/client", "/client/flights", "/client/account", "/client/settings", "/client/start", "/digital-wall/timeline/?in=client&page=timeline", "/digital-wall/timeline/?in=client&page=flights"]) {
+    const r = await ask(p, { who: client });
+    const words = (visible(r.text).match(OPS_WORDS) ?? []).length, marks = (r.text.match(OPS_MARKS) ?? []).length;
+    opsHits.push([p.replace(/\?.*$/, (q) => (q.includes("flights") ? "?flights" : q ? "?timeline" : "")), r.st, words, marks]);
+  }
+  ok(opsHits.every(([, st, w, m]) => st === 200 && w === 0 && m === 0), "client: no client page names Limitations, Important, CAA, Notes, service status or the NOTAM check, in words or markers", opsHits.map(([p, st, w, m]) => `${p} ${st} · ${w} words · ${m} marks`).join(" | "));
   const acct = await ask("/client/account", { who: client });
   ok(acct.text.includes(client.email), "client: Account says who is signed in");
   // the address clients write to is a setting; the page must show exactly what the setting holds (never printed here)

@@ -99,6 +99,8 @@ export default function ClientAccount({ email, name, company, contact, start: st
     <main className="clw-tab" data-tab="account">
       <h1 className="clw-h">Account</h1>
       <div className="clw-stack">
+        {/* the design's groups (Screen v3, 2026-11-15): You, Opening, the grants (their own head), Session */}
+        <h2 className="clw-group-h" data-group="you">You</h2>
         <section className="clw-card clw-you" data-card="you">
           <span className="clw-avatar is-big" aria-hidden>{initials || "·"}</span>
           <span className="clw-you-text">
@@ -108,22 +110,7 @@ export default function ClientAccount({ email, name, company, contact, start: st
           </span>
         </section>
 
-        <section className="clw-card" data-card="choices">
-          <div data-card="start-page">
-            <div className="clw-row">
-              <span className="clw-row-text"><b>Start page</b><small>Opens after you sign in. Both stay in the sidebar.</small></span>
-              <div className="clw-seg" role="radiogroup" aria-label="Start page">{(["timeline", "flights"] as Start[]).map((k) => <button type="button" key={k} role="radio" aria-checked={start === k} className={start === k ? "on" : ""} onClick={() => pickStart(k)} data-start-option={k}><MaskIcon name={k === "timeline" ? "chart-gantt" : "list"} size={16} />{k === "timeline" ? "Timeline" : "Flights list"}</button>)}</div>
-            </div>
-            {startNote && <p className={`clw-note${/^Saved/.test(startNote) ? "" : " is-bad"}`} role="status" data-start-note="">{startNote}</p>}
-          </div>
-          <div className="clw-row" data-card="appearance">
-            <span className="clw-row-text"><b>Appearance</b><small>Light, dark or the same as this computer</small></span>
-            <div className="clw-seg" role="radiogroup" aria-label="Appearance">{([["light", "Light", "sun"], ["dark", "Dark", "moon"], ["system", "This computer", "monitor"]] as [ThemeChoice, string, string][]).map(([k, t, i]) => <button type="button" key={k} role="radio" aria-checked={choice === k} className={choice === k ? "on" : ""} onClick={() => { setTheme(k); setChoice(k); }} data-theme-option={k}><MaskIcon name={i} size={16} />{t}</button>)}</div>
-          </div>
-          <div className="clw-row" data-card="display">
-            <span className="clw-row-text"><b>Display settings</b><small>Size, spacing, colours and the font of your timeline. Saved on your account, so your phone follows.</small></span>
-            <a href="/client/settings" className="clw-btn" data-display-settings=""><MaskIcon name="sliders-horizontal" size={16} />Open settings</a>
-          </div>
+        <section className="clw-card" data-card="security">
           <div data-card="password" data-password-form={open ? "open" : "closed"}>
             <div className="clw-row">
               <span className="clw-row-text"><b>Password</b><small>Changing it signs your other devices out.</small></span>
@@ -150,6 +137,25 @@ export default function ClientAccount({ email, name, company, contact, start: st
           </div>
         </section>
 
+        <h2 className="clw-group-h" data-group="opening">Opening</h2>
+        <section className="clw-card" data-card="choices">
+          <div data-card="start-page">
+            <div className="clw-row">
+              <span className="clw-row-text"><b>Start page</b><small>Opens after you sign in. Both stay in the sidebar.</small></span>
+              <div className="clw-seg" role="radiogroup" aria-label="Start page">{(["timeline", "flights"] as Start[]).map((k) => <button type="button" key={k} role="radio" aria-checked={start === k} className={start === k ? "on" : ""} onClick={() => pickStart(k)} data-start-option={k}><MaskIcon name={k === "timeline" ? "chart-gantt" : "list"} size={16} />{k === "timeline" ? "Timeline" : "Flights list"}</button>)}</div>
+            </div>
+            {startNote && <p className={`clw-note${/^Saved/.test(startNote) ? "" : " is-bad"}`} role="status" data-start-note="">{startNote}</p>}
+          </div>
+          <div className="clw-row" data-card="appearance">
+            <span className="clw-row-text"><b>Appearance</b><small>Light, dark or the same as this computer</small></span>
+            <div className="clw-seg" role="radiogroup" aria-label="Appearance">{([["light", "Light", "sun"], ["dark", "Dark", "moon"], ["system", "This computer", "monitor"]] as [ThemeChoice, string, string][]).map(([k, t, i]) => <button type="button" key={k} role="radio" aria-checked={choice === k} className={choice === k ? "on" : ""} onClick={() => { setTheme(k); setChoice(k); }} data-theme-option={k}><MaskIcon name={i} size={16} />{t}</button>)}</div>
+          </div>
+          <div className="clw-row" data-card="display">
+            <span className="clw-row-text"><b>Display settings</b><small>Size, spacing, colours and the font of your timeline. Saved on your account, so your phone follows.</small></span>
+            <a href="/client/settings" className="clw-btn" data-display-settings=""><MaskIcon name="sliders-horizontal" size={16} />Open settings</a>
+          </div>
+        </section>
+
         <PartBoundary where="client/account/grants"><GrantsCard contact={contact} /></PartBoundary>
 
         <section className="clw-card clw-help" id="help" data-card="help">
@@ -159,6 +165,7 @@ export default function ClientAccount({ email, name, company, contact, start: st
             : <p>Questions about a flight or your access go to Clearway ops.</p>}
         </section>
 
+        <h2 className="clw-group-h" data-group="session">Session</h2>
         <button type="button" className="clw-out" onClick={signOut} disabled={leaving} data-signout=""><MaskIcon name="log-out" size={16} />{leaving ? "Signing out…" : "Sign out"}</button>
       </div>
     </main>

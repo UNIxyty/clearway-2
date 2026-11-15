@@ -62,12 +62,27 @@ function jwtRoles(text) {
  * @param context  { permissionNames, operators, allowedRoutes?: RegExp, fetchMap?, ourRoutes?: string[] (the portal's own
  *                  addresses: a route counts only if it is one of OURS — the Supabase library's "/admin/users" is not),
  *                  publicHosts?: string[] (the build's own public addresses, e.g. its Supabase URL) }
+ *                  neverPaths?: string[] (request paths this visitor's browser must never NAME — a client's: the ops-only
+ *                  reads, CLIENT_NEVER_PATHS below. Counted as neverPaths: how many of the listed paths the asset holds),
+ *                  sharedAssets?: RegExp (assets this visitor downloads that staff download too — the wall app's one
+ *                  entry chunk: what they hold of the list is counted apart, as neverPathsShared, so the caller can
+ *                  tell "the chunk every visitor shares names it" from "the client's own code names it") }
  * @returns [{ url, kind: "document"|"script", counts: { …kind: n } }] and a total per kind
  */
+/**
+ * The wall's reads a client's browser must never ask for or name (2026-11-15): Limitations (both addresses), Important
+ * notices, CAA details and the NOTAM check are the ops room's own, on no client's account (client-scope.mjs answers a
+ * client 404 for each). `/api/notam-check` covers every address under it (today, run, digest-config…).
+ */
+export const CLIENT_NEVER_PATHS = ["/api/timeline/limitations", "/api/limitations", "/api/important", "/api/caa", "/api/notam-check"];
+/** Is this address (a pathname, with or without the /digital-wall prefix) one of the listed paths or under one? */
+export const isNeverPath = (pathname, paths = CLIENT_NEVER_PATHS) => { const p = String(pathname).replace(/^\/digital-wall(?=\/api\/)/, "").replace(/\/+$/, ""); return paths.some((n) => p === n || p.startsWith(`${n}/`)); };
+/** Which of the listed paths a text names: the path as written, not followed by more of a word ("/api/caa" is not in "/api/caaX"). */
+export const neverPathsIn = (text, paths = CLIENT_NEVER_PATHS) => paths.filter((n) => new RegExp(`${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_-])`).test(text));
 // the Supabase library's own defaults, the same in every app that uses it: not an address of ours
 const LIBRARY_HOSTS = new Set(["http://localhost:9999"]);
 const PLACEHOLDER_EMAIL = /^(you|name|someone|user)@(company|example)\./i;
-export async function sweepAssets(assets, { permissionNames = [], operators = [], allowedRoutes = /^$/, fetchMap = null, ourRoutes = null, publicHosts = [], people = peopleFromHere() } = {}) {
+export async function sweepAssets(assets, { permissionNames = [], operators = [], allowedRoutes = /^$/, fetchMap = null, ourRoutes = null, publicHosts = [], people = peopleFromHere(), neverPaths = [], sharedAssets = null } = {}) {
   const PEOPLE = people.length ? new RegExp(`\\b(?:${people.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b|${PEOPLE_FIXED.source}`, "gi") : PEOPLE_FIXED;
   // ours = exactly one of the portal's addresses (a dynamic segment matches one path part)
   const isOurs = (r) => !ourRoutes || ourRoutes.some((o) => r === o || (o.includes("[") && new RegExp(`^${o.replace(/\[\[?\.\.\.[^\]]+\]\]?/g, ".+").replace(/\[[^\]]+\]/g, "[^/]+")}$`).test(r)));
@@ -94,6 +109,7 @@ export async function sweepAssets(assets, { permissionNames = [], operators = []
     put("featureFlags", uniq(text.match(FLAGS) ?? []).length);
     // a run-time lookup (`env?.npm_package_name`, the Supabase library's) reads nothing in a browser and carries no value
     put("buildMeta", uniq(text.replace(/\benv\??\.[A-Za-z_]+/g, "").match(BUILD_META) ?? []).length);
+    if (neverPaths.length) put(sharedAssets && sharedAssets.test(url) ? "neverPathsShared" : "neverPaths", neverPathsIn(text, neverPaths).length);
     rows.push({ url, kind, counts });
   }
   const total = {};

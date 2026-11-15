@@ -14,6 +14,13 @@ import { Button, Card, ErrorBanner, t, Toggle, useToast } from './ui';
 import { DeviceCtx } from './deviceCtx';
 export { DeviceCtx };
 /** The read and write a card uses: the client's own route when the context carries one, else the ops routes. */
+// The client's Settings page passes its own `api` through the context; that is how a card knows it is on a client's
+// page and leaves out what only the ops room has (2026-11-15: the minimums and their wall check, the marker size, the
+// ops room's words). On the ops page every card is as it was.
+function useClientSurface() {
+  return Boolean(useContext(DeviceCtx).api);
+}
+
 function useSettingsApi() {
   const { api } = useContext(DeviceCtx);
   return api ?? { fetch: fetchOpsDisplaySettings, save: saveOpsDisplaySettings };
@@ -45,6 +52,7 @@ function useHeldSave(setError) {
 
 export function DisplayScaleCard() {
   const { deviceId } = useContext(DeviceCtx);
+  const client = useClientSurface();
   const { fetch: fetchDisplaySettings, save: saveDisplaySettings } = useSettingsApi();
   const { width } = useViewport();
   const mobileUI = width < 1024;
@@ -77,8 +85,10 @@ export function DisplayScaleCard() {
     <Card style={{ marginBottom: 22 }}>
       <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Display scale</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
-        Global text/density scale for the wall — dial it up until timings are readable from across the ops room.
-        Larger scale also shows fewer hours per screen so labels keep fitting.
+        {client
+          ? 'How big your timeline is drawn: text, pills and the hour row together. A larger scale also shows fewer hours across the screen, so labels keep fitting.'
+          : <>Global text/density scale for the wall — dial it up until timings are readable from across the ops room.
+        Larger scale also shows fewer hours per screen so labels keep fitting.</>}
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       {mobileUI ? (
@@ -199,6 +209,7 @@ export function HourSpacingCard() {
 
 export function VerticalSizingCard() {
   const { deviceId, device } = useContext(DeviceCtx);
+  const client = useClientSurface();
   const { fetch: fetchDisplaySettings, save: saveDisplaySettings } = useSettingsApi();
   const DEFAULTS = { rowZoom: 1, pillHeight: 1, markerScale: 1, labelScale: 1 };
   const [values, setValues] = useState(DEFAULTS);
@@ -239,26 +250,35 @@ export function VerticalSizingCard() {
     { key: 'pillHeight', label: 'Pill height', hint: "the pill body's own thickness", min: 0.4, max: 1.4 },
     { key: 'markerScale', label: 'Marker size', hint: 'the IMP/CAA/WX/NTM chip row above the pill', min: 0.5, max: 1.3 },
     { key: 'labelScale', label: 'Label size', hint: 'flight ID and the route/times text', min: 0.5, max: 1.3 },
-  ];
+  ].filter((row) => !client || row.key !== 'markerScale');   // a client's pills carry no chip row
 
   return (
     <Card style={{ marginBottom: 22 }}>
       <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Vertical sizing</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
-        Independent controls for how much vertical space each flight takes — row spacing, pill
+        {client
+          ? 'How much height each flight takes: row spacing, pill thickness and labels each size on their own. The hour row is untouched.'
+          : <>Independent controls for how much vertical space each flight takes — row spacing, pill
         thickness, marker chips and labels each scale on their own. Horizontal/time-axis sizing
-        is untouched. Hard floors keep everything legible at the minimums.
+        is untouched. Hard floors keep everything legible at the minimums.</>}
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? 'var(--cw-bg-selected)' : t.card }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Auto-fit rows to the screen</div>
+          {client ? (
+            <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
+              Your timeline sets the sliders below so every aircraft row fits on the screen, again as rows come and go.
+              The sliders become limits while it is on.
+            </div>
+          ) : (
           <div data-ops-words="" style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
             The wall measures its own viewport and computes the four knobs below so EVERY aircraft
             row fits — recomputed live as rows come and go. Sliders become ceilings while on; the
             legibility floors (fonts ≥7px, chips ≥10px) always win, and if rows still can't fit
             they render at the floor and the board scrolls.
           </div>
+          )}
         </div>
         <Button
           size="sm"
@@ -309,6 +329,7 @@ export function VerticalSizingCard() {
 // length, padding, the gap to the next flight). Fewer collisions → fewer extra lanes → more rows on screen.
 export function HorizontalSizingCard() {
   const { deviceId } = useContext(DeviceCtx);
+  const client = useClientSurface();
   const { fetch: fetchDisplaySettings, save: saveDisplaySettings } = useSettingsApi();
   const DEFAULTS = { callsignScale: 1, routeScale: 1, chipSpacing: 1, minPillMinutes: 45, pillPadding: 1, laneGap: 1 };
   const FLOOR_DEFAULTS = { floorTextPx: 10, floorGapPx: 3 };
@@ -359,7 +380,10 @@ export function HorizontalSizingCard() {
     { key: 'minPillMinutes', label: 'Minimum pill length', hint: 'space a short flight reserves on its lane (never shorter than the pill is tall)', min: 5, max: 45, step: 5, unit: 'min' },
     { key: 'pillPadding', label: 'Pill padding', hint: 'space inside the pill around the airport codes (stops at the spacing minimum)', min: 0.2, max: 2, step: 0.05, unit: '×' },
     { key: 'laneGap', label: 'Gap to next flight', hint: 'from a pill’s end to the next callsign in its lane (stops at the spacing minimum)', min: 0.15, max: 2, step: 0.05, unit: '×' },
-  ];
+  ]
+    // a client's pills carry no chips, and a client's page has no minimums: no Chip spacing row, no "stops at" words
+    .filter((row) => !client || row.key !== 'chipSpacing')
+    .map((row) => (client ? { ...row, hint: row.hint.replace(/ \(stops at [^)]*\)/, '') } : row));
 
   function onFloor(key, label, next) {
     setFloors((prev) => ({ ...prev, [key]: next }));
@@ -384,21 +408,32 @@ export function HorizontalSizingCard() {
     <Card style={{ marginBottom: 22 }}>
       <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Horizontal sizing</h3>
       <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
-        The horizontal axis is time, so none of these moves a flight against the hour ruler: they shrink what sits
+        {client
+          ? <>The horizontal axis is time, so none of these moves a flight against the hour row: they size what sits beside
+            each pill. Labels never print over each other; a flight that would collide drops to a new lane. Smaller labels
+            and gaps mean fewer lanes. To fit more hours instead, use <b>Hour spacing</b> above.</>
+          : <>The horizontal axis is time, so none of these moves a flight against the hour ruler: they shrink what sits
         beside each pill. On this wall labels never print over each other — a flight that would collide drops to a new
         lane, and extra lanes push rows off the screen; smaller labels and gaps mean fewer lanes and more rows. To cover
         more hours instead, use <b>Hour spacing</b> above (hours visible across the screen) and the upcoming /
-        post-landing windows under Wall content (which flights are on the board at all).
+        post-landing windows under Wall content (which flights are on the board at all).</>}
       </p>
       <ErrorBanner>{error}</ErrorBanner>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', border: `1px solid ${t.borderInner}`, borderRadius: 11, marginBottom: 14, background: autoFit ? 'var(--cw-bg-selected)' : t.card }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Auto-fit horizontal sizes</div>
+          {client ? (
+            <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
+              Your timeline shrinks the sliders below together, just enough that labels stop forcing extra lanes, again
+              as flights come and go. The sliders become limits while it is on.
+            </div>
+          ) : (
           <div data-ops-words="" style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5 }}>
             The wall shrinks the six knobs below together, just enough that labels stop forcing extra lanes in the
             busiest rows, and no further — recomputed live as flights come and go. Sliders become ceilings while on;
             the floors always win.
           </div>
+          )}
         </div>
         <Button
           size="sm"
@@ -431,6 +466,8 @@ export function HorizontalSizingCard() {
           onChange={(next) => onChange(row.key, row.label, next, row.unit)}
         />
       ))}
+      {/* the minimums and their check at the wall are the ops room's; a client's page leaves them out */}
+      {!client && (
       <div style={{ marginTop: 8, paddingTop: 14, borderTop: `1px solid ${t.borderInner}` }}>
         <div style={{ fontSize: 14, fontWeight: 700 }}>Minimums</div>
         <div style={{ fontSize: 12.5, color: t.faint, lineHeight: 1.5, margin: '2px 0 10px' }}>
@@ -451,6 +488,7 @@ export function HorizontalSizingCard() {
           <Button size="sm" variant="primary" disabled={!loaded || !distance} onClick={recordCheck}>Record wall check</Button>
         </div>
       </div>
+      )}
     </Card>
   );
 }
@@ -512,6 +550,177 @@ export function ChipsCard() {
 
 // Upcoming Flight Table (bug report 3 item 10): per-account enable, side,
 // text size and width of the wall's right/left flight table.
+// The ops Settings "Overlay & sidebar size" card (moved here from SettingsPage.jsx on 2026-11-15 so the client's
+// Settings page can show it without loading the console page). `client` keeps the rows a client's own view has:
+// sidebar, top clock bar, aircraft column. No overlay (a client has its own flight panel), no MVT flash, no
+// unconfirmed outline: those are ops-only. Ops output is unchanged.
+export function PanelScalesCard({ client = false }) {
+  const { deviceId } = useContext(DeviceCtx);
+  const { fetch: fetchDisplaySettings, save: saveDisplaySettings } = useSettingsApi();
+  const [overlayScale, setOverlayScale] = useState(1.3);
+  const [sidebarScale, setSidebarScale] = useState(1.3);
+  const [headerScale, setHeaderScale] = useState(1.3);
+  const [acColScale, setAcColScale] = useState(1);
+  const [mvtThresholdMin, setMvtThresholdMin] = useState(15);
+  const [mvtFlashSeconds, setMvtFlashSeconds] = useState(1);
+  const [unconfirmedOutline, setUnconfirmedOutline] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const holdSave = useHeldSave(setError);
+  const flash = useToast();
+
+  useEffect(() => {
+    fetchDisplaySettings(deviceId)
+      .then((payload) => {
+        if (Number.isFinite(payload.settings?.overlayScale)) setOverlayScale(payload.settings.overlayScale);
+        if (Number.isFinite(payload.settings?.sidebarScale)) setSidebarScale(payload.settings.sidebarScale);
+        if (Number.isFinite(payload.settings?.headerScale)) setHeaderScale(payload.settings.headerScale);
+        if (Number.isFinite(payload.settings?.acColScale)) setAcColScale(payload.settings.acColScale);
+        if (Number.isFinite(payload.settings?.mvtThresholdMin)) setMvtThresholdMin(payload.settings.mvtThresholdMin);
+        if (Number.isFinite(payload.settings?.mvtFlashSeconds)) setMvtFlashSeconds(payload.settings.mvtFlashSeconds);
+        setUnconfirmedOutline(payload.settings?.unconfirmedOutline !== false);
+      })
+      .catch((err) => setError(errorText(err)))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  function persist(patch, message) {
+    holdSave(async () => {
+      await saveDisplaySettings(patch, deviceId);
+      flash(message);
+    });
+  }
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>{client ? 'Sidebar & clock bar size' : 'Overlay & sidebar size'}</h3>
+      <p style={{ fontSize: 13.5, color: t.muted, margin: '0 0 16px' }}>
+        {client
+          ? 'Independent of the display scale: the sidebar, the top clock bar and the aircraft column each size on their own.'
+          : <>Independent of the display scale: the flight overlay and the sidebars (clocks bar,
+        status legend, limitations panel) each size on their own — changing the board scale
+        no longer moves them.</>}
+      </p>
+      <ErrorBanner>{error}</ErrorBanner>
+      {!client && (
+      <WindowRow
+          label="Overlay size"
+          hint="the side overlay's text and layout"
+          min={1}
+          max={2}
+          step={0.05}
+          unit="×"
+          value={overlayScale}
+          defaultValue={1.3}
+          loaded={loaded}
+          onChange={(next) => {
+            setOverlayScale(next);
+            persist({ overlayScale: next }, `Overlay size ${next.toFixed(2)}× — wall updates in seconds`);
+          }}
+        />
+      )}
+      <WindowRow
+        label="Sidebar size"
+        hint={client ? 'the date and status legend on the left' : 'status legend and the limitations panel'}
+        min={0.3}
+        max={2}
+        step={0.05}
+        unit="×"
+        value={sidebarScale}
+        defaultValue={1.3}
+        loaded={loaded}
+        onChange={(next) => {
+          setSidebarScale(next);
+          persist({ sidebarScale: next }, `Sidebar size ${next.toFixed(2)}× — wall updates in seconds`);
+        }}
+      />
+      <WindowRow
+        label="Top clock bar"
+        hint="the time-zone clocks strip — shrink it to give rows more height"
+        min={0.3}
+        max={2}
+        step={0.05}
+        unit="×"
+        value={headerScale}
+        defaultValue={1.3}
+        loaded={loaded}
+        onChange={(next) => {
+          setHeaderScale(next);
+          persist({ headerScale: next }, `Top bar ${next.toFixed(2)}× — wall updates in seconds`);
+        }}
+      />
+      {!client && (<>
+      <WindowRow
+          label="MVT flash threshold"
+          hint="minutes past expected departure (CTOT/ETD if set, else STD) before a flight with no T/O starts flashing"
+          min={5}
+          max={60}
+          step={1}
+          unit="m"
+          value={mvtThresholdMin}
+          defaultValue={15}
+          loaded={loaded}
+          onChange={(next) => {
+            setMvtThresholdMin(next);
+            persist({ mvtThresholdMin: next }, `MVT threshold ${next}m — wall updates in seconds`);
+          }}
+        />
+        <WindowRow
+          label="MVT flash period"
+          hint="blink rate of the missing-movement contour"
+          min={0.4}
+          max={4}
+          step={0.1}
+          unit="s"
+          value={mvtFlashSeconds}
+          defaultValue={1}
+          loaded={loaded}
+          onChange={(next) => {
+            setMvtFlashSeconds(next);
+            persist({ mvtFlashSeconds: next }, `MVT flash ${next}s — wall updates in seconds`);
+          }}
+        />
+        {/* Bug report 6 item 2: static red outline on unconfirmed trips. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: t.ink }}>Unconfirmed flight outline</div>
+            <div style={{ fontSize: 12, color: t.muted, marginTop: 2 }}>
+              steady red ring around pills whose Leon trip is not CONFIRMED; colour tunable in Colours
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant={unconfirmedOutline ? 'primary' : 'soft'}
+            disabled={!loaded}
+            onClick={() => {
+              const next = !unconfirmedOutline;
+              setUnconfirmedOutline(next);
+              persist({ unconfirmedOutline: next }, 'Unconfirmed outline ' + (next ? 'ON' : 'off'));
+            }}
+          >
+            {unconfirmedOutline ? 'Outline ON' : 'Outline off'}
+          </Button>
+        </div>
+      </>)}
+      <WindowRow
+        label="Aircraft column"
+        hint="the left registration column — shrink it to give the timeline more width"
+        min={0.2}
+        max={1.5}
+        step={0.05}
+        unit="×"
+        value={acColScale}
+        defaultValue={1}
+        loaded={loaded}
+        onChange={(next) => {
+          setAcColScale(next);
+          persist({ acColScale: next }, `Aircraft column ${next.toFixed(2)}× — wall updates in seconds`);
+        }}
+      />
+    </Card>
+  );
+}
+
 export function WindowRow({ label, hint, min, max, step, unit, value, defaultValue, loaded, onChange }) {
   const { width } = useViewport();
   if (width < 1024) {

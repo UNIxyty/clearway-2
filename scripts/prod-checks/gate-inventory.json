@@ -2267,7 +2267,7 @@
     {
      "method": "GET",
      "path": "/api/notam-check/today",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {
@@ -2423,7 +2423,7 @@
     {
      "method": "GET",
      "path": "/api/timeline/limitations",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {
@@ -2435,7 +2435,7 @@
     {
      "method": "GET",
      "path": "/api/caa",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {
@@ -2495,7 +2495,7 @@
     {
      "method": "GET",
      "path": "/api/important",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {
@@ -2627,7 +2627,7 @@
     {
      "method": "GET",
      "path": "/api/limitations",
-     "clientMay": true,
+     "clientMay": false,
      "public": false
     },
     {
@@ -3275,11 +3275,67 @@
   "flight_board",
   "weather",
   "notams",
-  "radar",
-  "service_status",
-  "notam_check_status",
-  "limitations",
-  "important",
-  "caa"
- ]
+  "radar"
+ ],
+ "clientFlight": {
+  "fields": [
+   "flightNid",
+   "flightNo",
+   "tripNo",
+   "status",
+   "movementState",
+   "movementStateEstimated",
+   "isCnl",
+   "oprId",
+   "operatorName",
+   "aircraftRegistration",
+   "icaoType",
+   "flightType",
+   "startTimeUTC",
+   "endTimeUTC",
+   "etd",
+   "eta",
+   "atd",
+   "ata",
+   "ctot",
+   "ctotUTC",
+   "takeOffUTC",
+   "landingUTC",
+   "blockOff",
+   "takeOff",
+   "landing",
+   "blockOn",
+   "delayMin",
+   "departureDelayMin",
+   "arrivalDelayMin",
+   "delayedDepartureUTC",
+   "delayedArrivalUTC",
+   "eetMin",
+   "isAirborne",
+   "hasArrived",
+   "isCommercial",
+   "isFerry",
+   "adep",
+   "ades",
+   "passengerCount"
+  ],
+  "switchFields": {
+   "wxDep": "weather",
+   "wxArr": "weather"
+  },
+  "never": [
+   "limitations",
+   "limitationIds",
+   "lim",
+   "checks",
+   "notamCheck",
+   "important",
+   "caa",
+   "services",
+   "serviceStatus",
+   "notes",
+   "checklist",
+   "checkedBy"
+  ]
+ }
 }

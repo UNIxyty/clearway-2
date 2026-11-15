@@ -19,7 +19,6 @@ import { FALLBACK_CLOCKS } from '../components/Header';
 import { errorText } from '../services/errorText';
 import { PHONE_MAX, applyHidden, fetchMe, fetchPrefs, fetchSyncStatus, fetchView, normalisePrefs, onShellMessage, savePrefs, tellShell } from './clientApi';
 import { applyWallFont } from '../theme/wallFont';
-import { clientWallColors } from './clientColors';
 import ClientDesk from './ClientDesk';
 import ErrorBoundary from '../components/ErrorBoundary';
 // the settings page carries the ops console's look cards: loaded only when opened
@@ -77,6 +76,7 @@ export default function ClientApp() {
   const [feed, setFeed] = useState(null);
   const [width, setWidth] = useState(windowWidth);
   const loadingRef = useRef(false);
+  const againRef = useRef(false);
 
   // the shell's sidebar changes the page; a change made inside tells the shell
   useEffect(() => onShellMessage((m) => { if (m.type === 'page' && (m.page === 'timeline' || m.page === 'flights' || m.page === 'settings')) setPage(m.page); }), []);
@@ -88,6 +88,9 @@ export default function ClientApp() {
   const loadView = useCallback(() => fetchView().then((v) => { setView(v); applyWallFont(v?.settings?.font, v?.settings?.zeroStyle); }).catch(() => {}), []);
   useEffect(() => { loadView(); return subscribeWallStream('config.changed', (event) => { if (!event.section || event.section === 'settings') loadView(); }); }, [loadView]);
   const goPage = useCallback((next) => { setPage(next); tellShell({ type: 'page', page: next }); }, []);
+  // leaving Settings: read the view again, so the Timeline draws what was just saved even if its stream event is late
+  const lastPage = useRef(page);
+  useEffect(() => { if (lastPage.current === 'settings' && page !== 'settings') loadView(); lastPage.current = page; }, [page, loadView]);
 
   useEffect(() => {
     const onResize = () => setWidth(windowWidth());
@@ -96,10 +99,13 @@ export default function ClientApp() {
   }, []);
 
   const loadTimeline = useCallback(async () => {
-    if (loadingRef.current) return;
+    // a reload asked while one is running is queued, not dropped (2026-11-15): it runs once, as soon as the running one
+    // ends, so a change that arrived mid-read is never left off the screen until the next minute's poll
+    if (loadingRef.current) { againRef.current = true; return; }
     loadingRef.current = true;
     try {
-      const result = await fetchTimelineAircraft({ refresh: false });
+      // no limitations read: a client is never sent them (2026-11-15), so the request is not made at all
+      const result = await fetchTimelineAircraft({ refresh: false, limitations: false });
       setAircraft(result.aircraft);
       setWindowStartUtc(result.windowStartUtc || '');
       setWindowEndUtc(result.windowEndUtc || '');
@@ -110,6 +116,7 @@ export default function ClientApp() {
     } finally {
       setLoadedOnce(true);
       loadingRef.current = false;
+      if (againRef.current) { againRef.current = false; loadTimeline(); }
     }
   }, []);
 
@@ -119,22 +126,23 @@ export default function ClientApp() {
     loadTimeline();
     fetchDisplayClocks().then((p) => { if (Array.isArray(p.clocks) && p.clocks.length) setClocks(p.clocks); }).catch(() => {});
     const id = setInterval(loadTimeline, POLL_MS);
-    const unsubs = ['limitations.changed', 'important.changed', 'caa.changed', 'roster.changed', 'flight.changed', 'weather.changed']
+    // the stream sends a client flight changes only (client-scope.mjs clientStreamFilter); nothing about limitations,
+    // important notices or CAA entries is listened for
+    const unsubs = ['roster.changed', 'flight.changed', 'weather.changed']
       .map((ev) => subscribeWallStream(ev, loadTimeline));
     unsubs.push(subscribeWallStream('config.changed', (event) => { if (!event.section || event.section === 'clocks') fetchDisplayClocks().then((p) => { if (Array.isArray(p.clocks) && p.clocks.length) setClocks(p.clocks); }).catch(() => {}); }));
     return () => { clearInterval(id); unsubs.forEach((u) => u()); };
   }, [loadTimeline]);
 
-  // the "not live" line: the feed's own verdict, when the service_status switch lets the client read it
-  const serviceOn = Boolean(me?.switches?.includes('service_status'));
+  // the "not live" line: the feed's own verdict (ok, healthy, live, last update: nothing about ops' services). Every
+  // client reads it since 2026-11-15; the service_status switch that used to gate it is retired.
   useEffect(() => {
-    if (!serviceOn) return undefined;
     let stop = false;
-    const read = () => fetchSyncStatus().then((s) => { if (!stop) setFeed(s); });
+    const read = () => fetchSyncStatus().then((st) => { if (!stop) setFeed(st); });
     read();
     const id = setInterval(read, POLL_MS);
     return () => { stop = true; clearInterval(id); };
-  }, [serviceOn]);
+  }, []);
 
   // hide switches: saved on the account; applied here as a view filter only. The screen follows the switch at once
   // (it is only a view); "Remembered for next time" is said only while the last save went through
@@ -146,24 +154,24 @@ export default function ClientApp() {
   }, [prefs]);
 
   const visible = useMemo(() => applyHidden(aircraft, prefs.hidden), [aircraft, prefs.hidden]);
-  // the theme's palette, then the person's own colour overrides on top (the wall's colour keys)
-  const colors = useMemo(() => ({ ...clientWallColors(theme), ...(view?.settings?.colors ?? {}) }), [theme, view]);
+  // The timeline is the ops page: the display's own default colours, with the person's own overrides (their Settings)
+  // on top. The portal's theme does not recolour it, as it does not recolour the ops room's display.
+  const colors = useMemo(() => view?.settings?.colors ?? {}, [view]);
   // the legend and the status swatches follow a colour the person changed in Display settings (this frame only)
   const ownTokens = useMemo(() => {
     const own = view?.settings?.colors ?? {}; const out = {};
     for (const [k, v] of TL_OF) if (typeof own[k] === 'string' && own[k]) out[v] = own[k];
     return out;
   }, [view]);
-  const look = useMemo(() => { const s = view?.settings ?? {}; const n = (k, d) => (Number.isFinite(s[k]) ? s[k] : d); return { scale: n('scale', 1.3), timeZoom: n('timeZoom', 1), rowZoom: n('rowZoom', 1), pillHeight: n('pillHeight', 1), markerScale: n('markerScale', 1), labelScale: n('labelScale', 1), acColScale: n('acColScale', 1), autoFitRows: s.autoFitRows === true }; }, [view]);
   const shared = {
     page, goPage, me, prefs, prefsLoaded, setHidden, hideSaveFailed, aircraft, visible, windowStartUtc, windowEndUtc, clocks, loadedOnce, error,
-    dataUpdatedAt, feed, serviceOn, onReload: loadTimeline, theme, look, view, onViewChanged: (v) => { if (v?.settings) { setView((cur) => ({ ...(cur ?? {}), ...v })); applyWallFont(v.settings.font, v.settings.zeroStyle); } },
+    dataUpdatedAt, feed, onReload: loadTimeline, theme, settings: view?.settings ?? null, view, onViewChanged: (v) => { if (v?.settings) { setView((cur) => ({ ...(cur ?? {}), ...v })); applyWallFont(v.settings.font, v.settings.zeroStyle); } },
   };
   const phone = width <= PHONE_MAX;
   const settings = page === 'settings' ? (
     <ErrorBoundary where="client/settings">
       <Suspense fallback={<p className="cwd-loading">Loading the settings…</p>}>
-        <ClientSettings visible={visible} windowStartUtc={windowStartUtc} windowEndUtc={windowEndUtc} view={view} onViewChanged={shared.onViewChanged} phone={phone} goPage={goPage} />
+        <ClientSettings view={view} onViewChanged={shared.onViewChanged} phone={phone} />
       </Suspense>
     </ErrorBoundary>
   ) : null;
